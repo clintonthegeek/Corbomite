@@ -33,13 +33,14 @@ void FileWatchReactor::startWatching(const QString &vaultRoot)
             dirs << it.filePath();
         }
     }
-    m_watcher.addPaths(dirs);
-
-    // Build initial file set
+    // Build initial file set BEFORE starting watcher to avoid race condition
+    // (watcher may fire immediately on addPaths, treating existing files as "new")
     m_knownFiles.clear();
     for (const auto &note : m_vault->allNotes()) {
         m_knownFiles.insert(note.relativePath);
     }
+
+    m_watcher.addPaths(dirs);
 }
 
 void FileWatchReactor::stopWatching()

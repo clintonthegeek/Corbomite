@@ -171,10 +171,19 @@ void NotesTreeModel::rebuild()
     m_root->children.clear();
 
     const auto notes = m_vault->allNotes();
+    QSet<QString> seenPaths; // Guard against duplicates
+
     for (const auto &meta : notes) {
+        // Skip duplicates (can occur if FileWatchReactor re-adds existing notes)
+        if (seenPaths.contains(meta.relativePath)) continue;
+        seenPaths.insert(meta.relativePath);
+
         int lastSlash = meta.relativePath.lastIndexOf(QLatin1Char('/'));
         QString dirPath = lastSlash > 0 ? meta.relativePath.left(lastSlash) : QString();
         QString fileName = meta.relativePath.mid(lastSlash + 1);
+
+        // Skip empty filenames (malformed paths)
+        if (fileName.isEmpty()) continue;
 
         auto *parentDir = findOrCreateDir(dirPath);
         auto node = std::make_unique<TreeNode>();
