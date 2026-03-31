@@ -1,0 +1,6 @@
+File=corbomite.kcfg
+ClassName=CorbomiteSettings
+Mutators=true
+Singleton=true
+GenerateProperties=true
+ParentInConstructor=true

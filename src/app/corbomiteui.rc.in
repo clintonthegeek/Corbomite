@@ -1,0 +1,25 @@
+<!DOCTYPE gui SYSTEM "kpartgui.dtd">
+<gui name="@CORBOMITE_COMPONENT_NAME@" version="1">
+  <MenuBar>
+    <Menu name="file">
+      <text>&amp;File</text>
+      <Action name="file_new_note"/>
+      <Separator/>
+      <Action name="file_save"/>
+      <Separator/>
+    </Menu>
+    <Menu name="view">
+      <text>&amp;View</text>
+      <Action name="view_toggle_left_sidebar"/>
+      <Separator/>
+      <Action name="view_zoom_in"/>
+      <Action name="view_zoom_out"/>
+      <Action name="view_zoom_reset"/>
+    </Menu>
+  </MenuBar>
+  <ToolBar name="mainToolBar" noMerge="1">
+    <text>Main Toolbar</text>
+    <Action name="file_new_note"/>
+    <Action name="file_save"/>
+  </ToolBar>
+</gui>

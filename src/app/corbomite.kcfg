@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+                          http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile/>
+
+  <group name="Editor">
+    <entry name="FontSize" type="Int">
+      <label>Editor font size in points</label>
+      <default>16</default>
+      <min>6</min>
+      <max>72</max>
+    </entry>
+    <entry name="TabSize" type="Int">
+      <label>Tab width in spaces</label>
+      <default>4</default>
+      <min>1</min>
+      <max>8</max>
+    </entry>
+    <entry name="LineNumbers" type="Bool">
+      <label>Show line numbers</label>
+      <default>false</default>
+    </entry>
+    <entry name="LineWrap" type="Bool">
+      <label>Wrap long lines</label>
+      <default>true</default>
+    </entry>
+    <entry name="AutoSaveDelayMs" type="Int">
+      <label>Autosave delay in milliseconds</label>
+      <default>2000</default>
+      <min>500</min>
+      <max>30000</max>
+    </entry>
+  </group>
+
+  <group name="Files">
+    <entry name="TrashOption" type="String">
+      <label>Delete behavior: system, vault, or permanent</label>
+      <default>system</default>
+    </entry>
+    <entry name="PromptDelete" type="Bool">
+      <label>Show confirmation before deleting notes</label>
+      <default>true</default>
+    </entry>
+  </group>
+
+  <group name="Appearance">
+    <entry name="Theme" type="String">
+      <label>Color theme: light, dark, or system</label>
+      <default>system</default>
+    </entry>
+  </group>
+</kcfg>

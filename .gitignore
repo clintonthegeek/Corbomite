@@ -1,0 +1,25 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+compile_commands.json
+
+# Generated
+*.moc
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+*.autosave
+
+# Corbomite runtime
+.corbomite/
+
+# OS
+.DS_Store
+Thumbs.db

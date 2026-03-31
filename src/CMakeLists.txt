@@ -1,0 +1,32 @@
+include(KDECMakeSettings)
+kconfig_add_kcfg_files(CORBOMITE_KCFG_SRCS app/corbomitesettings.kcfgc GENERATE_MOC)
+
+add_library(CorbomiteApp STATIC
+    ${CORBOMITE_KCFG_SRCS}
+    app/CorbomiteApp.cpp
+)
+
+target_link_libraries(CorbomiteApp
+    PUBLIC
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::DBus
+        KF6::CoreAddons
+        KF6::I18n
+        KF6::XmlGui
+        KF6::WidgetsAddons
+        KF6::IconThemes
+        KF6::ConfigCore
+        KF6::ConfigWidgets
+        KF6::DBusAddons
+        Corbomite::Core
+        Corbomite::Storage
+        Corbomite::Models
+        qmarkdowntextedit
+)
+
+target_include_directories(CorbomiteApp PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/app
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
