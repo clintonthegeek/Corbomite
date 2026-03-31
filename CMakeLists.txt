@@ -3,7 +3,7 @@ project(Corbomite VERSION 0.1.0 LANGUAGES CXX)
 
 option(CORBOMITE_DEV_BUILD "Build with dev identity (isolated config/data, [Dev] suffix)" OFF)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets DBus)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets DBus Sql)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOUIC ON)

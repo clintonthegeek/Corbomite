@@ -13,3 +13,8 @@ target_link_libraries(tst_filesystemadapter PRIVATE Qt6::Test Corbomite::Storage
 add_executable(tst_vaultscanner tst_vaultscanner.cpp)
 add_test(NAME tst_vaultscanner COMMAND tst_vaultscanner)
 target_link_libraries(tst_vaultscanner PRIVATE Qt6::Test Corbomite::Storage Corbomite::Core)
+
+add_executable(tst_sqliteindex tst_sqliteindex.cpp)
+add_test(NAME tst_sqliteindex COMMAND tst_sqliteindex)
+target_link_libraries(tst_sqliteindex PRIVATE Qt6::Test Qt6::Sql Corbomite::Storage Corbomite::Core)
+set_tests_properties(tst_sqliteindex PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
