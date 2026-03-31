@@ -16,6 +16,9 @@ class AutosaveReactor;
 class FileWatchReactor;
 class SessionManager;
 class SQLiteIndex;
+class BacklinksPanel;
+class OutlinksPanel;
+class OutlinePanel;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -59,6 +62,9 @@ private:
     SessionManager *m_sessionManager = nullptr;
     SearchPanel *m_searchPanel = nullptr;
     SQLiteIndex *m_searchIndex = nullptr;
+    BacklinksPanel *m_backlinksPanel = nullptr;
+    OutlinksPanel *m_outlinksPanel = nullptr;
+    OutlinePanel *m_outlinePanel = nullptr;
 };
 
 } // namespace Corbomite

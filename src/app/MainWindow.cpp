@@ -7,6 +7,9 @@
 #include "editor/NotePreviewWidget.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
+#include "sidebar/BacklinksPanel.h"
+#include "sidebar/OutlinksPanel.h"
+#include "sidebar/OutlinePanel.h"
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NoteService.h"
@@ -32,6 +35,7 @@
 #include <QVBoxLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QTextCursor>
 
 namespace Corbomite {
 
@@ -257,6 +261,56 @@ void MainWindow::setupSidebars()
 
     connect(m_searchPanel, &SearchPanel::noteActivated,
             this, &MainWindow::onNoteActivated);
+
+    // Right sidebar: Backlinks
+    auto *backlinksView = createToolView(
+        nullptr,
+        QStringLiteral("backlinks_panel"),
+        KMultiTabBar::Right,
+        QIcon::fromTheme(QStringLiteral("link")),
+        i18n("Backlinks")
+    );
+    m_backlinksPanel = new BacklinksPanel(backlinksView);
+    backlinksView->layout()->addWidget(m_backlinksPanel);
+    connect(m_backlinksPanel, &BacklinksPanel::noteActivated,
+            this, &MainWindow::onNoteActivated);
+
+    // Right sidebar: Outlinks
+    auto *outlinksView = createToolView(
+        nullptr,
+        QStringLiteral("outlinks_panel"),
+        KMultiTabBar::Right,
+        QIcon::fromTheme(QStringLiteral("go-jump")),
+        i18n("Outlinks")
+    );
+    m_outlinksPanel = new OutlinksPanel(outlinksView);
+    outlinksView->layout()->addWidget(m_outlinksPanel);
+    connect(m_outlinksPanel, &OutlinksPanel::noteActivated,
+            this, &MainWindow::onNoteActivated);
+    connect(m_outlinksPanel, &OutlinksPanel::createNoteRequested,
+            this, [this](const QString &name) {
+        auto *doc = m_vaultService->noteService()->createNote(name, QString());
+        if (doc) m_editorManager->openNote(doc);
+    });
+
+    // Right sidebar: Outline
+    auto *outlineView = createToolView(
+        nullptr,
+        QStringLiteral("outline_panel"),
+        KMultiTabBar::Right,
+        QIcon::fromTheme(QStringLiteral("view-list-tree")),
+        i18n("Outline")
+    );
+    m_outlinePanel = new OutlinePanel(outlineView);
+    outlineView->layout()->addWidget(m_outlinePanel);
+    connect(m_outlinePanel, &OutlinePanel::scrollToLine,
+            this, [this](int lineNumber) {
+        auto *editor = m_editorManager->activeEditor();
+        if (!editor) return;
+        QTextCursor cursor(editor->document()->findBlockByLineNumber(lineNumber - 1));
+        editor->setTextCursor(cursor);
+        editor->centerCursor();
+    });
 }
 
 void MainWindow::setupStatusBar()
@@ -432,6 +486,25 @@ void MainWindow::onVaultOpened()
     m_vaultService->noteService()->setSearchIndex(m_searchIndex);
     m_vaultService->vault()->setSearchIndex(m_searchIndex);
 
+    // Set index on sidebar panels
+    m_backlinksPanel->setIndex(m_searchIndex);
+    m_outlinksPanel->setIndex(m_searchIndex);
+    m_outlinksPanel->setVaultModel(vault);
+
+    // Update sidebar panels when active note changes
+    connect(m_editorManager, &EditorViewManager::activeEditorChanged,
+            this, [this](NoteEditorWidget *editor) {
+        if (editor && editor->noteDocument()) {
+            m_backlinksPanel->setCurrentNote(editor->noteDocument());
+            m_outlinksPanel->setCurrentNote(editor->noteDocument());
+            m_outlinePanel->setCurrentNote(editor->noteDocument());
+        } else {
+            m_backlinksPanel->setCurrentNote(nullptr);
+            m_outlinksPanel->setCurrentNote(nullptr);
+            m_outlinePanel->setCurrentNote(nullptr);
+        }
+    });
+
     // Update index on note saves
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
         if (!m_searchIndex || !m_vaultService->vault()) return;
@@ -477,6 +550,13 @@ void MainWindow::onVaultClosed()
 
     m_vaultService->noteService()->setSearchIndex(nullptr);
     m_vaultService->vault()->setSearchIndex(nullptr);
+
+    m_backlinksPanel->setIndex(nullptr);
+    m_backlinksPanel->setCurrentNote(nullptr);
+    m_outlinksPanel->setIndex(nullptr);
+    m_outlinksPanel->setVaultModel(nullptr);
+    m_outlinksPanel->setCurrentNote(nullptr);
+    m_outlinePanel->setCurrentNote(nullptr);
 
     delete m_searchIndex;
     m_searchIndex = nullptr;
