@@ -30,6 +30,8 @@ public:
 
     // Note collection
     QVector<NoteMeta> allNotes() const;
+    QStringList allTags() const;
+    void invalidateTagCache();
     NoteMeta noteMeta(const QString &relativePath) const;
     bool noteExists(const QString &relativePath) const;
 
@@ -56,6 +58,8 @@ private:
     QHash<QString, NoteDocument *> m_docs;   // relativePath → cached document
     FileSystemAdapter m_fs;
     VaultScanner m_scanner;
+    mutable QStringList m_cachedTags;
+    mutable bool m_tagCacheDirty = true;
 };
 
 } // namespace Corbomite

@@ -2,6 +2,8 @@
 #include "corbomite/models/VaultModel.h"
 #include <QDir>
 #include <QFileInfo>
+#include <QRegularExpression>
+#include <QSet>
 
 namespace Corbomite {
 
@@ -38,6 +40,8 @@ void VaultModel::close()
     m_docs.clear();
     m_notes.clear();
     m_vaultPath.clear();
+    m_cachedTags.clear();
+    m_tagCacheDirty = true;
 }
 
 bool VaultModel::isOpen() const
@@ -63,6 +67,51 @@ QString VaultModel::configPath() const
 QVector<NoteMeta> VaultModel::allNotes() const
 {
     return QVector<NoteMeta>(m_notes.cbegin(), m_notes.cend());
+}
+
+QStringList VaultModel::allTags() const
+{
+    if (!m_tagCacheDirty) {
+        return m_cachedTags;
+    }
+
+    QSet<QString> tagSet;
+    static const QRegularExpression tagPattern(
+        QStringLiteral(R"((?<![&\w])#([a-zA-Z_][a-zA-Z0-9_/-]*))"));
+
+    // Simple code block exclusion: track ``` state per line
+    static const QRegularExpression codeFencePattern(QStringLiteral(R"(^```)"));
+
+    for (const auto &meta : m_notes) {
+        auto content = m_fs.readFile(m_vaultPath + QLatin1Char('/') + meta.relativePath);
+        if (!content.has_value()) continue;
+
+        bool inCodeBlock = false;
+        const auto lines = content.value().split(QLatin1Char('\n'));
+        for (const auto &line : lines) {
+            if (codeFencePattern.match(line).hasMatch()) {
+                inCodeBlock = !inCodeBlock;
+                continue;
+            }
+            if (inCodeBlock) continue;
+
+            auto it = tagPattern.globalMatch(line);
+            while (it.hasNext()) {
+                auto match = it.next();
+                tagSet.insert(match.captured(1));
+            }
+        }
+    }
+
+    m_cachedTags = tagSet.values();
+    std::sort(m_cachedTags.begin(), m_cachedTags.end());
+    m_tagCacheDirty = false;
+    return m_cachedTags;
+}
+
+void VaultModel::invalidateTagCache()
+{
+    m_tagCacheDirty = true;
 }
 
 NoteMeta VaultModel::noteMeta(const QString &relativePath) const
@@ -105,6 +154,7 @@ void VaultModel::addNote(const QString &relativePath)
     } else {
         m_notes.insert(relativePath, NoteMeta::fromRelativePath(relativePath));
     }
+    m_tagCacheDirty = true;
     Q_EMIT noteAdded(relativePath);
 }
 
@@ -114,6 +164,7 @@ void VaultModel::removeNote(const QString &relativePath)
     if (auto *doc = m_docs.take(relativePath)) {
         doc->deleteLater();
     }
+    m_tagCacheDirty = true;
     Q_EMIT noteRemoved(relativePath);
 }
 
@@ -136,6 +187,7 @@ void VaultModel::updateNoteMeta(const QString &relativePath)
     QFileInfo fi(absPath);
     if (fi.exists() && m_notes.contains(relativePath)) {
         m_notes[relativePath] = NoteMeta::fromFileInfo(fi, m_vaultPath);
+        m_tagCacheDirty = true;
         Q_EMIT noteModified(relativePath);
     }
 }

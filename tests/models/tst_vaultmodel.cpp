@@ -165,6 +165,53 @@ private Q_SLOTS:
 
         QCOMPARE(model.configPath(), tmp.path() + QStringLiteral("/.corbomite"));
     }
+
+    void testAllTags()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        createFile(tmp.path() + "/note1.md", QStringLiteral("# Title\n\nHello #project world #status/active\n"));
+        createFile(tmp.path() + "/note2.md", QStringLiteral("Text with #project and #idea\n"));
+
+        Corbomite::VaultModel model;
+        model.open(tmp.path());
+
+        auto tags = model.allTags();
+
+        QVERIFY(tags.contains(QStringLiteral("project")));
+        QVERIFY(tags.contains(QStringLiteral("status/active")));
+        QVERIFY(tags.contains(QStringLiteral("idea")));
+        // "project" appears in both files but only listed once
+        QCOMPARE(tags.count(QStringLiteral("project")), 1);
+        // Sorted alphabetically
+        QVERIFY(std::is_sorted(tags.begin(), tags.end()));
+    }
+
+    void testAllTagsExcludesCodeBlocks()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        createFile(tmp.path() + "/note.md", QStringLiteral("Real #tag here\n\n```\n#not-a-tag\n```\n"));
+
+        Corbomite::VaultModel model;
+        model.open(tmp.path());
+
+        auto tags = model.allTags();
+
+        QVERIFY(tags.contains(QStringLiteral("tag")));
+        QVERIFY(!tags.contains(QStringLiteral("not-a-tag")));
+    }
+
+    void testAllTagsEmptyVault()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+
+        Corbomite::VaultModel model;
+        model.open(tmp.path());
+
+        QVERIFY(model.allTags().isEmpty());
+    }
 };
 
 QTEST_MAIN(TestVaultModel)
