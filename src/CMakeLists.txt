@@ -11,6 +11,8 @@ add_library(CorbomiteApp STATIC
     editor/NoteEditorWidget.cpp
     editor/EditorViewSpace.cpp
     editor/EditorViewManager.cpp
+    reactors/AutosaveReactor.cpp
+    reactors/FileWatchReactor.cpp
 )
 
 target_link_libraries(CorbomiteApp
@@ -39,5 +41,6 @@ target_include_directories(CorbomiteApp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/mdi
     ${CMAKE_CURRENT_SOURCE_DIR}/editor
     ${CMAKE_CURRENT_SOURCE_DIR}/sidebar
+    ${CMAKE_CURRENT_SOURCE_DIR}/reactors
     ${CMAKE_CURRENT_BINARY_DIR}
 )

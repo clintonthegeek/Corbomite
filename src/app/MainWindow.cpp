@@ -8,6 +8,8 @@
 #include "corbomite/models/NoteService.h"
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/core/NoteDocument.h"
+#include "reactors/AutosaveReactor.h"
+#include "reactors/FileWatchReactor.h"
 
 #include <KLocalizedString>
 #include <KStandardAction>
@@ -217,10 +219,43 @@ void MainWindow::onVaultOpened()
     delete m_treeModel;
     m_treeModel = new NotesTreeModel(vault, this);
     m_fileExplorer->setModel(m_treeModel);
+
+    // Create autosave reactor
+    delete m_autosave;
+    m_autosave = new AutosaveReactor(m_vaultService->noteService(), this);
+
+    // Create file watch reactor
+    delete m_fileWatch;
+    m_fileWatch = new FileWatchReactor(vault, this);
+    m_fileWatch->startWatching(vault->path());
+
+    // Connect autosave's noteSaved to file watcher suppression
+    connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relativePath) {
+        if (m_fileWatch && m_vaultService->vault()) {
+            QString absPath = m_vaultService->vault()->path() + QLatin1Char('/') + relativePath;
+            m_fileWatch->suppressPath(absPath);
+        }
+    });
+
+    // Watch documents as they are opened in the editor
+    connect(m_editorManager, &EditorViewManager::activeEditorChanged,
+            this, [this](NoteEditorWidget *editor) {
+        if (editor && editor->noteDocument() && m_autosave) {
+            m_autosave->watchDocument(editor->noteDocument());
+        }
+    });
 }
 
 void MainWindow::onVaultClosed()
 {
+    delete m_autosave;
+    m_autosave = nullptr;
+    if (m_fileWatch) {
+        m_fileWatch->stopWatching();
+    }
+    delete m_fileWatch;
+    m_fileWatch = nullptr;
+
     delete m_treeModel;
     m_treeModel = nullptr;
     m_fileExplorer->setModel(nullptr);

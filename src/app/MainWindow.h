@@ -10,6 +10,8 @@ class VaultService;
 class EditorViewManager;
 class FileExplorerPanel;
 class NotesTreeModel;
+class AutosaveReactor;
+class FileWatchReactor;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -39,6 +41,8 @@ private:
     NotesTreeModel *m_treeModel = nullptr;
     QLabel *m_wordCountLabel = nullptr;
     QLabel *m_cursorPosLabel = nullptr;
+    AutosaveReactor *m_autosave = nullptr;
+    FileWatchReactor *m_fileWatch = nullptr;
 };
 
 } // namespace Corbomite
