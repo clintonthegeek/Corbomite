@@ -9,6 +9,7 @@ add_library(CorbomiteApp STATIC
     app/SessionManager.cpp
     mdi/CorbomiteMDI.cpp
     sidebar/FileExplorerPanel.cpp
+    sidebar/SearchPanel.cpp
     editor/NoteEditorWidget.cpp
     editor/EditorViewSpace.cpp
     editor/EditorViewManager.cpp
