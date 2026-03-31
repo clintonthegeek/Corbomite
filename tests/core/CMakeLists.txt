@@ -14,3 +14,7 @@ add_executable(tst_notedocument tst_notedocument.cpp)
 add_test(NAME tst_notedocument COMMAND tst_notedocument)
 target_link_libraries(tst_notedocument PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_notedocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_markdownrenderer tst_markdownrenderer.cpp)
+add_test(NAME tst_markdownrenderer COMMAND tst_markdownrenderer)
+target_link_libraries(tst_markdownrenderer PRIVATE Qt6::Test Corbomite::Core)
