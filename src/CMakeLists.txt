@@ -48,6 +48,7 @@ target_link_libraries(CorbomiteApp
         Corbomite::Models
         qmarkdowntextedit
         forcegraph
+        canvas
 )
 
 target_include_directories(CorbomiteApp PUBLIC

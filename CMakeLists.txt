@@ -35,6 +35,7 @@ add_subdirectory(libs/storage)
 add_subdirectory(libs/models)
 add_subdirectory(libs/qmarkdowntextedit)
 add_subdirectory(libs/forcegraph)
+add_subdirectory(libs/canvas)
 
 # Application
 add_subdirectory(src)
@@ -116,3 +117,4 @@ add_subdirectory(tests/editor)
 add_subdirectory(tests/e2e)
 add_subdirectory(tests/graph)
 add_subdirectory(libs/forcegraph/tests)
+add_subdirectory(libs/canvas/tests)

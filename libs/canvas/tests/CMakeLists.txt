@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.19)
+project(canvas_tests LANGUAGES CXX)
+enable_testing()
+find_package(Qt6 REQUIRED COMPONENTS Test Widgets)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+
+add_executable(tst_canvasdocument tst_canvasdocument.cpp)
+add_test(NAME tst_canvasdocument COMMAND tst_canvasdocument)
+target_link_libraries(tst_canvasdocument PRIVATE Qt6::Test canvas)
+set_tests_properties(tst_canvasdocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
