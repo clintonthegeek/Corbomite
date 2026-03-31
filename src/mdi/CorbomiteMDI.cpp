@@ -1553,7 +1553,8 @@ MainWindow::~MainWindow()
         delete m_toolviews.begin()->toolview;
     }
 
-    delete m_centralWidget;
+    // m_centralWidget is parented to m_vSplitter — Qt parent-child
+    // ownership handles deletion. Explicit delete here causes double-free.
 }
 
 QWidget *MainWindow::centralWidget() const
