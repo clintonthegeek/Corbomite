@@ -16,6 +16,7 @@ add_library(CorbomiteApp STATIC
     reactors/FileWatchReactor.cpp
     dialogs/SettingsDialog.cpp
     dialogs/QuickSwitcherModel.cpp
+    dialogs/QuickSwitcherDelegate.cpp
 )
 
 target_link_libraries(CorbomiteApp
