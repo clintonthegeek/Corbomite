@@ -15,6 +15,7 @@ add_library(CorbomiteApp STATIC
     reactors/AutosaveReactor.cpp
     reactors/FileWatchReactor.cpp
     dialogs/SettingsDialog.cpp
+    dialogs/QuickSwitcherModel.cpp
 )
 
 target_link_libraries(CorbomiteApp
