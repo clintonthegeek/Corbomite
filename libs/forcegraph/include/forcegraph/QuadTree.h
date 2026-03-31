@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+#include <QPointF>
+#include <QRectF>
+#include <QVector>
+#include "GraphTypes.h"
+
+namespace ForceGraph {
+class QuadTree {
+public:
+    void build(const QVector<GraphNode> &nodes, const QRectF &bounds);
+    QPointF computeRepulsion(const QPointF &nodePos, double repelForce, double theta = 0.8) const;
+    void clear();
+private:
+    struct QuadNode {
+        QRectF bounds;
+        QPointF centerOfMass;
+        double totalMass = 0;
+        int nodeIndex = -1;
+        int children[4] = {-1, -1, -1, -1};
+        bool isLeaf() const { return nodeIndex >= 0; }
+        bool isEmpty() const { return nodeIndex < 0 && children[0] < 0; }
+    };
+    QVector<QuadNode> m_nodes;
+    int m_root = -1;
+    void insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &nodes);
+    void subdivide(int quadNodeIdx);
+    QPointF computeRepulsionRecursive(int quadNodeIdx, const QPointF &pos,
+                                       double repelForce, double theta) const;
+};
+} // namespace ForceGraph

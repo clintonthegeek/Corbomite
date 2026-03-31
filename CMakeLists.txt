@@ -34,6 +34,7 @@ add_subdirectory(libs/core)
 add_subdirectory(libs/storage)
 add_subdirectory(libs/models)
 add_subdirectory(libs/qmarkdowntextedit)
+add_subdirectory(libs/forcegraph)
 
 # Application
 add_subdirectory(src)
