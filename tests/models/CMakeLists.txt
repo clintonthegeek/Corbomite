@@ -15,3 +15,8 @@ add_executable(tst_vaultmodel tst_vaultmodel.cpp)
 add_test(NAME tst_vaultmodel COMMAND tst_vaultmodel)
 target_link_libraries(tst_vaultmodel PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)
 set_tests_properties(tst_vaultmodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_noteservice tst_noteservice.cpp)
+add_test(NAME tst_noteservice COMMAND tst_noteservice)
+target_link_libraries(tst_noteservice PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)
+set_tests_properties(tst_noteservice PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
