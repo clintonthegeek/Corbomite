@@ -59,7 +59,25 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     resize(1200, 800);
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    // Clean up vault-related objects before base class destroys the widget tree.
+    // Order matters: reactors first (they reference services/models), then models.
+    delete m_autosave;
+    m_autosave = nullptr;
+
+    if (m_fileWatch) {
+        m_fileWatch->stopWatching();
+    }
+    delete m_fileWatch;
+    m_fileWatch = nullptr;
+
+    delete m_sessionManager;
+    m_sessionManager = nullptr;
+
+    delete m_treeModel;
+    m_treeModel = nullptr;
+}
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
