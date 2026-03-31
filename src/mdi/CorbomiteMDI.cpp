@@ -299,7 +299,9 @@ void ToolView::setTabButtonVisible(bool visible)
 
 ToolView::~ToolView()
 {
-    m_mainWin->toolViewDeleted(this);
+    if (m_mainWin) {
+        m_mainWin->toolViewDeleted(this);
+    }
 }
 
 void ToolView::setToolVisible(bool vis)
@@ -1549,12 +1551,15 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    while (!m_toolviews.empty()) {
-        delete m_toolviews.begin()->toolview;
-    }
-
-    // m_centralWidget is parented to m_vSplitter — Qt parent-child
-    // ownership handles deletion. Explicit delete here causes double-free.
+    // All toolviews and widgets are parented within the splitter hierarchy,
+    // which is parented to this MainWindow. Qt's parent-child ownership
+    // handles deletion automatically. Explicit deletion here causes
+    // double-free because the widgets are destroyed twice: once explicitly,
+    // then again by Qt's child cleanup in ~QObject.
+    //
+    // Just clear the tracking vector so toolViewDeleted() is a no-op
+    // during child destruction.
+    m_toolviews.clear();
 }
 
 QWidget *MainWindow::centralWidget() const
@@ -1631,13 +1636,18 @@ void MainWindow::toolViewDeleted(ToolView *widget)
         return;
     }
 
+    // During destruction, m_toolviews is already cleared — skip cleanup
+    auto it = std::find_if(m_toolviews.begin(), m_toolviews.end(),
+                           [widget](const ToolViewWithId &p) { return p.toolview == widget; });
+    if (it == m_toolviews.end()) {
+        return;
+    }
+
     m_guiClient->unregisterToolView(widget);
 
     widget->sidebar()->removeToolView(widget);
 
-    std::erase_if(m_toolviews, [widget](const ToolViewWithId &p) {
-        return p.id == widget->id;
-    });
+    m_toolviews.erase(it);
 }
 
 void MainWindow::setSidebarsVisibleInternal(bool visible, bool hideFullySilent)
