@@ -417,10 +417,10 @@ void MainWindow::onVaultOpened()
         if (m_vaultService->vault()) {
             editor->setVaultModel(m_vaultService->vault());
         }
-        // Connect link navigation (UniqueConnection avoids duplicates)
+        // Connect link navigation (UniqueConnection works here — pointer-to-member)
         connect(editor, &NoteEditorWidget::linkActivated,
                 this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
-    }, Qt::UniqueConnection);
+    });
 
     // Create search index
     delete m_searchIndex;
@@ -437,7 +437,7 @@ void MainWindow::onVaultOpened()
         if (doc) {
             m_searchIndex->indexNote(relPath, doc->name(), doc->markdown());
         }
-    }, Qt::UniqueConnection);
+    });
 
     // Connect internal link navigation from preview widgets
     connect(m_editorManager->activeViewSpace(), &EditorViewSpace::internalLinkClicked,

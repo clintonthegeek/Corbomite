@@ -24,6 +24,9 @@ public:
     explicit MainWindow(VaultService *vaultService, QWidget *parent = nullptr);
     ~MainWindow() override;
 
+public Q_SLOTS:
+    void onNoteActivated(const QString &relativePath);
+
 protected:
     void closeEvent(QCloseEvent *event) override;
 
@@ -41,7 +44,6 @@ private:
     void showCommandPalette();
     void showSearchPanel();
     void toggleEditorMode();
-    void onNoteActivated(const QString &relativePath);
     void onVaultOpened();
     void onVaultClosed();
     void onCursorInfoChanged(int line, int column, int wordCount);
