@@ -10,3 +10,8 @@ add_executable(tst_tabmodel tst_tabmodel.cpp)
 add_test(NAME tst_tabmodel COMMAND tst_tabmodel)
 target_link_libraries(tst_tabmodel PRIVATE Qt6::Test Corbomite::Models)
 set_tests_properties(tst_tabmodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_vaultmodel tst_vaultmodel.cpp)
+add_test(NAME tst_vaultmodel COMMAND tst_vaultmodel)
+target_link_libraries(tst_vaultmodel PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)
+set_tests_properties(tst_vaultmodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

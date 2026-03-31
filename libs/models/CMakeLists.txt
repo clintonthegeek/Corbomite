@@ -8,6 +8,8 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets)
 add_library(corbomite-models STATIC
     src/TabModel.cpp
     include/corbomite/models/TabModel.h
+    src/VaultModel.cpp
+    include/corbomite/models/VaultModel.h
 )
 set_target_properties(corbomite-models PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Models ALIAS corbomite-models)
