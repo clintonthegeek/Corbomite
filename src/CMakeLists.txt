@@ -17,6 +17,7 @@ add_library(CorbomiteApp STATIC
     dialogs/SettingsDialog.cpp
     dialogs/QuickSwitcherModel.cpp
     dialogs/QuickSwitcherDelegate.cpp
+    dialogs/QuickSwitcher.cpp
 )
 
 target_link_libraries(CorbomiteApp
