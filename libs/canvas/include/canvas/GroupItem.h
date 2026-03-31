@@ -6,24 +6,39 @@
 
 namespace Canvas {
 
-class CanvasScene;
-
 class GroupItem : public QGraphicsObject {
     Q_OBJECT
 
 public:
-    GroupItem(const CanvasNode &data, CanvasScene *scene);
+    GroupItem(const CanvasNode &data, QGraphicsItem *parent = nullptr);
 
-    QVector<QGraphicsItem *> containedItems() const;
     void setNodeData(const CanvasNode &data);
+    CanvasNode nodeData() const;
     QString nodeId() const;
 
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
+    QPointF connectionPoint(Side side) const;
+    QVector<QGraphicsItem *> containedItems() const;
+
+    // Resize detection (same pattern as TextCardItem)
+    enum ResizeMode { NoResize = 0, TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left };
+    ResizeMode resizeModeAtPos(const QPointF &localPos) const;
+
+Q_SIGNALS:
+    void positionChanged();
+    void sizeChanged();
+    void labelEditRequested();
+
+protected:
+    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) override;
+
 private:
     CanvasNode m_data;
-    CanvasScene *m_canvasScene = nullptr;
+    QPointF m_lastPos;
+    bool m_movingChildren = false;
 };
 
 } // namespace Canvas
