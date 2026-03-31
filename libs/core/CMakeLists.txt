@@ -7,6 +7,8 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core)
 
 add_library(corbomite-core STATIC
     src/NoteMeta.cpp
+    src/NoteDocument.cpp
+    include/corbomite/core/NoteDocument.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)

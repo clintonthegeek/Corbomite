@@ -5,3 +5,12 @@ find_package(Qt6 REQUIRED COMPONENTS Test)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+
+add_executable(tst_notemeta tst_notemeta.cpp)
+add_test(NAME tst_notemeta COMMAND tst_notemeta)
+target_link_libraries(tst_notemeta PRIVATE Qt6::Test Corbomite::Core)
+
+add_executable(tst_notedocument tst_notedocument.cpp)
+add_test(NAME tst_notedocument COMMAND tst_notedocument)
+target_link_libraries(tst_notedocument PRIVATE Qt6::Test Corbomite::Core)
+set_tests_properties(tst_notedocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
