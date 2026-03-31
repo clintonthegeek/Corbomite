@@ -14,6 +14,8 @@ add_library(corbomite-models STATIC
     include/corbomite/models/NoteService.h
     src/NotesTreeModel.cpp
     include/corbomite/models/NotesTreeModel.h
+    src/SearchResultsModel.cpp
+    include/corbomite/models/SearchResultsModel.h
 )
 set_target_properties(corbomite-models PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Models ALIAS corbomite-models)
