@@ -10,6 +10,7 @@
 #include "corbomite/core/NoteDocument.h"
 #include "reactors/AutosaveReactor.h"
 #include "reactors/FileWatchReactor.h"
+#include "dialogs/SettingsDialog.h"
 
 #include <KLocalizedString>
 #include <KStandardAction>
@@ -56,7 +57,10 @@ void MainWindow::setupActions()
     KActionCollection *ac = actionCollection();
 
     KStandardAction::quit(qApp, &QApplication::quit, ac);
-    KStandardAction::preferences(this, []() {}, ac);
+    KStandardAction::preferences(this, [this]() {
+        SettingsDialog dialog(this);
+        dialog.exec();
+    }, ac);
 
     // File actions
     auto *openVault = ac->addAction(QStringLiteral("file_open_vault"));
