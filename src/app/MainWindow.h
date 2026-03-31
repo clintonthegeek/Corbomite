@@ -5,10 +5,13 @@
 #include <QLabel>
 #include <QCloseEvent>
 
+class KRecentFilesAction;
+
 namespace Corbomite {
 
 class VaultService;
 class EditorViewManager;
+class NoteEditorWidget;
 class FileExplorerPanel;
 class SearchPanel;
 class NotesTreeModel;
@@ -52,6 +55,8 @@ private:
     void onVaultOpened();
     void onVaultClosed();
     void onCursorInfoChanged(int line, int column, int wordCount);
+    void updateVaultActions();
+    void updateWindowTitle(NoteEditorWidget *editor = nullptr);
 
     VaultService *m_vaultService;
     EditorViewManager *m_editorManager = nullptr;
@@ -68,6 +73,7 @@ private:
     OutlinksPanel *m_outlinksPanel = nullptr;
     OutlinePanel *m_outlinePanel = nullptr;
     LocalGraphPanel *m_localGraphPanel = nullptr;
+    KRecentFilesAction *m_recentVaults = nullptr;
 };
 
 } // namespace Corbomite

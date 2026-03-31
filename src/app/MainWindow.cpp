@@ -29,6 +29,9 @@
 #include <KActionCollection>
 #include <KMessageBox>
 #include <KStandardGuiItem>
+#include <KRecentFilesAction>
+#include <KSharedConfig>
+#include <KConfigGroup>
 #include <QApplication>
 #include <QFileDialog>
 #include <QLabel>
@@ -38,6 +41,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QTextCursor>
+#include <QTabBar>
 
 namespace Corbomite {
 
@@ -67,6 +71,7 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     connect(m_vaultService, &VaultService::vaultOpened, this, &MainWindow::onVaultOpened);
     connect(m_vaultService, &VaultService::vaultClosed, this, &MainWindow::onVaultClosed);
 
+    updateVaultActions();
     resize(1200, 800);
 }
 
@@ -138,6 +143,16 @@ void MainWindow::setupActions()
     ac->setDefaultShortcut(openVault, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O));
     connect(openVault, &QAction::triggered, this, &MainWindow::openVaultDialog);
 
+    // Recent Vaults
+    m_recentVaults = KStandardAction::openRecent(this, [this](const QUrl &url) {
+        m_vaultService->openVault(url.toLocalFile());
+    }, ac);
+    m_recentVaults->setObjectName(QStringLiteral("file_open_recent"));
+
+    auto config = KSharedConfig::openConfig();
+    KConfigGroup recentGroup = config->group(QStringLiteral("RecentVaults"));
+    m_recentVaults->loadEntries(recentGroup);
+
     auto *newNote = ac->addAction(QStringLiteral("file_new_note"));
     newNote->setText(i18n("New Note"));
     newNote->setIcon(QIcon::fromTheme(QStringLiteral("document-new")));
@@ -149,6 +164,29 @@ void MainWindow::setupActions()
     save->setIcon(QIcon::fromTheme(QStringLiteral("document-save")));
     ac->setDefaultShortcut(save, QKeySequence(Qt::CTRL | Qt::Key_S));
     connect(save, &QAction::triggered, this, &MainWindow::saveCurrentNote);
+
+    // Edit menu — standard actions (editor handles them, but they need menu visibility)
+    KStandardAction::undo(this, [this]() {
+        auto *editor = m_editorManager->activeEditor();
+        if (editor) editor->undo();
+    }, ac);
+
+    KStandardAction::redo(this, [this]() {
+        auto *editor = m_editorManager->activeEditor();
+        if (editor) editor->redo();
+    }, ac);
+
+    KStandardAction::find(this, [this]() {
+        auto *editor = m_editorManager->activeEditor();
+        if (editor) {
+            QString empty;
+            editor->doSearch(empty);
+        }
+    }, ac);
+
+    // Help menu
+    KStandardAction::aboutApp(qApp, []() {}, ac);
+    KStandardAction::aboutKDE(qApp, []() {}, ac);
 
     // View actions
     auto *toggleLeft = ac->addAction(QStringLiteral("view_toggle_left_sidebar"));
@@ -200,6 +238,50 @@ void MainWindow::setupActions()
     toggleMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
     ac->setDefaultShortcut(toggleMode, QKeySequence(Qt::CTRL | Qt::Key_E));
     connect(toggleMode, &QAction::triggered, this, &MainWindow::toggleEditorMode);
+
+    // Tab shortcuts
+    auto *closeTab = ac->addAction(QStringLiteral("tab_close"));
+    closeTab->setText(i18n("Close Tab"));
+    closeTab->setIcon(QIcon::fromTheme(QStringLiteral("tab-close")));
+    ac->setDefaultShortcut(closeTab, QKeySequence(Qt::CTRL | Qt::Key_W));
+    connect(closeTab, &QAction::triggered, this, [this]() {
+        auto *viewSpace = m_editorManager->activeViewSpace();
+        if (viewSpace) {
+            auto *tabBar = viewSpace->findChild<QTabBar *>();
+            if (tabBar && tabBar->count() > 0) {
+                Q_EMIT tabBar->tabCloseRequested(tabBar->currentIndex());
+            }
+        }
+    });
+
+    auto *nextTab = ac->addAction(QStringLiteral("tab_next"));
+    nextTab->setText(i18n("Next Tab"));
+    ac->setDefaultShortcut(nextTab, QKeySequence(Qt::CTRL | Qt::Key_Tab));
+    connect(nextTab, &QAction::triggered, this, [this]() {
+        auto *viewSpace = m_editorManager->activeViewSpace();
+        if (viewSpace) {
+            auto *tabBar = viewSpace->findChild<QTabBar *>();
+            if (tabBar && tabBar->count() > 1) {
+                int next = (tabBar->currentIndex() + 1) % tabBar->count();
+                tabBar->setCurrentIndex(next);
+            }
+        }
+    });
+
+    auto *prevTab = ac->addAction(QStringLiteral("tab_prev"));
+    prevTab->setText(i18n("Previous Tab"));
+    ac->setDefaultShortcut(prevTab, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Tab));
+    connect(prevTab, &QAction::triggered, this, [this]() {
+        auto *viewSpace = m_editorManager->activeViewSpace();
+        if (viewSpace) {
+            auto *tabBar = viewSpace->findChild<QTabBar *>();
+            if (tabBar && tabBar->count() > 1) {
+                int prev = tabBar->currentIndex() - 1;
+                if (prev < 0) prev = tabBar->count() - 1;
+                tabBar->setCurrentIndex(prev);
+            }
+        }
+    });
 }
 
 void MainWindow::setupEditor()
@@ -348,7 +430,11 @@ void MainWindow::openVaultDialog()
     QString dir = QFileDialog::getExistingDirectory(
         this, i18n("Open Vault"), QDir::homePath());
     if (!dir.isEmpty()) {
-        m_vaultService->openVault(dir);
+        if (!m_vaultService->openVault(dir)) {
+            KMessageBox::error(this,
+                i18n("Could not open vault at:\n%1\n\nThe directory may not exist or is not readable.", dir),
+                i18n("Open Vault Failed"));
+        }
     }
 }
 
@@ -449,12 +535,14 @@ void MainWindow::onNoteActivated(const QString &relativePath)
 void MainWindow::onVaultOpened()
 {
     auto *vault = m_vaultService->vault();
-    setWindowTitle(vault->name() +
-#ifdef CORBOMITE_DEV_BUILD
-        QStringLiteral(" — Corbomite [Dev]"));
-#else
-        QStringLiteral(" — Corbomite"));
-#endif
+    updateWindowTitle();
+
+    // Track in recent vaults
+    m_recentVaults->addUrl(QUrl::fromLocalFile(vault->path()));
+    auto config = KSharedConfig::openConfig();
+    KConfigGroup recentGroup = config->group(QStringLiteral("RecentVaults"));
+    m_recentVaults->saveEntries(recentGroup);
+    config->sync();
 
     delete m_treeModel;
     m_treeModel = new NotesTreeModel(vault, this);
@@ -539,6 +627,22 @@ void MainWindow::onVaultOpened()
         }
     });
 
+    // Update window title when active note changes
+    connect(m_editorManager, &EditorViewManager::activeEditorChanged,
+            this, [this](NoteEditorWidget *editor) {
+        updateWindowTitle(editor);
+        // Track modification state for title indicator — use singleShot-style
+        // disconnect/reconnect to avoid duplicate connections from repeated tab switches
+        if (editor && editor->noteDocument()) {
+            disconnect(editor->noteDocument(), &NoteDocument::modificationChanged,
+                       this, nullptr);
+            connect(editor->noteDocument(), &NoteDocument::modificationChanged,
+                    this, [this]() {
+                updateWindowTitle(m_editorManager->activeEditor());
+            });
+        }
+    });
+
     // Update index on note saves
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
         if (!m_searchIndex || !m_vaultService->vault()) return;
@@ -572,6 +676,8 @@ void MainWindow::onVaultOpened()
             }
         }
     }
+
+    updateVaultActions();
 }
 
 void MainWindow::onVaultClosed()
@@ -606,12 +712,8 @@ void MainWindow::onVaultClosed()
     delete m_treeModel;
     m_treeModel = nullptr;
     m_fileExplorer->setModel(nullptr);
-    setWindowTitle(
-#ifdef CORBOMITE_DEV_BUILD
-        QStringLiteral("Corbomite [Dev]"));
-#else
-        QStringLiteral("Corbomite"));
-#endif
+    updateWindowTitle();
+    updateVaultActions();
 }
 
 void MainWindow::openGraphView()
@@ -643,6 +745,51 @@ void MainWindow::onCursorInfoChanged(int line, int column, int wordCount)
 {
     m_wordCountLabel->setText(i18n("Words: %1", wordCount));
     m_cursorPosLabel->setText(i18n("Ln %1, Col %2", line, column));
+}
+
+void MainWindow::updateVaultActions()
+{
+    bool open = m_vaultService->isOpen();
+
+    auto *ac = actionCollection();
+    auto setEnabled = [ac](const QString &name, bool enabled) {
+        if (auto *a = ac->action(name)) a->setEnabled(enabled);
+    };
+
+    setEnabled(QStringLiteral("file_new_note"), open);
+    setEnabled(QStringLiteral("file_save"), open);
+    setEnabled(QStringLiteral("quick_switcher"), open);
+    setEnabled(QStringLiteral("search_vault"), open);
+    setEnabled(QStringLiteral("graph_view"), open);
+    setEnabled(QStringLiteral("editor_toggle_mode"), open);
+    setEnabled(QStringLiteral("tab_close"), open);
+    setEnabled(QStringLiteral("tab_next"), open);
+    setEnabled(QStringLiteral("tab_prev"), open);
+}
+
+void MainWindow::updateWindowTitle(NoteEditorWidget *editor)
+{
+    QString title;
+    if (editor && editor->noteDocument()) {
+        QString noteName = editor->noteDocument()->name();
+        bool modified = editor->noteDocument()->isModified();
+        title = noteName;
+        if (modified) title += QStringLiteral(" \u2022");
+        title += QStringLiteral(" \u2014 ");
+    }
+
+    if (m_vaultService->isOpen()) {
+        title += m_vaultService->vault()->name();
+        title += QStringLiteral(" \u2014 ");
+    }
+
+#ifdef CORBOMITE_DEV_BUILD
+    title += QStringLiteral("Corbomite [Dev]");
+#else
+    title += QStringLiteral("Corbomite");
+#endif
+
+    setWindowTitle(title);
 }
 
 } // namespace Corbomite
