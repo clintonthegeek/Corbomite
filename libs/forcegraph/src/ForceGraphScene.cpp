@@ -23,6 +23,13 @@ void ForceGraphScene::setNodes(const QVector<GraphNode> &nodes)
         addItem(item);
         m_nodeItems.insert(node.id, item);
     }
+
+    // Optimization for large graphs
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    if (nodes.size() > 200) {
+        setMinimumRenderSize(1.0); // Skip items smaller than 1px on screen
+    }
+#endif
 }
 
 void ForceGraphScene::setEdges(const QVector<GraphEdge> &edges)

@@ -58,42 +58,43 @@ void ForceGraphNode::paint(QPainter *painter, const QStyleOptionGraphicsItem *op
     painter->setPen(Qt::NoPen);
     painter->setBrush(color);
 
-    if (lod < 0.1) {
-        // Ultra-low: single pixel
+    if (lod < 0.05) {
+        // Ultra-low: skip entirely (minimumRenderSize should handle this, but belt-and-suspenders)
         painter->fillRect(QRectF(-1, -1, 2, 2), color);
         return;
     }
 
-    if (lod < 0.4) {
-        // Low: filled circle, no label
+    if (lod < 0.3) {
+        // Low: filled circle only, no label, no outline
         painter->drawEllipse(rect());
         return;
     }
 
-    // Medium+: circle with outline
+    // Medium: circle with outline
     if (m_highlighted) {
         painter->setPen(QPen(color.darker(150), 2));
     }
     painter->drawEllipse(rect());
 
-    if (lod < 1.0) {
-        // Medium: abbreviated label
-        if (!m_data.label.isEmpty()) {
-            painter->setPen(m_dimmed ? QColor(128, 128, 128, 40) : QColor(60, 60, 60));
+    if (lod < 2.0) {
+        // Medium: abbreviated label only when zoomed in enough
+        // At lod=1.0 with 1000 nodes, labels still overlap — hide them
+        if (lod >= 1.0 && !m_data.label.isEmpty()) {
+            painter->setPen(m_dimmed ? QColor(128, 128, 128, 40) : QColor(80, 80, 80));
             QFont font;
-            font.setPointSizeF(8);
+            font.setPointSizeF(6.0);
             painter->setFont(font);
-            painter->drawText(QPointF(-m_data.radius, m_data.radius + 12),
-                              m_data.label.left(15));
+            painter->drawText(QPointF(-m_data.radius, m_data.radius + 10),
+                              m_data.label.left(12));
         }
         return;
     }
 
-    // Full: circle + full label
+    // Full detail (lod >= 2.0): circle + full label — only when zoomed in significantly
     if (!m_data.label.isEmpty()) {
         painter->setPen(m_dimmed ? QColor(128, 128, 128, 40) : QColor(40, 40, 40));
         QFont font;
-        font.setPointSizeF(9);
+        font.setPointSizeF(8.0);
         painter->setFont(font);
         QRectF textRect(QPointF(-50, m_data.radius + 4), QSizeF(100, 16));
         painter->drawText(textRect, Qt::AlignHCenter, m_data.label);

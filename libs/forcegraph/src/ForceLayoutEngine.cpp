@@ -87,7 +87,7 @@ void ForceLayoutEngine::randomizePositionsIfNeeded()
     }
 
     if (allAtOrigin && m_nodes.size() > 1) {
-        double radius = std::sqrt(static_cast<double>(m_nodes.size())) * 10.0;
+        double radius = std::sqrt(static_cast<double>(m_nodes.size())) * 50.0;
         auto *rng = QRandomGenerator::global();
         for (auto &node : m_nodes) {
             double angle = rng->generateDouble() * 2.0 * M_PI;
@@ -105,6 +105,9 @@ void ForceLayoutEngine::start()
     m_stable = false;
     m_stableCount = 0;
     m_iteration = 0;
+
+    // Scale iterations with graph size — large graphs need more time to reach equilibrium
+    m_maxIterations = std::max(500, static_cast<int>(std::sqrt(static_cast<double>(m_nodes.size())) * 100.0));
 
     randomizePositionsIfNeeded();
 
@@ -249,7 +252,11 @@ void ForceLayoutEngine::step()
     }
 
     // 6. Oscillation detection (Frick et al.) — per-vertex local temperature
-    double globalTemp = m_initialTemperature * (1.0 - static_cast<double>(m_iteration) / static_cast<double>(m_maxIterations));
+    // Exponential cooling — slower decay gives nodes more time to spread
+    double progress = static_cast<double>(m_iteration) / static_cast<double>(m_maxIterations);
+    double globalTemp = m_initialTemperature * std::exp(-3.0 * progress);
+    // This keeps temperature at ~5% of initial at iteration = maxIterations
+    // vs linear which reaches 0 — exponential gives more movement in middle iterations
     globalTemp = std::max(globalTemp, 0.01);
 
     for (int i = 0; i < n; ++i) {

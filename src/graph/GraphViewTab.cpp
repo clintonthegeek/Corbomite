@@ -73,9 +73,13 @@ void GraphViewTab::buildGraph()
 
     m_graphView->setNodes(data.nodes);
     m_graphView->setEdges(data.edges);
+
+    // Zoom to fit IMMEDIATELY so user sees overview from the start
+    m_graphView->zoomToFit();
+
     m_engine->start();
 
-    // Zoom to fit after layout settles
+    // Also zoom to fit after layout stabilizes for final framing
     connect(m_engine, &ForceGraph::ForceLayoutEngine::simulationStable,
             this, [this]() {
         m_graphView->zoomToFit();
