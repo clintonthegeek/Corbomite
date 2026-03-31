@@ -6,6 +6,8 @@
 #include <QVector>
 #include "GraphTypes.h"
 
+class QTimer;
+
 namespace ForceGraph {
 class ForceLayoutEngine : public QObject {
     Q_OBJECT
@@ -35,20 +37,28 @@ Q_SIGNALS:
     void simulationStopped();
     void simulationStable();
 private:
+    void buildNodeIndex();
+    double estimateCanvasArea() const;
+    void randomizePositionsIfNeeded();
+
     QVector<GraphNode> m_nodes;
     QVector<GraphEdge> m_edges;
     QHash<QString, int> m_nodeIndex;
+    QVector<QPointF> m_displacements;
+    QVector<QPointF> m_prevDisplacements;
+    QVector<double> m_vertexTemperatures;
     double m_centerForce = 0.01;
     double m_repelForce = 1500.0;
     double m_linkForce = 0.05;
     double m_linkDistance = 100.0;
     double m_damping = 0.85;
     double m_temperature = 0.0;
+    double m_initialTemperature = 0.0;
     int m_iteration = 0;
     int m_maxIterations = 500;
     int m_stableCount = 0;
     bool m_running = false;
     bool m_stable = false;
-    class QTimer *m_timer = nullptr;
+    ::QTimer *m_timer = nullptr;
 };
 } // namespace ForceGraph

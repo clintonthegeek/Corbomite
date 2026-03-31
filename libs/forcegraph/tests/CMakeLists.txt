@@ -10,3 +10,8 @@ add_executable(tst_quadtree tst_quadtree.cpp)
 add_test(NAME tst_quadtree COMMAND tst_quadtree)
 target_link_libraries(tst_quadtree PRIVATE Qt6::Test forcegraph)
 set_tests_properties(tst_quadtree PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_forcelayout tst_forcelayout.cpp)
+add_test(NAME tst_forcelayout COMMAND tst_forcelayout)
+target_link_libraries(tst_forcelayout PRIVATE Qt6::Test forcegraph)
+set_tests_properties(tst_forcelayout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
