@@ -16,6 +16,9 @@ public:
 
     void setModel(NotesTreeModel *model);
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
 Q_SIGNALS:
     void noteActivated(const QString &relativePath);
     void newNoteRequested(const QString &folderPath);

@@ -131,10 +131,11 @@ void MainWindow::setupActions()
     KActionCollection *ac = actionCollection();
 
     KStandardAction::quit(qApp, &QApplication::quit, ac);
-    KStandardAction::preferences(this, [this]() {
+    auto *prefsAction = KStandardAction::preferences(this, [this]() {
         SettingsDialog dialog(this);
         dialog.exec();
     }, ac);
+    ac->setDefaultShortcut(prefsAction, QKeySequence(Qt::CTRL | Qt::Key_Comma));
 
     // File actions
     auto *openVault = ac->addAction(QStringLiteral("file_open_vault"));
@@ -336,6 +337,26 @@ void MainWindow::setupSidebars()
             m_vaultService->noteService()->deleteNote(path);
         }
     });
+    connect(m_fileExplorer, &FileExplorerPanel::renameNoteRequested,
+            this, [this](const QString &path) {
+        QString oldName = path.mid(path.lastIndexOf(QLatin1Char('/')) + 1);
+        if (oldName.endsWith(QStringLiteral(".md"))) oldName.chop(3);
+
+        bool ok;
+        QString newName = QInputDialog::getText(this, i18n("Rename Note"),
+                                                 i18n("New name:"), QLineEdit::Normal,
+                                                 oldName, &ok);
+        if (ok && !newName.isEmpty() && newName != oldName) {
+            QString folder;
+            int lastSlash = path.lastIndexOf(QLatin1Char('/'));
+            if (lastSlash > 0) folder = path.left(lastSlash);
+
+            QString newPath = folder.isEmpty()
+                ? newName + QStringLiteral(".md")
+                : folder + QLatin1Char('/') + newName + QStringLiteral(".md");
+            m_vaultService->noteService()->renameNote(path, newPath);
+        }
+    });
 
     // Search panel in left sidebar
     auto *searchToolView = createToolView(
@@ -529,6 +550,21 @@ void MainWindow::onNoteActivated(const QString &relativePath)
     auto *doc = m_vaultService->noteService()->openNote(relativePath);
     if (doc) {
         m_editorManager->openNote(doc);
+    } else {
+        // Note doesn't exist -- create it (Obsidian behavior: clicking unresolved link creates the note)
+        QString name = relativePath;
+        if (name.endsWith(QStringLiteral(".md"))) name.chop(3);
+        // Extract folder if path has one
+        QString folder;
+        int lastSlash = name.lastIndexOf(QLatin1Char('/'));
+        if (lastSlash >= 0) {
+            folder = name.left(lastSlash);
+            name = name.mid(lastSlash + 1);
+        }
+        doc = m_vaultService->noteService()->createNote(name, folder);
+        if (doc) {
+            m_editorManager->openNote(doc);
+        }
     }
 }
 

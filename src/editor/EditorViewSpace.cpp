@@ -6,6 +6,9 @@
 #include "corbomite/core/NoteDocument.h"
 #include <QVBoxLayout>
 #include <QIcon>
+#include <QMouseEvent>
+#include <QMenu>
+#include <KLocalizedString>
 
 namespace Corbomite {
 
@@ -25,8 +28,12 @@ EditorViewSpace::EditorViewSpace(QWidget *parent)
     layout->addWidget(m_tabBar);
     layout->addWidget(m_stack);
 
+    m_tabBar->installEventFilter(this);
+    m_tabBar->setContextMenuPolicy(Qt::CustomContextMenu);
+
     connect(m_tabBar, &QTabBar::currentChanged, this, &EditorViewSpace::onTabChanged);
     connect(m_tabBar, &QTabBar::tabCloseRequested, this, &EditorViewSpace::onTabCloseRequested);
+    connect(m_tabBar, &QTabBar::customContextMenuRequested, this, &EditorViewSpace::showTabContextMenu);
 }
 
 void EditorViewSpace::openNote(NoteDocument *doc)
@@ -241,6 +248,48 @@ bool EditorViewSpace::hasGraphView() const
             return true;
     }
     return false;
+}
+
+bool EditorViewSpace::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_tabBar && event->type() == QEvent::MouseButtonRelease) {
+        auto *mouseEvent = static_cast<QMouseEvent *>(event);
+        if (mouseEvent->button() == Qt::MiddleButton) {
+            int tabIndex = m_tabBar->tabAt(mouseEvent->pos());
+            if (tabIndex >= 0) {
+                closeTab(tabIndex);
+                return true;
+            }
+        }
+    }
+    return QWidget::eventFilter(obj, event);
+}
+
+void EditorViewSpace::showTabContextMenu(const QPoint &pos)
+{
+    int tabIndex = m_tabBar->tabAt(pos);
+    if (tabIndex < 0) return;
+
+    QMenu menu(this);
+
+    auto *closeAction = menu.addAction(i18n("Close"));
+    connect(closeAction, &QAction::triggered, this, [this, tabIndex]() {
+        closeTab(tabIndex);
+    });
+
+    auto *closeOthers = menu.addAction(i18n("Close Others"));
+    connect(closeOthers, &QAction::triggered, this, [this, tabIndex]() {
+        for (int i = m_tabBar->count() - 1; i >= 0; --i) {
+            if (i != tabIndex) closeTab(i);
+        }
+    });
+
+    auto *closeAll = menu.addAction(i18n("Close All"));
+    connect(closeAll, &QAction::triggered, this, [this]() {
+        while (m_tabBar->count() > 0) closeTab(0);
+    });
+
+    menu.exec(m_tabBar->mapToGlobal(pos));
 }
 
 } // namespace Corbomite

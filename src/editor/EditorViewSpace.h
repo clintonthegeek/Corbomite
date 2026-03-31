@@ -38,9 +38,13 @@ Q_SIGNALS:
     void internalLinkClicked(const QString &targetPath);
     void graphNoteActivated(const QString &relativePath);
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
 private:
     void onTabChanged(int index);
     void onTabCloseRequested(int index);
+    void showTabContextMenu(const QPoint &pos);
 
     QTabBar *m_tabBar;
     QStackedWidget *m_stack;

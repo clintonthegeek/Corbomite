@@ -3,6 +3,7 @@
 #include "corbomite/models/NotesTreeModel.h"
 #include <QVBoxLayout>
 #include <QMenu>
+#include <QKeyEvent>
 #include <KLocalizedString>
 
 namespace Corbomite {
@@ -20,6 +21,8 @@ FileExplorerPanel::FileExplorerPanel(QWidget *parent)
     m_treeView->setContextMenuPolicy(Qt::CustomContextMenu);
     m_treeView->setDragEnabled(false); // Enable later
     m_treeView->setAnimated(true);
+
+    m_treeView->installEventFilter(this);
 
     connect(m_treeView, &QTreeView::doubleClicked, this, &FileExplorerPanel::onDoubleClicked);
     connect(m_treeView, &QTreeView::customContextMenuRequested, this, &FileExplorerPanel::showContextMenu);
@@ -80,6 +83,30 @@ void FileExplorerPanel::showContextMenu(const QPoint &pos)
     }
 
     menu.exec(m_treeView->viewport()->mapToGlobal(pos));
+}
+
+bool FileExplorerPanel::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_treeView && event->type() == QEvent::KeyPress) {
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->key() == Qt::Key_F2) {
+            auto index = m_treeView->currentIndex();
+            if (index.isValid() && !index.data(NotesTreeModel::IsDirectoryRole).toBool()) {
+                QString path = index.data(NotesTreeModel::PathRole).toString();
+                Q_EMIT renameNoteRequested(path);
+                return true;
+            }
+        }
+        if (keyEvent->key() == Qt::Key_Delete) {
+            auto index = m_treeView->currentIndex();
+            if (index.isValid() && !index.data(NotesTreeModel::IsDirectoryRole).toBool()) {
+                QString path = index.data(NotesTreeModel::PathRole).toString();
+                Q_EMIT deleteNoteRequested(path);
+                return true;
+            }
+        }
+    }
+    return QWidget::eventFilter(obj, event);
 }
 
 } // namespace Corbomite

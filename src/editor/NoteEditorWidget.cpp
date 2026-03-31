@@ -136,9 +136,8 @@ void NoteEditorWidget::keyPressEvent(QKeyEvent *event)
 
 void NoteEditorWidget::mousePressEvent(QMouseEvent *event)
 {
-    // Ctrl+Click to follow wikilink
-    if (event->button() == Qt::LeftButton &&
-        event->modifiers() & Qt::ControlModifier) {
+    // Click to follow wikilink (Obsidian behavior: single-click opens link)
+    if (event->button() == Qt::LeftButton) {
         QString target = wikiLinkTargetAtCursor(event->pos());
         if (!target.isEmpty()) {
             QString resolved = resolveWikiLinkTarget(target);
@@ -152,14 +151,12 @@ void NoteEditorWidget::mousePressEvent(QMouseEvent *event)
 
 void NoteEditorWidget::mouseMoveEvent(QMouseEvent *event)
 {
-    // Show pointing hand cursor when Ctrl+hovering over wikilink
-    if (event->modifiers() & Qt::ControlModifier) {
-        QString target = wikiLinkTargetAtCursor(event->pos());
-        if (!target.isEmpty()) {
-            viewport()->setCursor(Qt::PointingHandCursor);
-            QMarkdownTextEdit::mouseMoveEvent(event);
-            return;
-        }
+    // Show pointing hand cursor when hovering over wikilink
+    QString target = wikiLinkTargetAtCursor(event->pos());
+    if (!target.isEmpty()) {
+        viewport()->setCursor(Qt::PointingHandCursor);
+        QMarkdownTextEdit::mouseMoveEvent(event);
+        return;
     }
     viewport()->setCursor(Qt::IBeamCursor);
     QMarkdownTextEdit::mouseMoveEvent(event);
