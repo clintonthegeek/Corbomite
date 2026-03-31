@@ -380,6 +380,18 @@ void MainWindow::onVaultOpened()
         }
     });
 
+    // Set vault on editors and connect link navigation
+    connect(m_editorManager, &EditorViewManager::activeEditorChanged,
+            this, [this](NoteEditorWidget *editor) {
+        if (!editor) return;
+        if (m_vaultService->vault()) {
+            editor->setVaultModel(m_vaultService->vault());
+        }
+        // Connect link navigation (UniqueConnection avoids duplicates)
+        connect(editor, &NoteEditorWidget::linkActivated,
+                this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
+    }, Qt::UniqueConnection);
+
     // Create session manager and restore session
     delete m_sessionManager;
     m_sessionManager = new SessionManager(this);

@@ -30,6 +30,7 @@ Q_SIGNALS:
 
 protected:
     void showEvent(QShowEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
 
 private:
     void onActivated(const QModelIndex &index);

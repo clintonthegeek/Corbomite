@@ -146,6 +146,12 @@ void CompletionPopup::showEvent(QShowEvent *event)
     }
 }
 
+void CompletionPopup::hideEvent(QHideEvent *event)
+{
+    QFrame::hideEvent(event);
+    Q_EMIT dismissed();
+}
+
 void CompletionPopup::onActivated(const QModelIndex &index)
 {
     if (!index.isValid()) return;
