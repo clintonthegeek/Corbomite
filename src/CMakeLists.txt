@@ -12,6 +12,7 @@ add_library(CorbomiteApp STATIC
     sidebar/SearchPanel.cpp
     sidebar/BacklinksPanel.cpp
     sidebar/OutlinksPanel.cpp
+    sidebar/OutlinePanel.cpp
     editor/NoteEditorWidget.cpp
     editor/EditorViewSpace.cpp
     editor/EditorViewManager.cpp
