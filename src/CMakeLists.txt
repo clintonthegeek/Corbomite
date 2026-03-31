@@ -4,6 +4,8 @@ kconfig_add_kcfg_files(CORBOMITE_KCFG_SRCS app/corbomitesettings.kcfgc GENERATE_
 add_library(CorbomiteApp STATIC
     ${CORBOMITE_KCFG_SRCS}
     app/CorbomiteApp.cpp
+    app/MainWindow.cpp
+    mdi/CorbomiteMDI.cpp
 )
 
 target_link_libraries(CorbomiteApp
@@ -19,6 +21,7 @@ target_link_libraries(CorbomiteApp
         KF6::ConfigCore
         KF6::ConfigWidgets
         KF6::DBusAddons
+        KF6::Parts
         Corbomite::Core
         Corbomite::Storage
         Corbomite::Models
@@ -28,5 +31,6 @@ target_link_libraries(CorbomiteApp
 target_include_directories(CorbomiteApp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/app
+    ${CMAKE_CURRENT_SOURCE_DIR}/mdi
     ${CMAKE_CURRENT_BINARY_DIR}
 )

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "MainWindow.h"
+
 #include <QApplication>
 #include <QIcon>
 #include <KAboutData>
@@ -38,6 +40,9 @@ int main(int argc, char *argv[])
     app.setWindowIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
 
     KDBusService service(KDBusService::Unique);
+
+    Corbomite::MainWindow mainWindow;
+    mainWindow.show();
 
     return app.exec();
 }
