@@ -6,13 +6,11 @@
 
 namespace Canvas {
 
-class CanvasScene;
-
 class TextCardItem : public QGraphicsObject {
     Q_OBJECT
 
 public:
-    TextCardItem(const CanvasNode &data, CanvasScene *scene);
+    TextCardItem(const CanvasNode &data, QGraphicsItem *parent = nullptr);
 
     void setNodeData(const CanvasNode &data);
     CanvasNode nodeData() const;
@@ -21,21 +19,24 @@ public:
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
-    // Resize
-    enum ResizeMode { NoResize, TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left };
-    ResizeMode resizeModeAtPos(const QPointF &pos) const;
-
     // Edge connection points
     QPointF connectionPoint(Side side) const;
+
+    // Resize detection (Kdenlive pattern)
+    enum ResizeMode { NoResize = 0, TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left };
+    ResizeMode resizeModeAtPos(const QPointF &localPos) const;
 
 Q_SIGNALS:
     void positionChanged();
     void sizeChanged();
-    void editingFinished(const QString &newText);
+    void editRequested();
+
+protected:
+    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) override;
 
 private:
     CanvasNode m_data;
-    CanvasScene *m_canvasScene = nullptr;
 };
 
 } // namespace Canvas

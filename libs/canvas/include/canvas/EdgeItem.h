@@ -16,11 +16,17 @@ public:
     void setEdgeData(const CanvasEdge &data);
     CanvasEdge edgeData() const;
     QString edgeId() const;
+    TextCardItem *sourceCard() const;
+    TextCardItem *targetCard() const;
+
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
 private:
-    TextCardItem *m_fromCard = nullptr;
-    TextCardItem *m_toCard = nullptr;
+    void drawArrowHead(QPainterPath &path, const QPointF &tip, const QPointF &from) const;
+
     CanvasEdge m_data;
+    TextCardItem *m_source;
+    TextCardItem *m_target;
 };
 
 } // namespace Canvas
