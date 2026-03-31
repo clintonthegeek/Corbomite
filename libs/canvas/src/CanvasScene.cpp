@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas/CanvasScene.h"
+#include "canvas/CanvasCommands.h"
 #include "canvas/CanvasDocument.h"
 #include "canvas/CanvasTool.h"
 #include "canvas/TextCardItem.h"
@@ -337,14 +338,12 @@ void CanvasScene::finishInlineEdit()
     // Disconnect the focusChanged signal we connected
     disconnect(qApp, &QApplication::focusChanged, this, nullptr);
 
-    // Update the card and document
+    // Update the card and document via undo command
     if (auto *card = textCardItem(nodeId)) {
-        CanvasNode data = card->nodeData();
-        data.text = newText;
-        card->setNodeData(data);
-
-        if (m_document) {
-            m_document->updateNode(data);
+        const QString oldText = card->nodeData().text;
+        if (m_document && oldText != newText) {
+            m_undoStack->push(
+                new CmdEditText(m_document, nodeId, oldText, newText));
         }
     }
 }
@@ -492,20 +491,20 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         };
         for (const auto &c : colors) {
             colorMenu->addAction(c.name, [this, cardItem, code = c.code]() {
-                CanvasNode data = cardItem->nodeData();
-                data.color = code;
-                cardItem->setNodeData(data);
-                if (m_document)
-                    m_document->updateNode(data);
+                if (!m_document)
+                    return;
+                const QString oldColor = cardItem->nodeData().color;
+                m_undoStack->push(
+                    new CmdChangeColor(m_document, cardItem->nodeId(), oldColor, code));
             });
         }
         colorMenu->addSeparator();
         colorMenu->addAction(QStringLiteral("Remove Color"), [this, cardItem]() {
-            CanvasNode data = cardItem->nodeData();
-            data.color.clear();
-            cardItem->setNodeData(data);
-            if (m_document)
-                m_document->updateNode(data);
+            if (!m_document)
+                return;
+            const QString oldColor = cardItem->nodeData().color;
+            m_undoStack->push(
+                new CmdChangeColor(m_document, cardItem->nodeId(), oldColor, QString()));
         });
 
         menu.addAction(QStringLiteral("Duplicate"), [this, cardItem, scenePos]() {
@@ -515,21 +514,15 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             data.id = CanvasDocument::generateId();
             data.x += 20;
             data.y += 20;
-            m_document->addNode(data);
+            m_undoStack->push(new CmdAddCard(m_document, data));
         });
 
         menu.addSeparator();
         menu.addAction(QStringLiteral("Delete"), [this, cardItem]() {
             if (!m_document)
                 return;
-            const QString nodeId = cardItem->nodeId();
-            // Remove connected edges first
-            const auto connectedEdges = m_document->edgesForNode(nodeId);
-            for (const auto &edge : connectedEdges) {
-                removeEdgeItem(edge.id);
-            }
-            removeTextCardItem(nodeId);
-            m_document->removeNode(nodeId);
+            m_undoStack->push(
+                new CmdRemoveCard(m_document, cardItem->nodeId()));
         });
     } else if (grpItem) {
         // Right-click on a GroupItem
@@ -549,20 +542,20 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         };
         for (const auto &c : colors) {
             colorMenu->addAction(c.name, [this, grpItem, code = c.code]() {
-                CanvasNode data = grpItem->nodeData();
-                data.color = code;
-                grpItem->setNodeData(data);
-                if (m_document)
-                    m_document->updateNode(data);
+                if (!m_document)
+                    return;
+                const QString oldColor = grpItem->nodeData().color;
+                m_undoStack->push(
+                    new CmdChangeColor(m_document, grpItem->nodeId(), oldColor, code));
             });
         }
         colorMenu->addSeparator();
         colorMenu->addAction(QStringLiteral("Remove Color"), [this, grpItem]() {
-            CanvasNode data = grpItem->nodeData();
-            data.color.clear();
-            grpItem->setNodeData(data);
-            if (m_document)
-                m_document->updateNode(data);
+            if (!m_document)
+                return;
+            const QString oldColor = grpItem->nodeData().color;
+            m_undoStack->push(
+                new CmdChangeColor(m_document, grpItem->nodeId(), oldColor, QString()));
         });
 
         menu.addAction(QStringLiteral("Duplicate"), [this, grpItem]() {
@@ -572,16 +565,15 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             data.id = CanvasDocument::generateId();
             data.x += 20;
             data.y += 20;
-            m_document->addNode(data);
+            m_undoStack->push(new CmdAddCard(m_document, data));
         });
 
         menu.addSeparator();
         menu.addAction(QStringLiteral("Delete"), [this, grpItem]() {
             if (!m_document)
                 return;
-            const QString nodeId = grpItem->nodeId();
-            removeGroupItem(nodeId);
-            m_document->removeNode(nodeId);
+            m_undoStack->push(
+                new CmdRemoveCard(m_document, grpItem->nodeId()));
         });
     } else if (edgItem) {
         // Right-click on an EdgeItem
@@ -642,9 +634,8 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         menu.addAction(QStringLiteral("Delete"), [this, edgItem]() {
             if (!m_document)
                 return;
-            const QString edgeId = edgItem->edgeId();
-            removeEdgeItem(edgeId);
-            m_document->removeEdge(edgeId);
+            m_undoStack->push(
+                new CmdRemoveEdge(m_document, edgItem->edgeId()));
         });
     } else {
         // Right-click on empty space
@@ -658,7 +649,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             node.y = qRound(scenePos.y());
             node.width = 250;
             node.height = 100;
-            m_document->addNode(node);
+            m_undoStack->push(new CmdAddCard(m_document, node));
         });
 
         menu.addAction(QStringLiteral("New Group"), [this, scenePos]() {
@@ -672,7 +663,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             node.width = 400;
             node.height = 300;
             node.label = QStringLiteral("Group");
-            m_document->addNode(node);
+            m_undoStack->push(new CmdAddCard(m_document, node));
         });
     }
 

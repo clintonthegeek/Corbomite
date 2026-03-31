@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas/CanvasTool.h"
 #include "canvas/CanvasScene.h"
+#include "canvas/CanvasCommands.h"
 #include "canvas/CanvasDocument.h"
 #include "canvas/TextCardItem.h"
 #include "canvas/GroupItem.h"
@@ -10,6 +11,7 @@
 #include <QGraphicsRectItem>
 #include <QGraphicsLineItem>
 #include <QKeyEvent>
+#include <QUndoStack>
 #include <QtMath>
 
 namespace Canvas {
@@ -231,40 +233,55 @@ void SelectMoveTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 
     switch (m_dragMode) {
     case DragMode::Resize: {
-        // Finalize resize — update document with new geometry
+        // Finalize resize — push undo command
         if (m_resizeItem && m_scene->document()) {
+            const QRect oldRect(qRound(m_resizeOriginalPos.x()),
+                                qRound(m_resizeOriginalPos.y()),
+                                qRound(m_resizeOriginalRect.width()),
+                                qRound(m_resizeOriginalRect.height()));
+            QString nodeId;
+            QRect newRect;
             if (auto *card = dynamic_cast<TextCardItem *>(m_resizeItem)) {
-                m_scene->document()->updateNode(card->nodeData());
+                const CanvasNode data = card->nodeData();
+                nodeId = data.id;
+                newRect = QRect(data.x, data.y, data.width, data.height);
             } else if (auto *group = dynamic_cast<GroupItem *>(m_resizeItem)) {
-                m_scene->document()->updateNode(group->nodeData());
+                const CanvasNode data = group->nodeData();
+                nodeId = data.id;
+                newRect = QRect(data.x, data.y, data.width, data.height);
+            }
+            if (!nodeId.isEmpty() && oldRect != newRect) {
+                m_scene->undoStack()->push(
+                    new CmdResizeCard(m_scene->document(), nodeId, oldRect, newRect));
             }
         }
-        // TODO: push CmdResizeCard undo command (Task 6)
         m_resizeItem = nullptr;
         m_resizeMode = 0;
         break;
     }
 
     case DragMode::Move: {
-        // Finalize move — update document with new positions
+        // Finalize move — push undo command
         if (m_scene->document()) {
+            QHash<QString, QPointF> oldPositions;
+            QHash<QString, QPointF> newPositions;
             for (auto it = m_initialPositions.constBegin(); it != m_initialPositions.constEnd(); ++it) {
+                QString nodeId;
                 if (auto *card = dynamic_cast<TextCardItem *>(it.key())) {
-                    CanvasNode data = card->nodeData();
-                    data.x = qRound(card->pos().x());
-                    data.y = qRound(card->pos().y());
-                    card->setNodeData(data);
-                    m_scene->document()->updateNode(data);
+                    nodeId = card->nodeId();
                 } else if (auto *group = dynamic_cast<GroupItem *>(it.key())) {
-                    CanvasNode data = group->nodeData();
-                    data.x = qRound(group->pos().x());
-                    data.y = qRound(group->pos().y());
-                    group->setNodeData(data);
-                    m_scene->document()->updateNode(data);
+                    nodeId = group->nodeId();
+                }
+                if (!nodeId.isEmpty()) {
+                    oldPositions.insert(nodeId, it.value());
+                    newPositions.insert(nodeId, it.key()->pos());
                 }
             }
+            if (!oldPositions.isEmpty() && oldPositions != newPositions) {
+                m_scene->undoStack()->push(
+                    new CmdMoveCards(m_scene->document(), oldPositions, newPositions));
+            }
         }
-        // TODO: push CmdMoveCards undo command (Task 6)
         m_initialPositions.clear();
         break;
     }
@@ -308,7 +325,7 @@ void SelectMoveTool::keyPressEvent(QKeyEvent *event)
     switch (event->key()) {
     case Qt::Key_Delete:
     case Qt::Key_Backspace: {
-        // Remove all selected items
+        // Remove all selected items via undo commands
         if (!m_scene->document())
             break;
 
@@ -325,25 +342,23 @@ void SelectMoveTool::keyPressEvent(QKeyEvent *event)
             }
         }
 
-        // Remove edges first (they reference nodes)
+        // Use a parent command so the entire deletion is a single undo step
+        auto *parentCmd = new QUndoCommand(QObject::tr("Delete Selection"));
+
+        // Remove standalone edge selections first
         for (const auto &edgeId : edgeIds) {
-            m_scene->removeEdgeItem(edgeId);
-            m_scene->document()->removeEdge(edgeId);
+            new CmdRemoveEdge(m_scene->document(), edgeId, parentCmd);
         }
+        // Remove cards (CmdRemoveCard saves connected edges for undo)
         for (const auto &nodeId : cardIds) {
-            // removeNode in document also removes connected edges
-            // so remove their scene items first
-            const auto connectedEdges = m_scene->document()->edgesForNode(nodeId);
-            for (const auto &edge : connectedEdges) {
-                m_scene->removeEdgeItem(edge.id);
-            }
-            m_scene->removeTextCardItem(nodeId);
-            m_scene->document()->removeNode(nodeId);
+            new CmdRemoveCard(m_scene->document(), nodeId, parentCmd);
         }
+        // Remove groups
         for (const auto &nodeId : groupIds) {
-            m_scene->removeGroupItem(nodeId);
-            m_scene->document()->removeNode(nodeId);
+            new CmdRemoveCard(m_scene->document(), nodeId, parentCmd);
         }
+
+        m_scene->undoStack()->push(parentCmd);
         break;
     }
 
@@ -408,20 +423,17 @@ void CreateCardTool::mousePressEvent(QGraphicsSceneMouseEvent *event)
     node.width = 250;
     node.height = 100;
 
-    // Add to document
-    m_scene->document()->addNode(node);
-
-    // Create graphics item
-    auto *item = m_scene->addTextCardItem(node);
+    // Add via undo command (redo() calls doc->addNode which emits nodeAdded,
+    // and the scene's onNodeAdded handler creates the graphics item)
+    m_scene->undoStack()->push(new CmdAddCard(m_scene->document(), node));
 
     // Select the new card
     m_scene->clearSelection();
-    item->setSelected(true);
+    if (auto *item = m_scene->textCardItem(node.id)) {
+        item->setSelected(true);
+    }
 
     // Switch back to SelectMoveTool
-    // The tool manager (CanvasView or whoever manages tools) handles tool switching.
-    // We signal that by finding the SelectMoveTool among the scene's children.
-    // For now, look for it as a sibling owned by the same parent.
     auto *selectTool = m_scene->findChild<SelectMoveTool *>();
     if (selectTool) {
         m_scene->setActiveTool(selectTool);
@@ -566,7 +578,7 @@ void CreateEdgeTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
     auto nearResult = findNearCard(event->scenePos());
 
     if (nearResult.card && nearResult.card != m_sourceCard) {
-        // Create the edge
+        // Create the edge via undo command
         CanvasEdge edge;
         edge.id = CanvasDocument::generateId();
         edge.fromNode = m_sourceCard->nodeId();
@@ -576,8 +588,9 @@ void CreateEdgeTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
         edge.fromEnd = EndType::None;
         edge.toEnd = EndType::Arrow;
 
-        m_scene->document()->addEdge(edge);
-        m_scene->addEdgeItemToScene(m_sourceCard, nearResult.card, edge);
+        // redo() calls doc->addEdge which emits edgeAdded,
+        // and the scene's onEdgeAdded handler creates the graphics item
+        m_scene->undoStack()->push(new CmdAddEdge(m_scene->document(), edge));
     }
     // Else: released on empty space or same card — cancel
 

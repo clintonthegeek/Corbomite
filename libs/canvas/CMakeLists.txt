@@ -12,6 +12,7 @@ add_library(canvas STATIC
     src/CanvasView.cpp
     src/CanvasScene.cpp
     src/CanvasTool.cpp
+    src/CanvasCommands.cpp
     src/TextCardItem.cpp
     src/GroupItem.cpp
     src/EdgeItem.cpp
@@ -19,6 +20,7 @@ add_library(canvas STATIC
     include/canvas/CanvasView.h
     include/canvas/CanvasScene.h
     include/canvas/CanvasTool.h
+    include/canvas/CanvasCommands.h
     include/canvas/TextCardItem.h
     include/canvas/GroupItem.h
     include/canvas/EdgeItem.h

@@ -162,7 +162,7 @@ QVector<QGraphicsItem *> GroupItem::containedItems() const
     for (auto *item : scene()->items()) {
         if (item == this)
             continue;
-        if (qgraphicsitem_cast<GroupItem *>(item))
+        if (dynamic_cast<GroupItem *>(item))
             continue; // Skip other groups
         if (!dynamic_cast<QGraphicsObject *>(item))
             continue; // Skip non-objects (edges are QGraphicsPathItem, not QGraphicsObject)
