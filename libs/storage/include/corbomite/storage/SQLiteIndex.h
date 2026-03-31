@@ -42,6 +42,7 @@ public:
     QVector<LinkInfo> backlinksFor(const QString &targetPath) const;
     QVector<LinkInfo> outlinksFor(const QString &sourcePath) const;
     QVector<QString> orphanLinks() const;
+    QVector<LinkInfo> allLinks() const;
 
     // Tag queries
     QStringList allTags() const;

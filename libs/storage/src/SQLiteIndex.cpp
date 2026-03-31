@@ -254,6 +254,26 @@ QVector<QString> SQLiteIndex::orphanLinks() const
     return results;
 }
 
+QVector<LinkInfo> SQLiteIndex::allLinks() const
+{
+    QVector<LinkInfo> results;
+    if (!m_isOpen) return results;
+
+    QSqlQuery q(QSqlDatabase::database(m_connectionName));
+    q.exec(QStringLiteral(
+        "SELECT source_path, target_path, link_type, display_text FROM links"));
+
+    while (q.next()) {
+        LinkInfo info;
+        info.sourcePath = q.value(0).toString();
+        info.targetPath = q.value(1).toString();
+        info.linkType = q.value(2).toString();
+        info.displayText = q.value(3).toString();
+        results.append(info);
+    }
+    return results;
+}
+
 // --- Tag queries ---
 
 QStringList SQLiteIndex::allTags() const
