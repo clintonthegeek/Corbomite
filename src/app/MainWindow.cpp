@@ -10,6 +10,8 @@
 #include "sidebar/BacklinksPanel.h"
 #include "sidebar/OutlinksPanel.h"
 #include "sidebar/OutlinePanel.h"
+#include "graph/LocalGraphPanel.h"
+#include "graph/GraphViewTab.h"
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NoteService.h"
@@ -187,6 +189,12 @@ void MainWindow::setupActions()
     ac->setDefaultShortcut(searchVault, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F));
     connect(searchVault, &QAction::triggered, this, &MainWindow::showSearchPanel);
 
+    auto *graphView = ac->addAction(QStringLiteral("graph_view"));
+    graphView->setText(i18n("Graph View"));
+    graphView->setIcon(QIcon::fromTheme(QStringLiteral("preferences-system-network")));
+    ac->setDefaultShortcut(graphView, QKeySequence(Qt::CTRL | Qt::Key_G));
+    connect(graphView, &QAction::triggered, this, &MainWindow::openGraphView);
+
     auto *toggleMode = ac->addAction(QStringLiteral("editor_toggle_mode"));
     toggleMode->setText(i18n("Toggle Reading Mode"));
     toggleMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
@@ -311,6 +319,19 @@ void MainWindow::setupSidebars()
         editor->setTextCursor(cursor);
         editor->centerCursor();
     });
+
+    // Right sidebar: Local Graph
+    auto *localGraphView = createToolView(
+        nullptr,
+        QStringLiteral("local_graph_panel"),
+        KMultiTabBar::Right,
+        QIcon::fromTheme(QStringLiteral("preferences-system-network")),
+        i18n("Local Graph")
+    );
+    m_localGraphPanel = new LocalGraphPanel(localGraphView);
+    localGraphView->layout()->addWidget(m_localGraphPanel);
+    connect(m_localGraphPanel, &LocalGraphPanel::noteActivated,
+            this, &MainWindow::onNoteActivated);
 }
 
 void MainWindow::setupStatusBar()
@@ -490,6 +511,8 @@ void MainWindow::onVaultOpened()
     m_backlinksPanel->setIndex(m_searchIndex);
     m_outlinksPanel->setIndex(m_searchIndex);
     m_outlinksPanel->setVaultModel(vault);
+    m_localGraphPanel->setIndex(m_searchIndex);
+    m_localGraphPanel->setVaultModel(vault);
 
     // Update sidebar panels when active note changes
     connect(m_editorManager, &EditorViewManager::activeEditorChanged,
@@ -498,10 +521,12 @@ void MainWindow::onVaultOpened()
             m_backlinksPanel->setCurrentNote(editor->noteDocument());
             m_outlinksPanel->setCurrentNote(editor->noteDocument());
             m_outlinePanel->setCurrentNote(editor->noteDocument());
+            m_localGraphPanel->setCurrentNote(editor->noteDocument());
         } else {
             m_backlinksPanel->setCurrentNote(nullptr);
             m_outlinksPanel->setCurrentNote(nullptr);
             m_outlinePanel->setCurrentNote(nullptr);
+            m_localGraphPanel->setCurrentNote(nullptr);
         }
     });
 
@@ -516,6 +541,10 @@ void MainWindow::onVaultOpened()
 
     // Connect internal link navigation from preview widgets
     connect(m_editorManager->activeViewSpace(), &EditorViewSpace::internalLinkClicked,
+            this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
+
+    // Connect graph view note navigation
+    connect(m_editorManager, &EditorViewManager::graphNoteActivated,
             this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
 
     // Create session manager and restore session
@@ -557,6 +586,9 @@ void MainWindow::onVaultClosed()
     m_outlinksPanel->setVaultModel(nullptr);
     m_outlinksPanel->setCurrentNote(nullptr);
     m_outlinePanel->setCurrentNote(nullptr);
+    m_localGraphPanel->setIndex(nullptr);
+    m_localGraphPanel->setVaultModel(nullptr);
+    m_localGraphPanel->setCurrentNote(nullptr);
 
     delete m_searchIndex;
     m_searchIndex = nullptr;
@@ -571,6 +603,12 @@ void MainWindow::onVaultClosed()
 #else
         QStringLiteral("Corbomite"));
 #endif
+}
+
+void MainWindow::openGraphView()
+{
+    if (!m_vaultService->isOpen() || !m_searchIndex) return;
+    m_editorManager->openGraphView(m_searchIndex, m_vaultService->vault());
 }
 
 void MainWindow::showSearchPanel()

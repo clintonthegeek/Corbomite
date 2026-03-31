@@ -19,6 +19,7 @@ class SQLiteIndex;
 class BacklinksPanel;
 class OutlinksPanel;
 class OutlinePanel;
+class LocalGraphPanel;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -46,6 +47,7 @@ private:
     void showQuickSwitcher();
     void showCommandPalette();
     void showSearchPanel();
+    void openGraphView();
     void toggleEditorMode();
     void onVaultOpened();
     void onVaultClosed();
@@ -65,6 +67,7 @@ private:
     BacklinksPanel *m_backlinksPanel = nullptr;
     OutlinksPanel *m_outlinksPanel = nullptr;
     OutlinePanel *m_outlinePanel = nullptr;
+    LocalGraphPanel *m_localGraphPanel = nullptr;
 };
 
 } // namespace Corbomite

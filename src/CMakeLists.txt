@@ -27,6 +27,7 @@ add_library(CorbomiteApp STATIC
     dialogs/QuickSwitcher.cpp
     graph/GraphDataBuilder.cpp
     graph/GraphViewTab.cpp
+    graph/LocalGraphPanel.cpp
 )
 
 target_link_libraries(CorbomiteApp
