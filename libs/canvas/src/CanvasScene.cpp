@@ -6,6 +6,7 @@
 #include "canvas/GroupItem.h"
 #include "canvas/EdgeItem.h"
 #include <QUndoStack>
+#include <QKeyEvent>
 
 namespace Canvas {
 
@@ -19,6 +20,51 @@ void CanvasScene::setDocument(CanvasDocument *doc)
 {
     m_document = doc;
     // TODO: sync items from document
+}
+
+CanvasDocument *CanvasScene::document() const
+{
+    return m_document;
+}
+
+TextCardItem *CanvasScene::addTextCardItem(const CanvasNode &node)
+{
+    auto *item = new TextCardItem(node);
+    addItem(item);
+    m_textCardItems.insert(node.id, item);
+    return item;
+}
+
+GroupItem *CanvasScene::addGroupItemToScene(const CanvasNode &node)
+{
+    auto *item = new GroupItem(node);
+    addItem(item);
+    m_groupItems.insert(node.id, item);
+    return item;
+}
+
+EdgeItem *CanvasScene::addEdgeItemToScene(TextCardItem *from, TextCardItem *to, const CanvasEdge &edge)
+{
+    auto *item = new EdgeItem(from, to, edge);
+    addItem(item);
+    m_edgeItems.insert(edge.id, item);
+    return item;
+}
+
+void CanvasScene::removeTextCardItem(const QString &id)
+{
+    if (auto *item = m_textCardItems.take(id)) {
+        removeItem(item);
+        delete item;
+    }
+}
+
+void CanvasScene::removeEdgeItem(const QString &id)
+{
+    if (auto *item = m_edgeItems.take(id)) {
+        removeItem(item);
+        delete item;
+    }
 }
 
 void CanvasScene::setActiveTool(CanvasTool *tool)
@@ -80,6 +126,15 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
         return;
     }
     QGraphicsScene::mouseReleaseEvent(event);
+}
+
+void CanvasScene::keyPressEvent(QKeyEvent *event)
+{
+    if (m_activeTool) {
+        m_activeTool->keyPressEvent(event);
+        return;
+    }
+    QGraphicsScene::keyPressEvent(event);
 }
 
 void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)

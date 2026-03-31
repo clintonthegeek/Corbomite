@@ -3,6 +3,7 @@
 
 #include <QGraphicsScene>
 #include <QHash>
+#include "CanvasTypes.h"
 
 class QUndoStack;
 
@@ -21,6 +22,7 @@ public:
     explicit CanvasScene(QObject *parent = nullptr);
 
     void setDocument(CanvasDocument *doc);
+    CanvasDocument *document() const;
 
     // Tool management
     void setActiveTool(CanvasTool *tool);
@@ -30,6 +32,13 @@ public:
     TextCardItem *textCardItem(const QString &id) const;
     GroupItem *groupItem(const QString &id) const;
     EdgeItem *edgeItem(const QString &id) const;
+
+    // Item management (used by tools and undo commands)
+    TextCardItem *addTextCardItem(const CanvasNode &node);
+    GroupItem *addGroupItemToScene(const CanvasNode &node);
+    EdgeItem *addEdgeItemToScene(TextCardItem *from, TextCardItem *to, const CanvasEdge &edge);
+    void removeTextCardItem(const QString &id);
+    void removeEdgeItem(const QString &id);
 
     // Undo
     QUndoStack *undoStack();
@@ -41,6 +50,7 @@ protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
     void contextMenuEvent(QGraphicsSceneContextMenuEvent *event) override;
 
 private:
