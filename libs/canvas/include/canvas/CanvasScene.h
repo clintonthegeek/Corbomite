@@ -6,11 +6,14 @@
 #include "CanvasTypes.h"
 
 class QUndoStack;
+class QGraphicsProxyWidget;
+class QTextEdit;
 
 namespace Canvas {
 
 class CanvasDocument;
 class CanvasTool;
+class SelectMoveTool;
 class TextCardItem;
 class GroupItem;
 class EdgeItem;
@@ -38,6 +41,7 @@ public:
     GroupItem *addGroupItemToScene(const CanvasNode &node);
     EdgeItem *addEdgeItemToScene(TextCardItem *from, TextCardItem *to, const CanvasEdge &edge);
     void removeTextCardItem(const QString &id);
+    void removeGroupItem(const QString &id);
     void removeEdgeItem(const QString &id);
 
     // Undo
@@ -53,13 +57,35 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
     void contextMenuEvent(QGraphicsSceneContextMenuEvent *event) override;
 
+private Q_SLOTS:
+    void onNodeAdded(const QString &id);
+    void onNodeRemoved(const QString &id);
+    void onNodeChanged(const QString &id);
+    void onEdgeAdded(const QString &id);
+    void onEdgeRemoved(const QString &id);
+    void beginInlineEdit(TextCardItem *card);
+    void beginGroupLabelEdit(GroupItem *group);
+    void finishInlineEdit();
+    void finishGroupLabelEdit();
+
 private:
+    void populateFromDocument();
+    void clearAllItems();
+
     CanvasDocument *m_document = nullptr;
     CanvasTool *m_activeTool = nullptr;
+    SelectMoveTool *m_defaultTool = nullptr;
     QUndoStack *m_undoStack = nullptr;
     QHash<QString, TextCardItem *> m_textCardItems;
     QHash<QString, GroupItem *> m_groupItems;
     QHash<QString, EdgeItem *> m_edgeItems;
+
+    // Inline editing state
+    QGraphicsProxyWidget *m_editProxy = nullptr;
+    QTextEdit *m_editWidget = nullptr;
+    QString m_editingNodeId;
+    QGraphicsProxyWidget *m_labelEditProxy = nullptr;
+    QString m_editingGroupId;
 };
 
 } // namespace Canvas

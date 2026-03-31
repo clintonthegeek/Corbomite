@@ -312,13 +312,14 @@ void SelectMoveTool::keyPressEvent(QKeyEvent *event)
         if (!m_scene->document())
             break;
 
-        QStringList nodeIds;
+        QStringList cardIds;
+        QStringList groupIds;
         QStringList edgeIds;
         for (auto *item : selectedItems) {
             if (auto *card = dynamic_cast<TextCardItem *>(item)) {
-                nodeIds.append(card->nodeId());
+                cardIds.append(card->nodeId());
             } else if (auto *group = dynamic_cast<GroupItem *>(item)) {
-                nodeIds.append(group->nodeId());
+                groupIds.append(group->nodeId());
             } else if (auto *edge = dynamic_cast<EdgeItem *>(item)) {
                 edgeIds.append(edge->edgeId());
             }
@@ -329,7 +330,7 @@ void SelectMoveTool::keyPressEvent(QKeyEvent *event)
             m_scene->removeEdgeItem(edgeId);
             m_scene->document()->removeEdge(edgeId);
         }
-        for (const auto &nodeId : nodeIds) {
+        for (const auto &nodeId : cardIds) {
             // removeNode in document also removes connected edges
             // so remove their scene items first
             const auto connectedEdges = m_scene->document()->edgesForNode(nodeId);
@@ -337,6 +338,10 @@ void SelectMoveTool::keyPressEvent(QKeyEvent *event)
                 m_scene->removeEdgeItem(edge.id);
             }
             m_scene->removeTextCardItem(nodeId);
+            m_scene->document()->removeNode(nodeId);
+        }
+        for (const auto &nodeId : groupIds) {
+            m_scene->removeGroupItem(nodeId);
             m_scene->document()->removeNode(nodeId);
         }
         break;
