@@ -353,6 +353,101 @@ private Q_SLOTS:
         // Old target should have no backlinks
         QCOMPARE(index.backlinksFor(QStringLiteral("OldTarget.md")).size(), 0);
     }
+
+    // --- Link repair tests ---
+
+    void testRepairLinksBasic()
+    {
+        QTemporaryDir tmp;
+        QString vault = tmp.path() + "/vault";
+        QDir().mkpath(vault);
+
+        // Create source note that links to target
+        QFile src(vault + "/source.md");
+        src.open(QIODevice::WriteOnly);
+        src.write("See [[OldNote]] for details.\n");
+        src.close();
+
+        // Create the target note
+        QFile target(vault + "/OldNote.md");
+        target.open(QIODevice::WriteOnly);
+        target.write("I am the target.\n");
+        target.close();
+
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + "/index.sqlite");
+        index.rebuildIndex(vault);
+
+        // Verify link exists
+        QCOMPARE(index.backlinksFor(QStringLiteral("OldNote.md")).size(), 1);
+
+        // Rename the target
+        QFile::rename(vault + "/OldNote.md", vault + "/NewNote.md");
+
+        // Repair links
+        int modified = index.repairLinks(
+            QStringLiteral("OldNote.md"),
+            QStringLiteral("NewNote.md"),
+            vault);
+
+        QCOMPARE(modified, 1);
+
+        // Verify source file content was updated
+        QFile updated(vault + "/source.md");
+        updated.open(QIODevice::ReadOnly);
+        QString content = QString::fromUtf8(updated.readAll());
+        QVERIFY(content.contains(QStringLiteral("[[NewNote]]")));
+        QVERIFY(!content.contains(QStringLiteral("[[OldNote]]")));
+
+        // Verify link index was updated
+        QCOMPARE(index.backlinksFor(QStringLiteral("OldNote.md")).size(), 0);
+        QCOMPARE(index.backlinksFor(QStringLiteral("NewNote.md")).size(), 1);
+    }
+
+    void testRepairLinksWithAlias()
+    {
+        QTemporaryDir tmp;
+        QString vault = tmp.path() + "/vault";
+        QDir().mkpath(vault);
+
+        QFile src(vault + "/source.md");
+        src.open(QIODevice::WriteOnly);
+        src.write("See [[OldNote|click here]] for info.\n");
+        src.close();
+
+        QFile target(vault + "/OldNote.md");
+        target.open(QIODevice::WriteOnly);
+        target.write("Target.\n");
+        target.close();
+
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + "/index.sqlite");
+        index.rebuildIndex(vault);
+
+        QFile::rename(vault + "/OldNote.md", vault + "/NewNote.md");
+        index.repairLinks(QStringLiteral("OldNote.md"), QStringLiteral("NewNote.md"), vault);
+
+        QFile updated(vault + "/source.md");
+        updated.open(QIODevice::ReadOnly);
+        QString content = QString::fromUtf8(updated.readAll());
+        QVERIFY(content.contains(QStringLiteral("[[NewNote|click here]]")));
+    }
+
+    void testRepairLinksNoMatchReturnsZero()
+    {
+        QTemporaryDir tmp;
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + "/index.sqlite");
+
+        index.indexNote(QStringLiteral("note.md"), QStringLiteral("Note"),
+                        QStringLiteral("No links here"));
+
+        int modified = index.repairLinks(
+            QStringLiteral("nonexistent.md"),
+            QStringLiteral("other.md"),
+            tmp.path());
+        QCOMPARE(modified, 0);
+    }
 };
 
 QTEST_MAIN(TestSQLiteIndex)
