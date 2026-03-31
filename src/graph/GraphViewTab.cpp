@@ -6,6 +6,8 @@
 #include <forcegraph/ForceGraphView.h>
 
 #include <QVBoxLayout>
+#include <QSet>
+#include <algorithm>
 
 namespace Corbomite {
 
@@ -42,6 +44,33 @@ GraphViewTab::~GraphViewTab()
 void GraphViewTab::buildGraph()
 {
     auto data = GraphDataBuilder::buildGlobalGraph(m_index, m_vault);
+
+    // Cap node count for performance — 6000+ node graphs freeze the UI.
+    // TODO: Implement multilevel coarsening (Handbook Ch. 12.6) for large graphs.
+    static constexpr int MAX_GRAPH_NODES = 1000;
+    if (data.nodes.size() > MAX_GRAPH_NODES) {
+        qWarning() << "Graph too large:" << data.nodes.size() << "nodes. Capping at" << MAX_GRAPH_NODES;
+        // Keep only the most connected nodes
+        std::sort(data.nodes.begin(), data.nodes.end(),
+                  [](const ForceGraph::GraphNode &a, const ForceGraph::GraphNode &b) {
+                      return a.radius > b.radius; // radius encodes degree
+                  });
+        QSet<QString> kept;
+        for (int i = 0; i < MAX_GRAPH_NODES && i < data.nodes.size(); ++i) {
+            kept.insert(data.nodes[i].id);
+        }
+        data.nodes.resize(MAX_GRAPH_NODES);
+
+        // Filter edges to only include kept nodes
+        QVector<ForceGraph::GraphEdge> filteredEdges;
+        for (const auto &edge : data.edges) {
+            if (kept.contains(edge.sourceId) && kept.contains(edge.targetId)) {
+                filteredEdges.append(edge);
+            }
+        }
+        data.edges = filteredEdges;
+    }
+
     m_graphView->setNodes(data.nodes);
     m_graphView->setEdges(data.edges);
     m_engine->start();

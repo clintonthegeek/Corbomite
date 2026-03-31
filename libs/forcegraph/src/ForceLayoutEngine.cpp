@@ -126,7 +126,12 @@ void ForceLayoutEngine::start()
         m_timer = new QTimer(this);
         connect(m_timer, &QTimer::timeout, this, &ForceLayoutEngine::step);
     }
-    m_timer->start(static_cast<int>(TIMER_INTERVAL_MS));
+    // Scale timer interval based on node count to avoid freezing the GUI
+    int interval = static_cast<int>(TIMER_INTERVAL_MS);
+    if (n > 2000) interval = 200;
+    else if (n > 500) interval = 100;
+    else if (n > 200) interval = 50;
+    m_timer->start(interval);
 
     Q_EMIT simulationStarted();
 }

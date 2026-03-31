@@ -8,6 +8,7 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QUuid>
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QRegularExpression>
 
@@ -88,10 +89,14 @@ void SQLiteIndex::rebuildIndex(const QString &vaultRoot)
     query.exec(QStringLiteral("DELETE FROM links"));
     query.exec(QStringLiteral("DELETE FROM note_tags"));
 
+    // Use a transaction for much faster bulk insertion
+    query.exec(QStringLiteral("BEGIN TRANSACTION"));
+
     VaultScanner scanner;
     FileSystemAdapter fs;
     auto notes = scanner.scan(vaultRoot);
 
+    int count = 0;
     for (const auto &meta : notes) {
         auto content = fs.readFile(meta.absolutePath(vaultRoot));
         if (!content.has_value()) continue;
@@ -110,7 +115,14 @@ void SQLiteIndex::rebuildIndex(const QString &vaultRoot)
         // Links and tags
         extractAndInsertLinks(meta.relativePath, text);
         extractAndInsertTags(meta.relativePath, text);
+
+        // Keep UI responsive during large vault indexing
+        if (++count % 100 == 0) {
+            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        }
     }
+
+    query.exec(QStringLiteral("COMMIT"));
 
     Q_EMIT indexReady();
 }
