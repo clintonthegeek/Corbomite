@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "EditorViewSpace.h"
 #include "NoteEditorWidget.h"
+#include "NotePreviewWidget.h"
 #include "corbomite/core/NoteDocument.h"
 #include <QVBoxLayout>
 
@@ -84,6 +85,13 @@ void EditorViewSpace::closeTab(int index)
         editor->deleteLater();
     }
 
+    // Clean up preview widget if any
+    if (auto *preview = m_previews.take(path)) {
+        m_stack->removeWidget(preview);
+        preview->deleteLater();
+    }
+    m_previewModePaths.remove(path);
+
     // Find matching index in TabModel using the public tabPath() API
     for (int i = 0; i < m_tabModel.rowCount(); ++i) {
         if (m_tabModel.tabPath(i) == path) {
@@ -111,6 +119,17 @@ void EditorViewSpace::onTabChanged(int index)
     }
 
     QString path = m_tabBar->tabData(index).toString();
+
+    if (m_previewModePaths.contains(path)) {
+        // Tab is in preview mode — show preview widget
+        if (auto *preview = m_previews.value(path)) {
+            m_stack->setCurrentWidget(preview);
+            m_tabModel.setActiveTab(index);
+            Q_EMIT activeEditorChanged(nullptr);
+            return;
+        }
+    }
+
     if (auto *editor = m_editors.value(path)) {
         m_stack->setCurrentWidget(editor);
         m_tabModel.setActiveTab(index);
@@ -121,6 +140,50 @@ void EditorViewSpace::onTabChanged(int index)
 void EditorViewSpace::onTabCloseRequested(int index)
 {
     closeTab(index);
+}
+
+void EditorViewSpace::toggleEditorMode()
+{
+    int idx = m_tabBar->currentIndex();
+    if (idx < 0) return;
+    QString path = m_tabBar->tabData(idx).toString();
+
+    if (m_previewModePaths.contains(path)) {
+        // Switch from preview to editor
+        m_previewModePaths.remove(path);
+        if (auto *editor = m_editors.value(path)) {
+            m_stack->setCurrentWidget(editor);
+        }
+        Q_EMIT activeEditorChanged(m_editors.value(path));
+    } else {
+        // Switch from editor to preview
+        m_previewModePaths.insert(path);
+        auto *editor = m_editors.value(path);
+        if (!editor || !editor->noteDocument()) return;
+
+        auto *preview = m_previews.value(path);
+        if (!preview) {
+            preview = new NotePreviewWidget(m_stack);
+            m_previews.insert(path, preview);
+            m_stack->addWidget(preview);
+
+            // Forward internal link clicks
+            connect(preview, &NotePreviewWidget::internalLinkClicked,
+                    this, &EditorViewSpace::internalLinkClicked);
+        }
+
+        preview->renderDocument(editor->noteDocument());
+        m_stack->setCurrentWidget(preview);
+        Q_EMIT activeEditorChanged(nullptr); // no active editor in preview mode
+    }
+}
+
+bool EditorViewSpace::isPreviewMode() const
+{
+    int idx = m_tabBar->currentIndex();
+    if (idx < 0) return false;
+    QString path = m_tabBar->tabData(idx).toString();
+    return m_previewModePaths.contains(path);
 }
 
 } // namespace Corbomite

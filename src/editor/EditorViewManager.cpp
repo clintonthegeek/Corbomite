@@ -34,4 +34,14 @@ EditorViewSpace *EditorViewManager::activeViewSpace() const
     return m_viewSpace;
 }
 
+void EditorViewManager::toggleEditorMode()
+{
+    m_viewSpace->toggleEditorMode();
+}
+
+bool EditorViewManager::isPreviewMode() const
+{
+    return m_viewSpace->isPreviewMode();
+}
+
 } // namespace Corbomite

@@ -4,7 +4,10 @@
 #include "editor/EditorViewManager.h"
 #include "editor/EditorViewSpace.h"
 #include "editor/NoteEditorWidget.h"
+#include "editor/NotePreviewWidget.h"
 #include "sidebar/FileExplorerPanel.h"
+#include "sidebar/SearchPanel.h"
+#include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NoteService.h"
 #include "corbomite/models/NotesTreeModel.h"
@@ -173,6 +176,18 @@ void MainWindow::setupActions()
     commandPalette->setIcon(QIcon::fromTheme(QStringLiteral("system-run")));
     ac->setDefaultShortcut(commandPalette, QKeySequence(Qt::CTRL | Qt::Key_P));
     connect(commandPalette, &QAction::triggered, this, &MainWindow::showCommandPalette);
+
+    auto *searchVault = ac->addAction(QStringLiteral("search_vault"));
+    searchVault->setText(i18n("Search Vault"));
+    searchVault->setIcon(QIcon::fromTheme(QStringLiteral("edit-find")));
+    ac->setDefaultShortcut(searchVault, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F));
+    connect(searchVault, &QAction::triggered, this, &MainWindow::showSearchPanel);
+
+    auto *toggleMode = ac->addAction(QStringLiteral("editor_toggle_mode"));
+    toggleMode->setText(i18n("Toggle Reading Mode"));
+    toggleMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
+    ac->setDefaultShortcut(toggleMode, QKeySequence(Qt::CTRL | Qt::Key_E));
+    connect(toggleMode, &QAction::triggered, this, &MainWindow::toggleEditorMode);
 }
 
 void MainWindow::setupEditor()
@@ -227,6 +242,21 @@ void MainWindow::setupSidebars()
             m_vaultService->noteService()->deleteNote(path);
         }
     });
+
+    // Search panel in left sidebar
+    auto *searchToolView = createToolView(
+        nullptr,
+        QStringLiteral("search_panel"),
+        KMultiTabBar::Left,
+        QIcon::fromTheme(QStringLiteral("edit-find")),
+        i18n("Search")
+    );
+
+    m_searchPanel = new SearchPanel(searchToolView);
+    searchToolView->layout()->addWidget(m_searchPanel);
+
+    connect(m_searchPanel, &SearchPanel::noteActivated,
+            this, &MainWindow::onNoteActivated);
 }
 
 void MainWindow::setupStatusBar()
@@ -392,6 +422,27 @@ void MainWindow::onVaultOpened()
                 this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
     }, Qt::UniqueConnection);
 
+    // Create search index
+    delete m_searchIndex;
+    m_searchIndex = new SQLiteIndex(this);
+    m_searchIndex->open(vault->configPath() + QStringLiteral("/index.sqlite"));
+    m_searchIndex->rebuildIndex(vault->path());
+    // TODO: Move indexing to background thread for large vaults
+    m_searchPanel->setIndex(m_searchIndex);
+
+    // Update index on note saves
+    connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
+        if (!m_searchIndex || !m_vaultService->vault()) return;
+        auto *doc = m_vaultService->vault()->cachedDocument(relPath);
+        if (doc) {
+            m_searchIndex->indexNote(relPath, doc->name(), doc->markdown());
+        }
+    }, Qt::UniqueConnection);
+
+    // Connect internal link navigation from preview widgets
+    connect(m_editorManager->activeViewSpace(), &EditorViewSpace::internalLinkClicked,
+            this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
+
     // Create session manager and restore session
     delete m_sessionManager;
     m_sessionManager = new SessionManager(this);
@@ -422,6 +473,10 @@ void MainWindow::onVaultClosed()
     delete m_sessionManager;
     m_sessionManager = nullptr;
 
+    delete m_searchIndex;
+    m_searchIndex = nullptr;
+    m_searchPanel->setIndex(nullptr);
+
     delete m_treeModel;
     m_treeModel = nullptr;
     m_fileExplorer->setModel(nullptr);
@@ -431,6 +486,25 @@ void MainWindow::onVaultClosed()
 #else
         QStringLiteral("Corbomite"));
 #endif
+}
+
+void MainWindow::showSearchPanel()
+{
+    // Show the search toolview and focus its input
+    auto *tv = toolView(QStringLiteral("search_panel"));
+    if (tv) {
+        showToolView(tv);
+        m_searchPanel->focusSearchInput();
+    }
+}
+
+void MainWindow::toggleEditorMode()
+{
+    m_editorManager->toggleEditorMode();
+    // Update status bar
+    if (m_editorManager->isPreviewMode()) {
+        m_cursorPosLabel->setText(i18n("Reading"));
+    }
 }
 
 void MainWindow::onCursorInfoChanged(int line, int column, int wordCount)

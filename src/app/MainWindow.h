@@ -10,10 +10,12 @@ namespace Corbomite {
 class VaultService;
 class EditorViewManager;
 class FileExplorerPanel;
+class SearchPanel;
 class NotesTreeModel;
 class AutosaveReactor;
 class FileWatchReactor;
 class SessionManager;
+class SQLiteIndex;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -37,6 +39,8 @@ private:
     void saveCurrentNote();
     void showQuickSwitcher();
     void showCommandPalette();
+    void showSearchPanel();
+    void toggleEditorMode();
     void onNoteActivated(const QString &relativePath);
     void onVaultOpened();
     void onVaultClosed();
@@ -51,6 +55,8 @@ private:
     AutosaveReactor *m_autosave = nullptr;
     FileWatchReactor *m_fileWatch = nullptr;
     SessionManager *m_sessionManager = nullptr;
+    SearchPanel *m_searchPanel = nullptr;
+    SQLiteIndex *m_searchIndex = nullptr;
 };
 
 } // namespace Corbomite

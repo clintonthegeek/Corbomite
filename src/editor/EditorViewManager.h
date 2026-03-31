@@ -18,6 +18,8 @@ public:
     void openNote(NoteDocument *doc);
     NoteEditorWidget *activeEditor() const;
     EditorViewSpace *activeViewSpace() const;
+    void toggleEditorMode();
+    bool isPreviewMode() const;
 
 Q_SIGNALS:
     void activeEditorChanged(NoteEditorWidget *editor);
