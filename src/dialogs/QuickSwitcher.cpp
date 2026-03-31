@@ -21,7 +21,8 @@ public:
     void setFilterPattern(const QString &pattern)
     {
         m_pattern = pattern;
-        invalidateFilter();
+        beginFilterChange();
+        endFilterChange();
         sort(0); // Re-sort by score
     }
 

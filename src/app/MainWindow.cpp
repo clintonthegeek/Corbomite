@@ -13,7 +13,9 @@
 #include "reactors/FileWatchReactor.h"
 #include "SessionManager.h"
 #include "dialogs/SettingsDialog.h"
+#include "dialogs/QuickSwitcher.h"
 
+#include <KCommandBar>
 #include <KLocalizedString>
 #include <KStandardAction>
 #include <KActionCollection>
@@ -158,6 +160,19 @@ void MainWindow::setupActions()
     auto *zoomReset = ac->addAction(QStringLiteral("view_zoom_reset"));
     zoomReset->setText(i18n("Reset Zoom"));
     ac->setDefaultShortcut(zoomReset, QKeySequence(Qt::CTRL | Qt::Key_0));
+
+    // Navigation actions
+    auto *quickSwitcher = ac->addAction(QStringLiteral("quick_switcher"));
+    quickSwitcher->setText(i18n("Quick Switcher"));
+    quickSwitcher->setIcon(QIcon::fromTheme(QStringLiteral("quickopen")));
+    ac->setDefaultShortcut(quickSwitcher, QKeySequence(Qt::CTRL | Qt::Key_O));
+    connect(quickSwitcher, &QAction::triggered, this, &MainWindow::showQuickSwitcher);
+
+    auto *commandPalette = ac->addAction(QStringLiteral("command_palette"));
+    commandPalette->setText(i18n("Command Palette"));
+    commandPalette->setIcon(QIcon::fromTheme(QStringLiteral("system-run")));
+    ac->setDefaultShortcut(commandPalette, QKeySequence(Qt::CTRL | Qt::Key_P));
+    connect(commandPalette, &QAction::triggered, this, &MainWindow::showCommandPalette);
 }
 
 void MainWindow::setupEditor()
@@ -257,6 +272,65 @@ void MainWindow::saveCurrentNote()
     if (editor && editor->noteDocument()) {
         m_vaultService->noteService()->saveNote(editor->noteDocument());
     }
+}
+
+void MainWindow::showCommandPalette()
+{
+    auto *bar = new KCommandBar(this);
+
+    QList<KCommandBar::ActionGroup> groups;
+
+    // Collect actions from our KActionCollection, grouped by prefix
+    KActionCollection *ac = actionCollection();
+    QList<QAction *> fileActions, viewActions, editActions;
+
+    for (QAction *action : ac->actions()) {
+        QString name = action->objectName();
+        if (name.startsWith(QStringLiteral("file_"))) {
+            fileActions.append(action);
+        } else if (name.startsWith(QStringLiteral("view_"))) {
+            viewActions.append(action);
+        } else {
+            editActions.append(action);
+        }
+    }
+
+    if (!fileActions.isEmpty())
+        groups.append({i18n("File"), fileActions});
+    if (!viewActions.isEmpty())
+        groups.append({i18n("View"), viewActions});
+    if (!editActions.isEmpty())
+        groups.append({i18n("Other"), editActions});
+
+    bar->setActions(groups);
+    bar->show();
+}
+
+void MainWindow::showQuickSwitcher()
+{
+    if (!m_vaultService->isOpen()) return;
+
+    QStringList recent;
+    auto *viewSpace = m_editorManager->activeViewSpace();
+    if (viewSpace) {
+        recent = viewSpace->tabModel()->lruSortedPaths();
+    }
+
+    auto *switcher = new QuickSwitcher(m_vaultService->vault(), recent, this);
+
+    // Position at top-center of window
+    QPoint topCenter = mapToGlobal(QPoint(width() / 2 - 300, 80));
+    switcher->move(topCenter);
+
+    connect(switcher, &QuickSwitcher::noteSelected,
+            this, &MainWindow::onNoteActivated);
+    connect(switcher, &QuickSwitcher::createNoteRequested,
+            this, [this](const QString &name) {
+        auto *doc = m_vaultService->noteService()->createNote(name, QString());
+        if (doc) m_editorManager->openNote(doc);
+    });
+
+    switcher->show();
 }
 
 void MainWindow::onNoteActivated(const QString &relativePath)

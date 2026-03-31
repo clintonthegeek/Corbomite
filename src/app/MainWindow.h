@@ -35,6 +35,8 @@ private:
     void openVaultDialog();
     void createNewNote();
     void saveCurrentNote();
+    void showQuickSwitcher();
+    void showCommandPalette();
     void onNoteActivated(const QString &relativePath);
     void onVaultOpened();
     void onVaultClosed();

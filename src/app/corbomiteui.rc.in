@@ -1,5 +1,5 @@
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="@CORBOMITE_COMPONENT_NAME@" version="1">
+<gui name="@CORBOMITE_COMPONENT_NAME@" version="2">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -9,6 +9,11 @@
       <Separator/>
       <Action name="file_save"/>
       <Separator/>
+    </Menu>
+    <Menu name="go">
+      <text>&amp;Go</text>
+      <Action name="quick_switcher"/>
+      <Action name="command_palette"/>
     </Menu>
     <Menu name="view">
       <text>&amp;View</text>
@@ -21,7 +26,11 @@
   </MenuBar>
   <ToolBar name="mainToolBar" noMerge="1">
     <text>Main Toolbar</text>
+    <Action name="file_open_vault"/>
     <Action name="file_new_note"/>
     <Action name="file_save"/>
+    <Separator/>
+    <Action name="quick_switcher"/>
+    <Action name="command_palette"/>
   </ToolBar>
 </gui>
