@@ -2,6 +2,7 @@
 #include "MainWindow.h"
 #include "VaultService.h"
 #include "editor/EditorViewManager.h"
+#include "editor/EditorViewSpace.h"
 #include "editor/NoteEditorWidget.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "corbomite/models/VaultModel.h"
@@ -10,6 +11,7 @@
 #include "corbomite/core/NoteDocument.h"
 #include "reactors/AutosaveReactor.h"
 #include "reactors/FileWatchReactor.h"
+#include "SessionManager.h"
 #include "dialogs/SettingsDialog.h"
 
 #include <KLocalizedString>
@@ -23,6 +25,8 @@
 #include <QStatusBar>
 #include <QInputDialog>
 #include <QVBoxLayout>
+#include <QJsonArray>
+#include <QJsonDocument>
 
 namespace Corbomite {
 
@@ -51,6 +55,37 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
 }
 
 MainWindow::~MainWindow() = default;
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (m_sessionManager) {
+        // Save window geometry
+        m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
+
+        // Save sidebar state
+        m_sessionManager->saveSidebarState(
+            sidebarsVisible(), 200, // leftVisible, leftWidth (default)
+            false, 200);            // rightVisible, rightWidth (default)
+
+        // Save open tabs
+        auto *viewSpace = m_editorManager->activeViewSpace();
+        if (viewSpace) {
+            auto *tabs = viewSpace->tabModel();
+            QJsonArray tabArray;
+            for (int i = 0; i < tabs->rowCount(); ++i) {
+                QJsonObject tab;
+                tab[QStringLiteral("path")] = tabs->tabPath(i);
+                tabArray.append(tab);
+            }
+            m_sessionManager->saveOpenTabs(tabArray, tabs->activeTabIndex());
+        }
+
+        // Write session data immediately (bypass debounce timer)
+        m_sessionManager->saveNow();
+    }
+
+    CorbomiteMDI::MainWindow::closeEvent(event);
+}
 
 void MainWindow::setupActions()
 {
@@ -248,6 +283,23 @@ void MainWindow::onVaultOpened()
             m_autosave->watchDocument(editor->noteDocument());
         }
     });
+
+    // Create session manager and restore session
+    delete m_sessionManager;
+    m_sessionManager = new SessionManager(this);
+    m_sessionManager->setSessionPath(vault->configPath() + QStringLiteral("/session.json"));
+
+    auto session = m_sessionManager->load();
+    if (session.contains(QStringLiteral("tabs"))) {
+        auto tabs = session[QStringLiteral("tabs")].toArray();
+        for (const auto &tabVal : tabs) {
+            auto tab = tabVal.toObject();
+            QString path = tab[QStringLiteral("path")].toString();
+            if (!path.isEmpty()) {
+                onNoteActivated(path);
+            }
+        }
+    }
 }
 
 void MainWindow::onVaultClosed()
@@ -259,6 +311,8 @@ void MainWindow::onVaultClosed()
     }
     delete m_fileWatch;
     m_fileWatch = nullptr;
+    delete m_sessionManager;
+    m_sessionManager = nullptr;
 
     delete m_treeModel;
     m_treeModel = nullptr;

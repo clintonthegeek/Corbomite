@@ -6,6 +6,7 @@ add_library(CorbomiteApp STATIC
     app/CorbomiteApp.cpp
     app/MainWindow.cpp
     app/VaultService.cpp
+    app/SessionManager.cpp
     mdi/CorbomiteMDI.cpp
     sidebar/FileExplorerPanel.cpp
     editor/NoteEditorWidget.cpp

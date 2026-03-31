@@ -3,6 +3,7 @@
 
 #include "mdi/CorbomiteMDI.h"
 #include <QLabel>
+#include <QCloseEvent>
 
 namespace Corbomite {
 
@@ -12,6 +13,7 @@ class FileExplorerPanel;
 class NotesTreeModel;
 class AutosaveReactor;
 class FileWatchReactor;
+class SessionManager;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -19,6 +21,9 @@ class MainWindow : public CorbomiteMDI::MainWindow {
 public:
     explicit MainWindow(VaultService *vaultService, QWidget *parent = nullptr);
     ~MainWindow() override;
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     void setupActions();
@@ -43,6 +48,7 @@ private:
     QLabel *m_cursorPosLabel = nullptr;
     AutosaveReactor *m_autosave = nullptr;
     FileWatchReactor *m_fileWatch = nullptr;
+    SessionManager *m_sessionManager = nullptr;
 };
 
 } // namespace Corbomite
