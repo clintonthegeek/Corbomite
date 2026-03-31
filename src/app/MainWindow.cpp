@@ -12,6 +12,8 @@
 #include "sidebar/OutlinePanel.h"
 #include "graph/LocalGraphPanel.h"
 #include "graph/GraphViewTab.h"
+#include "canvas/CanvasViewTab.h"
+#include <canvas/CanvasDocument.h>
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NoteService.h"
@@ -159,6 +161,26 @@ void MainWindow::setupActions()
     newNote->setIcon(QIcon::fromTheme(QStringLiteral("document-new")));
     ac->setDefaultShortcut(newNote, QKeySequence(Qt::CTRL | Qt::Key_N));
     connect(newNote, &QAction::triggered, this, &MainWindow::createNewNote);
+
+    auto *newCanvas = ac->addAction(QStringLiteral("file_new_canvas"));
+    newCanvas->setText(i18n("New Canvas"));
+    newCanvas->setIcon(QIcon::fromTheme(QStringLiteral("draw-rectangle")));
+    connect(newCanvas, &QAction::triggered, this, [this]() {
+        if (!m_vaultService->isOpen()) return;
+        bool ok;
+        QString name = QInputDialog::getText(this, i18n("New Canvas"),
+                                              i18n("Canvas name:"), QLineEdit::Normal,
+                                              QString(), &ok);
+        if (ok && !name.isEmpty()) {
+            QString relPath = name + QStringLiteral(".canvas");
+            QString absPath = m_vaultService->vault()->path() + QLatin1Char('/') + relPath;
+            // Create empty canvas file
+            Canvas::CanvasDocument emptyDoc;
+            emptyDoc.saveToFile(absPath);
+            // Open it
+            m_editorManager->openCanvas(absPath);
+        }
+    });
 
     auto *save = ac->addAction(QStringLiteral("file_save"));
     save->setText(i18n("Save"));
@@ -480,6 +502,16 @@ void MainWindow::createNewNote()
 
 void MainWindow::saveCurrentNote()
 {
+    // Check for canvas tab
+    auto *viewSpace = m_editorManager->activeViewSpace();
+    if (viewSpace) {
+        auto *currentWidget = viewSpace->findChild<QStackedWidget *>()->currentWidget();
+        if (auto *canvasTab = qobject_cast<CanvasViewTab *>(currentWidget)) {
+            canvasTab->save();
+            return;
+        }
+    }
+
     auto *editor = m_editorManager->activeEditor();
     if (editor && editor->noteDocument()) {
         m_vaultService->noteService()->saveNote(editor->noteDocument());
@@ -547,6 +579,12 @@ void MainWindow::showQuickSwitcher()
 
 void MainWindow::onNoteActivated(const QString &relativePath)
 {
+    if (relativePath.endsWith(QStringLiteral(".canvas"))) {
+        QString absPath = m_vaultService->vault()->path() + QLatin1Char('/') + relativePath;
+        m_editorManager->openCanvas(absPath);
+        return;
+    }
+
     auto *doc = m_vaultService->noteService()->openNote(relativePath);
     if (doc) {
         m_editorManager->openNote(doc);
@@ -793,6 +831,7 @@ void MainWindow::updateVaultActions()
     };
 
     setEnabled(QStringLiteral("file_new_note"), open);
+    setEnabled(QStringLiteral("file_new_canvas"), open);
     setEnabled(QStringLiteral("file_save"), open);
     setEnabled(QStringLiteral("quick_switcher"), open);
     setEnabled(QStringLiteral("search_vault"), open);

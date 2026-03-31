@@ -26,6 +26,11 @@ void EditorViewManager::openNote(NoteDocument *doc)
     m_viewSpace->openNote(doc);
 }
 
+void EditorViewManager::openCanvas(const QString &filePath)
+{
+    m_viewSpace->openCanvas(filePath);
+}
+
 NoteEditorWidget *EditorViewManager::activeEditor() const
 {
     return m_viewSpace->activeEditor();

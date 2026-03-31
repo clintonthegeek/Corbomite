@@ -3,6 +3,7 @@
 #include "NoteEditorWidget.h"
 #include "NotePreviewWidget.h"
 #include "graph/GraphViewTab.h"
+#include "canvas/CanvasViewTab.h"
 #include "corbomite/core/NoteDocument.h"
 #include <QVBoxLayout>
 #include <QIcon>
@@ -82,6 +83,41 @@ void EditorViewSpace::openNote(NoteDocument *doc)
             this, &EditorViewSpace::cursorInfoChanged);
 }
 
+void EditorViewSpace::openCanvas(const QString &filePath)
+{
+    // Check if already open
+    for (int i = 0; i < m_tabBar->count(); ++i) {
+        if (m_tabBar->tabData(i).toString() == filePath) {
+            m_tabBar->setCurrentIndex(i);
+            return;
+        }
+    }
+
+    auto *canvasTab = new CanvasViewTab(filePath, m_stack);
+    m_stack->addWidget(canvasTab);
+
+    // Extract filename for tab title
+    QString name = filePath.mid(filePath.lastIndexOf(QLatin1Char('/')) + 1);
+    if (name.endsWith(QStringLiteral(".canvas"))) name.chop(7);
+
+    int tabIdx = m_tabBar->addTab(QIcon::fromTheme(QStringLiteral("draw-rectangle")), name);
+    m_tabBar->setTabData(tabIdx, filePath);
+    m_tabBar->setCurrentIndex(tabIdx);
+
+    // Track modification state
+    connect(canvasTab, &CanvasViewTab::modificationChanged, this, [this, filePath](bool modified) {
+        for (int i = 0; i < m_tabBar->count(); ++i) {
+            if (m_tabBar->tabData(i).toString() == filePath) {
+                QString title = filePath.mid(filePath.lastIndexOf(QLatin1Char('/')) + 1);
+                if (title.endsWith(QStringLiteral(".canvas"))) title.chop(7);
+                if (modified) title += QStringLiteral(" \u2022");
+                m_tabBar->setTabText(i, title);
+                break;
+            }
+        }
+    });
+}
+
 void EditorViewSpace::closeTab(int index)
 {
     if (index < 0 || index >= m_tabBar->count()) return;
@@ -97,6 +133,20 @@ void EditorViewSpace::closeTab(int index)
                 m_stack->removeWidget(graph);
                 graph->deleteLater();
                 break;
+            }
+        }
+        return;
+    }
+
+    // Check if this is a canvas tab
+    if (path.endsWith(QStringLiteral(".canvas"))) {
+        for (int i = 0; i < m_stack->count(); ++i) {
+            if (auto *canvas = qobject_cast<CanvasViewTab *>(m_stack->widget(i))) {
+                if (canvas->filePath() == path) {
+                    m_stack->removeWidget(canvas);
+                    canvas->deleteLater();
+                    break;
+                }
             }
         }
         return;
@@ -148,6 +198,20 @@ void EditorViewSpace::onTabChanged(int index)
             if (auto *graph = qobject_cast<GraphViewTab *>(m_stack->widget(i))) {
                 m_stack->setCurrentWidget(graph);
                 break;
+            }
+        }
+        Q_EMIT activeEditorChanged(nullptr);
+        return;
+    }
+
+    // Handle canvas tab
+    if (path.endsWith(QStringLiteral(".canvas"))) {
+        for (int i = 0; i < m_stack->count(); ++i) {
+            if (auto *canvas = qobject_cast<CanvasViewTab *>(m_stack->widget(i))) {
+                if (canvas->filePath() == path) {
+                    m_stack->setCurrentWidget(canvas);
+                    break;
+                }
             }
         }
         Q_EMIT activeEditorChanged(nullptr);

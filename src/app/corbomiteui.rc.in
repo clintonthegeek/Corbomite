@@ -1,5 +1,5 @@
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="@CORBOMITE_COMPONENT_NAME@" version="5">
+<gui name="@CORBOMITE_COMPONENT_NAME@" version="6">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -7,6 +7,7 @@
       <Action name="file_open_recent"/>
       <Separator/>
       <Action name="file_new_note"/>
+      <Action name="file_new_canvas"/>
       <Separator/>
       <Action name="file_save"/>
       <Separator/>

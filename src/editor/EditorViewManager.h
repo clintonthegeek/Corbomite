@@ -18,6 +18,7 @@ public:
     explicit EditorViewManager(QWidget *parent = nullptr);
 
     void openNote(NoteDocument *doc);
+    void openCanvas(const QString &filePath);
     NoteEditorWidget *activeEditor() const;
     EditorViewSpace *activeViewSpace() const;
     void toggleEditorMode();

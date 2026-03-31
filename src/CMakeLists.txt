@@ -28,6 +28,7 @@ add_library(CorbomiteApp STATIC
     graph/GraphDataBuilder.cpp
     graph/GraphViewTab.cpp
     graph/LocalGraphPanel.cpp
+    canvas/CanvasViewTab.cpp
 )
 
 target_link_libraries(CorbomiteApp
@@ -60,5 +61,6 @@ target_include_directories(CorbomiteApp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/reactors
     ${CMAKE_CURRENT_SOURCE_DIR}/dialogs
     ${CMAKE_CURRENT_SOURCE_DIR}/graph
+    ${CMAKE_CURRENT_SOURCE_DIR}/canvas
     ${CMAKE_CURRENT_BINARY_DIR}
 )

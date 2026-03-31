@@ -14,6 +14,7 @@ class NoteDocument;
 class NoteEditorWidget;
 class NotePreviewWidget;
 class GraphViewTab;
+class CanvasViewTab;
 class SQLiteIndex;
 class VaultModel;
 
@@ -29,6 +30,7 @@ public:
     TabModel *tabModel();
     void toggleEditorMode();
     bool isPreviewMode() const;
+    void openCanvas(const QString &filePath);
     void openGraphView(SQLiteIndex *index, VaultModel *vault);
     bool hasGraphView() const;
 
