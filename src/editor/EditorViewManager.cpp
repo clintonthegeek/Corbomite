@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "EditorViewManager.h"
+#include "EditorViewSpace.h"
+#include <QVBoxLayout>
+
+namespace Corbomite {
+
+EditorViewManager::EditorViewManager(QWidget *parent)
+    : QWidget(parent)
+    , m_viewSpace(new EditorViewSpace(this))
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_viewSpace);
+
+    connect(m_viewSpace, &EditorViewSpace::activeEditorChanged,
+            this, &EditorViewManager::activeEditorChanged);
+    connect(m_viewSpace, &EditorViewSpace::cursorInfoChanged,
+            this, &EditorViewManager::cursorInfoChanged);
+}
+
+void EditorViewManager::openNote(NoteDocument *doc)
+{
+    m_viewSpace->openNote(doc);
+}
+
+NoteEditorWidget *EditorViewManager::activeEditor() const
+{
+    return m_viewSpace->activeEditor();
+}
+
+EditorViewSpace *EditorViewManager::activeViewSpace() const
+{
+    return m_viewSpace;
+}
+
+} // namespace Corbomite

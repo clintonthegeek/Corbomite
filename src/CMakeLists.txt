@@ -6,6 +6,9 @@ add_library(CorbomiteApp STATIC
     app/CorbomiteApp.cpp
     app/MainWindow.cpp
     mdi/CorbomiteMDI.cpp
+    editor/NoteEditorWidget.cpp
+    editor/EditorViewSpace.cpp
+    editor/EditorViewManager.cpp
 )
 
 target_link_libraries(CorbomiteApp
@@ -32,5 +35,6 @@ target_include_directories(CorbomiteApp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/app
     ${CMAKE_CURRENT_SOURCE_DIR}/mdi
+    ${CMAKE_CURRENT_SOURCE_DIR}/editor
     ${CMAKE_CURRENT_BINARY_DIR}
 )
