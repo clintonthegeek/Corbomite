@@ -5,3 +5,8 @@ find_package(Qt6 REQUIRED COMPONENTS Test Widgets)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+
+add_executable(tst_quadtree tst_quadtree.cpp)
+add_test(NAME tst_quadtree COMMAND tst_quadtree)
+target_link_libraries(tst_quadtree PRIVATE Qt6::Test forcegraph)
+set_tests_properties(tst_quadtree PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
