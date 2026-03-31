@@ -27,7 +27,7 @@ find_package(KF6IconThemes REQUIRED)
 find_package(KF6Config REQUIRED)
 find_package(KF6ConfigWidgets REQUIRED)
 find_package(KF6DBusAddons REQUIRED)
-find_package(KF6Parts REQUIRED)
+
 
 # Libraries
 add_subdirectory(libs/core)
@@ -76,7 +76,6 @@ target_link_libraries(Corbomite
         KF6::ConfigCore
         KF6::ConfigWidgets
         KF6::DBusAddons
-        KF6::Parts
         CorbomiteApp
 )
 

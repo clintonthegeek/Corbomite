@@ -1455,7 +1455,7 @@ void Sidebar::saveSession(KConfigGroup &config)
 // BEGIN MAIN WINDOW
 
 MainWindow::MainWindow(QWidget *parent)
-    : KParts::MainWindow(parent, Qt::Window)
+    : KXmlGuiWindow(parent, Qt::Window)
     , m_guiClient(new GUIClient(this))
 {
     // central frame for all stuff
@@ -1862,7 +1862,7 @@ void MainWindow::saveSession(KConfigGroup &config)
 
 QWidget *MainWindow::createContainer(QWidget *parent, int index, const QDomElement &element, QAction *&containerAction)
 {
-    QWidget *createdContainer = KParts::MainWindow::createContainer(parent, index, element, containerAction);
+    QWidget *createdContainer = KXmlGuiWindow::createContainer(parent, index, element, containerAction);
     if (element.tagName() == QLatin1String("ToolBar")) {
         KAcceleratorManager::setNoAccel(createdContainer);
     }

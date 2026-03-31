@@ -46,7 +46,12 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     setupEditor();
     setupSidebars();
     setupStatusBar();
-    setupGUI(ToolBar | Keys | StatusBar | Save);
+
+#ifdef CORBOMITE_DEV_BUILD
+    setupGUI(Default, QStringLiteral("corbomite-devui.rc"));
+#else
+    setupGUI(Default, QStringLiteral("corbomiteui.rc"));
+#endif
 
     connect(m_vaultService, &VaultService::vaultOpened, this, &MainWindow::onVaultOpened);
     connect(m_vaultService, &VaultService::vaultClosed, this, &MainWindow::onVaultClosed);
@@ -158,9 +163,8 @@ void MainWindow::setupSidebars()
     );
 
     m_fileExplorer = new FileExplorerPanel(toolView);
-    auto *layout = new QVBoxLayout(toolView);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_fileExplorer);
+    // ToolView already has a QVBoxLayout from CorbomiteMDI — use it
+    toolView->layout()->addWidget(m_fileExplorer);
 
     connect(m_fileExplorer, &FileExplorerPanel::noteActivated,
             this, &MainWindow::onNoteActivated);

@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include <KParts/MainWindow>
+#include <KXmlGuiWindow>
 
 #include <KMultiTabBar>
 #include <KXMLGUIClient>
@@ -387,7 +387,7 @@ Q_SIGNALS:
     void dragEnded();
 };
 
-class MainWindow : public KParts::MainWindow
+class MainWindow : public KXmlGuiWindow
 {
     Q_OBJECT
 

@@ -30,7 +30,6 @@ target_link_libraries(CorbomiteApp
         KF6::ConfigCore
         KF6::ConfigWidgets
         KF6::DBusAddons
-        KF6::Parts
         Corbomite::Core
         Corbomite::Storage
         Corbomite::Models
