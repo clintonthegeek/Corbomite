@@ -1,19 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MainWindow.h"
+#include "VaultService.h"
+#include "editor/EditorViewManager.h"
+#include "editor/NoteEditorWidget.h"
+#include "sidebar/FileExplorerPanel.h"
+#include "corbomite/models/VaultModel.h"
+#include "corbomite/models/NoteService.h"
+#include "corbomite/models/NotesTreeModel.h"
+#include "corbomite/core/NoteDocument.h"
 
-#include <KActionCollection>
 #include <KLocalizedString>
 #include <KStandardAction>
-
+#include <KActionCollection>
+#include <KMessageBox>
+#include <KStandardGuiItem>
 #include <QApplication>
+#include <QFileDialog>
 #include <QLabel>
 #include <QStatusBar>
+#include <QInputDialog>
 #include <QVBoxLayout>
 
 namespace Corbomite {
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     : CorbomiteMDI::MainWindow(parent)
+    , m_vaultService(vaultService)
 {
 #ifdef CORBOMITE_DEV_BUILD
     setObjectName(QStringLiteral("CorbomiteMainWindowDev"));
@@ -23,123 +35,207 @@ MainWindow::MainWindow(QWidget *parent)
     setComponentName(QStringLiteral("corbomite"), i18n("Corbomite"));
 #endif
 
-    resize(1200, 800);
-
     setupActions();
-    setupCentralWidget();
+    setupEditor();
     setupSidebars();
     setupStatusBar();
-
     setupGUI(ToolBar | Keys | StatusBar | Save);
+
+    connect(m_vaultService, &VaultService::vaultOpened, this, &MainWindow::onVaultOpened);
+    connect(m_vaultService, &VaultService::vaultClosed, this, &MainWindow::onVaultClosed);
+
+    resize(1200, 800);
 }
 
 MainWindow::~MainWindow() = default;
 
 void MainWindow::setupActions()
 {
-    KStandardAction::quit(qApp, &QApplication::quit, actionCollection());
-    KStandardAction::preferences(this, []() {
-        // Preferences dialog will be implemented later
-    }, actionCollection());
+    KActionCollection *ac = actionCollection();
 
-    // File > New Note (Ctrl+N)
-    auto *newNoteAction = actionCollection()->addAction(QStringLiteral("file_new_note"));
-    newNoteAction->setText(i18n("New Note"));
-    newNoteAction->setIcon(QIcon::fromTheme(QStringLiteral("document-new")));
-    actionCollection()->setDefaultShortcut(newNoteAction, Qt::CTRL | Qt::Key_N);
-    connect(newNoteAction, &QAction::triggered, this, &MainWindow::createNewNote);
+    KStandardAction::quit(qApp, &QApplication::quit, ac);
+    KStandardAction::preferences(this, []() {}, ac);
 
-    // File > Save (Ctrl+S)
-    auto *saveAction = actionCollection()->addAction(QStringLiteral("file_save"));
-    saveAction->setText(i18n("Save"));
-    saveAction->setIcon(QIcon::fromTheme(QStringLiteral("document-save")));
-    actionCollection()->setDefaultShortcut(saveAction, Qt::CTRL | Qt::Key_S);
+    // File actions
+    auto *openVault = ac->addAction(QStringLiteral("file_open_vault"));
+    openVault->setText(i18n("Open Vault..."));
+    openVault->setIcon(QIcon::fromTheme(QStringLiteral("folder-open")));
+    ac->setDefaultShortcut(openVault, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O));
+    connect(openVault, &QAction::triggered, this, &MainWindow::openVaultDialog);
 
-    // View > Toggle Left Sidebar (Ctrl+\)
-    auto *toggleLeftAction = actionCollection()->addAction(QStringLiteral("view_toggle_left_sidebar"));
-    toggleLeftAction->setText(i18n("Toggle Left Sidebar"));
-    actionCollection()->setDefaultShortcut(toggleLeftAction, Qt::CTRL | Qt::Key_Backslash);
-    connect(toggleLeftAction, &QAction::triggered, this, [this]() {
-        auto *tv = activeViewToolView(KMultiTabBar::Left);
-        if (tv) {
-            hideToolView(tv);
-        } else {
-            // Show the first toolview in the left sidebar if one exists
-            auto names = toolviewNames();
-            for (const auto &name : names) {
-                auto *view = toolView(name);
-                if (view && toolViewPosition(view) == CorbomiteMDI::Left) {
-                    showToolView(view);
-                    break;
-                }
-            }
-        }
+    auto *newNote = ac->addAction(QStringLiteral("file_new_note"));
+    newNote->setText(i18n("New Note"));
+    newNote->setIcon(QIcon::fromTheme(QStringLiteral("document-new")));
+    ac->setDefaultShortcut(newNote, QKeySequence(Qt::CTRL | Qt::Key_N));
+    connect(newNote, &QAction::triggered, this, &MainWindow::createNewNote);
+
+    auto *save = ac->addAction(QStringLiteral("file_save"));
+    save->setText(i18n("Save"));
+    save->setIcon(QIcon::fromTheme(QStringLiteral("document-save")));
+    ac->setDefaultShortcut(save, QKeySequence(Qt::CTRL | Qt::Key_S));
+    connect(save, &QAction::triggered, this, &MainWindow::saveCurrentNote);
+
+    // View actions
+    auto *toggleLeft = ac->addAction(QStringLiteral("view_toggle_left_sidebar"));
+    toggleLeft->setText(i18n("Toggle Left Sidebar"));
+    ac->setDefaultShortcut(toggleLeft, QKeySequence(Qt::CTRL | Qt::Key_Backslash));
+    connect(toggleLeft, &QAction::triggered, this, [this]() {
+        setSidebarsVisible(!sidebarsVisible());
     });
 
-    // View > Zoom In (Ctrl++)
-    auto *zoomInAction = actionCollection()->addAction(QStringLiteral("view_zoom_in"));
-    zoomInAction->setText(i18n("Zoom In"));
-    zoomInAction->setIcon(QIcon::fromTheme(QStringLiteral("zoom-in")));
-    actionCollection()->setDefaultShortcut(zoomInAction, Qt::CTRL | Qt::Key_Plus);
+    auto *zoomIn = ac->addAction(QStringLiteral("view_zoom_in"));
+    zoomIn->setText(i18n("Zoom In"));
+    ac->setDefaultShortcut(zoomIn, QKeySequence(Qt::CTRL | Qt::Key_Equal));
 
-    // View > Zoom Out (Ctrl+-)
-    auto *zoomOutAction = actionCollection()->addAction(QStringLiteral("view_zoom_out"));
-    zoomOutAction->setText(i18n("Zoom Out"));
-    zoomOutAction->setIcon(QIcon::fromTheme(QStringLiteral("zoom-out")));
-    actionCollection()->setDefaultShortcut(zoomOutAction, Qt::CTRL | Qt::Key_Minus);
+    auto *zoomOut = ac->addAction(QStringLiteral("view_zoom_out"));
+    zoomOut->setText(i18n("Zoom Out"));
+    ac->setDefaultShortcut(zoomOut, QKeySequence(Qt::CTRL | Qt::Key_Minus));
 
-    // View > Zoom Reset (Ctrl+0)
-    auto *zoomResetAction = actionCollection()->addAction(QStringLiteral("view_zoom_reset"));
-    zoomResetAction->setText(i18n("Reset Zoom"));
-    zoomResetAction->setIcon(QIcon::fromTheme(QStringLiteral("zoom-original")));
-    actionCollection()->setDefaultShortcut(zoomResetAction, Qt::CTRL | Qt::Key_0);
+    auto *zoomReset = ac->addAction(QStringLiteral("view_zoom_reset"));
+    zoomReset->setText(i18n("Reset Zoom"));
+    ac->setDefaultShortcut(zoomReset, QKeySequence(Qt::CTRL | Qt::Key_0));
 }
 
-void MainWindow::setupCentralWidget()
+void MainWindow::setupEditor()
 {
-    m_editorArea = new QWidget(centralWidget());
-    auto *layout = new QVBoxLayout(m_editorArea);
-    layout->setContentsMargins(0, 0, 0, 0);
+    m_editorManager = new EditorViewManager(centralWidget());
+    centralWidget()->layout()->addWidget(m_editorManager);
 
-    auto *placeholder = new QLabel(i18n("Open a vault to begin"), m_editorArea);
-    placeholder->setAlignment(Qt::AlignCenter);
-    auto font = placeholder->font();
-    font.setPointSize(16);
-    placeholder->setFont(font);
-    placeholder->setStyleSheet(QStringLiteral("color: #888;"));
-    layout->addWidget(placeholder);
-
-    centralWidget()->layout()->addWidget(m_editorArea);
+    connect(m_editorManager, &EditorViewManager::cursorInfoChanged,
+            this, &MainWindow::onCursorInfoChanged);
 }
 
 void MainWindow::setupSidebars()
 {
-    // Create a "Files" toolview in the left sidebar
-    auto *filesToolView = createToolView(nullptr,
-                                          QStringLiteral("files_panel"),
-                                          KMultiTabBar::Left,
-                                          QIcon::fromTheme(QStringLiteral("folder")),
-                                          i18n("Files"));
+    // File Explorer in left sidebar
+    auto *toolView = createToolView(
+        nullptr,
+        QStringLiteral("files_panel"),
+        KMultiTabBar::Left,
+        QIcon::fromTheme(QStringLiteral("folder")),
+        i18n("Files")
+    );
 
-    auto *filesPlaceholder = new QLabel(i18n("No vault open"), filesToolView);
-    filesPlaceholder->setAlignment(Qt::AlignCenter);
-    filesPlaceholder->setMargin(20);
+    m_fileExplorer = new FileExplorerPanel(toolView);
+    auto *layout = new QVBoxLayout(toolView);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_fileExplorer);
+
+    connect(m_fileExplorer, &FileExplorerPanel::noteActivated,
+            this, &MainWindow::onNoteActivated);
+    connect(m_fileExplorer, &FileExplorerPanel::newNoteRequested,
+            this, [this](const QString &folder) {
+        bool ok;
+        QString name = QInputDialog::getText(this, i18n("New Note"),
+                                              i18n("Note name:"), QLineEdit::Normal,
+                                              QString(), &ok);
+        if (ok && !name.isEmpty()) {
+            auto *doc = m_vaultService->noteService()->createNote(name, folder);
+            if (doc) {
+                m_editorManager->openNote(doc);
+            }
+        }
+    });
+    connect(m_fileExplorer, &FileExplorerPanel::deleteNoteRequested,
+            this, [this](const QString &path) {
+        auto result = KMessageBox::questionTwoActions(
+            this,
+            i18n("Delete \"%1\"?", path),
+            i18n("Delete Note"),
+            KStandardGuiItem::del(),
+            KStandardGuiItem::cancel()
+        );
+        if (result == KMessageBox::PrimaryAction) {
+            m_vaultService->noteService()->deleteNote(path);
+        }
+    });
 }
 
 void MainWindow::setupStatusBar()
 {
     m_wordCountLabel = new QLabel(i18n("Words: 0"), this);
-    m_wordCountLabel->setContentsMargins(8, 0, 8, 0);
-    statusBar()->addWidget(m_wordCountLabel);
-
     m_cursorPosLabel = new QLabel(i18n("Ln 1, Col 1"), this);
-    m_cursorPosLabel->setContentsMargins(8, 0, 8, 0);
+
+    statusBar()->addPermanentWidget(m_wordCountLabel);
     statusBar()->addPermanentWidget(m_cursorPosLabel);
+}
+
+void MainWindow::openVaultDialog()
+{
+    QString dir = QFileDialog::getExistingDirectory(
+        this, i18n("Open Vault"), QDir::homePath());
+    if (!dir.isEmpty()) {
+        m_vaultService->openVault(dir);
+    }
 }
 
 void MainWindow::createNewNote()
 {
-    // Will be implemented when editor integration is added
+    if (!m_vaultService->isOpen()) {
+        openVaultDialog();
+        if (!m_vaultService->isOpen()) return;
+    }
+
+    bool ok;
+    QString name = QInputDialog::getText(this, i18n("New Note"),
+                                          i18n("Note name:"), QLineEdit::Normal,
+                                          QString(), &ok);
+    if (ok && !name.isEmpty()) {
+        auto *doc = m_vaultService->noteService()->createNote(name, QString());
+        if (doc) {
+            m_editorManager->openNote(doc);
+        }
+    }
+}
+
+void MainWindow::saveCurrentNote()
+{
+    auto *editor = m_editorManager->activeEditor();
+    if (editor && editor->noteDocument()) {
+        m_vaultService->noteService()->saveNote(editor->noteDocument());
+    }
+}
+
+void MainWindow::onNoteActivated(const QString &relativePath)
+{
+    auto *doc = m_vaultService->noteService()->openNote(relativePath);
+    if (doc) {
+        m_editorManager->openNote(doc);
+    }
+}
+
+void MainWindow::onVaultOpened()
+{
+    auto *vault = m_vaultService->vault();
+    setWindowTitle(vault->name() +
+#ifdef CORBOMITE_DEV_BUILD
+        QStringLiteral(" — Corbomite [Dev]"));
+#else
+        QStringLiteral(" — Corbomite"));
+#endif
+
+    delete m_treeModel;
+    m_treeModel = new NotesTreeModel(vault, this);
+    m_fileExplorer->setModel(m_treeModel);
+}
+
+void MainWindow::onVaultClosed()
+{
+    delete m_treeModel;
+    m_treeModel = nullptr;
+    m_fileExplorer->setModel(nullptr);
+    setWindowTitle(
+#ifdef CORBOMITE_DEV_BUILD
+        QStringLiteral("Corbomite [Dev]"));
+#else
+        QStringLiteral("Corbomite"));
+#endif
+}
+
+void MainWindow::onCursorInfoChanged(int line, int column, int wordCount)
+{
+    m_wordCountLabel->setText(i18n("Words: %1", wordCount));
+    m_cursorPosLabel->setText(i18n("Ln %1, Col %2", line, column));
 }
 
 } // namespace Corbomite

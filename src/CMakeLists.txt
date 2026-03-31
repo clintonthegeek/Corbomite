@@ -5,7 +5,9 @@ add_library(CorbomiteApp STATIC
     ${CORBOMITE_KCFG_SRCS}
     app/CorbomiteApp.cpp
     app/MainWindow.cpp
+    app/VaultService.cpp
     mdi/CorbomiteMDI.cpp
+    sidebar/FileExplorerPanel.cpp
     editor/NoteEditorWidget.cpp
     editor/EditorViewSpace.cpp
     editor/EditorViewManager.cpp
@@ -36,5 +38,6 @@ target_include_directories(CorbomiteApp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/app
     ${CMAKE_CURRENT_SOURCE_DIR}/mdi
     ${CMAKE_CURRENT_SOURCE_DIR}/editor
+    ${CMAKE_CURRENT_SOURCE_DIR}/sidebar
     ${CMAKE_CURRENT_BINARY_DIR}
 )
