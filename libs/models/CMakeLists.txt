@@ -7,6 +7,7 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets)
 
 add_library(corbomite-models STATIC
     src/TabModel.cpp
+    include/corbomite/models/TabModel.h
 )
 set_target_properties(corbomite-models PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Models ALIAS corbomite-models)
@@ -17,9 +18,5 @@ target_include_directories(corbomite-models
 target_link_libraries(corbomite-models PUBLIC Qt6::Core Qt6::Widgets)
 
 if(NOT PROJECT_IS_TOP_LEVEL)
-    target_link_libraries(corbomite-models PRIVATE Corbomite::Core Corbomite::Storage)
-    target_include_directories(corbomite-models PRIVATE
-        ${CMAKE_SOURCE_DIR}/libs/core/include
-        ${CMAKE_SOURCE_DIR}/libs/storage/include
-    )
+    target_link_libraries(corbomite-models PUBLIC Corbomite::Core Corbomite::Storage)
 endif()
