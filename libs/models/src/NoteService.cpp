@@ -3,6 +3,7 @@
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/storage/SQLiteIndex.h"
 
 namespace Corbomite {
 
@@ -56,8 +57,18 @@ bool NoteService::renameNote(const QString &oldRelPath, const QString &newRelPat
         return false;
     }
 
+    // Repair links in other notes that reference the old path
+    if (m_searchIndex) {
+        m_searchIndex->repairLinks(oldRelPath, newRelPath, m_vault->path());
+    }
+
     m_vault->renameNote(oldRelPath, newRelPath);
     return true;
+}
+
+void NoteService::setSearchIndex(SQLiteIndex *index)
+{
+    m_searchIndex = index;
 }
 
 bool NoteService::deleteNote(const QString &relativePath)

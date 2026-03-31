@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/models/VaultModel.h"
+#include "corbomite/storage/SQLiteIndex.h"
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -69,8 +70,18 @@ QVector<NoteMeta> VaultModel::allNotes() const
     return QVector<NoteMeta>(m_notes.cbegin(), m_notes.cend());
 }
 
+void VaultModel::setSearchIndex(SQLiteIndex *index)
+{
+    m_searchIndex = index;
+}
+
 QStringList VaultModel::allTags() const
 {
+    // Prefer indexed tags (fast) over filesystem scan (slow)
+    if (m_searchIndex) {
+        return m_searchIndex->allTags();
+    }
+
     if (!m_tagCacheDirty) {
         return m_cachedTags;
     }

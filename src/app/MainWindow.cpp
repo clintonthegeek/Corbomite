@@ -429,6 +429,8 @@ void MainWindow::onVaultOpened()
     m_searchIndex->rebuildIndex(vault->path());
     // TODO: Move indexing to background thread for large vaults
     m_searchPanel->setIndex(m_searchIndex);
+    m_vaultService->noteService()->setSearchIndex(m_searchIndex);
+    m_vaultService->vault()->setSearchIndex(m_searchIndex);
 
     // Update index on note saves
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
@@ -472,6 +474,9 @@ void MainWindow::onVaultClosed()
     m_fileWatch = nullptr;
     delete m_sessionManager;
     m_sessionManager = nullptr;
+
+    m_vaultService->noteService()->setSearchIndex(nullptr);
+    m_vaultService->vault()->setSearchIndex(nullptr);
 
     delete m_searchIndex;
     m_searchIndex = nullptr;

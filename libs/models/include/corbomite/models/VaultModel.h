@@ -11,6 +11,8 @@
 
 namespace Corbomite {
 
+class SQLiteIndex;
+
 class VaultModel : public QObject {
     Q_OBJECT
 
@@ -32,6 +34,7 @@ public:
     QVector<NoteMeta> allNotes() const;
     QStringList allTags() const;
     void invalidateTagCache();
+    void setSearchIndex(SQLiteIndex *index);
     NoteMeta noteMeta(const QString &relativePath) const;
     bool noteExists(const QString &relativePath) const;
 
@@ -60,6 +63,7 @@ private:
     VaultScanner m_scanner;
     mutable QStringList m_cachedTags;
     mutable bool m_tagCacheDirty = true;
+    SQLiteIndex *m_searchIndex = nullptr;
 };
 
 } // namespace Corbomite
