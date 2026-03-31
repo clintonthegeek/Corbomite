@@ -33,8 +33,9 @@ int main(int argc, char *argv[])
     KDBusService service(KDBusService::Unique);
 
     Corbomite::VaultService vaultService;
-    Corbomite::MainWindow mainWindow(&vaultService);
-    mainWindow.show();
+    auto *mainWindow = new Corbomite::MainWindow(&vaultService);
+    mainWindow->setAttribute(Qt::WA_DeleteOnClose);
+    mainWindow->show();
 
     return app.exec();
 }
