@@ -17,6 +17,8 @@ EditorViewManager::EditorViewManager(QWidget *parent)
             this, &EditorViewManager::activeEditorChanged);
     connect(m_viewSpace, &EditorViewSpace::cursorInfoChanged,
             this, &EditorViewManager::cursorInfoChanged);
+    connect(m_viewSpace, &EditorViewSpace::graphNoteActivated,
+            this, &EditorViewManager::graphNoteActivated);
 }
 
 void EditorViewManager::openNote(NoteDocument *doc)
@@ -42,6 +44,16 @@ void EditorViewManager::toggleEditorMode()
 bool EditorViewManager::isPreviewMode() const
 {
     return m_viewSpace->isPreviewMode();
+}
+
+void EditorViewManager::openGraphView(SQLiteIndex *index, VaultModel *vault)
+{
+    m_viewSpace->openGraphView(index, vault);
+}
+
+bool EditorViewManager::hasGraphView() const
+{
+    return m_viewSpace->hasGraphView();
 }
 
 } // namespace Corbomite

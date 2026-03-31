@@ -13,6 +13,9 @@ namespace Corbomite {
 class NoteDocument;
 class NoteEditorWidget;
 class NotePreviewWidget;
+class GraphViewTab;
+class SQLiteIndex;
+class VaultModel;
 
 class EditorViewSpace : public QWidget {
     Q_OBJECT
@@ -26,11 +29,14 @@ public:
     TabModel *tabModel();
     void toggleEditorMode();
     bool isPreviewMode() const;
+    void openGraphView(SQLiteIndex *index, VaultModel *vault);
+    bool hasGraphView() const;
 
 Q_SIGNALS:
     void activeEditorChanged(NoteEditorWidget *editor);
     void cursorInfoChanged(int line, int column, int wordCount);
     void internalLinkClicked(const QString &targetPath);
+    void graphNoteActivated(const QString &relativePath);
 
 private:
     void onTabChanged(int index);

@@ -8,6 +8,8 @@ namespace Corbomite {
 class NoteDocument;
 class NoteEditorWidget;
 class EditorViewSpace;
+class SQLiteIndex;
+class VaultModel;
 
 class EditorViewManager : public QWidget {
     Q_OBJECT
@@ -20,10 +22,13 @@ public:
     EditorViewSpace *activeViewSpace() const;
     void toggleEditorMode();
     bool isPreviewMode() const;
+    void openGraphView(SQLiteIndex *index, VaultModel *vault);
+    bool hasGraphView() const;
 
 Q_SIGNALS:
     void activeEditorChanged(NoteEditorWidget *editor);
     void cursorInfoChanged(int line, int column, int wordCount);
+    void graphNoteActivated(const QString &relativePath);
 
 private:
     EditorViewSpace *m_viewSpace;

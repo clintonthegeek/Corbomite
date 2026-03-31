@@ -2,8 +2,10 @@
 #include "EditorViewSpace.h"
 #include "NoteEditorWidget.h"
 #include "NotePreviewWidget.h"
+#include "graph/GraphViewTab.h"
 #include "corbomite/core/NoteDocument.h"
 #include <QVBoxLayout>
+#include <QIcon>
 
 namespace Corbomite {
 
@@ -80,6 +82,19 @@ void EditorViewSpace::closeTab(int index)
     QString path = m_tabBar->tabData(index).toString();
     m_tabBar->removeTab(index);
 
+    // Check if this is a graph tab
+    if (path == QStringLiteral("__graph__")) {
+        // Find and remove the GraphViewTab widget from the stack
+        for (int i = 0; i < m_stack->count(); ++i) {
+            if (auto *graph = qobject_cast<GraphViewTab *>(m_stack->widget(i))) {
+                m_stack->removeWidget(graph);
+                graph->deleteLater();
+                break;
+            }
+        }
+        return;
+    }
+
     if (auto *editor = m_editors.take(path)) {
         m_stack->removeWidget(editor);
         editor->deleteLater();
@@ -119,6 +134,18 @@ void EditorViewSpace::onTabChanged(int index)
     }
 
     QString path = m_tabBar->tabData(index).toString();
+
+    // Handle graph tab
+    if (path == QStringLiteral("__graph__")) {
+        for (int i = 0; i < m_stack->count(); ++i) {
+            if (auto *graph = qobject_cast<GraphViewTab *>(m_stack->widget(i))) {
+                m_stack->setCurrentWidget(graph);
+                break;
+            }
+        }
+        Q_EMIT activeEditorChanged(nullptr);
+        return;
+    }
 
     if (m_previewModePaths.contains(path)) {
         // Tab is in preview mode — show preview widget
@@ -184,6 +211,36 @@ bool EditorViewSpace::isPreviewMode() const
     if (idx < 0) return false;
     QString path = m_tabBar->tabData(idx).toString();
     return m_previewModePaths.contains(path);
+}
+
+void EditorViewSpace::openGraphView(SQLiteIndex *index, VaultModel *vault)
+{
+    // Only one graph tab allowed
+    for (int i = 0; i < m_tabBar->count(); ++i) {
+        if (m_tabBar->tabData(i).toString() == QStringLiteral("__graph__")) {
+            m_tabBar->setCurrentIndex(i);
+            return;
+        }
+    }
+
+    auto *graphTab = new GraphViewTab(index, vault, m_stack);
+    m_stack->addWidget(graphTab);
+    int tabIdx = m_tabBar->addTab(QIcon::fromTheme(QStringLiteral("preferences-system-network")),
+                                   QStringLiteral("Graph View"));
+    m_tabBar->setTabData(tabIdx, QStringLiteral("__graph__"));
+    m_tabBar->setCurrentIndex(tabIdx);
+
+    connect(graphTab, &GraphViewTab::noteActivated,
+            this, &EditorViewSpace::graphNoteActivated);
+}
+
+bool EditorViewSpace::hasGraphView() const
+{
+    for (int i = 0; i < m_tabBar->count(); ++i) {
+        if (m_tabBar->tabData(i).toString() == QStringLiteral("__graph__"))
+            return true;
+    }
+    return false;
 }
 
 } // namespace Corbomite
