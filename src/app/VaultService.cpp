@@ -5,6 +5,7 @@
 #include <KSharedConfig>
 #include <KConfigGroup>
 #include <QFileInfo>
+#include <QUrl>
 
 namespace Corbomite {
 
@@ -54,7 +55,20 @@ QStringList VaultService::recentVaults() const
 {
     auto config = KSharedConfig::openConfig();
     KConfigGroup group = config->group(QStringLiteral("RecentVaults"));
-    return group.readEntry("Paths", QStringList());
+
+    // KRecentFilesAction stores entries as File1, File2, ... File10
+    QStringList paths;
+    for (int i = 1; i <= 10; ++i) {
+        QString url = group.readPathEntry(QStringLiteral("File%1").arg(i), QString());
+        if (url.isEmpty()) continue;
+        // KRecentFilesAction stores as URL strings — convert to local path
+        QUrl qurl(url);
+        QString path = qurl.isLocalFile() ? qurl.toLocalFile() : url;
+        if (!path.isEmpty() && QFileInfo::exists(path)) {
+            paths.append(path);
+        }
+    }
+    return paths;
 }
 
 void VaultService::addRecentVault(const QString &path)
