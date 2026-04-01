@@ -18,6 +18,8 @@ add_library(corbomite-models STATIC
     include/corbomite/models/SearchResultsModel.h
     src/TemplateService.cpp
     include/corbomite/models/TemplateService.h
+    src/DailyNoteService.cpp
+    include/corbomite/models/DailyNoteService.h
 )
 set_target_properties(corbomite-models PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Models ALIAS corbomite-models)
