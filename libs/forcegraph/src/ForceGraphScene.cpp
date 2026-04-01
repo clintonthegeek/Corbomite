@@ -20,6 +20,8 @@ void ForceGraphScene::setNodes(const QVector<GraphNode> &nodes)
 
     for (const auto &node : nodes) {
         auto *item = new ForceGraphNode(node);
+        item->setNodeSizeScale(m_nodeSizeScale);
+        item->setTextFadeThreshold(m_textFadeThreshold);
         addItem(item);
         m_nodeItems.insert(node.id, item);
     }
@@ -48,6 +50,8 @@ void ForceGraphScene::setEdges(const QVector<GraphEdge> &edges)
             continue;
 
         auto *item = new ForceGraphEdge(sourceItem, targetItem);
+        item->setWidthScale(m_edgeWidthScale);
+        item->setShowArrows(m_showArrows);
         addItem(item);
         m_edgeItems.append(item);
     }
@@ -126,6 +130,38 @@ void ForceGraphScene::clearHighlight()
 ForceGraphNode *ForceGraphScene::nodeItem(const QString &id) const
 {
     return m_nodeItems.value(id, nullptr);
+}
+
+void ForceGraphScene::setNodeSizeScale(double scale)
+{
+    m_nodeSizeScale = scale;
+    for (auto it = m_nodeItems.constBegin(); it != m_nodeItems.constEnd(); ++it) {
+        it.value()->setNodeSizeScale(scale);
+    }
+}
+
+void ForceGraphScene::setEdgeWidthScale(double scale)
+{
+    m_edgeWidthScale = scale;
+    for (auto *edge : std::as_const(m_edgeItems)) {
+        edge->setWidthScale(scale);
+    }
+}
+
+void ForceGraphScene::setTextFadeThreshold(double threshold)
+{
+    m_textFadeThreshold = threshold;
+    for (auto it = m_nodeItems.constBegin(); it != m_nodeItems.constEnd(); ++it) {
+        it.value()->setTextFadeThreshold(threshold);
+    }
+}
+
+void ForceGraphScene::setShowArrows(bool show)
+{
+    m_showArrows = show;
+    for (auto *edge : std::as_const(m_edgeItems)) {
+        edge->setShowArrows(show);
+    }
 }
 
 } // namespace ForceGraph

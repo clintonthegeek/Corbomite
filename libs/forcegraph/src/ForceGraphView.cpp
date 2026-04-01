@@ -86,6 +86,26 @@ void ForceGraphView::zoomToFit()
               Qt::KeepAspectRatio);
 }
 
+void ForceGraphView::setNodeSizeScale(double scale)
+{
+    m_scene->setNodeSizeScale(scale);
+}
+
+void ForceGraphView::setEdgeWidthScale(double scale)
+{
+    m_scene->setEdgeWidthScale(scale);
+}
+
+void ForceGraphView::setTextFadeThreshold(double threshold)
+{
+    m_scene->setTextFadeThreshold(threshold);
+}
+
+void ForceGraphView::setShowArrows(bool show)
+{
+    m_scene->setShowArrows(show);
+}
+
 void ForceGraphView::wheelEvent(QWheelEvent *event)
 {
     if (event->angleDelta().y() > 0) {

@@ -21,13 +21,18 @@ ForceGraphNode::ForceGraphNode(const GraphNode &data, QGraphicsItem *parent)
 void ForceGraphNode::setData(const GraphNode &data)
 {
     m_data = data;
-    double r = m_data.radius;
+    double r = m_data.radius * m_sizeScale;
     setRect(-r, -r, 2 * r, 2 * r);
 }
 
 QString ForceGraphNode::nodeId() const
 {
     return m_data.id;
+}
+
+QString ForceGraphNode::nodeLabel() const
+{
+    return m_data.label;
 }
 
 void ForceGraphNode::setHighlighted(bool highlighted)
@@ -39,6 +44,20 @@ void ForceGraphNode::setHighlighted(bool highlighted)
 void ForceGraphNode::setDimmed(bool dimmed)
 {
     m_dimmed = dimmed;
+    update();
+}
+
+void ForceGraphNode::setNodeSizeScale(double scale)
+{
+    m_sizeScale = scale;
+    double r = m_data.radius * m_sizeScale;
+    setRect(-r, -r, 2 * r, 2 * r);
+    update();
+}
+
+void ForceGraphNode::setTextFadeThreshold(double threshold)
+{
+    m_textFadeThreshold = threshold;
     update();
 }
 
@@ -77,9 +96,8 @@ void ForceGraphNode::paint(QPainter *painter, const QStyleOptionGraphicsItem *op
     painter->drawEllipse(rect());
 
     if (lod < 2.0) {
-        // Medium: abbreviated label only when zoomed in enough
-        // At lod=1.0 with 1000 nodes, labels still overlap — hide them
-        if (lod >= 1.0 && !m_data.label.isEmpty()) {
+        // Medium: abbreviated label only when zoomed in past the threshold
+        if (lod >= m_textFadeThreshold && !m_data.label.isEmpty()) {
             painter->setPen(m_dimmed ? QColor(128, 128, 128, 40) : QColor(80, 80, 80));
             QFont font;
             font.setPointSizeF(6.0);

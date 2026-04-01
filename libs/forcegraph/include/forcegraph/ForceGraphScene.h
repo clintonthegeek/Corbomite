@@ -16,9 +16,22 @@ public:
     void setHighlightedNode(const QString &id);
     void clearHighlight();
     ForceGraphNode *nodeItem(const QString &id) const;
+
+    // Display settings — propagate to all items
+    void setNodeSizeScale(double scale);
+    void setEdgeWidthScale(double scale);
+    void setTextFadeThreshold(double threshold);
+    void setShowArrows(bool show);
+
 private:
     QHash<QString, ForceGraphNode *> m_nodeItems;
     QVector<ForceGraphEdge *> m_edgeItems;
     QString m_highlightedId;
+
+    // Cached display settings (applied to newly created items too)
+    double m_nodeSizeScale = 1.0;
+    double m_edgeWidthScale = 1.0;
+    double m_textFadeThreshold = 1.0;
+    bool m_showArrows = false;
 };
 } // namespace ForceGraph

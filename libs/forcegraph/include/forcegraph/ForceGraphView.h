@@ -16,6 +16,12 @@ public:
     void setHighlightedNode(const QString &id);
     void clearHighlight();
     void zoomToFit();
+
+    // Display settings — forwarded to scene
+    void setNodeSizeScale(double scale);
+    void setEdgeWidthScale(double scale);
+    void setTextFadeThreshold(double threshold);
+    void setShowArrows(bool show);
 Q_SIGNALS:
     void nodeClicked(const QString &id);
     void nodeDoubleClicked(const QString &id);
