@@ -1845,6 +1845,122 @@ QRectF blockBoundingRect(const Editor::Private *d, const QTextBlock &block)
     return documentLayout->blockBoundingRect(block);
 }
 
+void Editor::paintTable(QPainter *painter, QTextTable *table,
+                        const QRectF &tableRect, const QRect &viewportRect)
+{
+    auto *td = static_cast<TableLayoutData *>(table->layoutData());
+    if (!td || td->dirty) return;  // layout not computed yet
+
+    const int rows = table->rows();
+    const int cols = table->columns();
+    const qreal margin = document()->documentMargin();
+
+    // The table rect's top-left gives us the position in viewport coords.
+    // td->columnPositions and td->rowPositions are relative to the table origin.
+    const qreal tableX = tableRect.left() + margin;
+    const qreal tableY = tableRect.top();
+
+    painter->save();
+
+    // Background
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(0xfa, 0xfa, 0xfa));
+    painter->drawRect(QRectF(tableX, tableY, td->tableWidth, td->tableHeight));
+
+    // Grid lines
+    painter->setPen(QPen(QColor(0xe0, 0xe0, 0xe0), 1));
+
+    // Horizontal lines
+    for (int r = 0; r <= rows; ++r) {
+        qreal y;
+        if (r < rows)
+            y = tableY + td->rowPositions[r];
+        else
+            y = tableY + td->rowPositions[rows - 1] + td->heights[rows - 1] + td->cellSpacing;
+        painter->drawLine(QPointF(tableX, y),
+                          QPointF(tableX + td->tableWidth, y));
+    }
+
+    // Vertical lines
+    for (int c = 0; c <= cols; ++c) {
+        qreal x;
+        if (c < cols)
+            x = tableX + td->columnPositions[c];
+        else
+            x = tableX + td->columnPositions[cols - 1] + td->widths[cols - 1] + td->cellSpacing;
+        painter->drawLine(QPointF(x, tableY),
+                          QPointF(x, tableY + td->tableHeight));
+    }
+
+    // Thicker header separator
+    if (rows > 1) {
+        painter->setPen(QPen(QColor(0xc0, 0xc0, 0xc0), 2));
+        qreal sepY = tableY + td->rowPositions[1];
+        painter->drawLine(QPointF(tableX, sepY),
+                          QPointF(tableX + td->tableWidth, sepY));
+    }
+
+    // Cell text
+    QFont cellFont = font();
+    QFontMetricsF fm(cellFont);
+    for (int r = 0; r < rows; ++r) {
+        if (r == 0) {
+            QFont bold = cellFont;
+            bold.setWeight(QFont::Bold);
+            painter->setFont(bold);
+        } else if (r == 1) {
+            painter->setFont(cellFont);
+        }
+        painter->setPen(palette().color(QPalette::Text));
+
+        for (int c = 0; c < cols; ++c) {
+            QTextTableCell cell = table->cellAt(r, c);
+            if (cell.row() != r || cell.column() != c) continue;  // skip spanned
+
+            // Get cell text (may span multiple blocks)
+            QString text;
+            QTextBlock b = cell.firstCursorPosition().block();
+            QTextBlock lastB = cell.lastCursorPosition().block();
+            while (b.isValid()) {
+                if (!text.isEmpty()) text += QLatin1Char(' ');
+                text += b.text();
+                if (b == lastB) break;
+                b = b.next();
+            }
+
+            // Cell rect in viewport coordinates
+            qreal cellX = tableX + td->columnPositions[c] + td->cellPadding;
+            qreal cellY = tableY + td->rowPositions[r] + td->cellPadding;
+            qreal cellW = td->widths[c] - td->cellPadding * 2;
+            qreal cellH = td->heights[r] - td->cellPadding * 2;
+
+            QRectF textRect(cellX, cellY, cellW, cellH);
+            painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter,
+                              fm.elidedText(text, Qt::ElideRight, cellW));
+        }
+    }
+
+    // Cursor highlight: if cursor is inside this table, highlight the cell
+    QTextCursor tc = d->control->textCursor();
+    QTextTable *cursorTable = tc.currentTable();
+    if (cursorTable == table) {
+        QTextTableCell curCell = table->cellAt(tc);
+        if (curCell.isValid()) {
+            int cr = curCell.row();
+            int cc = curCell.column();
+            QRectF highlight(tableX + td->columnPositions[cc],
+                             tableY + td->rowPositions[cr],
+                             td->widths[cc],
+                             td->heights[cr]);
+            painter->setPen(QPen(palette().color(QPalette::Highlight), 2));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRect(highlight.adjusted(1, 1, -1, -1));
+        }
+    }
+
+    painter->restore();
+}
+
 void Editor::paintEvent(QPaintEvent *e)
 {
     QPainter painter(viewport());
@@ -1882,6 +1998,26 @@ void Editor::paintEvent(QPaintEvent *e)
         }
 
         if (r.bottom() >= er.top() && r.top() <= er.bottom()) {
+
+            // Table blocks: paint the entire table, then skip past it
+            QTextTable *table = tableForBlock(block);
+            if (table && isFirstTableBlock(block, table)) {
+                paintTable(&painter, table, r, viewportRect);
+                // Skip to the block after the table
+                QTextTableCell lastCell = table->cellAt(table->rows() - 1,
+                                                         table->columns() - 1);
+                block = lastCell.lastCursorPosition().block();
+                offset.ry() += r.height();
+                block = block.next();
+                continue;
+            }
+
+            // Skip non-first table blocks (their height is 0)
+            if (table) {
+                block = block.next();
+                continue;
+            }
+
             // Live preview: paint decorations BEHIND text for decorated ranges.
             // The text draws normally afterward via layout->draw().
             if (d->mode == Mode::LivePreview) {

@@ -9,6 +9,8 @@
 #include <memory>
 
 class QTextDocument;
+class QTextTable;
+class QPainter;
 
 namespace Markoff {
 
@@ -59,6 +61,9 @@ protected:
     bool event(QEvent *e) override;
 
 private:
+    void paintTable(QPainter *painter, QTextTable *table,
+                    const QRectF &tableRect, const QRect &viewportRect);
+
     std::unique_ptr<Private> d;
 };
 
