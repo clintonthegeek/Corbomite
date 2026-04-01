@@ -27,3 +27,8 @@ set_tests_properties(tst_rendereddocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFOR
 add_executable(tst_subpath tst_subpath.cpp)
 add_test(NAME tst_subpath COMMAND tst_subpath)
 target_link_libraries(tst_subpath PRIVATE Qt6::Test Corbomite::Core)
+
+add_executable(tst_renderengine tst_renderengine.cpp)
+add_test(NAME tst_renderengine COMMAND tst_renderengine)
+target_link_libraries(tst_renderengine PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_renderengine PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
