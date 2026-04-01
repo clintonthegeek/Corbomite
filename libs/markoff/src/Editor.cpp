@@ -932,6 +932,10 @@ void Editor::Private::modificationChanged(bool)
 
 void Editor::Private::reparseDocument()
 {
+    // Revert tables to pipe text before reparsing — the parser needs
+    // to see raw markdown, not QTextTable objects.
+    revertTables();
+
     // Parse for rendering (reading view, canvas cards)
     parsedDoc = Document::fromMarkdown(q->toPlainText());
 
@@ -945,6 +949,11 @@ void Editor::Private::reparseDocument()
     detectDecoratedRanges();
     highlighter->setDecoratedRanges(decoratedRanges);
     applyBlockFormats();
+
+    // Convert tables AFTER span map is applied. Table conversion changes
+    // document structure (pipe text → QTextTable), which would invalidate
+    // tree-sitter byte offsets if done earlier.
+    convertTables();
 }
 
 void Editor::Private::applyBlockFormats()
@@ -995,6 +1004,61 @@ void Editor::Private::applyBlockFormats()
     }
 
     batchCursor.endEditBlock();
+}
+
+void Editor::Private::convertTables()
+{
+    if (mode != Editor::Mode::LivePreview)
+        return;
+
+    // Don't reconvert if tables already exist
+    if (!liveTables.isEmpty())
+        return;
+
+    QList<ParsedTable> tables = TableHandler::detectTables(q->document());
+
+    // Convert in reverse order so block numbers stay valid
+    for (int i = tables.size() - 1; i >= 0; --i) {
+        const ParsedTable &pt = tables[i];
+        QTextTable *tt = TableHandler::convertToQTextTable(q->document(), pt);
+        if (tt) {
+            liveTables.prepend(tt);
+            tableAlignments.prepend(pt.alignments);
+        }
+    }
+}
+
+void Editor::Private::revertTables()
+{
+    if (liveTables.isEmpty())
+        return;
+
+    // Revert in reverse order to preserve document positions
+    for (int i = liveTables.size() - 1; i >= 0; --i) {
+        QTextTable *tt = liveTables[i];
+        if (!tt)
+            continue;
+
+        const auto &aligns = i < tableAlignments.size()
+            ? tableAlignments[i] : QList<Qt::Alignment>();
+        QString md = TableHandler::serializeToMarkdown(tt, aligns);
+
+        // Select the entire table frame content and replace with pipe text.
+        // QTextTable inherits QTextFrame. We need to select from just before
+        // the frame to just after it.
+        QTextCursor cursor = tt->firstCursorPosition();
+        cursor.setPosition(tt->firstPosition());
+        cursor.setPosition(tt->lastPosition(), QTextCursor::KeepAnchor);
+        cursor.beginEditBlock();
+        cursor.removeSelectedText();
+        // After removing table content, the table frame may still exist
+        // as an empty frame. Insert the markdown text which will replace
+        // the frame contents.
+        cursor.insertText(md);
+        cursor.endEditBlock();
+    }
+    liveTables.clear();
+    tableAlignments.clear();
 }
 
 void Editor::Private::updateBlockDisplayModes()
@@ -1708,6 +1772,9 @@ void Editor::setMode(Mode m)
         d->highlighter->setMode(MarkdownHighlighter::Mode::LivePreview);
         d->updateBlockDisplayModes();
     } else {
+        // Revert QTextTables to pipe markdown before switching to source
+        d->revertTables();
+
         document()->setDocumentMargin(sourceMargin);
         d->highlighter->setMode(MarkdownHighlighter::Mode::Source);
 
