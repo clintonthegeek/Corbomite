@@ -3,6 +3,49 @@
 #include <QRegularExpression>
 #include <QStringList>
 
+#include <KSyntaxHighlighting/Repository>
+#include <KSyntaxHighlighting/Definition>
+#include <KSyntaxHighlighting/Theme>
+#include <KSyntaxHighlighting/State>
+#include <KSyntaxHighlighting/Format>
+#include <KSyntaxHighlighting/AbstractHighlighter>
+
+namespace {
+
+class InlineHighlighter : public KSyntaxHighlighting::AbstractHighlighter {
+public:
+    QString highlightedHtml;
+    QString m_currentLine;
+
+    KSyntaxHighlighting::State processLine(const QString &text, const KSyntaxHighlighting::State &state)
+    {
+        m_currentLine = text;
+        highlightedHtml.clear();
+        return highlightLine(text, state);
+    }
+
+protected:
+    void applyFormat(int offset, int length, const KSyntaxHighlighting::Format &format) override
+    {
+        if (!format.isDefaultTextStyle(theme())) {
+            QColor color = format.textColor(theme());
+            if (format.isBold(theme())) {
+                highlightedHtml += QStringLiteral("<b style='color:%1'>").arg(color.name());
+                highlightedHtml += m_currentLine.mid(offset, length).toHtmlEscaped();
+                highlightedHtml += QStringLiteral("</b>");
+            } else {
+                highlightedHtml += QStringLiteral("<span style='color:%1'>").arg(color.name());
+                highlightedHtml += m_currentLine.mid(offset, length).toHtmlEscaped();
+                highlightedHtml += QStringLiteral("</span>");
+            }
+        } else {
+            highlightedHtml += m_currentLine.mid(offset, length).toHtmlEscaped();
+        }
+    }
+};
+
+} // anonymous namespace
+
 // TODO: This entire file should be replaced with a cmark-gfm based renderer.
 // The regex approach below is a pragmatic first pass that handles the most
 // common markdown patterns. Known limitations:
@@ -82,11 +125,41 @@ QString MarkdownRenderer::processBlocks(const QString &markdown) const
                 codeBlockLang = codeFenceMatch.captured(1);
                 codeContent.clear();
             } else {
+                // Try KSyntaxHighlighting for code blocks
+                QString highlightedCode;
+                if (!codeBlockLang.isEmpty()) {
+                    static KSyntaxHighlighting::Repository repo;
+                    auto def = repo.definitionForName(codeBlockLang);
+                    if (!def.isValid()) {
+                        // Try common aliases
+                        def = repo.definitionForFileName(QStringLiteral("file.") + codeBlockLang);
+                    }
+                    if (def.isValid()) {
+                        InlineHighlighter highlighter;
+                        highlighter.setDefinition(def);
+                        highlighter.setTheme(repo.defaultTheme(
+                            KSyntaxHighlighting::Repository::LightTheme));
+
+                        KSyntaxHighlighting::State state;
+                        const auto codeLines = codeContent.split(QLatin1Char('\n'));
+                        for (int ci = 0; ci < codeLines.size(); ++ci) {
+                            state = highlighter.processLine(codeLines[ci], state);
+                            highlightedCode += highlighter.highlightedHtml;
+                            if (ci < codeLines.size() - 1) highlightedCode += QLatin1Char('\n');
+                        }
+                    }
+                }
+
+                if (highlightedCode.isEmpty()) {
+                    // Fallback: plain escaped text
+                    highlightedCode = escapeHtml(codeContent);
+                }
+
                 QString langAttr = codeBlockLang.isEmpty()
                     ? QString()
                     : QStringLiteral(" class=\"language-%1\"").arg(codeBlockLang);
                 html += QStringLiteral("<pre><code%1>%2</code></pre>\n")
-                            .arg(langAttr, escapeHtml(codeContent));
+                            .arg(langAttr, highlightedCode);
                 inCodeBlock = false;
             }
             continue;

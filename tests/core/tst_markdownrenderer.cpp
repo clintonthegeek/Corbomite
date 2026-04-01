@@ -53,7 +53,28 @@ private Q_SLOTS:
         Corbomite::MarkdownRenderer r;
         QString html = r.renderToHtml(QStringLiteral("```cpp\nint x = 1;\n```"));
         QVERIFY(html.contains(QStringLiteral("<pre><code")));
-        QVERIFY(html.contains(QStringLiteral("int x = 1;")));
+        QVERIFY(html.contains(QStringLiteral("language-cpp")));
+        // Content is present (possibly wrapped in highlighting spans)
+        QVERIFY(html.contains(QStringLiteral("int")));
+        QVERIFY(html.contains(QStringLiteral("x")));
+    }
+
+    void testCodeBlockFallback()
+    {
+        Corbomite::MarkdownRenderer r;
+        // Unknown language falls back to plain escaped text
+        QString html = r.renderToHtml(QStringLiteral("```notalanguage\nsome code\n```"));
+        QVERIFY(html.contains(QStringLiteral("<pre><code")));
+        QVERIFY(html.contains(QStringLiteral("some code")));
+    }
+
+    void testCodeBlockNoLang()
+    {
+        Corbomite::MarkdownRenderer r;
+        // No language specified — plain escaped text
+        QString html = r.renderToHtml(QStringLiteral("```\nplain text\n```"));
+        QVERIFY(html.contains(QStringLiteral("<pre><code>")));
+        QVERIFY(html.contains(QStringLiteral("plain text")));
     }
 
     void testWikiLink()
