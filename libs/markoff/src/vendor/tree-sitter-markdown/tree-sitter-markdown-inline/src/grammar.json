@@ -4585,8 +4585,8 @@
               "name": "_text_base"
             },
             {
-              "type": "CHOICE",
-              "members": []
+              "type": "SYMBOL",
+              "name": "tag"
             },
             {
               "type": "SYMBOL",
@@ -4788,6 +4788,10 @@
         }
       ]
     },
+    "tag": {
+      "type": "PATTERN",
+      "value": "#[0-9]*[a-zA-Z_\\-\\/][a-zA-Z_\\-\\/0-9]*"
+    },
     "_inline_element": {
       "type": "CHOICE",
       "members": [
@@ -4923,6 +4927,10 @@
               ]
             }
           ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "wiki_link"
         }
       ]
     },
@@ -5064,6 +5072,10 @@
               ]
             }
           ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "wiki_link"
         }
       ]
     },
@@ -5205,6 +5217,10 @@
               ]
             }
           ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "wiki_link"
         }
       ]
     },
@@ -5346,6 +5362,10 @@
               ]
             }
           ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "wiki_link"
         }
       ]
     },

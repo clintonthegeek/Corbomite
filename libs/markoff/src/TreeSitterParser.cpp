@@ -64,7 +64,10 @@ static void collectParentRanges(TSNode node, std::vector<ParentRange> &parents)
         strcmp(type, "obsidian_comment") == 0 ||
         strcmp(type, "latex_span") == 0 ||
         strcmp(type, "wiki_link") == 0 ||
-        strcmp(type, "link") == 0 ||
+        strcmp(type, "inline_link") == 0 ||
+        strcmp(type, "shortcut_link") == 0 ||
+        strcmp(type, "full_reference_link") == 0 ||
+        strcmp(type, "collapsed_reference_link") == 0 ||
         strcmp(type, "image") == 0;
 
     if (isFormattingParent) {
@@ -240,9 +243,18 @@ static void applyNodeType(SourceSpan &span, const char *type)
     else if (strcmp(type, "latex_span") == 0) { span.math = true; }
     else if (strcmp(type, "latex_block") == 0) { span.math = true; span.mathDisplay = true; }
     else if (strcmp(type, "wiki_link") == 0) { span.isWikilink = true; }
-    else if (strcmp(type, "link") == 0 || strcmp(type, "uri_autolink") == 0) { span.isLink = true; }
+    // Links: tree-sitter uses inline_link, shortcut_link, full_reference_link, collapsed_reference_link
+    else if (strcmp(type, "inline_link") == 0 || strcmp(type, "shortcut_link") == 0 ||
+             strcmp(type, "full_reference_link") == 0 || strcmp(type, "collapsed_reference_link") == 0 ||
+             strcmp(type, "uri_autolink") == 0) { span.isLink = true; }
+    else if (strcmp(type, "link_text") == 0) { span.isLink = true; }  // text inside links
+    else if (strcmp(type, "link_destination") == 0) { span.isLink = true; span.isDelimiter = true; }  // URL part — hide in live preview
     else if (strcmp(type, "image") == 0) { span.isImage = true; }
     else if (strcmp(type, "tag") == 0) { span.isTag = true; }
+
+    // Task list markers
+    else if (strcmp(type, "task_list_marker_checked") == 0) { span.isListMarker = true; }
+    else if (strcmp(type, "task_list_marker_unchecked") == 0) { span.isListMarker = true; }
 
     // Heading content inherits heading level from parent
     else if (strcmp(type, "atx_heading") == 0) { span.isHeading = true; }

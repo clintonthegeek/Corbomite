@@ -225,6 +225,10 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             fmt.merge(m_linkFormat);
         if (span.isWikilink)
             fmt.merge(m_wikilinkFormat);
+        if (span.isHorizontalRule)
+            fmt.setForeground(m_horizontalRuleFormat.foreground());
+        if (span.isListMarker)
+            fmt.setForeground(m_listMarkerFormat.foreground());
 
         setFormat(i, 1, fmt);
     }
