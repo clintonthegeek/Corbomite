@@ -1660,19 +1660,20 @@ void Editor::paintEvent(QPaintEvent *e)
                         painter.setBrush(dr->calloutColor);
                         painter.drawRoundedRect(QRectF(bgRect.left(), bgRect.top(), 4, bgRect.height()), 2, 2);
 
-                        // Paint the callout title on top of the (now transparent)
-                        // first line text. This covers both custom titles and
-                        // default type names.
+                        // Paint the callout title — only when cursor is NOT on
+                        // the first line (otherwise show raw markdown).
                         {
-                            QFont titleFont = font();
-                            titleFont.setBold(true);
-                            painter.setFont(titleFont);
-                            painter.setPen(dr->calloutColor);
-                            // Paint at the text position (inside the callout bg, after the left border)
-                            qreal textX = bgRect.left() + 12;
-                            QRectF titleRect(textX, r.top(), bgRect.width() - 16, r.height());
-                            painter.drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter,
-                                            dr->calloutTitle);
+                            int cursorBlockNum = d->control->textCursor().block().blockNumber();
+                            if (cursorBlockNum != dr->firstBlock) {
+                                QFont titleFont = font();
+                                titleFont.setBold(true);
+                                painter.setFont(titleFont);
+                                painter.setPen(dr->calloutColor);
+                                qreal textX = bgRect.left() + 12;
+                                QRectF titleRect(textX, r.top(), bgRect.width() - 16, r.height());
+                                painter.drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter,
+                                                dr->calloutTitle);
+                            }
                         }
                         painter.restore();
                     }
