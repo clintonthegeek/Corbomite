@@ -59,6 +59,7 @@ void CanvasScene::setDocument(CanvasDocument *doc)
     connect(m_document, &CanvasDocument::nodeChanged, this, &CanvasScene::onNodeChanged);
     connect(m_document, &CanvasDocument::edgeAdded, this, &CanvasScene::onEdgeAdded);
     connect(m_document, &CanvasDocument::edgeRemoved, this, &CanvasScene::onEdgeRemoved);
+    connect(m_document, &CanvasDocument::edgeChanged, this, &CanvasScene::onEdgeChanged);
 }
 
 CanvasDocument *CanvasScene::document() const
@@ -406,6 +407,16 @@ void CanvasScene::onEdgeAdded(const QString &id)
 void CanvasScene::onEdgeRemoved(const QString &id)
 {
     removeEdgeItem(id);
+}
+
+void CanvasScene::onEdgeChanged(const QString &id)
+{
+    if (!m_document)
+        return;
+
+    if (auto *item = edgeItem(id)) {
+        item->setEdgeData(m_document->edge(id));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -865,10 +876,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
                     data.label = newLabel;
                     edge->setEdgeData(data);
                     if (m_document)
-                        m_document->removeEdge(edgeId); // re-add with updated data
-                    // Actually, just update via removeEdge + addEdge, but document doesn't have updateEdge
-                    // For now, remove and re-add
-                    // TODO: add updateEdge to CanvasDocument in a future task
+                        m_document->updateEdge(data);
                 }
             });
         });

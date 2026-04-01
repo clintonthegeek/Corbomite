@@ -234,6 +234,15 @@ void CanvasDocument::removeEdge(const QString &id)
     Q_EMIT modificationChanged(true);
 }
 
+void CanvasDocument::updateEdge(const CanvasEdge &edge)
+{
+    if (!m_edges.contains(edge.id)) return;
+    m_edges[edge.id] = edge;
+    m_modified = true;
+    Q_EMIT edgeChanged(edge.id);
+    Q_EMIT modificationChanged(true);
+}
+
 CanvasEdge CanvasDocument::edge(const QString &id) const
 {
     return m_edges.value(id);

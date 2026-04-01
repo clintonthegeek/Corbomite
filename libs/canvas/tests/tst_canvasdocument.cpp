@@ -176,6 +176,35 @@ private Q_SLOTS:
         QCOMPARE(noEdges.size(), 0);
     }
 
+    void testUpdateEdge()
+    {
+        Canvas::CanvasDocument doc;
+        doc.loadFromJson(sampleJson());
+
+        auto edge = doc.edge(QStringLiteral("e1"));
+        QCOMPARE(edge.label, QStringLiteral("relates to"));
+
+        edge.label = QStringLiteral("connects");
+        doc.updateEdge(edge);
+
+        auto updated = doc.edge(QStringLiteral("e1"));
+        QCOMPARE(updated.label, QStringLiteral("connects"));
+    }
+
+    void testUpdateEdgeEmitsSignal()
+    {
+        Canvas::CanvasDocument doc;
+        doc.loadFromJson(sampleJson());
+
+        QSignalSpy spy(&doc, &Canvas::CanvasDocument::edgeChanged);
+        auto edge = doc.edge(QStringLiteral("e1"));
+        edge.label = QStringLiteral("test");
+        doc.updateEdge(edge);
+
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(spy.at(0).at(0).toString(), QStringLiteral("e1"));
+    }
+
     void testEdgeDefaultToEnd()
     {
         // When toEnd is not specified in JSON, default should be "arrow"

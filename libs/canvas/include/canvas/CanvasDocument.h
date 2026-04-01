@@ -32,6 +32,7 @@ public:
     // Edge operations
     void addEdge(const CanvasEdge &edge);
     void removeEdge(const QString &id);
+    void updateEdge(const CanvasEdge &edge);
     CanvasEdge edge(const QString &id) const;
     QVector<CanvasEdge> edges() const;
     QVector<CanvasEdge> edgesForNode(const QString &nodeId) const;
@@ -49,6 +50,7 @@ Q_SIGNALS:
     void nodeChanged(const QString &id);
     void edgeAdded(const QString &id);
     void edgeRemoved(const QString &id);
+    void edgeChanged(const QString &id);
     void modificationChanged(bool modified);
 
 private:

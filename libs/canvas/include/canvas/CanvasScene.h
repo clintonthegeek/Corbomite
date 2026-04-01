@@ -89,6 +89,7 @@ private Q_SLOTS:
     void onNodeChanged(const QString &id);
     void onEdgeAdded(const QString &id);
     void onEdgeRemoved(const QString &id);
+    void onEdgeChanged(const QString &id);
     void beginInlineEdit(TextCardItem *card);
     void beginGroupLabelEdit(GroupItem *group);
     void finishInlineEdit();
