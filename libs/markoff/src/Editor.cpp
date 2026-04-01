@@ -1995,6 +1995,27 @@ void Editor::paintEvent(QPaintEvent *e)
     QTextBlock block = Markoff::firstVisibleBlock(d.get());
     qreal maximumWidth = document()->documentLayout()->documentSize().width();
 
+    // If the first visible block is inside a table, walk back to the
+    // table's first block so we can paint the table (which may be
+    // partially above the viewport). Adjust offset accordingly.
+    {
+        QTextTable *startTable = tableForBlock(block);
+        if (startTable) {
+            QTextTableCell firstCell = startTable->cellAt(0, 0);
+            QTextBlock tableFirstBlock = firstCell.firstCursorPosition().block();
+            // Walk backward from current block to the table's first block,
+            // subtracting each block's height from offset
+            QTextBlock b = block.previous();
+            while (b.isValid() && b.blockNumber() >= tableFirstBlock.blockNumber()) {
+                PlainTextDocumentLayout *dl = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
+                offset.ry() -= dl->blockBoundingRect(b).height();
+                if (b == tableFirstBlock) break;
+                b = b.previous();
+            }
+            block = tableFirstBlock;
+        }
+    }
+
     painter.setBrushOrigin(offset);
 
     int maxX = offset.x() + qMax((qreal)viewportRect.width(), maximumWidth)
