@@ -17,8 +17,10 @@ private Q_SLOTS:
     void onModeToggle();
 private:
     void updateTitle();
+    void updateStatusBar();
     Markoff::Editor *m_editor = nullptr;
     Markoff::ReadingView *m_readingView = nullptr;
+    class QLabel *m_statusLabel = nullptr;
     QString m_filePath;
 };
 #endif

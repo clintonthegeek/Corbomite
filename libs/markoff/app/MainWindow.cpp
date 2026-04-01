@@ -13,6 +13,8 @@
 #include <QSpinBox>
 #include <QLabel>
 #include <QScrollBar>
+#include <QStatusBar>
+#include <QRegularExpression>
 #include <QFileInfo>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -74,6 +76,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Connect editor text changes
     connect(m_editor, &Markoff::Editor::textChanged, this, &MainWindow::onTextChanged);
+
+    // Status bar
+    m_statusLabel = new QLabel(this);
+    statusBar()->addPermanentWidget(m_statusLabel);
 
     // Scroll sync: editor → reading view
     connect(m_editor->verticalScrollBar(), &QScrollBar::valueChanged, this, [this]() {
@@ -142,6 +148,21 @@ void MainWindow::onTextChanged()
 {
     auto doc = Markoff::Document::fromMarkdown(m_editor->toPlainText());
     m_readingView->setDocument(*doc);
+    updateStatusBar();
+}
+
+void MainWindow::updateStatusBar()
+{
+    const QString text = m_editor->toPlainText();
+    int lines = text.count(QLatin1Char('\n')) + (text.isEmpty() ? 0 : 1);
+    int words = 0;
+    if (!text.isEmpty()) {
+        static const QRegularExpression wordRe(QStringLiteral("\\S+"));
+        auto it = wordRe.globalMatch(text);
+        while (it.hasNext()) { it.next(); ++words; }
+    }
+    int chars = text.size();
+    m_statusLabel->setText(QStringLiteral("%1 lines, %2 words, %3 chars").arg(lines).arg(words).arg(chars));
 }
 
 void MainWindow::onModeToggle()
