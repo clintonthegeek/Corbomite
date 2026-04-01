@@ -79,6 +79,10 @@
           "named": true
         },
         {
+          "type": "highlight",
+          "named": true
+        },
+        {
           "type": "html_tag",
           "named": true
         },
@@ -96,6 +100,10 @@
         },
         {
           "type": "numeric_character_reference",
+          "named": true
+        },
+        {
+          "type": "obsidian_comment",
           "named": true
         },
         {
@@ -140,6 +148,97 @@
     "type": "hard_line_break",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "highlight",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "backslash_escape",
+          "named": true
+        },
+        {
+          "type": "code_span",
+          "named": true
+        },
+        {
+          "type": "collapsed_reference_link",
+          "named": true
+        },
+        {
+          "type": "email_autolink",
+          "named": true
+        },
+        {
+          "type": "emphasis",
+          "named": true
+        },
+        {
+          "type": "entity_reference",
+          "named": true
+        },
+        {
+          "type": "full_reference_link",
+          "named": true
+        },
+        {
+          "type": "hard_line_break",
+          "named": true
+        },
+        {
+          "type": "highlight",
+          "named": true
+        },
+        {
+          "type": "highlight_delimiter",
+          "named": true
+        },
+        {
+          "type": "html_tag",
+          "named": true
+        },
+        {
+          "type": "image",
+          "named": true
+        },
+        {
+          "type": "inline_link",
+          "named": true
+        },
+        {
+          "type": "latex_block",
+          "named": true
+        },
+        {
+          "type": "numeric_character_reference",
+          "named": true
+        },
+        {
+          "type": "obsidian_comment",
+          "named": true
+        },
+        {
+          "type": "shortcut_link",
+          "named": true
+        },
+        {
+          "type": "strikethrough",
+          "named": true
+        },
+        {
+          "type": "strong_emphasis",
+          "named": true
+        },
+        {
+          "type": "uri_autolink",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "html_tag",
@@ -214,6 +313,10 @@
           "named": true
         },
         {
+          "type": "highlight",
+          "named": true
+        },
+        {
           "type": "html_tag",
           "named": true
         },
@@ -231,6 +334,10 @@
         },
         {
           "type": "numeric_character_reference",
+          "named": true
+        },
+        {
+          "type": "obsidian_comment",
           "named": true
         },
         {
@@ -294,6 +401,10 @@
           "named": true
         },
         {
+          "type": "highlight",
+          "named": true
+        },
+        {
           "type": "html_tag",
           "named": true
         },
@@ -311,6 +422,10 @@
         },
         {
           "type": "numeric_character_reference",
+          "named": true
+        },
+        {
+          "type": "obsidian_comment",
           "named": true
         },
         {
@@ -453,6 +568,10 @@
           "named": true
         },
         {
+          "type": "highlight",
+          "named": true
+        },
+        {
           "type": "html_tag",
           "named": true
         },
@@ -466,6 +585,10 @@
         },
         {
           "type": "numeric_character_reference",
+          "named": true
+        },
+        {
+          "type": "obsidian_comment",
           "named": true
         },
         {
@@ -501,6 +624,97 @@
         },
         {
           "type": "numeric_character_reference",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "obsidian_comment",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "backslash_escape",
+          "named": true
+        },
+        {
+          "type": "code_span",
+          "named": true
+        },
+        {
+          "type": "collapsed_reference_link",
+          "named": true
+        },
+        {
+          "type": "comment_delimiter",
+          "named": true
+        },
+        {
+          "type": "email_autolink",
+          "named": true
+        },
+        {
+          "type": "emphasis",
+          "named": true
+        },
+        {
+          "type": "entity_reference",
+          "named": true
+        },
+        {
+          "type": "full_reference_link",
+          "named": true
+        },
+        {
+          "type": "hard_line_break",
+          "named": true
+        },
+        {
+          "type": "highlight",
+          "named": true
+        },
+        {
+          "type": "html_tag",
+          "named": true
+        },
+        {
+          "type": "image",
+          "named": true
+        },
+        {
+          "type": "inline_link",
+          "named": true
+        },
+        {
+          "type": "latex_block",
+          "named": true
+        },
+        {
+          "type": "numeric_character_reference",
+          "named": true
+        },
+        {
+          "type": "obsidian_comment",
+          "named": true
+        },
+        {
+          "type": "shortcut_link",
+          "named": true
+        },
+        {
+          "type": "strikethrough",
+          "named": true
+        },
+        {
+          "type": "strong_emphasis",
+          "named": true
+        },
+        {
+          "type": "uri_autolink",
           "named": true
         }
       ]
@@ -566,6 +780,10 @@
           "named": true
         },
         {
+          "type": "highlight",
+          "named": true
+        },
+        {
           "type": "html_tag",
           "named": true
         },
@@ -583,6 +801,10 @@
         },
         {
           "type": "numeric_character_reference",
+          "named": true
+        },
+        {
+          "type": "obsidian_comment",
           "named": true
         },
         {
@@ -649,6 +871,10 @@
           "named": true
         },
         {
+          "type": "highlight",
+          "named": true
+        },
+        {
           "type": "html_tag",
           "named": true
         },
@@ -666,6 +892,10 @@
         },
         {
           "type": "numeric_character_reference",
+          "named": true
+        },
+        {
+          "type": "obsidian_comment",
           "named": true
         },
         {
@@ -828,6 +1058,10 @@
     "named": true
   },
   {
+    "type": "comment_delimiter",
+    "named": true
+  },
+  {
     "type": "email_autolink",
     "named": true
   },
@@ -837,6 +1071,10 @@
   },
   {
     "type": "entity_reference",
+    "named": true
+  },
+  {
+    "type": "highlight_delimiter",
     "named": true
   },
   {

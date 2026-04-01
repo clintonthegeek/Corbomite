@@ -165,6 +165,10 @@ static void applyNodeType(SourceSpan &span, const char *type)
     else if (strcmp(type, "strong_emphasis") == 0) { span.bold = true; }
     else if (strcmp(type, "code_span") == 0) { span.code = true; }
     else if (strcmp(type, "strikethrough") == 0) { span.strikethrough = true; }
+    else if (strcmp(type, "highlight") == 0) { span.highlight = true; }
+    else if (strcmp(type, "highlight_delimiter") == 0) { span.isDelimiter = true; span.highlight = true; }
+    else if (strcmp(type, "obsidian_comment") == 0) { span.comment = true; }
+    else if (strcmp(type, "comment_delimiter") == 0) { span.isDelimiter = true; span.comment = true; }
     else if (strcmp(type, "latex_span") == 0) { span.math = true; }
     else if (strcmp(type, "latex_block") == 0) { span.math = true; span.mathDisplay = true; }
     else if (strcmp(type, "wiki_link") == 0) { span.isWikilink = true; }

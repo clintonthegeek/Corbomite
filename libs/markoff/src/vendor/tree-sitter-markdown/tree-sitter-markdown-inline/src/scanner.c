@@ -22,6 +22,10 @@ typedef enum {
     STRIKETHROUGH_CLOSE,
     LATEX_SPAN_START,
     LATEX_SPAN_CLOSE,
+    HIGHLIGHT_OPEN,
+    HIGHLIGHT_CLOSE,
+    OBSIDIAN_COMMENT_OPEN,
+    OBSIDIAN_COMMENT_CLOSE,
     UNCLOSED_SPAN
 } TokenType;
 
@@ -63,6 +67,8 @@ typedef struct {
     // The number of characters remaining in the currrent emphasis delimiter
     // run.
     uint8_t num_emphasis_delimiters_left;
+    uint8_t highlight_delimiter_length;
+    uint8_t comment_delimiter_length;
 
 } Scanner;
 
@@ -73,6 +79,8 @@ static unsigned serialize(Scanner *s, char *buffer) {
     buffer[size++] = (char)s->code_span_delimiter_length;
     buffer[size++] = (char)s->latex_span_delimiter_length;
     buffer[size++] = (char)s->num_emphasis_delimiters_left;
+    buffer[size++] = (char)s->highlight_delimiter_length;
+    buffer[size++] = (char)s->comment_delimiter_length;
     return size;
 }
 
@@ -83,12 +91,16 @@ static void deserialize(Scanner *s, const char *buffer, unsigned length) {
     s->code_span_delimiter_length = 0;
     s->latex_span_delimiter_length = 0;
     s->num_emphasis_delimiters_left = 0;
+    s->highlight_delimiter_length = 0;
+    s->comment_delimiter_length = 0;
     if (length > 0) {
         size_t size = 0;
         s->state = (uint8_t)buffer[size++];
         s->code_span_delimiter_length = (uint8_t)buffer[size++];
         s->latex_span_delimiter_length = (uint8_t)buffer[size++];
         s->num_emphasis_delimiters_left = (uint8_t)buffer[size++];
+        if (size < length) s->highlight_delimiter_length = (uint8_t)buffer[size++];
+        if (size < length) s->comment_delimiter_length = (uint8_t)buffer[size++];
     }
 }
 
@@ -337,6 +349,20 @@ static bool parse_underscore(Scanner *s, TSLexer *lexer,
     return false;
 }
 
+static bool parse_equals(Scanner *s, TSLexer *lexer,
+                          const bool *valid_symbols) {
+    return parse_leaf_delimiter(lexer, &s->highlight_delimiter_length,
+                                valid_symbols, '=', HIGHLIGHT_OPEN,
+                                HIGHLIGHT_CLOSE);
+}
+
+static bool parse_percent(Scanner *s, TSLexer *lexer,
+                           const bool *valid_symbols) {
+    return parse_leaf_delimiter(lexer, &s->comment_delimiter_length,
+                                valid_symbols, '%', OBSIDIAN_COMMENT_OPEN,
+                                OBSIDIAN_COMMENT_CLOSE);
+}
+
 static bool scan(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
     // A normal tree-sitter rule decided that the current branch is invalid and
     // now "requests" an error to stop the branch
@@ -362,6 +388,10 @@ static bool scan(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
             return parse_underscore(s, lexer, valid_symbols);
         case '~':
             return parse_tilde(s, lexer, valid_symbols);
+        case '=':
+            return parse_equals(s, lexer, valid_symbols);
+        case '%':
+            return parse_percent(s, lexer, valid_symbols);
     }
     return false;
 }

@@ -4841,6 +4841,24 @@
           "value": "strikethrough"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_highlight"
+          },
+          "named": true,
+          "value": "highlight"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_obsidian_comment"
+          },
+          "named": true,
+          "value": "obsidian_comment"
+        },
+        {
           "type": "SYMBOL",
           "name": "_emphasis_open_star"
         },
@@ -4851,6 +4869,14 @@
         {
           "type": "SYMBOL",
           "name": "_strikethrough_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_highlight_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_obsidian_comment_open"
         },
         {
           "type": "SYMBOL",
@@ -4960,12 +4986,38 @@
           "value": "strikethrough"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_highlight"
+          },
+          "named": true,
+          "value": "highlight"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_obsidian_comment"
+          },
+          "named": true,
+          "value": "obsidian_comment"
+        },
+        {
           "type": "SYMBOL",
           "name": "_emphasis_open_underscore"
         },
         {
           "type": "SYMBOL",
           "name": "_strikethrough_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_highlight_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_obsidian_comment_open"
         },
         {
           "type": "SYMBOL",
@@ -5075,12 +5127,38 @@
           "value": "strikethrough"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_highlight"
+          },
+          "named": true,
+          "value": "highlight"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_obsidian_comment"
+          },
+          "named": true,
+          "value": "obsidian_comment"
+        },
+        {
           "type": "SYMBOL",
           "name": "_emphasis_open_star"
         },
         {
           "type": "SYMBOL",
           "name": "_strikethrough_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_highlight_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_obsidian_comment_open"
         },
         {
           "type": "SYMBOL",
@@ -5190,12 +5268,38 @@
           "value": "strikethrough"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_highlight"
+          },
+          "named": true,
+          "value": "highlight"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_obsidian_comment"
+          },
+          "named": true,
+          "value": "obsidian_comment"
+        },
+        {
           "type": "SYMBOL",
           "name": "_emphasis_open_star"
         },
         {
           "type": "SYMBOL",
           "name": "_emphasis_open_underscore"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_highlight_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_obsidian_comment_open"
         },
         {
           "type": "SYMBOL",
@@ -5291,6 +5395,68 @@
             },
             "named": true,
             "value": "emphasis_delimiter"
+          }
+        ]
+      }
+    },
+    "_highlight": {
+      "type": "PREC_DYNAMIC",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_highlight_open"
+            },
+            "named": true,
+            "value": "highlight_delimiter"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_inline"
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_highlight_close"
+            },
+            "named": true,
+            "value": "highlight_delimiter"
+          }
+        ]
+      }
+    },
+    "_obsidian_comment": {
+      "type": "PREC_DYNAMIC",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_obsidian_comment_open"
+            },
+            "named": true,
+            "value": "comment_delimiter"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_inline"
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_obsidian_comment_close"
+            },
+            "named": true,
+            "value": "comment_delimiter"
           }
         ]
       }
@@ -5496,6 +5662,24 @@
           "value": "strikethrough"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_highlight_no_link"
+          },
+          "named": true,
+          "value": "highlight"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_obsidian_comment_no_link"
+          },
+          "named": true,
+          "value": "obsidian_comment"
+        },
+        {
           "type": "SYMBOL",
           "name": "_emphasis_open_star"
         },
@@ -5506,6 +5690,14 @@
         {
           "type": "SYMBOL",
           "name": "_strikethrough_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_highlight_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_obsidian_comment_open"
         }
       ]
     },
@@ -5569,12 +5761,38 @@
           "value": "strikethrough"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_highlight_no_link"
+          },
+          "named": true,
+          "value": "highlight"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_obsidian_comment_no_link"
+          },
+          "named": true,
+          "value": "obsidian_comment"
+        },
+        {
           "type": "SYMBOL",
           "name": "_emphasis_open_underscore"
         },
         {
           "type": "SYMBOL",
           "name": "_strikethrough_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_highlight_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_obsidian_comment_open"
         }
       ]
     },
@@ -5638,12 +5856,38 @@
           "value": "strikethrough"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_highlight_no_link"
+          },
+          "named": true,
+          "value": "highlight"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_obsidian_comment_no_link"
+          },
+          "named": true,
+          "value": "obsidian_comment"
+        },
+        {
           "type": "SYMBOL",
           "name": "_emphasis_open_star"
         },
         {
           "type": "SYMBOL",
           "name": "_strikethrough_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_highlight_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_obsidian_comment_open"
         }
       ]
     },
@@ -5707,12 +5951,38 @@
           "value": "strikethrough"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_highlight_no_link"
+          },
+          "named": true,
+          "value": "highlight"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_obsidian_comment_no_link"
+          },
+          "named": true,
+          "value": "obsidian_comment"
+        },
+        {
           "type": "SYMBOL",
           "name": "_emphasis_open_star"
         },
         {
           "type": "SYMBOL",
           "name": "_emphasis_open_underscore"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_highlight_open"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_obsidian_comment_open"
         }
       ]
     },
@@ -5762,6 +6032,68 @@
             },
             "named": true,
             "value": "emphasis_delimiter"
+          }
+        ]
+      }
+    },
+    "_highlight_no_link": {
+      "type": "PREC_DYNAMIC",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_highlight_open"
+            },
+            "named": true,
+            "value": "highlight_delimiter"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_inline_no_link"
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_highlight_close"
+            },
+            "named": true,
+            "value": "highlight_delimiter"
+          }
+        ]
+      }
+    },
+    "_obsidian_comment_no_link": {
+      "type": "PREC_DYNAMIC",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_obsidian_comment_open"
+            },
+            "named": true,
+            "value": "comment_delimiter"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_inline_no_link"
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_obsidian_comment_close"
+            },
+            "named": true,
+            "value": "comment_delimiter"
           }
         ]
       }
@@ -6033,6 +6365,14 @@
       "_inline_element"
     ],
     [
+      "_highlight",
+      "_inline_element"
+    ],
+    [
+      "_obsidian_comment",
+      "_inline_element"
+    ],
+    [
       "_strong_emphasis_star",
       "_inline_element_no_star"
     ],
@@ -6050,6 +6390,14 @@
       "_inline_element_no_star"
     ],
     [
+      "_highlight",
+      "_inline_element_no_star"
+    ],
+    [
+      "_obsidian_comment",
+      "_inline_element_no_star"
+    ],
+    [
       "_emphasis_star",
       "_inline_element_no_underscore"
     ],
@@ -6067,6 +6415,14 @@
       "_inline_element_no_underscore"
     ],
     [
+      "_highlight",
+      "_inline_element_no_underscore"
+    ],
+    [
+      "_obsidian_comment",
+      "_inline_element_no_underscore"
+    ],
+    [
       "_emphasis_star",
       "_inline_element_no_tilde"
     ],
@@ -6082,6 +6438,14 @@
     [
       "_emphasis_underscore",
       "_strong_emphasis_underscore",
+      "_inline_element_no_tilde"
+    ],
+    [
+      "_highlight",
+      "_inline_element_no_tilde"
+    ],
+    [
+      "_obsidian_comment",
       "_inline_element_no_tilde"
     ],
     [
@@ -6104,6 +6468,14 @@
     ],
     [
       "_strikethrough_no_link",
+      "_inline_element_no_link"
+    ],
+    [
+      "_highlight_no_link",
+      "_inline_element_no_link"
+    ],
+    [
+      "_obsidian_comment_no_link",
       "_inline_element_no_link"
     ],
     [
@@ -6124,6 +6496,14 @@
       "_inline_element_no_star_no_link"
     ],
     [
+      "_highlight_no_link",
+      "_inline_element_no_star_no_link"
+    ],
+    [
+      "_obsidian_comment_no_link",
+      "_inline_element_no_star_no_link"
+    ],
+    [
       "_emphasis_star_no_link",
       "_inline_element_no_underscore_no_link"
     ],
@@ -6141,6 +6521,14 @@
       "_inline_element_no_underscore_no_link"
     ],
     [
+      "_highlight_no_link",
+      "_inline_element_no_underscore_no_link"
+    ],
+    [
+      "_obsidian_comment_no_link",
+      "_inline_element_no_underscore_no_link"
+    ],
+    [
       "_emphasis_star_no_link",
       "_inline_element_no_tilde_no_link"
     ],
@@ -6156,6 +6544,14 @@
     [
       "_emphasis_underscore_no_link",
       "_strong_emphasis_underscore_no_link",
+      "_inline_element_no_tilde_no_link"
+    ],
+    [
+      "_highlight_no_link",
+      "_inline_element_no_tilde_no_link"
+    ],
+    [
+      "_obsidian_comment_no_link",
       "_inline_element_no_tilde_no_link"
     ]
   ],
@@ -6257,6 +6653,22 @@
     {
       "type": "SYMBOL",
       "name": "_latex_span_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_highlight_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_highlight_close"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_obsidian_comment_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_obsidian_comment_close"
     },
     {
       "type": "SYMBOL",

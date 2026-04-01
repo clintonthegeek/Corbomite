@@ -56,6 +56,14 @@ module.exports = grammar(add_inline_rules({
         $._latex_span_start,
         $._latex_span_close,
 
+        // Obsidian: ==highlight== delimiters
+        $._highlight_open,
+        $._highlight_close,
+
+        // Obsidian: %%comment%% delimiters
+        $._obsidian_comment_open,
+        $._obsidian_comment_close,
+
         // Token emmited when encountering opening delimiters for a leaf span
         // e.g. a code span, that does not have a matching closing span
         $._unclosed_span
@@ -407,6 +415,12 @@ function add_inline_rules(grammar) {
                 if (common.EXTENSION_STRIKETHROUGH) {
                     elements.push(alias($['_strikethrough' + suffix_link], $.strikethrough));
                 }
+                if (common.EXTENSION_HIGHLIGHT) {
+                    elements.push(alias($['_highlight' + suffix_link], $.highlight));
+                }
+                if (common.EXTENSION_OBSIDIAN_COMMENT) {
+                    elements.push(alias($['_obsidian_comment' + suffix_link], $.obsidian_comment));
+                }
                 if (delimiter !== "star") {
                     elements.push($._emphasis_open_star);
                 }
@@ -416,6 +430,8 @@ function add_inline_rules(grammar) {
                 if (delimiter !== "tilde") {
                     elements.push($._strikethrough_open);
                 }
+                elements.push($._highlight_open);
+                elements.push($._obsidian_comment_open);
                 if (link) {
                     elements = elements.concat([
                         $.shortcut_link,
@@ -446,10 +462,18 @@ function add_inline_rules(grammar) {
             if (delimiter !== "tilde") {
                 conflicts.push(['_strikethrough' + suffix_link, '_inline_element' + suffix_delimiter + suffix_link]);
             }
+            conflicts.push(['_highlight' + suffix_link, '_inline_element' + suffix_delimiter + suffix_link]);
+            conflicts.push(['_obsidian_comment' + suffix_link, '_inline_element' + suffix_delimiter + suffix_link]);
         }
 
         if (common.EXTENSION_STRIKETHROUGH) {
             grammar.rules['_strikethrough' + suffix_link] = $ => prec.dynamic(PRECEDENCE_LEVEL_EMPHASIS, seq(alias($._strikethrough_open, $.emphasis_delimiter), optional($._last_token_punctuation), $['_inline' + '_no_tilde' + suffix_link], alias($._strikethrough_close, $.emphasis_delimiter)));
+        }
+        if (common.EXTENSION_HIGHLIGHT) {
+            grammar.rules['_highlight' + suffix_link] = $ => prec.dynamic(PRECEDENCE_LEVEL_EMPHASIS, seq(alias($._highlight_open, $.highlight_delimiter), $['_inline' + suffix_link], alias($._highlight_close, $.highlight_delimiter)));
+        }
+        if (common.EXTENSION_OBSIDIAN_COMMENT) {
+            grammar.rules['_obsidian_comment' + suffix_link] = $ => prec.dynamic(PRECEDENCE_LEVEL_EMPHASIS, seq(alias($._obsidian_comment_open, $.comment_delimiter), $['_inline' + suffix_link], alias($._obsidian_comment_close, $.comment_delimiter)));
         }
         grammar.rules['_emphasis_star' + suffix_link] = $ => prec.dynamic(PRECEDENCE_LEVEL_EMPHASIS, seq(alias($._emphasis_open_star, $.emphasis_delimiter), optional($._last_token_punctuation), $['_inline' + '_no_star' + suffix_link], alias($._emphasis_close_star, $.emphasis_delimiter)));
         grammar.rules['_strong_emphasis_star' + suffix_link] = $ => prec.dynamic(2 * PRECEDENCE_LEVEL_EMPHASIS, seq(alias($._emphasis_open_star, $.emphasis_delimiter), $['_emphasis_star' + suffix_link], alias($._emphasis_close_star, $.emphasis_delimiter)));

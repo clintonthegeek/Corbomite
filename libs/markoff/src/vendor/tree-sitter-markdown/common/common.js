@@ -11,6 +11,10 @@ module.exports.EXTENSION_TAGS = process.env.EXTENSION_TAGS || process.env.ALL_EX
 module.exports.EXTENSION_LATEX = process.env.EXTENSION_LATEX || module.exports.EXTENSION_DEFAULT || process.env.ALL_EXTENSIONS;
 module.exports.EXTENSION_WIKI_LINK = process.env.EXTENSION_WIKI_LINK || process.env.ALL_EXTENSIONS;
 
+// Obsidian extensions (always enabled in our fork)
+module.exports.EXTENSION_HIGHLIGHT = true;
+module.exports.EXTENSION_OBSIDIAN_COMMENT = true;
+
 const PUNCTUATION_CHARACTERS_REGEX = '!-/:-@\\[-`\\{-~';
 const PUNCTUATION_CHARACTERS_ARRAY = [
     '!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<',
