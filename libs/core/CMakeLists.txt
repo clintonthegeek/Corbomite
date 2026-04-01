@@ -13,6 +13,7 @@ add_library(corbomite-core STATIC
     src/RenderedDocument.cpp
     src/MarkdownRenderEngine.cpp
     src/RegexRenderEngine.cpp
+    src/MarkoffRenderEngine.cpp
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
@@ -20,4 +21,4 @@ add_library(Corbomite::Core ALIAS corbomite-core)
 target_include_directories(corbomite-core
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets KF6::SyntaxHighlighting jkqtmathtext mmdr)
+target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets KF6::SyntaxHighlighting jkqtmathtext mmdr markoff)
