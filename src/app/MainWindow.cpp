@@ -23,6 +23,7 @@
 #include "reactors/AutosaveReactor.h"
 #include "reactors/FileWatchReactor.h"
 #include "SessionManager.h"
+#include "dialogs/CreateVaultDialog.h"
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
 #include "dialogs/TemplatePicker.h"
@@ -354,12 +355,26 @@ void MainWindow::setupEditor()
     });
     connect(m_welcomeScreen, &WelcomeScreen::openFolderRequested, this, &MainWindow::openVaultDialog);
     connect(m_welcomeScreen, &WelcomeScreen::createVaultRequested, this, [this]() {
-        QString dir = QFileDialog::getExistingDirectory(
-            this, i18n("Create New Vault"), QDir::homePath());
-        if (!dir.isEmpty()) {
-            QDir(dir).mkpath(QStringLiteral(".corbomite"));
-            m_vaultService->openVault(dir);
+        CreateVaultDialog dialog(this);
+        if (dialog.exec() != QDialog::Accepted) return;
+
+        QString vaultPath = dialog.vaultPath();
+        QDir vaultDir(vaultPath);
+        if (!vaultDir.mkpath(QStringLiteral("."))) return;
+        vaultDir.mkpath(QStringLiteral(".corbomite"));
+
+        // Create a welcome note
+        QFile welcome(vaultPath + QStringLiteral("/Welcome.md"));
+        if (welcome.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            welcome.write("# Welcome to your vault\n\n"
+                          "This is your new knowledge base. Start writing!\n\n"
+                          "- Create new notes with **Ctrl+N**\n"
+                          "- Link notes together with `[[double brackets]]`\n"
+                          "- Search your vault with **Ctrl+Shift+F**\n"
+                          "- Toggle reading mode with **Ctrl+E**\n");
         }
+
+        m_vaultService->openVault(vaultPath);
     });
 
     // Index 1: Editor view manager

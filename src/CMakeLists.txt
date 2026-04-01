@@ -22,6 +22,7 @@ add_library(CorbomiteApp STATIC
     editor/NotePreviewWidget.cpp
     reactors/AutosaveReactor.cpp
     reactors/FileWatchReactor.cpp
+    dialogs/CreateVaultDialog.cpp
     dialogs/SettingsDialog.cpp
     dialogs/QuickSwitcherModel.cpp
     dialogs/QuickSwitcherDelegate.cpp
