@@ -18,3 +18,8 @@ set_tests_properties(tst_notedocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=of
 add_executable(tst_markdownrenderer tst_markdownrenderer.cpp)
 add_test(NAME tst_markdownrenderer COMMAND tst_markdownrenderer)
 target_link_libraries(tst_markdownrenderer PRIVATE Qt6::Test Corbomite::Core)
+
+add_executable(tst_rendereddocument tst_rendereddocument.cpp)
+add_test(NAME tst_rendereddocument COMMAND tst_rendereddocument)
+target_link_libraries(tst_rendereddocument PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_rendereddocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
