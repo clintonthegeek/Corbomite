@@ -112,18 +112,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
             sidebarsVisible(), 200, // leftVisible, leftWidth (default)
             false, 200);            // rightVisible, rightWidth (default)
 
-        // Save open tabs
-        auto *viewSpace = m_editorManager->activeViewSpace();
-        if (viewSpace) {
-            auto *tabs = viewSpace->tabModel();
-            QJsonArray tabArray;
-            for (int i = 0; i < tabs->rowCount(); ++i) {
-                QJsonObject tab;
-                tab[QStringLiteral("path")] = tabs->tabPath(i);
-                tabArray.append(tab);
-            }
-            m_sessionManager->saveOpenTabs(tabArray, tabs->activeTabIndex());
-        }
+        // TODO(Task 6): save full editor state (split layout + per-tab state)
 
         // Write session data immediately (bypass debounce timer)
         m_sessionManager->saveNow();
