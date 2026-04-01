@@ -109,9 +109,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
             event->ignore();
             return;
         }
-
         if (m_sessionManager) {
             m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
+            m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
+            m_sessionManager->saveEditorState(m_editorManager->buildSessionState());
+            if (m_fileExplorer) {
+                m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
+            }
             m_sessionManager->saveNow();
         }
     }
@@ -809,7 +813,50 @@ void MainWindow::onVaultOpened()
     m_sessionManager->setSessionPath(vault->configPath() + QStringLiteral("/session.json"));
 
     auto session = m_sessionManager->load();
-    if (session.contains(QStringLiteral("tabs"))) {
+
+    // Restore window geometry if available
+    if (session.contains(QStringLiteral("windowGeometry"))) {
+        QByteArray geometry = QByteArray::fromBase64(
+            session[QStringLiteral("windowGeometry")].toString().toLatin1());
+        if (!geometry.isEmpty()) {
+            restoreGeometry(geometry);
+        }
+    }
+    if (session.contains(QStringLiteral("windowState"))) {
+        QByteArray state = QByteArray::fromBase64(
+            session[QStringLiteral("windowState")].toString().toLatin1());
+        if (!state.isEmpty()) {
+            restoreState(state);
+        }
+    }
+
+    // Restore sidebar state
+    if (session.contains(QStringLiteral("sidebar"))) {
+        auto sidebar = session[QStringLiteral("sidebar")].toObject();
+        bool leftVisible = sidebar[QStringLiteral("leftVisible")].toBool(true);
+        setSidebarsVisibleInternal(leftVisible, true);
+    }
+
+    // Block saving during restore to avoid partial session writes
+    m_sessionManager->blockSaving();
+
+    // Try new full editor state format first, then fall back to old flat tabs format
+    auto editorState = session[QStringLiteral("editor")].toObject();
+    if (editorState.contains(QStringLiteral("panes"))) {
+        m_editorManager->restoreFromSession(editorState,
+            [this](const QString &path, EditorViewSpace *space) {
+                if (path.endsWith(QStringLiteral(".canvas"))) {
+                    QString absPath = m_vaultService->vault()->path() + QLatin1Char('/') + path;
+                    space->openCanvas(absPath);
+                } else {
+                    auto *doc = m_vaultService->noteService()->openNote(path);
+                    if (doc) {
+                        space->openNote(doc);
+                    }
+                }
+            });
+    } else if (session.contains(QStringLiteral("tabs"))) {
+        // Backward compat: old flat tabs array
         auto tabs = session[QStringLiteral("tabs")].toArray();
         for (const auto &tabVal : tabs) {
             auto tab = tabVal.toObject();
@@ -819,6 +866,18 @@ void MainWindow::onVaultOpened()
             }
         }
     }
+
+    // Restore expanded folders
+    if (session.contains(QStringLiteral("expandedFolders"))) {
+        QStringList folders;
+        auto arr = session[QStringLiteral("expandedFolders")].toArray();
+        for (const auto &v : arr) {
+            folders.append(v.toString());
+        }
+        m_fileExplorer->restoreExpandedFolders(folders);
+    }
+
+    m_sessionManager->unblockSaving();
 
     // Template and Daily Note services
     auto *settings = CorbomiteSettings::self();
@@ -841,6 +900,29 @@ void MainWindow::onVaultOpened()
 
 void MainWindow::onVaultClosed()
 {
+    // Save session before cleanup
+    if (m_sessionManager) {
+        m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
+        m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
+        m_sessionManager->saveEditorState(m_editorManager->buildSessionState());
+        if (m_fileExplorer) {
+            m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
+        }
+        m_sessionManager->saveNow();
+    }
+
+    // Disconnect vault-specific signals — prevents stale callbacks during cleanup
+    disconnect(m_editorManager, &EditorViewManager::activeEditorChanged, this, nullptr);
+    disconnect(m_editorManager, &EditorViewManager::graphNoteActivated, this, nullptr);
+
+    // Reconnect non-vault signals that setupEditor originally set up
+    connect(m_editorManager, &EditorViewManager::cursorInfoChanged,
+            this, &MainWindow::onCursorInfoChanged);
+
+    // Close all editor state — THIS FIXES THE CRASH
+    m_editorManager->closeAllDocuments();
+
+    // Clean up reactors
     delete m_autosave;
     m_autosave = nullptr;
     if (m_fileWatch) {
@@ -857,7 +939,6 @@ void MainWindow::onVaultClosed()
     m_dailyNoteService = nullptr;
 
     m_vaultService->noteService()->setSearchIndex(nullptr);
-    m_vaultService->vault()->setSearchIndex(nullptr);
 
     m_backlinksPanel->setIndex(nullptr);
     m_backlinksPanel->setCurrentNote(nullptr);
@@ -876,13 +957,14 @@ void MainWindow::onVaultClosed()
     delete m_treeModel;
     m_treeModel = nullptr;
     m_fileExplorer->setModel(nullptr);
-    updateWindowTitle();
-    updateVaultActions();
 
     // Switch to welcome screen
-    m_welcomeScreen->refreshRecentVaults();
     m_centralStack->setCurrentIndex(0);
+    m_welcomeScreen->refreshRecentVaults();
     setSidebarsVisibleInternal(false, true);
+
+    updateWindowTitle();
+    updateVaultActions();
 }
 
 void MainWindow::openGraphView()

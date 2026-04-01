@@ -16,6 +16,9 @@ public:
 
     void setModel(NotesTreeModel *model);
 
+    QStringList expandedFolders() const;
+    void restoreExpandedFolders(const QStringList &folders);
+
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 

@@ -4,7 +4,9 @@
 #include <QWidget>
 #include <QSplitter>
 #include <QVector>
+#include <QJsonObject>
 #include <memory>
+#include <functional>
 
 namespace Corbomite {
 
@@ -41,6 +43,13 @@ public:
     bool queryClose();
     void closeAllDocuments();
 
+    // Session save/restore
+    QJsonObject buildSessionState() const;
+    void restoreFromSession(const QJsonObject &editorState,
+                            std::function<void(const QString &path, EditorViewSpace *space)> openTabCallback);
+    QVector<EditorViewSpace *> viewSpaces() const;
+    QSplitter *rootSplitter() const;
+
 Q_SIGNALS:
     void activeEditorChanged(NoteEditorWidget *editor);
     void cursorInfoChanged(int line, int column, int wordCount);
@@ -54,6 +63,8 @@ private:
     void removeViewSpace(EditorViewSpace *space);
     void cleanupEmptySplitters(QSplitter *splitter);
     void resetToSingleViewSpace();
+    void rebuildSplitLayout(const QJsonValue &node, QSplitter *parent);
+    void restoreTabState(const QJsonObject &paneJson, EditorViewSpace *space);
 
     QSplitter *m_rootSplitter;
     EditorViewSpace *m_activeViewSpace = nullptr;

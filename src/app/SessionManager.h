@@ -43,9 +43,9 @@ public:
 
     // Static helpers for building editor state JSON
     static QJsonObject buildSplitLayoutJson(QSplitter *splitter, const QVector<EditorViewSpace *> &viewSpaces);
+    static QJsonValue encodeSplitterNode(QSplitter *splitter, const QVector<EditorViewSpace *> &viewSpaces);
 
 private:
-    static QJsonValue encodeSplitterNode(QSplitter *splitter, const QVector<EditorViewSpace *> &viewSpaces);
 
     void doSave();
 

@@ -4,6 +4,8 @@
 #include <QVBoxLayout>
 #include <QMenu>
 #include <QKeyEvent>
+#include <QSet>
+#include <functional>
 #include <KLocalizedString>
 
 namespace Corbomite {
@@ -31,6 +33,52 @@ FileExplorerPanel::FileExplorerPanel(QWidget *parent)
 void FileExplorerPanel::setModel(NotesTreeModel *model)
 {
     m_treeView->setModel(model);
+}
+
+QStringList FileExplorerPanel::expandedFolders() const
+{
+    QStringList result;
+    auto *model = m_treeView->model();
+    if (!model) return result;
+
+    std::function<void(const QModelIndex &)> collectExpanded = [&](const QModelIndex &parent) {
+        int rows = model->rowCount(parent);
+        for (int i = 0; i < rows; ++i) {
+            QModelIndex idx = model->index(i, 0, parent);
+            if (m_treeView->isExpanded(idx)) {
+                QString path = idx.data(NotesTreeModel::PathRole).toString();
+                if (!path.isEmpty()) {
+                    result.append(path);
+                }
+                collectExpanded(idx);
+            }
+        }
+    };
+    collectExpanded(QModelIndex());
+    return result;
+}
+
+void FileExplorerPanel::restoreExpandedFolders(const QStringList &folders)
+{
+    auto *model = m_treeView->model();
+    if (!model || folders.isEmpty()) return;
+
+    QSet<QString> folderSet(folders.begin(), folders.end());
+
+    std::function<void(const QModelIndex &)> restoreExpanded = [&](const QModelIndex &parent) {
+        int rows = model->rowCount(parent);
+        for (int i = 0; i < rows; ++i) {
+            QModelIndex idx = model->index(i, 0, parent);
+            QString path = idx.data(NotesTreeModel::PathRole).toString();
+            if (folderSet.contains(path)) {
+                m_treeView->setExpanded(idx, true);
+            }
+            if (model->rowCount(idx) > 0) {
+                restoreExpanded(idx);
+            }
+        }
+    };
+    restoreExpanded(QModelIndex());
 }
 
 void FileExplorerPanel::onDoubleClicked(const QModelIndex &index)

@@ -577,7 +577,22 @@ private Q_SLOTS:
         sessionFile.close();
         QVERIFY(sessionDoc.isObject());
 
-        auto tabs = sessionDoc.object()[QStringLiteral("tabs")].toArray();
+        // New session format: editor.panes[*].tabs; fall back to old flat tabs format
+        auto root = sessionDoc.object();
+        QJsonArray tabs;
+        auto editorObj = root[QStringLiteral("editor")].toObject();
+        auto panes = editorObj[QStringLiteral("panes")].toArray();
+        if (!panes.isEmpty()) {
+            // Collect tabs from all panes
+            for (const auto &paneVal : panes) {
+                auto paneTabs = paneVal.toObject()[QStringLiteral("tabs")].toArray();
+                for (const auto &t : paneTabs) {
+                    tabs.append(t);
+                }
+            }
+        } else {
+            tabs = root[QStringLiteral("tabs")].toArray();
+        }
         QVERIFY2(tabs.size() >= 2,
                  qPrintable(QStringLiteral("Expected >= 2 tabs, got: ")
                             + QString::number(tabs.size())));
