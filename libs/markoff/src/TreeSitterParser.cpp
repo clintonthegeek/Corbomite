@@ -472,15 +472,15 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
             textRanges.append({destStart, destEnd});
         }
 
-        // Mark spans that don't overlap any text range as delimiters
+        // Mark spans as delimiter or content based on textRanges.
+        // Spans within a textRange are visible content (un-mark as delimiter).
+        // Spans outside textRanges are delimiters (mark as delimiter).
         for (int i = spans.size() - 1; i >= 0; --i) {
             SourceSpan &s = spans[i];
             if (s.utf8Offset < static_cast<int>(startByte))
                 break;
             if (s.utf8Offset >= static_cast<int>(endByte))
                 continue;
-            if (s.isDelimiter)
-                continue; // already marked
 
             bool isVisibleText = false;
             for (const auto &[tStart, tEnd] : textRanges) {
@@ -489,7 +489,9 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
                     break;
                 }
             }
-            if (!isVisibleText) {
+            if (isVisibleText) {
+                s.isDelimiter = false; // ensure visible, even if previously marked
+            } else {
                 s.isDelimiter = true;
             }
         }
