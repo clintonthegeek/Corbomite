@@ -8,6 +8,7 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QUuid>
+#include <QThread>
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -36,6 +37,7 @@ bool SQLiteIndex::open(const QString &dbPath)
     }
 
     createTables();
+    m_dbPath = dbPath;
     m_isOpen = true;
     return true;
 }
@@ -125,6 +127,232 @@ void SQLiteIndex::rebuildIndex(const QString &vaultRoot)
     query.exec(QStringLiteral("COMMIT"));
 
     Q_EMIT indexReady();
+}
+
+// Worker that runs rebuildIndex in a background thread with its own SQLite connection.
+// SQLite in WAL mode allows concurrent reads (main thread queries) and writes (worker).
+namespace {
+
+class IndexWorker : public QObject {
+    Q_OBJECT
+public:
+    IndexWorker(const QString &dbPath, const QString &vaultRoot)
+        : m_dbPath(dbPath), m_vaultRoot(vaultRoot)
+        , m_connectionName(QUuid::createUuid().toString())
+    {}
+
+    ~IndexWorker() override
+    {
+        if (QSqlDatabase::contains(m_connectionName)) {
+            QSqlDatabase::database(m_connectionName).close();
+            QSqlDatabase::removeDatabase(m_connectionName);
+        }
+    }
+
+public Q_SLOTS:
+    void run()
+    {
+        auto db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_connectionName);
+        db.setDatabaseName(m_dbPath);
+        if (!db.open()) {
+            Q_EMIT finished();
+            return;
+        }
+
+        // Enable WAL for concurrent reads
+        QSqlQuery pragma(db);
+        pragma.exec(QStringLiteral("PRAGMA journal_mode=WAL"));
+
+        QSqlQuery query(db);
+        query.exec(QStringLiteral("DELETE FROM notes_fts"));
+        query.exec(QStringLiteral("DELETE FROM links"));
+        query.exec(QStringLiteral("DELETE FROM note_tags"));
+        query.exec(QStringLiteral("BEGIN TRANSACTION"));
+
+        Corbomite::VaultScanner scanner;
+        Corbomite::FileSystemAdapter fs;
+        auto notes = scanner.scan(m_vaultRoot);
+
+        for (const auto &meta : notes) {
+            auto content = fs.readFile(meta.absolutePath(m_vaultRoot));
+            if (!content.has_value()) continue;
+
+            QString title = meta.nameFromPath();
+            const QString &text = content.value();
+
+            query.prepare(QStringLiteral(
+                "INSERT INTO notes_fts(path, title, content) VALUES(?, ?, ?)"));
+            query.addBindValue(meta.relativePath);
+            query.addBindValue(title);
+            query.addBindValue(text);
+            query.exec();
+
+            // Inline link extraction (can't call SQLiteIndex private methods from here)
+            extractLinks(db, meta.relativePath, text);
+            extractTags(db, meta.relativePath, text);
+        }
+
+        query.exec(QStringLiteral("COMMIT"));
+        db.close();
+        QSqlDatabase::removeDatabase(m_connectionName);
+
+        Q_EMIT finished();
+    }
+
+Q_SIGNALS:
+    void finished();
+
+private:
+    static QString resolveTarget(const QString &rawTarget)
+    {
+        QString target = rawTarget;
+        int hashPos = target.indexOf(QLatin1Char('#'));
+        if (hashPos >= 0) target = target.left(hashPos);
+        target = target.trimmed();
+        if (!target.contains(QLatin1Char('.'))) target += QStringLiteral(".md");
+        return target;
+    }
+
+    static void extractLinks(QSqlDatabase &db, const QString &sourcePath, const QString &content)
+    {
+        QSqlQuery query(db);
+        static const QRegularExpression codeFencePattern(QStringLiteral(R"(^```)"));
+        static const QRegularExpression embedPattern(QStringLiteral(R"(!\[\[([^\]|]+)\]\])"));
+        static const QRegularExpression wikiAliasPattern(QStringLiteral(R"(\[\[([^\]|]+)\|([^\]]+)\]\])"));
+        static const QRegularExpression wikiPattern(QStringLiteral(R"(\[\[([^\]|]+)\]\])"));
+        static const QRegularExpression mdLinkPattern(QStringLiteral(R"(\[([^\]]+)\]\(([^)]+\.md)\))"));
+
+        bool inCodeBlock = false;
+        const auto lines = content.split(QLatin1Char('\n'));
+        for (const auto &line : lines) {
+            if (codeFencePattern.match(line).hasMatch()) {
+                inCodeBlock = !inCodeBlock;
+                continue;
+            }
+            if (inCodeBlock) continue;
+
+            auto it = embedPattern.globalMatch(line);
+            while (it.hasNext()) {
+                auto match = it.next();
+                query.prepare(QStringLiteral(
+                    "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
+                    "VALUES(?, ?, 'embed', NULL)"));
+                query.addBindValue(sourcePath);
+                query.addBindValue(match.captured(1));
+                query.exec();
+            }
+
+            it = wikiAliasPattern.globalMatch(line);
+            while (it.hasNext()) {
+                auto match = it.next();
+                query.prepare(QStringLiteral(
+                    "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
+                    "VALUES(?, ?, 'wiki', ?)"));
+                query.addBindValue(sourcePath);
+                query.addBindValue(resolveTarget(match.captured(1)));
+                query.addBindValue(match.captured(2));
+                query.exec();
+            }
+
+            QString lineWithoutAliases = line;
+            lineWithoutAliases.replace(wikiAliasPattern, QString());
+            lineWithoutAliases.replace(embedPattern, QString());
+
+            it = wikiPattern.globalMatch(lineWithoutAliases);
+            while (it.hasNext()) {
+                auto match = it.next();
+                query.prepare(QStringLiteral(
+                    "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
+                    "VALUES(?, ?, 'wiki', NULL)"));
+                query.addBindValue(sourcePath);
+                query.addBindValue(resolveTarget(match.captured(1)));
+                query.exec();
+            }
+
+            it = mdLinkPattern.globalMatch(line);
+            while (it.hasNext()) {
+                auto match = it.next();
+                query.prepare(QStringLiteral(
+                    "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
+                    "VALUES(?, ?, 'markdown', NULL)"));
+                query.addBindValue(sourcePath);
+                query.addBindValue(match.captured(2));
+                query.exec();
+            }
+        }
+    }
+
+    static void extractTags(QSqlDatabase &db, const QString &notePath, const QString &content)
+    {
+        QSqlQuery query(db);
+        static const QRegularExpression codeFencePattern(QStringLiteral(R"(^```)"));
+        static const QRegularExpression tagPattern(
+            QStringLiteral(R"((?<![&\w])#([a-zA-Z_][a-zA-Z0-9_/-]*))"));
+
+        bool inCodeBlock = false;
+        const auto lines = content.split(QLatin1Char('\n'));
+        for (const auto &line : lines) {
+            if (codeFencePattern.match(line).hasMatch()) {
+                inCodeBlock = !inCodeBlock;
+                continue;
+            }
+            if (inCodeBlock) continue;
+
+            auto it = tagPattern.globalMatch(line);
+            while (it.hasNext()) {
+                auto match = it.next();
+                query.prepare(QStringLiteral(
+                    "INSERT OR IGNORE INTO note_tags(note_path, tag) VALUES(?, ?)"));
+                query.addBindValue(notePath);
+                query.addBindValue(match.captured(1));
+                query.exec();
+            }
+        }
+    }
+
+    QString m_dbPath;
+    QString m_vaultRoot;
+    QString m_connectionName;
+};
+
+} // anonymous namespace
+
+void SQLiteIndex::rebuildIndexAsync(const QString &vaultRoot)
+{
+    if (m_workerThread) {
+        m_workerThread->quit();
+        m_workerThread->wait();
+        delete m_workerThread;
+        m_workerThread = nullptr;
+    }
+
+    // Enable WAL on main connection for concurrent reads during rebuild
+    {
+        QSqlQuery pragma(QSqlDatabase::database(m_connectionName));
+        pragma.exec(QStringLiteral("PRAGMA journal_mode=WAL"));
+    }
+
+    m_workerThread = new QThread(this);
+    auto *worker = new IndexWorker(m_dbPath, vaultRoot);
+    worker->moveToThread(m_workerThread);
+
+    connect(m_workerThread, &QThread::started, worker, &IndexWorker::run);
+    connect(worker, &IndexWorker::finished, this, [this]() {
+        m_workerThread->quit();
+        Q_EMIT indexReady();
+    });
+    connect(worker, &IndexWorker::finished, worker, &QObject::deleteLater);
+    connect(m_workerThread, &QThread::finished, m_workerThread, &QObject::deleteLater);
+    connect(m_workerThread, &QThread::finished, this, [this]() {
+        m_workerThread = nullptr;
+    });
+
+    m_workerThread->start();
+}
+
+bool SQLiteIndex::isRebuilding() const
+{
+    return m_workerThread != nullptr && m_workerThread->isRunning();
 }
 
 void SQLiteIndex::indexNote(const QString &relativePath, const QString &title, const QString &content)
@@ -529,3 +757,5 @@ QString SQLiteIndex::resolveTarget(const QString &rawTarget)
 }
 
 } // namespace Corbomite
+
+#include "SQLiteIndex.moc"

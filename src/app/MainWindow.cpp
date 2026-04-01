@@ -690,15 +690,12 @@ void MainWindow::onVaultOpened()
     m_searchIndex = new SQLiteIndex(this);
     m_searchIndex->open(vault->configPath() + QStringLiteral("/index.sqlite"));
 
-    // Show progress during indexing (large vaults can take minutes)
+    // Index vault in background thread (UI stays responsive)
     statusBar()->showMessage(i18n("Indexing vault..."));
-    QApplication::processEvents(); // Ensure message is displayed
-    m_searchIndex->rebuildIndex(vault->path());
-    statusBar()->showMessage(i18n("Indexing complete"), 3000);
-    // TODO: Move indexing to a background thread with QThread for true async.
-    // SQLite connections are thread-local, so the index would need to be
-    // created and used entirely within the worker thread, then results
-    // transferred back. For now, processEvents() keeps the UI minimally alive.
+    connect(m_searchIndex, &SQLiteIndex::indexReady, this, [this]() {
+        statusBar()->showMessage(i18n("Indexing complete"), 3000);
+    });
+    m_searchIndex->rebuildIndexAsync(vault->path());
 
     m_searchPanel->setIndex(m_searchIndex);
     m_vaultService->noteService()->setSearchIndex(m_searchIndex);

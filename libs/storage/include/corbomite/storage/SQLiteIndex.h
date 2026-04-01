@@ -6,6 +6,8 @@
 #include <QStringList>
 #include <QVector>
 
+class QThread;
+
 namespace Corbomite {
 
 struct SearchMatch {
@@ -32,6 +34,8 @@ public:
     void close();
 
     void rebuildIndex(const QString &vaultRoot);
+    void rebuildIndexAsync(const QString &vaultRoot);
+    bool isRebuilding() const;
     void indexNote(const QString &relativePath, const QString &title, const QString &content);
     void removeNote(const QString &relativePath);
 
@@ -62,7 +66,9 @@ private:
     static QString resolveTarget(const QString &rawTarget);
 
     QString m_connectionName;
+    QString m_dbPath;
     bool m_isOpen = false;
+    QThread *m_workerThread = nullptr;
 };
 
 } // namespace Corbomite
