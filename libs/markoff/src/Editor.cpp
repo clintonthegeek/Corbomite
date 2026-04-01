@@ -1928,17 +1928,14 @@ void Editor::mouseReleaseEvent(QMouseEvent *e)
     d->mouseDragging = false;
     d->sendControlEvent(e);
 
-    // Apply deferred updates after mouse release (drag selection or drag-drop)
+    // Apply deferred highlighter update after drag selection.
+    // Note: do NOT reparse here — if this is a drag-drop, the text
+    // hasn't moved yet (dropEvent fires AFTER mouseRelease).
     if (d->mode == Mode::LivePreview) {
-        // Full reparse to rebuild span map — text may have moved via drag-drop
-        d->inReparse = true;
-        d->reparseDocument();
         int cursorBlockNum = d->control->textCursor().block().blockNumber();
         d->highlighter->setCursorPosition(cursorBlockNum,
                                            d->control->textCursor().positionInBlock());
-        d->highlighter->rehighlight();
         d->updateBlockDisplayModes();
-        d->inReparse = false;
     }
 
     if (e->source() == Qt::MouseEventNotSynthesized && d->autoScrollTimer.isActive()) {
@@ -2044,6 +2041,18 @@ void Editor::dropEvent(QDropEvent *e)
     d->inDrag = false;
     d->autoScrollTimer.stop();
     d->sendControlEvent(e);
+
+    // Text has now moved. Reparse and rehighlight from the new document state.
+    if (d->mode == Mode::LivePreview) {
+        d->inReparse = true;
+        d->reparseDocument();
+        int cursorBlockNum = d->control->textCursor().block().blockNumber();
+        d->highlighter->setCursorPosition(cursorBlockNum,
+                                           d->control->textCursor().positionInBlock());
+        d->highlighter->rehighlight();
+        d->updateBlockDisplayModes();
+        d->inReparse = false;
+    }
 }
 
 bool Editor::event(QEvent *e)
