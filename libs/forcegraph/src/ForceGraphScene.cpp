@@ -164,4 +164,19 @@ void ForceGraphScene::setShowArrows(bool show)
     }
 }
 
+void ForceGraphScene::setSearchFilter(const QString &text)
+{
+    QString lower = text.toLower();
+    for (auto it = m_nodeItems.constBegin(); it != m_nodeItems.constEnd(); ++it) {
+        bool matches = lower.isEmpty() || it.value()->nodeLabel().toLower().contains(lower);
+        it.value()->setDimmed(!matches);
+    }
+
+    for (auto *edge : std::as_const(m_edgeItems)) {
+        bool sourceMatch = lower.isEmpty() || edge->sourceNode()->nodeLabel().toLower().contains(lower);
+        bool targetMatch = lower.isEmpty() || edge->targetNode()->nodeLabel().toLower().contains(lower);
+        edge->setDimmed(!sourceMatch && !targetMatch);
+    }
+}
+
 } // namespace ForceGraph

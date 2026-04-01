@@ -22,6 +22,7 @@ public:
     void setEdgeWidthScale(double scale);
     void setTextFadeThreshold(double threshold);
     void setShowArrows(bool show);
+    void setSearchFilter(const QString &text);
 Q_SIGNALS:
     void nodeClicked(const QString &id);
     void nodeDoubleClicked(const QString &id);

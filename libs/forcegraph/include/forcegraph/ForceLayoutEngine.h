@@ -28,6 +28,7 @@ public:
     void setLinkForce(double force);
     void setLinkDistance(double distance);
     void setDamping(double damping);
+    void randomizePositions();
     QVector<GraphNode> nodes() const;
     int nodeCount() const;
     int edgeCount() const;

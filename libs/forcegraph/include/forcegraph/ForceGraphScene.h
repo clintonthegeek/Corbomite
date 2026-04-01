@@ -23,6 +23,9 @@ public:
     void setTextFadeThreshold(double threshold);
     void setShowArrows(bool show);
 
+    // Search filter — dims non-matching nodes and edges
+    void setSearchFilter(const QString &text);
+
 private:
     QHash<QString, ForceGraphNode *> m_nodeItems;
     QVector<ForceGraphEdge *> m_edgeItems;

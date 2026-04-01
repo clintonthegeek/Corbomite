@@ -2,6 +2,9 @@
 #pragma once
 
 #include <QWidget>
+#include <forcegraph/GraphTypes.h>
+
+class QToolButton;
 
 namespace ForceGraph {
 class ForceLayoutEngine;
@@ -10,6 +13,7 @@ class ForceGraphView;
 
 namespace Corbomite {
 
+class GraphControlsPanel;
 class SQLiteIndex;
 class VaultModel;
 
@@ -25,12 +29,25 @@ public:
 Q_SIGNALS:
     void noteActivated(const QString &relativePath);
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
+    void setupControlsPanel();
+    void applyFilters();
+    void positionControlsPanel();
+
     ForceGraph::ForceGraphView *m_graphView;
     ForceGraph::ForceLayoutEngine *m_engine;
     SQLiteIndex *m_index;
     VaultModel *m_vault;
-    // Future: add filter controls panel overlay
+
+    GraphControlsPanel *m_controlsPanel = nullptr;
+    QToolButton *m_showPanelButton = nullptr;
+
+    // Cached full graph data (before filtering)
+    QVector<ForceGraph::GraphNode> m_allNodes;
+    QVector<ForceGraph::GraphEdge> m_allEdges;
 };
 
 } // namespace Corbomite

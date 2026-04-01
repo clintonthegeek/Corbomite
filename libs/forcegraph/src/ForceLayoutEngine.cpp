@@ -351,6 +351,20 @@ void ForceLayoutEngine::unpinNode(const QString &id)
     m_nodes[it.value()].pinned = false;
 }
 
+void ForceLayoutEngine::randomizePositions()
+{
+    if (m_nodes.isEmpty()) return;
+
+    double radius = std::sqrt(static_cast<double>(m_nodes.size())) * 50.0;
+    auto *rng = QRandomGenerator::global();
+    for (auto &node : m_nodes) {
+        if (node.pinned) continue;
+        double angle = rng->generateDouble() * 2.0 * M_PI;
+        double r = rng->generateDouble() * radius;
+        node.position = QPointF(r * std::cos(angle), r * std::sin(angle));
+    }
+}
+
 void ForceLayoutEngine::setCenterForce(double f) { m_centerForce = f; }
 void ForceLayoutEngine::setRepelForce(double f) { m_repelForce = f; }
 void ForceLayoutEngine::setLinkForce(double f) { m_linkForce = f; }

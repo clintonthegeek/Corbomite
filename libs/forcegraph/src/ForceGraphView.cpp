@@ -106,6 +106,11 @@ void ForceGraphView::setShowArrows(bool show)
     m_scene->setShowArrows(show);
 }
 
+void ForceGraphView::setSearchFilter(const QString &text)
+{
+    m_scene->setSearchFilter(text);
+}
+
 void ForceGraphView::wheelEvent(QWheelEvent *event)
 {
     if (event->angleDelta().y() > 0) {
