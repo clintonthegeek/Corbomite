@@ -964,11 +964,21 @@ void Editor::Private::repositionEmbeddedWidgets()
     for (auto &ew : embeddedWidgets) {
         if (!ew.widget) continue;
 
-        // Compute Y position by summing heights of all blocks before firstBlock
-        qreal y = 0;
+        // Compute Y: sum block heights from top, then subtract scroll offset.
+        // Both table position AND scroll offset computed by summing block heights
+        // (since our PlainTextDocumentLayout doesn't track cumulative positions).
+        qreal docY = 0;
+        qreal scrollY = 0;
+        int scrollLine = q->verticalScrollBar()->value();
         QTextBlock b = q->document()->begin();
-        while (b.isValid() && b.blockNumber() < ew.firstBlock) {
-            y += layout->blockBoundingRect(b).height();
+        while (b.isValid()) {
+            qreal bh = layout->blockBoundingRect(b).height();
+            if (b.blockNumber() < scrollLine)
+                scrollY += bh;
+            if (b.blockNumber() < ew.firstBlock)
+                docY += bh;
+            if (b.blockNumber() >= ew.firstBlock)
+                break;
             b = b.next();
         }
 
@@ -977,8 +987,7 @@ void Editor::Private::repositionEmbeddedWidgets()
         for (int i = ew.firstBlock; i <= ew.lastBlock && b.isValid(); ++i, b = b.next())
             h += layout->blockBoundingRect(b).height();
 
-        // Convert from document coords to viewport coords
-        qreal viewY = y - vOffset;
+        qreal viewY = docY - scrollY;
         qreal x = margin;
         qreal w = q->viewport()->width() - margin * 2;
 
