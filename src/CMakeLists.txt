@@ -32,6 +32,7 @@ add_library(CorbomiteApp STATIC
     graph/GraphViewTab.cpp
     graph/LocalGraphPanel.cpp
     graph/CollapsibleSection.cpp
+    graph/GraphControlsPanel.cpp
     canvas/CanvasViewTab.cpp
 )
 
