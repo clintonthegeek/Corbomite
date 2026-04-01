@@ -11,6 +11,12 @@
 #include <QImage>
 #include <QBuffer>
 #include <jkqtmathtext/jkqtmathtext.h>
+#include <KSyntaxHighlighting/Repository>
+#include <KSyntaxHighlighting/Definition>
+#include <KSyntaxHighlighting/Theme>
+#include <KSyntaxHighlighting/State>
+#include <KSyntaxHighlighting/Format>
+#include <KSyntaxHighlighting/AbstractHighlighter>
 
 namespace Markoff {
 
@@ -38,6 +44,72 @@ static QString renderMathToDataUri(const QString &latex, bool displayMode)
     img.save(&buffer, "PNG");
 
     return QStringLiteral("data:image/png;base64,") + QString::fromLatin1(ba.toBase64());
+}
+
+// ---------------------------------------------------------------------------
+// Syntax highlighting for code blocks
+// ---------------------------------------------------------------------------
+
+class CodeHighlighter : public KSyntaxHighlighting::AbstractHighlighter {
+public:
+    QString highlightedHtml;
+    QString m_currentLine;
+
+    KSyntaxHighlighting::State processLine(const QString &text,
+                                            const KSyntaxHighlighting::State &state)
+    {
+        m_currentLine = text;
+        highlightedHtml.clear();
+        return highlightLine(text, state);
+    }
+
+protected:
+    void applyFormat(int offset, int length,
+                     const KSyntaxHighlighting::Format &format) override
+    {
+        if (!format.isDefaultTextStyle(theme())) {
+            QColor color = format.textColor(theme());
+            if (format.isBold(theme())) {
+                highlightedHtml += QStringLiteral("<b style='color:%1'>").arg(color.name());
+                highlightedHtml += m_currentLine.mid(offset, length).toHtmlEscaped();
+                highlightedHtml += QStringLiteral("</b>");
+            } else {
+                highlightedHtml += QStringLiteral("<span style='color:%1'>").arg(color.name());
+                highlightedHtml += m_currentLine.mid(offset, length).toHtmlEscaped();
+                highlightedHtml += QStringLiteral("</span>");
+            }
+        } else {
+            highlightedHtml += m_currentLine.mid(offset, length).toHtmlEscaped();
+        }
+    }
+};
+
+static QString highlightCodeBlock(const QString &code, const QString &lang)
+{
+    if (lang.isEmpty())
+        return code.toHtmlEscaped();
+
+    static KSyntaxHighlighting::Repository repo;
+    auto def = repo.definitionForName(lang);
+    if (!def.isValid())
+        def = repo.definitionForFileName(QStringLiteral("file.") + lang);
+    if (!def.isValid())
+        return code.toHtmlEscaped();
+
+    CodeHighlighter highlighter;
+    highlighter.setDefinition(def);
+    highlighter.setTheme(repo.defaultTheme(KSyntaxHighlighting::Repository::LightTheme));
+
+    QString result;
+    KSyntaxHighlighting::State state;
+    const QStringList lines = code.split(QLatin1Char('\n'));
+    for (int i = 0; i < lines.size(); ++i) {
+        state = highlighter.processLine(lines[i], state);
+        result += highlighter.highlightedHtml;
+        if (i + 1 < lines.size())
+            result += QLatin1Char('\n');
+    }
+    return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,11 +231,20 @@ static QString renderBlock(const Block &block, const RenderSettings &settings)
         break;
 
     case MD_BLOCK_CODE: {
-        const QString lang = block.codeInfo.isEmpty()
-            ? QString()
-            : QStringLiteral(" class=\"language-%1\"").arg(escapeHtml(block.codeInfo));
-        const QString code = renderInlines(block.inlines, settings);
-        html += QStringLiteral("<pre><code%1>%2</code></pre>").arg(lang, code);
+        // Collect raw code text from inlines
+        QString rawCode;
+        for (const auto &run : block.inlines)
+            rawCode += run.text;
+
+        // Apply syntax highlighting if enabled and language is known
+        QString codeHtml;
+        if (settings.renderCodeHighlighting && !block.codeInfo.isEmpty()) {
+            codeHtml = highlightCodeBlock(rawCode, block.codeInfo);
+        } else {
+            codeHtml = escapeHtml(rawCode);
+        }
+
+        html += QStringLiteral("<pre><code>%1</code></pre>").arg(codeHtml);
         break;
     }
 

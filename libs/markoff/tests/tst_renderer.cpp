@@ -75,7 +75,9 @@ void TestRenderer::testRenderCodeBlock()
 
     QVERIFY(textDoc != nullptr);
     const QString html = textDoc->toHtml();
-    QVERIFY(html.contains(QStringLiteral("int x = 42")));
+    // Syntax highlighting may split the text into spans, so check parts
+    QVERIFY(html.contains(QStringLiteral("int")));
+    QVERIFY(html.contains(QStringLiteral("42")));
 }
 
 void TestRenderer::testRenderSettingsAffectOutput()
