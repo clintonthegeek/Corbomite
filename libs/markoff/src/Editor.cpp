@@ -677,24 +677,20 @@ void Editor::Private::modificationChanged(bool)
 
 void Editor::Private::reparseDocument()
 {
+    // Parse for rendering (with footnote processing, frontmatter extraction)
     parsedDoc = Document::fromMarkdown(q->toPlainText());
 
-    // Build the span map and pass it to the highlighter.
-    // Span offsets are relative to markdownContent() (post-frontmatter),
-    // but the editor's QTextDocument contains the full text including
-    // frontmatter. Shift all span charOffsets by the frontmatter length.
-    const auto &blocks = DocumentBlockAccessor::blocks(*parsedDoc);
-    QByteArray utf8 = parsedDoc->markdownContent().toUtf8();
-    auto spans = buildSpanMap(blocks, utf8);
-
-    int fullLen = q->toPlainText().length();
-    int contentLen = parsedDoc->markdownContent().length();
-    int frontmatterCharOffset = fullLen - contentLen;
-    if (frontmatterCharOffset > 0) {
-        for (auto &span : spans)
-            span.charOffset += frontmatterCharOffset;
-    }
-
+    // Parse the EXACT editor text for the highlighter — no preprocessing.
+    // Document::fromMarkdown() modifies text (strips frontmatter, replaces
+    // footnote refs), so MD4C's byte offsets don't match the editor's text.
+    // Instead, parse the raw editor text directly with DocumentBuilder.
+    QString rawText = q->toPlainText();
+    QByteArray utf8 = rawText.toUtf8();
+    DocumentBuilder rawBuilder;
+    rawBuilder.parse(rawText);
+    QList<Block> rawBlocks = rawBuilder.takeBlocks();
+    DocumentBuilder::postProcess(rawBlocks);
+    auto spans = buildSpanMap(rawBlocks, utf8);
     highlighter->setSpanMap(std::move(spans));
 
     detectAtomicBlocks();
