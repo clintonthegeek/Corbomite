@@ -1724,9 +1724,9 @@ void Editor::paintEvent(QPaintEvent *e)
                     if (isHR && block.blockNumber() != cursorBlockNum) {
                         painter.save();
                         qreal margin = document()->documentMargin();
-                        qreal y = r.top() + r.height() / 2 + offset.y();
-                        qreal x1 = offset.x() + margin;
-                        qreal x2 = offset.x() + viewportRect.width() - margin;
+                        qreal y = r.top() + r.height() / 2;
+                        qreal x1 = margin;
+                        qreal x2 = viewportRect.width() - margin;
                         painter.setPen(QPen(QColor(0xcc, 0xcc, 0xcc), 1));
                         painter.drawLine(QPointF(x1, y), QPointF(x2, y));
                         painter.restore();
