@@ -13,6 +13,8 @@ add_library(markoff STATIC
     src/Document.cpp
     src/DocumentBuilder.cpp
     src/Renderer.cpp
+    src/TextControl.cpp
+    src/Editor.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Markoff::Markoff ALIAS markoff)
