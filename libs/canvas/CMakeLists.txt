@@ -16,6 +16,7 @@ add_library(canvas STATIC
     src/TextCardItem.cpp
     src/GroupItem.cpp
     src/EdgeItem.cpp
+    src/FileCardItem.cpp
     include/canvas/CanvasDocument.h
     include/canvas/CanvasView.h
     include/canvas/CanvasScene.h
@@ -24,6 +25,7 @@ add_library(canvas STATIC
     include/canvas/TextCardItem.h
     include/canvas/GroupItem.h
     include/canvas/EdgeItem.h
+    include/canvas/FileCardItem.h
 )
 set_target_properties(canvas PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
