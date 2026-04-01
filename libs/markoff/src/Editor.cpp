@@ -726,7 +726,7 @@ void Editor::Private::applyBlockFormats()
         // Indent by exactly the width of "> " per nesting level, so when
         // chevrons are hidden the text stays in the same position.
         QFontMetricsF fm(q->font());
-        qreal chevronWidth = fm.horizontalAdvance(QStringLiteral("> "));
+        qreal chevronWidth = qCeil(fm.horizontalAdvance(QStringLiteral("> ")));
         qreal targetMargin = isCursorLine ? 0.0 : maxBqDepth * chevronWidth;
 
         if (fmt.leftMargin() != targetMargin) {
