@@ -5,6 +5,7 @@
 #include <QStyleOptionGraphicsItem>
 #include <QTextDocument>
 #include <QGraphicsSceneMouseEvent>
+#include <QRegularExpression>
 
 namespace Canvas {
 
@@ -86,7 +87,30 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
         const qreal textWidth = rect.width() - 2 * kTextPadding;
 
         QTextDocument doc;
-        doc.setPlainText(m_data.text);
+        // Render markdown as HTML for proper formatting (headers, bold, links, etc.)
+        // Simple inline conversion — handles the most common patterns
+        QString html = m_data.text;
+        // Headers: # Title → <h1>Title</h1>
+        html.replace(QRegularExpression(QStringLiteral(R"(^### (.+)$)"), QRegularExpression::MultilineOption),
+                      QStringLiteral("<h3>\\1</h3>"));
+        html.replace(QRegularExpression(QStringLiteral(R"(^## (.+)$)"), QRegularExpression::MultilineOption),
+                      QStringLiteral("<h2>\\1</h2>"));
+        html.replace(QRegularExpression(QStringLiteral(R"(^# (.+)$)"), QRegularExpression::MultilineOption),
+                      QStringLiteral("<h1>\\1</h1>"));
+        // Bold: **text** → <b>text</b>
+        html.replace(QRegularExpression(QStringLiteral(R"(\*\*(.+?)\*\*)")),
+                      QStringLiteral("<b>\\1</b>"));
+        // Italic: *text* → <i>text</i>
+        html.replace(QRegularExpression(QStringLiteral(R"(\*(.+?)\*)")),
+                      QStringLiteral("<i>\\1</i>"));
+        // Wikilinks: [[text]] → <a>text</a> (styled, not clickable in paint)
+        html.replace(QRegularExpression(QStringLiteral(R"(\[\[([^\]]+)\]\])")),
+                      QStringLiteral("<a style='color:#7b6cd9'>\\1</a>"));
+        // Line breaks: \n → <br> (except those already in block elements)
+        html.replace(QStringLiteral("\n"), QStringLiteral("<br>"));
+        // TODO: Use Corbomite's MarkdownRenderer for full rendering when integrated
+        // (libcanvas is standalone, so we do a lightweight version here)
+        doc.setHtml(html);
         doc.setTextWidth(textWidth);
         doc.setDocumentMargin(0);
 

@@ -3,6 +3,7 @@
 #include "canvas/TextCardItem.h"
 
 #include <QPainter>
+#include <cmath>
 #include <QtMath>
 
 namespace Canvas {
@@ -42,16 +43,40 @@ void EdgeItem::adjust()
 
     QPainterPath edgePath;
     edgePath.moveTo(from);
-    edgePath.lineTo(to);
 
-    // Arrow at target end
+    // Bezier curve for smooth S-shaped connections (matches Obsidian's visual style)
+    double dx = to.x() - from.x();
+    double dy = to.y() - from.y();
+    double dist = std::sqrt(dx * dx + dy * dy);
+    double curvature = std::min(dist * 0.4, 80.0); // Control point offset, capped
+
+    QPointF ctrl1 = from;
+    QPointF ctrl2 = to;
+
+    // Control points extend outward from the connection side
+    switch (m_data.fromSide) {
+    case Side::Right:  ctrl1 += QPointF(curvature, 0); break;
+    case Side::Left:   ctrl1 += QPointF(-curvature, 0); break;
+    case Side::Bottom: ctrl1 += QPointF(0, curvature); break;
+    case Side::Top:    ctrl1 += QPointF(0, -curvature); break;
+    }
+    switch (m_data.toSide) {
+    case Side::Right:  ctrl2 += QPointF(curvature, 0); break;
+    case Side::Left:   ctrl2 += QPointF(-curvature, 0); break;
+    case Side::Bottom: ctrl2 += QPointF(0, curvature); break;
+    case Side::Top:    ctrl2 += QPointF(0, -curvature); break;
+    }
+
+    edgePath.cubicTo(ctrl1, ctrl2, to);
+
+    // Arrow at target end (use the curve's tangent direction)
     if (m_data.toEnd == EndType::Arrow) {
-        drawArrowHead(edgePath, to, from);
+        drawArrowHead(edgePath, to, ctrl2);
     }
 
     // Arrow at source end
     if (m_data.fromEnd == EndType::Arrow) {
-        drawArrowHead(edgePath, from, to);
+        drawArrowHead(edgePath, from, ctrl1);
     }
 
     setPath(edgePath);
