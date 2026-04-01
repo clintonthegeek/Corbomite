@@ -19,6 +19,8 @@ MarkdownHighlighter::MarkdownHighlighter(QTextDocument *parent)
     }
 
     m_boldFormat.setFontWeight(700);
+    m_boldItalicFormat.setFontWeight(700);
+    m_boldItalicFormat.setFontItalic(true);
     m_italicFormat.setFontItalic(true);
     m_strikethroughFormat.setFontStrikeOut(true);
 
@@ -60,7 +62,9 @@ MarkdownHighlighter::MarkdownHighlighter(QTextDocument *parent)
     m_calloutFormat.setFontWeight(QFont::Bold);
 
     // Compile inline patterns
-    m_boldPattern = QRegularExpression(QStringLiteral(R"(\*\*(.+?)\*\*|__(.+?)__)"));
+    // Bold-italic must be matched BEFORE bold and italic to avoid partial matches
+    m_boldItalicPattern = QRegularExpression(QStringLiteral(R"(\*\*\*(.+?)\*\*\*|___(.+?)___)"));
+    m_boldPattern = QRegularExpression(QStringLiteral(R"((?<!\*)\*\*(?!\*)(.+?)(?<!\*)\*\*(?!\*)|(?<!_)__(?!_)(.+?)(?<!_)__(?!_))"));
     m_italicPattern = QRegularExpression(QStringLiteral(R"((?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_))"));
     m_strikethroughPattern = QRegularExpression(QStringLiteral(R"(~~(.+?)~~)"));
     m_inlineCodePattern = QRegularExpression(QStringLiteral(R"(`([^`]+)`)"));
@@ -324,22 +328,24 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text,
         return !cursorInRange(cursorCol, matchStart, matchEnd);
     };
 
-    // Inline code: `code`
+    // Bold-italic: ***text*** or ___text___ (must come before bold and italic)
     {
-        QRegularExpressionMatchIterator it = m_inlineCodePattern.globalMatch(text);
+        QRegularExpressionMatchIterator it = m_boldItalicPattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
             if (shouldHide(m.capturedStart(), m.capturedEnd())) {
-                hideRange(m.capturedStart(), 1);
-                setFormat(m.capturedStart() + 1, m.capturedLength() - 2, m_inlineCodeFormat);
-                hideRange(m.capturedEnd() - 1, 1);
+                hideRange(m.capturedStart(), 3);
+                setFormat(m.capturedStart() + 3,
+                          m.capturedLength() - 6, m_boldItalicFormat);
+                hideRange(m.capturedEnd() - 3, 3);
             } else {
-                setFormat(m.capturedStart(), m.capturedLength(), m_inlineCodeFormat);
+                setFormat(m.capturedStart(), m.capturedLength(), m_boldItalicFormat);
             }
         }
     }
 
     // Bold: **text** or __text__
+    // Use negative lookahead/behind to avoid matching inside ***bold-italic***
     {
         QRegularExpressionMatchIterator it = m_boldPattern.globalMatch(text);
         while (it.hasNext()) {
@@ -347,8 +353,15 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text,
             if (shouldHide(m.capturedStart(), m.capturedEnd())) {
                 int delimLen = 2;
                 hideRange(m.capturedStart(), delimLen);
-                setFormat(m.capturedStart() + delimLen,
-                          m.capturedLength() - delimLen * 2, m_boldFormat);
+                // Apply bold to inner content — use format that preserves
+                // existing properties (like code background) by only setting weight
+                int innerStart = m.capturedStart() + delimLen;
+                int innerLen = m.capturedLength() - delimLen * 2;
+                for (int i = innerStart; i < innerStart + innerLen; ++i) {
+                    QTextCharFormat fmt = format(i);
+                    fmt.setFontWeight(700);
+                    setFormat(i, 1, fmt);
+                }
                 hideRange(m.capturedEnd() - delimLen, delimLen);
             } else {
                 setFormat(m.capturedStart(), m.capturedLength(), m_boldFormat);
@@ -363,10 +376,38 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text,
             QRegularExpressionMatch m = it.next();
             if (shouldHide(m.capturedStart(), m.capturedEnd())) {
                 hideRange(m.capturedStart(), 1);
-                setFormat(m.capturedStart() + 1, m.capturedLength() - 2, m_italicFormat);
+                int innerStart = m.capturedStart() + 1;
+                int innerLen = m.capturedLength() - 2;
+                for (int i = innerStart; i < innerStart + innerLen; ++i) {
+                    QTextCharFormat fmt = format(i);
+                    fmt.setFontItalic(true);
+                    setFormat(i, 1, fmt);
+                }
                 hideRange(m.capturedEnd() - 1, 1);
             } else {
                 setFormat(m.capturedStart(), m.capturedLength(), m_italicFormat);
+            }
+        }
+    }
+
+    // Inline code: `code` (after bold/italic so it can merge)
+    {
+        QRegularExpressionMatchIterator it = m_inlineCodePattern.globalMatch(text);
+        while (it.hasNext()) {
+            QRegularExpressionMatch m = it.next();
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
+                hideRange(m.capturedStart(), 1);
+                // Merge code format with any existing bold/italic
+                int innerStart = m.capturedStart() + 1;
+                int innerLen = m.capturedLength() - 2;
+                for (int i = innerStart; i < innerStart + innerLen; ++i) {
+                    QTextCharFormat fmt = format(i);
+                    fmt.merge(m_inlineCodeFormat);
+                    setFormat(i, 1, fmt);
+                }
+                hideRange(m.capturedEnd() - 1, 1);
+            } else {
+                setFormat(m.capturedStart(), m.capturedLength(), m_inlineCodeFormat);
             }
         }
     }
@@ -456,15 +497,13 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text,
     }
 
     // Comment: %%text%%
+    // Comments are always visible in the editor (both source and live preview).
+    // They are only hidden in reading mode (handled by the Renderer).
     {
         QRegularExpressionMatchIterator it = m_commentPattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
-                hideRange(m.capturedStart(), m.capturedLength());
-            } else {
-                setFormat(m.capturedStart(), m.capturedLength(), m_commentFormat);
-            }
+            setFormat(m.capturedStart(), m.capturedLength(), m_commentFormat);
         }
     }
 

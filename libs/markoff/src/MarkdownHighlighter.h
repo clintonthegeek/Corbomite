@@ -49,6 +49,7 @@ private:
     // Formats
     QTextCharFormat m_headingFormat[6];  // H1-H6
     QTextCharFormat m_boldFormat;
+    QTextCharFormat m_boldItalicFormat;
     QTextCharFormat m_italicFormat;
     QTextCharFormat m_strikethroughFormat;
     QTextCharFormat m_inlineCodeFormat;
@@ -66,6 +67,7 @@ private:
     QTextCharFormat m_calloutFormat;
 
     // Compiled patterns
+    QRegularExpression m_boldItalicPattern;
     QRegularExpression m_boldPattern;
     QRegularExpression m_italicPattern;
     QRegularExpression m_strikethroughPattern;
