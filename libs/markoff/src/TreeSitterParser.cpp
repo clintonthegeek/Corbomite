@@ -7,7 +7,9 @@
 #include <tree-sitter/tree-sitter-markdown-inline.h>
 
 #include <QStringList>
+#include <QPair>
 #include <vector>
+#include <algorithm>
 
 namespace Markoff {
 
@@ -119,7 +121,7 @@ bool TreeSitterParser::parse(const QString &text)
         m_inlineTree = nullptr;
     }
 
-    return true; // block tree is sufficient even if inline tree is empty
+    return true;
 }
 
 int TreeSitterParser::utf8ToCharOffset(int byteOffset) const
@@ -287,20 +289,37 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
         QList<SourceSpan> inlineSpans;
         walkNode(inlineRoot, inlineSpans);
 
-        // Merge inline spans — they provide finer-grained formatting
-        // for emphasis delimiters, code span delimiters, etc.
-        for (const SourceSpan &is : inlineSpans) {
-            // Only add inline spans that aren't already covered by block spans
-            bool covered = false;
-            for (const SourceSpan &bs : spans) {
-                if (bs.utf8Offset == is.utf8Offset && bs.utf8Length == is.utf8Length) {
-                    covered = true;
-                    break;
+        // The inline tree is authoritative for inline content.
+        // Remove block spans that fall within inline regions (the block
+        // tree only has anonymous * and ` characters there, without
+        // formatting info). Keep block-level-only spans (heading markers,
+        // code fences, list markers, etc.)
+        // Strategy: collect the byte ranges of all inline regions, then
+        // remove block spans that overlap those regions, then add all
+        // inline spans.
+
+        // Build a set of inline region ranges from the block tree
+        // (these are the ranges where the inline tree is authoritative)
+        QList<QPair<int,int>> inlineRegions;
+        TSNode blockRoot2 = ts_tree_root_node(m_blockTree);
+        std::vector<TSRange> ranges;
+        collectInlineRanges(blockRoot2, ranges);
+        for (const auto &r : ranges)
+            inlineRegions.append({static_cast<int>(r.start_byte),
+                                  static_cast<int>(r.end_byte)});
+
+        // Remove block spans that fall within inline regions
+        spans.erase(std::remove_if(spans.begin(), spans.end(),
+            [&](const SourceSpan &s) {
+                for (const auto &[start, end] : inlineRegions) {
+                    if (s.utf8Offset >= start && (s.utf8Offset + s.utf8Length) <= end)
+                        return true; // remove: inline tree handles this region
                 }
-            }
-            if (!covered)
-                spans.append(is);
-        }
+                return false;
+            }), spans.end());
+
+        // Add all inline spans
+        spans.append(inlineSpans);
     }
 
     // Sort by offset
