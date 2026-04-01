@@ -21,6 +21,7 @@ struct InlineRun {
     bool isTag = false;         // #tag
     QString linkHref;
     QString wikiTarget;
+    QString imageSrc;       // image source URL/path
 };
 
 struct Block {
@@ -76,7 +77,7 @@ private:
     QList<Block *> m_blockStack;
     bool m_bold = false, m_italic = false, m_strikethrough = false;
     bool m_code = false, m_math = false, m_mathDisplay = false;
-    QString m_linkHref, m_wikiTarget;
+    QString m_linkHref, m_wikiTarget, m_imageSrc;
 };
 
 } // namespace Markoff

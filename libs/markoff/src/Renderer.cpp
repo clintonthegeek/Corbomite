@@ -6,6 +6,8 @@
 
 #include <QString>
 #include <QTextDocument>
+#include <QFileInfo>
+#include <QDir>
 
 namespace Markoff {
 
@@ -36,15 +38,35 @@ static QString alignAttr(MD_ALIGN align)
     }
 }
 
-static QString renderInlines(const QList<InlineRun> &inlines)
+static QString renderInlines(const QList<InlineRun> &inlines, const RenderSettings &settings = {})
 {
     QString html;
     for (const InlineRun &run : inlines) {
-        QString text = escapeHtml(run.text);
-
         // Comments are hidden in rendered output
         if (run.comment)
             continue;
+
+        // Image rendering
+        if (!run.imageSrc.isEmpty()) {
+            if (settings.renderImages) {
+                QString src = run.imageSrc;
+                // Resolve relative paths against basePath
+                if (!settings.basePath.isEmpty() && !src.startsWith(QStringLiteral("http"))
+                    && !src.startsWith(QStringLiteral("data:"))) {
+                    QFileInfo fi(QDir(settings.basePath), src);
+                    if (fi.exists())
+                        src = fi.absoluteFilePath();
+                }
+                QString alt = escapeHtml(run.text);
+                html += QStringLiteral("<img src=\"%1\" alt=\"%2\" style=\"max-width: 100%;\"/>")
+                            .arg(escapeHtml(src), alt);
+            } else {
+                html += escapeHtml(run.text);
+            }
+            continue;
+        }
+
+        QString text = escapeHtml(run.text);
 
         // Wrap in span/tag based on formatting flags
         if (!run.wikiTarget.isEmpty()) {
@@ -75,33 +97,33 @@ static QString renderInlines(const QList<InlineRun> &inlines)
     return html;
 }
 
-static QString renderBlocks(const QList<Block> &blocks);
+static QString renderBlocks(const QList<Block> &blocks, const RenderSettings &settings);
 
-static QString renderBlock(const Block &block)
+static QString renderBlock(const Block &block, const RenderSettings &settings)
 {
     QString html;
 
     switch (block.type) {
     case MD_BLOCK_DOC:
-        html += renderBlocks(block.children);
+        html += renderBlocks(block.children, settings);
         break;
 
     case MD_BLOCK_H: {
         const int level = qBound(1, block.headingLevel, 6);
         const QString tag = QStringLiteral("h%1").arg(level);
-        html += QStringLiteral("<%1>%2</%1>").arg(tag, renderInlines(block.inlines));
+        html += QStringLiteral("<%1>%2</%1>").arg(tag, renderInlines(block.inlines, settings));
         break;
     }
 
     case MD_BLOCK_P:
-        html += QStringLiteral("<p>%1</p>").arg(renderInlines(block.inlines));
+        html += QStringLiteral("<p>%1</p>").arg(renderInlines(block.inlines, settings));
         break;
 
     case MD_BLOCK_CODE: {
         const QString lang = block.codeInfo.isEmpty()
             ? QString()
             : QStringLiteral(" class=\"language-%1\"").arg(escapeHtml(block.codeInfo));
-        const QString code = renderInlines(block.inlines);
+        const QString code = renderInlines(block.inlines, settings);
         html += QStringLiteral("<pre><code%1>%2</code></pre>").arg(lang, code);
         break;
     }
@@ -144,18 +166,18 @@ static QString renderBlock(const Block &block)
                 .arg(color,
                      color, // used twice — once for border, once for faint bg
                      escapeHtml(title),
-                     renderBlocks(block.children));
+                     renderBlocks(block.children, settings));
         } else {
-            html += QStringLiteral("<blockquote>%1</blockquote>").arg(renderBlocks(block.children));
+            html += QStringLiteral("<blockquote>%1</blockquote>").arg(renderBlocks(block.children, settings));
         }
         break;
 
     case MD_BLOCK_UL:
-        html += QStringLiteral("<ul>%1</ul>").arg(renderBlocks(block.children));
+        html += QStringLiteral("<ul>%1</ul>").arg(renderBlocks(block.children, settings));
         break;
 
     case MD_BLOCK_OL:
-        html += QStringLiteral("<ol start=\"%1\">%2</ol>").arg(block.listStart).arg(renderBlocks(block.children));
+        html += QStringLiteral("<ol start=\"%1\">%2</ol>").arg(block.listStart).arg(renderBlocks(block.children, settings));
         break;
 
     case MD_BLOCK_LI: {
@@ -165,7 +187,7 @@ static QString renderBlock(const Block &block)
             prefix = checked ? QStringLiteral("[x] ") : QStringLiteral("[ ] ");
         }
         html += QStringLiteral("<li>%1%2%3</li>")
-            .arg(prefix, renderInlines(block.inlines), renderBlocks(block.children));
+            .arg(prefix, renderInlines(block.inlines, settings), renderBlocks(block.children, settings));
         break;
     }
 
@@ -174,46 +196,46 @@ static QString renderBlock(const Block &block)
         break;
 
     case MD_BLOCK_TABLE:
-        html += QStringLiteral("<table>%1</table>").arg(renderBlocks(block.children));
+        html += QStringLiteral("<table>%1</table>").arg(renderBlocks(block.children, settings));
         break;
 
     case MD_BLOCK_THEAD:
-        html += QStringLiteral("<thead>%1</thead>").arg(renderBlocks(block.children));
+        html += QStringLiteral("<thead>%1</thead>").arg(renderBlocks(block.children, settings));
         break;
 
     case MD_BLOCK_TBODY:
-        html += QStringLiteral("<tbody>%1</tbody>").arg(renderBlocks(block.children));
+        html += QStringLiteral("<tbody>%1</tbody>").arg(renderBlocks(block.children, settings));
         break;
 
     case MD_BLOCK_TR:
-        html += QStringLiteral("<tr>%1</tr>").arg(renderBlocks(block.children));
+        html += QStringLiteral("<tr>%1</tr>").arg(renderBlocks(block.children, settings));
         break;
 
     case MD_BLOCK_TH:
         html += QStringLiteral("<th%1>%2</th>")
-            .arg(alignAttr(block.tableAlign), renderInlines(block.inlines));
+            .arg(alignAttr(block.tableAlign), renderInlines(block.inlines, settings));
         break;
 
     case MD_BLOCK_TD:
         html += QStringLiteral("<td%1>%2</td>")
-            .arg(alignAttr(block.tableAlign), renderInlines(block.inlines));
+            .arg(alignAttr(block.tableAlign), renderInlines(block.inlines, settings));
         break;
 
     default:
         // Unknown block — render children and inlines inline
-        html += renderInlines(block.inlines);
-        html += renderBlocks(block.children);
+        html += renderInlines(block.inlines, settings);
+        html += renderBlocks(block.children, settings);
         break;
     }
 
     return html;
 }
 
-static QString renderBlocks(const QList<Block> &blocks)
+static QString renderBlocks(const QList<Block> &blocks, const RenderSettings &settings)
 {
     QString html;
     for (const Block &block : blocks)
-        html += renderBlock(block);
+        html += renderBlock(block, settings);
     return html;
 }
 
@@ -252,10 +274,10 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
     DocumentBuilder::postProcess(blocks);
 
     // Build body HTML
-    const QString bodyHtml = renderBlocks(blocks);
+    const RenderSettings &s = d->settings;
+    const QString bodyHtml = renderBlocks(blocks, s);
 
     // Build CSS
-    const RenderSettings &s = d->settings;
     QString bodyStyle = QStringLiteral("font-size: %1pt;").arg(s.baseFontSizePt);
     if (s.marginPx > 0)
         bodyStyle += QStringLiteral(" margin: %1px;").arg(s.marginPx);

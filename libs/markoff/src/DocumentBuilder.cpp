@@ -168,6 +168,12 @@ int DocumentBuilder::enterSpan(MD_SPANTYPE type, void *detail)
             m_wikiTarget = QString::fromUtf8(wl->target.text, static_cast<qsizetype>(wl->target.size));
         break;
     }
+    case MD_SPAN_IMG: {
+        auto *img = static_cast<MD_SPAN_IMG_DETAIL *>(detail);
+        if (img->src.size > 0)
+            m_imageSrc = QString::fromUtf8(img->src.text, static_cast<qsizetype>(img->src.size));
+        break;
+    }
     default:
         break;
     }
@@ -201,6 +207,9 @@ int DocumentBuilder::leaveSpan(MD_SPANTYPE type, void * /*detail*/)
     case MD_SPAN_WIKILINK:
         m_wikiTarget.clear();
         break;
+    case MD_SPAN_IMG:
+        m_imageSrc.clear();
+        break;
     default:
         break;
     }
@@ -221,6 +230,7 @@ int DocumentBuilder::text(MD_TEXTTYPE type, const MD_CHAR *rawText, MD_SIZE size
     run.mathDisplay   = m_mathDisplay;
     run.linkHref      = m_linkHref;
     run.wikiTarget    = m_wikiTarget;
+    run.imageSrc      = m_imageSrc;
 
     switch (type) {
     case MD_TEXT_NORMAL:

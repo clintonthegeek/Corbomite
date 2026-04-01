@@ -56,6 +56,12 @@ MainWindow::MainWindow(QWidget *parent)
     fontSpin->setValue(14);
     toolbar->addWidget(fontSpin);
 
+    toolbar->addSeparator();
+    auto *modeAction = toolbar->addAction(tr("Live Preview"));
+    modeAction->setCheckable(true);
+    modeAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_E));
+    connect(modeAction, &QAction::toggled, this, &MainWindow::onModeToggle);
+
     connect(fontSpin, &QSpinBox::valueChanged, this, [this](int size) {
         Markoff::RenderSettings settings;
         settings.baseFontSizePt = size;
@@ -81,6 +87,12 @@ void MainWindow::openFile(const QString &path)
     QTextStream stream(&file);
     m_editor->setPlainText(stream.readAll());
     m_filePath = path;
+
+    // Set basePath for image resolution
+    Markoff::RenderSettings settings;
+    settings.basePath = QFileInfo(path).absolutePath();
+    m_readingView->setSettings(settings);
+
     updateTitle();
 }
 
@@ -120,6 +132,14 @@ void MainWindow::onTextChanged()
 {
     auto doc = Markoff::Document::fromMarkdown(m_editor->toPlainText());
     m_readingView->setDocument(*doc);
+}
+
+void MainWindow::onModeToggle()
+{
+    if (m_editor->mode() == Markoff::Editor::Mode::Source)
+        m_editor->setMode(Markoff::Editor::Mode::LivePreview);
+    else
+        m_editor->setMode(Markoff::Editor::Mode::Source);
 }
 
 void MainWindow::updateTitle()
