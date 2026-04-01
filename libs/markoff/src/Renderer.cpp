@@ -8,8 +8,37 @@
 #include <QTextDocument>
 #include <QFileInfo>
 #include <QDir>
+#include <QImage>
+#include <QBuffer>
+#include <jkqtmathtext/jkqtmathtext.h>
 
 namespace Markoff {
+
+// ---------------------------------------------------------------------------
+// Math rendering
+// ---------------------------------------------------------------------------
+
+static QString renderMathToDataUri(const QString &latex, bool displayMode)
+{
+    JKQTMathText mt;
+    mt.useXITS();
+    mt.setFontSize(displayMode ? 14 : 12);
+
+    const QString wrapped = QStringLiteral("$") + latex + QStringLiteral("$");
+    if (!mt.parse(wrapped))
+        return {};
+
+    QImage img = mt.drawIntoImage(false, Qt::transparent, 2, 1.0, 96);
+    if (img.isNull())
+        return {};
+
+    QByteArray ba;
+    QBuffer buffer(&ba);
+    buffer.open(QIODevice::WriteOnly);
+    img.save(&buffer, "PNG");
+
+    return QStringLiteral("data:image/png;base64,") + QString::fromLatin1(ba.toBase64());
+}
 
 // ---------------------------------------------------------------------------
 // Private
@@ -75,7 +104,17 @@ static QString renderInlines(const QList<InlineRun> &inlines, const RenderSettin
         } else if (!run.linkHref.isEmpty()) {
             text = QStringLiteral("<a href=\"%1\">%2</a>").arg(escapeHtml(run.linkHref), text);
         } else if (run.math || run.mathDisplay) {
-            text = QStringLiteral("<code>%1</code>").arg(text);
+            QString dataUri = renderMathToDataUri(run.text, run.mathDisplay);
+            if (!dataUri.isEmpty()) {
+                QString style = run.mathDisplay
+                    ? QStringLiteral("display: block; margin: 8px auto;")
+                    : QStringLiteral("vertical-align: middle;");
+                text = QStringLiteral("<img src=\"%1\" alt=\"%2\" style=\"%3\"/>")
+                           .arg(dataUri, escapeHtml(run.text), style);
+            } else {
+                // Fallback if rendering fails
+                text = QStringLiteral("<code>%1</code>").arg(text);
+            }
         } else if (run.code) {
             text = QStringLiteral("<code>%1</code>").arg(text);
         } else {
