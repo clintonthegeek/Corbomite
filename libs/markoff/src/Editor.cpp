@@ -1660,23 +1660,17 @@ void Editor::paintEvent(QPaintEvent *e)
                         painter.setBrush(dr->calloutColor);
                         painter.drawRoundedRect(QRectF(bgRect.left(), bgRect.top(), 4, bgRect.height()), 2, 2);
 
-                        // If the [!type] marker was hidden and there's no custom
-                        // title text, paint the default title as a decoration
-                        QTextBlock firstBlk = document()->findBlockByNumber(dr->firstBlock);
-                        QString firstLine = firstBlk.text();
-                        // Check if the visible portion after [!type] is empty
-                        static const QRegularExpression calloutRe(
-                            QStringLiteral(R"(^>\s*\[!\w+\][+-]?\s*$)"));
-                        if (calloutRe.match(firstLine).hasMatch()) {
-                            // No custom title — paint default
+                        // Paint the callout title on top of the (now transparent)
+                        // first line text. This covers both custom titles and
+                        // default type names.
+                        {
                             QFont titleFont = font();
                             titleFont.setBold(true);
                             painter.setFont(titleFont);
                             painter.setPen(dr->calloutColor);
+                            // Paint at the text position (inside the callout bg, after the left border)
                             qreal textX = bgRect.left() + 12;
-                            qreal textY = bgRect.top();
-                            QRectF titleRect(textX, textY, bgRect.width() - 16,
-                                            r.height());
+                            QRectF titleRect(textX, r.top(), bgRect.width() - 16, r.height());
                             painter.drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter,
                                             dr->calloutTitle);
                         }
