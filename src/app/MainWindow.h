@@ -49,6 +49,7 @@ private:
 
     // Action handlers
     void openVaultDialog();
+    void closeVault();
     void createNewNote();
     void saveCurrentNote();
     void showQuickSwitcher();

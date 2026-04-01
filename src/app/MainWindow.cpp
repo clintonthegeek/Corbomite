@@ -104,19 +104,16 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    if (m_sessionManager) {
-        // Save window geometry
-        m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
+    if (m_vaultService->isOpen()) {
+        if (!m_editorManager->queryClose()) {
+            event->ignore();
+            return;
+        }
 
-        // Save sidebar state
-        m_sessionManager->saveSidebarState(
-            sidebarsVisible(), 200, // leftVisible, leftWidth (default)
-            false, 200);            // rightVisible, rightWidth (default)
-
-        // TODO(Task 6): save full editor state (split layout + per-tab state)
-
-        // Write session data immediately (bypass debounce timer)
-        m_sessionManager->saveNow();
+        if (m_sessionManager) {
+            m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
+            m_sessionManager->saveNow();
+        }
     }
 
     CorbomiteMDI::MainWindow::closeEvent(event);
@@ -142,6 +139,9 @@ void MainWindow::setupActions()
 
     // Recent Vaults
     m_recentVaults = KStandardAction::openRecent(this, [this](const QUrl &url) {
+        if (m_vaultService->isOpen()) {
+            if (!m_editorManager->queryClose()) return;
+        }
         m_vaultService->openVault(url.toLocalFile());
     }, ac);
     m_recentVaults->setObjectName(QStringLiteral("file_open_recent"));
@@ -149,6 +149,11 @@ void MainWindow::setupActions()
     auto config = KSharedConfig::openConfig();
     KConfigGroup recentGroup = config->group(QStringLiteral("RecentVaults"));
     m_recentVaults->loadEntries(recentGroup);
+
+    auto *closeVaultAction = ac->addAction(QStringLiteral("file_close_vault"));
+    closeVaultAction->setText(i18n("Close Vault"));
+    closeVaultAction->setIcon(QIcon::fromTheme(QStringLiteral("window-close")));
+    connect(closeVaultAction, &QAction::triggered, this, &MainWindow::closeVault);
 
     auto *newNote = ac->addAction(QStringLiteral("file_new_note"));
     newNote->setText(i18n("New Note"));
@@ -338,6 +343,9 @@ void MainWindow::setupEditor()
     m_centralStack->addWidget(m_welcomeScreen);
 
     connect(m_welcomeScreen, &WelcomeScreen::vaultRequested, this, [this](const QString &path) {
+        if (m_vaultService->isOpen()) {
+            if (!m_editorManager->queryClose()) return;
+        }
         m_vaultService->openVault(path);
     });
     connect(m_welcomeScreen, &WelcomeScreen::openFolderRequested, this, &MainWindow::openVaultDialog);
@@ -516,6 +524,10 @@ void MainWindow::setupStatusBar()
 
 void MainWindow::openVaultDialog()
 {
+    if (m_vaultService->isOpen()) {
+        if (!m_editorManager->queryClose()) return;
+    }
+
     QString dir = QFileDialog::getExistingDirectory(
         this, i18n("Open Vault"), QDir::homePath());
     if (!dir.isEmpty()) {
@@ -525,6 +537,15 @@ void MainWindow::openVaultDialog()
                 i18n("Open Vault Failed"));
         }
     }
+}
+
+void MainWindow::closeVault()
+{
+    if (!m_vaultService->isOpen()) return;
+
+    if (!m_editorManager->queryClose()) return;
+
+    m_vaultService->closeVault();
 }
 
 void MainWindow::createNewNote()
@@ -945,6 +966,7 @@ void MainWindow::updateVaultActions()
         if (auto *a = ac->action(name)) a->setEnabled(enabled);
     };
 
+    setEnabled(QStringLiteral("file_close_vault"), open);
     setEnabled(QStringLiteral("file_new_note"), open);
     setEnabled(QStringLiteral("file_new_canvas"), open);
     setEnabled(QStringLiteral("file_save"), open);
