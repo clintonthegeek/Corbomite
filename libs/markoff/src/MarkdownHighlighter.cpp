@@ -79,27 +79,43 @@ void MarkdownHighlighter::setMode(Mode mode)
     rehighlight();
 }
 
-void MarkdownHighlighter::setCursorBlock(int blockNumber)
+void MarkdownHighlighter::setCursorPosition(int blockNumber, int columnInBlock)
 {
-    if (m_cursorBlock == blockNumber) return;
+    bool blockChanged = (m_cursorBlock != blockNumber);
+    bool columnChanged = (m_cursorColumn != columnInBlock);
+
+    if (!blockChanged && !columnChanged) return;
+
     int oldBlock = m_cursorBlock;
     m_cursorBlock = blockNumber;
+    m_cursorColumn = columnInBlock;
 
-    // Rehighlight blocks that changed visibility (old cursor line goes
-    // from raw→rendered, new cursor line goes from rendered→raw)
     if (m_mode == Mode::LivePreview) {
         QTextDocument *doc = document();
-        // Rehighlight old cursor block (now rendered)
-        if (oldBlock >= 0) {
-            QTextBlock b = doc->findBlockByNumber(oldBlock);
-            if (b.isValid()) rehighlightBlock(b);
+
+        if (blockChanged) {
+            // Rehighlight old cursor block (now fully rendered)
+            if (oldBlock >= 0) {
+                QTextBlock b = doc->findBlockByNumber(oldBlock);
+                if (b.isValid()) rehighlightBlock(b);
+            }
         }
-        // Rehighlight new cursor block (now raw)
+
+        // Always rehighlight current cursor block (column may have changed,
+        // affecting which inline elements show their delimiters)
         {
             QTextBlock b = doc->findBlockByNumber(blockNumber);
             if (b.isValid()) rehighlightBlock(b);
         }
     }
+}
+
+bool MarkdownHighlighter::cursorInRange(int cursorCol, int matchStart, int matchEnd) const
+{
+    // Cursor is "in" the match if it's anywhere within the full match range
+    // (including the delimiters themselves). This means clicking on the
+    // rendered bold text OR its ** delimiters reveals the raw syntax.
+    return cursorCol >= matchStart && cursorCol <= matchEnd;
 }
 
 /// Make a range of text invisible: transparent color, zero-width via letter spacing
@@ -118,11 +134,15 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     const int blockNum = currentBlock().blockNumber();
 
     // Determine if this block shows raw syntax or formatted content.
-    bool nearCursor = (m_mode == Mode::Source) ||
-        (m_mode == Mode::LivePreview &&
-         blockNum == m_cursorBlock);
+    bool isCursorLine = (blockNum == m_cursorBlock);
+    bool nearCursor = (m_mode == Mode::Source) || (m_mode == Mode::LivePreview && isCursorLine);
 
+    // For non-cursor lines: hide all delimiters.
+    // For the cursor line: per-element hiding based on cursor column.
     bool hideDelimiters = (m_mode == Mode::LivePreview && !nearCursor);
+
+    // Cursor column within this block (-1 if cursor is on a different line)
+    int cursorCol = (m_mode == Mode::LivePreview && isCursorLine) ? m_cursorColumn : -1;
 
     // --- Multi-line block state continuation ---
 
@@ -230,7 +250,7 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
                 // yet (just "## " with nothing after — user is still typing)
                 setFormat(0, text.length(), m_headingFormat[level]);
             }
-            highlightInlinePatterns(text, hideDelimiters);
+            highlightInlinePatterns(text, hideDelimiters, cursorCol);
             return;
         }
     }
@@ -254,7 +274,7 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
             } else {
                 setFormat(m.capturedStart(), m.capturedLength(), m_blockquoteFormat);
             }
-            highlightInlinePatterns(text, hideDelimiters);
+            highlightInlinePatterns(text, hideDelimiters, cursorCol);
             return;
         }
     }
@@ -271,7 +291,7 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
             } else {
                 setFormat(m.capturedStart(), m.capturedLength(), m_listMarkerFormat);
             }
-            highlightInlinePatterns(text, hideDelimiters);
+            highlightInlinePatterns(text, hideDelimiters, cursorCol);
             return;
         }
     }
@@ -282,27 +302,37 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
         QRegularExpressionMatch m = olPattern.match(text);
         if (m.hasMatch()) {
             setFormat(m.capturedStart(), m.capturedLength(), m_listMarkerFormat);
-            highlightInlinePatterns(text, hideDelimiters);
+            highlightInlinePatterns(text, hideDelimiters, cursorCol);
             return;
         }
     }
 
     // Plain line
-    highlightInlinePatterns(text, hideDelimiters);
+    highlightInlinePatterns(text, hideDelimiters, cursorCol);
 }
 
-void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hideDelimiters)
+void MarkdownHighlighter::highlightInlinePatterns(const QString &text,
+                                                    bool hideDelimiters,
+                                                    int cursorCol)
 {
+    // Helper: should we hide delimiters for this specific match?
+    // - Non-cursor lines (hideDelimiters=true, cursorCol=-1): always hide
+    // - Cursor line: hide unless cursor is inside this match's range
+    auto shouldHide = [&](int matchStart, int matchEnd) -> bool {
+        if (hideDelimiters) return true;
+        if (cursorCol < 0) return false;  // source mode, never hide
+        return !cursorInRange(cursorCol, matchStart, matchEnd);
+    };
+
     // Inline code: `code`
     {
         QRegularExpressionMatchIterator it = m_inlineCodePattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (hideDelimiters) {
-                // Hide the backticks, format the content
-                hideRange(m.capturedStart(), 1);  // opening `
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
+                hideRange(m.capturedStart(), 1);
                 setFormat(m.capturedStart() + 1, m.capturedLength() - 2, m_inlineCodeFormat);
-                hideRange(m.capturedEnd() - 1, 1);  // closing `
+                hideRange(m.capturedEnd() - 1, 1);
             } else {
                 setFormat(m.capturedStart(), m.capturedLength(), m_inlineCodeFormat);
             }
@@ -314,9 +344,8 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hide
         QRegularExpressionMatchIterator it = m_boldPattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (hideDelimiters) {
-                // Hide ** delimiters, apply bold to content
-                int delimLen = text.mid(m.capturedStart(), 2) == QStringLiteral("**") ? 2 : 2;
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
+                int delimLen = 2;
                 hideRange(m.capturedStart(), delimLen);
                 setFormat(m.capturedStart() + delimLen,
                           m.capturedLength() - delimLen * 2, m_boldFormat);
@@ -332,7 +361,7 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hide
         QRegularExpressionMatchIterator it = m_italicPattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (hideDelimiters) {
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
                 hideRange(m.capturedStart(), 1);
                 setFormat(m.capturedStart() + 1, m.capturedLength() - 2, m_italicFormat);
                 hideRange(m.capturedEnd() - 1, 1);
@@ -347,7 +376,7 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hide
         QRegularExpressionMatchIterator it = m_strikethroughPattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (hideDelimiters) {
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
                 hideRange(m.capturedStart(), 2);
                 setFormat(m.capturedStart() + 2, m.capturedLength() - 4, m_strikethroughFormat);
                 hideRange(m.capturedEnd() - 2, 2);
@@ -362,13 +391,11 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hide
         QRegularExpressionMatchIterator it = m_wikilinkPattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (hideDelimiters) {
-                // Hide [[ and ]], show content as link
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
                 hideRange(m.capturedStart(), 2);
                 QString inner = m.captured(1);
                 int pipePos = inner.indexOf(QLatin1Char('|'));
                 if (pipePos >= 0) {
-                    // [[target|display]] — hide target and pipe, show display
                     hideRange(m.capturedStart() + 2, pipePos + 1);
                     setFormat(m.capturedStart() + 2 + pipePos + 1,
                               inner.length() - pipePos - 1, m_wikilinkFormat);
@@ -387,9 +414,8 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hide
         QRegularExpressionMatchIterator it = m_linkPattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (hideDelimiters) {
-                // Hide [ ] ( url ) — show only the link text
-                hideRange(m.capturedStart(), 1);  // [
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
+                hideRange(m.capturedStart(), 1);
                 setFormat(m.capturedStart() + 1, m.captured(1).length(), m_linkFormat);
                 hideRange(m.capturedStart() + 1 + m.captured(1).length(),
                           m.capturedLength() - m.captured(1).length() - 1);
@@ -404,7 +430,7 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hide
         QRegularExpressionMatchIterator it = m_mathInlinePattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (hideDelimiters) {
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
                 hideRange(m.capturedStart(), 1);
                 setFormat(m.capturedStart() + 1, m.capturedLength() - 2, m_mathFormat);
                 hideRange(m.capturedEnd() - 1, 1);
@@ -419,7 +445,7 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hide
         QRegularExpressionMatchIterator it = m_highlightPattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (hideDelimiters) {
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
                 hideRange(m.capturedStart(), 2);
                 setFormat(m.capturedStart() + 2, m.capturedLength() - 4, m_highlightFormat);
                 hideRange(m.capturedEnd() - 2, 2);
@@ -434,8 +460,7 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hide
         QRegularExpressionMatchIterator it = m_commentPattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch m = it.next();
-            if (hideDelimiters) {
-                // In live preview, comments are fully hidden
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
                 hideRange(m.capturedStart(), m.capturedLength());
             } else {
                 setFormat(m.capturedStart(), m.capturedLength(), m_commentFormat);
@@ -443,7 +468,7 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text, bool hide
         }
     }
 
-    // Tag: #word
+    // Tag: #word (tags don't have delimiters to hide — always styled)
     {
         QRegularExpressionMatchIterator it = m_tagPattern.globalMatch(text);
         while (it.hasNext()) {

@@ -574,7 +574,7 @@ void Editor::Private::init(const QString &txt)
         if (mode == Editor::Mode::LivePreview) {
             // Update cursor block FIRST so the highlighter knows which
             // block is being edited (highlightBlock fires during reparse)
-            highlighter->setCursorBlock(control->textCursor().block().blockNumber());
+            highlighter->setCursorPosition(control->textCursor().block().blockNumber(), control->textCursor().positionInBlock());
             reparseDocument();
             // Invalidate all render caches since we don't track which blocks changed yet
             QTextBlock block = q->document()->begin();
@@ -594,7 +594,7 @@ void Editor::Private::init(const QString &txt)
 
             // Update highlighter so it rehighlights blocks entering/leaving
             // cursor vicinity (showing/hiding syntax delimiters)
-            highlighter->setCursorBlock(cursorBlockNum);
+            highlighter->setCursorPosition(cursorBlockNum, control->textCursor().positionInBlock());
 
             // Track active atomic block
             AtomicBlock *ab = atomicBlockAt(cursorBlockNum);
@@ -640,7 +640,7 @@ void Editor::Private::cursorPositionChanged()
         int cursorBlockNum = control->textCursor().block().blockNumber();
 
         // Update highlighter so it knows which blocks to show raw
-        highlighter->setCursorBlock(cursorBlockNum);
+        highlighter->setCursorPosition(cursorBlockNum, control->textCursor().positionInBlock());
 
         AtomicBlock *ab = atomicBlockAt(cursorBlockNum);
 
@@ -1431,7 +1431,8 @@ void Editor::setMode(Mode m)
 
         // Switch highlighter to live preview mode
         d->highlighter->setMode(MarkdownHighlighter::Mode::LivePreview);
-        d->highlighter->setCursorBlock(d->control->textCursor().block().blockNumber());
+        d->highlighter->setCursorPosition(d->control->textCursor().block().blockNumber(),
+                                          d->control->textCursor().positionInBlock());
 
         d->reparseDocument();
         d->updateBlockDisplayModes();

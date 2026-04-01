@@ -20,19 +20,23 @@ public:
     void setMode(Mode mode);
     Mode mode() const { return m_mode; }
 
-    /// The block number range where the cursor currently is.
-    /// In LivePreview, blocks near the cursor show raw syntax.
-    void setCursorBlock(int blockNumber);
+    /// The cursor position in the document.
+    /// In LivePreview, the cursor line shows raw syntax, and within that
+    /// line, only inline elements near the cursor show their delimiters.
+    void setCursorPosition(int blockNumber, int columnInBlock);
 
 protected:
     void highlightBlock(const QString &text) override;
 
 private:
-    void highlightInlinePatterns(const QString &text, bool hideDelimiters);
+    void highlightInlinePatterns(const QString &text, bool hideDelimiters,
+                                  int cursorCol);
     void hideRange(int start, int length);
+    bool cursorInRange(int cursorCol, int matchStart, int matchEnd) const;
 
     Mode m_mode = Mode::Source;
     int m_cursorBlock = -1;
+    int m_cursorColumn = -1;
 
     // Block states
     enum BlockState {
