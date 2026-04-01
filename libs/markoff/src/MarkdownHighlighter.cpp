@@ -120,7 +120,7 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     const int prevState = previousBlockState();
     const int blockNum = currentBlock().blockNumber();
 
-    // Determine if this block shows raw syntax or formatted content
+    // Determine if this block shows raw syntax or formatted content.
     bool nearCursor = (m_mode == Mode::Source) ||
         (m_mode == Mode::LivePreview &&
          blockNum >= m_cursorBlock - 1 && blockNum <= m_cursorBlock + 1);
@@ -221,12 +221,16 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
         QRegularExpressionMatch m = headingPattern.match(text);
         if (m.hasMatch()) {
             int level = m.captured(1).length() - 1;
-            if (hideDelimiters) {
-                // Hide the ## prefix, apply heading format to the text
+            QString contentAfterHashes = text.mid(m.capturedLength());
+
+            if (hideDelimiters && !contentAfterHashes.trimmed().isEmpty()) {
+                // Hide the ## prefix, apply heading format to the content
                 hideRange(0, m.capturedLength());
                 setFormat(m.capturedLength(), text.length() - m.capturedLength(),
                           m_headingFormat[level]);
             } else {
+                // Show raw: either near cursor, or heading has no content
+                // yet (just "## " with nothing after — user is still typing)
                 setFormat(0, text.length(), m_headingFormat[level]);
             }
             highlightInlinePatterns(text, hideDelimiters);

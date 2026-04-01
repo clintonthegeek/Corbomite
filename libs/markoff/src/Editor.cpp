@@ -572,6 +572,9 @@ void Editor::Private::init(const QString &txt)
     // Live preview: re-parse on text changes
     QObject::connect(control, &TextControl::textChanged, q, [this]() {
         if (mode == Editor::Mode::LivePreview) {
+            // Update cursor block FIRST so the highlighter knows which
+            // block is being edited (highlightBlock fires during reparse)
+            highlighter->setCursorBlock(control->textCursor().block().blockNumber());
             reparseDocument();
             // Invalidate all render caches since we don't track which blocks changed yet
             QTextBlock block = q->document()->begin();
