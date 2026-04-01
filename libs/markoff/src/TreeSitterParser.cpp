@@ -444,25 +444,32 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
     // This hides brackets, parens, URLs, pipe characters in live preview.
     bool isLinkParent = parentFmt.isLink || parentFmt.isWikilink || parentFmt.isImage;
     if (isLinkParent) {
-        // Collect link_text byte ranges (these are the visible parts)
+        // Collect the visible text ranges for this link.
+        // - Standard links: link_text is visible, link_destination (URL) is hidden
+        // - Wikilinks with display: link_text is visible, link_destination is hidden
+        // - Wikilinks without display: link_destination is visible
         QList<QPair<int,int>> textRanges;
+        bool hasLinkText = false;
+        bool hasLinkDest = false;
+        int destStart = -1, destEnd = -1;
+
         for (uint32_t i = 0; i < childCount; ++i) {
             TSNode child = ts_node_child(node, i);
             const char *childType = ts_node_type(child);
-            if (strcmp(childType, "link_text") == 0 ||
-                strcmp(childType, "link_destination") == 0) {
-                // For wikilinks without display text, link_destination IS the visible text
-                // For standard links, only link_text is visible
-                if (parentFmt.isWikilink || strcmp(childType, "link_text") == 0) {
-                    textRanges.append({static_cast<int>(ts_node_start_byte(child)),
-                                       static_cast<int>(ts_node_end_byte(child))});
-                }
+            if (strcmp(childType, "link_text") == 0) {
+                hasLinkText = true;
+                textRanges.append({static_cast<int>(ts_node_start_byte(child)),
+                                   static_cast<int>(ts_node_end_byte(child))});
+            } else if (strcmp(childType, "link_destination") == 0) {
+                hasLinkDest = true;
+                destStart = static_cast<int>(ts_node_start_byte(child));
+                destEnd = static_cast<int>(ts_node_end_byte(child));
             }
         }
-        // If wikilink has no link_text child, the destination text between [[ ]] is visible
-        if (textRanges.isEmpty() && parentFmt.isWikilink) {
-            // The visible text is between the [[ and ]] — already a gap span
-            // Don't mark gaps as delimiters
+
+        // Wikilinks without explicit display text: show the destination
+        if (parentFmt.isWikilink && !hasLinkText && hasLinkDest) {
+            textRanges.append({destStart, destEnd});
         }
 
         // Mark spans that don't overlap any text range as delimiters
