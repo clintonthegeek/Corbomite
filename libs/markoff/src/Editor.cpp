@@ -591,10 +591,20 @@ void Editor::Private::init(const QString &txt)
 void Editor::Private::cursorPositionChanged()
 {
     pageUpDownLastCursorYIsValid = false;
-#if QT_CONFIG(accessibility)
-    QAccessibleTextCursorEvent ev(q, q->document()->find(QString(), control->textCursor()).position());
-    // Simplified: just report position
-#endif
+
+    // Track active atomic block based on cursor position
+    if (mode == Editor::Mode::LivePreview) {
+        int cursorBlockNum = control->textCursor().block().blockNumber();
+        AtomicBlock *ab = atomicBlockAt(cursorBlockNum);
+
+        if (ab != activeAtomicBlock) {
+            if (activeAtomicBlock)
+                activeAtomicBlock->leaveBlock();
+            activeAtomicBlock = ab;
+            if (ab)
+                ab->enterBlock(control->textCursor().position());
+        }
+    }
 }
 
 void Editor::Private::modificationChanged(bool)
@@ -1492,6 +1502,44 @@ void Editor::resizeEvent(QResizeEvent *e)
 
 void Editor::keyPressEvent(QKeyEvent *e)
 {
+    // Atomic block input routing
+    if (d->mode == Mode::LivePreview && d->activeAtomicBlock) {
+        if (d->activeAtomicBlock->handleKeyPress(e)) {
+            e->accept();
+            viewport()->update();
+            return;
+        }
+        // Escape from atomic block handled by AtomicBlock::handleKeyPress
+        // returning true after calling leaveBlock(). If it returned false,
+        // fall through to normal key handling.
+    }
+
+    // Backspace at start of block after atomic block → select atomic block
+    if (d->mode == Mode::LivePreview && e->key() == Qt::Key_Backspace
+        && !d->control->textCursor().hasSelection()) {
+        QTextCursor cursor = d->control->textCursor();
+        if (cursor.atBlockStart()) {
+            QTextBlock prev = cursor.block().previous();
+            if (prev.isValid()) {
+                auto *prevData = dynamic_cast<MarkoffBlockData *>(prev.userData());
+                if (prevData && prevData->atomicBlock) {
+                    // Select the entire atomic block
+                    AtomicBlock *ab = prevData->atomicBlock;
+                    QTextBlock firstBlock = document()->findBlockByNumber(ab->firstBlock());
+                    QTextBlock lastBlock = document()->findBlockByNumber(ab->lastBlock());
+                    QTextCursor sel = d->control->textCursor();
+                    sel.setPosition(firstBlock.position());
+                    sel.setPosition(lastBlock.position() + lastBlock.length() - 1,
+                                    QTextCursor::KeepAnchor);
+                    d->control->setTextCursor(sel);
+                    e->accept();
+                    viewport()->update();
+                    return;
+                }
+            }
+        }
+    }
+
 #ifndef QT_NO_SHORTCUT
     Qt::TextInteractionFlags tif = d->control->textInteractionFlags();
 
@@ -1551,6 +1599,54 @@ void Editor::keyPressEvent(QKeyEvent *e)
 
 void Editor::mousePressEvent(QMouseEvent *e)
 {
+    // Route clicks to atomic blocks in live preview mode
+    if (d->mode == Mode::LivePreview) {
+        // Check if click is on a rendered atomic block
+        QPointF pos = e->position();
+        int clickBlockNum = -1;
+
+        // Find which text block was clicked
+        QTextBlock block = Markoff::firstVisibleBlock(d.get());
+        QPointF offset = Markoff::contentOffset(d.get(), this);
+        while (block.isValid()) {
+            QRectF r = Markoff::blockBoundingRect(d.get(), block).translated(offset);
+            if (r.contains(pos)) {
+                clickBlockNum = block.blockNumber();
+                break;
+            }
+            offset.ry() += r.height();
+            block = block.next();
+        }
+
+        if (clickBlockNum >= 0) {
+            AtomicBlock *ab = d->atomicBlockAt(clickBlockNum);
+            if (ab) {
+                auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
+                if (data && data->displayMode == MarkoffBlockData::Rendered) {
+                    // Leave previous atomic block
+                    if (d->activeAtomicBlock && d->activeAtomicBlock != ab)
+                        d->activeAtomicBlock->leaveBlock();
+
+                    QPointF localPos = pos - Markoff::blockBoundingRect(d.get(),
+                        document()->findBlockByNumber(ab->firstBlock())).translated(
+                        Markoff::contentOffset(d.get(), this)).topLeft();
+                    d->activeAtomicBlock = ab;
+                    ab->handleMousePress(e, localPos);
+                    e->accept();
+                    viewport()->update();
+                    return;
+                }
+            }
+        }
+
+        // Click outside any atomic block — leave current one
+        if (d->activeAtomicBlock) {
+            d->activeAtomicBlock->leaveBlock();
+            d->activeAtomicBlock = nullptr;
+            viewport()->update();
+        }
+    }
+
     d->sendControlEvent(e);
 }
 
