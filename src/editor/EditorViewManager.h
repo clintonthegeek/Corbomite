@@ -2,6 +2,8 @@
 #pragma once
 
 #include <QWidget>
+#include <QSplitter>
+#include <QVector>
 
 namespace Corbomite {
 
@@ -17,6 +19,7 @@ class EditorViewManager : public QWidget {
 public:
     explicit EditorViewManager(QWidget *parent = nullptr);
 
+    // Existing API — targets active view space
     void openNote(NoteDocument *doc);
     void openCanvas(const QString &filePath);
     NoteEditorWidget *activeEditor() const;
@@ -26,13 +29,28 @@ public:
     void openGraphView(SQLiteIndex *index, VaultModel *vault);
     bool hasGraphView() const;
 
+    // New: split pane management
+    void splitActiveHorizontal();
+    void splitActiveVertical();
+    void closeActiveViewSpace();
+    int viewSpaceCount() const;
+
 Q_SIGNALS:
     void activeEditorChanged(NoteEditorWidget *editor);
     void cursorInfoChanged(int line, int column, int wordCount);
     void graphNoteActivated(const QString &relativePath);
 
 private:
-    EditorViewSpace *m_viewSpace;
+    void setActiveViewSpace(EditorViewSpace *space);
+    EditorViewSpace *createViewSpace();
+    void connectViewSpace(EditorViewSpace *space);
+    void splitActiveView(Qt::Orientation orientation);
+    void removeViewSpace(EditorViewSpace *space);
+    void cleanupEmptySplitters(QSplitter *splitter);
+
+    QSplitter *m_rootSplitter;
+    EditorViewSpace *m_activeViewSpace = nullptr;
+    QVector<EditorViewSpace *> m_viewSpaces;
 };
 
 } // namespace Corbomite
