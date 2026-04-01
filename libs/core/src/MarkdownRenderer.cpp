@@ -2,6 +2,9 @@
 #include "corbomite/core/MarkdownRenderer.h"
 #include <QRegularExpression>
 #include <QStringList>
+#include <QBuffer>
+#include <QImage>
+#include <QPainter>
 
 #include <KSyntaxHighlighting/Repository>
 #include <KSyntaxHighlighting/Definition>
@@ -9,6 +12,8 @@
 #include <KSyntaxHighlighting/State>
 #include <KSyntaxHighlighting/Format>
 #include <KSyntaxHighlighting/AbstractHighlighter>
+
+#include "jkqtmathtext/jkqtmathtext.h"
 
 namespace {
 
@@ -43,6 +48,32 @@ protected:
         }
     }
 };
+
+} // anonymous namespace
+
+namespace {
+
+QString renderMathToDataUri(const QString &latex, bool displayMode)
+{
+    JKQTMathText mt;
+    mt.useXITS();
+    mt.setFontSize(displayMode ? 14 : 12);
+
+    const QString wrapped = QStringLiteral("$") + latex + QStringLiteral("$");
+    if (!mt.parse(wrapped))
+        return QString();
+
+    QImage img = mt.drawIntoImage(false, Qt::transparent, 2, 1.0, 96);
+    if (img.isNull())
+        return QString();
+
+    QByteArray ba;
+    QBuffer buffer(&ba);
+    buffer.open(QIODevice::WriteOnly);
+    img.save(&buffer, "PNG");
+
+    return QStringLiteral("data:image/png;base64,") + QString::fromLatin1(ba.toBase64());
+}
 
 } // anonymous namespace
 
@@ -304,6 +335,38 @@ QString MarkdownRenderer::processBlocks(const QString &markdown) const
 QString MarkdownRenderer::processInline(const QString &text) const
 {
     QString result = text;
+
+    // Display math: $$formula$$ (render before stripping other patterns)
+    {
+        static const QRegularExpression displayMathPat(QStringLiteral(R"(\$\$(.+?)\$\$)"));
+        QList<QRegularExpressionMatch> matches;
+        auto it = displayMathPat.globalMatch(result);
+        while (it.hasNext()) matches.append(it.next());
+        for (int i = matches.size() - 1; i >= 0; --i) {
+            const auto &m = matches[i];
+            QString uri = renderMathToDataUri(m.captured(1), true);
+            if (!uri.isEmpty()) {
+                result.replace(m.capturedStart(), m.capturedLength(),
+                    QStringLiteral("<div style='text-align:center'><img src='%1'/></div>").arg(uri));
+            }
+        }
+    }
+
+    // Inline math: $formula$ (negative lookahead/behind for $$ already handled above)
+    {
+        static const QRegularExpression inlineMathPat(QStringLiteral(R"((?<!\$)\$([^$]+)\$(?!\$))"));
+        QList<QRegularExpressionMatch> matches;
+        auto it = inlineMathPat.globalMatch(result);
+        while (it.hasNext()) matches.append(it.next());
+        for (int i = matches.size() - 1; i >= 0; --i) {
+            const auto &m = matches[i];
+            QString uri = renderMathToDataUri(m.captured(1), false);
+            if (!uri.isEmpty()) {
+                result.replace(m.capturedStart(), m.capturedLength(),
+                    QStringLiteral("<img src='%1' style='vertical-align:middle'/>").arg(uri));
+            }
+        }
+    }
 
     // Strip Obsidian comments: %%...%%
     static const QRegularExpression commentPattern(QStringLiteral(R"(%%.+?%%)"));

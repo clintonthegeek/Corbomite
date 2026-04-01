@@ -31,6 +31,7 @@ find_package(KF6SyntaxHighlighting REQUIRED)
 
 
 # Libraries
+add_subdirectory(libs/jkqtmathtext)
 add_subdirectory(libs/core)
 add_subdirectory(libs/storage)
 add_subdirectory(libs/models)

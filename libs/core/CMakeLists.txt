@@ -17,4 +17,4 @@ add_library(Corbomite::Core ALIAS corbomite-core)
 target_include_directories(corbomite-core
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(corbomite-core PUBLIC Qt6::Core KF6::SyntaxHighlighting)
+target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui KF6::SyntaxHighlighting jkqtmathtext)
