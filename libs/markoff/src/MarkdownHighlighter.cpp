@@ -231,8 +231,10 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             fmt.merge(m_linkFormat);
         if (span.isWikilink)
             fmt.merge(m_wikilinkFormat);
-        if (span.isHorizontalRule)
-            fmt.setForeground(m_horizontalRuleFormat.foreground());
+        if (span.isHorizontalRule) {
+            // Make text transparent — decoration painter draws the line
+            fmt.setForeground(Qt::transparent);
+        }
         if (span.isFootnoteRef) {
             // Hide the ^ character (first char) and superscript the number
             hideRange(localStart, 1); // hide ^

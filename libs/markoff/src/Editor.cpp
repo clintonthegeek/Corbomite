@@ -1708,6 +1708,31 @@ void Editor::paintEvent(QPaintEvent *e)
                     }
                 }
 
+                // Paint horizontal rules — a line where --- or *** text is
+                {
+                    const auto &spans = d->highlighter->spans();
+                    int blockStart = block.position();
+                    int blockEnd = blockStart + block.length();
+                    bool isHR = false;
+                    for (const SourceSpan &s : spans) {
+                        int se = s.charOffset + s.charLength;
+                        if (se <= blockStart) continue;
+                        if (s.charOffset >= blockEnd) break;
+                        if (s.isHorizontalRule) { isHR = true; break; }
+                    }
+                    int cursorBlockNum = d->control->textCursor().block().blockNumber();
+                    if (isHR && block.blockNumber() != cursorBlockNum) {
+                        painter.save();
+                        qreal margin = document()->documentMargin();
+                        qreal y = r.top() + r.height() / 2 + offset.y();
+                        qreal x1 = offset.x() + margin;
+                        qreal x2 = offset.x() + viewportRect.width() - margin;
+                        painter.setPen(QPen(QColor(0xcc, 0xcc, 0xcc), 1));
+                        painter.drawLine(QPointF(x1, y), QPointF(x2, y));
+                        painter.restore();
+                    }
+                }
+
                 // Fall through to normal text painting
             }
 
