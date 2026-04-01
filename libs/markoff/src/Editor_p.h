@@ -9,6 +9,9 @@
 #include <markoff/Document.h>
 #include <markoff/Renderer.h>
 #include "TextControl.h"
+#include "AtomicBlock.h"
+
+#include <QHash>
 
 #include <QtGui/qtextdocumentfragment.h>
 #include <QtWidgets/qscrollbar.h>
@@ -94,6 +97,14 @@ struct Editor::Private {
     void reparseDocument();
     void updateBlockDisplayModes();
     void renderBlock(QTextBlock &block);
+
+    // Atomic blocks
+    QHash<int, AtomicBlock *> atomicBlocks;  // key = first block number
+    AtomicBlock *activeAtomicBlock = nullptr;
+    void detectAtomicBlocks();
+    void clearAtomicBlocks();
+    AtomicBlock *atomicBlockAt(int blockNumber) const;
+    AtomicBlock *atomicBlockAtPos(const QPointF &viewportPos) const;
 
     void cursorPositionChanged();
     void modificationChanged(bool);

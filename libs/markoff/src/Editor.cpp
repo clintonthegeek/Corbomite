@@ -7,6 +7,7 @@
 #include "TextControl_p.h"
 #include "MarkdownHighlighter.h"
 #include "MarkoffBlockData.h"
+#include "CodeAtomicBlock.h"
 #include "markoff/Document.h"
 #include "markoff/Renderer.h"
 
@@ -603,6 +604,7 @@ void Editor::Private::modificationChanged(bool)
 void Editor::Private::reparseDocument()
 {
     parsedDoc = Document::fromMarkdown(q->toPlainText());
+    detectAtomicBlocks();
 }
 
 void Editor::Private::updateBlockDisplayModes()
@@ -623,10 +625,21 @@ void Editor::Private::updateBlockDisplayModes()
         }
 
         int blockNum = block.blockNumber();
-        // Near = cursor block +/- 1
-        bool nearCursor = (blockNum >= cursorBlockNum - 1 && blockNum <= cursorBlockNum + 1);
 
-        auto newMode = nearCursor ? MarkoffBlockData::Raw : MarkoffBlockData::Rendered;
+        // Check if this block is part of an atomic block
+        AtomicBlock *ab = data->atomicBlock;
+        MarkoffBlockData::DisplayMode newMode;
+
+        if (ab) {
+            // Atomic blocks: always rendered unless cursor is inside them
+            bool cursorInAtomic = (cursorBlockNum >= ab->firstBlock()
+                                   && cursorBlockNum <= ab->lastBlock());
+            newMode = cursorInAtomic ? MarkoffBlockData::Raw : MarkoffBlockData::Rendered;
+        } else {
+            // Normal blocks: near cursor = raw, far = rendered
+            bool nearCursor = (blockNum >= cursorBlockNum - 1 && blockNum <= cursorBlockNum + 1);
+            newMode = nearCursor ? MarkoffBlockData::Raw : MarkoffBlockData::Rendered;
+        }
         if (data->displayMode != newMode) {
             data->displayMode = newMode;
             data->cacheValid = false;  // invalidate cache on mode change
@@ -676,6 +689,103 @@ void Editor::Private::renderBlock(QTextBlock &block)
         data->renderedHeight = height;
     }
     data->cacheValid = true;
+}
+
+// ---------------------------------------------------------------------------
+// Atomic block management
+// ---------------------------------------------------------------------------
+
+void Editor::Private::detectAtomicBlocks()
+{
+    clearAtomicBlocks();
+
+    if (mode != Editor::Mode::LivePreview)
+        return;
+
+    QTextDocument *doc = control->document();
+    QTextBlock block = doc->begin();
+
+    // Detect fenced code blocks: ``` ... ```
+    while (block.isValid()) {
+        const QString text = block.text().trimmed();
+        if (text.startsWith(QStringLiteral("```"))) {
+            // Found opening fence
+            int firstBlockNum = block.blockNumber();
+            QString lang = text.mid(3).trimmed();
+
+            // Collect code content
+            QStringList codeLines;
+            block = block.next();
+            int lastBlockNum = firstBlockNum;
+
+            while (block.isValid()) {
+                const QString lineText = block.text().trimmed();
+                if (lineText.startsWith(QStringLiteral("```"))) {
+                    lastBlockNum = block.blockNumber();
+                    break;
+                }
+                codeLines.append(block.text());
+                lastBlockNum = block.blockNumber();
+                block = block.next();
+            }
+
+            // Only create atomic block if we found a closing fence
+            if (block.isValid() && block.text().trimmed().startsWith(QStringLiteral("```"))) {
+                auto *codeBlock = new CodeAtomicBlock(q);
+                codeBlock->setCode(codeLines.join(QLatin1Char('\n')), lang);
+                codeBlock->setBlockRange(firstBlockNum, lastBlockNum);
+
+                atomicBlocks.insert(firstBlockNum, codeBlock);
+
+                // Tag the text blocks
+                QTextBlock b = doc->findBlockByNumber(firstBlockNum);
+                for (int i = firstBlockNum; i <= lastBlockNum && b.isValid(); ++i, b = b.next()) {
+                    auto *data = dynamic_cast<MarkoffBlockData *>(b.userData());
+                    if (!data) {
+                        data = new MarkoffBlockData;
+                        const_cast<QTextBlock &>(b).setUserData(data);
+                    }
+                    data->atomicBlock = codeBlock;
+                    data->isAtomicBlockStart = (i == firstBlockNum);
+                }
+            }
+        }
+        if (block.isValid())
+            block = block.next();
+    }
+}
+
+void Editor::Private::clearAtomicBlocks()
+{
+    // Remove atomic block pointers from block data
+    if (!atomicBlocks.isEmpty()) {
+        QTextDocument *doc = control->document();
+        QTextBlock block = doc->begin();
+        while (block.isValid()) {
+            auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
+            if (data) {
+                data->atomicBlock = nullptr;
+                data->isAtomicBlockStart = false;
+            }
+            block = block.next();
+        }
+    }
+
+    // Delete atomic block objects
+    qDeleteAll(atomicBlocks);
+    atomicBlocks.clear();
+    activeAtomicBlock = nullptr;
+}
+
+AtomicBlock *Editor::Private::atomicBlockAt(int blockNumber) const
+{
+    // Check if this block number belongs to any atomic block
+    for (auto it = atomicBlocks.constBegin(); it != atomicBlocks.constEnd(); ++it) {
+        AtomicBlock *ab = it.value();
+        if (blockNumber >= ab->firstBlock() && blockNumber <= ab->lastBlock())
+            return ab;
+    }
+    return nullptr;
 }
 
 void Editor::Private::verticalScrollbarActionTriggered(int action)
@@ -1250,10 +1360,36 @@ void Editor::paintEvent(QPaintEvent *e)
         }
 
         if (r.bottom() >= er.top() && r.top() <= er.bottom()) {
-            // Live preview: paint rendered pixmap for non-cursor blocks
+            // Live preview: paint rendered content for non-cursor blocks
             if (d->mode == Mode::LivePreview) {
                 auto *blockData = dynamic_cast<MarkoffBlockData *>(block.userData());
                 if (blockData && blockData->displayMode == MarkoffBlockData::Rendered) {
+                    // Atomic block rendering
+                    if (blockData->atomicBlock && blockData->isAtomicBlockStart) {
+                        AtomicBlock *ab = blockData->atomicBlock;
+                        QSizeF abSize = ab->sizeForWidth(viewportRect.width());
+                        QRectF abRect(r.topLeft(), abSize);
+                        ab->paint(&painter, abRect);
+
+                        // Skip all blocks that belong to this atomic block
+                        int lastBlockNum = ab->lastBlock();
+                        while (block.isValid() && block.blockNumber() <= lastBlockNum) {
+                            offset.ry() += Markoff::blockBoundingRect(d.get(), block).height();
+                            block = block.next();
+                        }
+                        if (offset.y() > viewportRect.height())
+                            break;
+                        continue;
+                    }
+
+                    // Skip non-start blocks of atomic blocks (already painted)
+                    if (blockData->atomicBlock && !blockData->isAtomicBlockStart) {
+                        offset.ry() += r.height();
+                        block = block.next();
+                        continue;
+                    }
+
+                    // Normal rendered block (non-atomic)
                     if (!blockData->cacheValid)
                         d->renderBlock(block);
                     if (!blockData->renderedCache.isNull()) {

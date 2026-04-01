@@ -19,6 +19,8 @@ add_library(markoff STATIC
     src/TextControl.cpp
     src/Editor.cpp
     src/MarkdownHighlighter.cpp
+    src/AtomicBlock.cpp
+    src/CodeAtomicBlock.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Markoff::Markoff ALIAS markoff)
