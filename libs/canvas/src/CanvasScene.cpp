@@ -3,6 +3,7 @@
 #include "canvas/CanvasCommands.h"
 #include "canvas/CanvasDocument.h"
 #include "canvas/CanvasTool.h"
+#include "canvas/ConnectableItem.h"
 #include "canvas/TextCardItem.h"
 #include "canvas/GroupItem.h"
 #include "canvas/EdgeItem.h"
@@ -80,10 +81,10 @@ void CanvasScene::populateFromDocument()
     // Create items for all edges
     const auto edges = m_document->edges();
     for (const auto &edge : edges) {
-        auto *fromCard = textCardItem(edge.fromNode);
-        auto *toCard = textCardItem(edge.toNode);
-        if (fromCard && toCard) {
-            addEdgeItemToScene(fromCard, toCard, edge);
+        auto *from = connectableItem(edge.fromNode);
+        auto *to = connectableItem(edge.toNode);
+        if (from && to) {
+            addEdgeItemToScene(from, to, edge);
         }
     }
 }
@@ -145,7 +146,7 @@ GroupItem *CanvasScene::addGroupItemToScene(const CanvasNode &node)
     return item;
 }
 
-EdgeItem *CanvasScene::addEdgeItemToScene(TextCardItem *from, TextCardItem *to, const CanvasEdge &edge)
+EdgeItem *CanvasScene::addEdgeItemToScene(ConnectableItem *from, ConnectableItem *to, const CanvasEdge &edge)
 {
     auto *item = new EdgeItem(from, to, edge);
     addItem(item);
@@ -214,6 +215,13 @@ EdgeItem *CanvasScene::edgeItem(const QString &id) const
     return m_edgeItems.value(id, nullptr);
 }
 
+ConnectableItem *CanvasScene::connectableItem(const QString &id) const
+{
+    if (auto *card = textCardItem(id))
+        return card;
+    return nullptr;
+}
+
 QUndoStack *CanvasScene::undoStack()
 {
     return m_undoStack;
@@ -269,10 +277,10 @@ void CanvasScene::onEdgeAdded(const QString &id)
         return;
 
     const CanvasEdge edge = m_document->edge(id);
-    auto *fromCard = textCardItem(edge.fromNode);
-    auto *toCard = textCardItem(edge.toNode);
-    if (fromCard && toCard) {
-        addEdgeItemToScene(fromCard, toCard, edge);
+    auto *from = connectableItem(edge.fromNode);
+    auto *to = connectableItem(edge.toNode);
+    if (from && to) {
+        addEdgeItemToScene(from, to, edge);
     }
 }
 
@@ -287,8 +295,11 @@ void CanvasScene::onEdgeRemoved(const QString &id)
 
 void CanvasScene::beginInlineEdit(TextCardItem *card)
 {
-    if (!card || m_editProxy)
+    if (!card)
         return;
+
+    // Finish any existing edit first
+    finishInlineEdit();
 
     m_editingNodeId = card->nodeId();
 
@@ -311,9 +322,9 @@ void CanvasScene::beginInlineEdit(TextCardItem *card)
         m_editingNodeId.clear();
     });
 
-    // Use an event filter approach: when the QTextEdit loses focus, commit
-    // We install ourselves via a lambda that checks focus
-    connect(qApp, &QApplication::focusChanged, this, [this](QWidget * /*old*/, QWidget *now) {
+    // Disconnect any previous focus watcher, then connect a new one
+    disconnect(m_focusConnection);
+    m_focusConnection = connect(qApp, &QApplication::focusChanged, this, [this](QWidget * /*old*/, QWidget *now) {
         if (m_editWidget && now != m_editWidget) {
             finishInlineEdit();
         }
@@ -335,8 +346,8 @@ void CanvasScene::finishInlineEdit()
     m_editWidget = nullptr;
     m_editingNodeId.clear();
 
-    // Disconnect the focusChanged signal we connected
-    disconnect(qApp, &QApplication::focusChanged, this, nullptr);
+    // Disconnect the tracked focus connection
+    disconnect(m_focusConnection);
 
     // Update the card and document via undo command
     if (auto *card = textCardItem(nodeId)) {
@@ -410,6 +421,17 @@ void CanvasScene::finishGroupLabelEdit()
 
 void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
+    // If editing, let the proxy widget handle it (unless click is outside the proxy)
+    if (m_editProxy) {
+        auto *item = itemAt(event->scenePos(), QTransform());
+        if (item == m_editProxy || (item && item->parentItem() == m_editProxy)) {
+            QGraphicsScene::mousePressEvent(event);
+            return;
+        }
+        // Click outside proxy -> finish editing, then handle normally
+        finishInlineEdit();
+    }
+
     if (m_activeTool) {
         m_activeTool->mousePressEvent(event);
         return;
@@ -419,6 +441,10 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 
 void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
+    if (m_editProxy) {
+        QGraphicsScene::mouseMoveEvent(event);
+        return;
+    }
     if (m_activeTool) {
         m_activeTool->mouseMoveEvent(event);
         return;
@@ -428,6 +454,10 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 
 void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
+    if (m_editProxy) {
+        QGraphicsScene::mouseReleaseEvent(event);
+        return;
+    }
     if (m_activeTool) {
         m_activeTool->mouseReleaseEvent(event);
         return;
@@ -437,6 +467,11 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 
 void CanvasScene::keyPressEvent(QKeyEvent *event)
 {
+    if (m_editProxy) {
+        // Let the proxy widget handle all key events during editing
+        QGraphicsScene::keyPressEvent(event);
+        return;
+    }
     if (m_activeTool) {
         m_activeTool->keyPressEvent(event);
         return;
@@ -623,10 +658,10 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             m_document->removeEdge(edgeId);
 
             m_document->addEdge(data);
-            auto *fromCard = textCardItem(data.fromNode);
-            auto *toCard = textCardItem(data.toNode);
-            if (fromCard && toCard) {
-                addEdgeItemToScene(fromCard, toCard, data);
+            auto *from = connectableItem(data.fromNode);
+            auto *to = connectableItem(data.toNode);
+            if (from && to) {
+                addEdgeItemToScene(from, to, data);
             }
         });
 

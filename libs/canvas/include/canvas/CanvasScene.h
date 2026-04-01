@@ -14,6 +14,7 @@ namespace Canvas {
 class CanvasDocument;
 class CanvasTool;
 class SelectMoveTool;
+class ConnectableItem;
 class TextCardItem;
 class GroupItem;
 class EdgeItem;
@@ -35,14 +36,18 @@ public:
     TextCardItem *textCardItem(const QString &id) const;
     GroupItem *groupItem(const QString &id) const;
     EdgeItem *edgeItem(const QString &id) const;
+    ConnectableItem *connectableItem(const QString &id) const;
 
     // Item management (used by tools and undo commands)
     TextCardItem *addTextCardItem(const CanvasNode &node);
     GroupItem *addGroupItemToScene(const CanvasNode &node);
-    EdgeItem *addEdgeItemToScene(TextCardItem *from, TextCardItem *to, const CanvasEdge &edge);
+    EdgeItem *addEdgeItemToScene(ConnectableItem *from, ConnectableItem *to, const CanvasEdge &edge);
     void removeTextCardItem(const QString &id);
     void removeGroupItem(const QString &id);
     void removeEdgeItem(const QString &id);
+
+    // Editing state
+    bool isEditing() const { return m_editProxy != nullptr; }
 
     // Undo
     QUndoStack *undoStack();
@@ -84,6 +89,7 @@ private:
     QGraphicsProxyWidget *m_editProxy = nullptr;
     QTextEdit *m_editWidget = nullptr;
     QString m_editingNodeId;
+    QMetaObject::Connection m_focusConnection;
     QGraphicsProxyWidget *m_labelEditProxy = nullptr;
     QString m_editingGroupId;
 };

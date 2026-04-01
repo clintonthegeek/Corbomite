@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas/EdgeItem.h"
-#include "canvas/TextCardItem.h"
+#include "canvas/ConnectableItem.h"
 
 #include <QPainter>
 #include <cmath>
@@ -11,7 +11,7 @@ namespace Canvas {
 static constexpr qreal kArrowSize = 10.0;
 static constexpr qreal kDefaultPenWidth = 2.0;
 
-EdgeItem::EdgeItem(TextCardItem *fromCard, TextCardItem *toCard, const CanvasEdge &data, QGraphicsItem *parent)
+EdgeItem::EdgeItem(ConnectableItem *fromCard, ConnectableItem *toCard, const CanvasEdge &data, QGraphicsItem *parent)
     : QGraphicsPathItem(parent)
     , m_data(data)
     , m_source(fromCard)
@@ -124,12 +124,12 @@ QString EdgeItem::edgeId() const
     return m_data.id;
 }
 
-TextCardItem *EdgeItem::sourceCard() const
+ConnectableItem *EdgeItem::sourceCard() const
 {
     return m_source;
 }
 
-TextCardItem *EdgeItem::targetCard() const
+ConnectableItem *EdgeItem::targetCard() const
 {
     return m_target;
 }

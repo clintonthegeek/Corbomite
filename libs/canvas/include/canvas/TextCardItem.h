@@ -3,10 +3,11 @@
 
 #include <QGraphicsObject>
 #include "CanvasTypes.h"
+#include "ConnectableItem.h"
 
 namespace Canvas {
 
-class TextCardItem : public QGraphicsObject {
+class TextCardItem : public QGraphicsObject, public ConnectableItem {
     Q_OBJECT
 
 public:
@@ -14,13 +15,16 @@ public:
 
     void setNodeData(const CanvasNode &data);
     CanvasNode nodeData() const;
-    QString nodeId() const;
+    QString nodeId() const override;
 
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
     // Edge connection points
-    QPointF connectionPoint(Side side) const;
+    QPointF connectionPoint(Side side) const override;
+
+    // ConnectableItem interface
+    QGraphicsObject *asGraphicsObject() override { return this; }
 
     // Resize detection (Kdenlive pattern)
     enum ResizeMode { NoResize = 0, TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left };
