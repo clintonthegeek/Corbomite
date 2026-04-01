@@ -1661,6 +1661,45 @@ void Editor::paintEvent(QPaintEvent *e)
                         painter.restore();
                     }
                 }
+
+                // Paint blockquote vertical lines in the indent space.
+                // One line per nesting level, dark gray.
+                qreal leftMargin = block.blockFormat().leftMargin();
+                if (leftMargin > 0) {
+                    const auto &spans = d->highlighter->spans();
+                    int bqDepth = 0;
+                    int blockStart = block.position();
+                    int blockEnd = blockStart + block.length();
+                    for (const SourceSpan &s : spans) {
+                        int se = s.charOffset + s.charLength;
+                        if (se <= blockStart) continue;
+                        if (s.charOffset >= blockEnd) break;
+                        if (s.blockquoteDepth > bqDepth)
+                            bqDepth = s.blockquoteDepth;
+                    }
+
+                    if (bqDepth > 0) {
+                        // Check if this block is inside a callout (callouts paint their own border)
+                        const DecoratedRange *calloutDr = d->decoratedRangeAt(block.blockNumber());
+                        bool isCallout = calloutDr && calloutDr->type == DecoratedRange::Callout;
+
+                        if (!isCallout) {
+                            painter.save();
+                            qreal margin = document()->documentMargin();
+                            QFontMetricsF fm(font());
+                            qreal chevronWidth = qCeil(fm.horizontalAdvance(QStringLiteral("> ")));
+                            painter.setPen(QPen(QColor(0x9e, 0x9e, 0x9e), 2));  // dark gray, 2px
+
+                            for (int level = 0; level < bqDepth; ++level) {
+                                qreal x = offset.x() + margin + level * chevronWidth + 1;
+                                painter.drawLine(QPointF(x, r.top()),
+                                                QPointF(x, r.top() + r.height()));
+                            }
+                            painter.restore();
+                        }
+                    }
+                }
+
                 // Fall through to normal text painting
             }
 
