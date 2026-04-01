@@ -7,8 +7,34 @@
 #include <tree-sitter/tree-sitter-markdown-inline.h>
 
 #include <QStringList>
+#include <vector>
 
 namespace Markoff {
+
+// ---------------------------------------------------------------------------
+// Collect inline ranges from block tree
+// ---------------------------------------------------------------------------
+
+static void collectInlineRanges(TSNode node, std::vector<TSRange> &ranges)
+{
+    const char *type = ts_node_type(node);
+
+    // "inline" nodes contain the inline text content of paragraphs,
+    // headings, etc. These are the regions the inline parser should parse.
+    if (strcmp(type, "inline") == 0) {
+        TSRange range;
+        range.start_point = ts_node_start_point(node);
+        range.end_point = ts_node_end_point(node);
+        range.start_byte = ts_node_start_byte(node);
+        range.end_byte = ts_node_end_byte(node);
+        ranges.push_back(range);
+        return; // don't recurse into inline nodes
+    }
+
+    uint32_t count = ts_node_child_count(node);
+    for (uint32_t i = 0; i < count; ++i)
+        collectInlineRanges(ts_node_child(node, i), ranges);
+}
 
 // ---------------------------------------------------------------------------
 // UTF-8 ↔ QString char mapping
@@ -70,20 +96,30 @@ bool TreeSitterParser::parse(const QString &text)
     if (!m_blockTree)
         return false;
 
-    // Phase 2: parse inline content within inline nodes
-    // Collect all `inline` node ranges from the block tree
+    // Phase 2: parse inline content within `inline` nodes from the block tree.
+    // The inline grammar only understands inline content (emphasis, links, etc.)
+    // not block markup (headings, fences). We tell tree-sitter which byte
+    // ranges to parse by collecting all `inline` nodes from the block tree.
     TSNode root = ts_tree_root_node(m_blockTree);
+    std::vector<TSRange> inlineRanges;
+    collectInlineRanges(root, inlineRanges);
 
-    // For now, do a simple full-text inline parse.
-    // A proper implementation would use ts_parser_set_included_ranges()
-    // to only parse inline regions. This works correctly for the highlighter
-    // because we walk the inline tree for formatting info.
     if (m_inlineTree) ts_tree_delete(m_inlineTree);
-    m_inlineTree = ts_parser_parse_string(m_inlineParser, nullptr,
-                                           m_utf8.constData(),
-                                           static_cast<uint32_t>(m_utf8.size()));
 
-    return m_inlineTree != nullptr;
+    if (!inlineRanges.empty()) {
+        ts_parser_set_included_ranges(m_inlineParser,
+                                       inlineRanges.data(),
+                                       static_cast<uint32_t>(inlineRanges.size()));
+        m_inlineTree = ts_parser_parse_string(m_inlineParser, nullptr,
+                                               m_utf8.constData(),
+                                               static_cast<uint32_t>(m_utf8.size()));
+        // Reset included ranges for next parse
+        ts_parser_set_included_ranges(m_inlineParser, nullptr, 0);
+    } else {
+        m_inlineTree = nullptr;
+    }
+
+    return true; // block tree is sufficient even if inline tree is empty
 }
 
 int TreeSitterParser::utf8ToCharOffset(int byteOffset) const
@@ -162,11 +198,21 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
 
     // Leaf nodes (no children) → emit a span
     if (childCount == 0) {
+        int spanStartByte = static_cast<int>(startByte);
+        int spanEndByte = static_cast<int>(endByte);
+
+        // Extend heading markers to include the trailing space
+        // (## Heading → hide "## " not just "##")
+        if (strncmp(type, "atx_h", 5) == 0 && strstr(type, "_marker")) {
+            if (spanEndByte < m_utf8.size() && m_utf8[spanEndByte] == ' ')
+                ++spanEndByte;
+        }
+
         SourceSpan span;
-        span.utf8Offset = static_cast<int>(startByte);
-        span.utf8Length = static_cast<int>(endByte - startByte);
-        span.charOffset = utf8ToCharOffset(startByte);
-        span.charLength = utf8ToCharOffset(endByte) - span.charOffset;
+        span.utf8Offset = spanStartByte;
+        span.utf8Length = spanEndByte - spanStartByte;
+        span.charOffset = utf8ToCharOffset(spanStartByte);
+        span.charLength = utf8ToCharOffset(spanEndByte) - span.charOffset;
 
         applyNodeType(span, type);
 
