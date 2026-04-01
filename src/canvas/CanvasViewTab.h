@@ -10,12 +10,16 @@ class CanvasView;
 
 namespace Corbomite {
 
+class MarkdownRenderEngine;
+
 class CanvasViewTab : public QWidget {
     Q_OBJECT
 
 public:
     explicit CanvasViewTab(const QString &filePath, QWidget *parent = nullptr);
     ~CanvasViewTab() override;
+
+    void setRenderEngine(MarkdownRenderEngine *engine);
 
     QString filePath() const;
     bool save();

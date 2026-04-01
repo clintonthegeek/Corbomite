@@ -12,8 +12,10 @@ EditorViewManager::EditorViewManager(QWidget *parent)
     : QWidget(parent)
     , m_rootSplitter(new QSplitter(Qt::Horizontal, this))
     , m_readingEngine(std::make_unique<RegexRenderEngine>())
+    , m_canvasEngine(std::make_unique<RegexRenderEngine>())
 {
     m_readingEngine->setProfile(RenderProfile::readingMode());
+    m_canvasEngine->setProfile(RenderProfile::canvasCard());
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -31,6 +33,7 @@ EditorViewSpace *EditorViewManager::createViewSpace()
 {
     auto *space = new EditorViewSpace(this);
     space->setRenderEngine(m_readingEngine.get());
+    space->setCanvasEngine(m_canvasEngine.get());
     connectViewSpace(space);
     m_viewSpaces.append(space);
     return space;

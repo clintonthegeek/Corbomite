@@ -93,6 +93,11 @@ void EditorViewSpace::openNote(NoteDocument *doc)
             this, &EditorViewSpace::cursorInfoChanged);
 }
 
+void EditorViewSpace::setCanvasEngine(MarkdownRenderEngine *engine)
+{
+    m_canvasEngine = engine;
+}
+
 void EditorViewSpace::openCanvas(const QString &filePath)
 {
     // Check if already open
@@ -104,6 +109,9 @@ void EditorViewSpace::openCanvas(const QString &filePath)
     }
 
     auto *canvasTab = new CanvasViewTab(filePath, m_stack);
+    if (m_canvasEngine) {
+        canvasTab->setRenderEngine(m_canvasEngine);
+    }
     m_stack->addWidget(canvasTab);
 
     // Extract filename for tab title

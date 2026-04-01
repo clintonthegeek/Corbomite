@@ -2,8 +2,12 @@
 #include "CanvasViewTab.h"
 
 #include <canvas/CanvasDocument.h>
+#include <canvas/CanvasScene.h>
 #include <canvas/CanvasView.h>
+#include <corbomite/core/MarkdownRenderEngine.h>
 
+#include <QFile>
+#include <QFileInfo>
 #include <QVBoxLayout>
 
 namespace Corbomite {
@@ -18,6 +22,16 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, QWidget *parent)
     m_document->loadFromFile(filePath);
     m_view->setDocument(m_document);
 
+    // Set up file resolver: resolve paths relative to the canvas file's directory
+    QString canvasDir = QFileInfo(filePath).absolutePath();
+    m_view->canvasScene()->setFileResolver([canvasDir](const QString &path) -> QString {
+        QString fullPath = canvasDir + QLatin1Char('/') + path;
+        QFile file(fullPath);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            return {};
+        return QString::fromUtf8(file.readAll());
+    });
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_view);
@@ -27,6 +41,11 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, QWidget *parent)
 }
 
 CanvasViewTab::~CanvasViewTab() = default;
+
+void CanvasViewTab::setRenderEngine(MarkdownRenderEngine *engine)
+{
+    m_view->canvasScene()->setRenderEngine(engine);
+}
 
 QString CanvasViewTab::filePath() const
 {

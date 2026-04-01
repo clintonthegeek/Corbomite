@@ -55,6 +55,7 @@ private:
     EditorViewSpace *m_activeViewSpace = nullptr;
     QVector<EditorViewSpace *> m_viewSpaces;
     std::unique_ptr<MarkdownRenderEngine> m_readingEngine;
+    std::unique_ptr<MarkdownRenderEngine> m_canvasEngine;
 };
 
 } // namespace Corbomite
