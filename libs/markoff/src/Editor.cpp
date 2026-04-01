@@ -1372,10 +1372,27 @@ void Editor::setMode(Mode m)
 {
     if (d->mode == m) return;
     d->mode = m;
+
+    // Default source mode margin (QTextDocument default)
+    static constexpr qreal sourceMargin = 4.0;
+    // Live preview margin — matches the renderer's typographic margin
+    // so raw and rendered lines align at the same x-offset
+    static constexpr qreal livePreviewMargin = 20.0;
+
     if (m == Mode::LivePreview) {
+        document()->setDocumentMargin(livePreviewMargin);
+
+        // Update the renderer to use zero internal margin (the document
+        // margin handles it) so rendered blocks align with raw text
+        RenderSettings settings = d->renderer.settings();
+        settings.marginPx = 0;
+        d->renderer.setSettings(settings);
+
         d->reparseDocument();
         d->updateBlockDisplayModes();
     } else {
+        document()->setDocumentMargin(sourceMargin);
+
         // Source mode: clear all rendered caches, set all blocks to Raw
         QTextBlock block = document()->begin();
         while (block.isValid()) {
@@ -1387,6 +1404,7 @@ void Editor::setMode(Mode m)
             block = block.next();
         }
     }
+    d->adjustScrollbars();
     viewport()->update();
 }
 
