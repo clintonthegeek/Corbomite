@@ -710,6 +710,19 @@ void Editor::Private::renderBlock(QTextBlock &block)
     // with raw text at the same x-offset
     rendered->setDocumentMargin(q->document()->documentMargin());
 
+    // Strip paragraph margins from rendered blocks — the editor's layout
+    // already handles inter-block spacing. Without this, we get double
+    // spacing (editor block gap + rendered <p> margins).
+    QTextBlock renderedBlock = rendered->begin();
+    while (renderedBlock.isValid()) {
+        QTextCursor c(renderedBlock);
+        QTextBlockFormat fmt = renderedBlock.blockFormat();
+        fmt.setTopMargin(0);
+        fmt.setBottomMargin(0);
+        c.setBlockFormat(fmt);
+        renderedBlock = renderedBlock.next();
+    }
+
     // Get the viewport width for rendering
     int width = q->viewport()->width();
     rendered->setTextWidth(width);
