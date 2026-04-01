@@ -585,7 +585,7 @@ void Editor::Private::init(const QString &txt)
     // (drag-drop = delete + insert, undo, etc.) that fire textChanged on
     // intermediate states. The reparse always sees the final document.
     QObject::connect(control, &TextControl::textChanged, q, [this]() {
-        if (mode == Editor::Mode::LivePreview && !needsReparse) {
+        if (mode == Editor::Mode::LivePreview && !needsReparse && !inReparse) {
             needsReparse = true;
             QTimer::singleShot(0, q, [this]() {
                 if (!needsReparse) return;
@@ -595,7 +595,9 @@ void Editor::Private::init(const QString &txt)
                     control->textCursor().block().blockNumber(),
                     control->textCursor().positionInBlock());
                 reparseDocument();
+                highlighter->rehighlight();
                 updateBlockDisplayModes();
+                applyBlockFormats();
                 inReparse = false;
             });
         }
