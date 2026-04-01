@@ -4,9 +4,11 @@
 
 #include <QString>
 #include <QStringList>
-#include <QTextDocument>
-#include <QTextTable>
+#include <QTableWidget>
 #include <QList>
+
+class QTextDocument;
+class QWidget;
 
 namespace Markoff {
 
@@ -15,31 +17,33 @@ struct ParsedTable {
     QStringList headers;
     QList<Qt::Alignment> alignments;
     QList<QStringList> rows;
-    int firstBlock = -1;   // first QTextBlock of the pipe text
-    int lastBlock = -1;    // last QTextBlock of the pipe text
+    int firstBlock = -1;
+    int lastBlock = -1;
 };
 
-/// Handles detection, conversion, and serialization of markdown tables.
-class TableHandler {
+/// A QTableWidget styled for embedding in the Markoff editor.
+class TableWidget : public QTableWidget {
+    Q_OBJECT
 public:
-    /// Detect pipe tables in the document text. Returns parsed tables
-    /// with block ranges (before conversion to QTextTable).
-    static QList<ParsedTable> detectTables(QTextDocument *doc);
+    explicit TableWidget(const ParsedTable &table, QWidget *parent = nullptr);
 
-    /// Convert a parsed table to a QTextTable in the document,
-    /// replacing the pipe-delimited text blocks.
-    static QTextTable *convertToQTextTable(QTextDocument *doc,
-                                            const ParsedTable &table);
+    /// Serialize the table back to pipe-delimited markdown
+    QString toMarkdown() const;
 
-    /// Serialize a QTextTable back to pipe-delimited markdown.
-    static QString serializeToMarkdown(QTextTable *table,
-                                        const QList<Qt::Alignment> &alignments);
+    QList<Qt::Alignment> alignments() const { return m_alignments; }
 
 private:
-    /// Parse a single pipe-delimited row into cell strings
-    static QStringList parseRow(const QString &line);
+    QList<Qt::Alignment> m_alignments;
+};
 
-    /// Parse alignment from separator row (|---|, |:---:|, |---:|)
+/// Handles detection and parsing of markdown tables.
+class TableHandler {
+public:
+    static QList<ParsedTable> detectTables(QTextDocument *doc);
+    static QString serializeToMarkdown(QTableWidget *table,
+                                        const QList<Qt::Alignment> &alignments);
+private:
+    static QStringList parseRow(const QString &line);
     static Qt::Alignment parseAlignment(const QString &cell);
 };
 

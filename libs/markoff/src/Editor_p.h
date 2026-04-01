@@ -9,7 +9,6 @@
 #include <markoff/Document.h>
 #include <markoff/Renderer.h>
 #include "TextControl.h"
-#include "AtomicBlock.h"
 #include "DecoratedRange.h"
 #include "TableHandler.h"
 #include "MarkdownHighlighter.h"
@@ -112,18 +111,16 @@ struct Editor::Private {
     void detectDecoratedRanges();
     const DecoratedRange *decoratedRangeAt(int blockNumber) const;
 
-    // Tables (converted to QTextTable in live preview)
-    QList<QTextTable *> liveTables;
-    QList<QList<Qt::Alignment>> tableAlignments;
-    void convertTables();
-    void revertTables();  // serialize back to pipe markdown
-
-    // Atomic blocks (images, math, diagrams — non-text content)
-    QHash<int, AtomicBlock *> atomicBlocks;  // key = first block number
-    AtomicBlock *activeAtomicBlock = nullptr;
-    void detectAtomicBlocks();
-    void clearAtomicBlocks();
-    AtomicBlock *atomicBlockAt(int blockNumber) const;
+    // Embedded widgets (tables, images, diagrams — positioned over hidden text)
+    struct EmbeddedWidget {
+        QWidget *widget = nullptr;
+        int firstBlock = -1;
+        int lastBlock = -1;
+    };
+    QList<EmbeddedWidget> embeddedWidgets;
+    void createEmbeddedWidgets();
+    void clearEmbeddedWidgets();
+    void repositionEmbeddedWidgets();
 
     void cursorPositionChanged();
     void modificationChanged(bool);

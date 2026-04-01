@@ -152,22 +152,11 @@ QRectF PlainTextDocumentLayout::blockBoundingRect(const QTextBlock &block) const
         // Variable block heights for live preview: if this block has a
         // rendered height (from MarkoffBlockData), use it instead of the
         // text layout height. This makes rendered blocks (which may be
-        // taller than the raw text) allocate the correct space.
+        // Variable block heights for rendered content
         auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
         if (data && data->displayMode == MarkoffBlockData::Rendered
             && data->renderedHeight > 0) {
-            // For atomic block non-start blocks, collapse to zero height
-            // (the start block accounts for the full atomic block height)
-            if (data->atomicBlock && !data->isAtomicBlockStart) {
-                br.setHeight(0);
-            } else if (data->atomicBlock && data->isAtomicBlockStart) {
-                // Start block of atomic block: use the atomic block's size
-                qreal abHeight = data->atomicBlock->sizeForWidth(
-                    d.width > 0 ? d.width : 600).height();
-                br.setHeight(abHeight);
-            } else {
-                br.setHeight(data->renderedHeight);
-            }
+            br.setHeight(data->renderedHeight);
         }
     }
     return br;
@@ -610,15 +599,6 @@ void Editor::Private::init(const QString &txt)
         if (mode == Editor::Mode::LivePreview) {
             int cursorBlockNum = control->textCursor().block().blockNumber();
             highlighter->setCursorPosition(cursorBlockNum, control->textCursor().positionInBlock());
-
-            AtomicBlock *ab = atomicBlockAt(cursorBlockNum);
-            if (ab != activeAtomicBlock) {
-                if (activeAtomicBlock)
-                    activeAtomicBlock->leaveBlock();
-                activeAtomicBlock = ab;
-                if (ab)
-                    ab->enterBlock(control->textCursor().position());
-            }
         }
         updateBlockDisplayModes();
     });
@@ -662,15 +642,7 @@ void Editor::Private::cursorPositionChanged()
         // Update highlighter so it knows which blocks to show raw
         highlighter->setCursorPosition(cursorBlockNum, control->textCursor().positionInBlock());
 
-        AtomicBlock *ab = atomicBlockAt(cursorBlockNum);
 
-        if (ab != activeAtomicBlock) {
-            if (activeAtomicBlock)
-                activeAtomicBlock->leaveBlock();
-            activeAtomicBlock = ab;
-            if (ab)
-                ab->enterBlock(control->textCursor().position());
-        }
     }
 }
 
@@ -692,12 +664,8 @@ void Editor::Private::reparseDocument()
 
     detectDecoratedRanges();
     highlighter->setDecoratedRanges(decoratedRanges);
-    detectAtomicBlocks();
     applyBlockFormats();
-
-    // Convert tables AFTER span map is applied (table conversion changes
-    // document structure which would invalidate tree-sitter offsets)
-    convertTables();
+    createEmbeddedWidgets();
 }
 
 void Editor::Private::applyBlockFormats()
@@ -769,20 +737,9 @@ void Editor::Private::updateBlockDisplayModes()
 
         int blockNum = block.blockNumber();
 
-        // Check if this block is part of an atomic block
-        AtomicBlock *ab = data->atomicBlock;
-        MarkoffBlockData::DisplayMode newMode;
-
-        if (ab) {
-            // Atomic blocks: always rendered unless cursor is inside them
-            bool cursorInAtomic = (cursorBlockNum >= ab->firstBlock()
-                                   && cursorBlockNum <= ab->lastBlock());
-            newMode = cursorInAtomic ? MarkoffBlockData::Raw : MarkoffBlockData::Rendered;
-        } else {
-            // Normal blocks: near cursor = raw, far = rendered
-            bool nearCursor = (blockNum == cursorBlockNum);
-            newMode = nearCursor ? MarkoffBlockData::Raw : MarkoffBlockData::Rendered;
-        }
+        bool nearCursor = (blockNum == cursorBlockNum);
+        MarkoffBlockData::DisplayMode newMode = nearCursor
+            ? MarkoffBlockData::Raw : MarkoffBlockData::Rendered;
         if (data->displayMode != newMode) {
             data->displayMode = newMode;
             data->cacheValid = false;  // invalidate cache on mode change
@@ -947,56 +904,6 @@ void Editor::Private::detectDecoratedRanges()
     }
 }
 
-void Editor::Private::convertTables()
-{
-    // Revert any existing tables first
-    // (don't revert — tables are persistent in live preview)
-
-    if (mode != Editor::Mode::LivePreview)
-        return;
-
-    // Don't reconvert if tables already exist
-    if (!liveTables.isEmpty())
-        return;
-
-    QList<ParsedTable> tables = TableHandler::detectTables(q->document());
-
-    // Convert in reverse order so block numbers stay valid
-    for (int i = tables.size() - 1; i >= 0; --i) {
-        const ParsedTable &pt = tables[i];
-        QTextTable *tt = TableHandler::convertToQTextTable(q->document(), pt);
-        if (tt) {
-            liveTables.prepend(tt);
-            tableAlignments.prepend(pt.alignments);
-        }
-    }
-}
-
-void Editor::Private::revertTables()
-{
-    // Serialize all QTextTables back to pipe markdown
-    // Called before saving to disk
-    for (int i = liveTables.size() - 1; i >= 0; --i) {
-        QTextTable *tt = liveTables[i];
-        if (!tt) continue;
-
-        const auto &aligns = i < tableAlignments.size()
-            ? tableAlignments[i] : QList<Qt::Alignment>();
-        QString md = TableHandler::serializeToMarkdown(tt, aligns);
-
-        // Replace the table with the markdown text
-        QTextCursor cursor(tt->firstCursorPosition());
-        cursor.setPosition(tt->lastCursorPosition().position(), QTextCursor::KeepAnchor);
-        // Select the entire table frame
-        cursor = QTextCursor(tt);
-        cursor.setPosition(tt->firstPosition());
-        cursor.setPosition(tt->lastPosition(), QTextCursor::KeepAnchor);
-        cursor.insertText(md);
-    }
-    liveTables.clear();
-    tableAlignments.clear();
-}
-
 const DecoratedRange *Editor::Private::decoratedRangeAt(int blockNumber) const
 {
     for (const auto &dr : decoratedRanges) {
@@ -1006,44 +913,66 @@ const DecoratedRange *Editor::Private::decoratedRangeAt(int blockNumber) const
     return nullptr;
 }
 
-void Editor::Private::detectAtomicBlocks()
+void Editor::Private::createEmbeddedWidgets()
 {
-    // Currently no true atomic blocks (images, math, diagrams not yet implemented).
-    // This will be populated when those features are added.
-    clearAtomicBlocks();
+    if (mode != Editor::Mode::LivePreview)
+        return;
+
+    // Don't recreate if already present
+    if (!embeddedWidgets.isEmpty())
+        return;
+
+    QList<ParsedTable> tables = TableHandler::detectTables(q->document());
+    for (const ParsedTable &pt : tables) {
+        auto *tw = new TableWidget(pt, q->viewport());
+
+        EmbeddedWidget ew;
+        ew.widget = tw;
+        ew.firstBlock = pt.firstBlock;
+        ew.lastBlock = pt.lastBlock;
+        embeddedWidgets.append(ew);
+    }
+    repositionEmbeddedWidgets();
 }
 
-void Editor::Private::clearAtomicBlocks()
+void Editor::Private::clearEmbeddedWidgets()
 {
-    // Remove atomic block pointers from block data
-    if (!atomicBlocks.isEmpty()) {
-        QTextDocument *doc = control->document();
-        QTextBlock block = doc->begin();
-        while (block.isValid()) {
-            auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
-            if (data) {
-                data->atomicBlock = nullptr;
-                data->isAtomicBlockStart = false;
-            }
-            block = block.next();
-        }
-    }
-
-    // Delete atomic block objects
-    qDeleteAll(atomicBlocks);
-    atomicBlocks.clear();
-    activeAtomicBlock = nullptr;
+    for (auto &ew : embeddedWidgets)
+        delete ew.widget;
+    embeddedWidgets.clear();
 }
 
-AtomicBlock *Editor::Private::atomicBlockAt(int blockNumber) const
+void Editor::Private::repositionEmbeddedWidgets()
 {
-    // Check if this block number belongs to any atomic block
-    for (auto it = atomicBlocks.constBegin(); it != atomicBlocks.constEnd(); ++it) {
-        AtomicBlock *ab = it.value();
-        if (blockNumber >= ab->firstBlock() && blockNumber <= ab->lastBlock())
-            return ab;
+    // Position each embedded widget over its corresponding text blocks.
+    // We use the document layout to find block positions.
+    QAbstractTextDocumentLayout *layout = q->document()->documentLayout();
+    qreal margin = q->document()->documentMargin();
+    qreal vOffset = verticalOffset();
+    int hOffset = horizontalOffset();
+
+    for (auto &ew : embeddedWidgets) {
+        if (!ew.widget) continue;
+
+        QTextBlock firstBlk = q->document()->findBlockByNumber(ew.firstBlock);
+        if (!firstBlk.isValid()) { ew.widget->hide(); continue; }
+
+        QRectF firstRect = layout->blockBoundingRect(firstBlk);
+        qreal y = firstRect.top() - vOffset;
+        qreal x = margin - hOffset;
+        qreal w = q->viewport()->width() - margin * 2;
+
+        // Calculate total height of the block range
+        qreal h = 0;
+        QTextBlock b = firstBlk;
+        for (int i = ew.firstBlock; i <= ew.lastBlock && b.isValid(); ++i, b = b.next())
+            h += layout->blockBoundingRect(b).height();
+
+        int widgetHeight = qMax(static_cast<int>(h), ew.widget->sizeHint().height());
+        ew.widget->setGeometry(static_cast<int>(x), static_cast<int>(y),
+                                static_cast<int>(w), widgetHeight);
+        ew.widget->show();
     }
-    return nullptr;
 }
 
 void Editor::Private::verticalScrollbarActionTriggered(int action)
@@ -1582,11 +1511,6 @@ void Editor::setFontSize(int pointSize)
     setFont(f);
     document()->setDefaultFont(f);
 
-    // Update atomic blocks with new font size and invalidate caches
-    for (auto *ab : d->atomicBlocks) {
-        ab->setBaseFontSize(pointSize);
-    }
-
     QTextBlock block = document()->begin();
     while (block.isValid()) {
         auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
@@ -1890,43 +1814,7 @@ void Editor::resizeEvent(QResizeEvent *e)
 void Editor::keyPressEvent(QKeyEvent *e)
 {
     // Atomic block input routing
-    if (d->mode == Mode::LivePreview && d->activeAtomicBlock) {
-        if (d->activeAtomicBlock->handleKeyPress(e)) {
             e->accept();
-            viewport()->update();
-            return;
-        }
-        // Escape from atomic block handled by AtomicBlock::handleKeyPress
-        // returning true after calling leaveBlock(). If it returned false,
-        // fall through to normal key handling.
-    }
-
-    // Backspace at start of block after atomic block → select atomic block
-    if (d->mode == Mode::LivePreview && e->key() == Qt::Key_Backspace
-        && !d->control->textCursor().hasSelection()) {
-        QTextCursor cursor = d->control->textCursor();
-        if (cursor.atBlockStart()) {
-            QTextBlock prev = cursor.block().previous();
-            if (prev.isValid()) {
-                auto *prevData = dynamic_cast<MarkoffBlockData *>(prev.userData());
-                if (prevData && prevData->atomicBlock) {
-                    // Select the entire atomic block
-                    AtomicBlock *ab = prevData->atomicBlock;
-                    QTextBlock firstBlock = document()->findBlockByNumber(ab->firstBlock());
-                    QTextBlock lastBlock = document()->findBlockByNumber(ab->lastBlock());
-                    QTextCursor sel = d->control->textCursor();
-                    sel.setPosition(firstBlock.position());
-                    sel.setPosition(lastBlock.position() + lastBlock.length() - 1,
-                                    QTextCursor::KeepAnchor);
-                    d->control->setTextCursor(sel);
-                    e->accept();
-                    viewport()->update();
-                    return;
-                }
-            }
-        }
-    }
-
 #ifndef QT_NO_SHORTCUT
     Qt::TextInteractionFlags tif = d->control->textInteractionFlags();
 
@@ -1986,74 +1874,6 @@ void Editor::keyPressEvent(QKeyEvent *e)
 
 void Editor::mousePressEvent(QMouseEvent *e)
 {
-    // Route clicks to atomic blocks in live preview mode
-    if (d->mode == Mode::LivePreview) {
-        // Check if click is on a rendered atomic block
-        QPointF pos = e->position();
-        int clickBlockNum = -1;
-
-        // Find which text block was clicked
-        QTextBlock block = Markoff::firstVisibleBlock(d.get());
-        QPointF offset = Markoff::contentOffset(d.get(), this);
-        while (block.isValid()) {
-            QRectF r = Markoff::blockBoundingRect(d.get(), block).translated(offset);
-            if (r.contains(pos)) {
-                clickBlockNum = block.blockNumber();
-                break;
-            }
-            offset.ry() += r.height();
-            block = block.next();
-        }
-
-        if (clickBlockNum >= 0) {
-            AtomicBlock *ab = d->atomicBlockAt(clickBlockNum);
-            if (ab) {
-                auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
-                if (data && data->displayMode == MarkoffBlockData::Rendered) {
-                    // Leave previous atomic block
-                    if (d->activeAtomicBlock && d->activeAtomicBlock != ab)
-                        d->activeAtomicBlock->leaveBlock();
-
-                    QPointF localPos = pos - Markoff::blockBoundingRect(d.get(),
-                        document()->findBlockByNumber(ab->firstBlock())).translated(
-                        Markoff::contentOffset(d.get(), this)).topLeft();
-                    d->activeAtomicBlock = ab;
-                    ab->handleMousePress(e, localPos);
-
-                    // Map the atomic block's character offset to a document
-                    // position and place the cursor there. The code content
-                    // starts on the line AFTER the opening fence (firstBlock + 1).
-                    int codeCharOffset = ab->isFocused() ? 0 : 0;
-                    // Get the offset from enterBlock's cursorPosition
-                    // (handleMousePress called enterBlock with the hitTest result)
-                    // The code block's first content line is firstBlock + 1
-                    QTextBlock contentStart = document()->findBlockByNumber(ab->firstBlock() + 1);
-                    if (contentStart.isValid()) {
-                        // The cursorPosition from enterBlock is an offset into
-                        // the code content string. Map to document position.
-                        int codeOffset = ab->cursorOffset();
-                        int docPos = contentStart.position() + codeOffset;
-                        docPos = qMin(docPos, document()->characterCount() - 1);
-                        QTextCursor cursor = d->control->textCursor();
-                        cursor.setPosition(docPos);
-                        d->control->setTextCursor(cursor);
-                    }
-
-                    e->accept();
-                    viewport()->update();
-                    return;
-                }
-            }
-        }
-
-        // Click outside any atomic block — leave current one
-        if (d->activeAtomicBlock) {
-            d->activeAtomicBlock->leaveBlock();
-            d->activeAtomicBlock = nullptr;
-            viewport()->update();
-        }
-    }
-
     d->mouseDragging = true;
     d->sendControlEvent(e);
 }
@@ -2135,6 +1955,7 @@ void Editor::inputMethodEvent(QInputMethodEvent *e)
 void Editor::scrollContentsBy(int dx, int /*dy*/)
 {
     d->setTopLine(verticalScrollBar()->value(), dx);
+    d->repositionEmbeddedWidgets();
 }
 
 QVariant Editor::inputMethodQuery(Qt::InputMethodQuery property) const

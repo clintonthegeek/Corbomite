@@ -42,7 +42,6 @@ add_library(markoff STATIC
     src/Editor.cpp
     src/MarkdownHighlighter.cpp
     src/SourceSpan.cpp
-    src/AtomicBlock.cpp
     src/DecoratedRange.cpp
     src/TableHandler.cpp
 )
