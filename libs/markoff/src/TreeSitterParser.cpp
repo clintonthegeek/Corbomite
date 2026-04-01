@@ -608,6 +608,24 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
         }
     }
 
+    // Post-process 3: detect footnote references [^N] and mark them.
+    // Tree-sitter parses these as shortcut_link with link_text starting with ^.
+    // We mark the [, ^, and ] as delimiters, and the number as footnoteRef.
+    for (auto &s : spans) {
+        if (!s.isLink || s.isDelimiter || s.isWikilink)
+            continue;
+        // Check if this content span's text starts with ^
+        if (s.utf8Offset >= 0 && s.utf8Offset < m_utf8.size()) {
+            int off = s.utf8Offset;
+            if (off < m_utf8.size() && m_utf8[off] == '^') {
+                // This is a footnote reference — mark the ^ as delimiter
+                // Find the ^ span and the number span
+                s.isFootnoteRef = true;
+                s.isLink = false; // don't style as link
+            }
+        }
+    }
+
     // Sort by offset
     std::sort(spans.begin(), spans.end(),
               [](const SourceSpan &a, const SourceSpan &b) {

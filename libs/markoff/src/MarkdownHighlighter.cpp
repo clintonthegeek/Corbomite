@@ -27,7 +27,9 @@ MarkdownHighlighter::MarkdownHighlighter(QTextDocument *parent)
     monoFont.setFamilies({QStringLiteral("JetBrains Mono"),
                           QStringLiteral("Fira Code"),
                           QStringLiteral("monospace")});
-    m_inlineCodeFormat.setFont(monoFont);
+    m_inlineCodeFormat.setFontFamilies({QStringLiteral("JetBrains Mono"),
+                                        QStringLiteral("Fira Code"),
+                                        QStringLiteral("monospace")});
     m_inlineCodeFormat.setBackground(QColor(QStringLiteral("#f0f0f0")));
 
     m_linkFormat.setForeground(QColor(QStringLiteral("#2196F3")));
@@ -192,7 +194,7 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         span.comment || span.isTag || span.isLink || span.isWikilink ||
         span.isImage || span.isHeading || span.isHorizontalRule ||
         span.isListMarker || span.isBlockquoteMarker || span.isFrontmatter ||
-        span.isBlockquote;
+        span.isBlockquote || span.isFootnoteRef;
     if (!hasAnyFormat)
         return;
 
@@ -230,6 +232,17 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             fmt.merge(m_wikilinkFormat);
         if (span.isHorizontalRule)
             fmt.setForeground(m_horizontalRuleFormat.foreground());
+        if (span.isFootnoteRef) {
+            // Hide the ^ character (first char) and superscript the number
+            hideRange(localStart, 1); // hide ^
+            for (int j = localStart + 1; j < localEnd; ++j) {
+                QTextCharFormat sfmt = format(j);
+                sfmt.setVerticalAlignment(QTextCharFormat::AlignSuperScript);
+                sfmt.setForeground(QColor(QStringLiteral("#1565C0")));
+                setFormat(j, 1, sfmt);
+            }
+            return;
+        }
         if (span.isListMarker)
             fmt.setForeground(m_listMarkerFormat.foreground());
         if (span.isBlockquote && !span.isHeading && !span.bold && !span.italic)

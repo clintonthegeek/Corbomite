@@ -33,6 +33,7 @@ struct SourceSpan {
     bool isLink = false;
     bool isWikilink = false;
     bool isImage = false;
+    bool isFootnoteRef = false;  // [^1] footnote reference — render superscript
 
     // Block-level info
     bool isHeading = false;

@@ -78,6 +78,9 @@ MainWindow::MainWindow(QWidget *parent)
         onTextChanged();
     });
 
+    // Apply initial font size
+    m_editor->setFontSize(14);
+
     // Connect editor text changes
     connect(m_editor, &Markoff::Editor::textChanged, this, &MainWindow::onTextChanged);
 
