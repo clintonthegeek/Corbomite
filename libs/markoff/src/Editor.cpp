@@ -126,6 +126,7 @@ struct PlainTextDocumentLayoutPrivate {
     int cursorWidth = 1;
     int textLayoutFlags = 0;
     mutable bool inBlockBoundingRect = false;  // recursion guard for table detection
+    bool inTableLayout = false;  // guard: don't re-dirty table during layoutTable()
 
     void layoutBlock(QTextDocument *doc, const QTextBlock &block);
     qreal blockWidth(const QTextBlock &block);
@@ -318,6 +319,13 @@ void PlainTextDocumentLayout::documentChanged(int from, int charsRemoved, int ch
     int charsChanged = charsRemoved + charsAdded;
 
     QTextBlock changeStartBlock = doc->findBlock(from);
+
+    // If we're inside layoutTable(), block layout changes trigger
+    // documentChanged but we must NOT re-dirty the table.
+    if (d.inTableLayout) {
+        d.blockCount = newBlockCount;
+        return;
+    }
 
     // If the change is inside a table, mark the table layout dirty
     // and invalidate the whole viewport
@@ -539,6 +547,7 @@ PlainTextDocumentLayout::layoutCellContent(
 
 void PlainTextDocumentLayout::layoutTable(QTextTable *table)
 {
+    d.inTableLayout = true;
     TableLayoutData *td = tableLayoutData(table);
     const int rows = table->rows();
     const int cols = table->columns();
@@ -661,6 +670,7 @@ void PlainTextDocumentLayout::layoutTable(QTextTable *table)
     td->tableWidth = td->contentsWidth;
     td->tableHeight = td->rowPositions.last() + td->heights.last() + td->cellSpacing;
     td->dirty = false;
+    d.inTableLayout = false;
 }
 
 // ============================================================================
