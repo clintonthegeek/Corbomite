@@ -1040,23 +1040,12 @@ void Editor::Private::convertTables()
         return;
 
     QList<ParsedTable> tables = TableHandler::detectTables(q->document());
-    qDebug() << "convertTables: detected" << tables.size() << "tables";
 
     // Convert in reverse order so block numbers stay valid
     for (int i = tables.size() - 1; i >= 0; --i) {
         const ParsedTable &pt = tables[i];
-        qDebug() << "  table" << i << "blocks" << pt.firstBlock << "-" << pt.lastBlock
-                 << "headers:" << pt.headers << "rows:" << pt.rows.size();
         QTextTable *tt = TableHandler::convertToQTextTable(q->document(), pt);
         if (tt) {
-            // Verify cell content right after conversion
-            for (int r = 0; r < qMin(tt->rows(), 2); ++r) {
-                for (int c = 0; c < tt->columns(); ++c) {
-                    QTextTableCell cell = tt->cellAt(r, c);
-                    qDebug() << "    post-convert cell(" << r << "," << c << ") ="
-                             << cell.firstCursorPosition().block().text();
-                }
-            }
             liveTables.prepend(tt);
             tableAlignments.prepend(pt.alignments);
         }
@@ -1068,7 +1057,6 @@ void Editor::Private::revertTables()
     if (liveTables.isEmpty())
         return;
 
-    qDebug() << "revertTables: reverting" << liveTables.size() << "tables";
 
     // Revert in reverse order to preserve document positions
     for (int i = liveTables.size() - 1; i >= 0; --i) {
@@ -1351,6 +1339,31 @@ void Editor::Private::setTopLine(int visualTopLine, int dx)
     QTextBlock block = doc->findBlockByLineNumber(visualTopLine);
     int blockNumber = block.blockNumber();
     int lineNumber = visualTopLine - block.firstLineNumber();
+
+    // If the target block is inside a table, decide whether to show the
+    // table at the top or skip past it entirely.
+    QTextTable *table = tableForBlock(block);
+    if (table) {
+        QTextTableCell firstCell = table->cellAt(0, 0);
+        QTextBlock tableStart = firstCell.firstCursorPosition().block();
+        QTextTableCell lastCell = table->cellAt(table->rows() - 1, table->columns() - 1);
+        QTextBlock tableEnd = lastCell.lastCursorPosition().block();
+
+        // If already showing this table at the top, skip to after the table
+        if (control->topBlock == tableStart.blockNumber() && topLine == 0
+            && blockNumber > tableStart.blockNumber()) {
+            QTextBlock afterTable = tableEnd.next();
+            if (afterTable.isValid()) {
+                blockNumber = afterTable.blockNumber();
+                lineNumber = 0;
+            }
+        } else {
+            // Snap to the table's first block
+            blockNumber = tableStart.blockNumber();
+            lineNumber = 0;
+        }
+    }
+
     setTopBlock(blockNumber, lineNumber, dx);
 }
 
@@ -1633,6 +1646,27 @@ void Editor::Private::adjustScrollbars()
                 block = block.previous();
                 continue;
             }
+
+            // Table blocks: the first block reports full table height,
+            // internal blocks have zero height. Count the whole table
+            // as one scrollable unit and skip internal blocks.
+            QTextTable *table = tableForBlock(block);
+            if (table) {
+                QTextTableCell firstCell = table->cellAt(0, 0);
+                QTextBlock tableStart = firstCell.firstCursorPosition().block();
+                if (block != tableStart) {
+                    // Internal table block — skip
+                    block = block.previous();
+                    continue;
+                }
+                // First table block — count as one line
+                y += documentLayout->blockBoundingRect(block).height();
+                if (y > visible) break;
+                visibleFromBottom += 1;
+                block = block.previous();
+                continue;
+            }
+
             y += documentLayout->blockBoundingRect(block).height();
 
             QTextLayout *layout = block.layout();
@@ -1888,33 +1922,11 @@ void Editor::paintTable(QPainter *painter, QTextTable *table,
                         const QRectF &tableRect, const QRect &viewportRect)
 {
     auto *td = static_cast<TableLayoutData *>(table->layoutData());
-    if (!td || td->dirty) {
-        qDebug() << "paintTable: bailing, td=" << td << "dirty=" << (td ? td->dirty : true);
-        return;
-    }
+    if (!td || td->dirty) return;
 
     const int rows = table->rows();
     const int cols = table->columns();
     const qreal margin = document()->documentMargin();
-
-    static int paintCount = 0;
-    if (paintCount++ % 60 == 0) {  // log every ~60 paints to avoid spam
-        qDebug() << "paintTable:" << rows << "x" << cols
-                 << "tableRect=" << tableRect
-                 << "tableWidth=" << td->tableWidth << "tableHeight=" << td->tableHeight;
-        for (int c = 0; c < cols; ++c)
-            qDebug() << "  col" << c << "pos=" << td->columnPositions[c] << "width=" << td->widths[c];
-        for (int r = 0; r < rows; ++r)
-            qDebug() << "  row" << r << "pos=" << td->rowPositions[r] << "height=" << td->heights[r];
-        // Log first few cells' text
-        for (int r = 0; r < qMin(rows, 3); ++r) {
-            for (int c = 0; c < cols; ++c) {
-                QTextTableCell cell = table->cellAt(r, c);
-                QString text = cell.firstCursorPosition().block().text();
-                qDebug() << "  cell(" << r << "," << c << ") text=" << text;
-            }
-        }
-    }
 
     // The table rect's top-left gives us the position in viewport coords.
     // td->columnPositions and td->rowPositions are relative to the table origin.
