@@ -1,0 +1,131 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "MainWindow.h"
+#include "markoff/Editor.h"
+#include "markoff/ReadingView.h"
+#include "markoff/Document.h"
+#include "markoff/RenderSettings.h"
+#include <QSplitter>
+#include <QToolBar>
+#include <QAction>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+#include <QSpinBox>
+#include <QLabel>
+#include <QFileInfo>
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+{
+    resize(1200, 700);
+
+    // Central widget: horizontal splitter
+    auto *splitter = new QSplitter(Qt::Horizontal, this);
+
+    m_editor = new Markoff::Editor(splitter);
+    m_readingView = new Markoff::ReadingView(splitter);
+
+    splitter->addWidget(m_editor);
+    splitter->addWidget(m_readingView);
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 1);
+
+    setCentralWidget(splitter);
+
+    // Toolbar
+    auto *toolbar = addToolBar(QStringLiteral("Main"));
+    toolbar->setMovable(false);
+
+    auto *openAction = new QAction(QStringLiteral("Open"), this);
+    openAction->setShortcut(QKeySequence::Open);
+    connect(openAction, &QAction::triggered, this, &MainWindow::onOpen);
+    toolbar->addAction(openAction);
+
+    auto *saveAction = new QAction(QStringLiteral("Save"), this);
+    saveAction->setShortcut(QKeySequence::Save);
+    connect(saveAction, &QAction::triggered, this, &MainWindow::onSave);
+    toolbar->addAction(saveAction);
+
+    toolbar->addSeparator();
+
+    auto *fontLabel = new QLabel(QStringLiteral("Font size:"), toolbar);
+    toolbar->addWidget(fontLabel);
+
+    auto *fontSpin = new QSpinBox(toolbar);
+    fontSpin->setRange(8, 32);
+    fontSpin->setValue(14);
+    toolbar->addWidget(fontSpin);
+
+    connect(fontSpin, &QSpinBox::valueChanged, this, [this](int size) {
+        Markoff::RenderSettings settings;
+        settings.baseFontSizePt = size;
+        m_readingView->setSettings(settings);
+        // Re-render with updated settings
+        auto doc = Markoff::Document::fromMarkdown(m_editor->toPlainText());
+        m_readingView->setDocument(*doc);
+    });
+
+    // Connect editor text changes
+    connect(m_editor, &Markoff::Editor::textChanged, this, &MainWindow::onTextChanged);
+
+    updateTitle();
+}
+
+MainWindow::~MainWindow() = default;
+
+void MainWindow::openFile(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+    QTextStream stream(&file);
+    m_editor->setPlainText(stream.readAll());
+    m_filePath = path;
+    updateTitle();
+}
+
+void MainWindow::onOpen()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        QStringLiteral("Open Markdown File"),
+        QString(),
+        QStringLiteral("Markdown Files (*.md *.markdown);;All Files (*)")
+    );
+    if (!path.isEmpty())
+        openFile(path);
+}
+
+void MainWindow::onSave()
+{
+    if (m_filePath.isEmpty()) {
+        m_filePath = QFileDialog::getSaveFileName(
+            this,
+            QStringLiteral("Save Markdown File"),
+            QString(),
+            QStringLiteral("Markdown Files (*.md *.markdown);;All Files (*)")
+        );
+        if (m_filePath.isEmpty())
+            return;
+    }
+    QFile file(m_filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+    QTextStream stream(&file);
+    stream << m_editor->toPlainText();
+    updateTitle();
+}
+
+void MainWindow::onTextChanged()
+{
+    auto doc = Markoff::Document::fromMarkdown(m_editor->toPlainText());
+    m_readingView->setDocument(*doc);
+}
+
+void MainWindow::updateTitle()
+{
+    const QString name = m_filePath.isEmpty()
+        ? QStringLiteral("[untitled]")
+        : QFileInfo(m_filePath).fileName();
+    setWindowTitle(QStringLiteral("Markoff \u2014 ") + name);
+}

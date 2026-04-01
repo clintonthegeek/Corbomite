@@ -2401,6 +2401,21 @@ bool TextControl::isCommonTextEditShortcut(const QKeyEvent *ke)
     return false;
 }
 
+void TextControl::append(const QString &text)
+{
+    QTextCursor cursor(d->doc);
+    cursor.movePosition(QTextCursor::End);
+    cursor.beginEditBlock();
+    cursor.insertBlock();
+    cursor.insertText(text);
+    cursor.endEditBlock();
+}
+
+void TextControl::appendPlainText(const QString &text)
+{
+    append(text);
+}
+
 } // namespace Markoff
 
 #include "moc_TextControl.cpp"
