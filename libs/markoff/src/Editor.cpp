@@ -101,6 +101,9 @@ private:
 PlainTextDocumentLayout::PlainTextDocumentLayout(QTextDocument *document)
     : QAbstractTextDocumentLayout(document)
 {
+    // Set cursorWidth as a dynamic property so TextControl::cursorWidth()
+    // can read it via property("cursorWidth")
+    setProperty("cursorWidth", d.cursorWidth);
 }
 
 PlainTextDocumentLayout::~PlainTextDocumentLayout() {}
@@ -179,6 +182,8 @@ void PlainTextDocumentLayout::ensureBlockLayout(const QTextBlock &block) const
 void PlainTextDocumentLayout::setCursorWidth(int width)
 {
     d.cursorWidth = width;
+    // Also set as a dynamic property so TextControl::cursorWidth() can read it
+    setProperty("cursorWidth", width);
 }
 
 int PlainTextDocumentLayout::cursorWidth() const
