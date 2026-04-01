@@ -5,6 +5,7 @@
 #include "Editor_p.h"
 #include "TextControl.h"
 #include "TextControl_p.h"
+#include "MarkdownHighlighter.h"
 
 #include <qfont.h>
 #include <qpainter.h>
@@ -525,6 +526,8 @@ void Editor::Private::init(const QString &txt)
     QAbstractTextDocumentLayout *layout = new PlainTextDocumentLayout(doc);
     doc->setDocumentLayout(layout);
     control->setDocument(doc);
+
+    new MarkdownHighlighter(doc);
 
     control->setPalette(q->palette());
 

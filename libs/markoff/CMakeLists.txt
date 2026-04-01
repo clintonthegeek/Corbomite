@@ -10,12 +10,15 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(MD4C REQUIRED IMPORTED_TARGET md4c)
 
 add_library(markoff STATIC
+    include/markoff/Editor.h
+    include/markoff/ReadingView.h
     src/Document.cpp
     src/DocumentBuilder.cpp
     src/Renderer.cpp
     src/ReadingView.cpp
     src/TextControl.cpp
     src/Editor.cpp
+    src/MarkdownHighlighter.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Markoff::Markoff ALIAS markoff)
