@@ -98,6 +98,7 @@ struct Editor::Private {
     Markoff::TreeSitterParser tsParser;
     bool needsReparse = false;
     bool inReparse = false;  // guard against reparse loops from highlighter
+    bool mouseDragging = false;  // suppress highlighter updates during drag
 
     void reparseDocument();
     void applyBlockFormats();  // set QTextBlockFormat (margins, indent) from span map

@@ -598,16 +598,16 @@ void Editor::Private::init(const QString &txt)
         }
     });
 
-    // Live preview: update display modes and highlighter on cursor movement
+    // Live preview: update display modes and highlighter on cursor movement.
+    // Suppressed during mouse drag to avoid per-pixel rehighlighting.
     QObject::connect(control, &TextControl::cursorPositionChanged, q, [this]() {
+        if (mouseDragging)
+            return;  // defer until mouse release
+
         if (mode == Editor::Mode::LivePreview) {
             int cursorBlockNum = control->textCursor().block().blockNumber();
-
-            // Update highlighter so it rehighlights blocks entering/leaving
-            // cursor vicinity (showing/hiding syntax delimiters)
             highlighter->setCursorPosition(cursorBlockNum, control->textCursor().positionInBlock());
 
-            // Track active atomic block
             AtomicBlock *ab = atomicBlockAt(cursorBlockNum);
             if (ab != activeAtomicBlock) {
                 if (activeAtomicBlock)
@@ -1903,6 +1903,7 @@ void Editor::mousePressEvent(QMouseEvent *e)
         }
     }
 
+    d->mouseDragging = true;
     d->sendControlEvent(e);
 }
 
@@ -1924,7 +1925,17 @@ void Editor::mouseMoveEvent(QMouseEvent *e)
 
 void Editor::mouseReleaseEvent(QMouseEvent *e)
 {
+    d->mouseDragging = false;
     d->sendControlEvent(e);
+
+    // Apply deferred highlighter update after drag selection
+    if (d->mode == Mode::LivePreview) {
+        int cursorBlockNum = d->control->textCursor().block().blockNumber();
+        d->highlighter->setCursorPosition(cursorBlockNum,
+                                           d->control->textCursor().positionInBlock());
+        d->updateBlockDisplayModes();
+    }
+
     if (e->source() == Qt::MouseEventNotSynthesized && d->autoScrollTimer.isActive()) {
         d->autoScrollTimer.stop();
         d->ensureCursorVisible();
