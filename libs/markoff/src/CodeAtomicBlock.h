@@ -52,9 +52,9 @@ private:
     QColor m_bgColor = QColor(0xf5, 0xf5, 0xf5);
     QColor m_borderColor = QColor(0xe0, 0xe0, 0xe0);
     QColor m_labelColor = QColor(0x9e, 0x9e, 0x9e);
-    int m_padding = 12;
-    int m_labelHeight = 24;
-    int m_cornerRadius = 6;
+    int m_padding = 8;
+    int m_labelHeight = 20;
+    int m_cornerRadius = 4;
 
     // Cache
     mutable QPixmap m_cache;

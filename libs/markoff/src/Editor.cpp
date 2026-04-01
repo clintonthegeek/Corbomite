@@ -1636,8 +1636,10 @@ void Editor::paintEvent(QPaintEvent *e)
                     if (blockData->displayMode == MarkoffBlockData::Rendered) {
                         if (blockData->isAtomicBlockStart) {
                             AtomicBlock *ab = blockData->atomicBlock;
-                            QSizeF abSize = ab->sizeForWidth(viewportRect.width());
-                            QRectF abRect(r.topLeft(), abSize);
+                            qreal margin = document()->documentMargin();
+                            qreal availWidth = viewportRect.width() - margin * 2;
+                            QSizeF abSize = ab->sizeForWidth(availWidth);
+                            QRectF abRect(QPointF(r.left() + margin, r.top()), abSize);
                             ab->paint(&painter, abRect);
 
                             // Skip all blocks that belong to this atomic block

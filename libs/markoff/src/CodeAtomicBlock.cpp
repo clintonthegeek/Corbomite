@@ -145,7 +145,11 @@ void CodeAtomicBlock::rebuildCache(qreal width) const
         return;
     }
 
-    const QStringList lines = m_code.split(QLatin1Char('\n'));
+    QStringList lines = m_code.split(QLatin1Char('\n'));
+    // Remove trailing empty line (common from code blocks ending with \n)
+    while (!lines.isEmpty() && lines.last().trimmed().isEmpty())
+        lines.removeLast();
+
     const QFontMetricsF fm(m_codeFont);
     const qreal lineHeight = fm.height();
 
@@ -153,9 +157,9 @@ void CodeAtomicBlock::rebuildCache(qreal width) const
     const int lineNumDigits = QString::number(lines.size()).length();
     const qreal gutterWidth = fm.horizontalAdvance(QLatin1Char('9')) * (lineNumDigits + 2);
 
-    // Total height: label bar + padding + code lines + padding
+    // Total height: label bar + code lines + bottom padding
     const qreal codeHeight = lines.size() * lineHeight;
-    const qreal totalHeight = m_labelHeight + m_padding + codeHeight + m_padding;
+    const qreal totalHeight = m_labelHeight + codeHeight + m_padding;
 
     m_cachedSize = QSizeF(width, totalHeight);
     m_cachedWidth = width;
@@ -182,13 +186,15 @@ void CodeAtomicBlock::rebuildCache(qreal width) const
     p.setBrush(Qt::NoBrush);
     p.drawRoundedRect(bgRect.adjusted(0.5, 0.5, -0.5, -0.5), m_cornerRadius, m_cornerRadius);
 
-    // Language label
+    // Language label (top-right, inside the block)
     if (!m_language.isEmpty()) {
         QFont labelFont = m_codeFont;
-        labelFont.setPointSize(9);
+        labelFont.setPointSize(8);
         p.setFont(labelFont);
         p.setPen(m_labelColor);
-        QRectF labelRect(width - 100 - m_padding, 2, 100, m_labelHeight - 4);
+        QFontMetricsF labelFm(labelFont);
+        qreal labelWidth = labelFm.horizontalAdvance(m_language) + m_padding;
+        QRectF labelRect(width - labelWidth - m_padding, 2, labelWidth, m_labelHeight - 4);
         p.drawText(labelRect, Qt::AlignRight | Qt::AlignVCenter, m_language);
     }
 
