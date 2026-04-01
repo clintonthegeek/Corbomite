@@ -13,6 +13,7 @@
 #include "DocumentBuilder_p.h"
 
 #include <QRegularExpression>
+#include <QTimer>
 #include "markoff/Document.h"
 #include "markoff/Renderer.h"
 #include "markoff/RenderSettings.h"
@@ -578,23 +579,25 @@ void Editor::Private::init(const QString &txt)
     QObject::connect(control, &TextControl::textChanged, q, &Editor::textChanged);
     QObject::connect(control, &TextControl::textChanged, q, [this]() { q->updateMicroFocus(); });
 
-    // Live preview: re-parse on text changes
+    // Live preview: re-parse on text changes.
+    // Deferred with QTimer::singleShot(0) so the reparse runs AFTER the
+    // current event fully completes. This handles multi-step operations
+    // (drag-drop = delete + insert, undo, etc.) that fire textChanged on
+    // intermediate states. The reparse always sees the final document.
     QObject::connect(control, &TextControl::textChanged, q, [this]() {
-        if (mode == Editor::Mode::LivePreview && !inReparse) {
-            // Guard: the highlighter's setFormat() triggers contentsChanged
-            // which fires textChanged. Prevent re-entrant reparse.
-            inReparse = true;
-            highlighter->setCursorPosition(control->textCursor().block().blockNumber(), control->textCursor().positionInBlock());
-            reparseDocument();
-            // Invalidate all render caches since we don't track which blocks changed yet
-            QTextBlock block = q->document()->begin();
-            while (block.isValid()) {
-                auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
-                if (data) data->cacheValid = false;
-                block = block.next();
-            }
-            updateBlockDisplayModes();
-            inReparse = false;
+        if (mode == Editor::Mode::LivePreview && !needsReparse) {
+            needsReparse = true;
+            QTimer::singleShot(0, q, [this]() {
+                if (!needsReparse) return;
+                needsReparse = false;
+                inReparse = true;
+                highlighter->setCursorPosition(
+                    control->textCursor().block().blockNumber(),
+                    control->textCursor().positionInBlock());
+                reparseDocument();
+                updateBlockDisplayModes();
+                inReparse = false;
+            });
         }
     });
 
@@ -2041,18 +2044,7 @@ void Editor::dropEvent(QDropEvent *e)
     d->inDrag = false;
     d->autoScrollTimer.stop();
     d->sendControlEvent(e);
-
-    // Text has now moved. Reparse and rehighlight from the new document state.
-    if (d->mode == Mode::LivePreview) {
-        d->inReparse = true;
-        d->reparseDocument();
-        int cursorBlockNum = d->control->textCursor().block().blockNumber();
-        d->highlighter->setCursorPosition(cursorBlockNum,
-                                           d->control->textCursor().positionInBlock());
-        d->highlighter->rehighlight();
-        d->updateBlockDisplayModes();
-        d->inReparse = false;
-    }
+    // Reparse handled by deferred textChanged handler
 }
 
 bool Editor::event(QEvent *e)
