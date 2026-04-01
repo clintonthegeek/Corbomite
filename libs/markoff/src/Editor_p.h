@@ -10,6 +10,7 @@
 #include <markoff/Renderer.h>
 #include "TextControl.h"
 #include "AtomicBlock.h"
+#include "DecoratedRange.h"
 #include "MarkdownHighlighter.h"
 #include "TreeSitterParser.h"
 
@@ -105,13 +106,17 @@ struct Editor::Private {
     void updateBlockDisplayModes();
     void renderBlock(QTextBlock &block);
 
-    // Atomic blocks
+    // Decorated ranges (code blocks, callouts — text with visual chrome)
+    QList<DecoratedRange> decoratedRanges;
+    void detectDecoratedRanges();
+    const DecoratedRange *decoratedRangeAt(int blockNumber) const;
+
+    // Atomic blocks (images, math, diagrams — non-text content)
     QHash<int, AtomicBlock *> atomicBlocks;  // key = first block number
     AtomicBlock *activeAtomicBlock = nullptr;
     void detectAtomicBlocks();
     void clearAtomicBlocks();
     AtomicBlock *atomicBlockAt(int blockNumber) const;
-    AtomicBlock *atomicBlockAtPos(const QPointF &viewportPos) const;
 
     void cursorPositionChanged();
     void modificationChanged(bool);

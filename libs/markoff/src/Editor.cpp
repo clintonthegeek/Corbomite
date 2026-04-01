@@ -7,8 +7,6 @@
 #include "TextControl_p.h"
 #include "MarkdownHighlighter.h"
 #include "MarkoffBlockData.h"
-#include "CodeAtomicBlock.h"
-#include "CalloutAtomicBlock.h"
 #include "SourceSpan.h"
 #include "DocumentBuilder_p.h"
 
@@ -692,6 +690,7 @@ void Editor::Private::reparseDocument()
     auto spans = tsParser.buildSpanMap();
     highlighter->setSpanMap(std::move(spans));
 
+    detectDecoratedRanges();
     detectAtomicBlocks();
     applyBlockFormats();
 }
@@ -853,9 +852,9 @@ void Editor::Private::renderBlock(QTextBlock &block)
 // Atomic block management
 // ---------------------------------------------------------------------------
 
-void Editor::Private::detectAtomicBlocks()
+void Editor::Private::detectDecoratedRanges()
 {
-    clearAtomicBlocks();
+    decoratedRanges.clear();
 
     if (mode != Editor::Mode::LivePreview)
         return;
@@ -867,112 +866,73 @@ void Editor::Private::detectAtomicBlocks()
     while (block.isValid()) {
         const QString text = block.text().trimmed();
         if (text.startsWith(QStringLiteral("```"))) {
-            // Found opening fence
             int firstBlockNum = block.blockNumber();
             QString lang = text.mid(3).trimmed();
 
-            // Collect code content
-            QStringList codeLines;
             block = block.next();
             int lastBlockNum = firstBlockNum;
 
             while (block.isValid()) {
-                const QString lineText = block.text().trimmed();
-                if (lineText.startsWith(QStringLiteral("```"))) {
+                if (block.text().trimmed().startsWith(QStringLiteral("```"))) {
                     lastBlockNum = block.blockNumber();
                     break;
                 }
-                codeLines.append(block.text());
                 lastBlockNum = block.blockNumber();
                 block = block.next();
             }
 
-            // Only create atomic block if we found a closing fence
             if (block.isValid() && block.text().trimmed().startsWith(QStringLiteral("```"))) {
-                auto *codeBlock = new CodeAtomicBlock(q);
-                codeBlock->setBaseFontSize(q->font().pointSize());
-                codeBlock->setCode(codeLines.join(QLatin1Char('\n')), lang);
-                codeBlock->setBlockRange(firstBlockNum, lastBlockNum);
-
-                atomicBlocks.insert(firstBlockNum, codeBlock);
-
-                // Tag the text blocks
-                QTextBlock b = doc->findBlockByNumber(firstBlockNum);
-                for (int i = firstBlockNum; i <= lastBlockNum && b.isValid(); ++i, b = b.next()) {
-                    auto *data = dynamic_cast<MarkoffBlockData *>(b.userData());
-                    if (!data) {
-                        data = new MarkoffBlockData;
-                        const_cast<QTextBlock &>(b).setUserData(data);
-                    }
-                    data->atomicBlock = codeBlock;
-                    data->isAtomicBlockStart = (i == firstBlockNum);
-                }
+                DecoratedRange dr;
+                dr.type = DecoratedRange::CodeBlock;
+                dr.firstBlock = firstBlockNum;
+                dr.lastBlock = lastBlockNum;
+                dr.language = lang;
+                decoratedRanges.append(dr);
             }
         }
         if (block.isValid())
             block = block.next();
     }
 
-    // Second pass: detect callout blocks (> [!type] ...)
+    // Detect callout blocks (> [!type] ...)
     block = doc->begin();
     static const QRegularExpression calloutRe(
         QStringLiteral(R"(^>\s*\[!(\w+)\]([+-])?\s*(.*)?$)"));
 
     while (block.isValid()) {
-        // Skip blocks already claimed by atomic blocks
-        auto *existingData = dynamic_cast<MarkoffBlockData *>(block.userData());
-        if (existingData && existingData->atomicBlock) {
-            block = block.next();
-            continue;
+        // Skip blocks in code block ranges
+        bool inCodeBlock = false;
+        for (const auto &dr : decoratedRanges) {
+            if (dr.type == DecoratedRange::CodeBlock &&
+                block.blockNumber() >= dr.firstBlock && block.blockNumber() <= dr.lastBlock) {
+                inCodeBlock = true;
+                break;
+            }
         }
+        if (inCodeBlock) { block = block.next(); continue; }
 
         auto match = calloutRe.match(block.text());
         if (match.hasMatch()) {
             int firstBlockNum = block.blockNumber();
             QString type = match.captured(1).toLower();
-            QString foldMark = match.captured(2);
             QString title = match.captured(3).trimmed();
-            bool foldable = !foldMark.isEmpty();
-            bool collapsed = (foldMark == QStringLiteral("-"));
 
-            // Collect body: subsequent lines starting with > (blockquote continuation)
-            QStringList bodyLines;
             QTextBlock bodyBlock = block.next();
             int lastBlockNum = firstBlockNum;
-
-            while (bodyBlock.isValid()) {
-                const QString lineText = bodyBlock.text();
-                if (lineText.startsWith(QLatin1Char('>'))) {
-                    // Strip the > prefix and optional space
-                    QString content = lineText.mid(1);
-                    if (content.startsWith(QLatin1Char(' ')))
-                        content = content.mid(1);
-                    bodyLines.append(content);
-                    lastBlockNum = bodyBlock.blockNumber();
-                    bodyBlock = bodyBlock.next();
-                } else {
-                    break;
-                }
+            while (bodyBlock.isValid() && bodyBlock.text().startsWith(QLatin1Char('>'))) {
+                lastBlockNum = bodyBlock.blockNumber();
+                bodyBlock = bodyBlock.next();
             }
 
-            auto *callout = new CalloutAtomicBlock(q);
-            callout->setBaseFontSize(q->font().pointSize());
-            callout->setCallout(type, title, bodyLines.join(QLatin1Char('\n')),
-                                foldable, collapsed);
-            callout->setBlockRange(firstBlockNum, lastBlockNum);
-            atomicBlocks.insert(firstBlockNum, callout);
-
-            // Tag the text blocks
-            QTextBlock b = doc->findBlockByNumber(firstBlockNum);
-            for (int i = firstBlockNum; i <= lastBlockNum && b.isValid(); ++i, b = b.next()) {
-                auto *data = dynamic_cast<MarkoffBlockData *>(b.userData());
-                if (!data) {
-                    data = new MarkoffBlockData;
-                    const_cast<QTextBlock &>(b).setUserData(data);
-                }
-                data->atomicBlock = callout;
-                data->isAtomicBlockStart = (i == firstBlockNum);
-            }
+            DecoratedRange dr;
+            dr.type = DecoratedRange::Callout;
+            dr.firstBlock = firstBlockNum;
+            dr.lastBlock = lastBlockNum;
+            dr.calloutType = type;
+            dr.calloutTitle = title.isEmpty()
+                ? type.at(0).toUpper() + type.mid(1) : title;
+            dr.calloutColor = DecoratedRange::colorForCalloutType(type);
+            decoratedRanges.append(dr);
 
             block = bodyBlock; // skip past the callout
             continue;
@@ -980,6 +940,22 @@ void Editor::Private::detectAtomicBlocks()
 
         block = block.next();
     }
+}
+
+const DecoratedRange *Editor::Private::decoratedRangeAt(int blockNumber) const
+{
+    for (const auto &dr : decoratedRanges) {
+        if (blockNumber >= dr.firstBlock && blockNumber <= dr.lastBlock)
+            return &dr;
+    }
+    return nullptr;
+}
+
+void Editor::Private::detectAtomicBlocks()
+{
+    // Currently no true atomic blocks (images, math, diagrams not yet implemented).
+    // This will be populated when those features are added.
+    clearAtomicBlocks();
 }
 
 void Editor::Private::clearAtomicBlocks()
@@ -1633,58 +1609,59 @@ void Editor::paintEvent(QPaintEvent *e)
         }
 
         if (r.bottom() >= er.top() && r.top() <= er.bottom()) {
-            // Live preview: atomic blocks get graphical rendering.
-            // Normal blocks are handled by the MarkdownHighlighter
-            // (which applies formatting directly to the text).
+            // Live preview: paint decorations BEHIND text for decorated ranges.
+            // The text draws normally afterward via layout->draw().
             if (d->mode == Mode::LivePreview) {
-                auto *blockData = dynamic_cast<MarkoffBlockData *>(block.userData());
-                if (blockData && blockData->atomicBlock) {
-                    if (blockData->displayMode == MarkoffBlockData::Rendered) {
-                        AtomicBlock *ab = blockData->atomicBlock;
-                        qreal margin = document()->documentMargin();
-                        qreal availWidth = viewportRect.width() - margin * 2;
+                const DecoratedRange *dr = d->decoratedRangeAt(block.blockNumber());
+                if (dr && block.blockNumber() == dr->firstBlock) {
+                    // First block of a decorated range: paint the background
+                    // spanning all blocks in the range.
+                    qreal margin = document()->documentMargin();
+                    qreal rangeHeight = 0;
+                    QTextBlock b = document()->findBlockByNumber(dr->firstBlock);
+                    for (int i = dr->firstBlock; i <= dr->lastBlock && b.isValid(); ++i, b = b.next())
+                        rangeHeight += Markoff::blockBoundingRect(d.get(), b).height();
 
-                        if (blockData->isAtomicBlockStart) {
-                            // Paint atomic block starting here
-                            QSizeF abSize = ab->sizeForWidth(availWidth);
-                            QRectF abRect(QPointF(r.left() + margin, r.top()), abSize);
-                            ab->paint(&painter, abRect);
-                        } else {
-                            // Non-start block: the start block scrolled off.
-                            // Paint the atomic block offset upward so the visible
-                            // portion appears correctly.
-                            QTextBlock startBlock = document()->findBlockByNumber(ab->firstBlock());
-                            qreal startY = 0;
-                            // Calculate how far above the viewport the start block is
-                            QTextBlock b = startBlock;
-                            qreal abTopY = r.top(); // current block's Y
-                            for (int i = ab->firstBlock(); i < block.blockNumber() && b.isValid(); ++i) {
-                                abTopY -= Markoff::blockBoundingRect(d.get(), b).height();
-                                b = b.next();
-                            }
-                            QSizeF abSize = ab->sizeForWidth(availWidth);
-                            QRectF abRect(QPointF(r.left() + margin, abTopY), abSize);
-                            painter.save();
-                            painter.setClipRect(er); // clip to visible area
-                            ab->paint(&painter, abRect);
-                            painter.restore();
-                        }
+                    QRectF bgRect(r.left() + margin - 4, r.top(),
+                                  viewportRect.width() - margin * 2 + 8, rangeHeight);
 
-                        // Skip remaining blocks of this atomic block
-                        int lastBlockNum = ab->lastBlock();
-                        while (block.isValid() && block.blockNumber() <= lastBlockNum) {
-                            offset.ry() += Markoff::blockBoundingRect(d.get(), block).height();
-                            block = block.next();
+                    if (dr->type == DecoratedRange::CodeBlock) {
+                        // Gray background with rounded corners
+                        painter.save();
+                        painter.setPen(Qt::NoPen);
+                        painter.setBrush(QColor(0xf5, 0xf5, 0xf5));
+                        painter.setRenderHint(QPainter::Antialiasing);
+                        painter.drawRoundedRect(bgRect, 4, 4);
+                        // Border
+                        painter.setPen(QPen(QColor(0xe0, 0xe0, 0xe0), 1));
+                        painter.setBrush(Qt::NoBrush);
+                        painter.drawRoundedRect(bgRect.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
+                        // Language label
+                        if (!dr->language.isEmpty()) {
+                            QFont labelFont = font();
+                            labelFont.setPointSize(qMax(8, font().pointSize() - 2));
+                            painter.setFont(labelFont);
+                            painter.setPen(QColor(0x9e, 0x9e, 0x9e));
+                            QRectF labelRect(bgRect.right() - 80, bgRect.top() + 2, 72, 16);
+                            painter.drawText(labelRect, Qt::AlignRight | Qt::AlignVCenter, dr->language);
                         }
-                        if (offset.y() > viewportRect.height())
-                            break;
-                        continue;
+                        painter.restore();
+                    } else if (dr->type == DecoratedRange::Callout) {
+                        // Colored left border + faint background
+                        painter.save();
+                        painter.setRenderHint(QPainter::Antialiasing);
+                        QColor bg = dr->calloutColor;
+                        bg.setAlpha(20);
+                        painter.setPen(Qt::NoPen);
+                        painter.setBrush(bg);
+                        painter.drawRoundedRect(bgRect, 4, 4);
+                        // Left border
+                        painter.setBrush(dr->calloutColor);
+                        painter.drawRoundedRect(QRectF(bgRect.left(), bgRect.top(), 4, bgRect.height()), 2, 2);
+                        painter.restore();
                     }
                 }
-                // Normal blocks: fall through to standard text painting.
-                // The MarkdownHighlighter has already applied formatting
-                // (hiding delimiters, applying bold/italic/etc.) via
-                // QTextCharFormat on the text layout.
+                // Fall through to normal text painting
             }
 
             QTextBlockFormat blockFormat = block.blockFormat();

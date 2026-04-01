@@ -43,8 +43,7 @@ add_library(markoff STATIC
     src/MarkdownHighlighter.cpp
     src/SourceSpan.cpp
     src/AtomicBlock.cpp
-    src/CodeAtomicBlock.cpp
-    src/CalloutAtomicBlock.cpp
+    src/DecoratedRange.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Markoff::Markoff ALIAS markoff)
