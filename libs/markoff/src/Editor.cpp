@@ -677,20 +677,14 @@ void Editor::Private::modificationChanged(bool)
 
 void Editor::Private::reparseDocument()
 {
-    // Parse for rendering (with footnote processing, frontmatter extraction)
+    // Parse for rendering (reading view, canvas cards)
     parsedDoc = Document::fromMarkdown(q->toPlainText());
 
-    // Parse the EXACT editor text for the highlighter — no preprocessing.
-    // Document::fromMarkdown() modifies text (strips frontmatter, replaces
-    // footnote refs), so MD4C's byte offsets don't match the editor's text.
-    // Instead, parse the raw editor text directly with DocumentBuilder.
-    QString rawText = q->toPlainText();
-    QByteArray utf8 = rawText.toUtf8();
-    DocumentBuilder rawBuilder;
-    rawBuilder.parse(rawText);
-    QList<Block> rawBlocks = rawBuilder.takeBlocks();
-    DocumentBuilder::postProcess(rawBlocks);
-    auto spans = buildSpanMap(rawBlocks, utf8);
+    // Parse the exact editor text with tree-sitter for the highlighter.
+    // Tree-sitter produces a CST with explicit delimiter nodes and byte
+    // offsets that match the QTextDocument positions exactly.
+    tsParser.parse(q->toPlainText());
+    auto spans = tsParser.buildSpanMap();
     highlighter->setSpanMap(std::move(spans));
 
     detectAtomicBlocks();

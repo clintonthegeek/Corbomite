@@ -11,6 +11,7 @@
 #include "TextControl.h"
 #include "AtomicBlock.h"
 #include "MarkdownHighlighter.h"
+#include "TreeSitterParser.h"
 
 #include <QHash>
 
@@ -94,6 +95,7 @@ struct Editor::Private {
     Editor::Mode mode = Editor::Mode::Source;
     std::unique_ptr<Markoff::Document> parsedDoc;
     Markoff::Renderer renderer;
+    Markoff::TreeSitterParser tsParser;
     bool needsReparse = false;
     bool inReparse = false;  // guard against reparse loops from highlighter
 
