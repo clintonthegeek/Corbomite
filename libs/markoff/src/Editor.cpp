@@ -45,6 +45,75 @@ namespace Markoff {
 // PlainTextDocumentLayout — forked from QPlainTextDocumentLayout
 // ============================================================================
 
+/// Layout data for a QTextTable, stored via QTextFrame::setLayoutData().
+/// Simplified from Qt's QTextTableData — uses qreal instead of QFixed,
+/// no pagination, no border-collapse, no CSS box model.
+struct TableLayoutData : public QTextFrameLayoutData
+{
+    qreal cellPadding = 4.0;
+    qreal cellSpacing = 0.0;
+
+    QList<qreal> widths;           // column widths
+    QList<qreal> heights;          // row heights
+    QList<qreal> columnPositions;  // x position of each column
+    QList<qreal> rowPositions;     // y position of each row
+    QList<qreal> cellVerticalOffsets; // vertical alignment offsets per cell
+
+    qreal contentsWidth = 0;
+    qreal tableWidth = 0;
+    qreal tableHeight = 0;
+
+    bool dirty = true;
+
+    qreal cellWidth(int column, int colspan) const
+    {
+        return columnPositions.at(column + colspan - 1) + widths.at(column + colspan - 1)
+               - columnPositions.at(column);
+    }
+
+    void calcRowPosition(int row)
+    {
+        if (row > 0)
+            rowPositions[row] = rowPositions.at(row - 1) + heights.at(row - 1) + cellSpacing;
+    }
+
+    QRectF cellRect(const QTextTableCell &cell) const
+    {
+        const int row = cell.row();
+        const int rowSpan = cell.rowSpan();
+        const int column = cell.column();
+        const int colSpan = cell.columnSpan();
+        return QRectF(columnPositions.at(column),
+                      rowPositions.at(row),
+                      cellWidth(column, colSpan),
+                      rowPositions.at(row + rowSpan - 1) + heights.at(row + rowSpan - 1) - rowPositions.at(row));
+    }
+};
+
+static QTextTable *tableForBlock(const QTextBlock &block)
+{
+    // QTextCursor is lightweight — this is cheap
+    QTextCursor cursor(block);
+    return cursor.currentTable();
+}
+
+static bool isFirstTableBlock(const QTextBlock &block, QTextTable *table)
+{
+    if (!table) return false;
+    QTextTableCell firstCell = table->cellAt(0, 0);
+    return firstCell.firstCursorPosition().block() == block;
+}
+
+static TableLayoutData *tableLayoutData(QTextTable *table)
+{
+    auto *data = static_cast<TableLayoutData *>(table->layoutData());
+    if (!data) {
+        data = new TableLayoutData;
+        table->setLayoutData(data);
+    }
+    return data;
+}
+
 // Private data for PlainTextDocumentLayout (replaces QPlainTextDocumentLayoutPrivate)
 struct PlainTextDocumentLayoutPrivate {
     qreal width = 0;
@@ -94,6 +163,14 @@ private:
     void layoutBlock(const QTextBlock &block);
     qreal blockWidth(const QTextBlock &block);
 
+    struct CellLayoutResult {
+        qreal height = 0;
+        qreal minimumWidth = 0;
+        qreal maximumWidth = 0;
+    };
+    CellLayoutResult layoutCellContent(QTextTable *table, const QTextTableCell &cell, qreal width);
+    void layoutTable(QTextTable *table);
+
     PlainTextDocumentLayoutPrivate d;
 
     friend class Editor;
@@ -136,6 +213,20 @@ QRectF PlainTextDocumentLayout::frameBoundingRect(QTextFrame *) const
 QRectF PlainTextDocumentLayout::blockBoundingRect(const QTextBlock &block) const
 {
     if (!block.isValid()) { return QRectF(); }
+
+    QTextTable *table = tableForBlock(block);
+    if (table) {
+        if (isFirstTableBlock(block, table)) {
+            TableLayoutData *td = tableLayoutData(table);
+            if (td->dirty)
+                const_cast<PlainTextDocumentLayout*>(this)->layoutTable(table);
+            return QRectF(0, 0, td->tableWidth, td->tableHeight);
+        } else {
+            // Non-first block inside table: zero height
+            return QRectF(0, 0, 0, 0);
+        }
+    }
+
     QTextLayout *tl = block.layout();
     if (!tl->lineCount())
         const_cast<PlainTextDocumentLayout*>(this)->layoutBlock(block);
@@ -218,6 +309,18 @@ void PlainTextDocumentLayout::documentChanged(int from, int charsRemoved, int ch
     int charsChanged = charsRemoved + charsAdded;
 
     QTextBlock changeStartBlock = doc->findBlock(from);
+
+    // If the change is inside a table, mark the table layout dirty
+    // and invalidate the whole viewport
+    QTextTable *table = tableForBlock(changeStartBlock);
+    if (table) {
+        TableLayoutData *td = tableLayoutData(table);
+        td->dirty = true;
+        d.blockCount = newBlockCount;
+        emit update(QRectF(0., -doc->documentMargin(), 1000000000., 1000000000.));
+        return;
+    }
+
     QTextBlock changeEndBlock = doc->findBlock(qMax(0, from + charsChanged - 1));
     bool blockVisibilityChanged = false;
 
@@ -373,6 +476,183 @@ qreal PlainTextDocumentLayoutPrivate::blockWidth(const QTextBlock &block)
     return bw;
 }
 
+
+// ============================================================================
+// Table layout — harvested from Qt's QTextDocumentLayout, simplified
+// ============================================================================
+
+PlainTextDocumentLayout::CellLayoutResult
+PlainTextDocumentLayout::layoutCellContent(
+    QTextTable * /*table*/, const QTextTableCell &cell, qreal width)
+{
+    CellLayoutResult result;
+    QTextBlock block = cell.firstCursorPosition().block();
+    QTextBlock lastBlock = cell.lastCursorPosition().block();
+
+    while (block.isValid()) {
+        QTextLayout *tl = block.layout();
+        QTextOption option = document()->defaultTextOption();
+        option.setTextDirection(tl->textOption().textDirection());
+        option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+
+        tl->setTextOption(option);
+        tl->setCacheEnabled(true);
+
+        const qreal availWidth = qMax(width, qreal(0));
+        tl->beginLayout();
+        qreal textHeight = 0;
+        qreal maxLineWidth = 0;
+        while (true) {
+            QTextLine line = tl->createLine();
+            if (!line.isValid())
+                break;
+            line.setLeadingIncluded(true);
+            line.setLineWidth(availWidth);
+            line.setPosition(QPointF(0, textHeight));
+            textHeight += line.height();
+            maxLineWidth = qMax(maxLineWidth, line.naturalTextWidth());
+        }
+        tl->endLayout();
+
+        result.height += textHeight;
+        result.maximumWidth = qMax(result.maximumWidth, maxLineWidth);
+        // minimumWidth() on QTextLayout returns the width of the longest
+        // word — the smallest width that won't break mid-word.
+        result.minimumWidth = qMax(result.minimumWidth, tl->minimumWidth());
+
+        if (block == lastBlock)
+            break;
+        block = block.next();
+    }
+
+    return result;
+}
+
+void PlainTextDocumentLayout::layoutTable(QTextTable *table)
+{
+    TableLayoutData *td = tableLayoutData(table);
+    const int rows = table->rows();
+    const int cols = table->columns();
+    const QTextTableFormat fmt = table->format();
+
+    td->cellPadding = fmt.cellPadding();
+    td->cellSpacing = fmt.cellSpacing();
+
+    const qreal availableWidth = d.width > 0 ? d.width : 500.0;
+
+    // Column width constraints from the table format
+    QList<QTextLength> constraints = fmt.columnWidthConstraints();
+    constraints.resize(cols);
+
+    // Step 1: Compute min/max widths for each column
+    td->widths.resize(cols);
+    td->widths.fill(0);
+    QList<qreal> minWidths(cols, 1.0);
+    QList<qreal> maxWidths(cols, 0.0);
+
+    for (int c = 0; c < cols; ++c) {
+        for (int r = 0; r < rows; ++r) {
+            QTextTableCell cell = table->cellAt(r, c);
+            if (cell.column() != c) continue; // skip spanned
+            int cspan = cell.columnSpan();
+
+            qreal padding = td->cellPadding * 2;
+            CellLayoutResult lr = layoutCellContent(table, cell, 10000.0);
+
+            qreal minW = (lr.minimumWidth + padding) / cspan;
+            qreal maxW = (lr.maximumWidth + padding) / cspan;
+
+            for (int n = 0; n < cspan; ++n) {
+                minWidths[c + n] = qMax(minWidths[c + n], minW);
+                maxWidths[c + n] = qMax(maxWidths[c + n], maxW);
+            }
+        }
+    }
+
+    // Step 2: Distribute widths
+    qreal totalAvailable = availableWidth - (cols + 1) * td->cellSpacing - cols * td->cellPadding * 2;
+    qreal totalMin = 0;
+    for (int c = 0; c < cols; ++c) totalMin += minWidths[c];
+
+    if (totalMin >= totalAvailable) {
+        // Minimum widths exceed available — just use minimums
+        for (int c = 0; c < cols; ++c)
+            td->widths[c] = minWidths[c];
+    } else {
+        // Distribute extra space proportionally to max-min gap
+        qreal extra = totalAvailable - totalMin;
+        qreal totalGap = 0;
+        for (int c = 0; c < cols; ++c)
+            totalGap += qMax(maxWidths[c] - minWidths[c], qreal(0));
+
+        for (int c = 0; c < cols; ++c) {
+            if (totalGap > 0) {
+                qreal gap = qMax(maxWidths[c] - minWidths[c], qreal(0));
+                td->widths[c] = minWidths[c] + extra * gap / totalGap;
+            } else {
+                td->widths[c] = minWidths[c] + extra / cols;
+            }
+        }
+    }
+
+    // Step 3: Column positions (prefix sum)
+    td->columnPositions.resize(cols);
+    td->columnPositions[0] = td->cellSpacing;
+    for (int c = 1; c < cols; ++c)
+        td->columnPositions[c] = td->columnPositions[c-1] + td->widths[c-1] + td->cellSpacing;
+
+    td->contentsWidth = td->columnPositions.last() + td->widths.last() + td->cellSpacing;
+
+    // Step 4: Row heights
+    td->heights.resize(rows);
+    td->heights.fill(0);
+    td->rowPositions.resize(rows);
+    td->rowPositions[0] = td->cellSpacing;
+
+    QList<qreal> heightToDistribute(cols, 0);
+
+    for (int r = 0; r < rows; ++r) {
+        td->calcRowPosition(r);
+
+        for (int c = 0; c < cols; ++c) {
+            QTextTableCell cell = table->cellAt(r, c);
+            if (cell.column() != c) continue; // skip spanned
+
+            int rspan = cell.rowSpan();
+            int cspan = cell.columnSpan();
+
+            if (rspan > 1 && cell.row() != r) {
+                // This cell started in an earlier row; only add remaining height at last row
+                if (cell.row() + rspan - 1 == r)
+                    td->heights[r] = qMax(td->heights[r], heightToDistribute[c]);
+                continue;
+            }
+
+            qreal cellW = td->cellWidth(c, cspan) - td->cellPadding * 2;
+            CellLayoutResult lr = layoutCellContent(table, cell, cellW);
+            qreal height = lr.height + td->cellPadding * 2;
+
+            if (rspan > 1)
+                heightToDistribute[c] = height;
+            else
+                td->heights[r] = qMax(td->heights[r], height);
+        }
+
+        // Subtract this row's contribution from pending row-span heights
+        qreal effectiveHeight = td->heights[r] + td->cellSpacing;
+        for (int c = 0; c < cols; ++c)
+            heightToDistribute[c] = qMax(heightToDistribute[c] - effectiveHeight, qreal(0));
+    }
+
+    // Step 5: Vertical alignment offsets (all top-aligned for now)
+    td->cellVerticalOffsets.resize(rows * cols);
+    td->cellVerticalOffsets.fill(0);
+
+    // Final size
+    td->tableWidth = td->contentsWidth;
+    td->tableHeight = td->rowPositions.last() + td->heights.last() + td->cellSpacing;
+    td->dirty = false;
+}
 
 // ============================================================================
 // EditorControl — replaces QPlainTextEditControl
