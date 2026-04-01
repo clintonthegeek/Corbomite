@@ -236,17 +236,69 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
     if (parentFmt.isHeading && strcmp(type, "atx_heading") == 0)
         headingLevel = headingLevelFromNode(node);
 
-    // Walk children
+    // Walk children and emit spans for implicit text gaps between them.
+    // Tree-sitter doesn't create child nodes for text content between
+    // named children (e.g., "bold text" between ** delimiters in
+    // strong_emphasis). We emit content spans for those gaps.
+    uint32_t prevEnd = startByte;
     for (uint32_t i = 0; i < childCount; ++i) {
         TSNode child = ts_node_child(node, i);
+        uint32_t childStart = ts_node_start_byte(child);
+
+        // Gap before this child = implicit text content
+        if (childStart > prevEnd) {
+            SourceSpan gap;
+            gap.utf8Offset = static_cast<int>(prevEnd);
+            gap.utf8Length = static_cast<int>(childStart - prevEnd);
+            gap.charOffset = utf8ToCharOffset(prevEnd);
+            gap.charLength = utf8ToCharOffset(childStart) - gap.charOffset;
+            // Inherit parent formatting
+            gap.bold = parentFmt.bold;
+            gap.italic = parentFmt.italic;
+            gap.strikethrough = parentFmt.strikethrough;
+            gap.code = parentFmt.code;
+            gap.math = parentFmt.math;
+            gap.mathDisplay = parentFmt.mathDisplay;
+            gap.isLink = parentFmt.isLink;
+            gap.isWikilink = parentFmt.isWikilink;
+            gap.isImage = parentFmt.isImage;
+            gap.isHeading = parentFmt.isHeading;
+            if (headingLevel > 0) gap.headingLevel = headingLevel;
+            if (gap.charLength > 0)
+                spans.append(gap);
+        }
+
         walkNode(child, spans);
+        prevEnd = ts_node_end_byte(child);
     }
 
-    // After walking children, propagate parent formatting to child spans
+    // Gap after last child
+    if (prevEnd < endByte) {
+        SourceSpan gap;
+        gap.utf8Offset = static_cast<int>(prevEnd);
+        gap.utf8Length = static_cast<int>(endByte - prevEnd);
+        gap.charOffset = utf8ToCharOffset(prevEnd);
+        gap.charLength = utf8ToCharOffset(endByte) - gap.charOffset;
+        gap.bold = parentFmt.bold;
+        gap.italic = parentFmt.italic;
+        gap.strikethrough = parentFmt.strikethrough;
+        gap.code = parentFmt.code;
+        gap.math = parentFmt.math;
+        gap.mathDisplay = parentFmt.mathDisplay;
+        gap.isLink = parentFmt.isLink;
+        gap.isWikilink = parentFmt.isWikilink;
+        gap.isImage = parentFmt.isImage;
+        gap.isHeading = parentFmt.isHeading;
+        if (headingLevel > 0) gap.headingLevel = headingLevel;
+        if (gap.charLength > 0)
+            spans.append(gap);
+    }
+
+    // Also propagate parent formatting to child spans (delimiter nodes
+    // from children need the parent's formatting context too)
     if (parentFmt.bold || parentFmt.italic || parentFmt.strikethrough ||
         parentFmt.code || parentFmt.math || parentFmt.isLink ||
         parentFmt.isWikilink || parentFmt.isImage || parentFmt.isHeading) {
-        // Find spans within this node's range and add parent formatting
         for (int i = spans.size() - 1; i >= 0; --i) {
             SourceSpan &s = spans[i];
             if (s.utf8Offset < static_cast<int>(startByte))
