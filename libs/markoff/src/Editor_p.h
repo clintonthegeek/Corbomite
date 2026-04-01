@@ -6,6 +6,8 @@
 #define MARKOFF_EDITOR_P_H
 
 #include <markoff/Editor.h>
+#include <markoff/Document.h>
+#include <markoff/Renderer.h>
 #include "TextControl.h"
 
 #include <QtGui/qtextdocumentfragment.h>
@@ -82,6 +84,16 @@ struct Editor::Private {
     void updateViewport();
 
     QPointer<PlainTextDocumentLayout> documentLayoutPtr;
+
+    // Live preview
+    Editor::Mode mode = Editor::Mode::Source;
+    std::unique_ptr<Markoff::Document> parsedDoc;
+    Markoff::Renderer renderer;
+    bool needsReparse = false;
+
+    void reparseDocument();
+    void updateBlockDisplayModes();
+    void renderBlock(QTextBlock &block);
 
     void cursorPositionChanged();
     void modificationChanged(bool);

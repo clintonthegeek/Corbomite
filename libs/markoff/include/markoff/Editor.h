@@ -15,6 +15,8 @@ namespace Markoff {
 class Editor : public QAbstractScrollArea {
     Q_OBJECT
 public:
+    enum class Mode { Source, LivePreview };
+
     explicit Editor(QWidget *parent = nullptr);
     ~Editor() override;
 
@@ -22,6 +24,9 @@ public:
     QString toPlainText() const;
 
     QTextDocument *document() const;
+
+    void setMode(Mode mode);
+    Mode mode() const;
 
     void ensureCursorVisible();
     QRect cursorRect() const;

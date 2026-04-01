@@ -9,6 +9,7 @@ namespace Markoff {
 
 struct Document::Private {
     QString source;
+    QString frontmatter;    // YAML frontmatter content (without --- delimiters)
     QList<Block> blocks;
 };
 
@@ -24,8 +25,23 @@ std::unique_ptr<Document> Document::fromMarkdown(const QString &source)
     auto doc = std::unique_ptr<Document>(new Document());
     doc->d->source = source;
 
+    // Extract frontmatter before parsing
+    QString markdown = source;
+    if (source.startsWith(QStringLiteral("---\n")) || source.startsWith(QStringLiteral("---\r\n"))) {
+        int endPos = source.indexOf(QStringLiteral("\n---"), 3);
+        if (endPos >= 0) {
+            int fmStart = source.indexOf(QLatin1Char('\n')) + 1;
+            doc->d->frontmatter = source.mid(fmStart, endPos - fmStart);
+            // Skip past the closing ---\n
+            int afterFm = endPos + 4; // "\n---"
+            if (afterFm < source.size() && source[afterFm] == QLatin1Char('\n'))
+                ++afterFm;
+            markdown = source.mid(afterFm);
+        }
+    }
+
     DocumentBuilder builder;
-    if (builder.parse(source)) {
+    if (builder.parse(markdown)) {
         doc->d->blocks = builder.takeBlocks();
         DocumentBuilder::postProcess(doc->d->blocks);
     }
@@ -41,6 +57,27 @@ QString Document::sourceText() const
 bool Document::isEmpty() const
 {
     return d->source.isEmpty();
+}
+
+QString Document::frontmatter() const
+{
+    return d->frontmatter;
+}
+
+QString Document::markdownContent() const
+{
+    // Return source with frontmatter stripped
+    if (d->frontmatter.isEmpty())
+        return d->source;
+
+    // Find the end of frontmatter and return everything after
+    int endPos = d->source.indexOf(QStringLiteral("\n---"), 3);
+    if (endPos < 0)
+        return d->source;
+    int afterFm = endPos + 4;
+    if (afterFm < d->source.size() && d->source[afterFm] == QLatin1Char('\n'))
+        ++afterFm;
+    return d->source.mid(afterFm);
 }
 
 // ---------------------------------------------------------------------------

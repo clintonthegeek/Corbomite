@@ -6,6 +6,9 @@
 #include "TextControl.h"
 #include "TextControl_p.h"
 #include "MarkdownHighlighter.h"
+#include "MarkoffBlockData.h"
+#include "markoff/Document.h"
+#include "markoff/Renderer.h"
 
 #include <qfont.h>
 #include <qpainter.h>
@@ -542,6 +545,26 @@ void Editor::Private::init(const QString &txt)
     QObject::connect(control, &TextControl::textChanged, q, &Editor::textChanged);
     QObject::connect(control, &TextControl::textChanged, q, [this]() { q->updateMicroFocus(); });
 
+    // Live preview: re-parse on text changes
+    QObject::connect(control, &TextControl::textChanged, q, [this]() {
+        if (mode == Editor::Mode::LivePreview) {
+            reparseDocument();
+            // Invalidate all render caches since we don't track which blocks changed yet
+            QTextBlock block = q->document()->begin();
+            while (block.isValid()) {
+                auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
+                if (data) data->cacheValid = false;
+                block = block.next();
+            }
+            updateBlockDisplayModes();
+        }
+    });
+
+    // Live preview: update display modes on cursor movement
+    QObject::connect(control, &TextControl::cursorPositionChanged, q, [this]() {
+        updateBlockDisplayModes();
+    });
+
     doc->setTextWidth(-1);
     doc->documentLayout()->setPaintDevice(q->viewport());
     doc->setDefaultFont(q->font());
@@ -575,6 +598,84 @@ void Editor::Private::cursorPositionChanged()
 
 void Editor::Private::modificationChanged(bool)
 {
+}
+
+void Editor::Private::reparseDocument()
+{
+    parsedDoc = Document::fromMarkdown(q->toPlainText());
+}
+
+void Editor::Private::updateBlockDisplayModes()
+{
+    if (mode != Editor::Mode::LivePreview) return;
+
+    QTextBlock cursorBlock = control->textCursor().block();
+    int cursorBlockNum = cursorBlock.blockNumber();
+
+    QTextBlock block = q->document()->begin();
+    bool anyChanged = false;
+
+    while (block.isValid()) {
+        auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
+        if (!data) {
+            data = new MarkoffBlockData;
+            block.setUserData(data);  // QTextBlock takes ownership
+        }
+
+        int blockNum = block.blockNumber();
+        // Near = cursor block +/- 1
+        bool nearCursor = (blockNum >= cursorBlockNum - 1 && blockNum <= cursorBlockNum + 1);
+
+        auto newMode = nearCursor ? MarkoffBlockData::Raw : MarkoffBlockData::Rendered;
+        if (data->displayMode != newMode) {
+            data->displayMode = newMode;
+            data->cacheValid = false;  // invalidate cache on mode change
+            anyChanged = true;
+        }
+
+        block = block.next();
+    }
+
+    if (anyChanged)
+        q->viewport()->update();
+}
+
+void Editor::Private::renderBlock(QTextBlock &block)
+{
+    auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
+    if (!data || data->cacheValid) return;
+
+    // Get the block's text
+    QString blockText = block.text();
+    if (blockText.trimmed().isEmpty()) {
+        data->renderedHeight = block.layout()->boundingRect().height();
+        data->cacheValid = true;
+        data->renderedCache = QPixmap();  // empty -- just use normal paint
+        return;
+    }
+
+    // Render this block's markdown through our renderer
+    auto blockDoc = Document::fromMarkdown(blockText);
+    auto rendered = renderer.renderToTextDocument(*blockDoc);
+
+    // Get the viewport width for rendering
+    int width = q->viewport()->width();
+    rendered->setTextWidth(width);
+
+    int height = qMax(static_cast<int>(rendered->size().height()),
+                      static_cast<int>(block.layout()->boundingRect().height()));
+
+    if (width > 0 && height > 0) {
+        QPixmap pixmap(width, height);
+        pixmap.fill(Qt::transparent);
+        QPainter painter(&pixmap);
+        rendered->drawContents(&painter);
+        painter.end();
+
+        data->renderedCache = pixmap;
+        data->renderedHeight = height;
+    }
+    data->cacheValid = true;
 }
 
 void Editor::Private::verticalScrollbarActionTriggered(int action)
@@ -1055,6 +1156,33 @@ QTextDocument *Editor::document() const
     return d->control->document();
 }
 
+void Editor::setMode(Mode m)
+{
+    if (d->mode == m) return;
+    d->mode = m;
+    if (m == Mode::LivePreview) {
+        d->reparseDocument();
+        d->updateBlockDisplayModes();
+    } else {
+        // Source mode: clear all rendered caches, set all blocks to Raw
+        QTextBlock block = document()->begin();
+        while (block.isValid()) {
+            auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
+            if (data) {
+                data->displayMode = MarkoffBlockData::Raw;
+                data->cacheValid = false;
+            }
+            block = block.next();
+        }
+    }
+    viewport()->update();
+}
+
+Editor::Mode Editor::mode() const
+{
+    return d->mode;
+}
+
 void Editor::ensureCursorVisible()
 {
     d->ensureCursorVisible(d->centerOnScroll);
@@ -1122,6 +1250,23 @@ void Editor::paintEvent(QPaintEvent *e)
         }
 
         if (r.bottom() >= er.top() && r.top() <= er.bottom()) {
+            // Live preview: paint rendered pixmap for non-cursor blocks
+            if (d->mode == Mode::LivePreview) {
+                auto *blockData = dynamic_cast<MarkoffBlockData *>(block.userData());
+                if (blockData && blockData->displayMode == MarkoffBlockData::Rendered) {
+                    if (!blockData->cacheValid)
+                        d->renderBlock(block);
+                    if (!blockData->renderedCache.isNull()) {
+                        painter.drawPixmap(r.topLeft(), blockData->renderedCache);
+                        offset.ry() += r.height();
+                        if (offset.y() > viewportRect.height())
+                            break;
+                        block = block.next();
+                        continue;
+                    }
+                }
+            }
+
             QTextBlockFormat blockFormat = block.blockFormat();
 
             QBrush bg = blockFormat.background();

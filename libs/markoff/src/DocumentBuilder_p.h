@@ -42,6 +42,10 @@ struct Block {
     QString calloutTitle;
     bool calloutFoldable = false;
     bool calloutCollapsed = false;
+
+    // Frontmatter (set by Layer 2)
+    bool isFrontmatter = false;
+    QString frontmatterYaml;
 };
 
 class DocumentBuilder {

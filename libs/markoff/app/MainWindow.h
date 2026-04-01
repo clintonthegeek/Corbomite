@@ -14,6 +14,7 @@ private Q_SLOTS:
     void onOpen();
     void onSave();
     void onTextChanged();
+    void onModeToggle();
 private:
     void updateTitle();
     Markoff::Editor *m_editor = nullptr;

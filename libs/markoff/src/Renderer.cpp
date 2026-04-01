@@ -267,15 +267,25 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
     if (doc.isEmpty())
         return textDoc;
 
-    // Re-parse source text (Phase 1 shortcut — Document doesn't expose AST yet)
+    // Re-parse markdown content (without frontmatter)
     DocumentBuilder builder;
-    builder.parse(doc.sourceText());
+    builder.parse(doc.markdownContent());
     QList<Block> blocks = builder.takeBlocks();
     DocumentBuilder::postProcess(blocks);
 
     // Build body HTML
     const RenderSettings &s = d->settings;
-    const QString bodyHtml = renderBlocks(blocks, s);
+    QString bodyHtml;
+
+    // Optionally show frontmatter
+    if (s.showFrontmatter && !doc.frontmatter().isEmpty()) {
+        bodyHtml += QStringLiteral(
+            "<pre style=\"background-color: #f5f5f5; border: 1px solid #e0e0e0; "
+            "padding: 8px; border-radius: 4px; color: #78909c;\">---\n%1\n---</pre>")
+            .arg(escapeHtml(doc.frontmatter()));
+    }
+
+    bodyHtml += renderBlocks(blocks, s);
 
     // Build CSS
     QString bodyStyle = QStringLiteral("font-size: %1pt;").arg(s.baseFontSizePt);

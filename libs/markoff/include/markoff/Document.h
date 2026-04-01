@@ -17,6 +17,10 @@ public:
     QString sourceText() const;
     bool isEmpty() const;
     QString extractSubpath(const QString &subpath) const;
+    QString frontmatter() const;
+
+    // Returns the markdown content without frontmatter
+    QString markdownContent() const;
 
 private:
     Document();
