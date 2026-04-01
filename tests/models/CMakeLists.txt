@@ -25,3 +25,8 @@ add_executable(tst_notestreemodel tst_notestreemodel.cpp)
 add_test(NAME tst_notestreemodel COMMAND tst_notestreemodel)
 target_link_libraries(tst_notestreemodel PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)
 set_tests_properties(tst_notestreemodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_templateservice tst_templateservice.cpp)
+add_test(NAME tst_templateservice COMMAND tst_templateservice)
+target_link_libraries(tst_templateservice PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)
+set_tests_properties(tst_templateservice PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
