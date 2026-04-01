@@ -880,10 +880,15 @@ void Editor::Private::init(const QString &txt)
                 highlighter->setCursorPosition(
                     control->textCursor().block().blockNumber(),
                     control->textCursor().positionInBlock());
-                reparseDocument();
+                reparseDocument();  // revert tables, parse, highlight setup, block formats
                 highlighter->rehighlight();
                 updateBlockDisplayModes();
-                applyBlockFormats();
+                // Convert tables as the VERY LAST step — after all block
+                // iteration (rehighlight, updateBlockDisplayModes, applyBlockFormats)
+                // is done. These functions walk all blocks and would corrupt
+                // QTextTable cell structure if tables existed during their run.
+                convertTables();
+                inReparse = false;
                 inReparse = false;
             });
         }
@@ -968,11 +973,11 @@ void Editor::Private::reparseDocument()
     detectDecoratedRanges();
     highlighter->setDecoratedRanges(decoratedRanges);
     applyBlockFormats();
-
-    // Convert tables AFTER span map is applied. Table conversion changes
-    // document structure (pipe text → QTextTable), which would invalidate
-    // tree-sitter byte offsets if done earlier.
-    convertTables();
+    // NOTE: convertTables() is NOT called here. It must be the very last
+    // step, after rehighlight() and updateBlockDisplayModes() complete,
+    // because those functions iterate all blocks and would corrupt
+    // QTextTable cell structure. Callers are responsible for calling
+    // convertTables() at the end of their reparse sequence.
 }
 
 void Editor::Private::applyBlockFormats()
@@ -1035,12 +1040,23 @@ void Editor::Private::convertTables()
         return;
 
     QList<ParsedTable> tables = TableHandler::detectTables(q->document());
+    qDebug() << "convertTables: detected" << tables.size() << "tables";
 
     // Convert in reverse order so block numbers stay valid
     for (int i = tables.size() - 1; i >= 0; --i) {
         const ParsedTable &pt = tables[i];
+        qDebug() << "  table" << i << "blocks" << pt.firstBlock << "-" << pt.lastBlock
+                 << "headers:" << pt.headers << "rows:" << pt.rows.size();
         QTextTable *tt = TableHandler::convertToQTextTable(q->document(), pt);
         if (tt) {
+            // Verify cell content right after conversion
+            for (int r = 0; r < qMin(tt->rows(), 2); ++r) {
+                for (int c = 0; c < tt->columns(); ++c) {
+                    QTextTableCell cell = tt->cellAt(r, c);
+                    qDebug() << "    post-convert cell(" << r << "," << c << ") ="
+                             << cell.firstCursorPosition().block().text();
+                }
+            }
             liveTables.prepend(tt);
             tableAlignments.prepend(pt.alignments);
         }
@@ -1052,6 +1068,8 @@ void Editor::Private::revertTables()
     if (liveTables.isEmpty())
         return;
 
+    qDebug() << "revertTables: reverting" << liveTables.size() << "tables";
+
     // Revert in reverse order to preserve document positions
     for (int i = liveTables.size() - 1; i >= 0; --i) {
         QTextTable *tt = liveTables[i];
@@ -1062,18 +1080,18 @@ void Editor::Private::revertTables()
             ? tableAlignments[i] : QList<Qt::Alignment>();
         QString md = TableHandler::serializeToMarkdown(tt, aligns);
 
-        // Select the entire table frame content and replace with pipe text.
-        // QTextTable inherits QTextFrame. We need to select from just before
-        // the frame to just after it.
-        QTextCursor cursor = tt->firstCursorPosition();
-        cursor.setPosition(tt->firstPosition());
-        cursor.setPosition(tt->lastPosition(), QTextCursor::KeepAnchor);
+        // To remove a QTextTable frame entirely (not just empty its cells),
+        // we must select from OUTSIDE the frame boundaries.
+        // QTextFrame::firstPosition() / lastPosition() are INSIDE the frame.
+        // The frame boundary characters are at firstPosition()-1 and lastPosition()+1.
+        int frameStart = tt->firstPosition() - 1;
+        int frameEnd = tt->lastPosition() + 1;
+
+        QTextCursor cursor(q->document());
+        cursor.setPosition(frameStart);
+        cursor.setPosition(frameEnd, QTextCursor::KeepAnchor);
         cursor.beginEditBlock();
-        cursor.removeSelectedText();
-        // After removing table content, the table frame may still exist
-        // as an empty frame. Insert the markdown text which will replace
-        // the frame contents.
-        cursor.insertText(md);
+        cursor.insertText(md);  // replaceSelectedText: removes frame + inserts pipe text
         cursor.endEditBlock();
     }
     liveTables.clear();
@@ -1790,6 +1808,8 @@ void Editor::setMode(Mode m)
                                           d->control->textCursor().positionInBlock());
         d->highlighter->setMode(MarkdownHighlighter::Mode::LivePreview);
         d->updateBlockDisplayModes();
+        // Convert tables LAST, after all block iteration is complete
+        d->convertTables();
     } else {
         // Revert QTextTables to pipe markdown before switching to source
         d->revertTables();
@@ -1868,11 +1888,33 @@ void Editor::paintTable(QPainter *painter, QTextTable *table,
                         const QRectF &tableRect, const QRect &viewportRect)
 {
     auto *td = static_cast<TableLayoutData *>(table->layoutData());
-    if (!td || td->dirty) return;  // layout not computed yet
+    if (!td || td->dirty) {
+        qDebug() << "paintTable: bailing, td=" << td << "dirty=" << (td ? td->dirty : true);
+        return;
+    }
 
     const int rows = table->rows();
     const int cols = table->columns();
     const qreal margin = document()->documentMargin();
+
+    static int paintCount = 0;
+    if (paintCount++ % 60 == 0) {  // log every ~60 paints to avoid spam
+        qDebug() << "paintTable:" << rows << "x" << cols
+                 << "tableRect=" << tableRect
+                 << "tableWidth=" << td->tableWidth << "tableHeight=" << td->tableHeight;
+        for (int c = 0; c < cols; ++c)
+            qDebug() << "  col" << c << "pos=" << td->columnPositions[c] << "width=" << td->widths[c];
+        for (int r = 0; r < rows; ++r)
+            qDebug() << "  row" << r << "pos=" << td->rowPositions[r] << "height=" << td->heights[r];
+        // Log first few cells' text
+        for (int r = 0; r < qMin(rows, 3); ++r) {
+            for (int c = 0; c < cols; ++c) {
+                QTextTableCell cell = table->cellAt(r, c);
+                QString text = cell.firstCursorPosition().block().text();
+                qDebug() << "  cell(" << r << "," << c << ") text=" << text;
+            }
+        }
+    }
 
     // The table rect's top-left gives us the position in viewport coords.
     // td->columnPositions and td->rowPositions are relative to the table origin.
@@ -1994,27 +2036,6 @@ void Editor::paintEvent(QPaintEvent *e)
 
     QTextBlock block = Markoff::firstVisibleBlock(d.get());
     qreal maximumWidth = document()->documentLayout()->documentSize().width();
-
-    // If the first visible block is inside a table, walk back to the
-    // table's first block so we can paint the table (which may be
-    // partially above the viewport). Adjust offset accordingly.
-    {
-        QTextTable *startTable = tableForBlock(block);
-        if (startTable) {
-            QTextTableCell firstCell = startTable->cellAt(0, 0);
-            QTextBlock tableFirstBlock = firstCell.firstCursorPosition().block();
-            // Walk backward from current block to the table's first block,
-            // subtracting each block's height from offset
-            QTextBlock b = block.previous();
-            while (b.isValid() && b.blockNumber() >= tableFirstBlock.blockNumber()) {
-                PlainTextDocumentLayout *dl = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
-                offset.ry() -= dl->blockBoundingRect(b).height();
-                if (b == tableFirstBlock) break;
-                b = b.previous();
-            }
-            block = tableFirstBlock;
-        }
-    }
 
     painter.setBrushOrigin(offset);
 
