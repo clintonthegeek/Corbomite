@@ -1709,7 +1709,17 @@ void Editor::paintEvent(QPaintEvent *e)
                 }
             }
 
-            layout->draw(&painter, offset, selections, er);
+            // Apply blockquote indentation by offsetting the draw position.
+            // Our PlainTextDocumentLayout ignores QTextBlockFormat::leftMargin,
+            // so we apply it here in the paint path.
+            QPointF drawOffset = offset;
+            if (d->mode == Mode::LivePreview) {
+                qreal leftMargin = block.blockFormat().leftMargin();
+                if (leftMargin > 0)
+                    drawOffset.rx() += leftMargin;
+            }
+
+            layout->draw(&painter, drawOffset, selections, er);
 
             if ((drawCursor && !drawCursorAsBlock)
                 || (editable && context.cursorPosition < -1
@@ -1719,7 +1729,7 @@ void Editor::paintEvent(QPaintEvent *e)
                     cpos = layout->preeditAreaPosition() - (cpos + 2);
                 else
                     cpos -= blpos;
-                layout->drawCursor(&painter, offset, cpos, d->control->cursorWidth());
+                layout->drawCursor(&painter, drawOffset, cpos, d->control->cursorWidth());
             }
         }
 
