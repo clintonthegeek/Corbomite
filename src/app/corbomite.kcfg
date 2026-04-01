@@ -51,4 +51,33 @@
       <default>system</default>
     </entry>
   </group>
+
+  <group name="Templates">
+    <entry name="TemplateFolder" type="String">
+      <label>Folder containing note templates</label>
+      <default>Templates</default>
+    </entry>
+    <entry name="DefaultDateFormat" type="String">
+      <label>Default date format for template variables</label>
+      <default>yyyy-MM-dd</default>
+    </entry>
+    <entry name="DefaultTimeFormat" type="String">
+      <label>Default time format for template variables</label>
+      <default>HH:mm</default>
+    </entry>
+  </group>
+  <group name="DailyNotes">
+    <entry name="DailyNoteDateFormat" type="String">
+      <label>Date format for daily note filenames</label>
+      <default>yyyy-MM-dd</default>
+    </entry>
+    <entry name="DailyNoteFolder" type="String">
+      <label>Folder for daily notes</label>
+      <default>Daily Notes</default>
+    </entry>
+    <entry name="DailyNoteTemplate" type="String">
+      <label>Template to apply to new daily notes</label>
+      <default></default>
+    </entry>
+  </group>
 </kcfg>

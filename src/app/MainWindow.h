@@ -23,6 +23,8 @@ class BacklinksPanel;
 class OutlinksPanel;
 class OutlinePanel;
 class LocalGraphPanel;
+class TemplateService;
+class DailyNoteService;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -52,6 +54,8 @@ private:
     void showSearchPanel();
     void openGraphView();
     void toggleEditorMode();
+    void insertTemplate();
+    void openDailyNote();
     void onVaultOpened();
     void onVaultClosed();
     void onCursorInfoChanged(int line, int column, int wordCount);
@@ -74,6 +78,8 @@ private:
     OutlinePanel *m_outlinePanel = nullptr;
     LocalGraphPanel *m_localGraphPanel = nullptr;
     KRecentFilesAction *m_recentVaults = nullptr;
+    TemplateService *m_templateService = nullptr;
+    DailyNoteService *m_dailyNoteService = nullptr;
 };
 
 } // namespace Corbomite

@@ -15,6 +15,7 @@ private:
     void setupEditorPage();
     void setupFilesPage();
     void setupAppearancePage();
+    void setupDailyNotesPage();
     void applySettings();
 };
 

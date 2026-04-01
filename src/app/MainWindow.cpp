@@ -24,6 +24,10 @@
 #include "SessionManager.h"
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
+#include "dialogs/TemplatePicker.h"
+#include "corbomite/models/TemplateService.h"
+#include "corbomite/models/DailyNoteService.h"
+#include "corbomitesettings.h"
 
 #include <KCommandBar>
 #include <KLocalizedString>
@@ -255,6 +259,17 @@ void MainWindow::setupActions()
     graphView->setIcon(QIcon::fromTheme(QStringLiteral("preferences-system-network")));
     ac->setDefaultShortcut(graphView, QKeySequence(Qt::CTRL | Qt::Key_G));
     connect(graphView, &QAction::triggered, this, &MainWindow::openGraphView);
+
+    auto *insertTpl = ac->addAction(QStringLiteral("insert_template"));
+    insertTpl->setText(i18n("Insert Template"));
+    insertTpl->setIcon(QIcon::fromTheme(QStringLiteral("document-new-from-template")));
+    ac->setDefaultShortcut(insertTpl, QKeySequence(Qt::CTRL | Qt::Key_T));
+    connect(insertTpl, &QAction::triggered, this, &MainWindow::insertTemplate);
+
+    auto *dailyNote = ac->addAction(QStringLiteral("open_daily_note"));
+    dailyNote->setText(i18n("Open Daily Note"));
+    dailyNote->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
+    connect(dailyNote, &QAction::triggered, this, &MainWindow::openDailyNote);
 
     auto *toggleMode = ac->addAction(QStringLiteral("editor_toggle_mode"));
     toggleMode->setText(i18n("Toggle Reading Mode"));
@@ -751,6 +766,22 @@ void MainWindow::onVaultOpened()
         }
     }
 
+    // Template and Daily Note services
+    auto *settings = CorbomiteSettings::self();
+
+    delete m_templateService;
+    m_templateService = new TemplateService(vault, this);
+    m_templateService->setTemplateFolder(settings->templateFolder());
+    m_templateService->setDefaultDateFormat(settings->defaultDateFormat());
+    m_templateService->setDefaultTimeFormat(settings->defaultTimeFormat());
+
+    delete m_dailyNoteService;
+    m_dailyNoteService = new DailyNoteService(vault, m_vaultService->noteService(),
+                                                m_templateService, this);
+    m_dailyNoteService->setDateFormat(settings->dailyNoteDateFormat());
+    m_dailyNoteService->setFolder(settings->dailyNoteFolder());
+    m_dailyNoteService->setTemplateName(settings->dailyNoteTemplate());
+
     updateVaultActions();
 }
 
@@ -765,6 +796,11 @@ void MainWindow::onVaultClosed()
     m_fileWatch = nullptr;
     delete m_sessionManager;
     m_sessionManager = nullptr;
+
+    delete m_templateService;
+    m_templateService = nullptr;
+    delete m_dailyNoteService;
+    m_dailyNoteService = nullptr;
 
     m_vaultService->noteService()->setSearchIndex(nullptr);
     m_vaultService->vault()->setSearchIndex(nullptr);
@@ -815,6 +851,47 @@ void MainWindow::toggleEditorMode()
     }
 }
 
+void MainWindow::insertTemplate()
+{
+    if (!m_templateService) return;
+
+    auto templates = m_templateService->availableTemplates();
+    if (templates.isEmpty()) {
+        statusBar()->showMessage(i18n("No templates found in '%1' folder",
+                                       m_templateService->templateFolder()), 3000);
+        return;
+    }
+
+    TemplatePicker picker(templates, this);
+    if (picker.exec() != QDialog::Accepted) return;
+
+    QString name = picker.selectedTemplate();
+    if (name.isEmpty()) return;
+
+    auto *editor = m_editorManager->activeEditor();
+    if (!editor || !editor->noteDocument()) return;
+
+    QString expanded = m_templateService->loadAndExpand(name, editor->noteDocument()->name());
+    if (expanded.isEmpty()) return;
+
+    // If note is empty, replace content; otherwise insert at cursor
+    if (editor->noteDocument()->markdown().trimmed().isEmpty()) {
+        editor->noteDocument()->setMarkdown(expanded);
+    } else {
+        editor->textCursor().insertText(expanded);
+    }
+}
+
+void MainWindow::openDailyNote()
+{
+    if (!m_dailyNoteService) return;
+
+    auto *doc = m_dailyNoteService->openOrCreateToday();
+    if (doc) {
+        m_editorManager->openNote(doc);
+    }
+}
+
 void MainWindow::onCursorInfoChanged(int line, int column, int wordCount)
 {
     m_wordCountLabel->setText(i18n("Words: %1", wordCount));
@@ -840,6 +917,8 @@ void MainWindow::updateVaultActions()
     setEnabled(QStringLiteral("tab_close"), open);
     setEnabled(QStringLiteral("tab_next"), open);
     setEnabled(QStringLiteral("tab_prev"), open);
+    setEnabled(QStringLiteral("insert_template"), open);
+    setEnabled(QStringLiteral("open_daily_note"), open);
 }
 
 void MainWindow::updateWindowTitle(NoteEditorWidget *editor)

@@ -7,6 +7,7 @@
 #include <QSpinBox>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QLineEdit>
 #include <QDialogButtonBox>
 #include <QPushButton>
 
@@ -22,6 +23,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     setupEditorPage();
     setupFilesPage();
     setupAppearancePage();
+    setupDailyNotesPage();
 
     connect(this, &QDialog::accepted, this, &SettingsDialog::applySettings);
     connect(button(QDialogButtonBox::Apply), &QPushButton::clicked, this, &SettingsDialog::applySettings);
@@ -110,6 +112,36 @@ void SettingsDialog::setupAppearancePage()
     item->setIcon(QIcon::fromTheme(QStringLiteral("preferences-desktop-theme")));
 }
 
+void SettingsDialog::setupDailyNotesPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QFormLayout(page);
+    auto *settings = CorbomiteSettings::self();
+
+    auto *templateFolder = new QLineEdit;
+    templateFolder->setText(settings->templateFolder());
+    templateFolder->setObjectName(QStringLiteral("templateFolder"));
+    layout->addRow(i18n("Template folder:"), templateFolder);
+
+    auto *dailyFolder = new QLineEdit;
+    dailyFolder->setText(settings->dailyNoteFolder());
+    dailyFolder->setObjectName(QStringLiteral("dailyNoteFolder"));
+    layout->addRow(i18n("Daily notes folder:"), dailyFolder);
+
+    auto *dailyFormat = new QLineEdit;
+    dailyFormat->setText(settings->dailyNoteDateFormat());
+    dailyFormat->setObjectName(QStringLiteral("dailyNoteDateFormat"));
+    layout->addRow(i18n("Daily note date format:"), dailyFormat);
+
+    auto *dailyTemplate = new QLineEdit;
+    dailyTemplate->setText(settings->dailyNoteTemplate());
+    dailyTemplate->setObjectName(QStringLiteral("dailyNoteTemplate"));
+    layout->addRow(i18n("Daily note template:"), dailyTemplate);
+
+    auto item = addPage(page, i18n("Daily Notes"));
+    item->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
+}
+
 void SettingsDialog::applySettings()
 {
     auto *settings = CorbomiteSettings::self();
@@ -130,6 +162,14 @@ void SettingsDialog::applySettings()
         settings->setPromptDelete(w->isChecked());
     if (auto *w = findChild<QComboBox *>(QStringLiteral("theme")))
         settings->setTheme(w->currentData().toString());
+    if (auto *w = findChild<QLineEdit *>(QStringLiteral("templateFolder")))
+        settings->setTemplateFolder(w->text());
+    if (auto *w = findChild<QLineEdit *>(QStringLiteral("dailyNoteFolder")))
+        settings->setDailyNoteFolder(w->text());
+    if (auto *w = findChild<QLineEdit *>(QStringLiteral("dailyNoteDateFormat")))
+        settings->setDailyNoteDateFormat(w->text());
+    if (auto *w = findChild<QLineEdit *>(QStringLiteral("dailyNoteTemplate")))
+        settings->setDailyNoteTemplate(w->text());
 
     settings->save();
 }
