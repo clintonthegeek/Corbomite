@@ -6,6 +6,7 @@
 #include "forcegraph/ForceLayoutEngine.h"
 #include <QWheelEvent>
 #include <QMouseEvent>
+#include <QContextMenuEvent>
 #include <QKeyEvent>
 #include <QScrollBar>
 
@@ -196,6 +197,18 @@ void ForceGraphView::mouseReleaseEvent(QMouseEvent *event)
     }
 
     QGraphicsView::mouseReleaseEvent(event);
+}
+
+void ForceGraphView::contextMenuEvent(QContextMenuEvent *event)
+{
+    auto *item = itemAt(event->pos());
+    auto *nodeItem = dynamic_cast<ForceGraphNode *>(item);
+    if (nodeItem) {
+        Q_EMIT nodeContextMenuRequested(nodeItem->nodeId(), event->globalPos());
+        event->accept();
+        return;
+    }
+    QGraphicsView::contextMenuEvent(event);
 }
 
 void ForceGraphView::keyPressEvent(QKeyEvent *event)

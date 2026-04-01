@@ -28,6 +28,9 @@ public:
 
 Q_SIGNALS:
     void noteActivated(const QString &relativePath);
+    void openNoteInNewTabRequested(const QString &relativePath);
+    void revealInNavigationRequested(const QString &relativePath);
+    void deleteNoteRequested(const QString &relativePath);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -36,6 +39,7 @@ private:
     void setupControlsPanel();
     void applyFilters();
     void positionControlsPanel();
+    void showNodeContextMenu(const QString &nodeId, const QPoint &globalPos);
 
     ForceGraph::ForceGraphView *m_graphView;
     ForceGraph::ForceLayoutEngine *m_engine;

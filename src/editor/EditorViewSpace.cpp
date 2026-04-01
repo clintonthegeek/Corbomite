@@ -323,6 +323,24 @@ void EditorViewSpace::openGraphView(SQLiteIndex *index, VaultModel *vault)
 
     connect(graphTab, &GraphViewTab::noteActivated,
             this, &EditorViewSpace::graphNoteActivated);
+
+    connect(graphTab, &GraphViewTab::openNoteInNewTabRequested,
+            this, [this](const QString &path) {
+        Q_EMIT graphNoteActivated(path);  // Reuse existing signal
+    });
+
+    connect(graphTab, &GraphViewTab::revealInNavigationRequested,
+            this, [this](const QString &path) {
+        // TODO: Wire to FileExplorerPanel::selectFile() via MainWindow
+        Q_EMIT graphNoteActivated(path);  // For now, just open the note
+    });
+
+    connect(graphTab, &GraphViewTab::deleteNoteRequested,
+            this, [this](const QString &path) {
+        // TODO: Wire to NoteService::deleteNote() via MainWindow
+        // For now, signal is emitted but not handled
+        Q_UNUSED(path);
+    });
 }
 
 bool EditorViewSpace::hasGraphView() const

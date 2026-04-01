@@ -3,17 +3,26 @@
 #include "GraphControlsPanel.h"
 #include "GraphDataBuilder.h"
 
+#include <corbomite/models/VaultModel.h>
 #include <forcegraph/ForceLayoutEngine.h>
 #include <forcegraph/ForceGraphView.h>
 
+#include <QClipboard>
+#include <QDesktopServices>
+#include <QFileInfo>
+#include <QGuiApplication>
 #include <QIcon>
+#include <QMenu>
 #include <QResizeEvent>
 #include <QSet>
 #include <QToolButton>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <algorithm>
 
 #include <KLocalizedString>
+#include <KMessageBox>
+#include <KStandardGuiItem>
 
 namespace Corbomite {
 
@@ -38,6 +47,9 @@ GraphViewTab::GraphViewTab(SQLiteIndex *index, VaultModel *vault, QWidget *paren
             this, [this](const QString &id) {
         Q_EMIT noteActivated(id);
     });
+
+    connect(m_graphView, &ForceGraph::ForceGraphView::nodeContextMenuRequested,
+            this, &GraphViewTab::showNodeContextMenu);
 
     buildGraph();
     setupControlsPanel();
@@ -238,6 +250,93 @@ void GraphViewTab::applyFilters()
 
     m_graphView->zoomToFit();
     m_engine->start();
+}
+
+void GraphViewTab::showNodeContextMenu(const QString &nodeId, const QPoint &globalPos)
+{
+    if (!m_vault) return;
+
+    // Node ID is the vault-relative path
+    QString relativePath = nodeId;
+    QString absolutePath = m_vault->path() + QLatin1Char('/') + relativePath;
+    QString displayName = relativePath.mid(relativePath.lastIndexOf(QLatin1Char('/')) + 1);
+    if (displayName.endsWith(QStringLiteral(".md"))) displayName.chop(3);
+
+    QMenu menu(this);
+
+    // Header: note name (disabled)
+    auto *header = menu.addAction(displayName);
+    header->setEnabled(false);
+    QFont headerFont = header->font();
+    headerFont.setBold(true);
+    header->setFont(headerFont);
+
+    menu.addSeparator();
+
+    // Open in new tab
+    menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")),
+                   i18n("Open in new tab"), this, [this, relativePath]() {
+        Q_EMIT openNoteInNewTabRequested(relativePath);
+    });
+
+    // TODO: Open in new window (requires multi-window support)
+
+    menu.addSeparator();
+
+    // TODO: Move file to... (requires file move dialog)
+    // TODO: Bookmark... (requires bookmark system)
+    // TODO: Merge entire file with... (requires merge UI)
+
+    // Copy path submenu
+    auto *copyMenu = menu.addMenu(QIcon::fromTheme(QStringLiteral("edit-copy")),
+                                   i18n("Copy path"));
+    copyMenu->addAction(i18n("Copy vault path"), this, [relativePath]() {
+        QGuiApplication::clipboard()->setText(relativePath);
+    });
+    copyMenu->addAction(i18n("Copy absolute path"), this, [absolutePath]() {
+        QGuiApplication::clipboard()->setText(absolutePath);
+    });
+
+    // TODO: Open linked view (requires local graph as tab)
+
+    menu.addSeparator();
+
+    // Open in default app
+    menu.addAction(QIcon::fromTheme(QStringLiteral("document-open")),
+                   i18n("Open in default app"), this, [absolutePath]() {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(absolutePath));
+    });
+
+    // Show in system explorer
+    menu.addAction(QIcon::fromTheme(QStringLiteral("system-file-manager")),
+                   i18n("Show in system explorer"), this, [absolutePath]() {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(absolutePath).absolutePath()));
+    });
+
+    // Reveal in navigation
+    menu.addAction(QIcon::fromTheme(QStringLiteral("go-jump")),
+                   i18n("Reveal file in navigation"), this, [this, relativePath]() {
+        Q_EMIT revealInNavigationRequested(relativePath);
+    });
+
+    menu.addSeparator();
+
+    // Delete file
+    menu.addAction(QIcon::fromTheme(QStringLiteral("edit-delete")),
+                   i18n("Delete file"), this, [this, relativePath, displayName]() {
+        auto result = KMessageBox::questionTwoActions(
+            this,
+            i18n("Delete \"%1\"?\n\nThis cannot be undone.", displayName),
+            i18n("Delete File"),
+            KStandardGuiItem::del(),
+            KStandardGuiItem::cancel()
+        );
+        if (result == KMessageBox::PrimaryAction) {
+            Q_EMIT deleteNoteRequested(relativePath);
+        }
+    });
+
+    menu.exec(globalPos);
 }
 
 } // namespace Corbomite
