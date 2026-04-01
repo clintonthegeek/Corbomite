@@ -183,10 +183,18 @@ static QString renderBlock(const Block &block, const RenderSettings &settings)
     case MD_BLOCK_LI: {
         QString prefix;
         if (block.isTaskItem) {
-            const bool checked = (block.taskMark == 'x' || block.taskMark == 'X');
-            prefix = checked ? QStringLiteral("[x] ") : QStringLiteral("[ ] ");
+            switch (block.taskMark) {
+            case 'x': case 'X': prefix = QStringLiteral("\u2611 "); break; // ☑ checked
+            case ' ':           prefix = QStringLiteral("\u2610 "); break; // ☐ unchecked
+            case '/':           prefix = QStringLiteral("\u25D2 "); break; // ◒ in progress
+            case '-':           prefix = QStringLiteral("\u2796 "); break; // ➖ cancelled
+            case '?':           prefix = QStringLiteral("\u2753 "); break; // ❓ question
+            case '!':           prefix = QStringLiteral("\u2757 "); break; // ❗ important
+            case '>':           prefix = QStringLiteral("\u27A1 "); break; // ➡ deferred
+            default:            prefix = QStringLiteral("\u2610 "); break; // ☐ fallback
+            }
         }
-        html += QStringLiteral("<li>%1%2%3</li>")
+        html += QStringLiteral("<li style=\"list-style-type: none;\">%1%2%3</li>")
             .arg(prefix, renderInlines(block.inlines, settings), renderBlocks(block.children, settings));
         break;
     }
