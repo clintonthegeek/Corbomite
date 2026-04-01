@@ -15,10 +15,22 @@ Polish items and known issues to address.
   the entire line. May want heading prefix to be line-level, not
   element-level.
 
+## Style / Theme API
+
+- [ ] Consolidate all hardcoded colors, font families, and sizes into
+  a single `MarkoffStyle` struct or similar. Currently scattered across:
+  - `MarkdownHighlighter.cpp` (heading colors, link blue, tag orange, etc.)
+  - `CodeAtomicBlock.cpp` (background #f5f5f5, border, label color)
+  - `CalloutAtomicBlock.cpp` (13 callout type colors)
+  - `Renderer.cpp` (HTML CSS colors)
+- [ ] Expose a public `setStyle()` / `style()` API on Editor and ReadingView
+- [ ] Support KDE color scheme integration (Breeze Dark, etc.)
+- [ ] Monospace font family should come from style, not hardcoded
+  "JetBrains Mono, Fira Code, monospace"
+
 ## Rendering
 
-- [ ] List bullet rendering in live preview — currently shows raw `-`
-  instead of a styled bullet when cursor is elsewhere on the line.
-
-- [ ] Blockquote `>` prefix rendering — could render as left border
-  instead of raw `>` character.
+- [ ] Horizontal rules as actual graphical lines (not just styled `---` text)
+- [ ] Task list checkboxes as graphical widgets
+- [ ] Blockquote left border (visual indicator beyond just indent + gray text)
+- [ ] List bullet rendering — styled bullet character instead of raw `-`
