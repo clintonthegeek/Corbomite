@@ -4,6 +4,7 @@
 #include "mdi/CorbomiteMDI.h"
 #include <QLabel>
 #include <QCloseEvent>
+#include <QStackedWidget>
 
 class KRecentFilesAction;
 
@@ -25,6 +26,7 @@ class OutlinePanel;
 class LocalGraphPanel;
 class TemplateService;
 class DailyNoteService;
+class WelcomeScreen;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -80,6 +82,8 @@ private:
     KRecentFilesAction *m_recentVaults = nullptr;
     TemplateService *m_templateService = nullptr;
     DailyNoteService *m_dailyNoteService = nullptr;
+    QStackedWidget *m_centralStack = nullptr;
+    WelcomeScreen *m_welcomeScreen = nullptr;
 };
 
 } // namespace Corbomite

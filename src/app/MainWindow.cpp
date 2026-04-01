@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MainWindow.h"
+#include "WelcomeScreen.h"
 #include "VaultService.h"
 #include "editor/EditorViewManager.h"
 #include "editor/EditorViewSpace.h"
@@ -314,21 +315,51 @@ void MainWindow::setupActions()
     auto *splitRight = ac->addAction(QStringLiteral("split_right"));
     splitRight->setText(i18n("Split Right"));
     ac->setDefaultShortcut(splitRight, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Right));
-    connect(splitRight, &QAction::triggered, m_editorManager, &EditorViewManager::splitActiveHorizontal);
+    connect(splitRight, &QAction::triggered, this, [this]() {
+        if (m_editorManager) m_editorManager->splitActiveHorizontal();
+    });
 
     auto *splitDown = ac->addAction(QStringLiteral("split_down"));
     splitDown->setText(i18n("Split Down"));
     ac->setDefaultShortcut(splitDown, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Down));
-    connect(splitDown, &QAction::triggered, m_editorManager, &EditorViewManager::splitActiveVertical);
+    connect(splitDown, &QAction::triggered, this, [this]() {
+        if (m_editorManager) m_editorManager->splitActiveVertical();
+    });
 }
 
 void MainWindow::setupEditor()
 {
-    m_editorManager = new EditorViewManager(centralWidget());
-    centralWidget()->layout()->addWidget(m_editorManager);
+    // Create the stacked widget inside the MDI central area
+    m_centralStack = new QStackedWidget(centralWidget());
+    centralWidget()->layout()->addWidget(m_centralStack);
+
+    // Index 0: Welcome screen
+    m_welcomeScreen = new WelcomeScreen(m_vaultService, m_centralStack);
+    m_centralStack->addWidget(m_welcomeScreen);
+
+    connect(m_welcomeScreen, &WelcomeScreen::vaultRequested, this, [this](const QString &path) {
+        m_vaultService->openVault(path);
+    });
+    connect(m_welcomeScreen, &WelcomeScreen::openFolderRequested, this, &MainWindow::openVaultDialog);
+    connect(m_welcomeScreen, &WelcomeScreen::createVaultRequested, this, [this]() {
+        QString dir = QFileDialog::getExistingDirectory(
+            this, i18n("Create New Vault"), QDir::homePath());
+        if (!dir.isEmpty()) {
+            QDir(dir).mkpath(QStringLiteral(".corbomite"));
+            m_vaultService->openVault(dir);
+        }
+    });
+
+    // Index 1: Editor view manager
+    m_editorManager = new EditorViewManager(m_centralStack);
+    m_centralStack->addWidget(m_editorManager);
 
     connect(m_editorManager, &EditorViewManager::cursorInfoChanged,
             this, &MainWindow::onCursorInfoChanged);
+
+    // Start on welcome screen
+    m_centralStack->setCurrentIndex(0);
+    setSidebarsVisibleInternal(false, true);
 }
 
 void MainWindow::setupSidebars()
@@ -624,6 +655,11 @@ void MainWindow::onNoteActivated(const QString &relativePath)
 void MainWindow::onVaultOpened()
 {
     auto *vault = m_vaultService->vault();
+
+    // Switch to editor view
+    m_centralStack->setCurrentIndex(1);
+    setSidebarsVisible(true);
+
     updateWindowTitle();
 
     // Track in recent vaults
@@ -821,6 +857,11 @@ void MainWindow::onVaultClosed()
     m_fileExplorer->setModel(nullptr);
     updateWindowTitle();
     updateVaultActions();
+
+    // Switch to welcome screen
+    m_welcomeScreen->refreshRecentVaults();
+    m_centralStack->setCurrentIndex(0);
+    setSidebarsVisibleInternal(false, true);
 }
 
 void MainWindow::openGraphView()
