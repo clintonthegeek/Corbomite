@@ -36,9 +36,10 @@ bool AtomicBlock::handleContextMenu(QContextMenuEvent *, const QPointF &)
     return false;
 }
 
-void AtomicBlock::enterBlock(int)
+void AtomicBlock::enterBlock(int cursorPosition)
 {
     m_focused = true;
+    m_cursorOffset = cursorPosition;
 }
 
 void AtomicBlock::leaveBlock()

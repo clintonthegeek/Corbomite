@@ -59,6 +59,9 @@ public:
     virtual void enterBlock(int cursorPosition);
     virtual void leaveBlock();
 
+    /// The cursor offset within the block's content, set by enterBlock
+    int cursorOffset() const { return m_cursorOffset; }
+
 Q_SIGNALS:
     /// Emitted when the block's rendered content changed (needs repaint)
     void contentChanged();
@@ -71,6 +74,7 @@ protected:
     int m_lastBlock = -1;
     bool m_focused = false;
     int m_baseFontSize = 14;
+    int m_cursorOffset = 0;
 };
 
 } // namespace Markoff

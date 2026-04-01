@@ -40,6 +40,10 @@ public:
     void enterBlock(int cursorPosition) override;
     void leaveBlock() override;
 
+    /// Map a click position (relative to the block's top-left) to a
+    /// character offset within the code content (0-based into m_code).
+    int hitTest(const QPointF &localPos) const;
+
 private:
     void invalidateCache();
     void rebuildCache(qreal width) const;

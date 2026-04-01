@@ -110,13 +110,45 @@ bool CodeAtomicBlock::handleKeyPress(QKeyEvent *event)
     return true;
 }
 
-bool CodeAtomicBlock::handleMousePress(QMouseEvent *, const QPointF &)
+int CodeAtomicBlock::hitTest(const QPointF &localPos) const
 {
-    if (!m_focused) {
-        enterBlock(0);
-        return true;
-    }
-    return false;
+    m_codeFont.setPointSize(m_baseFontSize);
+    const QFontMetricsF fm(m_codeFont);
+    const qreal lineHeight = fm.height();
+
+    QStringList lines = m_code.split(QLatin1Char('\n'));
+    while (!lines.isEmpty() && lines.last().trimmed().isEmpty())
+        lines.removeLast();
+
+    const int lineNumDigits = QString::number(lines.size()).length();
+    const qreal gutterWidth = fm.horizontalAdvance(QLatin1Char('9')) * (lineNumDigits + 2);
+    const qreal textX = gutterWidth + m_padding;
+
+    // Y → line index
+    int lineIdx = static_cast<int>((localPos.y() - m_labelHeight) / lineHeight);
+    lineIdx = qBound(0, lineIdx, lines.size() - 1);
+
+    // X → column within line (monospace: divide by char width)
+    qreal charWidth = fm.horizontalAdvance(QLatin1Char('m'));
+    int col = static_cast<int>((localPos.x() - textX) / charWidth + 0.5);
+    col = qMax(0, col);
+    if (lineIdx < lines.size())
+        col = qMin(col, lines[lineIdx].length());
+
+    // Convert (line, col) to offset in m_code
+    int offset = 0;
+    for (int i = 0; i < lineIdx && i < lines.size(); ++i)
+        offset += lines[i].length() + 1; // +1 for \n
+    offset += col;
+
+    return qMin(offset, m_code.length());
+}
+
+bool CodeAtomicBlock::handleMousePress(QMouseEvent *, const QPointF &localPos)
+{
+    int charOffset = hitTest(localPos);
+    enterBlock(charOffset);
+    return true;
 }
 
 void CodeAtomicBlock::enterBlock(int cursorPosition)

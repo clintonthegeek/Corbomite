@@ -1916,6 +1916,26 @@ void Editor::mousePressEvent(QMouseEvent *e)
                         Markoff::contentOffset(d.get(), this)).topLeft();
                     d->activeAtomicBlock = ab;
                     ab->handleMousePress(e, localPos);
+
+                    // Map the atomic block's character offset to a document
+                    // position and place the cursor there. The code content
+                    // starts on the line AFTER the opening fence (firstBlock + 1).
+                    int codeCharOffset = ab->isFocused() ? 0 : 0;
+                    // Get the offset from enterBlock's cursorPosition
+                    // (handleMousePress called enterBlock with the hitTest result)
+                    // The code block's first content line is firstBlock + 1
+                    QTextBlock contentStart = document()->findBlockByNumber(ab->firstBlock() + 1);
+                    if (contentStart.isValid()) {
+                        // The cursorPosition from enterBlock is an offset into
+                        // the code content string. Map to document position.
+                        int codeOffset = ab->cursorOffset();
+                        int docPos = contentStart.position() + codeOffset;
+                        docPos = qMin(docPos, document()->characterCount() - 1);
+                        QTextCursor cursor = d->control->textCursor();
+                        cursor.setPosition(docPos);
+                        d->control->setTextCursor(cursor);
+                    }
+
                     e->accept();
                     viewport()->update();
                     return;
