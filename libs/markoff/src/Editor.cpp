@@ -624,6 +624,12 @@ void Editor::Private::init(const QString &txt)
     q->setFocusPolicy(Qt::StrongFocus);
     q->setAttribute(Qt::WA_KeyCompression);
     q->setAttribute(Qt::WA_InputMethodEnabled);
+
+    // Ensure cursor is visible and blinking when the widget gets focus.
+    // Qt's QPlainTextEdit has a showCursorOnInitialShow mechanism in
+    // showEvent. We simplify: set showCursorOnInitialShow and handle
+    // it in the first focusInEvent.
+    showCursorOnInitialShow = 1;
     q->setInputMethodHints(Qt::ImhMultiLine);
 
 #ifndef QT_NO_CURSOR
@@ -1857,6 +1863,12 @@ void Editor::focusInEvent(QFocusEvent *e)
     }
     QAbstractScrollArea::focusInEvent(e);
     d->sendControlEvent(e);
+
+    // Ensure cursor blink starts on first show
+    if (d->showCursorOnInitialShow) {
+        d->showCursorOnInitialShow = 0;
+        d->control->setCursorVisible(true);
+    }
 }
 
 void Editor::focusOutEvent(QFocusEvent *e)

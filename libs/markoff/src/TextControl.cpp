@@ -1247,6 +1247,11 @@ void TextControl::setCursorWidth(int width)
     d->repaintCursor();
 }
 
+void TextControl::setCursorVisible(bool visible)
+{
+    d->setCursorVisible(visible);
+}
+
 bool TextControl::acceptRichText() const
 {
     return d->acceptRichText;

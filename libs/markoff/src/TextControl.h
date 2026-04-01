@@ -64,6 +64,7 @@ public:
     void setOverwriteMode(bool overwrite);
 
     int cursorWidth() const;
+    void setCursorVisible(bool visible);
     void setCursorWidth(int width);
 
     void setAcceptRichText(bool accept);
