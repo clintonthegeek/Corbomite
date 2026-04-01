@@ -694,7 +694,7 @@ void Editor::Private::updateBlockDisplayModes()
             newMode = cursorInAtomic ? MarkoffBlockData::Raw : MarkoffBlockData::Rendered;
         } else {
             // Normal blocks: near cursor = raw, far = rendered
-            bool nearCursor = (blockNum >= cursorBlockNum - 1 && blockNum <= cursorBlockNum + 1);
+            bool nearCursor = (blockNum == cursorBlockNum);
             newMode = nearCursor ? MarkoffBlockData::Raw : MarkoffBlockData::Rendered;
         }
         if (data->displayMode != newMode) {

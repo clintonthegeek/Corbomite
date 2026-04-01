@@ -85,22 +85,19 @@ void MarkdownHighlighter::setCursorBlock(int blockNumber)
     int oldBlock = m_cursorBlock;
     m_cursorBlock = blockNumber;
 
-    // Only rehighlight the blocks that changed (old and new cursor vicinity)
+    // Rehighlight blocks that changed visibility (old cursor line goes
+    // from raw→rendered, new cursor line goes from rendered→raw)
     if (m_mode == Mode::LivePreview) {
         QTextDocument *doc = document();
-        // Rehighlight old cursor vicinity
-        for (int i = oldBlock - 1; i <= oldBlock + 1; ++i) {
-            if (i >= 0) {
-                QTextBlock b = doc->findBlockByNumber(i);
-                if (b.isValid()) rehighlightBlock(b);
-            }
+        // Rehighlight old cursor block (now rendered)
+        if (oldBlock >= 0) {
+            QTextBlock b = doc->findBlockByNumber(oldBlock);
+            if (b.isValid()) rehighlightBlock(b);
         }
-        // Rehighlight new cursor vicinity
-        for (int i = blockNumber - 1; i <= blockNumber + 1; ++i) {
-            if (i >= 0) {
-                QTextBlock b = doc->findBlockByNumber(i);
-                if (b.isValid()) rehighlightBlock(b);
-            }
+        // Rehighlight new cursor block (now raw)
+        {
+            QTextBlock b = doc->findBlockByNumber(blockNumber);
+            if (b.isValid()) rehighlightBlock(b);
         }
     }
 }
@@ -123,7 +120,7 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     // Determine if this block shows raw syntax or formatted content.
     bool nearCursor = (m_mode == Mode::Source) ||
         (m_mode == Mode::LivePreview &&
-         blockNum >= m_cursorBlock - 1 && blockNum <= m_cursorBlock + 1);
+         blockNum == m_cursorBlock);
 
     bool hideDelimiters = (m_mode == Mode::LivePreview && !nearCursor);
 
