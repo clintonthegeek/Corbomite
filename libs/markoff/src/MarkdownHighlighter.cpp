@@ -70,7 +70,10 @@ void MarkdownHighlighter::setMode(Mode mode)
 void MarkdownHighlighter::setSpanMap(QList<SourceSpan> spans)
 {
     m_spans = std::move(spans);
-    rehighlight();
+    // Don't call rehighlight() here — the document change that triggered
+    // the reparse will also trigger Qt's automatic rehighlight. Calling
+    // rehighlight() explicitly would re-modify the document, triggering
+    // another contentsChanged → reparse → setSpanMap → infinite loop.
 }
 
 void MarkdownHighlighter::setCursorPosition(int blockNumber, int columnInBlock)

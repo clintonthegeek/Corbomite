@@ -95,6 +95,7 @@ struct Editor::Private {
     std::unique_ptr<Markoff::Document> parsedDoc;
     Markoff::Renderer renderer;
     bool needsReparse = false;
+    bool inReparse = false;  // guard against reparse loops from highlighter
 
     void reparseDocument();
     void updateBlockDisplayModes();
