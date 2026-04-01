@@ -1455,12 +1455,12 @@ void Editor::setMode(Mode m)
         settings.marginPx = 0;
         d->renderer.setSettings(settings);
 
-        // Switch highlighter to live preview mode
-        d->highlighter->setMode(MarkdownHighlighter::Mode::LivePreview);
+        // Parse first so spans are available, THEN switch mode
+        // (setMode calls rehighlight, which needs the spans)
+        d->reparseDocument();
         d->highlighter->setCursorPosition(d->control->textCursor().block().blockNumber(),
                                           d->control->textCursor().positionInBlock());
-
-        d->reparseDocument();
+        d->highlighter->setMode(MarkdownHighlighter::Mode::LivePreview);
         d->updateBlockDisplayModes();
     } else {
         document()->setDocumentMargin(sourceMargin);

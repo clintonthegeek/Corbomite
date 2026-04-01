@@ -183,6 +183,16 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
 
     // Content spans: apply formatting by merging onto existing format
     // (so nested formatting accumulates: bold + code = bold monospace)
+    // Skip spans with no formatting flags — they're plain text and would
+    // overwrite formatting already applied by other spans.
+    bool hasAnyFormat = span.bold || span.italic || span.strikethrough ||
+        span.code || span.math || span.mathDisplay || span.highlight ||
+        span.comment || span.isTag || span.isLink || span.isWikilink ||
+        span.isImage || span.isHeading || span.isHorizontalRule ||
+        span.isListMarker || span.isBlockquoteMarker || span.isFrontmatter;
+    if (!hasAnyFormat)
+        return;
+
     for (int i = localStart; i < localEnd; ++i) {
         QTextCharFormat fmt = format(i);
 
