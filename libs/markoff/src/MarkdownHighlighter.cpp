@@ -170,6 +170,8 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
                 setFormat(localStart, localLen, m_mathFormat);
             } else if (span.highlight) {
                 setFormat(localStart, localLen, m_highlightFormat);
+            } else if (span.comment) {
+                setFormat(localStart, localLen, m_commentFormat);
             } else if (span.isWikilink) {
                 setFormat(localStart, localLen, m_wikilinkFormat);
             } else if (span.isLink) {

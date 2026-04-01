@@ -336,6 +336,9 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
             gap.isWikilink = parentFmt.isWikilink;
             gap.isImage = parentFmt.isImage;
             gap.isHeading = parentFmt.isHeading;
+            gap.highlight = parentFmt.highlight;
+            gap.comment = parentFmt.comment;
+            gap.isTag = parentFmt.isTag;
             if (headingLevel > 0) gap.headingLevel = headingLevel;
             if (gap.charLength > 0)
                 spans.append(gap);
@@ -362,6 +365,9 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
         gap.isWikilink = parentFmt.isWikilink;
         gap.isImage = parentFmt.isImage;
         gap.isHeading = parentFmt.isHeading;
+        gap.highlight = parentFmt.highlight;
+        gap.comment = parentFmt.comment;
+        gap.isTag = parentFmt.isTag;
         if (headingLevel > 0) gap.headingLevel = headingLevel;
         if (gap.charLength > 0)
             spans.append(gap);
@@ -371,7 +377,8 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
     // from children need the parent's formatting context too)
     if (parentFmt.bold || parentFmt.italic || parentFmt.strikethrough ||
         parentFmt.code || parentFmt.math || parentFmt.isLink ||
-        parentFmt.isWikilink || parentFmt.isImage || parentFmt.isHeading) {
+        parentFmt.isWikilink || parentFmt.isImage || parentFmt.isHeading ||
+        parentFmt.highlight || parentFmt.comment) {
         for (int i = spans.size() - 1; i >= 0; --i) {
             SourceSpan &s = spans[i];
             if (s.utf8Offset < static_cast<int>(startByte))
@@ -388,6 +395,8 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
             if (parentFmt.isLink) s.isLink = true;
             if (parentFmt.isWikilink) s.isWikilink = true;
             if (parentFmt.isImage) s.isImage = true;
+            if (parentFmt.highlight) s.highlight = true;
+            if (parentFmt.comment) s.comment = true;
             if (parentFmt.isHeading) {
                 s.isHeading = true;
                 if (headingLevel > 0)
@@ -457,6 +466,12 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
                     s.isHeading = true;
                     if (s.headingLevel == 0)
                         s.headingLevel = h.level;
+                    // Heading delimiters (## markers) should show when
+                    // cursor is anywhere in the heading line
+                    if (s.isDelimiter && s.parentCharStart < 0) {
+                        s.parentCharStart = utf8ToCharOffset(h.startByte);
+                        s.parentCharEnd = utf8ToCharOffset(h.endByte);
+                    }
                 }
             }
         }
