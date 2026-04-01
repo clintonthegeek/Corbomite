@@ -5,6 +5,9 @@
 #include "corbomite/core/RegexRenderEngine.h"
 #include "corbomite/core/RenderProfile.h"
 #include <QVBoxLayout>
+#include <KLocalizedString>
+#include <KMessageBox>
+#include <KStandardGuiItem>
 
 namespace Corbomite {
 
@@ -213,6 +216,95 @@ void EditorViewManager::cleanupEmptySplitters(QSplitter *splitter)
             cleanupEmptySplitters(parent);
         }
     }
+}
+
+bool EditorViewManager::queryClose()
+{
+    QStringList modifiedPaths;
+    for (auto *space : std::as_const(m_viewSpaces)) {
+        modifiedPaths.append(space->modifiedDocumentPaths());
+    }
+    modifiedPaths.removeDuplicates();
+
+    if (modifiedPaths.isEmpty()) {
+        return true;
+    }
+
+    QStringList names;
+    for (const QString &path : std::as_const(modifiedPaths)) {
+        QString name = path.mid(path.lastIndexOf(QLatin1Char('/')) + 1);
+        if (name.endsWith(QStringLiteral(".md"))) name.chop(3);
+        names.append(name);
+    }
+
+    QString message;
+    if (names.size() == 1) {
+        message = i18n("The document \"%1\" has unsaved changes.\n\nDo you want to save before closing?", names.first());
+    } else {
+        message = i18n("The following documents have unsaved changes:\n\n%1\n\nDo you want to save before closing?",
+                        names.join(QStringLiteral("\n")));
+    }
+
+    auto result = KMessageBox::warningTwoActionsCancel(
+        this,
+        message,
+        i18n("Unsaved Changes"),
+        KStandardGuiItem::save(),
+        KStandardGuiItem::discard()
+    );
+
+    if (result == KMessageBox::Cancel) {
+        return false;
+    }
+
+    if (result == KMessageBox::PrimaryAction) {
+        for (auto *space : std::as_const(m_viewSpaces)) {
+            space->saveAllModified();
+        }
+    }
+
+    return true;
+}
+
+void EditorViewManager::closeAllDocuments()
+{
+    for (auto *space : std::as_const(m_viewSpaces)) {
+        space->closeAllTabs();
+    }
+
+    resetToSingleViewSpace();
+}
+
+void EditorViewManager::resetToSingleViewSpace()
+{
+    if (m_viewSpaces.size() <= 1) return;
+
+    auto *keepSpace = m_viewSpaces.first();
+
+    // Remove all other view spaces
+    for (int i = m_viewSpaces.size() - 1; i >= 1; --i) {
+        auto *space = m_viewSpaces.at(i);
+        m_viewSpaces.removeAt(i);
+        space->deleteLater();
+    }
+
+    // Remove all intermediate splitters — reparent keepSpace directly under root
+    QList<QSplitter *> childSplitters;
+    for (int i = m_rootSplitter->count() - 1; i >= 0; --i) {
+        auto *child = qobject_cast<QSplitter *>(m_rootSplitter->widget(i));
+        if (child) {
+            childSplitters.append(child);
+        }
+    }
+
+    m_rootSplitter->addWidget(keepSpace);
+
+    for (auto *s : std::as_const(childSplitters)) {
+        s->deleteLater();
+    }
+
+    setActiveViewSpace(keepSpace);
+    Q_EMIT activeEditorChanged(keepSpace->activeEditor());
 }
 
 } // namespace Corbomite

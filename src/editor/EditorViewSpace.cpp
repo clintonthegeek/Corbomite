@@ -5,6 +5,7 @@
 #include "graph/GraphViewTab.h"
 #include "canvas/CanvasViewTab.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/storage/FileSystemAdapter.h"
 #include <QVBoxLayout>
 #include <QIcon>
 #include <QMouseEvent>
@@ -385,6 +386,51 @@ void EditorViewSpace::showTabContextMenu(const QPoint &pos)
     });
 
     menu.exec(m_tabBar->mapToGlobal(pos));
+}
+
+void EditorViewSpace::closeAllTabs()
+{
+    while (m_tabBar->count() > 0) {
+        closeTab(0);
+    }
+}
+
+bool EditorViewSpace::hasModifiedDocuments() const
+{
+    for (auto it = m_editors.constBegin(); it != m_editors.constEnd(); ++it) {
+        auto *editor = it.value();
+        if (editor && editor->noteDocument() && editor->noteDocument()->isModified()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+QStringList EditorViewSpace::modifiedDocumentPaths() const
+{
+    QStringList paths;
+    for (auto it = m_editors.constBegin(); it != m_editors.constEnd(); ++it) {
+        auto *editor = it.value();
+        if (editor && editor->noteDocument() && editor->noteDocument()->isModified()) {
+            paths.append(it.key());
+        }
+    }
+    return paths;
+}
+
+void EditorViewSpace::saveAllModified()
+{
+    FileSystemAdapter fs;
+    for (auto it = m_editors.constBegin(); it != m_editors.constEnd(); ++it) {
+        auto *editor = it.value();
+        if (editor && editor->noteDocument() && editor->noteDocument()->isModified()) {
+            auto *doc = editor->noteDocument();
+            if (fs.writeFile(doc->filePath(), doc->markdown())) {
+                doc->setModified(false);
+                Q_EMIT doc->saved();
+            }
+        }
+    }
 }
 
 } // namespace Corbomite

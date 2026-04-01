@@ -38,6 +38,9 @@ public:
     void closeActiveViewSpace();
     int viewSpaceCount() const;
 
+    bool queryClose();
+    void closeAllDocuments();
+
 Q_SIGNALS:
     void activeEditorChanged(NoteEditorWidget *editor);
     void cursorInfoChanged(int line, int column, int wordCount);
@@ -50,6 +53,7 @@ private:
     void splitActiveView(Qt::Orientation orientation);
     void removeViewSpace(EditorViewSpace *space);
     void cleanupEmptySplitters(QSplitter *splitter);
+    void resetToSingleViewSpace();
 
     QSplitter *m_rootSplitter;
     EditorViewSpace *m_activeViewSpace = nullptr;

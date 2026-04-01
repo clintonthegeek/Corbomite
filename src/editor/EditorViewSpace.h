@@ -37,6 +37,11 @@ public:
     void openGraphView(SQLiteIndex *index, VaultModel *vault);
     bool hasGraphView() const;
 
+    void closeAllTabs();
+    bool hasModifiedDocuments() const;
+    QStringList modifiedDocumentPaths() const;
+    void saveAllModified();
+
 Q_SIGNALS:
     void activeEditorChanged(NoteEditorWidget *editor);
     void cursorInfoChanged(int line, int column, int wordCount);
