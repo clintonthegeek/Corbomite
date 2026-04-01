@@ -5,6 +5,7 @@
 #include <QSyntaxHighlighter>
 #include <QTextCharFormat>
 #include "SourceSpan.h"
+#include "DecoratedRange.h"
 
 namespace Markoff {
 
@@ -24,6 +25,9 @@ public:
 
     /// Update the span map after a reparse.
     void setSpanMap(QList<SourceSpan> spans);
+
+    /// Set decorated ranges (for callout title formatting)
+    void setDecoratedRanges(const QList<DecoratedRange> &ranges) { m_decoratedRanges = ranges; }
 
     /// Cursor position for per-element delimiter hiding.
     void setCursorPosition(int blockNumber, int columnInBlock);
@@ -48,6 +52,7 @@ private:
     int m_cursorColumn = -1;
 
     QList<SourceSpan> m_spans;
+    QList<DecoratedRange> m_decoratedRanges;
 
     // Format definitions
     QTextCharFormat m_headingFormat[6];

@@ -5,6 +5,7 @@
 #include <QColor>
 #include <QTextDocument>
 #include <QTextBlock>
+#include <QRegularExpression>
 
 namespace Markoff {
 
@@ -288,6 +289,38 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
             maxBlockquoteDepth = span.blockquoteDepth;
 
         applySpanFormat(span, blockCharStart, blockCharEnd, hideDelimiters, cursorCol);
+    }
+
+    // Callout first line: hide [!type] marker, color the title text
+    if (m_mode == Mode::LivePreview && !isCursorLine) {
+        for (const DecoratedRange &dr : m_decoratedRanges) {
+            if (dr.type == DecoratedRange::Callout && blockNum == dr.firstBlock) {
+                // The first line after > removal looks like: [!type] Title text
+                // or [!type]- Title text, or just [!type]
+                // Find and hide the [!type] marker
+                static const QRegularExpression calloutMarkerRe(
+                    QStringLiteral(R"(\[!(\w+)\]([+-])?\s*)"));
+                auto match = calloutMarkerRe.match(text);
+                if (match.hasMatch()) {
+                    // Hide the [!type] portion
+                    hideRange(match.capturedStart(), match.capturedLength());
+
+                    // Color remaining title text (or paint default title if none)
+                    int titleStart = match.capturedEnd();
+                    int titleLen = text.length() - titleStart;
+                    if (titleLen > 0) {
+                        // Custom title exists — color it
+                        QTextCharFormat titleFmt;
+                        titleFmt.setForeground(dr.calloutColor);
+                        titleFmt.setFontWeight(QFont::Bold);
+                        setFormat(titleStart, titleLen, titleFmt);
+                    }
+                    // If no title text, the decoration painter will paint
+                    // the default title ("Note", "Warning", etc.)
+                }
+                break;
+            }
+        }
     }
 
     // Note: blockquote indentation is handled by Editor::applyBlockFormats()

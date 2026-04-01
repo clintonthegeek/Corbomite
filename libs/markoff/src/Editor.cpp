@@ -691,6 +691,7 @@ void Editor::Private::reparseDocument()
     highlighter->setSpanMap(std::move(spans));
 
     detectDecoratedRanges();
+    highlighter->setDecoratedRanges(decoratedRanges);
     detectAtomicBlocks();
     applyBlockFormats();
 }
@@ -1658,6 +1659,27 @@ void Editor::paintEvent(QPaintEvent *e)
                         // Left border
                         painter.setBrush(dr->calloutColor);
                         painter.drawRoundedRect(QRectF(bgRect.left(), bgRect.top(), 4, bgRect.height()), 2, 2);
+
+                        // If the [!type] marker was hidden and there's no custom
+                        // title text, paint the default title as a decoration
+                        QTextBlock firstBlk = document()->findBlockByNumber(dr->firstBlock);
+                        QString firstLine = firstBlk.text();
+                        // Check if the visible portion after [!type] is empty
+                        static const QRegularExpression calloutRe(
+                            QStringLiteral(R"(^>\s*\[!\w+\][+-]?\s*$)"));
+                        if (calloutRe.match(firstLine).hasMatch()) {
+                            // No custom title — paint default
+                            QFont titleFont = font();
+                            titleFont.setBold(true);
+                            painter.setFont(titleFont);
+                            painter.setPen(dr->calloutColor);
+                            qreal textX = bgRect.left() + 12;
+                            qreal textY = bgRect.top();
+                            QRectF titleRect(textX, textY, bgRect.width() - 16,
+                                            r.height());
+                            painter.drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter,
+                                            dr->calloutTitle);
+                        }
                         painter.restore();
                     }
                 }
