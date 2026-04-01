@@ -22,6 +22,10 @@ public:
     // Returns the markdown content without frontmatter
     QString markdownContent() const;
 
+    // Footnote access for the renderer
+    int footnoteCount() const;
+    QString footnoteContent(int number) const;  // 1-based
+
 private:
     Document();
 

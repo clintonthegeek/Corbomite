@@ -7,10 +7,17 @@
 
 namespace Markoff {
 
+struct Footnote {
+    QString label;
+    QString content;
+    int number = 0;  // assigned sequentially
+};
+
 struct Document::Private {
     QString source;
     QString frontmatter;    // YAML frontmatter content (without --- delimiters)
     QList<Block> blocks;
+    QList<Footnote> footnotes;
 };
 
 Document::Document()
@@ -39,6 +46,69 @@ std::unique_ptr<Document> Document::fromMarkdown(const QString &source)
             markdown = source.mid(afterFm);
         }
     }
+
+    // Extract footnote definitions [^label]: content
+    static const QRegularExpression footnoteDef(
+        QStringLiteral(R"(^\[\^([^\]]+)\]:\s*(.+)$)"),
+        QRegularExpression::MultilineOption);
+
+    QHash<QString, Footnote> footnoteMap;
+    auto it = footnoteDef.globalMatch(markdown);
+    while (it.hasNext()) {
+        auto match = it.next();
+        Footnote fn;
+        fn.label = match.captured(1);
+        fn.content = match.captured(2);
+        footnoteMap.insert(fn.label, fn);
+    }
+
+    // Remove footnote definitions from the markdown
+    if (!footnoteMap.isEmpty())
+        markdown.remove(footnoteDef);
+
+    // Number footnotes in order of first reference
+    int nextNum = 1;
+    static const QRegularExpression footnoteRef(QStringLiteral(R"(\[\^([^\]]+)\])"));
+    auto refIt = footnoteRef.globalMatch(markdown);
+    while (refIt.hasNext()) {
+        auto match = refIt.next();
+        const QString label = match.captured(1);
+        if (footnoteMap.contains(label) && footnoteMap[label].number == 0) {
+            footnoteMap[label].number = nextNum++;
+        }
+    }
+
+    // Replace [^label] references with superscript numbers
+    if (!footnoteMap.isEmpty()) {
+        // Use a copy to iterate while modifying
+        QString processed;
+        int pos = 0;
+        auto refIt2 = footnoteRef.globalMatch(markdown);
+        while (refIt2.hasNext()) {
+            auto match = refIt2.next();
+            processed += markdown.mid(pos, match.capturedStart() - pos);
+            const QString label = match.captured(1);
+            if (footnoteMap.contains(label)) {
+                int num = footnoteMap[label].number;
+                processed += QStringLiteral("<sup>%1</sup>").arg(num);
+            } else {
+                processed += match.captured(0); // leave unresolved refs as-is
+            }
+            pos = match.capturedEnd();
+        }
+        processed += markdown.mid(pos);
+        markdown = processed;
+    }
+
+    // Store sorted footnotes
+    QList<Footnote> sorted;
+    for (auto &fn : footnoteMap) {
+        if (fn.number > 0)
+            sorted.append(fn);
+    }
+    std::sort(sorted.begin(), sorted.end(),
+              [](const Footnote &a, const Footnote &b) { return a.number < b.number; });
+    doc->d->footnotes = sorted;
 
     DocumentBuilder builder;
     if (builder.parse(markdown)) {
@@ -78,6 +148,20 @@ QString Document::markdownContent() const
     if (afterFm < d->source.size() && d->source[afterFm] == QLatin1Char('\n'))
         ++afterFm;
     return d->source.mid(afterFm);
+}
+
+int Document::footnoteCount() const
+{
+    return d->footnotes.size();
+}
+
+QString Document::footnoteContent(int number) const
+{
+    for (const auto &fn : d->footnotes) {
+        if (fn.number == number)
+            return fn.content;
+    }
+    return {};
 }
 
 // ---------------------------------------------------------------------------

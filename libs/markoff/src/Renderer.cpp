@@ -295,6 +295,15 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
 
     bodyHtml += renderBlocks(blocks, s);
 
+    // Append footnotes section
+    if (doc.footnoteCount() > 0) {
+        bodyHtml += QStringLiteral("<hr style=\"margin-top: 24px;\"/><ol style=\"font-size: 0.9em; color: #555;\">");
+        for (int i = 1; i <= doc.footnoteCount(); ++i) {
+            bodyHtml += QStringLiteral("<li>%1</li>").arg(escapeHtml(doc.footnoteContent(i)));
+        }
+        bodyHtml += QStringLiteral("</ol>");
+    }
+
     // Build CSS
     QString bodyStyle = QStringLiteral("font-size: %1pt;").arg(s.baseFontSizePt);
     if (s.marginPx > 0)
