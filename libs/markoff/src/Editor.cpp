@@ -1660,21 +1660,9 @@ void Editor::paintEvent(QPaintEvent *e)
                         painter.setBrush(dr->calloutColor);
                         painter.drawRoundedRect(QRectF(bgRect.left(), bgRect.top(), 4, bgRect.height()), 2, 2);
 
-                        // Paint the callout title — only when cursor is NOT on
-                        // the first line (otherwise show raw markdown).
-                        {
-                            int cursorBlockNum = d->control->textCursor().block().blockNumber();
-                            if (cursorBlockNum != dr->firstBlock) {
-                                QFont titleFont = font();
-                                titleFont.setBold(true);
-                                painter.setFont(titleFont);
-                                painter.setPen(dr->calloutColor);
-                                qreal textX = bgRect.left() + 12;
-                                QRectF titleRect(textX, r.top(), bgRect.width() - 16, r.height());
-                                painter.drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter,
-                                                dr->calloutTitle);
-                            }
-                        }
+                        // Title styling handled by the highlighter (hideRange +
+                        // colored text), same approach as bold/italic.
+                        // TODO: for no-title callouts, paint default title here.
                         painter.restore();
                     }
                 }

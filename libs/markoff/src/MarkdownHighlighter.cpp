@@ -271,21 +271,6 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     bool hideDelimiters = (m_mode == Mode::LivePreview && !isCursorLine);
     int cursorCol = (m_mode == Mode::LivePreview && isCursorLine) ? m_cursorColumn : -1;
 
-    // Callout first lines: all-or-nothing. When cursor is on the line,
-    // show ALL raw text (no per-element delimiter hiding). When cursor is
-    // off the line, hide everything (the decoration painter draws the title).
-    bool isCalloutFirstLine = false;
-    for (const DecoratedRange &dr : m_decoratedRanges) {
-        if (dr.type == DecoratedRange::Callout && blockNum == dr.firstBlock) {
-            isCalloutFirstLine = true;
-            break;
-        }
-    }
-    if (isCalloutFirstLine && isCursorLine) {
-        // Force source-mode behavior: show everything, hide nothing
-        cursorCol = -1;
-        hideDelimiters = false;
-    }
 
     // Find all spans that overlap this block's character range
     int blockCharStart = blockPos;
@@ -307,18 +292,39 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
         applySpanFormat(span, blockCharStart, blockCharEnd, hideDelimiters, cursorCol);
     }
 
-    // Callout first line: make the raw text transparent so the decoration
-    // painter can draw the pretty title on top. We DON'T use hideRange
-    // (which collapses characters) because that throws off cursor positions.
-    // Instead we make the text transparent — it's still there for cursor
-    // math, just invisible under the painted decoration.
-    if (m_mode == Mode::LivePreview && !isCursorLine) {
+    // Callout first line: hide the [!type] marker and style the title.
+    // Works like bold — delimiters hidden, content styled. Click on title
+    // reveals the [!type] prefix (same shift behavior as ** for bold).
+    if (m_mode == Mode::LivePreview) {
         for (const DecoratedRange &dr : m_decoratedRanges) {
             if (dr.type == DecoratedRange::Callout && blockNum == dr.firstBlock) {
-                // Make the entire first line transparent
-                QTextCharFormat transparentFmt;
-                transparentFmt.setForeground(Qt::transparent);
-                setFormat(0, text.length(), transparentFmt);
+                static const QRegularExpression calloutMarkerRe(
+                    QStringLiteral(R"(\[!(\w+)\]([+-])?\s*)"));
+                auto match = calloutMarkerRe.match(text);
+                if (match.hasMatch()) {
+                    int markerStart = match.capturedStart();
+                    int markerLen = match.capturedLength();
+                    // Hide the [!type] marker (same as hideRange for **)
+                    // unless cursor is within the marker range
+                    bool cursorInMarker = isCursorLine &&
+                        cursorCol >= markerStart && cursorCol <= (markerStart + markerLen);
+                    if (!isCursorLine || !cursorInMarker) {
+                        hideRange(markerStart, markerLen);
+                    }
+                    // Style the remaining title text
+                    int titleStart = match.capturedEnd();
+                    int titleLen = text.length() - titleStart;
+                    if (titleLen > 0) {
+                        QTextCharFormat titleFmt;
+                        titleFmt.setForeground(dr.calloutColor);
+                        titleFmt.setFontWeight(QFont::Bold);
+                        for (int i = titleStart; i < titleStart + titleLen; ++i) {
+                            QTextCharFormat fmt = format(i);
+                            fmt.merge(titleFmt);
+                            setFormat(i, 1, fmt);
+                        }
+                    }
+                }
                 break;
             }
         }
