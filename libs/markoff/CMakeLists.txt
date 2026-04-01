@@ -13,6 +13,7 @@ add_library(markoff STATIC
     src/Document.cpp
     src/DocumentBuilder.cpp
     src/Renderer.cpp
+    src/ReadingView.cpp
     src/TextControl.cpp
     src/Editor.cpp
 )
