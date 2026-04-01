@@ -890,6 +890,7 @@ void Editor::Private::detectAtomicBlocks()
             // Only create atomic block if we found a closing fence
             if (block.isValid() && block.text().trimmed().startsWith(QStringLiteral("```"))) {
                 auto *codeBlock = new CodeAtomicBlock(q);
+                codeBlock->setBaseFontSize(q->font().pointSize());
                 codeBlock->setCode(codeLines.join(QLatin1Char('\n')), lang);
                 codeBlock->setBlockRange(firstBlockNum, lastBlockNum);
 
@@ -955,6 +956,7 @@ void Editor::Private::detectAtomicBlocks()
             }
 
             auto *callout = new CalloutAtomicBlock(q);
+            callout->setBaseFontSize(q->font().pointSize());
             callout->setCallout(type, title, bodyLines.join(QLatin1Char('\n')),
                                 foldable, collapsed);
             callout->setBlockRange(firstBlockNum, lastBlockNum);
@@ -1549,7 +1551,11 @@ void Editor::setFontSize(int pointSize)
     setFont(f);
     document()->setDefaultFont(f);
 
-    // Invalidate all live preview caches (they use the old font size)
+    // Update atomic blocks with new font size and invalidate caches
+    for (auto *ab : d->atomicBlocks) {
+        ab->setBaseFontSize(pointSize);
+    }
+
     QTextBlock block = document()->begin();
     while (block.isValid()) {
         auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());

@@ -48,7 +48,7 @@ private:
     QString m_language;
 
     // Rendering
-    QFont m_codeFont;
+    mutable QFont m_codeFont;
     QColor m_bgColor = QColor(0xf5, 0xf5, 0xf5);
     QColor m_borderColor = QColor(0xe0, 0xe0, 0xe0);
     QColor m_labelColor = QColor(0x9e, 0x9e, 0x9e);

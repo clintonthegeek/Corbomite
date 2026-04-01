@@ -65,7 +65,7 @@ CodeAtomicBlock::CodeAtomicBlock(QObject *parent)
 {
     m_codeFont = QFont(QStringLiteral("JetBrains Mono, Fira Code, Source Code Pro, monospace"));
     m_codeFont.setStyleHint(QFont::Monospace);
-    m_codeFont.setPointSize(11);
+    m_codeFont.setPointSize(m_baseFontSize);
 }
 
 void CodeAtomicBlock::setCode(const QString &code, const QString &language)
@@ -150,6 +150,8 @@ void CodeAtomicBlock::rebuildCache(qreal width) const
     while (!lines.isEmpty() && lines.last().trimmed().isEmpty())
         lines.removeLast();
 
+    // Sync font size with editor's current setting
+    m_codeFont.setPointSize(m_baseFontSize);
     const QFontMetricsF fm(m_codeFont);
     const qreal lineHeight = fm.height();
 

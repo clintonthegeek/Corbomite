@@ -51,6 +51,10 @@ public:
     virtual bool handleMouseMove(QMouseEvent *event, const QPointF &localPos);
     virtual bool handleContextMenu(QContextMenuEvent *event, const QPointF &localPos);
 
+    /// Base font size (set by Editor to match user's font size setting)
+    void setBaseFontSize(int pointSize) { m_baseFontSize = pointSize; }
+    int baseFontSize() const { return m_baseFontSize; }
+
     /// Focus management
     virtual void enterBlock(int cursorPosition);
     virtual void leaveBlock();
@@ -66,6 +70,7 @@ protected:
     int m_firstBlock = -1;
     int m_lastBlock = -1;
     bool m_focused = false;
+    int m_baseFontSize = 14;
 };
 
 } // namespace Markoff
