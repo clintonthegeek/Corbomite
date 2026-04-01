@@ -271,6 +271,22 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     bool hideDelimiters = (m_mode == Mode::LivePreview && !isCursorLine);
     int cursorCol = (m_mode == Mode::LivePreview && isCursorLine) ? m_cursorColumn : -1;
 
+    // Callout first lines: all-or-nothing. When cursor is on the line,
+    // show ALL raw text (no per-element delimiter hiding). When cursor is
+    // off the line, hide everything (the decoration painter draws the title).
+    bool isCalloutFirstLine = false;
+    for (const DecoratedRange &dr : m_decoratedRanges) {
+        if (dr.type == DecoratedRange::Callout && blockNum == dr.firstBlock) {
+            isCalloutFirstLine = true;
+            break;
+        }
+    }
+    if (isCalloutFirstLine && isCursorLine) {
+        // Force source-mode behavior: show everything, hide nothing
+        cursorCol = -1;
+        hideDelimiters = false;
+    }
+
     // Find all spans that overlap this block's character range
     int blockCharStart = blockPos;
     int blockCharEnd = blockPos + blockLen;
