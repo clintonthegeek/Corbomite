@@ -189,7 +189,8 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         span.code || span.math || span.mathDisplay || span.highlight ||
         span.comment || span.isTag || span.isLink || span.isWikilink ||
         span.isImage || span.isHeading || span.isHorizontalRule ||
-        span.isListMarker || span.isBlockquoteMarker || span.isFrontmatter;
+        span.isListMarker || span.isBlockquoteMarker || span.isFrontmatter ||
+        span.isBlockquote;
     if (!hasAnyFormat)
         return;
 
@@ -229,6 +230,8 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             fmt.setForeground(m_horizontalRuleFormat.foreground());
         if (span.isListMarker)
             fmt.setForeground(m_listMarkerFormat.foreground());
+        if (span.isBlockquote && !span.isHeading && !span.bold && !span.italic)
+            fmt.setForeground(m_blockquoteFormat.foreground());
 
         setFormat(i, 1, fmt);
     }

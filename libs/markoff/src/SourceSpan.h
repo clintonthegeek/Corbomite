@@ -42,6 +42,8 @@ struct SourceSpan {
     bool isCodeBlockFence = false;
     bool isFrontmatter = false;
     bool isHorizontalRule = false;
+    bool isBlockquote = false;
+    int blockquoteDepth = 0;
     bool isCalloutMarker = false;
 
     // True for syntax delimiters (**, *, `, [[, ]], ==, %%, ~~, $)

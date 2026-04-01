@@ -89,6 +89,29 @@ static void collectParentRanges(TSNode node, std::vector<ParentRange> &parents)
         collectParentRanges(ts_node_child(node, i), parents);
 }
 
+struct BlockQuoteRange {
+    int startByte, endByte;
+    int depth; // nesting level
+};
+
+static void collectBlockQuoteRanges(TSNode node, std::vector<BlockQuoteRange> &quotes, int depth = 0)
+{
+    const char *type = ts_node_type(node);
+    if (strcmp(type, "block_quote") == 0) {
+        BlockQuoteRange bq;
+        bq.startByte = ts_node_start_byte(node);
+        bq.endByte = ts_node_end_byte(node);
+        bq.depth = depth + 1;
+        quotes.push_back(bq);
+        // Recurse into children with incremented depth
+        for (uint32_t i = 0; i < ts_node_child_count(node); ++i)
+            collectBlockQuoteRanges(ts_node_child(node, i), quotes, depth + 1);
+        return;
+    }
+    for (uint32_t i = 0; i < ts_node_child_count(node); ++i)
+        collectBlockQuoteRanges(ts_node_child(node, i), quotes, depth);
+}
+
 static void collectInlineRanges(TSNode node, std::vector<TSRange> &ranges)
 {
     const char *type = ts_node_type(node);
@@ -217,6 +240,7 @@ static void applyNodeType(SourceSpan &span, const char *type)
     else if (strcmp(type, "atx_h5_marker") == 0) { span.isDelimiter = true; span.isHeading = true; span.headingLevel = 5; }
     else if (strcmp(type, "atx_h6_marker") == 0) { span.isDelimiter = true; span.isHeading = true; span.headingLevel = 6; }
     else if (strcmp(type, "block_quote_marker") == 0) { span.isDelimiter = true; span.isBlockquoteMarker = true; }
+    else if (strcmp(type, "block_continuation") == 0) { span.isDelimiter = true; span.isBlockquoteMarker = true; }
     else if (strcmp(type, "fenced_code_block_delimiter") == 0 || strcmp(type, "code_fence_content") == 0) { span.isCodeBlockFence = true; span.isDelimiter = true; }
     else if (strcmp(type, "thematic_break") == 0) { span.isHorizontalRule = true; }
     else if (strcmp(type, "minus_metadata") == 0 || strcmp(type, "plus_metadata") == 0) { span.isFrontmatter = true; }
@@ -478,6 +502,21 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
                         s.parentCharStart = utf8ToCharOffset(h.startByte);
                         s.parentCharEnd = utf8ToCharOffset(h.endByte);
                     }
+                }
+            }
+        }
+    }
+
+    // Post-process 1b: propagate blockquote context from block tree
+    {
+        std::vector<BlockQuoteRange> quotes;
+        collectBlockQuoteRanges(ts_tree_root_node(m_blockTree), quotes);
+        for (auto &s : spans) {
+            for (const auto &bq : quotes) {
+                if (s.utf8Offset >= bq.startByte && (s.utf8Offset + s.utf8Length) <= bq.endByte) {
+                    s.isBlockquote = true;
+                    if (bq.depth > s.blockquoteDepth)
+                        s.blockquoteDepth = bq.depth;
                 }
             }
         }
