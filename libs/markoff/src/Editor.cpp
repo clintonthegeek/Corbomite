@@ -1634,30 +1634,45 @@ void Editor::paintEvent(QPaintEvent *e)
                 auto *blockData = dynamic_cast<MarkoffBlockData *>(block.userData());
                 if (blockData && blockData->atomicBlock) {
                     if (blockData->displayMode == MarkoffBlockData::Rendered) {
+                        AtomicBlock *ab = blockData->atomicBlock;
+                        qreal margin = document()->documentMargin();
+                        qreal availWidth = viewportRect.width() - margin * 2;
+
                         if (blockData->isAtomicBlockStart) {
-                            AtomicBlock *ab = blockData->atomicBlock;
-                            qreal margin = document()->documentMargin();
-                            qreal availWidth = viewportRect.width() - margin * 2;
+                            // Paint atomic block starting here
                             QSizeF abSize = ab->sizeForWidth(availWidth);
                             QRectF abRect(QPointF(r.left() + margin, r.top()), abSize);
                             ab->paint(&painter, abRect);
-
-                            // Skip all blocks that belong to this atomic block
-                            int lastBlockNum = ab->lastBlock();
-                            while (block.isValid() && block.blockNumber() <= lastBlockNum) {
-                                offset.ry() += Markoff::blockBoundingRect(d.get(), block).height();
-                                block = block.next();
+                        } else {
+                            // Non-start block: the start block scrolled off.
+                            // Paint the atomic block offset upward so the visible
+                            // portion appears correctly.
+                            QTextBlock startBlock = document()->findBlockByNumber(ab->firstBlock());
+                            qreal startY = 0;
+                            // Calculate how far above the viewport the start block is
+                            QTextBlock b = startBlock;
+                            qreal abTopY = r.top(); // current block's Y
+                            for (int i = ab->firstBlock(); i < block.blockNumber() && b.isValid(); ++i) {
+                                abTopY -= Markoff::blockBoundingRect(d.get(), b).height();
+                                b = b.next();
                             }
-                            if (offset.y() > viewportRect.height())
-                                break;
-                            continue;
+                            QSizeF abSize = ab->sizeForWidth(availWidth);
+                            QRectF abRect(QPointF(r.left() + margin, abTopY), abSize);
+                            painter.save();
+                            painter.setClipRect(er); // clip to visible area
+                            ab->paint(&painter, abRect);
+                            painter.restore();
                         }
-                        // Non-start blocks of atomic blocks: skip (start block painted them)
-                        if (!blockData->isAtomicBlockStart) {
-                            offset.ry() += r.height();
+
+                        // Skip remaining blocks of this atomic block
+                        int lastBlockNum = ab->lastBlock();
+                        while (block.isValid() && block.blockNumber() <= lastBlockNum) {
+                            offset.ry() += Markoff::blockBoundingRect(d.get(), block).height();
                             block = block.next();
-                            continue;
                         }
+                        if (offset.y() > viewportRect.height())
+                            break;
+                        continue;
                     }
                 }
                 // Normal blocks: fall through to standard text painting.

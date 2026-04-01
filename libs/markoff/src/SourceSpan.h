@@ -41,6 +41,7 @@ struct SourceSpan {
     bool isBlockquoteMarker = false;
     bool isListMarker = false;
     bool isCodeBlockFence = false;
+    bool isCodeBlockContent = false;
     bool isFrontmatter = false;
     bool isHorizontalRule = false;
     bool isBlockquote = false;

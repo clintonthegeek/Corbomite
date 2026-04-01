@@ -194,7 +194,7 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         span.comment || span.isTag || span.isLink || span.isWikilink ||
         span.isImage || span.isHeading || span.isHorizontalRule ||
         span.isListMarker || span.isBlockquoteMarker || span.isFrontmatter ||
-        span.isBlockquote || span.isFootnoteRef;
+        span.isBlockquote || span.isFootnoteRef || span.isCodeBlockContent;
     if (!hasAnyFormat)
         return;
 
@@ -245,6 +245,10 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         }
         if (span.isListMarker)
             fmt.setForeground(m_listMarkerFormat.foreground());
+        if (span.isCodeBlockContent)
+            fmt.setFontFamilies({QStringLiteral("JetBrains Mono"),
+                                 QStringLiteral("Fira Code"),
+                                 QStringLiteral("monospace")});
         if (span.isBlockquote && !span.isHeading && !span.bold && !span.italic)
             fmt.setForeground(m_blockquoteFormat.foreground());
 

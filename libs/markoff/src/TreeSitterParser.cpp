@@ -241,7 +241,10 @@ static void applyNodeType(SourceSpan &span, const char *type)
     else if (strcmp(type, "atx_h6_marker") == 0) { span.isDelimiter = true; span.isHeading = true; span.headingLevel = 6; }
     else if (strcmp(type, "block_quote_marker") == 0) { span.isDelimiter = true; span.isBlockquoteMarker = true; }
     else if (strcmp(type, "block_continuation") == 0) { span.isDelimiter = true; span.isBlockquoteMarker = true; }
-    else if (strcmp(type, "fenced_code_block_delimiter") == 0 || strcmp(type, "code_fence_content") == 0) { span.isCodeBlockFence = true; span.isDelimiter = true; }
+    else if (strcmp(type, "fenced_code_block_delimiter") == 0) { span.isCodeBlockFence = true; span.isDelimiter = true; }
+    else if (strcmp(type, "info_string") == 0) { span.isCodeBlockFence = true; span.isDelimiter = true; }
+    else if (strcmp(type, "code_fence_content") == 0) { span.isCodeBlockContent = true; }
+    else if (strcmp(type, "fenced_code_block") == 0) { span.isCodeBlockContent = true; }
     else if (strcmp(type, "thematic_break") == 0) { span.isHorizontalRule = true; }
     else if (strcmp(type, "minus_metadata") == 0 || strcmp(type, "plus_metadata") == 0) { span.isFrontmatter = true; }
     else if (strcmp(type, "list_marker_dot") == 0 || strcmp(type, "list_marker_minus") == 0 ||
@@ -374,6 +377,7 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
             gap.highlight = parentFmt.highlight;
             gap.comment = parentFmt.comment;
             gap.isTag = parentFmt.isTag;
+            gap.isCodeBlockContent = parentFmt.isCodeBlockContent;
             if (headingLevel > 0) gap.headingLevel = headingLevel;
             if (gap.charLength > 0)
                 spans.append(gap);
@@ -403,6 +407,7 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
         gap.highlight = parentFmt.highlight;
         gap.comment = parentFmt.comment;
         gap.isTag = parentFmt.isTag;
+        gap.isCodeBlockContent = parentFmt.isCodeBlockContent;
         if (headingLevel > 0) gap.headingLevel = headingLevel;
         if (gap.charLength > 0)
             spans.append(gap);
@@ -413,7 +418,7 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
     if (parentFmt.bold || parentFmt.italic || parentFmt.strikethrough ||
         parentFmt.code || parentFmt.math || parentFmt.isLink ||
         parentFmt.isWikilink || parentFmt.isImage || parentFmt.isHeading ||
-        parentFmt.highlight || parentFmt.comment) {
+        parentFmt.highlight || parentFmt.comment || parentFmt.isCodeBlockContent) {
         for (int i = spans.size() - 1; i >= 0; --i) {
             SourceSpan &s = spans[i];
             if (s.utf8Offset < static_cast<int>(startByte))
@@ -432,6 +437,7 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
             if (parentFmt.isImage) s.isImage = true;
             if (parentFmt.highlight) s.highlight = true;
             if (parentFmt.comment) s.comment = true;
+            if (parentFmt.isCodeBlockContent) s.isCodeBlockContent = true;
             if (parentFmt.isHeading) {
                 s.isHeading = true;
                 if (headingLevel > 0)
