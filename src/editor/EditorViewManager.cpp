@@ -44,6 +44,10 @@ void EditorViewManager::connectViewSpace(EditorViewSpace *space)
     });
     connect(space, &EditorViewSpace::graphNoteActivated,
             this, &EditorViewManager::graphNoteActivated);
+    connect(space, &EditorViewSpace::splitRightRequested,
+            this, &EditorViewManager::splitActiveHorizontal);
+    connect(space, &EditorViewSpace::splitDownRequested,
+            this, &EditorViewManager::splitActiveVertical);
 }
 
 void EditorViewManager::setActiveViewSpace(EditorViewSpace *space)

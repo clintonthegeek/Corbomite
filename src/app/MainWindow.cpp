@@ -320,6 +320,17 @@ void MainWindow::setupActions()
             }
         }
     });
+
+    // Split pane shortcuts
+    auto *splitRight = ac->addAction(QStringLiteral("split_right"));
+    splitRight->setText(i18n("Split Right"));
+    ac->setDefaultShortcut(splitRight, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Right));
+    connect(splitRight, &QAction::triggered, m_editorManager, &EditorViewManager::splitActiveHorizontal);
+
+    auto *splitDown = ac->addAction(QStringLiteral("split_down"));
+    splitDown->setText(i18n("Split Down"));
+    ac->setDefaultShortcut(splitDown, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Down));
+    connect(splitDown, &QAction::triggered, m_editorManager, &EditorViewManager::splitActiveVertical);
 }
 
 void MainWindow::setupEditor()
@@ -919,6 +930,8 @@ void MainWindow::updateVaultActions()
     setEnabled(QStringLiteral("tab_prev"), open);
     setEnabled(QStringLiteral("insert_template"), open);
     setEnabled(QStringLiteral("open_daily_note"), open);
+    setEnabled(QStringLiteral("split_right"), open);
+    setEnabled(QStringLiteral("split_down"), open);
 }
 
 void MainWindow::updateWindowTitle(NoteEditorWidget *editor)

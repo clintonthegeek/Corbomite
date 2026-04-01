@@ -39,6 +39,8 @@ Q_SIGNALS:
     void cursorInfoChanged(int line, int column, int wordCount);
     void internalLinkClicked(const QString &targetPath);
     void graphNoteActivated(const QString &relativePath);
+    void splitRightRequested();
+    void splitDownRequested();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;

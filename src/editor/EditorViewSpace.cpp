@@ -353,6 +353,18 @@ void EditorViewSpace::showTabContextMenu(const QPoint &pos)
         while (m_tabBar->count() > 0) closeTab(0);
     });
 
+    menu.addSeparator();
+
+    auto *splitRight = menu.addAction(i18n("Split Right"));
+    connect(splitRight, &QAction::triggered, this, [this]() {
+        Q_EMIT splitRightRequested();
+    });
+
+    auto *splitDown = menu.addAction(i18n("Split Down"));
+    connect(splitDown, &QAction::triggered, this, [this]() {
+        Q_EMIT splitDownRequested();
+    });
+
     menu.exec(m_tabBar->mapToGlobal(pos));
 }
 

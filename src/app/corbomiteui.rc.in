@@ -1,5 +1,5 @@
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="@CORBOMITE_COMPONENT_NAME@" version="7">
+<gui name="@CORBOMITE_COMPONENT_NAME@" version="8">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -37,6 +37,9 @@
     <Menu name="view">
       <text>&amp;View</text>
       <Action name="editor_toggle_mode"/>
+      <Separator/>
+      <Action name="split_right"/>
+      <Action name="split_down"/>
       <Separator/>
       <Action name="view_toggle_left_sidebar"/>
       <Separator/>
