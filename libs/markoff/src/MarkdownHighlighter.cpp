@@ -328,6 +328,21 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text,
         return !cursorInRange(cursorCol, matchStart, matchEnd);
     };
 
+    // Inline code: `code` (BEFORE bold/italic so bold can merge weight onto it)
+    {
+        QRegularExpressionMatchIterator it = m_inlineCodePattern.globalMatch(text);
+        while (it.hasNext()) {
+            QRegularExpressionMatch m = it.next();
+            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
+                hideRange(m.capturedStart(), 1);
+                setFormat(m.capturedStart() + 1, m.capturedLength() - 2, m_inlineCodeFormat);
+                hideRange(m.capturedEnd() - 1, 1);
+            } else {
+                setFormat(m.capturedStart(), m.capturedLength(), m_inlineCodeFormat);
+            }
+        }
+    }
+
     // Bold-italic: ***text*** or ___text___ (must come before bold and italic)
     {
         QRegularExpressionMatchIterator it = m_boldItalicPattern.globalMatch(text);
@@ -386,28 +401,6 @@ void MarkdownHighlighter::highlightInlinePatterns(const QString &text,
                 hideRange(m.capturedEnd() - 1, 1);
             } else {
                 setFormat(m.capturedStart(), m.capturedLength(), m_italicFormat);
-            }
-        }
-    }
-
-    // Inline code: `code` (after bold/italic so it can merge)
-    {
-        QRegularExpressionMatchIterator it = m_inlineCodePattern.globalMatch(text);
-        while (it.hasNext()) {
-            QRegularExpressionMatch m = it.next();
-            if (shouldHide(m.capturedStart(), m.capturedEnd())) {
-                hideRange(m.capturedStart(), 1);
-                // Merge code format with any existing bold/italic
-                int innerStart = m.capturedStart() + 1;
-                int innerLen = m.capturedLength() - 2;
-                for (int i = innerStart; i < innerStart + innerLen; ++i) {
-                    QTextCharFormat fmt = format(i);
-                    fmt.merge(m_inlineCodeFormat);
-                    setFormat(i, 1, fmt);
-                }
-                hideRange(m.capturedEnd() - 1, 1);
-            } else {
-                setFormat(m.capturedStart(), m.capturedLength(), m_inlineCodeFormat);
             }
         }
     }
