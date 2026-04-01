@@ -13,6 +13,10 @@ public:
     ~ReadingView() override;
     void setDocument(const Document &doc);
     void setSettings(const RenderSettings &settings);
+
+    // Scroll position (0.0 = top, 1.0 = bottom)
+    qreal scrollFraction() const;
+    void setScrollFraction(qreal fraction);
 Q_SIGNALS:
     void linkClicked(const QString &target);
 private:

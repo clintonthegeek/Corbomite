@@ -5,6 +5,7 @@
 #include "markoff/RenderSettings.h"
 #include <QTextBrowser>
 #include <QVBoxLayout>
+#include <QScrollBar>
 #include <QUrl>
 
 namespace Markoff {
@@ -42,6 +43,21 @@ void ReadingView::setDocument(const Document &doc)
 void ReadingView::setSettings(const RenderSettings &settings)
 {
     d->renderer.setSettings(settings);
+}
+
+qreal ReadingView::scrollFraction() const
+{
+    auto *sb = d->browser->verticalScrollBar();
+    if (!sb || sb->maximum() == 0)
+        return 0.0;
+    return static_cast<qreal>(sb->value()) / sb->maximum();
+}
+
+void ReadingView::setScrollFraction(qreal fraction)
+{
+    auto *sb = d->browser->verticalScrollBar();
+    if (sb && sb->maximum() > 0)
+        sb->setValue(static_cast<int>(fraction * sb->maximum()));
 }
 
 } // namespace Markoff

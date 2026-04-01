@@ -12,6 +12,7 @@
 #include <QTextStream>
 #include <QSpinBox>
 #include <QLabel>
+#include <QScrollBar>
 #include <QFileInfo>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -73,6 +74,15 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Connect editor text changes
     connect(m_editor, &Markoff::Editor::textChanged, this, &MainWindow::onTextChanged);
+
+    // Scroll sync: editor → reading view
+    connect(m_editor->verticalScrollBar(), &QScrollBar::valueChanged, this, [this]() {
+        auto *sb = m_editor->verticalScrollBar();
+        if (sb->maximum() > 0) {
+            qreal fraction = static_cast<qreal>(sb->value()) / sb->maximum();
+            m_readingView->setScrollFraction(fraction);
+        }
+    });
 
     updateTitle();
 }
