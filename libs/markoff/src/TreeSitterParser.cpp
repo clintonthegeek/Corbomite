@@ -473,9 +473,14 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
         }
 
         // Remove block spans that fall within inline regions (the block
-        // tree has anonymous * and ` characters without formatting info)
+        // tree has anonymous * and ` characters without formatting info).
+        // Keep block_quote_marker and block_continuation spans — they exist
+        // inside inline regions but carry important delimiter info.
         spans.erase(std::remove_if(spans.begin(), spans.end(),
             [&](const SourceSpan &s) {
+                // Keep blockquote markers and other block-level delimiters
+                if (s.isBlockquoteMarker || s.isListMarker || s.isHorizontalRule)
+                    return false;
                 for (const auto &[start, end] : inlineRegions) {
                     if (s.utf8Offset >= start && (s.utf8Offset + s.utf8Length) <= end)
                         return true;

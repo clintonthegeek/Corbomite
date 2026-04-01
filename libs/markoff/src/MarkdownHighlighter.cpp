@@ -255,6 +255,9 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     int blockCharStart = blockPos;
     int blockCharEnd = blockPos + blockLen;
 
+    // Track blockquote depth for this block (for indentation)
+    int maxBlockquoteDepth = 0;
+
     for (const SourceSpan &span : m_spans) {
         int spanEnd = span.charOffset + span.charLength;
         if (spanEnd <= blockCharStart)
@@ -262,7 +265,29 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
         if (span.charOffset >= blockCharEnd)
             break;  // spans are sorted by offset
 
+        if (span.blockquoteDepth > maxBlockquoteDepth)
+            maxBlockquoteDepth = span.blockquoteDepth;
+
         applySpanFormat(span, blockCharStart, blockCharEnd, hideDelimiters, cursorCol);
+    }
+
+    // Apply blockquote indentation via QTextBlockFormat
+    if (m_mode == Mode::LivePreview && !isCursorLine) {
+        QTextBlockFormat blockFmt = currentBlock().blockFormat();
+        qreal indent = maxBlockquoteDepth * 20.0; // 20px per nesting level
+        if (blockFmt.leftMargin() != indent) {
+            QTextCursor cursor(currentBlock());
+            blockFmt.setLeftMargin(indent);
+            cursor.setBlockFormat(blockFmt);
+        }
+    } else if (m_mode == Mode::LivePreview && isCursorLine) {
+        // Reset indent on cursor line (showing raw text)
+        QTextBlockFormat blockFmt = currentBlock().blockFormat();
+        if (blockFmt.leftMargin() != 0) {
+            QTextCursor cursor(currentBlock());
+            blockFmt.setLeftMargin(0);
+            cursor.setBlockFormat(blockFmt);
+        }
     }
 }
 
