@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QPointer>
 
 namespace ForceGraph {
 class ForceLayoutEngine;
@@ -34,7 +35,7 @@ private:
     ForceGraph::ForceLayoutEngine *m_engine;
     SQLiteIndex *m_index = nullptr;
     VaultModel *m_vault = nullptr;
-    NoteDocument *m_currentDoc = nullptr;
+    QPointer<NoteDocument> m_currentDoc;
 };
 
 } // namespace Corbomite

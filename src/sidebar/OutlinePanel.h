@@ -5,6 +5,7 @@
 #include <QTreeWidget>
 #include <QLabel>
 #include <QTimer>
+#include <QPointer>
 
 namespace Corbomite {
 
@@ -30,7 +31,7 @@ private:
     QLabel *m_emptyLabel;
     QTimer m_debounceTimer;
 
-    NoteDocument *m_currentDoc = nullptr;
+    QPointer<NoteDocument> m_currentDoc;
 };
 
 } // namespace Corbomite

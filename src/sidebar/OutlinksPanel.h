@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QListWidget>
+#include <QPointer>
 #include <QLabel>
 
 namespace Corbomite {
@@ -35,7 +36,7 @@ private:
 
     SQLiteIndex *m_index = nullptr;
     VaultModel *m_vault = nullptr;
-    NoteDocument *m_currentDoc = nullptr;
+    QPointer<NoteDocument> m_currentDoc;
 };
 
 } // namespace Corbomite
