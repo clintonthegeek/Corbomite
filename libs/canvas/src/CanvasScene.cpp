@@ -683,6 +683,34 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
 }
 
 // ---------------------------------------------------------------------------
+// Context menu helpers
+// ---------------------------------------------------------------------------
+
+void CanvasScene::addColorSubmenu(QMenu *parentMenu, const QString &nodeId, const QString &currentColor)
+{
+    auto *colorMenu = parentMenu->addMenu(QStringLiteral("Color"));
+    const struct { QString name; QString code; } colors[] = {
+        { QStringLiteral("Red"),    QStringLiteral("1") },
+        { QStringLiteral("Orange"), QStringLiteral("2") },
+        { QStringLiteral("Yellow"), QStringLiteral("3") },
+        { QStringLiteral("Green"),  QStringLiteral("4") },
+        { QStringLiteral("Cyan"),   QStringLiteral("5") },
+        { QStringLiteral("Purple"), QStringLiteral("6") },
+    };
+    for (const auto &c : colors) {
+        colorMenu->addAction(c.name, [this, nodeId, oldColor = currentColor, code = c.code]() {
+            if (!m_document) return;
+            m_undoStack->push(new CmdChangeColor(m_document, nodeId, oldColor, code));
+        });
+    }
+    colorMenu->addSeparator();
+    colorMenu->addAction(QStringLiteral("Remove Color"), [this, nodeId, oldColor = currentColor]() {
+        if (!m_document) return;
+        m_undoStack->push(new CmdChangeColor(m_document, nodeId, oldColor, QString()));
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Context menu
 // ---------------------------------------------------------------------------
 
@@ -719,33 +747,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             beginInlineEdit(cardItem);
         });
 
-        // Color submenu
-        auto *colorMenu = menu.addMenu(QStringLiteral("Color"));
-        const struct { QString name; QString code; } colors[] = {
-            { QStringLiteral("Red"),    QStringLiteral("1") },
-            { QStringLiteral("Orange"), QStringLiteral("2") },
-            { QStringLiteral("Yellow"), QStringLiteral("3") },
-            { QStringLiteral("Green"),  QStringLiteral("4") },
-            { QStringLiteral("Cyan"),   QStringLiteral("5") },
-            { QStringLiteral("Purple"), QStringLiteral("6") },
-        };
-        for (const auto &c : colors) {
-            colorMenu->addAction(c.name, [this, cardItem, code = c.code]() {
-                if (!m_document)
-                    return;
-                const QString oldColor = cardItem->nodeData().color;
-                m_undoStack->push(
-                    new CmdChangeColor(m_document, cardItem->nodeId(), oldColor, code));
-            });
-        }
-        colorMenu->addSeparator();
-        colorMenu->addAction(QStringLiteral("Remove Color"), [this, cardItem]() {
-            if (!m_document)
-                return;
-            const QString oldColor = cardItem->nodeData().color;
-            m_undoStack->push(
-                new CmdChangeColor(m_document, cardItem->nodeId(), oldColor, QString()));
-        });
+        addColorSubmenu(&menu, cardItem->nodeId(), cardItem->nodeData().color);
 
         menu.addAction(QStringLiteral("Duplicate"), [this, cardItem, scenePos]() {
             if (!m_document)
@@ -766,32 +768,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         });
     } else if (fileItem) {
         // Right-click on a FileCardItem
-        auto *colorMenu = menu.addMenu(QStringLiteral("Color"));
-        const struct { QString name; QString code; } fileColors[] = {
-            { QStringLiteral("Red"),    QStringLiteral("1") },
-            { QStringLiteral("Orange"), QStringLiteral("2") },
-            { QStringLiteral("Yellow"), QStringLiteral("3") },
-            { QStringLiteral("Green"),  QStringLiteral("4") },
-            { QStringLiteral("Cyan"),   QStringLiteral("5") },
-            { QStringLiteral("Purple"), QStringLiteral("6") },
-        };
-        for (const auto &c : fileColors) {
-            colorMenu->addAction(c.name, [this, fileItem, code = c.code]() {
-                if (!m_document)
-                    return;
-                const QString oldColor = fileItem->nodeData().color;
-                m_undoStack->push(
-                    new CmdChangeColor(m_document, fileItem->nodeId(), oldColor, code));
-            });
-        }
-        colorMenu->addSeparator();
-        colorMenu->addAction(QStringLiteral("Remove Color"), [this, fileItem]() {
-            if (!m_document)
-                return;
-            const QString oldColor = fileItem->nodeData().color;
-            m_undoStack->push(
-                new CmdChangeColor(m_document, fileItem->nodeId(), oldColor, QString()));
-        });
+        addColorSubmenu(&menu, fileItem->nodeId(), fileItem->nodeData().color);
 
         menu.addSeparator();
         menu.addAction(QStringLiteral("Delete"), [this, fileItem]() {
@@ -806,33 +783,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             beginGroupLabelEdit(grpItem);
         });
 
-        // Color submenu
-        auto *colorMenu = menu.addMenu(QStringLiteral("Color"));
-        const struct { QString name; QString code; } colors[] = {
-            { QStringLiteral("Red"),    QStringLiteral("1") },
-            { QStringLiteral("Orange"), QStringLiteral("2") },
-            { QStringLiteral("Yellow"), QStringLiteral("3") },
-            { QStringLiteral("Green"),  QStringLiteral("4") },
-            { QStringLiteral("Cyan"),   QStringLiteral("5") },
-            { QStringLiteral("Purple"), QStringLiteral("6") },
-        };
-        for (const auto &c : colors) {
-            colorMenu->addAction(c.name, [this, grpItem, code = c.code]() {
-                if (!m_document)
-                    return;
-                const QString oldColor = grpItem->nodeData().color;
-                m_undoStack->push(
-                    new CmdChangeColor(m_document, grpItem->nodeId(), oldColor, code));
-            });
-        }
-        colorMenu->addSeparator();
-        colorMenu->addAction(QStringLiteral("Remove Color"), [this, grpItem]() {
-            if (!m_document)
-                return;
-            const QString oldColor = grpItem->nodeData().color;
-            m_undoStack->push(
-                new CmdChangeColor(m_document, grpItem->nodeId(), oldColor, QString()));
-        });
+        addColorSubmenu(&menu, grpItem->nodeId(), grpItem->nodeData().color);
 
         menu.addAction(QStringLiteral("Duplicate"), [this, grpItem]() {
             if (!m_document)

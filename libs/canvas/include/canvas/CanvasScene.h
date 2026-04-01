@@ -6,6 +6,7 @@
 #include <functional>
 #include "CanvasTypes.h"
 
+class QMenu;
 class QUndoStack;
 class QGraphicsProxyWidget;
 class QTextEdit;
@@ -99,6 +100,7 @@ private:
     void populateFromDocument();
     void clearAllItems();
     void renderFileCard(FileCardItem *item);
+    void addColorSubmenu(QMenu *parentMenu, const QString &nodeId, const QString &currentColor);
 
     CanvasDocument *m_document = nullptr;
     CanvasTool *m_activeTool = nullptr;
