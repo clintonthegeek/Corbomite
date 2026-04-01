@@ -11,6 +11,7 @@
 #include "CalloutAtomicBlock.h"
 #include "markoff/Document.h"
 #include "markoff/Renderer.h"
+#include "markoff/RenderSettings.h"
 
 #include <qfont.h>
 #include <qpainter.h>
@@ -141,6 +142,27 @@ QRectF PlainTextDocumentLayout::blockBoundingRect(const QTextBlock &block) const
         br.adjust(0, 0, margin, 0);
         if (!block.next().isValid())
             br.adjust(0, 0, 0, margin);
+
+        // Variable block heights for live preview: if this block has a
+        // rendered height (from MarkoffBlockData), use it instead of the
+        // text layout height. This makes rendered blocks (which may be
+        // taller than the raw text) allocate the correct space.
+        auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
+        if (data && data->displayMode == MarkoffBlockData::Rendered
+            && data->renderedHeight > 0) {
+            // For atomic block non-start blocks, collapse to zero height
+            // (the start block accounts for the full atomic block height)
+            if (data->atomicBlock && !data->isAtomicBlockStart) {
+                br.setHeight(0);
+            } else if (data->atomicBlock && data->isAtomicBlockStart) {
+                // Start block of atomic block: use the atomic block's size
+                qreal abHeight = data->atomicBlock->sizeForWidth(
+                    d.width > 0 ? d.width : 600).height();
+                br.setHeight(abHeight);
+            } else {
+                br.setHeight(data->renderedHeight);
+            }
+        }
     }
     return br;
 }
@@ -679,6 +701,8 @@ void Editor::Private::renderBlock(QTextBlock &block)
     }
 
     // Render this block's markdown through our renderer
+    // Rendered blocks use RenderSettings (same as reading view) — not the
+    // editor's source font. The layout engine handles the height difference.
     auto blockDoc = Document::fromMarkdown(blockText);
     auto rendered = renderer.renderToTextDocument(*blockDoc);
 
@@ -1369,6 +1393,24 @@ void Editor::setMode(Mode m)
 Editor::Mode Editor::mode() const
 {
     return d->mode;
+}
+
+void Editor::setFontSize(int pointSize)
+{
+    QFont f = font();
+    f.setPointSize(pointSize);
+    setFont(f);
+    document()->setDefaultFont(f);
+
+    // Invalidate all live preview caches (they use the old font size)
+    QTextBlock block = document()->begin();
+    while (block.isValid()) {
+        auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
+        if (data)
+            data->cacheValid = false;
+        block = block.next();
+    }
+    viewport()->update();
 }
 
 void Editor::ensureCursorVisible()

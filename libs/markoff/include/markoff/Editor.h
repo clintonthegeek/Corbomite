@@ -28,6 +28,8 @@ public:
     void setMode(Mode mode);
     Mode mode() const;
 
+    void setFontSize(int pointSize);
+
     void ensureCursorVisible();
     QRect cursorRect() const;
 

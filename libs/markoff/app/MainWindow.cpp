@@ -66,12 +66,16 @@ MainWindow::MainWindow(QWidget *parent)
     connect(modeAction, &QAction::toggled, this, &MainWindow::onModeToggle);
 
     connect(fontSpin, &QSpinBox::valueChanged, this, [this](int size) {
+        // Update reading view
         Markoff::RenderSettings settings;
         settings.baseFontSizePt = size;
         m_readingView->setSettings(settings);
-        // Re-render with updated settings
-        auto doc = Markoff::Document::fromMarkdown(m_editor->toPlainText());
-        m_readingView->setDocument(*doc);
+
+        // Update editor (source mode + live preview rendered blocks)
+        m_editor->setFontSize(size);
+
+        // Re-render
+        onTextChanged();
     });
 
     // Connect editor text changes
