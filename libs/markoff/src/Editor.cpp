@@ -125,6 +125,7 @@ struct PlainTextDocumentLayoutPrivate {
     bool blockDocumentSizeChanged = false;
     int cursorWidth = 1;
     int textLayoutFlags = 0;
+    mutable bool inBlockBoundingRect = false;  // recursion guard for table detection
 
     void layoutBlock(QTextDocument *doc, const QTextBlock &block);
     qreal blockWidth(const QTextBlock &block);
@@ -214,17 +215,25 @@ QRectF PlainTextDocumentLayout::blockBoundingRect(const QTextBlock &block) const
 {
     if (!block.isValid()) { return QRectF(); }
 
-    QTextTable *table = tableForBlock(block);
-    if (table) {
-        if (isFirstTableBlock(block, table)) {
-            TableLayoutData *td = tableLayoutData(table);
-            if (td->dirty)
-                const_cast<PlainTextDocumentLayout*>(this)->layoutTable(table);
-            return QRectF(0, 0, td->tableWidth, td->tableHeight);
-        } else {
-            // Non-first block inside table: zero height
-            return QRectF(0, 0, 0, 0);
+    // Table detection creates QTextCursor objects, which can trigger
+    // Qt to call back into blockBoundingRect() — guard against recursion.
+    if (!d.inBlockBoundingRect) {
+        d.inBlockBoundingRect = true;
+        QTextTable *table = tableForBlock(block);
+        if (table) {
+            if (isFirstTableBlock(block, table)) {
+                TableLayoutData *td = tableLayoutData(table);
+                if (td->dirty)
+                    const_cast<PlainTextDocumentLayout*>(this)->layoutTable(table);
+                d.inBlockBoundingRect = false;
+                return QRectF(0, 0, td->tableWidth, td->tableHeight);
+            } else {
+                // Non-first block inside table: zero height
+                d.inBlockBoundingRect = false;
+                return QRectF(0, 0, 0, 0);
+            }
         }
+        d.inBlockBoundingRect = false;
     }
 
     QTextLayout *tl = block.layout();
