@@ -98,6 +98,20 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     const QColor stripeColor = colorFromCanvasColor(m_data.color);
     qreal headerBarHeight = 0;
 
+    // Process header text: strip markdown syntax, convert to HTML for rendering
+    auto processHeaderHtml = [](const QString &raw) -> QString {
+        QString h = raw;
+        // Strip leading # markers: "# Welcome!" → "Welcome!"
+        h.replace(QRegularExpression(QStringLiteral(R"(^#{1,6}\s+)")), QString());
+        // Bold: **text** → <b>text</b>
+        h.replace(QRegularExpression(QStringLiteral(R"(\*\*(.+?)\*\*)")),
+                  QStringLiteral("<b>\\1</b>"));
+        // Italic: *text* → <i>text</i>
+        h.replace(QRegularExpression(QStringLiteral(R"((?<!\*)\*([^*]+?)\*(?!\*))")),
+                  QStringLiteral("<i>\\1</i>"));
+        return h;
+    };
+
     if (!headerText.isEmpty() && stripeColor.isValid()) {
         // Full header bar with text inside the color stripe
         headerBarHeight = 32.0;
@@ -106,24 +120,33 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
         painter->fillRect(QRectF(0, 0, rect.width(), headerBarHeight), stripeColor);
         painter->restore();
 
-        // Draw header text in white (or dark for light colors)
-        QFont headerFont = painter->font();
-        headerFont.setBold(true);
-        headerFont.setPointSizeF(11);
-        painter->setFont(headerFont);
-        painter->setPen(Qt::white);
-        painter->drawText(QRectF(kTextPadding, 0, rect.width() - 2 * kTextPadding, headerBarHeight),
-                          Qt::AlignVCenter | Qt::AlignLeft, headerText);
+        // Render header with QTextDocument for inline markdown support
+        QTextDocument headerDoc;
+        QString headerHtml = QStringLiteral("<span style='color:white;font-size:11pt'>")
+            + processHeaderHtml(headerText) + QStringLiteral("</span>");
+        headerDoc.setHtml(headerHtml);
+        headerDoc.setTextWidth(rect.width() - 2 * kTextPadding);
+        headerDoc.setDocumentMargin(0);
+
+        painter->save();
+        painter->translate(kTextPadding, (headerBarHeight - headerDoc.size().height()) / 2.0);
+        headerDoc.drawContents(painter);
+        painter->restore();
     } else if (!headerText.isEmpty()) {
-        // Header text without color — render as bold title area
+        // Header text without color
         headerBarHeight = 28.0;
-        QFont headerFont = painter->font();
-        headerFont.setBold(true);
-        headerFont.setPointSizeF(11);
-        painter->setFont(headerFont);
-        painter->setPen(QColor(40, 40, 40));
-        painter->drawText(QRectF(kTextPadding, 4, rect.width() - 2 * kTextPadding, headerBarHeight),
-                          Qt::AlignVCenter | Qt::AlignLeft, headerText);
+
+        QTextDocument headerDoc;
+        QString headerHtml = QStringLiteral("<span style='color:#282828;font-size:11pt'>")
+            + processHeaderHtml(headerText) + QStringLiteral("</span>");
+        headerDoc.setHtml(headerHtml);
+        headerDoc.setTextWidth(rect.width() - 2 * kTextPadding);
+        headerDoc.setDocumentMargin(0);
+
+        painter->save();
+        painter->translate(kTextPadding, (headerBarHeight - headerDoc.size().height()) / 2.0);
+        headerDoc.drawContents(painter);
+        painter->restore();
     } else if (stripeColor.isValid()) {
         // Color stripe only (thin accent, no header text)
         headerBarHeight = kColorStripeHeight;
