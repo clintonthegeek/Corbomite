@@ -2,10 +2,10 @@
 #pragma once
 
 #include <QTextBrowser>
-#include "corbomite/core/MarkdownRenderer.h"
 
 namespace Corbomite {
 
+class MarkdownRenderEngine;
 class NoteDocument;
 
 class NotePreviewWidget : public QTextBrowser {
@@ -14,6 +14,7 @@ class NotePreviewWidget : public QTextBrowser {
 public:
     explicit NotePreviewWidget(QWidget *parent = nullptr);
 
+    void setRenderEngine(MarkdownRenderEngine *engine);
     void renderDocument(NoteDocument *doc);
 
 Q_SIGNALS:
@@ -22,7 +23,7 @@ Q_SIGNALS:
 private:
     void onAnchorClicked(const QUrl &url);
 
-    MarkdownRenderer m_renderer;
+    MarkdownRenderEngine *m_engine = nullptr;
 };
 
 } // namespace Corbomite

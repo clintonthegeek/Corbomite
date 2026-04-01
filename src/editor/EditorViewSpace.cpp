@@ -37,6 +37,16 @@ EditorViewSpace::EditorViewSpace(QWidget *parent)
     connect(m_tabBar, &QTabBar::customContextMenuRequested, this, &EditorViewSpace::showTabContextMenu);
 }
 
+void EditorViewSpace::setRenderEngine(MarkdownRenderEngine *engine)
+{
+    m_engine = engine;
+
+    // Update any existing preview widgets
+    for (auto *preview : std::as_const(m_previews)) {
+        preview->setRenderEngine(engine);
+    }
+}
+
 void EditorViewSpace::openNote(NoteDocument *doc)
 {
     if (!doc) return;
@@ -262,6 +272,7 @@ void EditorViewSpace::toggleEditorMode()
         auto *preview = m_previews.value(path);
         if (!preview) {
             preview = new NotePreviewWidget(m_stack);
+            preview->setRenderEngine(m_engine);
             m_previews.insert(path, preview);
             m_stack->addWidget(preview);
 

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "NotePreviewWidget.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/core/MarkdownRenderEngine.h"
 
 #include <QDesktopServices>
+#include <QTextDocument>
 
 namespace Corbomite {
 
@@ -16,15 +18,20 @@ NotePreviewWidget::NotePreviewWidget(QWidget *parent)
     connect(this, &QTextBrowser::anchorClicked, this, &NotePreviewWidget::onAnchorClicked);
 }
 
+void NotePreviewWidget::setRenderEngine(MarkdownRenderEngine *engine)
+{
+    m_engine = engine;
+}
+
 void NotePreviewWidget::renderDocument(NoteDocument *doc)
 {
-    if (!doc) {
+    if (!doc || !m_engine) {
         clear();
         return;
     }
 
-    QString html = m_renderer.renderToHtml(doc->markdown());
-    setHtml(html);
+    auto rendered = m_engine->render(doc->markdown());
+    setHtml(rendered->toQTextDocument()->toHtml());
 }
 
 void NotePreviewWidget::onAnchorClicked(const QUrl &url)
@@ -34,7 +41,6 @@ void NotePreviewWidget::onAnchorClicked(const QUrl &url)
 
     if (scheme.isEmpty() || scheme == QStringLiteral("file")) {
         // Internal link — likely a wikilink
-        // Remove .md extension for the signal
         if (path.endsWith(QStringLiteral(".md"))) {
             Q_EMIT internalLinkClicked(path);
         } else {

@@ -10,6 +10,7 @@
 
 namespace Corbomite {
 
+class MarkdownRenderEngine;
 class NoteDocument;
 class NoteEditorWidget;
 class NotePreviewWidget;
@@ -24,6 +25,7 @@ class EditorViewSpace : public QWidget {
 public:
     explicit EditorViewSpace(QWidget *parent = nullptr);
 
+    void setRenderEngine(MarkdownRenderEngine *engine);
     void openNote(NoteDocument *doc);
     void closeTab(int index);
     NoteEditorWidget *activeEditor() const;
@@ -56,6 +58,7 @@ private:
     QHash<QString, NoteEditorWidget *> m_editors; // relativePath -> editor
     QHash<QString, NotePreviewWidget *> m_previews;
     QSet<QString> m_previewModePaths; // paths currently in preview mode
+    MarkdownRenderEngine *m_engine = nullptr;
 };
 
 } // namespace Corbomite

@@ -2,6 +2,8 @@
 #include "EditorViewManager.h"
 #include "EditorViewSpace.h"
 #include "NoteEditorWidget.h"
+#include "corbomite/core/RegexRenderEngine.h"
+#include "corbomite/core/RenderProfile.h"
 #include <QVBoxLayout>
 
 namespace Corbomite {
@@ -9,7 +11,10 @@ namespace Corbomite {
 EditorViewManager::EditorViewManager(QWidget *parent)
     : QWidget(parent)
     , m_rootSplitter(new QSplitter(Qt::Horizontal, this))
+    , m_readingEngine(std::make_unique<RegexRenderEngine>())
 {
+    m_readingEngine->setProfile(RenderProfile::readingMode());
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_rootSplitter);
@@ -20,9 +25,12 @@ EditorViewManager::EditorViewManager(QWidget *parent)
     setActiveViewSpace(initialSpace);
 }
 
+EditorViewManager::~EditorViewManager() = default;
+
 EditorViewSpace *EditorViewManager::createViewSpace()
 {
     auto *space = new EditorViewSpace(this);
+    space->setRenderEngine(m_readingEngine.get());
     connectViewSpace(space);
     m_viewSpaces.append(space);
     return space;

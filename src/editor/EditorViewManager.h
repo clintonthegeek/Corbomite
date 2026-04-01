@@ -4,9 +4,11 @@
 #include <QWidget>
 #include <QSplitter>
 #include <QVector>
+#include <memory>
 
 namespace Corbomite {
 
+class MarkdownRenderEngine;
 class NoteDocument;
 class NoteEditorWidget;
 class EditorViewSpace;
@@ -18,6 +20,7 @@ class EditorViewManager : public QWidget {
 
 public:
     explicit EditorViewManager(QWidget *parent = nullptr);
+    ~EditorViewManager() override;
 
     // Existing API — targets active view space
     void openNote(NoteDocument *doc);
@@ -51,6 +54,7 @@ private:
     QSplitter *m_rootSplitter;
     EditorViewSpace *m_activeViewSpace = nullptr;
     QVector<EditorViewSpace *> m_viewSpaces;
+    std::unique_ptr<MarkdownRenderEngine> m_readingEngine;
 };
 
 } // namespace Corbomite
