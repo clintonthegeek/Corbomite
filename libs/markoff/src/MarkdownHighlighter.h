@@ -31,6 +31,9 @@ public:
     /// Access the current span map (for block-level formatting by Editor)
     const QList<SourceSpan> &spans() const { return m_spans; }
 
+    /// Access format colors (for Editor decoration painting)
+    QColor blockquoteColor() const { return m_blockquoteFormat.foreground().color(); }
+
 protected:
     void highlightBlock(const QString &text) override;
 

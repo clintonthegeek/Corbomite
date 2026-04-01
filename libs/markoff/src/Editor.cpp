@@ -1688,7 +1688,10 @@ void Editor::paintEvent(QPaintEvent *e)
                             qreal margin = document()->documentMargin();
                             QFontMetricsF fm(font());
                             qreal chevronWidth = qCeil(fm.horizontalAdvance(QStringLiteral("> ")));
-                            painter.setPen(QPen(QColor(0x9e, 0x9e, 0x9e), 2));  // dark gray, 2px
+                            // Derive line color from blockquote text color, lighter
+                            QColor bqTextColor = d->highlighter->blockquoteColor();
+                            QColor lineColor = bqTextColor.lighter(140);
+                            painter.setPen(QPen(lineColor, 2));
 
                             for (int level = 0; level < bqDepth; ++level) {
                                 qreal x = offset.x() + margin + level * chevronWidth + 1;
