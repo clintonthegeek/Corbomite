@@ -10,6 +10,8 @@ namespace Markoff {
 
 struct InlineRun {
     QString text;
+    int sourceOffset = -1;   // byte offset in UTF-8 source
+    int sourceLength = 0;    // byte length in UTF-8 source
     bool bold = false;
     bool italic = false;
     bool strikethrough = false;
@@ -27,6 +29,8 @@ struct InlineRun {
 struct Block {
     MD_BLOCKTYPE type = MD_BLOCK_P;
     int headingLevel = 0;
+    int sourceOffset = -1;   // byte offset of first content in UTF-8 source
+    int sourceLength = 0;    // byte length of block content
     QList<InlineRun> inlines;
     QString codeInfo;           // language for code blocks
     MD_ALIGN tableAlign = MD_ALIGN_DEFAULT;
@@ -87,6 +91,8 @@ private:
 
     QList<Block> m_blocks;
     QList<Block *> m_blockStack;
+    QByteArray m_utf8;                   // UTF-8 source (kept alive during parse)
+    const char *m_sourceBase = nullptr;  // base pointer for offset computation
     bool m_bold = false, m_italic = false, m_strikethrough = false;
     bool m_code = false, m_math = false, m_mathDisplay = false;
     QString m_linkHref, m_wikiTarget, m_imageSrc;

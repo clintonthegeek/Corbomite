@@ -19,6 +19,7 @@ add_library(markoff STATIC
     src/TextControl.cpp
     src/Editor.cpp
     src/MarkdownHighlighter.cpp
+    src/SourceSpan.cpp
     src/AtomicBlock.cpp
     src/CodeAtomicBlock.cpp
     src/CalloutAtomicBlock.cpp

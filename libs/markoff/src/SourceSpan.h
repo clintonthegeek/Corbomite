@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#ifndef MARKOFF_SOURCESPAN_H
+#define MARKOFF_SOURCESPAN_H
+
+#include <QList>
+#include <QString>
+
+namespace Markoff {
+
+struct Block;
+
+/// A flat representation of a styled range in the source text.
+/// Built from the parsed AST. Used by the highlighter to apply
+/// formatting without regex.
+struct SourceSpan {
+    int utf8Offset = 0;     // byte offset in UTF-8 source
+    int utf8Length = 0;      // byte length
+
+    // These are computed from utf8 offsets by the offset mapper
+    int charOffset = 0;      // QString character offset (UTF-16)
+    int charLength = 0;      // QString character count
+
+    // Formatting flags (from the AST's InlineRun)
+    bool bold = false;
+    bool italic = false;
+    bool strikethrough = false;
+    bool code = false;
+    bool math = false;
+    bool mathDisplay = false;
+    bool highlight = false;
+    bool comment = false;
+    bool isTag = false;
+    bool isLink = false;
+    bool isWikilink = false;
+    bool isImage = false;
+
+    // Block-level info
+    bool isHeading = false;
+    int headingLevel = 0;
+    bool isBlockquoteMarker = false;
+    bool isListMarker = false;
+    bool isCodeBlockFence = false;
+    bool isFrontmatter = false;
+    bool isHorizontalRule = false;
+    bool isCalloutMarker = false;
+
+    // True for syntax delimiters (**, *, `, [[, ]], ==, %%, ~~, $)
+    // that should be hidden in live preview when cursor is not adjacent
+    bool isDelimiter = false;
+};
+
+/// Build a flat list of SourceSpans from the parsed AST.
+/// The spans cover ALL bytes in the source: content spans have formatting
+/// flags, delimiter spans have isDelimiter=true.
+QList<SourceSpan> buildSpanMap(const QList<Block> &blocks,
+                                const QByteArray &utf8Source);
+
+/// Build a UTF-8 byte offset → QString char offset mapping table.
+/// Returns a vector where index = UTF-8 byte offset, value = QString char offset.
+QList<int> buildUtf8ToCharMap(const QByteArray &utf8);
+
+} // namespace Markoff
+
+#endif // MARKOFF_SOURCESPAN_H

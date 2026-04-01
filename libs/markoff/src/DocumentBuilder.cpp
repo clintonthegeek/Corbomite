@@ -17,7 +17,8 @@ bool DocumentBuilder::parse(const QString &markdown)
     m_linkHref.clear();
     m_wikiTarget.clear();
 
-    const QByteArray utf8 = markdown.toUtf8();
+    m_utf8 = markdown.toUtf8();
+    m_sourceBase = m_utf8.constData();
 
     MD_PARSER parser = {};
     parser.abi_version = 0;
@@ -30,7 +31,7 @@ bool DocumentBuilder::parse(const QString &markdown)
     parser.debug_log   = nullptr;
     parser.syntax      = nullptr;
 
-    int result = md_parse(utf8.constData(), static_cast<MD_SIZE>(utf8.size()), &parser, this);
+    int result = md_parse(m_utf8.constData(), static_cast<MD_SIZE>(m_utf8.size()), &parser, this);
     return result == 0;
 }
 
@@ -222,6 +223,8 @@ int DocumentBuilder::text(MD_TEXTTYPE type, const MD_CHAR *rawText, MD_SIZE size
         return 0;
 
     InlineRun run;
+    run.sourceOffset  = static_cast<int>(rawText - m_sourceBase);
+    run.sourceLength  = static_cast<int>(size);
     run.bold          = m_bold;
     run.italic        = m_italic;
     run.strikethrough = m_strikethrough;
@@ -249,8 +252,15 @@ int DocumentBuilder::text(MD_TEXTTYPE type, const MD_CHAR *rawText, MD_SIZE size
         break;
     }
 
-    if (!run.text.isEmpty())
-        m_blockStack.last()->inlines.append(run);
+    if (!run.text.isEmpty()) {
+        Block *current = m_blockStack.last();
+        // Set block source offset from first text run
+        if (current->sourceOffset < 0)
+            current->sourceOffset = run.sourceOffset;
+        // Extend block source length to cover this run
+        current->sourceLength = (run.sourceOffset + run.sourceLength) - current->sourceOffset;
+        current->inlines.append(run);
+    }
 
     return 0;
 }

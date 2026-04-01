@@ -4,52 +4,48 @@
 
 #include <QSyntaxHighlighter>
 #include <QTextCharFormat>
-#include <QRegularExpression>
+#include "SourceSpan.h"
 
 namespace Markoff {
 
+/// Markdown syntax highlighter driven by the parsed AST.
+///
+/// Instead of regex, this highlighter uses a pre-built span map
+/// (from buildSpanMap()) that tells it exactly which byte ranges have
+/// which formatting. The AST handles all nesting and precedence correctly.
 class MarkdownHighlighter : public QSyntaxHighlighter {
     Q_OBJECT
 public:
     explicit MarkdownHighlighter(QTextDocument *parent);
 
-    /// In Source mode, all syntax is visible with coloring.
-    /// In LivePreview mode, syntax delimiters are hidden (transparent)
-    /// and formatting is applied to the content text directly.
     enum class Mode { Source, LivePreview };
     void setMode(Mode mode);
     Mode mode() const { return m_mode; }
 
-    /// The cursor position in the document.
-    /// In LivePreview, the cursor line shows raw syntax, and within that
-    /// line, only inline elements near the cursor show their delimiters.
+    /// Update the span map after a reparse.
+    void setSpanMap(QList<SourceSpan> spans);
+
+    /// Cursor position for per-element delimiter hiding.
     void setCursorPosition(int blockNumber, int columnInBlock);
 
 protected:
     void highlightBlock(const QString &text) override;
 
 private:
-    void highlightInlinePatterns(const QString &text, bool hideDelimiters,
-                                  int cursorCol);
     void hideRange(int start, int length);
     bool cursorInRange(int cursorCol, int matchStart, int matchEnd) const;
+    void applySpanFormat(const SourceSpan &span, int blockCharStart, int blockCharEnd,
+                          bool shouldHideDelim, int cursorCol);
 
     Mode m_mode = Mode::Source;
     int m_cursorBlock = -1;
     int m_cursorColumn = -1;
 
-    // Block states
-    enum BlockState {
-        Normal = -1,
-        FencedCode = 1,
-        Frontmatter = 2,
-        BlockComment = 3
-    };
+    QList<SourceSpan> m_spans;
 
-    // Formats
-    QTextCharFormat m_headingFormat[6];  // H1-H6
+    // Format definitions
+    QTextCharFormat m_headingFormat[6];
     QTextCharFormat m_boldFormat;
-    QTextCharFormat m_boldItalicFormat;
     QTextCharFormat m_italicFormat;
     QTextCharFormat m_strikethroughFormat;
     QTextCharFormat m_inlineCodeFormat;
@@ -65,19 +61,6 @@ private:
     QTextCharFormat m_tagFormat;
     QTextCharFormat m_frontmatterFormat;
     QTextCharFormat m_calloutFormat;
-
-    // Compiled patterns
-    QRegularExpression m_boldItalicPattern;
-    QRegularExpression m_boldPattern;
-    QRegularExpression m_italicPattern;
-    QRegularExpression m_strikethroughPattern;
-    QRegularExpression m_inlineCodePattern;
-    QRegularExpression m_linkPattern;
-    QRegularExpression m_wikilinkPattern;
-    QRegularExpression m_mathInlinePattern;
-    QRegularExpression m_highlightPattern;
-    QRegularExpression m_commentPattern;
-    QRegularExpression m_tagPattern;
 };
 
 } // namespace Markoff

@@ -9,6 +9,10 @@
 #include "MarkoffBlockData.h"
 #include "CodeAtomicBlock.h"
 #include "CalloutAtomicBlock.h"
+#include "SourceSpan.h"
+#include "DocumentBuilder_p.h"
+
+#include <QRegularExpression>
 #include "markoff/Document.h"
 #include "markoff/Renderer.h"
 #include "markoff/RenderSettings.h"
@@ -672,6 +676,13 @@ void Editor::Private::modificationChanged(bool)
 void Editor::Private::reparseDocument()
 {
     parsedDoc = Document::fromMarkdown(q->toPlainText());
+
+    // Build the span map and pass it to the highlighter
+    const auto &blocks = DocumentBlockAccessor::blocks(*parsedDoc);
+    QByteArray utf8 = parsedDoc->markdownContent().toUtf8();
+    auto spans = buildSpanMap(blocks, utf8);
+    highlighter->setSpanMap(std::move(spans));
+
     detectAtomicBlocks();
 }
 
