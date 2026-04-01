@@ -62,15 +62,74 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
 
     painter->fillPath(cardPath, QColor(255, 255, 255));
 
-    // 2. If color is set, draw color stripe at top of card
+    // Pre-process text: extract header and strip frontmatter
+    QString cardText = m_data.text;
+    QString headerText;
+
+    // Strip YAML frontmatter (---\n...\n---)
+    static const QRegularExpression frontmatterPattern(
+        QStringLiteral(R"(^---\n[\s\S]*?\n---\n?)"), QRegularExpression::MultilineOption);
+    cardText.replace(frontmatterPattern, QString());
+
+    // Extract callout-style header: >[!cc-header] Title or >[!some-type] Title
+    static const QRegularExpression calloutHeaderPattern(
+        QStringLiteral(R"(^>\s*\[![\w-]+\]\s*(.+)$)"), QRegularExpression::MultilineOption);
+    auto headerMatch = calloutHeaderPattern.match(cardText);
+    if (headerMatch.hasMatch()) {
+        headerText = headerMatch.captured(1).trimmed();
+        cardText.replace(calloutHeaderPattern, QString());
+    }
+
+    // Also extract regular markdown # headers as card header (if no callout header found)
+    if (headerText.isEmpty()) {
+        static const QRegularExpression mdHeaderPattern(
+            QStringLiteral(R"(^#{1,3}\s+(.+)$)"), QRegularExpression::MultilineOption);
+        auto mdMatch = mdHeaderPattern.match(cardText);
+        if (mdMatch.hasMatch()) {
+            headerText = mdMatch.captured(1).trimmed();
+            cardText.replace(mdMatch.capturedStart(), mdMatch.capturedLength(), QString());
+        }
+    }
+
+    // Trim leading/trailing whitespace after stripping
+    cardText = cardText.trimmed();
+
+    // 2. Draw color stripe / header bar
     const QColor stripeColor = colorFromCanvasColor(m_data.color);
-    if (stripeColor.isValid()) {
+    qreal headerBarHeight = 0;
+
+    if (!headerText.isEmpty() && stripeColor.isValid()) {
+        // Full header bar with text inside the color stripe
+        headerBarHeight = 32.0;
         painter->save();
         painter->setClipPath(cardPath);
+        painter->fillRect(QRectF(0, 0, rect.width(), headerBarHeight), stripeColor);
+        painter->restore();
 
-        const QRectF stripeRect(0, 0, rect.width(), kColorStripeHeight);
-        painter->fillRect(stripeRect, stripeColor);
-
+        // Draw header text in white (or dark for light colors)
+        QFont headerFont = painter->font();
+        headerFont.setBold(true);
+        headerFont.setPointSizeF(11);
+        painter->setFont(headerFont);
+        painter->setPen(Qt::white);
+        painter->drawText(QRectF(kTextPadding, 0, rect.width() - 2 * kTextPadding, headerBarHeight),
+                          Qt::AlignVCenter | Qt::AlignLeft, headerText);
+    } else if (!headerText.isEmpty()) {
+        // Header text without color — render as bold title area
+        headerBarHeight = 28.0;
+        QFont headerFont = painter->font();
+        headerFont.setBold(true);
+        headerFont.setPointSizeF(11);
+        painter->setFont(headerFont);
+        painter->setPen(QColor(40, 40, 40));
+        painter->drawText(QRectF(kTextPadding, 4, rect.width() - 2 * kTextPadding, headerBarHeight),
+                          Qt::AlignVCenter | Qt::AlignLeft, headerText);
+    } else if (stripeColor.isValid()) {
+        // Color stripe only (thin accent, no header text)
+        headerBarHeight = kColorStripeHeight;
+        painter->save();
+        painter->setClipPath(cardPath);
+        painter->fillRect(QRectF(0, 0, rect.width(), headerBarHeight), stripeColor);
         painter->restore();
     }
 
@@ -81,35 +140,42 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     painter->setBrush(Qt::NoBrush);
     painter->drawRoundedRect(rect, kCornerRadius, kCornerRadius);
 
-    // 4. Render text via QTextDocument
-    if (!m_data.text.isEmpty()) {
-        const qreal textTop = stripeColor.isValid() ? kColorStripeHeight + kTextPadding : kTextPadding;
+    // 4. Render body text via QTextDocument
+    if (!cardText.isEmpty()) {
+        const qreal textTop = headerBarHeight > 0 ? headerBarHeight + kTextPadding : kTextPadding;
         const qreal textWidth = rect.width() - 2 * kTextPadding;
 
-        QTextDocument doc;
-        // Render markdown as HTML for proper formatting (headers, bold, links, etc.)
-        // Simple inline conversion — handles the most common patterns
-        QString html = m_data.text;
-        // Headers: # Title → <h1>Title</h1>
-        html.replace(QRegularExpression(QStringLiteral(R"(^### (.+)$)"), QRegularExpression::MultilineOption),
-                      QStringLiteral("<h3>\\1</h3>"));
-        html.replace(QRegularExpression(QStringLiteral(R"(^## (.+)$)"), QRegularExpression::MultilineOption),
-                      QStringLiteral("<h2>\\1</h2>"));
-        html.replace(QRegularExpression(QStringLiteral(R"(^# (.+)$)"), QRegularExpression::MultilineOption),
-                      QStringLiteral("<h1>\\1</h1>"));
+        // Convert remaining markdown to HTML
+        QString html = cardText;
+
         // Bold: **text** → <b>text</b>
         html.replace(QRegularExpression(QStringLiteral(R"(\*\*(.+?)\*\*)")),
                       QStringLiteral("<b>\\1</b>"));
         // Italic: *text* → <i>text</i>
-        html.replace(QRegularExpression(QStringLiteral(R"(\*(.+?)\*)")),
+        html.replace(QRegularExpression(QStringLiteral(R"((?<!\*)\*([^*]+?)\*(?!\*))")),
                       QStringLiteral("<i>\\1</i>"));
-        // Wikilinks: [[text]] → <a>text</a> (styled, not clickable in paint)
+        // Wikilinks with alias: [[target|display]] → styled link showing display text
+        html.replace(QRegularExpression(QStringLiteral(R"(\[\[([^\]|]+)\|([^\]]+)\]\])")),
+                      QStringLiteral("<a style='color:#7b6cd9;text-decoration:underline'>\\2</a>"));
+        // Wikilinks: [[text]] → styled link
         html.replace(QRegularExpression(QStringLiteral(R"(\[\[([^\]]+)\]\])")),
-                      QStringLiteral("<a style='color:#7b6cd9'>\\1</a>"));
-        // Line breaks: \n → <br> (except those already in block elements)
+                      QStringLiteral("<a style='color:#7b6cd9;text-decoration:underline'>\\1</a>"));
+        // Markdown links: [text](url) → styled link
+        html.replace(QRegularExpression(QStringLiteral(R"(\[([^\]]+)\]\(([^)]+)\))")),
+                      QStringLiteral("<a style='color:#7b6cd9;text-decoration:underline'>\\1</a>"));
+        // Inline code: `code` → <code>
+        html.replace(QRegularExpression(QStringLiteral(R"(`([^`]+)`)")),
+                      QStringLiteral("<code style='background:#f0f0f0;padding:1px 3px'>\\1</code>"));
+        // Unordered list items: - item → bullet
+        html.replace(QRegularExpression(QStringLiteral(R"(^- (.+)$)"), QRegularExpression::MultilineOption),
+                      QStringLiteral("&bull; \\1"));
+        // Line breaks
         html.replace(QStringLiteral("\n"), QStringLiteral("<br>"));
+
         // TODO: Use Corbomite's MarkdownRenderer for full rendering when integrated
         // (libcanvas is standalone, so we do a lightweight version here)
+
+        QTextDocument doc;
         doc.setHtml(html);
         doc.setTextWidth(textWidth);
         doc.setDocumentMargin(0);
