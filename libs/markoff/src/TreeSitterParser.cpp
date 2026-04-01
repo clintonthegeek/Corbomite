@@ -149,7 +149,7 @@ TreeSitterParser::TreeSitterParser()
 TreeSitterParser::~TreeSitterParser()
 {
     if (m_blockTree) ts_tree_delete(m_blockTree);
-    if (m_inlineTree) ts_tree_delete(m_inlineTree);
+    for (TSTree *t : m_inlineTrees) ts_tree_delete(t);
     if (m_blockParser) ts_parser_delete(m_blockParser);
     if (m_inlineParser) ts_parser_delete(m_inlineParser);
 }
@@ -167,27 +167,26 @@ bool TreeSitterParser::parse(const QString &text)
     if (!m_blockTree)
         return false;
 
-    // Phase 2: parse inline content within `inline` nodes from the block tree.
-    // The inline grammar only understands inline content (emphasis, links, etc.)
-    // not block markup (headings, fences). We tell tree-sitter which byte
-    // ranges to parse by collecting all `inline` nodes from the block tree.
+    // Phase 2: parse inline content — ONE parse per inline region.
+    // Each `inline` node in the block tree (heading text, paragraph text,
+    // etc.) is parsed separately so each gets its own CST. This avoids
+    // the boundary-crossing problem where set_included_ranges with multiple
+    // ranges produces gap spans that span across heading/paragraph boundaries.
+    for (TSTree *t : m_inlineTrees) ts_tree_delete(t);
+    m_inlineTrees.clear();
+
     TSNode root = ts_tree_root_node(m_blockTree);
     std::vector<TSRange> inlineRanges;
     collectInlineRanges(root, inlineRanges);
 
-    if (m_inlineTree) ts_tree_delete(m_inlineTree);
-
-    if (!inlineRanges.empty()) {
-        ts_parser_set_included_ranges(m_inlineParser,
-                                       inlineRanges.data(),
-                                       static_cast<uint32_t>(inlineRanges.size()));
-        m_inlineTree = ts_parser_parse_string(m_inlineParser, nullptr,
+    for (const TSRange &range : inlineRanges) {
+        ts_parser_set_included_ranges(m_inlineParser, &range, 1);
+        TSTree *tree = ts_parser_parse_string(m_inlineParser, nullptr,
                                                m_utf8.constData(),
                                                static_cast<uint32_t>(m_utf8.size()));
-        // Reset included ranges for next parse
+        if (tree)
+            m_inlineTrees.append(tree);
         ts_parser_set_included_ranges(m_inlineParser, nullptr, 0);
-    } else {
-        m_inlineTree = nullptr;
     }
 
     return true;
@@ -413,46 +412,41 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
     if (!m_blockTree)
         return spans;
 
+    // Collect inline region ranges (used for splitting and filtering)
+    QList<QPair<int,int>> inlineRegions;
+    {
+        std::vector<TSRange> ranges;
+        collectInlineRanges(ts_tree_root_node(m_blockTree), ranges);
+        for (const auto &r : ranges)
+            inlineRegions.append({static_cast<int>(r.start_byte),
+                                  static_cast<int>(r.end_byte)});
+    }
+
     // Walk the block tree for block-level structure
     TSNode blockRoot = ts_tree_root_node(m_blockTree);
     walkNode(blockRoot, spans);
 
-    // Walk the inline tree for inline formatting
-    if (m_inlineTree) {
-        TSNode inlineRoot = ts_tree_root_node(m_inlineTree);
+    // Walk each inline tree separately for inline formatting.
+    // Each tree covers one inline region (heading text, paragraph text, etc.)
+    // so spans never cross block boundaries.
+    if (!m_inlineTrees.isEmpty()) {
         QList<SourceSpan> inlineSpans;
-        walkNode(inlineRoot, inlineSpans);
+        for (TSTree *tree : m_inlineTrees) {
+            TSNode inlineRoot = ts_tree_root_node(tree);
+            walkNode(inlineRoot, inlineSpans);
+        }
 
-        // The inline tree is authoritative for inline content.
         // Remove block spans that fall within inline regions (the block
-        // tree only has anonymous * and ` characters there, without
-        // formatting info). Keep block-level-only spans (heading markers,
-        // code fences, list markers, etc.)
-        // Strategy: collect the byte ranges of all inline regions, then
-        // remove block spans that overlap those regions, then add all
-        // inline spans.
-
-        // Build a set of inline region ranges from the block tree
-        // (these are the ranges where the inline tree is authoritative)
-        QList<QPair<int,int>> inlineRegions;
-        TSNode blockRoot2 = ts_tree_root_node(m_blockTree);
-        std::vector<TSRange> ranges;
-        collectInlineRanges(blockRoot2, ranges);
-        for (const auto &r : ranges)
-            inlineRegions.append({static_cast<int>(r.start_byte),
-                                  static_cast<int>(r.end_byte)});
-
-        // Remove block spans that fall within inline regions
+        // tree has anonymous * and ` characters without formatting info)
         spans.erase(std::remove_if(spans.begin(), spans.end(),
             [&](const SourceSpan &s) {
                 for (const auto &[start, end] : inlineRegions) {
                     if (s.utf8Offset >= start && (s.utf8Offset + s.utf8Length) <= end)
-                        return true; // remove: inline tree handles this region
+                        return true;
                 }
                 return false;
             }), spans.end());
 
-        // Add all inline spans
         spans.append(inlineSpans);
     }
 
@@ -479,9 +473,10 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
 
     // Post-process 2: set parent ranges on delimiter spans so the highlighter
     // knows to show delimiters when cursor is anywhere in the parent element
-    if (m_inlineTree) {
+    if (!m_inlineTrees.isEmpty()) {
         std::vector<ParentRange> parents;
-        collectParentRanges(ts_tree_root_node(m_inlineTree), parents);
+        for (TSTree *tree : m_inlineTrees)
+            collectParentRanges(ts_tree_root_node(tree), parents);
         for (auto &s : spans) {
             if (!s.isDelimiter) continue;
             for (const auto &pr : parents) {

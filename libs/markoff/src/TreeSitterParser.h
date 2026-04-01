@@ -45,7 +45,7 @@ private:
     TSParser *m_blockParser = nullptr;
     TSParser *m_inlineParser = nullptr;
     TSTree *m_blockTree = nullptr;
-    TSTree *m_inlineTree = nullptr;
+    QList<TSTree *> m_inlineTrees;  // one per inline region
     QByteArray m_utf8;
     QList<int> m_byteToChar;  // UTF-8 byte offset → QString char offset
 };
