@@ -702,6 +702,10 @@ void Editor::Private::applyBlockFormats()
     const auto &spans = highlighter->spans();
     int cursorBlockNum = control->textCursor().block().blockNumber();
 
+    // Batch all block format changes to prevent cascading signals
+    QTextCursor batchCursor(q->document());
+    batchCursor.beginEditBlock();
+
     QTextBlock block = q->document()->begin();
     while (block.isValid()) {
         int blockStart = block.position();
@@ -722,13 +726,15 @@ void Editor::Private::applyBlockFormats()
         qreal targetMargin = isCursorLine ? 0.0 : maxBqDepth * 20.0;
 
         if (fmt.leftMargin() != targetMargin) {
-            QTextCursor cursor(block);
+            batchCursor.setPosition(block.position());
             fmt.setLeftMargin(targetMargin);
-            cursor.setBlockFormat(fmt);
+            batchCursor.setBlockFormat(fmt);
         }
 
         block = block.next();
     }
+
+    batchCursor.endEditBlock();
 }
 
 void Editor::Private::updateBlockDisplayModes()
