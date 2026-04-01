@@ -706,6 +706,10 @@ void Editor::Private::renderBlock(QTextBlock &block)
     auto blockDoc = Document::fromMarkdown(blockText);
     auto rendered = renderer.renderToTextDocument(*blockDoc);
 
+    // Match the editor's document margin so rendered content aligns
+    // with raw text at the same x-offset
+    rendered->setDocumentMargin(q->document()->documentMargin());
+
     // Get the viewport width for rendering
     int width = q->viewport()->width();
     rendered->setTextWidth(width);
