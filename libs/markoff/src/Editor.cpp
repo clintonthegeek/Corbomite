@@ -679,10 +679,22 @@ void Editor::Private::reparseDocument()
 {
     parsedDoc = Document::fromMarkdown(q->toPlainText());
 
-    // Build the span map and pass it to the highlighter
+    // Build the span map and pass it to the highlighter.
+    // Span offsets are relative to markdownContent() (post-frontmatter),
+    // but the editor's QTextDocument contains the full text including
+    // frontmatter. Shift all span charOffsets by the frontmatter length.
     const auto &blocks = DocumentBlockAccessor::blocks(*parsedDoc);
     QByteArray utf8 = parsedDoc->markdownContent().toUtf8();
     auto spans = buildSpanMap(blocks, utf8);
+
+    int fullLen = q->toPlainText().length();
+    int contentLen = parsedDoc->markdownContent().length();
+    int frontmatterCharOffset = fullLen - contentLen;
+    if (frontmatterCharOffset > 0) {
+        for (auto &span : spans)
+            span.charOffset += frontmatterCharOffset;
+    }
+
     highlighter->setSpanMap(std::move(spans));
 
     detectAtomicBlocks();
