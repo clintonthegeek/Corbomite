@@ -172,6 +172,8 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
                 setFormat(localStart, localLen, m_highlightFormat);
             } else if (span.comment) {
                 setFormat(localStart, localLen, m_commentFormat);
+            } else if (span.isBlockquoteMarker) {
+                setFormat(localStart, localLen, m_blockquoteFormat);
             } else if (span.isWikilink) {
                 setFormat(localStart, localLen, m_wikilinkFormat);
             } else if (span.isLink) {
@@ -271,24 +273,8 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
         applySpanFormat(span, blockCharStart, blockCharEnd, hideDelimiters, cursorCol);
     }
 
-    // Apply blockquote indentation via QTextBlockFormat
-    if (m_mode == Mode::LivePreview && !isCursorLine) {
-        QTextBlockFormat blockFmt = currentBlock().blockFormat();
-        qreal indent = maxBlockquoteDepth * 20.0; // 20px per nesting level
-        if (blockFmt.leftMargin() != indent) {
-            QTextCursor cursor(currentBlock());
-            blockFmt.setLeftMargin(indent);
-            cursor.setBlockFormat(blockFmt);
-        }
-    } else if (m_mode == Mode::LivePreview && isCursorLine) {
-        // Reset indent on cursor line (showing raw text)
-        QTextBlockFormat blockFmt = currentBlock().blockFormat();
-        if (blockFmt.leftMargin() != 0) {
-            QTextCursor cursor(currentBlock());
-            blockFmt.setLeftMargin(0);
-            cursor.setBlockFormat(blockFmt);
-        }
-    }
+    // Note: blockquote indentation is handled by Editor::applyBlockFormats()
+    // because QSyntaxHighlighter can only set character formats, not block formats.
 }
 
 } // namespace Markoff

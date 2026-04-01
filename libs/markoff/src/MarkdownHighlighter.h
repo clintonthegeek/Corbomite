@@ -28,6 +28,9 @@ public:
     /// Cursor position for per-element delimiter hiding.
     void setCursorPosition(int blockNumber, int columnInBlock);
 
+    /// Access the current span map (for block-level formatting by Editor)
+    const QList<SourceSpan> &spans() const { return m_spans; }
+
 protected:
     void highlightBlock(const QString &text) override;
 

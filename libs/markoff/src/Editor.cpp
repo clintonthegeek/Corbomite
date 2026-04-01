@@ -688,6 +688,47 @@ void Editor::Private::reparseDocument()
     highlighter->setSpanMap(std::move(spans));
 
     detectAtomicBlocks();
+    applyBlockFormats();
+}
+
+void Editor::Private::applyBlockFormats()
+{
+    if (mode != Editor::Mode::LivePreview)
+        return;
+
+    // Walk the span map to determine per-QTextBlock formatting (margins,
+    // indent). QSyntaxHighlighter can only set character formats; block-level
+    // formatting (left margin for blockquotes, etc.) must be set here.
+    const auto &spans = highlighter->spans();
+    int cursorBlockNum = control->textCursor().block().blockNumber();
+
+    QTextBlock block = q->document()->begin();
+    while (block.isValid()) {
+        int blockStart = block.position();
+        int blockEnd = blockStart + block.length();
+        int blockNum = block.blockNumber();
+        bool isCursorLine = (blockNum == cursorBlockNum);
+
+        int maxBqDepth = 0;
+        for (const SourceSpan &s : spans) {
+            int spanEnd = s.charOffset + s.charLength;
+            if (spanEnd <= blockStart) continue;
+            if (s.charOffset >= blockEnd) break;
+            if (s.blockquoteDepth > maxBqDepth)
+                maxBqDepth = s.blockquoteDepth;
+        }
+
+        QTextBlockFormat fmt = block.blockFormat();
+        qreal targetMargin = isCursorLine ? 0.0 : maxBqDepth * 20.0;
+
+        if (fmt.leftMargin() != targetMargin) {
+            QTextCursor cursor(block);
+            fmt.setLeftMargin(targetMargin);
+            cursor.setBlockFormat(fmt);
+        }
+
+        block = block.next();
+    }
 }
 
 void Editor::Private::updateBlockDisplayModes()

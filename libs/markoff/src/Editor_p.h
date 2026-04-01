@@ -100,6 +100,7 @@ struct Editor::Private {
     bool inReparse = false;  // guard against reparse loops from highlighter
 
     void reparseDocument();
+    void applyBlockFormats();  // set QTextBlockFormat (margins, indent) from span map
     void updateBlockDisplayModes();
     void renderBlock(QTextBlock &block);
 
