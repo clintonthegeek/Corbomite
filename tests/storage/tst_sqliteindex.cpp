@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include "corbomite/storage/SQLiteIndex.h"
 
@@ -447,6 +448,55 @@ private Q_SLOTS:
             QStringLiteral("other.md"),
             tmp.path());
         QCOMPARE(modified, 0);
+    }
+    void testRebuildIndexAsync()
+    {
+        QTemporaryDir tmp;
+        QString vault = tmp.path() + QStringLiteral("/vault");
+        QDir().mkpath(vault);
+        QFile f1(vault + QStringLiteral("/note1.md"));
+        QVERIFY(f1.open(QIODevice::WriteOnly));
+        f1.write("# First\n\nContent one");
+        f1.close();
+
+        Corbomite::SQLiteIndex index;
+        QVERIFY(index.open(tmp.path() + QStringLiteral("/index.sqlite")));
+
+        QSignalSpy spy(&index, &Corbomite::SQLiteIndex::indexReady);
+        index.rebuildIndexAsync(vault);
+
+        QVERIFY(spy.wait(10000));
+
+        // Fresh connection to read the data written by the worker
+        Corbomite::SQLiteIndex verify;
+        QVERIFY(verify.open(tmp.path() + QStringLiteral("/index.sqlite")));
+        auto results = verify.search(QStringLiteral("Content"));
+        QCOMPARE(results.size(), 1);
+    }
+
+    void testIsRebuilding()
+    {
+        QTemporaryDir tmp;
+        QDir().mkpath(tmp.path() + QStringLiteral("/vault"));
+        QFile f1(tmp.path() + QStringLiteral("/vault/note.md"));
+        f1.open(QIODevice::WriteOnly);
+        f1.write("Content");
+        f1.close();
+
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + QStringLiteral("/index.sqlite"));
+
+        QVERIFY(!index.isRebuilding());
+        index.rebuildIndexAsync(tmp.path() + QStringLiteral("/vault"));
+        // isRebuilding should be true immediately after starting
+        QVERIFY(index.isRebuilding());
+
+        QSignalSpy spy(&index, &Corbomite::SQLiteIndex::indexReady);
+        QVERIFY(spy.wait(5000));
+
+        // Give the thread a moment to fully clean up
+        QTest::qWait(100);
+        QVERIFY(!index.isRebuilding());
     }
 };
 
