@@ -665,7 +665,6 @@ void Editor::Private::reparseDocument()
     detectDecoratedRanges();
     highlighter->setDecoratedRanges(decoratedRanges);
     applyBlockFormats();
-    createEmbeddedWidgets();
 }
 
 void Editor::Private::applyBlockFormats()
@@ -921,84 +920,6 @@ const DecoratedRange *Editor::Private::decoratedRangeAt(int blockNumber) const
             return &dr;
     }
     return nullptr;
-}
-
-void Editor::Private::createEmbeddedWidgets()
-{
-    if (mode != Editor::Mode::LivePreview)
-        return;
-
-    // Don't recreate if already present
-    if (!embeddedWidgets.isEmpty())
-        return;
-
-    QList<ParsedTable> tables = TableHandler::detectTables(q->document());
-    for (const ParsedTable &pt : tables) {
-        auto *tw = new TableWidget(pt, q->viewport());
-
-        EmbeddedWidget ew;
-        ew.widget = tw;
-        ew.firstBlock = pt.firstBlock;
-        ew.lastBlock = pt.lastBlock;
-        embeddedWidgets.append(ew);
-    }
-    repositionEmbeddedWidgets();
-}
-
-void Editor::Private::clearEmbeddedWidgets()
-{
-    for (auto &ew : embeddedWidgets)
-        delete ew.widget;
-    embeddedWidgets.clear();
-}
-
-void Editor::Private::repositionEmbeddedWidgets()
-{
-    // Position each embedded widget over its corresponding text blocks.
-    // Our PlainTextDocumentLayout doesn't track cumulative Y positions,
-    // so we compute them by summing block heights from the top.
-    QAbstractTextDocumentLayout *layout = q->document()->documentLayout();
-    qreal margin = q->document()->documentMargin();
-    qreal vOffset = verticalOffset();
-
-    for (auto &ew : embeddedWidgets) {
-        if (!ew.widget) continue;
-
-        // Compute Y: sum block heights from top, then subtract scroll offset.
-        // Both table position AND scroll offset computed by summing block heights
-        // (since our PlainTextDocumentLayout doesn't track cumulative positions).
-        qreal docY = 0;
-        qreal scrollY = 0;
-        int scrollLine = q->verticalScrollBar()->value();
-        QTextBlock b = q->document()->begin();
-        while (b.isValid()) {
-            qreal bh = layout->blockBoundingRect(b).height();
-            if (b.blockNumber() < scrollLine)
-                scrollY += bh;
-            if (b.blockNumber() < ew.firstBlock)
-                docY += bh;
-            if (b.blockNumber() >= ew.firstBlock)
-                break;
-            b = b.next();
-        }
-
-        // Compute height of the table's blocks
-        qreal h = 0;
-        for (int i = ew.firstBlock; i <= ew.lastBlock && b.isValid(); ++i, b = b.next())
-            h += layout->blockBoundingRect(b).height();
-
-        qreal viewY = docY - scrollY;
-        qreal x = margin;
-        qreal w = q->viewport()->width() - margin * 2;
-
-        int widgetHeight = qMax(static_cast<int>(h), ew.widget->sizeHint().height());
-        ew.widget->setGeometry(static_cast<int>(x), static_cast<int>(viewY),
-                                static_cast<int>(w), widgetHeight);
-
-        // Only show if visible in viewport
-        bool visible = (viewY + widgetHeight > 0) && (viewY < q->viewport()->height());
-        ew.widget->setVisible(visible);
-    }
 }
 
 void Editor::Private::verticalScrollbarActionTriggered(int action)
@@ -1981,7 +1902,6 @@ void Editor::inputMethodEvent(QInputMethodEvent *e)
 void Editor::scrollContentsBy(int dx, int /*dy*/)
 {
     d->setTopLine(verticalScrollBar()->value(), dx);
-    d->repositionEmbeddedWidgets();
 }
 
 QVariant Editor::inputMethodQuery(Qt::InputMethodQuery property) const

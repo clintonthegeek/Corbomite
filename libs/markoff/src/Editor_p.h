@@ -15,6 +15,9 @@
 #include "TreeSitterParser.h"
 
 #include <QHash>
+#include <QList>
+#include <Qt>
+#include <QtGui/qtexttable.h>
 
 #include <QtGui/qtextdocumentfragment.h>
 #include <QtWidgets/qscrollbar.h>
@@ -111,16 +114,11 @@ struct Editor::Private {
     void detectDecoratedRanges();
     const DecoratedRange *decoratedRangeAt(int blockNumber) const;
 
-    // Embedded widgets (tables, images, diagrams — positioned over hidden text)
-    struct EmbeddedWidget {
-        QWidget *widget = nullptr;
-        int firstBlock = -1;
-        int lastBlock = -1;
-    };
-    QList<EmbeddedWidget> embeddedWidgets;
-    void createEmbeddedWidgets();
-    void clearEmbeddedWidgets();
-    void repositionEmbeddedWidgets();
+    // Live tables (QTextTable objects that replaced pipe text)
+    QList<QTextTable *> liveTables;
+    QList<QList<Qt::Alignment>> tableAlignments;
+    void convertTables();
+    void revertTables();
 
     void cursorPositionChanged();
     void modificationChanged(bool);
