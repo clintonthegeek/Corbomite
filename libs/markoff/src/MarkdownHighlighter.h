@@ -13,11 +13,26 @@ class MarkdownHighlighter : public QSyntaxHighlighter {
 public:
     explicit MarkdownHighlighter(QTextDocument *parent);
 
+    /// In Source mode, all syntax is visible with coloring.
+    /// In LivePreview mode, syntax delimiters are hidden (transparent)
+    /// and formatting is applied to the content text directly.
+    enum class Mode { Source, LivePreview };
+    void setMode(Mode mode);
+    Mode mode() const { return m_mode; }
+
+    /// The block number range where the cursor currently is.
+    /// In LivePreview, blocks near the cursor show raw syntax.
+    void setCursorBlock(int blockNumber);
+
 protected:
     void highlightBlock(const QString &text) override;
 
 private:
-    void highlightInlinePatterns(const QString &text);
+    void highlightInlinePatterns(const QString &text, bool hideDelimiters);
+    void hideRange(int start, int length);
+
+    Mode m_mode = Mode::Source;
+    int m_cursorBlock = -1;
 
     // Block states
     enum BlockState {

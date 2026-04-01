@@ -10,6 +10,7 @@
 #include <markoff/Renderer.h>
 #include "TextControl.h"
 #include "AtomicBlock.h"
+#include "MarkdownHighlighter.h"
 
 #include <QHash>
 
@@ -65,6 +66,7 @@ struct Editor::Private {
     QPoint autoScrollDragPos;
 
     EditorControl *control = nullptr;
+    MarkdownHighlighter *highlighter = nullptr;
     qreal topLineFracture = 0;
     qreal pageUpDownLastCursorY = 0;
     QTextOption::WrapMode wordWrap = QTextOption::WrapAtWordBoundaryOrAnywhere;

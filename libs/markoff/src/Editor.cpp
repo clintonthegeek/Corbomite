@@ -554,7 +554,7 @@ void Editor::Private::init(const QString &txt)
     doc->setDocumentLayout(layout);
     control->setDocument(doc);
 
-    new MarkdownHighlighter(doc);
+    highlighter = new MarkdownHighlighter(doc);
 
     control->setPalette(q->palette());
 
@@ -615,9 +615,13 @@ void Editor::Private::cursorPositionChanged()
 {
     pageUpDownLastCursorYIsValid = false;
 
-    // Track active atomic block based on cursor position
+    // Track active atomic block and update highlighter cursor
     if (mode == Editor::Mode::LivePreview) {
         int cursorBlockNum = control->textCursor().block().blockNumber();
+
+        // Update highlighter so it knows which blocks to show raw
+        highlighter->setCursorBlock(cursorBlockNum);
+
         AtomicBlock *ab = atomicBlockAt(cursorBlockNum);
 
         if (ab != activeAtomicBlock) {
@@ -1405,10 +1409,15 @@ void Editor::setMode(Mode m)
         settings.marginPx = 0;
         d->renderer.setSettings(settings);
 
+        // Switch highlighter to live preview mode
+        d->highlighter->setMode(MarkdownHighlighter::Mode::LivePreview);
+        d->highlighter->setCursorBlock(d->control->textCursor().block().blockNumber());
+
         d->reparseDocument();
         d->updateBlockDisplayModes();
     } else {
         document()->setDocumentMargin(sourceMargin);
+        d->highlighter->setMode(MarkdownHighlighter::Mode::Source);
 
         // Source mode: clear all rendered caches, set all blocks to Raw
         QTextBlock block = document()->begin();
@@ -1515,47 +1524,41 @@ void Editor::paintEvent(QPaintEvent *e)
         }
 
         if (r.bottom() >= er.top() && r.top() <= er.bottom()) {
-            // Live preview: paint rendered content for non-cursor blocks
+            // Live preview: atomic blocks get graphical rendering.
+            // Normal blocks are handled by the MarkdownHighlighter
+            // (which applies formatting directly to the text).
             if (d->mode == Mode::LivePreview) {
                 auto *blockData = dynamic_cast<MarkoffBlockData *>(block.userData());
-                if (blockData && blockData->displayMode == MarkoffBlockData::Rendered) {
-                    // Atomic block rendering
-                    if (blockData->atomicBlock && blockData->isAtomicBlockStart) {
-                        AtomicBlock *ab = blockData->atomicBlock;
-                        QSizeF abSize = ab->sizeForWidth(viewportRect.width());
-                        QRectF abRect(r.topLeft(), abSize);
-                        ab->paint(&painter, abRect);
+                if (blockData && blockData->atomicBlock) {
+                    if (blockData->displayMode == MarkoffBlockData::Rendered) {
+                        if (blockData->isAtomicBlockStart) {
+                            AtomicBlock *ab = blockData->atomicBlock;
+                            QSizeF abSize = ab->sizeForWidth(viewportRect.width());
+                            QRectF abRect(r.topLeft(), abSize);
+                            ab->paint(&painter, abRect);
 
-                        // Skip all blocks that belong to this atomic block
-                        int lastBlockNum = ab->lastBlock();
-                        while (block.isValid() && block.blockNumber() <= lastBlockNum) {
-                            offset.ry() += Markoff::blockBoundingRect(d.get(), block).height();
-                            block = block.next();
+                            // Skip all blocks that belong to this atomic block
+                            int lastBlockNum = ab->lastBlock();
+                            while (block.isValid() && block.blockNumber() <= lastBlockNum) {
+                                offset.ry() += Markoff::blockBoundingRect(d.get(), block).height();
+                                block = block.next();
+                            }
+                            if (offset.y() > viewportRect.height())
+                                break;
+                            continue;
                         }
-                        if (offset.y() > viewportRect.height())
-                            break;
-                        continue;
-                    }
-
-                    // Skip non-start blocks of atomic blocks (already painted)
-                    if (blockData->atomicBlock && !blockData->isAtomicBlockStart) {
-                        offset.ry() += r.height();
-                        block = block.next();
-                        continue;
-                    }
-
-                    // Normal rendered block (non-atomic)
-                    if (!blockData->cacheValid)
-                        d->renderBlock(block);
-                    if (!blockData->renderedCache.isNull()) {
-                        painter.drawPixmap(r.topLeft(), blockData->renderedCache);
-                        offset.ry() += r.height();
-                        if (offset.y() > viewportRect.height())
-                            break;
-                        block = block.next();
-                        continue;
+                        // Non-start blocks of atomic blocks: skip (start block painted them)
+                        if (!blockData->isAtomicBlockStart) {
+                            offset.ry() += r.height();
+                            block = block.next();
+                            continue;
+                        }
                     }
                 }
+                // Normal blocks: fall through to standard text painting.
+                // The MarkdownHighlighter has already applied formatting
+                // (hiding delimiters, applying bold/italic/etc.) via
+                // QTextCharFormat on the text layout.
             }
 
             QTextBlockFormat blockFormat = block.blockFormat();
