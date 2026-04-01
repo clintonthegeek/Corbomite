@@ -360,6 +360,19 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
         applySpanFormat(span, blockCharStart, blockCharEnd, hideDelimiters, cursorCol);
     }
 
+    // Make table blocks transparent (embedded QTableWidget renders on top)
+    if (m_mode == Mode::LivePreview && !isCursorLine) {
+        for (const DecoratedRange &dr : m_decoratedRanges) {
+            if (dr.type == DecoratedRange::Table &&
+                blockNum >= dr.firstBlock && blockNum <= dr.lastBlock) {
+                QTextCharFormat transparentFmt;
+                transparentFmt.setForeground(Qt::transparent);
+                setFormat(0, text.length(), transparentFmt);
+                return; // skip all other formatting for this block
+            }
+        }
+    }
+
     // Syntax highlighting for code block content
     for (const DecoratedRange &dr : m_decoratedRanges) {
         if (dr.type == DecoratedRange::CodeBlock &&

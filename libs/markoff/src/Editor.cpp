@@ -902,6 +902,16 @@ void Editor::Private::detectDecoratedRanges()
 
         block = block.next();
     }
+
+    // Detect tables and add as decorated ranges
+    QList<ParsedTable> tables = TableHandler::detectTables(q->document());
+    for (const ParsedTable &pt : tables) {
+        DecoratedRange dr;
+        dr.type = DecoratedRange::Table;
+        dr.firstBlock = pt.firstBlock;
+        dr.lastBlock = pt.lastBlock;
+        decoratedRanges.append(dr);
+    }
 }
 
 const DecoratedRange *Editor::Private::decoratedRangeAt(int blockNumber) const
@@ -945,33 +955,40 @@ void Editor::Private::clearEmbeddedWidgets()
 void Editor::Private::repositionEmbeddedWidgets()
 {
     // Position each embedded widget over its corresponding text blocks.
-    // We use the document layout to find block positions.
+    // Our PlainTextDocumentLayout doesn't track cumulative Y positions,
+    // so we compute them by summing block heights from the top.
     QAbstractTextDocumentLayout *layout = q->document()->documentLayout();
     qreal margin = q->document()->documentMargin();
     qreal vOffset = verticalOffset();
-    int hOffset = horizontalOffset();
 
     for (auto &ew : embeddedWidgets) {
         if (!ew.widget) continue;
 
-        QTextBlock firstBlk = q->document()->findBlockByNumber(ew.firstBlock);
-        if (!firstBlk.isValid()) { ew.widget->hide(); continue; }
+        // Compute Y position by summing heights of all blocks before firstBlock
+        qreal y = 0;
+        QTextBlock b = q->document()->begin();
+        while (b.isValid() && b.blockNumber() < ew.firstBlock) {
+            y += layout->blockBoundingRect(b).height();
+            b = b.next();
+        }
 
-        QRectF firstRect = layout->blockBoundingRect(firstBlk);
-        qreal y = firstRect.top() - vOffset;
-        qreal x = margin - hOffset;
-        qreal w = q->viewport()->width() - margin * 2;
-
-        // Calculate total height of the block range
+        // Compute height of the table's blocks
         qreal h = 0;
-        QTextBlock b = firstBlk;
         for (int i = ew.firstBlock; i <= ew.lastBlock && b.isValid(); ++i, b = b.next())
             h += layout->blockBoundingRect(b).height();
 
+        // Convert from document coords to viewport coords
+        qreal viewY = y - vOffset;
+        qreal x = margin;
+        qreal w = q->viewport()->width() - margin * 2;
+
         int widgetHeight = qMax(static_cast<int>(h), ew.widget->sizeHint().height());
-        ew.widget->setGeometry(static_cast<int>(x), static_cast<int>(y),
+        ew.widget->setGeometry(static_cast<int>(x), static_cast<int>(viewY),
                                 static_cast<int>(w), widgetHeight);
-        ew.widget->show();
+
+        // Only show if visible in viewport
+        bool visible = (viewY + widgetHeight > 0) && (viewY < q->viewport()->height());
+        ew.widget->setVisible(visible);
     }
 }
 

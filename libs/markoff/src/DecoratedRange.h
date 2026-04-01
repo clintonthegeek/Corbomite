@@ -11,7 +11,7 @@ namespace Markoff {
 /// The text stays in the QTextDocument; decorations are painted
 /// around it in paintEvent.
 struct DecoratedRange {
-    enum Type { CodeBlock, Callout, Blockquote };
+    enum Type { CodeBlock, Callout, Blockquote, Table };
 
     Type type = CodeBlock;
     int firstBlock = -1;
