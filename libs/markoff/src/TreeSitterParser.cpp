@@ -522,6 +522,12 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
                     s.isBlockquote = true;
                     if (bq.depth > s.blockquoteDepth)
                         s.blockquoteDepth = bq.depth;
+                    // Blockquote delimiters (> markers) should show when
+                    // cursor is anywhere in the blockquote
+                    if (s.isBlockquoteMarker && s.parentCharStart < 0) {
+                        s.parentCharStart = utf8ToCharOffset(bq.startByte);
+                        s.parentCharEnd = utf8ToCharOffset(bq.endByte);
+                    }
                 }
             }
         }
