@@ -165,6 +165,15 @@ QString Document::footnoteContent(int number) const
 }
 
 // ---------------------------------------------------------------------------
+// Internal accessor for Renderer/Editor
+// ---------------------------------------------------------------------------
+
+const QList<Block> &DocumentBlockAccessor::blocks(const Document &doc)
+{
+    return doc.d->blocks;
+}
+
+// ---------------------------------------------------------------------------
 // extractSubpath
 //
 // Handles two formats:

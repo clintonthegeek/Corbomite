@@ -31,6 +31,10 @@ private:
 
     struct Private;
     std::unique_ptr<Private> d;
+
+    // Internal accessor for library components (Renderer, Editor)
+    // Defined in Document.cpp, declared in DocumentBuilder_p.h
+    friend struct DocumentBlockAccessor;
 };
 
 } // namespace Markoff

@@ -48,6 +48,14 @@ struct Block {
     QString frontmatterYaml;
 };
 
+// Internal accessor — lets Renderer/Editor access Document's parsed blocks
+// without exposing Block in the public API.
+// Defined as friend of Document in Document.h, implemented in Document.cpp.
+class Document;
+struct DocumentBlockAccessor {
+    static const QList<Block> &blocks(const Document &doc);
+};
+
 class DocumentBuilder {
 public:
     DocumentBuilder();

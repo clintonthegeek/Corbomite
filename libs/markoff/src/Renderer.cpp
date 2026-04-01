@@ -395,11 +395,8 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
     if (doc.isEmpty())
         return textDoc;
 
-    // Re-parse markdown content (without frontmatter)
-    DocumentBuilder builder;
-    builder.parse(doc.markdownContent());
-    QList<Block> blocks = builder.takeBlocks();
-    DocumentBuilder::postProcess(blocks);
+    // Access the pre-parsed AST directly (no re-parsing)
+    const QList<Block> &blocks = DocumentBlockAccessor::blocks(doc);
 
     // Build body HTML
     const RenderSettings &s = d->settings;
