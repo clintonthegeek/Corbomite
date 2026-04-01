@@ -30,7 +30,7 @@ set_target_properties(canvas PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(canvas
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(canvas PUBLIC Qt6::Core Qt6::Widgets)
+target_link_libraries(canvas PUBLIC Qt6::Core Qt6::Widgets Corbomite::Core)
 
 if(NOT PROJECT_IS_TOP_LEVEL)
     # In-tree build
