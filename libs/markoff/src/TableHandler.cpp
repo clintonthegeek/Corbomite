@@ -3,9 +3,12 @@
 
 #include <QTextDocument>
 #include <QTextBlock>
-#include <QHeaderView>
+#include <QTextTable>
+#include <QTextTableFormat>
+#include <QTextLength>
+#include <QTextCursor>
+#include <QTextCharFormat>
 #include <QRegularExpression>
-#include <QFont>
 
 namespace Markoff {
 
@@ -86,107 +89,137 @@ QList<ParsedTable> TableHandler::detectTables(QTextDocument *doc)
 }
 
 // ---------------------------------------------------------------------------
-// TableWidget
+// QTextTable conversion
 // ---------------------------------------------------------------------------
 
-TableWidget::TableWidget(const ParsedTable &table, QWidget *parent)
-    : QTableWidget(parent)
-    , m_alignments(table.alignments)
+QTextTable *TableHandler::convertToQTextTable(QTextDocument *doc,
+                                               const ParsedTable &table)
 {
-    int numRows = table.rows.size();
+    if (!doc) return nullptr;
+
     int numCols = table.headers.size();
-    setRowCount(numRows);
-    setColumnCount(numCols);
+    int numDataRows = table.rows.size();
+    int numRows = 1 + qMax(numDataRows, 1); // header + at least 1 data row
 
-    // Headers
-    setHorizontalHeaderLabels(table.headers);
+    // Find the text range covering firstBlock..lastBlock
+    QTextBlock firstBlock = doc->findBlockByNumber(table.firstBlock);
+    QTextBlock lastBlock = doc->findBlockByNumber(table.lastBlock);
+    if (!firstBlock.isValid() || !lastBlock.isValid())
+        return nullptr;
 
-    // Data
-    for (int r = 0; r < numRows; ++r) {
+    QTextCursor cursor(doc);
+    cursor.setPosition(firstBlock.position());
+    cursor.setPosition(lastBlock.position() + lastBlock.length() - 1,
+                       QTextCursor::KeepAnchor);
+
+    cursor.beginEditBlock();
+
+    // Remove the selected pipe text
+    cursor.removeSelectedText();
+
+    // If the removal left an empty block before the cursor, clean it up
+    // by merging with the previous block (the removeSelectedText can leave
+    // a trailing empty block).
+    // Actually, after removeSelectedText the cursor is at the position where
+    // the table was. We just insert the table there.
+
+    // Set up table format
+    QTextTableFormat fmt;
+    fmt.setBorderCollapse(true);
+    fmt.setCellPadding(4);
+    fmt.setCellSpacing(0);
+    fmt.setBorder(0);
+
+    QList<QTextLength> constraints;
+    qreal pct = 100.0 / numCols;
+    for (int c = 0; c < numCols; ++c)
+        constraints.append(QTextLength(QTextLength::PercentageLength, pct));
+    fmt.setColumnWidthConstraints(constraints);
+
+    // Insert the table
+    QTextTable *tt = cursor.insertTable(numRows, numCols, fmt);
+
+    // Populate header cells (row 0) with bold text
+    QTextCharFormat boldFmt;
+    boldFmt.setFontWeight(QFont::Bold);
+
+    for (int c = 0; c < numCols; ++c) {
+        QTextTableCell cell = tt->cellAt(0, c);
+        QTextCursor cellCursor = cell.firstCursorPosition();
+        cellCursor.insertText(table.headers[c], boldFmt);
+    }
+
+    // Populate data cells (rows 1+)
+    for (int r = 0; r < numDataRows; ++r) {
         for (int c = 0; c < numCols && c < table.rows[r].size(); ++c) {
-            auto *item = new QTableWidgetItem(table.rows[r][c]);
-            if (c < table.alignments.size())
-                item->setTextAlignment(table.alignments[c] | Qt::AlignVCenter);
-            setItem(r, c, item);
+            QTextTableCell cell = tt->cellAt(r + 1, c);
+            QTextCursor cellCursor = cell.firstCursorPosition();
+            cellCursor.insertText(table.rows[r][c]);
         }
     }
 
-    // Styling
-    setFrameShape(QFrame::NoFrame);
-    setGridStyle(Qt::SolidLine);
-    setShowGrid(true);
-    setAlternatingRowColors(false);
-    horizontalHeader()->setStretchLastSection(true);
-    horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    verticalHeader()->setVisible(false);
-    setSelectionMode(QAbstractItemView::SingleSelection);
+    cursor.endEditBlock();
 
-    // Size to content
-    resizeRowsToContents();
-
-    // Style to blend with the editor
-    setStyleSheet(QStringLiteral(
-        "QTableWidget { background: transparent; border: 1px solid #e0e0e0; }"
-        "QTableWidget::item { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; }"
-        "QHeaderView::section { background: #f5f5f5; border: none; "
-        "  border-bottom: 2px solid #e0e0e0; padding: 4px 8px; font-weight: bold; }"
-    ));
-}
-
-QString TableWidget::toMarkdown() const
-{
-    return TableHandler::serializeToMarkdown(
-        const_cast<QTableWidget *>(static_cast<const QTableWidget *>(this)),
-        m_alignments);
+    return tt;
 }
 
 // ---------------------------------------------------------------------------
 // Serialization
 // ---------------------------------------------------------------------------
 
-QString TableHandler::serializeToMarkdown(QTableWidget *table,
+QString TableHandler::serializeToMarkdown(QTextTable *table,
                                            const QList<Qt::Alignment> &alignments)
 {
     if (!table) return {};
 
-    int rows = table->rowCount();
-    int cols = table->columnCount();
+    int rows = table->rows();
+    int cols = table->columns();
 
-    // Collect text and compute widths
-    QList<int> colWidths(cols, 3);
-
-    // Headers
-    for (int c = 0; c < cols; ++c) {
-        QString h = table->horizontalHeaderItem(c)
-                        ? table->horizontalHeaderItem(c)->text() : QString();
-        if (h.length() > colWidths[c])
-            colWidths[c] = h.length();
+    // Read all cell text
+    QList<QStringList> cellText;
+    for (int r = 0; r < rows; ++r) {
+        QStringList rowText;
+        for (int c = 0; c < cols; ++c) {
+            QTextTableCell cell = table->cellAt(r, c);
+            QTextCursor start = cell.firstCursorPosition();
+            QTextCursor end = cell.lastCursorPosition();
+            QTextBlock b = start.block();
+            QString text;
+            while (b.isValid() && b.position() <= end.block().position()) {
+                if (!text.isEmpty()) text += QLatin1Char(' ');
+                text += b.text();
+                b = b.next();
+            }
+            rowText.append(text);
+        }
+        cellText.append(rowText);
     }
-    // Data
+
+    // Compute column widths (minimum 3 for separator dashes)
+    QList<int> colWidths(cols, 3);
     for (int r = 0; r < rows; ++r) {
         for (int c = 0; c < cols; ++c) {
-            QString t = table->item(r, c) ? table->item(r, c)->text() : QString();
-            if (t.length() > colWidths[c])
-                colWidths[c] = t.length();
+            if (cellText[r][c].length() > colWidths[c])
+                colWidths[c] = cellText[r][c].length();
         }
     }
 
     QString md;
 
-    // Header
+    // Header row (row 0)
     md += QLatin1Char('|');
     for (int c = 0; c < cols; ++c) {
-        QString h = table->horizontalHeaderItem(c)
-                        ? table->horizontalHeaderItem(c)->text() : QString();
-        md += QLatin1Char(' ') + h.leftJustified(colWidths[c]) + QStringLiteral(" |");
+        md += QLatin1Char(' ')
+              + cellText[0][c].leftJustified(colWidths[c])
+              + QStringLiteral(" |");
     }
     md += QLatin1Char('\n');
 
-    // Separator
+    // Separator row
     md += QLatin1Char('|');
     for (int c = 0; c < cols; ++c) {
         Qt::Alignment align = c < alignments.size() ? alignments[c] : Qt::AlignLeft;
-        QString sep(colWidths[c] + 2, QLatin1Char('-'));
+        QString sep(colWidths[c], QLatin1Char('-'));
         if (align == Qt::AlignCenter) {
             sep[0] = QLatin1Char(':');
             sep[sep.size() - 1] = QLatin1Char(':');
@@ -197,12 +230,13 @@ QString TableHandler::serializeToMarkdown(QTableWidget *table,
     }
     md += QLatin1Char('\n');
 
-    // Data
-    for (int r = 0; r < rows; ++r) {
+    // Data rows (row 1+)
+    for (int r = 1; r < rows; ++r) {
         md += QLatin1Char('|');
         for (int c = 0; c < cols; ++c) {
-            QString t = table->item(r, c) ? table->item(r, c)->text() : QString();
-            md += QLatin1Char(' ') + t.leftJustified(colWidths[c]) + QStringLiteral(" |");
+            md += QLatin1Char(' ')
+                  + cellText[r][c].leftJustified(colWidths[c])
+                  + QStringLiteral(" |");
         }
         md += QLatin1Char('\n');
     }

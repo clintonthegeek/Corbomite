@@ -4,11 +4,10 @@
 
 #include <QString>
 #include <QStringList>
-#include <QTableWidget>
 #include <QList>
 
 class QTextDocument;
-class QWidget;
+class QTextTable;
 
 namespace Markoff {
 
@@ -21,28 +20,14 @@ struct ParsedTable {
     int lastBlock = -1;
 };
 
-/// A QTableWidget styled for embedding in the Markoff editor.
-class TableWidget : public QTableWidget {
-    Q_OBJECT
-public:
-    explicit TableWidget(const ParsedTable &table, QWidget *parent = nullptr);
-
-    /// Serialize the table back to pipe-delimited markdown
-    QString toMarkdown() const;
-
-    QList<Qt::Alignment> alignments() const { return m_alignments; }
-
-private:
-    QList<Qt::Alignment> m_alignments;
-};
-
-/// Handles detection and parsing of markdown tables.
+/// Handles detection, conversion, and serialization of markdown tables.
 class TableHandler {
 public:
     static QList<ParsedTable> detectTables(QTextDocument *doc);
-    static QString serializeToMarkdown(QTableWidget *table,
+    static QTextTable *convertToQTextTable(QTextDocument *doc,
+                                            const ParsedTable &table);
+    static QString serializeToMarkdown(QTextTable *table,
                                         const QList<Qt::Alignment> &alignments);
-private:
     static QStringList parseRow(const QString &line);
     static Qt::Alignment parseAlignment(const QString &cell);
 };
