@@ -559,8 +559,7 @@ void TextControlPrivate::setContent(const QString &text, QTextDocument *document
     emit q->cursorPositionChanged();
 
     QObject::connect(doc, &QTextDocument::contentsChange, q,
-                     [this](int from, int removed, int added) { _q_contentsChanged(from, removed, added); },
-                     Qt::UniqueConnection);
+                     [this](int from, int removed, int added) { _q_contentsChanged(from, removed, added); });
 }
 
 void TextControlPrivate::startDrag()
