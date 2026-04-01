@@ -439,6 +439,54 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
             }
         }
     }
+
+    // For link-type parents: mark everything except link_text as delimiter.
+    // This hides brackets, parens, URLs, pipe characters in live preview.
+    bool isLinkParent = parentFmt.isLink || parentFmt.isWikilink || parentFmt.isImage;
+    if (isLinkParent) {
+        // Collect link_text byte ranges (these are the visible parts)
+        QList<QPair<int,int>> textRanges;
+        for (uint32_t i = 0; i < childCount; ++i) {
+            TSNode child = ts_node_child(node, i);
+            const char *childType = ts_node_type(child);
+            if (strcmp(childType, "link_text") == 0 ||
+                strcmp(childType, "link_destination") == 0) {
+                // For wikilinks without display text, link_destination IS the visible text
+                // For standard links, only link_text is visible
+                if (parentFmt.isWikilink || strcmp(childType, "link_text") == 0) {
+                    textRanges.append({static_cast<int>(ts_node_start_byte(child)),
+                                       static_cast<int>(ts_node_end_byte(child))});
+                }
+            }
+        }
+        // If wikilink has no link_text child, the destination text between [[ ]] is visible
+        if (textRanges.isEmpty() && parentFmt.isWikilink) {
+            // The visible text is between the [[ and ]] — already a gap span
+            // Don't mark gaps as delimiters
+        }
+
+        // Mark spans that don't overlap any text range as delimiters
+        for (int i = spans.size() - 1; i >= 0; --i) {
+            SourceSpan &s = spans[i];
+            if (s.utf8Offset < static_cast<int>(startByte))
+                break;
+            if (s.utf8Offset >= static_cast<int>(endByte))
+                continue;
+            if (s.isDelimiter)
+                continue; // already marked
+
+            bool isVisibleText = false;
+            for (const auto &[tStart, tEnd] : textRanges) {
+                if (s.utf8Offset >= tStart && (s.utf8Offset + s.utf8Length) <= tEnd) {
+                    isVisibleText = true;
+                    break;
+                }
+            }
+            if (!isVisibleText) {
+                s.isDelimiter = true;
+            }
+        }
+    }
 }
 
 QList<SourceSpan> TreeSitterParser::buildSpanMap() const
