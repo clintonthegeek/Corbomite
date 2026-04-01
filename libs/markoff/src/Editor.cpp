@@ -587,8 +587,25 @@ void Editor::Private::init(const QString &txt)
         }
     });
 
-    // Live preview: update display modes on cursor movement
+    // Live preview: update display modes and highlighter on cursor movement
     QObject::connect(control, &TextControl::cursorPositionChanged, q, [this]() {
+        if (mode == Editor::Mode::LivePreview) {
+            int cursorBlockNum = control->textCursor().block().blockNumber();
+
+            // Update highlighter so it rehighlights blocks entering/leaving
+            // cursor vicinity (showing/hiding syntax delimiters)
+            highlighter->setCursorBlock(cursorBlockNum);
+
+            // Track active atomic block
+            AtomicBlock *ab = atomicBlockAt(cursorBlockNum);
+            if (ab != activeAtomicBlock) {
+                if (activeAtomicBlock)
+                    activeAtomicBlock->leaveBlock();
+                activeAtomicBlock = ab;
+                if (ab)
+                    ab->enterBlock(control->textCursor().position());
+            }
+        }
         updateBlockDisplayModes();
     });
 
