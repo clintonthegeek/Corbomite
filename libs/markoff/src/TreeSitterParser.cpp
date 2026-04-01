@@ -243,6 +243,7 @@ static void applyNodeType(SourceSpan &span, const char *type)
     else if (strcmp(type, "block_continuation") == 0) { span.isDelimiter = true; span.isBlockquoteMarker = true; }
     else if (strcmp(type, "fenced_code_block_delimiter") == 0) { span.isCodeBlockFence = true; span.isDelimiter = true; }
     else if (strcmp(type, "info_string") == 0) { span.isCodeBlockFence = true; span.isDelimiter = true; }
+    else if (strcmp(type, "language") == 0) { span.isCodeBlockFence = true; span.isDelimiter = true; }
     else if (strcmp(type, "code_fence_content") == 0) { span.isCodeBlockContent = true; }
     else if (strcmp(type, "fenced_code_block") == 0) { span.isCodeBlockContent = true; }
     else if (strcmp(type, "thematic_break") == 0) { span.isHorizontalRule = true; }

@@ -4,6 +4,12 @@
 
 #include <QSyntaxHighlighter>
 #include <QTextCharFormat>
+#include <KSyntaxHighlighting/Repository>
+#include <KSyntaxHighlighting/Definition>
+#include <KSyntaxHighlighting/Theme>
+#include <KSyntaxHighlighting/State>
+#include <KSyntaxHighlighting/Format>
+#include <KSyntaxHighlighting/AbstractHighlighter>
 #include "SourceSpan.h"
 #include "DecoratedRange.h"
 
@@ -51,8 +57,11 @@ private:
     int m_cursorBlock = -1;
     int m_cursorColumn = -1;
 
+    void highlightCodeBlock(const QString &text, const DecoratedRange &dr, int blockNum);
+
     QList<SourceSpan> m_spans;
     QList<DecoratedRange> m_decoratedRanges;
+    KSyntaxHighlighting::Repository m_syntaxRepo;
 
     // Format definitions
     QTextCharFormat m_headingFormat[6];

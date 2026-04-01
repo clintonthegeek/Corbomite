@@ -257,6 +257,72 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
     }
 }
 
+// Helper class for KSyntaxHighlighting integration
+class CodeBlockHighlighter : public KSyntaxHighlighting::AbstractHighlighter {
+public:
+    struct Run { int start, length; QColor color; bool bold, italic; };
+    QList<Run> runs;
+    QString m_line;
+
+    KSyntaxHighlighting::State processLine(const QString &text,
+                                            const KSyntaxHighlighting::State &state) {
+        m_line = text;
+        runs.clear();
+        return highlightLine(text, state);
+    }
+protected:
+    void applyFormat(int offset, int length,
+                     const KSyntaxHighlighting::Format &fmt) override {
+        Run r;
+        r.start = offset;
+        r.length = length;
+        r.color = fmt.isDefaultTextStyle(theme())
+                      ? QColor(0x33, 0x33, 0x33)
+                      : fmt.textColor(theme());
+        r.bold = fmt.isBold(theme());
+        r.italic = fmt.isItalic(theme());
+        runs.append(r);
+    }
+};
+
+void MarkdownHighlighter::highlightCodeBlock(const QString &text,
+                                              const DecoratedRange &dr, int blockNum)
+{
+    if (dr.language.isEmpty())
+        return;
+
+    auto def = m_syntaxRepo.definitionForName(dr.language);
+    if (!def.isValid())
+        def = m_syntaxRepo.definitionForFileName(QStringLiteral("file.") + dr.language);
+    if (!def.isValid())
+        return;
+
+    // Use block state to carry KSyntaxHighlighting state across lines.
+    // We store a state index in the QTextBlock's userState. For simplicity,
+    // we re-highlight from the first code line to the current one.
+    // This is O(n) per block but code blocks are typically short.
+    CodeBlockHighlighter hl;
+    hl.setDefinition(def);
+    hl.setTheme(m_syntaxRepo.defaultTheme(KSyntaxHighlighting::Repository::LightTheme));
+
+    KSyntaxHighlighting::State state;
+    QTextBlock b = document()->findBlockByNumber(dr.firstBlock + 1); // skip opening fence
+    while (b.isValid() && b.blockNumber() < blockNum) {
+        state = hl.processLine(b.text(), state);
+        b = b.next();
+    }
+
+    // Now highlight the current line
+    state = hl.processLine(text, state);
+    for (const auto &run : hl.runs) {
+        QTextCharFormat fmt = format(run.start);
+        fmt.setForeground(run.color);
+        if (run.bold) fmt.setFontWeight(QFont::Bold);
+        if (run.italic) fmt.setFontItalic(true);
+        setFormat(run.start, run.length, fmt);
+    }
+}
+
 void MarkdownHighlighter::highlightBlock(const QString &text)
 {
     if (text.isEmpty())
@@ -290,6 +356,16 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
             maxBlockquoteDepth = span.blockquoteDepth;
 
         applySpanFormat(span, blockCharStart, blockCharEnd, hideDelimiters, cursorCol);
+    }
+
+    // Syntax highlighting for code block content
+    for (const DecoratedRange &dr : m_decoratedRanges) {
+        if (dr.type == DecoratedRange::CodeBlock &&
+            blockNum > dr.firstBlock && blockNum < dr.lastBlock) {
+            // This is a content line inside a code block
+            highlightCodeBlock(text, dr, blockNum);
+            break;
+        }
     }
 
     // Callout first line: hide the [!type] marker and style the title.
