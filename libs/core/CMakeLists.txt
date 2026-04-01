@@ -11,6 +11,7 @@ add_library(corbomite-core STATIC
     include/corbomite/core/NoteDocument.h
     src/MarkdownRenderer.cpp
     src/RenderedDocument.cpp
+    src/MarkdownRenderEngine.cpp
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
