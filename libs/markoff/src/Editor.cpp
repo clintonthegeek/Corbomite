@@ -723,7 +723,11 @@ void Editor::Private::applyBlockFormats()
         }
 
         QTextBlockFormat fmt = block.blockFormat();
-        qreal targetMargin = isCursorLine ? 0.0 : maxBqDepth * 20.0;
+        // Indent by exactly the width of "> " per nesting level, so when
+        // chevrons are hidden the text stays in the same position.
+        QFontMetricsF fm(q->font());
+        qreal chevronWidth = fm.horizontalAdvance(QStringLiteral("> "));
+        qreal targetMargin = isCursorLine ? 0.0 : maxBqDepth * chevronWidth;
 
         if (fmt.leftMargin() != targetMargin) {
             batchCursor.setPosition(block.position());
