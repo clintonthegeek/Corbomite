@@ -13,5 +13,5 @@ set_tests_properties(tst_canvasdocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=
 
 add_executable(tst_canvasscene tst_canvasscene.cpp)
 add_test(NAME tst_canvasscene COMMAND tst_canvasscene)
-target_link_libraries(tst_canvasscene PRIVATE Qt6::Test Qt6::Widgets canvas)
+target_link_libraries(tst_canvasscene PRIVATE Qt6::Test Qt6::Widgets canvas Corbomite::Core)
 set_tests_properties(tst_canvasscene PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

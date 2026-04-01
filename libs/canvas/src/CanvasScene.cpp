@@ -5,8 +5,11 @@
 #include "canvas/CanvasTool.h"
 #include "canvas/ConnectableItem.h"
 #include "canvas/TextCardItem.h"
+#include "canvas/FileCardItem.h"
 #include "canvas/GroupItem.h"
 #include "canvas/EdgeItem.h"
+#include "corbomite/core/MarkdownRenderEngine.h"
+#include "corbomite/core/RenderOptions.h"
 
 #include <QApplication>
 #include <QGraphicsProxyWidget>
@@ -75,6 +78,8 @@ void CanvasScene::populateFromDocument()
             addGroupItemToScene(node);
         } else if (node.type == NodeType::Text) {
             addTextCardItem(node);
+        } else if (node.type == NodeType::File) {
+            addFileCardItem(node);
         }
     }
 
@@ -96,6 +101,7 @@ void CanvasScene::clearAllItems()
     finishGroupLabelEdit();
 
     m_textCardItems.clear();
+    m_fileCardItems.clear();
     m_groupItems.clear();
     m_edgeItems.clear();
     clear();
@@ -179,6 +185,89 @@ void CanvasScene::removeEdgeItem(const QString &id)
 }
 
 // ---------------------------------------------------------------------------
+// Render engine and file resolver
+// ---------------------------------------------------------------------------
+
+void CanvasScene::setRenderEngine(Corbomite::MarkdownRenderEngine *engine)
+{
+    m_renderEngine = engine;
+}
+
+Corbomite::MarkdownRenderEngine *CanvasScene::renderEngine() const
+{
+    return m_renderEngine;
+}
+
+void CanvasScene::setFileResolver(FileResolver resolver)
+{
+    m_fileResolver = std::move(resolver);
+}
+
+// ---------------------------------------------------------------------------
+// File card management
+// ---------------------------------------------------------------------------
+
+FileCardItem *CanvasScene::addFileCardItem(const CanvasNode &node)
+{
+    auto *item = new FileCardItem(node);
+    addItem(item);
+    m_fileCardItems.insert(node.id, item);
+
+    connect(item, &FileCardItem::editRequested, this, [this, item]() {
+        Q_EMIT cardDoubleClicked(item->nodeId());
+    });
+
+    connect(item, &FileCardItem::positionChanged, this, [this, item]() {
+        if (!m_document)
+            return;
+        const auto edges = m_document->edgesForNode(item->nodeId());
+        for (const auto &edge : edges) {
+            if (auto *edgeItem = this->edgeItem(edge.id)) {
+                edgeItem->adjust();
+            }
+        }
+    });
+
+    renderFileCard(item);
+    return item;
+}
+
+void CanvasScene::removeFileCardItem(const QString &id)
+{
+    if (auto *item = m_fileCardItems.take(id)) {
+        removeItem(item);
+        delete item;
+    }
+}
+
+FileCardItem *CanvasScene::fileCardItem(const QString &id) const
+{
+    return m_fileCardItems.value(id, nullptr);
+}
+
+void CanvasScene::renderFileCard(FileCardItem *item)
+{
+    if (!item || !m_renderEngine)
+        return;
+
+    QString markdown;
+    if (m_fileResolver) {
+        markdown = m_fileResolver(item->nodeData().file);
+    }
+
+    if (markdown.isEmpty()) {
+        item->setRenderedDocument(nullptr);
+        return;
+    }
+
+    Corbomite::RenderOptions opts;
+    opts.subpath = item->nodeData().subpath;
+
+    auto rendered = m_renderEngine->render(markdown, opts);
+    item->setRenderedDocument(std::move(rendered));
+}
+
+// ---------------------------------------------------------------------------
 // Tool management
 // ---------------------------------------------------------------------------
 
@@ -219,6 +308,8 @@ ConnectableItem *CanvasScene::connectableItem(const QString &id) const
 {
     if (auto *card = textCardItem(id))
         return card;
+    if (auto *file = fileCardItem(id))
+        return file;
     return nullptr;
 }
 
@@ -237,20 +328,29 @@ void CanvasScene::onNodeAdded(const QString &id)
         return;
 
     // Skip if already present in scene
-    if (m_textCardItems.contains(id) || m_groupItems.contains(id))
+    if (m_textCardItems.contains(id) || m_groupItems.contains(id) || m_fileCardItems.contains(id))
         return;
 
     const CanvasNode node = m_document->node(id);
-    if (node.type == NodeType::Group) {
-        addGroupItemToScene(node);
-    } else if (node.type == NodeType::Text) {
+    switch (node.type) {
+    case NodeType::Text:
         addTextCardItem(node);
+        break;
+    case NodeType::File:
+        addFileCardItem(node);
+        break;
+    case NodeType::Group:
+        addGroupItemToScene(node);
+        break;
+    case NodeType::Link:
+        break;
     }
 }
 
 void CanvasScene::onNodeRemoved(const QString &id)
 {
     removeTextCardItem(id);
+    removeFileCardItem(id);
     removeGroupItem(id);
 }
 
@@ -262,6 +362,9 @@ void CanvasScene::onNodeChanged(const QString &id)
     const CanvasNode node = m_document->node(id);
     if (auto *card = textCardItem(id)) {
         card->setNodeData(node);
+    } else if (auto *file = fileCardItem(id)) {
+        file->setNodeData(node);
+        renderFileCard(file);
     } else if (auto *group = groupItem(id)) {
         group->setNodeData(node);
     }
@@ -495,13 +598,15 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
 
     // Walk up to find a canvas item
     TextCardItem *cardItem = nullptr;
+    FileCardItem *fileItem = nullptr;
     GroupItem *grpItem = nullptr;
     EdgeItem *edgItem = nullptr;
     while (hitItem) {
         if (!cardItem) cardItem = dynamic_cast<TextCardItem *>(hitItem);
+        if (!fileItem) fileItem = dynamic_cast<FileCardItem *>(hitItem);
         if (!grpItem) grpItem = dynamic_cast<GroupItem *>(hitItem);
         if (!edgItem) edgItem = dynamic_cast<EdgeItem *>(hitItem);
-        if (cardItem || grpItem || edgItem)
+        if (cardItem || grpItem || edgItem || fileItem)
             break;
         hitItem = hitItem->parentItem();
     }
@@ -558,6 +663,42 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
                 return;
             m_undoStack->push(
                 new CmdRemoveCard(m_document, cardItem->nodeId()));
+        });
+    } else if (fileItem) {
+        // Right-click on a FileCardItem
+        auto *colorMenu = menu.addMenu(QStringLiteral("Color"));
+        const struct { QString name; QString code; } fileColors[] = {
+            { QStringLiteral("Red"),    QStringLiteral("1") },
+            { QStringLiteral("Orange"), QStringLiteral("2") },
+            { QStringLiteral("Yellow"), QStringLiteral("3") },
+            { QStringLiteral("Green"),  QStringLiteral("4") },
+            { QStringLiteral("Cyan"),   QStringLiteral("5") },
+            { QStringLiteral("Purple"), QStringLiteral("6") },
+        };
+        for (const auto &c : fileColors) {
+            colorMenu->addAction(c.name, [this, fileItem, code = c.code]() {
+                if (!m_document)
+                    return;
+                const QString oldColor = fileItem->nodeData().color;
+                m_undoStack->push(
+                    new CmdChangeColor(m_document, fileItem->nodeId(), oldColor, code));
+            });
+        }
+        colorMenu->addSeparator();
+        colorMenu->addAction(QStringLiteral("Remove Color"), [this, fileItem]() {
+            if (!m_document)
+                return;
+            const QString oldColor = fileItem->nodeData().color;
+            m_undoStack->push(
+                new CmdChangeColor(m_document, fileItem->nodeId(), oldColor, QString()));
+        });
+
+        menu.addSeparator();
+        menu.addAction(QStringLiteral("Delete"), [this, fileItem]() {
+            if (!m_document)
+                return;
+            m_undoStack->push(
+                new CmdRemoveCard(m_document, fileItem->nodeId()));
         });
     } else if (grpItem) {
         // Right-click on a GroupItem

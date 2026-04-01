@@ -3,11 +3,16 @@
 
 #include <QGraphicsScene>
 #include <QHash>
+#include <functional>
 #include "CanvasTypes.h"
 
 class QUndoStack;
 class QGraphicsProxyWidget;
 class QTextEdit;
+
+namespace Corbomite {
+class MarkdownRenderEngine;
+}
 
 namespace Canvas {
 
@@ -16,6 +21,7 @@ class CanvasTool;
 class SelectMoveTool;
 class ConnectableItem;
 class TextCardItem;
+class FileCardItem;
 class GroupItem;
 class EdgeItem;
 
@@ -38,13 +44,24 @@ public:
     EdgeItem *edgeItem(const QString &id) const;
     ConnectableItem *connectableItem(const QString &id) const;
 
+    // Render engine for file/text card rendering
+    void setRenderEngine(Corbomite::MarkdownRenderEngine *engine);
+    Corbomite::MarkdownRenderEngine *renderEngine() const;
+
+    // File content resolver
+    using FileResolver = std::function<QString(const QString &filePath)>;
+    void setFileResolver(FileResolver resolver);
+
     // Item management (used by tools and undo commands)
     TextCardItem *addTextCardItem(const CanvasNode &node);
+    FileCardItem *addFileCardItem(const CanvasNode &node);
     GroupItem *addGroupItemToScene(const CanvasNode &node);
     EdgeItem *addEdgeItemToScene(ConnectableItem *from, ConnectableItem *to, const CanvasEdge &edge);
     void removeTextCardItem(const QString &id);
+    void removeFileCardItem(const QString &id);
     void removeGroupItem(const QString &id);
     void removeEdgeItem(const QString &id);
+    FileCardItem *fileCardItem(const QString &id) const;
 
     // Editing state
     bool isEditing() const { return m_editProxy != nullptr; }
@@ -76,14 +93,18 @@ private Q_SLOTS:
 private:
     void populateFromDocument();
     void clearAllItems();
+    void renderFileCard(FileCardItem *item);
 
     CanvasDocument *m_document = nullptr;
     CanvasTool *m_activeTool = nullptr;
     SelectMoveTool *m_defaultTool = nullptr;
     QUndoStack *m_undoStack = nullptr;
     QHash<QString, TextCardItem *> m_textCardItems;
+    QHash<QString, FileCardItem *> m_fileCardItems;
     QHash<QString, GroupItem *> m_groupItems;
     QHash<QString, EdgeItem *> m_edgeItems;
+    Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;
+    FileResolver m_fileResolver;
 
     // Inline editing state
     QGraphicsProxyWidget *m_editProxy = nullptr;

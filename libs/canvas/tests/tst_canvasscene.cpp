@@ -5,8 +5,10 @@
 #include "canvas/CanvasScene.h"
 #include "canvas/CanvasCommands.h"
 #include "canvas/TextCardItem.h"
+#include "canvas/FileCardItem.h"
 #include "canvas/GroupItem.h"
 #include "canvas/EdgeItem.h"
+#include "corbomite/core/RegexRenderEngine.h"
 
 class TestCanvasScene : public QObject {
     Q_OBJECT
@@ -192,6 +194,123 @@ private Q_SLOTS:
         QVERIFY(edgeItem);
         QVERIFY(!edgeItem->path().isEmpty());
         // Edge exists and has a non-empty path -- it connects the two cards
+    }
+
+    void testAddFileCard()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.setFileResolver([](const QString &path) -> QString {
+            if (path == QStringLiteral("note.md"))
+                return QStringLiteral("# Hello\n\nContent here");
+            return {};
+        });
+
+        Corbomite::RegexRenderEngine engine;
+        engine.setProfile(Corbomite::RenderProfile::canvasCard());
+        scene.setRenderEngine(&engine);
+
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("file1");
+        node.type = Canvas::NodeType::File;
+        node.file = QStringLiteral("note.md");
+        node.x = 100; node.y = 100;
+        node.width = 250; node.height = 200;
+        doc.addNode(node);
+
+        auto *item = scene.fileCardItem(QStringLiteral("file1"));
+        QVERIFY(item != nullptr);
+        QCOMPARE(item->nodeId(), QStringLiteral("file1"));
+    }
+
+    void testFileCardWithSubpath()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.setFileResolver([](const QString &) -> QString {
+            return QStringLiteral("# Title\n\nIntro\n\n## Section\n\nSection content");
+        });
+
+        Corbomite::RegexRenderEngine engine;
+        engine.setProfile(Corbomite::RenderProfile::canvasCard());
+        scene.setRenderEngine(&engine);
+
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("sub1");
+        node.type = Canvas::NodeType::File;
+        node.file = QStringLiteral("note.md");
+        node.subpath = QStringLiteral("#Section");
+        node.x = 0; node.y = 0;
+        node.width = 250; node.height = 200;
+        doc.addNode(node);
+
+        auto *item = scene.fileCardItem(QStringLiteral("sub1"));
+        QVERIFY(item != nullptr);
+    }
+
+    void testFileResolverReturnsEmpty()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.setFileResolver([](const QString &) -> QString { return {}; });
+
+        Corbomite::RegexRenderEngine engine;
+        engine.setProfile(Corbomite::RenderProfile::canvasCard());
+        scene.setRenderEngine(&engine);
+
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("missing");
+        node.type = Canvas::NodeType::File;
+        node.file = QStringLiteral("nonexistent.md");
+        node.x = 0; node.y = 0;
+        node.width = 250; node.height = 200;
+        doc.addNode(node);
+
+        auto *item = scene.fileCardItem(QStringLiteral("missing"));
+        QVERIFY(item != nullptr);
+    }
+
+    void testEdgeBetweenTextAndFileCard()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.setFileResolver([](const QString &) -> QString {
+            return QStringLiteral("# Note\n\nContent");
+        });
+        Corbomite::RegexRenderEngine engine;
+        engine.setProfile(Corbomite::RenderProfile::canvasCard());
+        scene.setRenderEngine(&engine);
+
+        Canvas::CanvasNode textNode;
+        textNode.id = QStringLiteral("t1");
+        textNode.type = Canvas::NodeType::Text;
+        textNode.x = 0; textNode.y = 0; textNode.width = 200; textNode.height = 80;
+        doc.addNode(textNode);
+
+        Canvas::CanvasNode fileNode;
+        fileNode.id = QStringLiteral("f1");
+        fileNode.type = Canvas::NodeType::File;
+        fileNode.file = QStringLiteral("note.md");
+        fileNode.x = 400; fileNode.y = 0; fileNode.width = 250; fileNode.height = 200;
+        doc.addNode(fileNode);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("e1");
+        edge.fromNode = QStringLiteral("t1");
+        edge.toNode = QStringLiteral("f1");
+        doc.addEdge(edge);
+
+        auto *edgeItem = scene.edgeItem(QStringLiteral("e1"));
+        QVERIFY(edgeItem != nullptr);
+        QVERIFY(!edgeItem->path().isEmpty());
     }
 };
 
