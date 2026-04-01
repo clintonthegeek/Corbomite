@@ -47,6 +47,13 @@ struct SourceSpan {
     // True for syntax delimiters (**, *, `, [[, ]], ==, %%, ~~, $)
     // that should be hidden in live preview when cursor is not adjacent
     bool isDelimiter = false;
+
+    // For delimiter spans: the char range of the parent formatting element
+    // (e.g., for ** in **bold**, this is the range of the entire **bold**).
+    // Used to decide delimiter visibility: show delimiters when cursor is
+    // anywhere within the parent range, not just adjacent to the delimiter.
+    int parentCharStart = -1;
+    int parentCharEnd = -1;
 };
 
 /// Build a flat list of SourceSpans from the parsed AST.

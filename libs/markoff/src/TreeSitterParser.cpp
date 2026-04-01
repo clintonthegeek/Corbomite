@@ -17,6 +17,75 @@ namespace Markoff {
 // Collect inline ranges from block tree
 // ---------------------------------------------------------------------------
 
+struct HeadingRange {
+    int startByte, endByte;
+    int level;
+};
+
+static void collectHeadingRanges(TSNode node, std::vector<HeadingRange> &headings)
+{
+    const char *type = ts_node_type(node);
+    if (strcmp(type, "atx_heading") == 0) {
+        HeadingRange hr;
+        hr.startByte = ts_node_start_byte(node);
+        hr.endByte = ts_node_end_byte(node);
+        hr.level = 1;
+        // Determine level from marker child
+        for (uint32_t i = 0; i < ts_node_child_count(node); ++i) {
+            TSNode child = ts_node_child(node, i);
+            const char *ct = ts_node_type(child);
+            if (strncmp(ct, "atx_h", 5) == 0 && strstr(ct, "_marker"))
+                hr.level = ct[5] - '0';
+        }
+        headings.push_back(hr);
+        return;
+    }
+    for (uint32_t i = 0; i < ts_node_child_count(node); ++i)
+        collectHeadingRanges(ts_node_child(node, i), headings);
+}
+
+/// Collect byte ranges of formatting parent nodes (emphasis, strong_emphasis,
+/// code_span, strikethrough, highlight, obsidian_comment) from the inline tree.
+/// Each entry maps a byte range to the parent's byte range.
+struct ParentRange {
+    int childStartByte, childEndByte;
+    int parentStartByte, parentEndByte;
+};
+
+static void collectParentRanges(TSNode node, std::vector<ParentRange> &parents)
+{
+    const char *type = ts_node_type(node);
+    bool isFormattingParent =
+        strcmp(type, "emphasis") == 0 ||
+        strcmp(type, "strong_emphasis") == 0 ||
+        strcmp(type, "strikethrough") == 0 ||
+        strcmp(type, "code_span") == 0 ||
+        strcmp(type, "highlight") == 0 ||
+        strcmp(type, "obsidian_comment") == 0 ||
+        strcmp(type, "latex_span") == 0 ||
+        strcmp(type, "wiki_link") == 0 ||
+        strcmp(type, "link") == 0 ||
+        strcmp(type, "image") == 0;
+
+    if (isFormattingParent) {
+        int pStart = ts_node_start_byte(node);
+        int pEnd = ts_node_end_byte(node);
+        // All children (especially delimiters) get this parent range
+        for (uint32_t i = 0; i < ts_node_child_count(node); ++i) {
+            TSNode child = ts_node_child(node, i);
+            ParentRange pr;
+            pr.childStartByte = ts_node_start_byte(child);
+            pr.childEndByte = ts_node_end_byte(child);
+            pr.parentStartByte = pStart;
+            pr.parentEndByte = pEnd;
+            parents.push_back(pr);
+        }
+    }
+
+    for (uint32_t i = 0; i < ts_node_child_count(node); ++i)
+        collectParentRanges(ts_node_child(node, i), parents);
+}
+
 static void collectInlineRanges(TSNode node, std::vector<TSRange> &ranges)
 {
     const char *type = ts_node_type(node);
@@ -376,6 +445,38 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
 
         // Add all inline spans
         spans.append(inlineSpans);
+    }
+
+    // Post-process 1: propagate heading level from block tree to inline spans
+    {
+        std::vector<HeadingRange> headings;
+        collectHeadingRanges(ts_tree_root_node(m_blockTree), headings);
+        for (auto &s : spans) {
+            for (const auto &h : headings) {
+                if (s.utf8Offset >= h.startByte && (s.utf8Offset + s.utf8Length) <= h.endByte) {
+                    s.isHeading = true;
+                    if (s.headingLevel == 0)
+                        s.headingLevel = h.level;
+                }
+            }
+        }
+    }
+
+    // Post-process 2: set parent ranges on delimiter spans so the highlighter
+    // knows to show delimiters when cursor is anywhere in the parent element
+    if (m_inlineTree) {
+        std::vector<ParentRange> parents;
+        collectParentRanges(ts_tree_root_node(m_inlineTree), parents);
+        for (auto &s : spans) {
+            if (!s.isDelimiter) continue;
+            for (const auto &pr : parents) {
+                if (s.utf8Offset >= pr.childStartByte && (s.utf8Offset + s.utf8Length) <= pr.childEndByte) {
+                    s.parentCharStart = utf8ToCharOffset(pr.parentStartByte);
+                    s.parentCharEnd = utf8ToCharOffset(pr.parentEndByte);
+                    break;
+                }
+            }
+        }
     }
 
     // Sort by offset

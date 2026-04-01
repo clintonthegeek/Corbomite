@@ -131,10 +131,20 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
     // Delimiter spans
     if (span.isDelimiter) {
         bool hide = shouldHideDelim;
-        // Per-element: on cursor line, only hide if cursor is NOT in this element
+        // Per-element: on cursor line, only hide if cursor is NOT within
+        // the parent formatting element's range (not just adjacent to
+        // this specific delimiter character)
         if (!hide && cursorCol >= 0) {
-            // Check if cursor is adjacent to this delimiter
-            hide = !cursorInRange(cursorCol, localStart, localEnd);
+            if (span.parentCharStart >= 0 && span.parentCharEnd >= 0) {
+                // Use parent element range: show delimiters when cursor
+                // is anywhere between opening and closing delimiters
+                int parentLocalStart = span.parentCharStart - blockCharStart;
+                int parentLocalEnd = span.parentCharEnd - blockCharStart;
+                hide = !cursorInRange(cursorCol, parentLocalStart, parentLocalEnd);
+            } else {
+                // No parent range (block-level delimiters like ##)
+                hide = !cursorInRange(cursorCol, localStart, localEnd);
+            }
         }
 
         if (hide) {
