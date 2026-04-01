@@ -2,6 +2,7 @@
 #include "DocumentBuilder_p.h"
 
 #include <md4c.h>
+#include <QRegularExpression>
 
 namespace Markoff {
 
@@ -242,6 +243,152 @@ int DocumentBuilder::text(MD_TEXTTYPE type, const MD_CHAR *rawText, MD_SIZE size
         m_blockStack.last()->inlines.append(run);
 
     return 0;
+}
+
+// ============================================================
+// Layer 2: Obsidian extension post-processing
+// ============================================================
+
+void DocumentBuilder::postProcess(QList<Block> &blocks)
+{
+    for (auto &block : blocks) {
+        postProcessBlock(block);
+        if (!block.children.isEmpty())
+            postProcess(block.children);
+    }
+}
+
+void DocumentBuilder::postProcessBlock(Block &block)
+{
+    // Callout detection: blockquote whose first inline starts with [!type]
+    if (block.type == MD_BLOCK_QUOTE && !block.children.isEmpty()) {
+        // Look for [!type] in the first paragraph child's inlines
+        for (auto &child : block.children) {
+            if (child.type == MD_BLOCK_P && !child.inlines.isEmpty()) {
+                const QString &firstText = child.inlines.first().text;
+                static const QRegularExpression calloutRe(
+                    QStringLiteral(R"(^\[!(\w+)\]([+-])?\s*(.*)?$)"));
+                auto match = calloutRe.match(firstText);
+                if (match.hasMatch()) {
+                    block.isCallout = true;
+                    block.calloutType = match.captured(1).toLower();
+                    QString foldMark = match.captured(2);
+                    block.calloutTitle = match.captured(3);
+                    block.calloutFoldable = !foldMark.isEmpty();
+                    block.calloutCollapsed = (foldMark == QStringLiteral("-"));
+
+                    // Remove the [!type] prefix from the inline text
+                    if (child.inlines.first().text == match.captured(0)) {
+                        child.inlines.removeFirst();
+                    } else {
+                        child.inlines.first().text = child.inlines.first().text.mid(match.capturedLength());
+                    }
+                }
+                break; // only check first paragraph
+            }
+        }
+    }
+
+    // Post-process inlines for all blocks
+    postProcessInlines(block.inlines);
+}
+
+void DocumentBuilder::postProcessInlines(QList<InlineRun> &inlines)
+{
+    // Split ==highlight== patterns
+    splitInlinePattern(inlines, QStringLiteral("=="), QStringLiteral("=="),
+                       [](InlineRun &r) { r.highlight = true; });
+
+    // Split %%comment%% patterns
+    splitInlinePattern(inlines, QStringLiteral("%%"), QStringLiteral("%%"),
+                       [](InlineRun &r) { r.comment = true; });
+
+    // Detect #tags
+    static const QRegularExpression tagRe(QStringLiteral(R"((?<!\w)#([a-zA-Z][a-zA-Z0-9_/-]*))"));
+    for (int i = 0; i < inlines.size(); ++i) {
+        auto &run = inlines[i];
+        if (run.code || run.math || run.mathDisplay || !run.linkHref.isEmpty() || !run.wikiTarget.isEmpty())
+            continue;
+
+        auto match = tagRe.match(run.text);
+        if (!match.hasMatch())
+            continue;
+
+        int start = match.capturedStart();
+        int len = match.capturedLength();
+
+        // Split: before, tag, after
+        QList<InlineRun> parts;
+        if (start > 0) {
+            InlineRun before = run;
+            before.text = run.text.left(start);
+            parts.append(before);
+        }
+
+        InlineRun tagRun = run;
+        tagRun.text = run.text.mid(start, len);
+        tagRun.isTag = true;
+        parts.append(tagRun);
+
+        if (start + len < run.text.size()) {
+            InlineRun after = run;
+            after.text = run.text.mid(start + len);
+            parts.append(after);
+        }
+
+        if (parts.size() > 1) {
+            inlines.removeAt(i);
+            for (int j = 0; j < parts.size(); ++j)
+                inlines.insert(i + j, parts[j]);
+            // Don't advance i — re-check the "after" part for more tags
+        }
+    }
+}
+
+void DocumentBuilder::splitInlinePattern(QList<InlineRun> &inlines,
+                                          const QString &open, const QString &close,
+                                          void (*applyFn)(InlineRun &))
+{
+    for (int i = 0; i < inlines.size(); ++i) {
+        auto &run = inlines[i];
+        // Skip runs that are already code, math, links, etc.
+        if (run.code || run.math || run.mathDisplay || !run.linkHref.isEmpty() || !run.wikiTarget.isEmpty())
+            continue;
+
+        int openPos = run.text.indexOf(open);
+        if (openPos < 0)
+            continue;
+
+        int closePos = run.text.indexOf(close, openPos + open.size());
+        if (closePos < 0)
+            continue;
+
+        // Split into: before, matched, after
+        QList<InlineRun> parts;
+        if (openPos > 0) {
+            InlineRun before = run;
+            before.text = run.text.left(openPos);
+            parts.append(before);
+        }
+
+        InlineRun matched = run;
+        matched.text = run.text.mid(openPos + open.size(), closePos - openPos - open.size());
+        applyFn(matched);
+        parts.append(matched);
+
+        if (closePos + close.size() < run.text.size()) {
+            InlineRun after = run;
+            after.text = run.text.mid(closePos + close.size());
+            parts.append(after);
+        }
+
+        if (parts.size() > 0) {
+            inlines.removeAt(i);
+            for (int j = 0; j < parts.size(); ++j)
+                inlines.insert(i + j, parts[j]);
+            // Don't advance past the "after" part — it may contain more patterns
+        }
+    }
 }
 
 } // namespace Markoff

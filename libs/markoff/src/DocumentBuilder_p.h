@@ -16,6 +16,9 @@ struct InlineRun {
     bool code = false;
     bool math = false;
     bool mathDisplay = false;
+    bool highlight = false;     // ==text==
+    bool comment = false;       // %%text%%
+    bool isTag = false;         // #tag
     QString linkHref;
     QString wikiTarget;
 };
@@ -31,6 +34,13 @@ struct Block {
     int listStart = 1;
     bool isTightList = false;
     QList<Block> children;      // for nested structures
+
+    // Callout info (set by Layer 2 post-processing)
+    bool isCallout = false;
+    QString calloutType;        // "note", "warning", "tip", etc.
+    QString calloutTitle;
+    bool calloutFoldable = false;
+    bool calloutCollapsed = false;
 };
 
 class DocumentBuilder {
@@ -39,7 +49,15 @@ public:
     bool parse(const QString &markdown);
     QList<Block> takeBlocks();
 
+    // Layer 2: Obsidian extension post-processing
+    static void postProcess(QList<Block> &blocks);
+
 private:
+    static void postProcessBlock(Block &block);
+    static void postProcessInlines(QList<InlineRun> &inlines);
+    static void splitInlinePattern(QList<InlineRun> &inlines,
+                                   const QString &open, const QString &close,
+                                   void (*applyFn)(InlineRun &));
     // Static MD4C callback trampolines
     static int onEnterBlock(MD_BLOCKTYPE type, void *detail, void *userdata);
     static int onLeaveBlock(MD_BLOCKTYPE type, void *detail, void *userdata);

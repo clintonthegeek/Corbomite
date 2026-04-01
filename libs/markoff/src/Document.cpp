@@ -25,8 +25,10 @@ std::unique_ptr<Document> Document::fromMarkdown(const QString &source)
     doc->d->source = source;
 
     DocumentBuilder builder;
-    if (builder.parse(source))
+    if (builder.parse(source)) {
         doc->d->blocks = builder.takeBlocks();
+        DocumentBuilder::postProcess(doc->d->blocks);
+    }
 
     return doc;
 }

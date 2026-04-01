@@ -42,6 +42,10 @@ static QString renderInlines(const QList<InlineRun> &inlines)
     for (const InlineRun &run : inlines) {
         QString text = escapeHtml(run.text);
 
+        // Comments are hidden in rendered output
+        if (run.comment)
+            continue;
+
         // Wrap in span/tag based on formatting flags
         if (!run.wikiTarget.isEmpty()) {
             const QString href = QStringLiteral("wikilink:") + escapeHtml(run.wikiTarget);
@@ -59,6 +63,11 @@ static QString renderInlines(const QList<InlineRun> &inlines)
                 text = QStringLiteral("<i>%1</i>").arg(text);
             if (run.bold)
                 text = QStringLiteral("<b>%1</b>").arg(text);
+            if (run.highlight)
+                text = QStringLiteral("<mark>%1</mark>").arg(text);
+            if (run.isTag)
+                text = QStringLiteral("<span style=\"color: #E65100;\">#%1</span>")
+                           .arg(text.startsWith(QLatin1Char('#')) ? text.mid(1) : text);
         }
 
         html += text;
@@ -98,7 +107,47 @@ static QString renderBlock(const Block &block)
     }
 
     case MD_BLOCK_QUOTE:
-        html += QStringLiteral("<blockquote>%1</blockquote>").arg(renderBlocks(block.children));
+        if (block.isCallout) {
+            // Callout rendering with colored box
+            QString color = QStringLiteral("#448aff"); // default blue
+            const QString &t = block.calloutType;
+            if (t == QStringLiteral("warning") || t == QStringLiteral("caution") || t == QStringLiteral("attention"))
+                color = QStringLiteral("#ff9100");
+            else if (t == QStringLiteral("danger") || t == QStringLiteral("error"))
+                color = QStringLiteral("#ff5252");
+            else if (t == QStringLiteral("success") || t == QStringLiteral("check") || t == QStringLiteral("done"))
+                color = QStringLiteral("#00c853");
+            else if (t == QStringLiteral("tip") || t == QStringLiteral("hint") || t == QStringLiteral("important"))
+                color = QStringLiteral("#00bfa5");
+            else if (t == QStringLiteral("question") || t == QStringLiteral("help") || t == QStringLiteral("faq"))
+                color = QStringLiteral("#ffab00");
+            else if (t == QStringLiteral("bug"))
+                color = QStringLiteral("#ff1744");
+            else if (t == QStringLiteral("example"))
+                color = QStringLiteral("#7c4dff");
+            else if (t == QStringLiteral("quote") || t == QStringLiteral("cite"))
+                color = QStringLiteral("#9e9e9e");
+            else if (t == QStringLiteral("failure") || t == QStringLiteral("fail") || t == QStringLiteral("missing"))
+                color = QStringLiteral("#ff5252");
+            else if (t == QStringLiteral("abstract") || t == QStringLiteral("summary") || t == QStringLiteral("tldr"))
+                color = QStringLiteral("#00b8d4");
+
+            QString title = block.calloutTitle.isEmpty()
+                ? block.calloutType.at(0).toUpper() + block.calloutType.mid(1)
+                : block.calloutTitle;
+
+            html += QStringLiteral(
+                "<div style=\"border-left: 4px solid %1; background-color: %1; "
+                "background-color: rgba(%2, 0.1); padding: 8px 12px; margin: 8px 0; border-radius: 4px;\">"
+                "<b style=\"color: %1;\">%3</b>"
+                "%4</div>")
+                .arg(color,
+                     color, // used twice — once for border, once for faint bg
+                     escapeHtml(title),
+                     renderBlocks(block.children));
+        } else {
+            html += QStringLiteral("<blockquote>%1</blockquote>").arg(renderBlocks(block.children));
+        }
         break;
 
     case MD_BLOCK_UL:
@@ -199,7 +248,8 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
     // Re-parse source text (Phase 1 shortcut — Document doesn't expose AST yet)
     DocumentBuilder builder;
     builder.parse(doc.sourceText());
-    const QList<Block> blocks = builder.takeBlocks();
+    QList<Block> blocks = builder.takeBlocks();
+    DocumentBuilder::postProcess(blocks);
 
     // Build body HTML
     const QString bodyHtml = renderBlocks(blocks);
@@ -221,6 +271,7 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
         "hr { border: none; border-top: 1px solid #ccc; }\n"
         "table { border-collapse: collapse; }\n"
         "th, td { border: 1px solid #ccc; padding: 4px 8px; }\n"
+        "mark { background-color: #fff9c4; padding: 1px 2px; }\n"
     ).arg(bodyStyle);
 
     const QString fullHtml = QStringLiteral(
