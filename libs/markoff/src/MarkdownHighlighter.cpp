@@ -304,17 +304,16 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
                 if (match.hasMatch()) {
                     int markerStart = match.capturedStart();
                     int markerLen = match.capturedLength();
-                    // Hide the [!type] marker (same as hideRange for **)
-                    // unless cursor is within the marker range
-                    bool cursorInMarker = isCursorLine &&
-                        cursorCol >= markerStart && cursorCol <= (markerStart + markerLen);
-                    if (!isCursorLine || !cursorInMarker) {
-                        hideRange(markerStart, markerLen);
-                    }
-                    // Style the remaining title text
                     int titleStart = match.capturedEnd();
                     int titleLen = text.length() - titleStart;
-                    if (titleLen > 0) {
+                    bool hasCustomTitle = titleLen > 0;
+
+                    if (isCursorLine) {
+                        // Cursor on line: show everything raw (like bold when cursor is in it)
+                        // Don't hide anything — raw markdown is visible
+                    } else if (hasCustomTitle) {
+                        // Has custom title: hide [!type] marker, style title
+                        hideRange(markerStart, markerLen);
                         QTextCharFormat titleFmt;
                         titleFmt.setForeground(dr.calloutColor);
                         titleFmt.setFontWeight(QFont::Bold);
@@ -323,6 +322,20 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
                             fmt.merge(titleFmt);
                             setFormat(i, 1, fmt);
                         }
+                    } else {
+                        // No custom title: hide [! and ], show type name styled
+                        // "[!note]" → hide "[!", show "note" styled, hide "]"
+                        int typeStart = markerStart + 2; // skip "[!"
+                        int typeLen = match.captured(1).length();
+                        hideRange(markerStart, 2); // hide "[!"
+                        QTextCharFormat typeFmt;
+                        typeFmt.setForeground(dr.calloutColor);
+                        typeFmt.setFontWeight(QFont::Bold);
+                        // Capitalize first letter visually (can't change text,
+                        // but the color makes it look intentional)
+                        setFormat(typeStart, typeLen, typeFmt);
+                        hideRange(typeStart + typeLen,
+                                  markerLen - 2 - typeLen); // hide "]" and any +/-/space
                     }
                 }
                 break;
