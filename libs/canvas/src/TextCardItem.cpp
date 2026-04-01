@@ -24,6 +24,12 @@ TextCardItem::TextCardItem(const CanvasNode &data, QGraphicsItem *parent)
     setPos(data.x, data.y);
 }
 
+void TextCardItem::setRenderedDocument(std::unique_ptr<Corbomite::RenderedDocument> doc)
+{
+    m_renderedDoc = std::move(doc);
+    update();
+}
+
 void TextCardItem::setNodeData(const CanvasNode &data)
 {
     prepareGeometryChange();
@@ -163,54 +169,46 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     painter->setBrush(Qt::NoBrush);
     painter->drawRoundedRect(rect, kCornerRadius, kCornerRadius);
 
-    // 4. Render body text via QTextDocument
+    // 4. Render body text
     if (!cardText.isEmpty()) {
         const qreal textTop = headerBarHeight > 0 ? headerBarHeight + kTextPadding : kTextPadding;
         const qreal textWidth = rect.width() - 2 * kTextPadding;
+        const qreal availableHeight = rect.height() - textTop - kTextPadding;
 
-        // Convert remaining markdown to HTML
-        QString html = cardText;
+        QTextDocument *doc = nullptr;
+        QTextDocument localDoc;
 
-        // Bold: **text** → <b>text</b>
-        html.replace(QRegularExpression(QStringLiteral(R"(\*\*(.+?)\*\*)")),
-                      QStringLiteral("<b>\\1</b>"));
-        // Italic: *text* → <i>text</i>
-        html.replace(QRegularExpression(QStringLiteral(R"((?<!\*)\*([^*]+?)\*(?!\*))")),
-                      QStringLiteral("<i>\\1</i>"));
-        // Wikilinks with alias: [[target|display]] → styled link showing display text
-        html.replace(QRegularExpression(QStringLiteral(R"(\[\[([^\]|]+)\|([^\]]+)\]\])")),
-                      QStringLiteral("<a style='color:#7b6cd9;text-decoration:underline'>\\2</a>"));
-        // Wikilinks: [[text]] → styled link
-        html.replace(QRegularExpression(QStringLiteral(R"(\[\[([^\]]+)\]\])")),
-                      QStringLiteral("<a style='color:#7b6cd9;text-decoration:underline'>\\1</a>"));
-        // Markdown links: [text](url) → styled link
-        html.replace(QRegularExpression(QStringLiteral(R"(\[([^\]]+)\]\(([^)]+)\))")),
-                      QStringLiteral("<a style='color:#7b6cd9;text-decoration:underline'>\\1</a>"));
-        // Inline code: `code` → <code>
-        html.replace(QRegularExpression(QStringLiteral(R"(`([^`]+)`)")),
-                      QStringLiteral("<code style='background:#f0f0f0;padding:1px 3px'>\\1</code>"));
-        // Unordered list items: - item → bullet
-        html.replace(QRegularExpression(QStringLiteral(R"(^- (.+)$)"), QRegularExpression::MultilineOption),
-                      QStringLiteral("&bull; \\1"));
-        // Line breaks
-        html.replace(QStringLiteral("\n"), QStringLiteral("<br>"));
+        if (m_renderedDoc && m_renderedDoc->toQTextDocument()) {
+            doc = m_renderedDoc->toQTextDocument();
+        } else {
+            // Fallback: inline regex conversion (legacy path)
+            QString html = cardText;
+            html.replace(QRegularExpression(QStringLiteral(R"(\*\*(.+?)\*\*)")),
+                          QStringLiteral("<b>\\1</b>"));
+            html.replace(QRegularExpression(QStringLiteral(R"((?<!\*)\*([^*]+?)\*(?!\*))")),
+                          QStringLiteral("<i>\\1</i>"));
+            html.replace(QRegularExpression(QStringLiteral(R"(\[\[([^\]|]+)\|([^\]]+)\]\])")),
+                          QStringLiteral("<a style='color:#7b6cd9;text-decoration:underline'>\\2</a>"));
+            html.replace(QRegularExpression(QStringLiteral(R"(\[\[([^\]]+)\]\])")),
+                          QStringLiteral("<a style='color:#7b6cd9;text-decoration:underline'>\\1</a>"));
+            html.replace(QRegularExpression(QStringLiteral(R"(\[([^\]]+)\]\(([^)]+)\))")),
+                          QStringLiteral("<a style='color:#7b6cd9;text-decoration:underline'>\\1</a>"));
+            html.replace(QRegularExpression(QStringLiteral(R"(`([^`]+)`)")),
+                          QStringLiteral("<code style='background:#f0f0f0;padding:1px 3px'>\\1</code>"));
+            html.replace(QRegularExpression(QStringLiteral(R"(^- (.+)$)"), QRegularExpression::MultilineOption),
+                          QStringLiteral("&bull; \\1"));
+            html.replace(QStringLiteral("\n"), QStringLiteral("<br>"));
+            localDoc.setHtml(html);
+            doc = &localDoc;
+        }
 
-        // TODO: Use Corbomite's MarkdownRenderer for full rendering when integrated
-        // (libcanvas is standalone, so we do a lightweight version here)
-
-        QTextDocument doc;
-        doc.setHtml(html);
-        doc.setTextWidth(textWidth);
-        doc.setDocumentMargin(0);
+        doc->setTextWidth(textWidth);
+        doc->setDocumentMargin(0);
 
         painter->save();
         painter->translate(kTextPadding, textTop);
-
-        // Clip text to card bounds
-        const qreal availableHeight = rect.height() - textTop - kTextPadding;
         painter->setClipRect(QRectF(0, 0, textWidth, availableHeight));
-
-        doc.drawContents(painter);
+        doc->drawContents(painter);
         painter->restore();
     }
 

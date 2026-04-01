@@ -136,6 +136,12 @@ TextCardItem *CanvasScene::addTextCardItem(const CanvasNode &node)
         }
     });
 
+    // Render text card content via engine if available
+    if (m_renderEngine && !node.text.isEmpty()) {
+        auto rendered = m_renderEngine->render(node.text);
+        item->setRenderedDocument(std::move(rendered));
+    }
+
     return item;
 }
 
@@ -368,6 +374,10 @@ void CanvasScene::onNodeChanged(const QString &id)
     const CanvasNode node = m_document->node(id);
     if (auto *card = textCardItem(id)) {
         card->setNodeData(node);
+        if (m_renderEngine && !node.text.isEmpty()) {
+            auto rendered = m_renderEngine->render(node.text);
+            card->setRenderedDocument(std::move(rendered));
+        }
     } else if (auto *file = fileCardItem(id)) {
         file->setNodeData(node);
         renderFileCard(file);
@@ -464,6 +474,11 @@ void CanvasScene::finishInlineEdit()
         if (m_document && oldText != newText) {
             m_undoStack->push(
                 new CmdEditText(m_document, nodeId, oldText, newText));
+        }
+        // Re-render if engine is available
+        if (m_renderEngine) {
+            auto rendered = m_renderEngine->render(newText);
+            card->setRenderedDocument(std::move(rendered));
         }
     }
 }

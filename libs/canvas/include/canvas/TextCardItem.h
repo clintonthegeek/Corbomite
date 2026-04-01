@@ -2,8 +2,10 @@
 #pragma once
 
 #include <QGraphicsObject>
+#include <memory>
 #include "CanvasTypes.h"
 #include "ConnectableItem.h"
+#include "corbomite/core/RenderedDocument.h"
 
 namespace Canvas {
 
@@ -16,6 +18,8 @@ public:
     void setNodeData(const CanvasNode &data);
     CanvasNode nodeData() const;
     QString nodeId() const override;
+
+    void setRenderedDocument(std::unique_ptr<Corbomite::RenderedDocument> doc);
 
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
@@ -41,6 +45,7 @@ protected:
 
 private:
     CanvasNode m_data;
+    std::unique_ptr<Corbomite::RenderedDocument> m_renderedDoc;
 };
 
 } // namespace Canvas
