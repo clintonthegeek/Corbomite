@@ -8,6 +8,7 @@
 #include "MarkdownHighlighter.h"
 #include "MarkoffBlockData.h"
 #include "CodeAtomicBlock.h"
+#include "CalloutAtomicBlock.h"
 #include "markoff/Document.h"
 #include "markoff/Renderer.h"
 
@@ -762,6 +763,73 @@ void Editor::Private::detectAtomicBlocks()
         }
         if (block.isValid())
             block = block.next();
+    }
+
+    // Second pass: detect callout blocks (> [!type] ...)
+    block = doc->begin();
+    static const QRegularExpression calloutRe(
+        QStringLiteral(R"(^>\s*\[!(\w+)\]([+-])?\s*(.*)?$)"));
+
+    while (block.isValid()) {
+        // Skip blocks already claimed by atomic blocks
+        auto *existingData = dynamic_cast<MarkoffBlockData *>(block.userData());
+        if (existingData && existingData->atomicBlock) {
+            block = block.next();
+            continue;
+        }
+
+        auto match = calloutRe.match(block.text());
+        if (match.hasMatch()) {
+            int firstBlockNum = block.blockNumber();
+            QString type = match.captured(1).toLower();
+            QString foldMark = match.captured(2);
+            QString title = match.captured(3).trimmed();
+            bool foldable = !foldMark.isEmpty();
+            bool collapsed = (foldMark == QStringLiteral("-"));
+
+            // Collect body: subsequent lines starting with > (blockquote continuation)
+            QStringList bodyLines;
+            QTextBlock bodyBlock = block.next();
+            int lastBlockNum = firstBlockNum;
+
+            while (bodyBlock.isValid()) {
+                const QString lineText = bodyBlock.text();
+                if (lineText.startsWith(QLatin1Char('>'))) {
+                    // Strip the > prefix and optional space
+                    QString content = lineText.mid(1);
+                    if (content.startsWith(QLatin1Char(' ')))
+                        content = content.mid(1);
+                    bodyLines.append(content);
+                    lastBlockNum = bodyBlock.blockNumber();
+                    bodyBlock = bodyBlock.next();
+                } else {
+                    break;
+                }
+            }
+
+            auto *callout = new CalloutAtomicBlock(q);
+            callout->setCallout(type, title, bodyLines.join(QLatin1Char('\n')),
+                                foldable, collapsed);
+            callout->setBlockRange(firstBlockNum, lastBlockNum);
+            atomicBlocks.insert(firstBlockNum, callout);
+
+            // Tag the text blocks
+            QTextBlock b = doc->findBlockByNumber(firstBlockNum);
+            for (int i = firstBlockNum; i <= lastBlockNum && b.isValid(); ++i, b = b.next()) {
+                auto *data = dynamic_cast<MarkoffBlockData *>(b.userData());
+                if (!data) {
+                    data = new MarkoffBlockData;
+                    const_cast<QTextBlock &>(b).setUserData(data);
+                }
+                data->atomicBlock = callout;
+                data->isAtomicBlockStart = (i == firstBlockNum);
+            }
+
+            block = bodyBlock; // skip past the callout
+            continue;
+        }
+
+        block = block.next();
     }
 }
 
