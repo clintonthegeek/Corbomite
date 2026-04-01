@@ -98,6 +98,7 @@ void CanvasScene::clearAllItems()
 {
     // Finish any inline edits
     finishInlineEdit();
+    finishFileCardEdit();
     finishGroupLabelEdit();
 
     m_textCardItems.clear();
@@ -203,6 +204,11 @@ void CanvasScene::setFileResolver(FileResolver resolver)
     m_fileResolver = std::move(resolver);
 }
 
+void CanvasScene::setFileSaver(FileSaver saver)
+{
+    m_fileSaver = std::move(saver);
+}
+
 // ---------------------------------------------------------------------------
 // File card management
 // ---------------------------------------------------------------------------
@@ -214,7 +220,7 @@ FileCardItem *CanvasScene::addFileCardItem(const CanvasNode &node)
     m_fileCardItems.insert(node.id, item);
 
     connect(item, &FileCardItem::editRequested, this, [this, item]() {
-        Q_EMIT cardDoubleClicked(item->nodeId());
+        beginFileCardEdit(item);
     });
 
     connect(item, &FileCardItem::positionChanged, this, [this, item]() {
@@ -462,6 +468,73 @@ void CanvasScene::finishInlineEdit()
     }
 }
 
+void CanvasScene::beginFileCardEdit(FileCardItem *card)
+{
+    if (!card)
+        return;
+
+    finishInlineEdit();
+    finishFileCardEdit();
+
+    m_editingFileCardId = card->nodeId();
+
+    // Load file content
+    QString content;
+    if (m_fileResolver) {
+        content = m_fileResolver(card->nodeData().file);
+    }
+
+    m_editWidget = new QTextEdit;
+    m_editWidget->setPlainText(content);
+    m_editWidget->setFixedSize(static_cast<int>(card->boundingRect().width()),
+                               static_cast<int>(card->boundingRect().height()));
+    m_editWidget->setFrameShape(QFrame::NoFrame);
+
+    m_editProxy = addWidget(m_editWidget);
+    m_editProxy->setPos(card->pos());
+    m_editProxy->setZValue(100);
+
+    m_editWidget->setFocus();
+
+    connect(m_editWidget, &QTextEdit::destroyed, this, [this]() {
+        m_editProxy = nullptr;
+        m_editWidget = nullptr;
+        m_editingFileCardId.clear();
+    });
+
+    disconnect(m_focusConnection);
+    m_focusConnection = connect(qApp, &QApplication::focusChanged, this, [this](QWidget *, QWidget *now) {
+        if (m_editWidget && now != m_editWidget) {
+            finishFileCardEdit();
+        }
+    });
+}
+
+void CanvasScene::finishFileCardEdit()
+{
+    if (!m_editProxy || !m_editWidget || m_editingFileCardId.isEmpty())
+        return;
+
+    const QString newContent = m_editWidget->toPlainText();
+    const QString nodeId = m_editingFileCardId;
+
+    removeItem(m_editProxy);
+    delete m_editProxy;
+    m_editProxy = nullptr;
+    m_editWidget = nullptr;
+    m_editingFileCardId.clear();
+    disconnect(m_focusConnection);
+
+    // Save to file via callback
+    if (auto *card = fileCardItem(nodeId)) {
+        if (m_fileSaver) {
+            m_fileSaver(card->nodeData().file, newContent);
+        }
+        // Re-render the card
+        renderFileCard(card);
+    }
+}
+
 void CanvasScene::beginGroupLabelEdit(GroupItem *group)
 {
     if (!group || m_labelEditProxy)
@@ -533,6 +606,7 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
         }
         // Click outside proxy -> finish editing, then handle normally
         finishInlineEdit();
+        finishFileCardEdit();
     }
 
     if (m_activeTool) {

@@ -32,6 +32,14 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, QWidget *parent)
         return QString::fromUtf8(file.readAll());
     });
 
+    m_view->canvasScene()->setFileSaver([canvasDir](const QString &path, const QString &content) {
+        QString fullPath = canvasDir + QLatin1Char('/') + path;
+        QFile file(fullPath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            file.write(content.toUtf8());
+        }
+    });
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_view);

@@ -52,6 +52,10 @@ public:
     using FileResolver = std::function<QString(const QString &filePath)>;
     void setFileResolver(FileResolver resolver);
 
+    // File content saver
+    using FileSaver = std::function<void(const QString &filePath, const QString &content)>;
+    void setFileSaver(FileSaver saver);
+
     // Item management (used by tools and undo commands)
     TextCardItem *addTextCardItem(const CanvasNode &node);
     FileCardItem *addFileCardItem(const CanvasNode &node);
@@ -105,6 +109,10 @@ private:
     QHash<QString, EdgeItem *> m_edgeItems;
     Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;
     FileResolver m_fileResolver;
+    FileSaver m_fileSaver;
+    void beginFileCardEdit(FileCardItem *card);
+    void finishFileCardEdit();
+    QString m_editingFileCardId;
 
     // Inline editing state
     QGraphicsProxyWidget *m_editProxy = nullptr;
