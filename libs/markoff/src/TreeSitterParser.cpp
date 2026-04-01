@@ -283,6 +283,7 @@ static void applyNodeType(SourceSpan &span, const char *type)
     // Task list markers
     else if (strcmp(type, "task_list_marker_checked") == 0) { span.isListMarker = true; }
     else if (strcmp(type, "task_list_marker_unchecked") == 0) { span.isListMarker = true; }
+    else if (strcmp(type, "task_list_marker_extended") == 0) { span.isListMarker = true; }
 
     // Heading content inherits heading level from parent
     else if (strcmp(type, "atx_heading") == 0) { span.isHeading = true; }

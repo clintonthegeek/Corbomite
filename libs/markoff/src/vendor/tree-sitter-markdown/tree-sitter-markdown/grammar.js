@@ -371,7 +371,7 @@ module.exports = grammar({
             )),
             repeat1($._block),
             common.EXTENSION_TASK_LIST ? prec(1, seq(
-                choice($.task_list_marker_checked, $.task_list_marker_unchecked),
+                choice($.task_list_marker_checked, $.task_list_marker_unchecked, $.task_list_marker_extended),
                 $._whitespace,
                 $.paragraph,
                 repeat($._block)
@@ -403,6 +403,9 @@ module.exports = grammar({
         ...(common.EXTENSION_TASK_LIST ? {
             task_list_marker_checked: $ => prec(1, /\[[xX]\]/),
             task_list_marker_unchecked: $ => prec(1, /\[[ \t]\]/),
+            // Obsidian extended task states: / (in progress), - (cancelled),
+            // ? (question), ! (important), > (deferred)
+            task_list_marker_extended: $ => prec(1, /\[[/!?>\-]\]/),
         } : {}),
 
         ...(common.EXTENSION_PIPE_TABLE ? {

@@ -4094,6 +4094,10 @@
                   {
                     "type": "SYMBOL",
                     "name": "task_list_marker_unchecked"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "task_list_marker_extended"
                   }
                 ]
               },
@@ -4369,6 +4373,14 @@
       "content": {
         "type": "PATTERN",
         "value": "\\[[ \\t]\\]"
+      }
+    },
+    "task_list_marker_extended": {
+      "type": "PREC",
+      "value": 1,
+      "content": {
+        "type": "PATTERN",
+        "value": "\\[[/!?>\\-]\\]"
       }
     },
     "pipe_table": {
