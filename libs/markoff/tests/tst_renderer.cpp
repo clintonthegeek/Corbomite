@@ -17,6 +17,12 @@ private Q_SLOTS:
     void testRenderCodeBlock();
     void testRenderSettingsAffectOutput();
     void testRenderEmptyDocument();
+    void testRenderCallout();
+    void testRenderHighlight();
+    void testRenderCommentHidden();
+    void testRenderTag();
+    void testRenderWikilink();
+    void testRenderTable();
 };
 
 void TestRenderer::testRenderReturnsDocument()
@@ -99,6 +105,72 @@ void TestRenderer::testRenderEmptyDocument()
 
     QVERIFY(textDoc != nullptr);
     QVERIFY(textDoc->isEmpty());
+}
+
+void TestRenderer::testRenderCallout()
+{
+    auto doc = Markoff::Document::fromMarkdown(QStringLiteral("> [!warning] Be careful\n> This is important."));
+    Markoff::Renderer renderer;
+    auto textDoc = renderer.renderToTextDocument(*doc);
+    const QString html = textDoc->toHtml();
+    // Callout should have the title rendered
+    QVERIFY(html.contains(QStringLiteral("Be careful")));
+    // Content should be present
+    QVERIFY(html.contains(QStringLiteral("important")));
+}
+
+void TestRenderer::testRenderHighlight()
+{
+    auto doc = Markoff::Document::fromMarkdown(QStringLiteral("This has ==highlighted text== in it."));
+    Markoff::Renderer renderer;
+    auto textDoc = renderer.renderToTextDocument(*doc);
+    const QString html = textDoc->toHtml();
+    QVERIFY(html.contains(QStringLiteral("highlighted text")));
+    // Should not contain the == delimiters in rendered output
+    QVERIFY(!html.contains(QStringLiteral("==")));
+}
+
+void TestRenderer::testRenderCommentHidden()
+{
+    auto doc = Markoff::Document::fromMarkdown(QStringLiteral("Visible text %%hidden comment%% more visible."));
+    Markoff::Renderer renderer;
+    auto textDoc = renderer.renderToTextDocument(*doc);
+    const QString html = textDoc->toHtml();
+    QVERIFY(html.contains(QStringLiteral("Visible text")));
+    QVERIFY(html.contains(QStringLiteral("more visible")));
+    // Comment text should NOT appear
+    QVERIFY(!html.contains(QStringLiteral("hidden comment")));
+}
+
+void TestRenderer::testRenderTag()
+{
+    auto doc = Markoff::Document::fromMarkdown(QStringLiteral("Check out #my-tag here."));
+    Markoff::Renderer renderer;
+    auto textDoc = renderer.renderToTextDocument(*doc);
+    const QString html = textDoc->toHtml();
+    QVERIFY(html.contains(QStringLiteral("my-tag")));
+}
+
+void TestRenderer::testRenderWikilink()
+{
+    auto doc = Markoff::Document::fromMarkdown(QStringLiteral("Link to [[My Note]] here."));
+    Markoff::Renderer renderer;
+    auto textDoc = renderer.renderToTextDocument(*doc);
+    const QString html = textDoc->toHtml();
+    QVERIFY(html.contains(QStringLiteral("My Note")));
+    QVERIFY(html.contains(QStringLiteral("wikilink:")));
+}
+
+void TestRenderer::testRenderTable()
+{
+    auto doc = Markoff::Document::fromMarkdown(QStringLiteral("| A | B |\n|---|---|\n| 1 | 2 |"));
+    Markoff::Renderer renderer;
+    auto textDoc = renderer.renderToTextDocument(*doc);
+    const QString html = textDoc->toHtml();
+    QVERIFY(html.contains(QStringLiteral("A")));
+    QVERIFY(html.contains(QStringLiteral("B")));
+    QVERIFY(html.contains(QStringLiteral("1")));
+    QVERIFY(html.contains(QStringLiteral("2")));
 }
 
 QTEST_MAIN(TestRenderer)
