@@ -10,3 +10,8 @@ add_executable(tst_markoff_document tst_document.cpp)
 add_test(NAME tst_markoff_document COMMAND tst_markoff_document)
 target_link_libraries(tst_markoff_document PRIVATE Qt6::Test markoff)
 set_tests_properties(tst_markoff_document PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_markoff_renderer tst_renderer.cpp)
+add_test(NAME tst_markoff_renderer COMMAND tst_markoff_renderer)
+target_link_libraries(tst_markoff_renderer PRIVATE Qt6::Test markoff)
+set_tests_properties(tst_markoff_renderer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

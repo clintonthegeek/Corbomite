@@ -12,6 +12,7 @@ pkg_check_modules(MD4C REQUIRED IMPORTED_TARGET md4c)
 add_library(markoff STATIC
     src/Document.cpp
     src/DocumentBuilder.cpp
+    src/Renderer.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Markoff::Markoff ALIAS markoff)
