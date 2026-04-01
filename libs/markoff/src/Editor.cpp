@@ -694,6 +694,10 @@ void Editor::Private::reparseDocument()
     highlighter->setDecoratedRanges(decoratedRanges);
     detectAtomicBlocks();
     applyBlockFormats();
+
+    // Convert tables AFTER span map is applied (table conversion changes
+    // document structure which would invalidate tree-sitter offsets)
+    convertTables();
 }
 
 void Editor::Private::applyBlockFormats()
@@ -941,6 +945,56 @@ void Editor::Private::detectDecoratedRanges()
 
         block = block.next();
     }
+}
+
+void Editor::Private::convertTables()
+{
+    // Revert any existing tables first
+    // (don't revert — tables are persistent in live preview)
+
+    if (mode != Editor::Mode::LivePreview)
+        return;
+
+    // Don't reconvert if tables already exist
+    if (!liveTables.isEmpty())
+        return;
+
+    QList<ParsedTable> tables = TableHandler::detectTables(q->document());
+
+    // Convert in reverse order so block numbers stay valid
+    for (int i = tables.size() - 1; i >= 0; --i) {
+        const ParsedTable &pt = tables[i];
+        QTextTable *tt = TableHandler::convertToQTextTable(q->document(), pt);
+        if (tt) {
+            liveTables.prepend(tt);
+            tableAlignments.prepend(pt.alignments);
+        }
+    }
+}
+
+void Editor::Private::revertTables()
+{
+    // Serialize all QTextTables back to pipe markdown
+    // Called before saving to disk
+    for (int i = liveTables.size() - 1; i >= 0; --i) {
+        QTextTable *tt = liveTables[i];
+        if (!tt) continue;
+
+        const auto &aligns = i < tableAlignments.size()
+            ? tableAlignments[i] : QList<Qt::Alignment>();
+        QString md = TableHandler::serializeToMarkdown(tt, aligns);
+
+        // Replace the table with the markdown text
+        QTextCursor cursor(tt->firstCursorPosition());
+        cursor.setPosition(tt->lastCursorPosition().position(), QTextCursor::KeepAnchor);
+        // Select the entire table frame
+        cursor = QTextCursor(tt);
+        cursor.setPosition(tt->firstPosition());
+        cursor.setPosition(tt->lastPosition(), QTextCursor::KeepAnchor);
+        cursor.insertText(md);
+    }
+    liveTables.clear();
+    tableAlignments.clear();
 }
 
 const DecoratedRange *Editor::Private::decoratedRangeAt(int blockNumber) const

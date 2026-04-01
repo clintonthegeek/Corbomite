@@ -11,6 +11,7 @@
 #include "TextControl.h"
 #include "AtomicBlock.h"
 #include "DecoratedRange.h"
+#include "TableHandler.h"
 #include "MarkdownHighlighter.h"
 #include "TreeSitterParser.h"
 
@@ -110,6 +111,12 @@ struct Editor::Private {
     QList<DecoratedRange> decoratedRanges;
     void detectDecoratedRanges();
     const DecoratedRange *decoratedRangeAt(int blockNumber) const;
+
+    // Tables (converted to QTextTable in live preview)
+    QList<QTextTable *> liveTables;
+    QList<QList<Qt::Alignment>> tableAlignments;
+    void convertTables();
+    void revertTables();  // serialize back to pipe markdown
 
     // Atomic blocks (images, math, diagrams — non-text content)
     QHash<int, AtomicBlock *> atomicBlocks;  // key = first block number
