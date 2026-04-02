@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -65,8 +66,11 @@ private:
     void extractAndInsertTags(const QString &notePath, const QString &content);
     static QString resolveTarget(const QString &rawTarget);
 
+    QString resolveWikilink(const QString &rawTarget) const;
+
     QString m_connectionName;
     QString m_dbPath;
+    QHash<QString, QString> m_nameToPath; // "Note Name.md" -> "folder/Note Name.md"
     bool m_isOpen = false;
     QThread *m_workerThread = nullptr;
 };

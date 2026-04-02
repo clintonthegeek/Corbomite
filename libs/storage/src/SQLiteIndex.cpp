@@ -102,6 +102,18 @@ void SQLiteIndex::rebuildIndex(const QString &vaultRoot)
     FileSystemAdapter fs;
     auto notes = scanner.scan(vaultRoot);
 
+    // Build filename → relative path lookup for wikilink resolution
+    // Obsidian resolves [[Note Name]] by searching for "Note Name.md" anywhere in the vault
+    m_nameToPath.clear();
+    for (const auto &meta : notes) {
+        QString filename = meta.relativePath.mid(
+            meta.relativePath.lastIndexOf(QLatin1Char('/')) + 1);
+        // First match wins (Obsidian's "shortest path" heuristic)
+        if (!m_nameToPath.contains(filename)) {
+            m_nameToPath.insert(filename, meta.relativePath);
+        }
+    }
+
     int count = 0;
     for (const auto &meta : notes) {
         auto content = fs.readFile(meta.absolutePath(vaultRoot));
@@ -478,7 +490,7 @@ void SQLiteIndex::extractAndInsertLinks(const QString &sourcePath, const QString
         it = wikiAliasPattern.globalMatch(line);
         while (it.hasNext()) {
             auto match = it.next();
-            QString target = resolveTarget(match.captured(1));
+            QString target = resolveWikilink(match.captured(1));
             QString display = match.captured(2);
             query.prepare(QStringLiteral(
                 "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
@@ -499,7 +511,7 @@ void SQLiteIndex::extractAndInsertLinks(const QString &sourcePath, const QString
         it = wikiPattern.globalMatch(lineWithoutAliases);
         while (it.hasNext()) {
             auto match = it.next();
-            QString target = resolveTarget(match.captured(1));
+            QString target = resolveWikilink(match.captured(1));
             query.prepare(QStringLiteral(
                 "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
                 "VALUES(?, ?, 'wiki', NULL)"));
@@ -570,6 +582,25 @@ QString SQLiteIndex::resolveTarget(const QString &rawTarget)
     }
 
     return target;
+}
+
+QString SQLiteIndex::resolveWikilink(const QString &rawTarget) const
+{
+    QString filename = resolveTarget(rawTarget);
+
+    // If the filename already contains a path separator, it's already a relative path
+    if (filename.contains(QLatin1Char('/'))) {
+        return filename;
+    }
+
+    // Look up by filename → full vault-relative path
+    auto it = m_nameToPath.find(filename);
+    if (it != m_nameToPath.end()) {
+        return it.value();
+    }
+
+    // Not found — return the bare filename (will become an "unresolved" node)
+    return filename;
 }
 
 } // namespace Corbomite
