@@ -34,7 +34,7 @@ private Q_SLOTS:
         tree.build(nodes, QRectF(-100, -100, 200, 200));
 
         // Repulsion from tree at (0,0) should push left (away from node at 50,0)
-        QPointF force = tree.computeRepulsion(QPointF(0, 0), 1500.0, 0.0);
+        QPointF force = tree.computeRepulsion(QPointF(0, 0), 1500.0, 1.0, 0.0);
         // With theta=0 (exact), force should be purely in -x direction
         QVERIFY(force.x() < 0);
         QVERIFY(std::abs(force.y()) < 0.001);
@@ -57,8 +57,8 @@ private Q_SLOTS:
         tree.build(nodes, QRectF(0, 0, 1000, 1000));
 
         QPointF queryPos(500, 500);
-        QPointF exactForce = tree.computeRepulsion(queryPos, 1500.0, 0.0);  // theta=0 -> exact
-        QPointF approxForce = tree.computeRepulsion(queryPos, 1500.0, 0.8); // theta=0.8 -> approx
+        QPointF exactForce = tree.computeRepulsion(queryPos, 1500.0, 1.0, 0.0);  // theta=0 -> exact
+        QPointF approxForce = tree.computeRepulsion(queryPos, 1500.0, 1.0, 0.8); // theta=0.8 -> approx
 
         // Approximate should be within 20% of exact magnitude
         double exactMag = std::sqrt(exactForce.x() * exactForce.x() + exactForce.y() * exactForce.y());

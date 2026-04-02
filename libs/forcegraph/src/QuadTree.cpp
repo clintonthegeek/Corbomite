@@ -7,13 +7,20 @@ namespace ForceGraph {
 void QuadTree::clear()
 {
     m_nodes.clear();
+    m_masses.clear();
     m_root = -1;
 }
 
-void QuadTree::build(const QVector<GraphNode> &nodes, const QRectF &bounds)
+void QuadTree::build(const QVector<GraphNode> &nodes, const QRectF &bounds,
+                      const QVector<double> &masses)
 {
     clear();
     if (nodes.isEmpty()) return;
+
+    m_masses = masses;
+    if (m_masses.isEmpty()) {
+        m_masses.fill(1.0, nodes.size());
+    }
 
     // Create root node
     QuadNode root;
@@ -32,7 +39,8 @@ void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &no
     const QPointF &pos = nodes[nodeIdx].position;
 
     // Update center of mass
-    double newMass = m_nodes[quadNodeIdx].totalMass + 1.0;
+    double nodeMass = m_masses.value(nodeIdx, 1.0);
+    double newMass = m_nodes[quadNodeIdx].totalMass + nodeMass;
     m_nodes[quadNodeIdx].centerOfMass =
         (m_nodes[quadNodeIdx].centerOfMass * m_nodes[quadNodeIdx].totalMass + pos) / newMass;
     m_nodes[quadNodeIdx].totalMass = newMass;
@@ -96,14 +104,16 @@ void QuadTree::subdivide(int quadNodeIdx)
     }
 }
 
-QPointF QuadTree::computeRepulsion(const QPointF &nodePos, double repelForce, double theta) const
+QPointF QuadTree::computeRepulsion(const QPointF &nodePos, double repelForce,
+                                    double nodeMass, double theta) const
 {
     if (m_root < 0) return QPointF(0, 0);
-    return computeRepulsionRecursive(m_root, nodePos, repelForce, theta);
+    return computeRepulsionRecursive(m_root, nodePos, repelForce, nodeMass, theta);
 }
 
 QPointF QuadTree::computeRepulsionRecursive(int quadNodeIdx, const QPointF &pos,
-                                             double repelForce, double theta) const
+                                             double repelForce, double nodeMass,
+                                             double theta) const
 {
     const auto &qn = m_nodes[quadNodeIdx];
 
@@ -118,8 +128,8 @@ QPointF QuadTree::computeRepulsionRecursive(int quadNodeIdx, const QPointF &pos,
     double size = std::max(qn.bounds.width(), qn.bounds.height());
 
     if (qn.isLeaf() || (size / dist < theta)) {
-        // Treat as single body: F = repelForce * mass / dist^2
-        double force = repelForce * qn.totalMass / (dist * dist);
+        // Treat as single body: F = repelForce * nodeMass * clusterMass / dist^2
+        double force = repelForce * nodeMass * qn.totalMass / (dist * dist);
         return QPointF(delta.x() / dist * force, delta.y() / dist * force);
     }
 
@@ -127,7 +137,7 @@ QPointF QuadTree::computeRepulsionRecursive(int quadNodeIdx, const QPointF &pos,
     QPointF totalForce(0, 0);
     for (int i = 0; i < 4; ++i) {
         if (qn.children[i] >= 0) {
-            totalForce += computeRepulsionRecursive(qn.children[i], pos, repelForce, theta);
+            totalForce += computeRepulsionRecursive(qn.children[i], pos, repelForce, nodeMass, theta);
         }
     }
     return totalForce;

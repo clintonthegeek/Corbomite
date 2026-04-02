@@ -8,8 +8,10 @@
 namespace ForceGraph {
 class QuadTree {
 public:
-    void build(const QVector<GraphNode> &nodes, const QRectF &bounds);
-    QPointF computeRepulsion(const QPointF &nodePos, double repelForce, double theta = 0.8) const;
+    void build(const QVector<GraphNode> &nodes, const QRectF &bounds,
+                const QVector<double> &masses = {});
+    QPointF computeRepulsion(const QPointF &nodePos, double repelForce,
+                              double nodeMass = 1.0, double theta = 0.8) const;
     void clear();
 private:
     struct QuadNode {
@@ -22,10 +24,12 @@ private:
         bool isEmpty() const { return nodeIndex < 0 && children[0] < 0; }
     };
     QVector<QuadNode> m_nodes;
+    QVector<double> m_masses;
     int m_root = -1;
     void insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &nodes);
     void subdivide(int quadNodeIdx);
     QPointF computeRepulsionRecursive(int quadNodeIdx, const QPointF &pos,
-                                       double repelForce, double theta) const;
+                                       double repelForce, double nodeMass,
+                                       double theta) const;
 };
 } // namespace ForceGraph

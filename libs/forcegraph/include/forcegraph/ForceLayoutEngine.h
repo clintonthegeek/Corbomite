@@ -40,6 +40,7 @@ Q_SIGNALS:
 private:
     void buildNodeIndex();
     void buildAdjacency();
+    void computeDegrees();
     void bfsInitialPlacement();
     double estimateCanvasArea() const;
     void randomizePositionsIfNeeded();
@@ -48,6 +49,7 @@ private:
     QVector<GraphEdge> m_edges;
     QHash<QString, int> m_nodeIndex;
     QHash<QString, QVector<QString>> m_adjacency;
+    QHash<QString, int> m_degree;
     QVector<QPointF> m_displacements;
     QVector<QPointF> m_prevDisplacements;
     QVector<double> m_vertexTemperatures;

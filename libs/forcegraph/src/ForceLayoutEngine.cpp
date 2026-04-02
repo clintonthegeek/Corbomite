@@ -31,6 +31,7 @@ void ForceLayoutEngine::setEdges(const QVector<GraphEdge> &edges)
 {
     m_edges = edges;
     buildAdjacency();
+    computeDegrees();
 }
 
 void ForceLayoutEngine::clear()
@@ -39,6 +40,7 @@ void ForceLayoutEngine::clear()
     m_edges.clear();
     m_nodeIndex.clear();
     m_adjacency.clear();
+    m_degree.clear();
     m_displacements.clear();
     m_prevDisplacements.clear();
     m_vertexTemperatures.clear();
@@ -67,6 +69,15 @@ void ForceLayoutEngine::buildAdjacency()
     for (const auto &edge : m_edges) {
         m_adjacency[edge.sourceId].append(edge.targetId);
         m_adjacency[edge.targetId].append(edge.sourceId);
+    }
+}
+
+void ForceLayoutEngine::computeDegrees()
+{
+    m_degree.clear();
+    for (const auto &edge : m_edges) {
+        m_degree[edge.sourceId]++;
+        m_degree[edge.targetId]++;
     }
 }
 
@@ -376,23 +387,32 @@ void ForceLayoutEngine::step()
         QRectF bounds(minX - margin, minY - margin,
                       (maxX - minX) + 2 * margin, (maxY - minY) + 2 * margin);
 
+        // Build quadtree with degree-weighted masses
+        QVector<double> masses(n);
+        for (int i = 0; i < n; ++i) {
+            masses[i] = m_degree.value(m_nodes[i].id, 0) + 1.0;
+        }
+
         QuadTree quadTree;
-        quadTree.build(m_nodes, bounds);
+        quadTree.build(m_nodes, bounds, masses);
 
         for (int i = 0; i < n; ++i) {
+            double nodeMass = m_degree.value(m_nodes[i].id, 0) + 1.0;
             QPointF repulsion = quadTree.computeRepulsion(
-                m_nodes[i].position, m_repelForce, 0.8);
+                m_nodes[i].position, m_repelForce, nodeMass, 0.8);
             m_displacements[i] += repulsion;
         }
     } else {
-        // Naive O(n^2) repulsion: f_r = repelForce / d^2
+        // Naive O(n^2) repulsion: f_r = repelForce * degI * degJ / d^2
         for (int i = 0; i < n; ++i) {
+            double degI = m_degree.value(m_nodes[i].id, 0) + 1.0;
             for (int j = i + 1; j < n; ++j) {
                 QPointF delta = m_nodes[i].position - m_nodes[j].position;
                 double dist = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
                 dist = std::max(dist, EPSILON);
 
-                double force = m_repelForce / (dist * dist);
+                double degJ = m_degree.value(m_nodes[j].id, 0) + 1.0;
+                double force = m_repelForce * degI * degJ / (dist * dist);
 
                 QPointF normalized(delta.x() / dist, delta.y() / dist);
                 m_displacements[i] += normalized * force;
@@ -422,9 +442,10 @@ void ForceLayoutEngine::step()
         m_displacements[tgtIdx] += normalized * force;
     }
 
-    // 5. Apply center force (pull toward origin)
+    // 5. Apply center force (pull toward origin), weighted by degree
     for (int i = 0; i < n; ++i) {
-        m_displacements[i] -= m_nodes[i].position * m_centerForce;
+        double deg = m_degree.value(m_nodes[i].id, 0) + 1.0;
+        m_displacements[i] -= m_nodes[i].position * m_centerForce * deg;
     }
 
     // 6. Oscillation detection (Frick et al.) — per-vertex local temperature

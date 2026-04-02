@@ -192,6 +192,49 @@ private Q_SLOTS:
                  qPrintable(QStringLiteral("Only %1 distance buckets for chain of 5").arg(uniqueDistanceBuckets.size())));
     }
 
+    void testDegreeWeightedRepulsionSpreadsHubs()
+    {
+        ForceGraph::ForceLayoutEngine engine;
+
+        // Star graph: hub "h" connected to a, b, c, d, e
+        QVector<ForceGraph::GraphNode> nodes;
+        ForceGraph::GraphNode hub; hub.id = QStringLiteral("h"); hub.position = QPointF(0, 0);
+        nodes.append(hub);
+        for (const auto &id : {QStringLiteral("a"), QStringLiteral("b"), QStringLiteral("c"),
+                               QStringLiteral("d"), QStringLiteral("e")}) {
+            ForceGraph::GraphNode n;
+            n.id = id;
+            n.position = QPointF(0, 0);
+            nodes.append(n);
+        }
+        engine.setNodes(nodes);
+
+        QVector<ForceGraph::GraphEdge> edges;
+        for (const auto &id : {QStringLiteral("a"), QStringLiteral("b"), QStringLiteral("c"),
+                               QStringLiteral("d"), QStringLiteral("e")}) {
+            edges.append({QStringLiteral("h"), id});
+        }
+        engine.setEdges(edges);
+
+        for (int i = 0; i < 200; ++i) engine.step();
+
+        auto result = engine.nodes();
+        // Hub (degree 5) should be near center due to gravity
+        // Leaves should be spread around it
+        double avgLeafDist = 0;
+        for (int i = 1; i < result.size(); ++i) {
+            double d = std::sqrt(
+                std::pow(result[i].position.x() - result[0].position.x(), 2) +
+                std::pow(result[i].position.y() - result[0].position.y(), 2));
+            avgLeafDist += d;
+        }
+        avgLeafDist /= 5.0;
+
+        // Leaves should be spread out from hub
+        QVERIFY2(avgLeafDist > 30,
+                 qPrintable(QStringLiteral("Avg leaf dist from hub: %1").arg(avgLeafDist)));
+    }
+
     void testBFSPlacementDisconnectedComponents()
     {
         // Two disconnected pairs: {a-b} and {c-d}
