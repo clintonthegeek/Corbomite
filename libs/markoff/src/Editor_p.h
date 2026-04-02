@@ -60,8 +60,8 @@ struct Editor::Private {
         return (q->isRightToLeft() ? (hbar->maximum() - hbar->value()) : hbar->value());
     }
 
+    qreal verticalOffset(int topBlock, int topLine) const;
     qreal verticalOffset() const;
-    qreal blockPixelPosition(const QTextBlock &block) const; // cumulative Y of block
 
     void sendControlEvent(QEvent *e); // defined in Editor.cpp (EditorControl is incomplete here)
 
@@ -72,9 +72,11 @@ struct Editor::Private {
 
     EditorControl *control = nullptr;
     MarkdownHighlighter *highlighter = nullptr;
+    qreal topLineFracture = 0;
     qreal pageUpDownLastCursorY = 0;
     QTextOption::WrapMode wordWrap = QTextOption::WrapAtWordBoundaryOrAnywhere;
     int originalOffsetY = 0;
+    int topLine = 0;
 
     uint tabChangesFocus : 1 = 0;
     uint showCursorOnInitialShow : 1 = 0;
@@ -115,17 +117,13 @@ struct Editor::Private {
     // Live tables (QTextTable objects that replaced pipe text)
     QList<QTextTable *> liveTables;
     QList<QList<Qt::Alignment>> tableAlignments;
+    QTextTable *hoverTable = nullptr;
     void convertTables();
     void revertTables();
     void checkTableCreationTrigger();
 
     void cursorPositionChanged();
     void modificationChanged(bool);
-
-    // Table hover state (for chrome: handles, buttons)
-    QTextTable *hoverTable = nullptr;
-    int hoverTableRow = -1;
-    int hoverTableCol = -1;
 };
 
 } // namespace Markoff
