@@ -130,7 +130,10 @@ void ForceLayoutEngine::bfsInitialPlacement()
               });
 
     double offsetX = 0.0;
-    double gap = m_linkDistance * 3.0;
+    // Small gap — center force pulls components together during simulation.
+    // We WANT disconnected components to overlap initially so the layout
+    // looks like one organic graph (matching Obsidian's behavior).
+    double gap = m_linkDistance * 0.5;
 
     for (const auto &component : components) {
         if (component.size() == 1) {
@@ -397,7 +400,7 @@ void ForceLayoutEngine::step()
             m_displacements[i] += repulsion;
         }
     } else {
-        // Naive O(n^2) repulsion: f_r = repelForce * degI * degJ / d^2
+        // Naive O(n^2) repulsion with degree weighting (sqrt for gentler curve)
         for (int i = 0; i < n; ++i) {
             double degI = m_degree.value(m_nodes[i].id, 0) + 1.0;
             for (int j = i + 1; j < n; ++j) {
@@ -406,7 +409,7 @@ void ForceLayoutEngine::step()
                 dist = std::max(dist, EPSILON);
 
                 double degJ = m_degree.value(m_nodes[j].id, 0) + 1.0;
-                double force = m_repelForce * degI * degJ / (dist * dist);
+                double force = m_repelForce * std::sqrt(degI * degJ) / (dist * dist);
 
                 QPointF normalized(delta.x() / dist, delta.y() / dist);
                 m_displacements[i] += normalized * force;

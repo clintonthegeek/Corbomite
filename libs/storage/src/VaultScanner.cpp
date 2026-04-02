@@ -39,11 +39,16 @@ QVector<NoteMeta> VaultScanner::scan(const QString &vaultRoot) const
 
 bool VaultScanner::shouldExcludeDir(const QString &dirName) const
 {
-    return dirName == QLatin1String(".obsidian")
-        || dirName == QLatin1String(".corbomite")
-        || dirName == QLatin1String(".git")
-        || dirName == QLatin1String(".trash")
-        || dirName == QLatin1String("node_modules");
+    // Hidden directories (start with '.')
+    if (dirName.startsWith(QLatin1Char('.')))
+        return true;
+
+    // macOS resource fork junk
+    if (dirName == QLatin1String("__MACOSX"))
+        return true;
+
+    // Other known non-content directories
+    return dirName == QLatin1String("node_modules");
 }
 
 bool VaultScanner::isNoteFile(const QString &suffix) const

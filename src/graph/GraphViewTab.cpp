@@ -63,6 +63,15 @@ void GraphViewTab::buildGraph()
 {
     auto data = GraphDataBuilder::buildGlobalGraph(m_index, m_vault);
 
+    qDebug() << "Graph built:" << data.nodes.size() << "nodes," << data.edges.size() << "edges";
+    for (const auto &node : data.nodes) {
+        qDebug() << "  NODE:" << node.id << "radius:" << node.radius
+                 << "color:" << node.color.name();
+    }
+    for (const auto &edge : data.edges) {
+        qDebug() << "  EDGE:" << edge.sourceId << "->" << edge.targetId;
+    }
+
     // Cap node count for performance — 6000+ node graphs freeze the UI.
     // TODO: Implement multilevel coarsening (Handbook Ch. 12.6) for large graphs.
     static constexpr int MAX_GRAPH_NODES = 1000;
