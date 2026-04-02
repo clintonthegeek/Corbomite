@@ -38,6 +38,8 @@ add_library(markoff STATIC
     src/BlockItem.cpp
     src/StubBlockItem.h
     src/StubBlockItem.cpp
+    src/MarkdownTextItem.h
+    src/MarkdownTextItem.cpp
     src/Document.cpp
     src/DocumentBuilder.cpp
     src/TreeSitterParser.cpp
