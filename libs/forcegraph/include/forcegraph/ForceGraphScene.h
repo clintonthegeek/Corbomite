@@ -26,6 +26,10 @@ public:
     // Search filter — dims non-matching nodes and edges
     void setSearchFilter(const QString &text);
 
+public Q_SLOTS:
+    void onSimulationStarted();
+    void onSimulationStopped();
+
 private:
     QHash<QString, ForceGraphNode *> m_nodeItems;
     QVector<ForceGraphEdge *> m_edgeItems;

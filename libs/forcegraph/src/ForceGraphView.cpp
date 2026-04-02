@@ -24,7 +24,7 @@ ForceGraphView::ForceGraphView(QWidget *parent)
     setDragMode(QGraphicsView::NoDrag);
     setTransformationAnchor(AnchorUnderMouse);
     setViewportUpdateMode(SmartViewportUpdate);
-    setOptimizationFlags(DontSavePainterState);
+    setOptimizationFlags(DontSavePainterState | DontAdjustForAntialiasing);
 }
 
 void ForceGraphView::setEngine(ForceLayoutEngine *engine)
@@ -32,12 +32,38 @@ void ForceGraphView::setEngine(ForceLayoutEngine *engine)
     if (m_engine) {
         disconnect(m_engine, &ForceLayoutEngine::positionsUpdated,
                    m_scene, &ForceGraphScene::updatePositions);
+        disconnect(m_engine, &ForceLayoutEngine::simulationStarted,
+                   this, &ForceGraphView::onSimulationStarted);
+        disconnect(m_engine, &ForceLayoutEngine::simulationStopped,
+                   this, &ForceGraphView::onSimulationStopped);
+        disconnect(m_engine, &ForceLayoutEngine::simulationStarted,
+                   m_scene, &ForceGraphScene::onSimulationStarted);
+        disconnect(m_engine, &ForceLayoutEngine::simulationStopped,
+                   m_scene, &ForceGraphScene::onSimulationStopped);
     }
     m_engine = engine;
     if (m_engine) {
         connect(m_engine, &ForceLayoutEngine::positionsUpdated,
                 m_scene, &ForceGraphScene::updatePositions);
+        connect(m_engine, &ForceLayoutEngine::simulationStarted,
+                this, &ForceGraphView::onSimulationStarted);
+        connect(m_engine, &ForceLayoutEngine::simulationStopped,
+                this, &ForceGraphView::onSimulationStopped);
+        connect(m_engine, &ForceLayoutEngine::simulationStarted,
+                m_scene, &ForceGraphScene::onSimulationStarted);
+        connect(m_engine, &ForceLayoutEngine::simulationStopped,
+                m_scene, &ForceGraphScene::onSimulationStopped);
     }
+}
+
+void ForceGraphView::onSimulationStarted()
+{
+    setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+}
+
+void ForceGraphView::onSimulationStopped()
+{
+    setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
 }
 
 void ForceGraphView::setNodes(const QVector<GraphNode> &nodes)

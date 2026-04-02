@@ -8,6 +8,17 @@ namespace ForceGraph {
 ForceGraphScene::ForceGraphScene(QObject *parent)
     : QGraphicsScene(parent)
 {
+    setSceneRect(-10000, -10000, 20000, 20000);
+}
+
+void ForceGraphScene::onSimulationStarted()
+{
+    setItemIndexMethod(QGraphicsScene::NoIndex);
+}
+
+void ForceGraphScene::onSimulationStopped()
+{
+    setItemIndexMethod(QGraphicsScene::BspTreeIndex);
 }
 
 void ForceGraphScene::setNodes(const QVector<GraphNode> &nodes)

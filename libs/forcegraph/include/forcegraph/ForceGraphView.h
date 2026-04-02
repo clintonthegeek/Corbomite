@@ -23,6 +23,9 @@ public:
     void setTextFadeThreshold(double threshold);
     void setShowArrows(bool show);
     void setSearchFilter(const QString &text);
+public Q_SLOTS:
+    void onSimulationStarted();
+    void onSimulationStopped();
 Q_SIGNALS:
     void nodeClicked(const QString &id);
     void nodeDoubleClicked(const QString &id);
