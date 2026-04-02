@@ -51,18 +51,18 @@ private:
     QHash<QString, QVector<QString>> m_adjacency;
     QHash<QString, int> m_degree;
     QVector<QPointF> m_displacements;
-    QVector<QPointF> m_prevDisplacements;
-    QVector<double> m_vertexTemperatures;
+    QVector<QPointF> m_previousForces;
     double m_centerForce = 0.01;
     double m_repelForce = 1500.0;
     double m_linkForce = 0.05;
     double m_linkDistance = 100.0;
-    double m_damping = 0.85;
-    double m_temperature = 0.0;
-    double m_initialTemperature = 0.0;
+    double m_damping = 0.85; // kept for backward compat (no-op with adaptive speed)
+    double m_globalSpeed = 1.0;
+    double m_energy = 0.0;
+    double m_prevEnergy = 0.0;
     int m_iteration = 0;
-    int m_maxIterations = 500;
     int m_stableCount = 0;
+    int m_energyDecreaseCount = 0;
     bool m_running = false;
     bool m_stable = false;
     ::QTimer *m_timer = nullptr;

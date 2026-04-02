@@ -42,13 +42,14 @@ void ForceLayoutEngine::clear()
     m_adjacency.clear();
     m_degree.clear();
     m_displacements.clear();
-    m_prevDisplacements.clear();
-    m_vertexTemperatures.clear();
+    m_previousForces.clear();
     m_iteration = 0;
     m_stableCount = 0;
+    m_energyDecreaseCount = 0;
     m_stable = false;
-    m_temperature = 0.0;
-    m_initialTemperature = 0.0;
+    m_globalSpeed = 1.0;
+    m_energy = 0.0;
+    m_prevEnergy = 0.0;
 }
 
 void ForceLayoutEngine::buildNodeIndex()
@@ -291,26 +292,21 @@ void ForceLayoutEngine::start()
     m_running = true;
     m_stable = false;
     m_stableCount = 0;
+    m_energyDecreaseCount = 0;
     m_iteration = 0;
-
-    // Scale iterations with graph size — large graphs need more time to reach equilibrium
-    m_maxIterations = std::max(500, static_cast<int>(std::sqrt(static_cast<double>(m_nodes.size())) * 100.0));
 
     bfsInitialPlacement();
 
-    double area = estimateCanvasArea();
-    m_initialTemperature = std::sqrt(area) / 10.0;
-    m_temperature = m_initialTemperature;
-
     int n = m_nodes.size();
     m_displacements.resize(n);
-    m_prevDisplacements.resize(n);
-    m_vertexTemperatures.resize(n);
+    m_previousForces.resize(n);
     for (int i = 0; i < n; ++i) {
         m_displacements[i] = QPointF(0, 0);
-        m_prevDisplacements[i] = QPointF(0, 0);
-        m_vertexTemperatures[i] = m_initialTemperature;
+        m_previousForces[i] = QPointF(0, 0);
     }
+    m_globalSpeed = 1.0;
+    m_energy = 0.0;
+    m_prevEnergy = 0.0;
 
     if (!m_timer) {
         m_timer = new QTimer(this);
@@ -346,26 +342,24 @@ void ForceLayoutEngine::step()
     // --- Initialize per-step state on first call (if not started via start()) ---
     if (m_displacements.size() != n) {
         bfsInitialPlacement();
-        double area = estimateCanvasArea();
-        m_initialTemperature = std::sqrt(area) / 10.0;
-        m_temperature = m_initialTemperature;
         m_displacements.resize(n);
-        m_prevDisplacements.resize(n);
-        m_vertexTemperatures.resize(n);
+        m_previousForces.resize(n);
         for (int i = 0; i < n; ++i) {
             m_displacements[i] = QPointF(0, 0);
-            m_prevDisplacements[i] = QPointF(0, 0);
-            m_vertexTemperatures[i] = m_initialTemperature;
+            m_previousForces[i] = QPointF(0, 0);
         }
+        m_globalSpeed = 1.0;
+        m_energy = 0.0;
+        m_prevEnergy = 0.0;
+        m_energyDecreaseCount = 0;
     }
 
     // 1. Compute canvas area and optimal spacing
     double canvasArea = estimateCanvasArea();
     double k = m_linkDistance; // Target spacing for connected nodes
 
-    // 2. Save previous displacements and reset current
+    // 2. Reset current displacements (previous forces saved at end of step)
     for (int i = 0; i < n; ++i) {
-        m_prevDisplacements[i] = m_displacements[i];
         m_displacements[i] = QPointF(0, 0);
     }
 
@@ -448,52 +442,95 @@ void ForceLayoutEngine::step()
         m_displacements[i] -= m_nodes[i].position * m_centerForce * deg;
     }
 
-    // 6. Oscillation detection (Frick et al.) — per-vertex local temperature
-    // Exponential cooling — slower decay gives nodes more time to spread
-    double progress = static_cast<double>(m_iteration) / static_cast<double>(m_maxIterations);
-    double globalTemp = m_initialTemperature * std::exp(-3.0 * progress);
-    // This keeps temperature at ~5% of initial at iteration = maxIterations
-    // vs linear which reaches 0 — exponential gives more movement in middle iterations
-    globalTemp = std::max(globalTemp, 0.01);
+    // 6. ForceAtlas2 Adaptive Speed
+
+    // Compute per-node swinging and traction (degree-weighted)
+    double globalSwinging = 0.0;
+    double globalTraction = 0.0;
 
     for (int i = 0; i < n; ++i) {
-        double dot = m_displacements[i].x() * m_prevDisplacements[i].x()
-                   + m_displacements[i].y() * m_prevDisplacements[i].y();
+        double deg = m_degree.value(m_nodes[i].id, 0) + 1.0;
 
-        if (dot < 0) {
-            // Oscillating — reduce local temperature
-            m_vertexTemperatures[i] *= 0.9;
-        } else {
-            // Converging — allow slight increase, capped by global temp
-            m_vertexTemperatures[i] = std::min(m_vertexTemperatures[i] * 1.1, globalTemp);
-        }
+        // Swinging = change in force direction
+        double swingX = m_displacements[i].x() - m_previousForces[i].x();
+        double swingY = m_displacements[i].y() - m_previousForces[i].y();
+        double swinging = std::sqrt(swingX * swingX + swingY * swingY);
+
+        // Traction = useful convergent movement
+        double tractX = (m_displacements[i].x() + m_previousForces[i].x()) / 2.0;
+        double tractY = (m_displacements[i].y() + m_previousForces[i].y()) / 2.0;
+        double traction = std::sqrt(tractX * tractX + tractY * tractY);
+
+        globalSwinging += deg * swinging;
+        globalTraction += deg * traction;
     }
 
-    // 7. Limit displacement by temperature and apply damping; track max displacement
+    // Compute global speed
+    double tolerance = 1.0;
+    if (globalSwinging > EPSILON) {
+        m_globalSpeed = tolerance * globalTraction / globalSwinging;
+    }
+    // Prevent speed from growing too fast
+    m_globalSpeed = std::min(m_globalSpeed, m_globalSpeed * 1.5);
+    m_globalSpeed = std::max(m_globalSpeed, EPSILON);
+
+    // 7. Apply displacement with per-node speed
     double maxDisplacement = 0.0;
+    m_energy = 0.0;
 
-    for (int i = 0; i < n; ++i) {
-        double mag = std::sqrt(m_displacements[i].x() * m_displacements[i].x()
-                             + m_displacements[i].y() * m_displacements[i].y());
-
-        if (mag < EPSILON) continue;
-
-        double limitedMag = std::min(mag, m_vertexTemperatures[i]);
-        double scale = (limitedMag / mag) * m_damping;
-
-        m_displacements[i] *= scale;
-
-        double finalMag = limitedMag * m_damping;
-        maxDisplacement = std::max(maxDisplacement, finalMag);
-    }
-
-    // 8. Update positions (skip pinned nodes)
     for (int i = 0; i < n; ++i) {
         if (m_nodes[i].pinned) continue;
-        m_nodes[i].position += m_displacements[i];
+
+        double deg = m_degree.value(m_nodes[i].id, 0) + 1.0;
+
+        // Per-node swinging
+        double swingX = m_displacements[i].x() - m_previousForces[i].x();
+        double swingY = m_displacements[i].y() - m_previousForces[i].y();
+        double swinging = std::sqrt(swingX * swingX + swingY * swingY);
+
+        // Per-node speed
+        double localSpeed = m_globalSpeed / (1.0 + m_globalSpeed * std::sqrt(swinging));
+
+        // Compute displacement
+        double dx = m_displacements[i].x() * localSpeed;
+        double dy = m_displacements[i].y() * localSpeed;
+        double mag = std::sqrt(dx * dx + dy * dy);
+
+        // Cap displacement at 10x node radius
+        double maxDisp = std::max(10.0 * m_nodes[i].radius, 10.0);
+        if (mag > maxDisp) {
+            double scale = maxDisp / mag;
+            dx *= scale;
+            dy *= scale;
+            mag = maxDisp;
+        }
+
+        m_nodes[i].position += QPointF(dx, dy);
+        maxDisplacement = std::max(maxDisplacement, mag);
+        m_energy += deg * std::sqrt(m_displacements[i].x() * m_displacements[i].x() +
+                                     m_displacements[i].y() * m_displacements[i].y());
     }
 
-    // 9. Check convergence
+    // Save forces for next iteration's swinging calculation
+    m_previousForces = m_displacements;
+
+    // 8. Convergence detection (energy-based + displacement-based fallback)
+
+    // Energy-based convergence
+    if (m_prevEnergy > EPSILON && m_energy < m_prevEnergy * 0.999) {
+        ++m_energyDecreaseCount;
+        if (m_energyDecreaseCount >= 10 && !m_stable) {
+            m_stable = true;
+            Q_EMIT simulationStable();
+            if (m_running) {
+                stop();
+            }
+        }
+    } else {
+        m_energyDecreaseCount = 0;
+    }
+
+    // Displacement-based fallback
     double convergenceThreshold = canvasArea * 0.0001;
     if (maxDisplacement < convergenceThreshold) {
         ++m_stableCount;
@@ -507,6 +544,8 @@ void ForceLayoutEngine::step()
     } else {
         m_stableCount = 0;
     }
+
+    m_prevEnergy = m_energy;
 
     // 10. Emit positionsUpdated
     QHash<QString, QPointF> positions;

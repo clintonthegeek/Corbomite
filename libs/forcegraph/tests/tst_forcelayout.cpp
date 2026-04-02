@@ -235,6 +235,35 @@ private Q_SLOTS:
                  qPrintable(QStringLiteral("Avg leaf dist from hub: %1").arg(avgLeafDist)));
     }
 
+    void testAdaptiveSpeedConverges()
+    {
+        ForceGraph::ForceLayoutEngine engine;
+
+        // Create a small graph
+        QVector<ForceGraph::GraphNode> nodes;
+        for (int i = 0; i < 10; ++i) {
+            ForceGraph::GraphNode n;
+            n.id = QString::number(i);
+            n.position = QPointF(0, 0);
+            nodes.append(n);
+        }
+        engine.setNodes(nodes);
+
+        QVector<ForceGraph::GraphEdge> edges;
+        for (int i = 0; i < 9; ++i) {
+            edges.append({QString::number(i), QString::number(i + 1)});
+        }
+        engine.setEdges(edges);
+
+        // Run until stable (no max iterations — adaptive speed should self-terminate)
+        for (int i = 0; i < 1000; ++i) {
+            engine.step();
+            if (engine.isStable()) break;
+        }
+
+        QVERIFY(engine.isStable());
+    }
+
     void testBFSPlacementDisconnectedComponents()
     {
         // Two disconnected pairs: {a-b} and {c-d}
