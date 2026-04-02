@@ -351,17 +351,21 @@ void Editor::Private::applyBlockFormats()
                 maxBqDepth = s.blockquoteDepth;
         }
 
-        QTextBlockFormat fmt = block.blockFormat();
-        // Indent by exactly the width of "> " per nesting level, so when
-        // chevrons are hidden the text stays in the same position.
-        QFontMetricsF fm(q->font());
-        qreal chevronWidth = qCeil(fm.horizontalAdvance(QStringLiteral("> ")));
-        qreal targetMargin = isCursorLine ? 0.0 : maxBqDepth * chevronWidth;
+        // Only set left margin for blockquoted lines (or clear it for
+        // cursor lines that need to show raw markers). Don't touch non-
+        // blockquote blocks — their natural indentation (from leading
+        // spaces in list items) should be preserved.
+        if (maxBqDepth > 0 || isCursorLine) {
+            QTextBlockFormat fmt = block.blockFormat();
+            QFontMetricsF fm(q->font());
+            qreal chevronWidth = qCeil(fm.horizontalAdvance(QStringLiteral("> ")));
+            qreal targetMargin = isCursorLine ? 0.0 : maxBqDepth * chevronWidth;
 
-        if (fmt.leftMargin() != targetMargin) {
-            batchCursor.setPosition(block.position());
-            fmt.setLeftMargin(targetMargin);
-            batchCursor.setBlockFormat(fmt);
+            if (fmt.leftMargin() != targetMargin) {
+                batchCursor.setPosition(block.position());
+                fmt.setLeftMargin(targetMargin);
+                batchCursor.setBlockFormat(fmt);
+            }
         }
 
         block = block.next();
@@ -1238,7 +1242,8 @@ void Editor::paintDecoratedRangeBackgrounds(QPainter *painter, const QRect &docR
                     qreal margin = document()->documentMargin();
                     qreal y = r.top() + r.height() / 2;
                     qreal x1 = margin;
-                    qreal x2 = viewport()->width() - margin;
+                    qreal docWidth = document()->documentLayout()->documentSize().width();
+                    qreal x2 = qMax(docWidth, qreal(viewport()->width())) - margin;
                     painter->setPen(QPen(QColor(0xcc, 0xcc, 0xcc), 1));
                     painter->drawLine(QPointF(x1, y), QPointF(x2, y));
                     painter->restore();
