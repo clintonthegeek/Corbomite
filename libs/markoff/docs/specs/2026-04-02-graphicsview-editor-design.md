@@ -65,19 +65,48 @@ all for free.
 - Emits signals when content changes (for reparse, serialization)
 
 **TableItem** (QGraphicsItem subclass)
-- Paints an interactive table grid
+- Custom QPainter rendering: grid lines, cell text, headers, chrome
+- Custom cursor management: tracks active cell, cursor position
+  within cell text, blinking caret, text selection per cell
+- Cell text editing via per-cell QTextDocument + QTextLayout (for
+  IME, font metrics, word wrap) — NOT a QGraphicsProxyWidget
 - Owns its data model: headers, rows, columns, alignments
-- Handles cell editing internally (mini QTextEdit per cell, or
-  custom paint + cursor)
+- Tab/Shift+Tab/Enter/Escape navigation between cells
+- Row/column operations via context menu and hover handles
 - Serializes to/from pipe-delimited markdown
 - Does NOT live in any QTextDocument
 - Height = computed from row count and cell content
 
-**Other future items** (same pattern):
-- ImageItem: renders an image, click to change source
-- MathItem: renders LaTeX, click to edit source
-- MermaidItem: renders SVG, click to edit source
-- EmbedItem: renders note preview, click to navigate
+**CodeBlockItem** (QGraphicsItem subclass)
+- Paints syntax-highlighted code with language label, line numbers
+- Handles text editing internally (monospace font, tab = spaces)
+- Serializes to/from fenced code block markdown
+- KSyntaxHighlighting for language-specific coloring
+
+**ImageItem** (QGraphicsItem subclass)
+- Renders image from vault path or URL
+- Click to enter source mode (edit alt text, path)
+- Resize handles
+- Serializes to `![alt](path)` or `![[wikilink]]`
+
+**MathItem** (QGraphicsItem subclass)
+- Renders LaTeX via JKQTMathText
+- Click to enter source editing (monospace LaTeX input)
+- Serializes to `$$...$$` block
+
+**MermaidItem** (QGraphicsItem subclass)
+- Renders SVG diagram
+- Click to enter source editing
+- Serializes to ` ```mermaid ... ``` `
+
+**EmbedItem** (QGraphicsItem subclass)
+- Renders note preview
+- Click to navigate to embedded note
+- Serializes to `![[note]]`
+
+All non-text items share a common base: `BlockItem`. This base
+provides the interface for serialization (`toMarkdown()`), height
+reporting, selection state, and focus transfer protocol.
 
 ### Layout
 
@@ -141,10 +170,13 @@ text. The file on disk is always flat markdown.
 On file load or mode switch to live preview:
 
 1. Parse the full markdown with tree-sitter
-2. Walk the AST to find table boundaries (and future: image, math)
+2. Walk the AST to find ALL block-level non-text boundaries:
+   tables, fenced code blocks, display math ($$...$$), mermaid
+   blocks, image lines, embed lines
 3. Split the markdown at those boundaries into text segments
 4. Create MarkdownTextItem for each text segment
-5. Create TableItem for each table (parsed from pipe text)
+5. Create appropriate BlockItem for each non-text block:
+   TableItem, CodeBlockItem, MathItem, ImageItem, etc.
 6. Position items via the coordinator
 
 On text change within a MarkdownTextItem (debounced):
@@ -181,6 +213,11 @@ during drag. When the drag crosses an item boundary, the filter
 coordinates selection state across items. See the cross-boundary
 selection research document for detailed approach.
 
+Cross-boundary selection is a MUST-HAVE, not deferrable. Every
+non-text block item (table, code block, image, math, mermaid, embed)
+participates in the selection system. A fully selected block item
+contributes its markdown serialization to the clipboard.
+
 ### What We Keep
 
 - **TextControl** (src/TextControl.cpp): unchanged. Wraps inside
@@ -214,14 +251,19 @@ selection research document for detailed approach.
 | Component | Responsibility | Est. Lines |
 |-----------|---------------|-----------|
 | `MarkdownTextItem` | Editable text region, wraps TextControl | ~200 |
-| `TableItem` | Interactive table, paints grid, handles input | ~400 |
-| `SceneCoordinator` | Manages item list, positions, splitting | ~300 |
-| `SelectionManager` | Cross-boundary selection + clipboard | ~250 |
+| `BlockItem` | Base class for non-text items (selection, serialize) | ~100 |
+| `TableItem` | Interactive table, custom paint + cursor | ~500 |
+| `CodeBlockItem` | Syntax-highlighted code, editing | ~300 |
+| `MathItem` | LaTeX rendering, click-to-edit | ~150 |
+| `ImageItem` | Image rendering, resize handles | ~150 |
+| `SceneCoordinator` | Manages item list, positions, splitting/merging | ~300 |
+| `SelectionManager` | Cross-boundary selection + markdown clipboard | ~300 |
 | `GraphicsViewEditor` | QGraphicsView subclass, event routing | ~200 |
-| `MarkdownSplitter` | Splits markdown at block boundaries | ~100 |
+| `MarkdownSplitter` | Splits markdown at all block boundaries | ~150 |
 
-Total new code: ~1,450 lines. Replaces ~1,500 lines of current
-Editor.cpp (much of which is scroll/layout hacks).
+Total new code: ~2,350 lines. Replaces ~1,500 lines of current
+Editor.cpp. Net increase ~850 lines but covers tables, code blocks,
+math, images — not just tables.
 
 ## GPL Harvest Mindset
 
@@ -251,8 +293,10 @@ and modify it. GPL allows this.
 
 The hardest part. Drag-selecting across item boundaries requires
 coordinating selection state across independent QTextDocuments.
-Mitigation: implement basic selection first (within one item),
-add cross-boundary selection as a follow-up.
+This is a must-have, so the SelectionManager is part of the core
+implementation, not a follow-up. The scene-level event filter
+approach keeps it contained — items don't need to know about each
+other, only the SelectionManager does.
 
 ### Text splitting at wrong boundaries
 
