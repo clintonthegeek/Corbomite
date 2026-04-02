@@ -2,6 +2,8 @@
 #include "SelectionManager.h"
 #include "SelectableItem.h"
 
+#include <QClipboard>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QGraphicsItem>
@@ -70,8 +72,36 @@ bool SelectionManager::handleMouseRelease(const QPointF &scenePos)
 
 bool SelectionManager::handleKeyPress(QKeyEvent *event)
 {
-    Q_UNUSED(event);
-    return false; // stubbed — implemented in Task 7
+    // Ctrl+A: select all
+    if (event->key() == Qt::Key_A && event->modifiers() == Qt::ControlModifier) {
+        if (m_items.isEmpty())
+            return false;
+        m_anchorItem = m_items.first();
+        m_anchorTextPos = 0;
+        m_currentItem = m_items.last();
+        m_currentTextPos = m_currentItem->isTextItem()
+            ? m_currentItem->allMarkdown().length()
+            : -1;
+        m_mode = SelectionMode::CrossBoundary;
+        applySelection();
+        return true;
+    }
+
+    // Escape: clear selection
+    if (event->key() == Qt::Key_Escape && m_mode == SelectionMode::CrossBoundary) {
+        clearSelection();
+        return true;
+    }
+
+    // Ctrl+C: copy
+    if (event->key() == Qt::Key_C && event->modifiers() == Qt::ControlModifier
+        && m_mode == SelectionMode::CrossBoundary) {
+        QMimeData *data = createMimeData();
+        QGuiApplication::clipboard()->setMimeData(data);
+        return true;
+    }
+
+    return false;
 }
 
 QMimeData *SelectionManager::createMimeData() const
@@ -176,7 +206,33 @@ SelectableItem *SelectionManager::itemAt(const QPointF &scenePos) const
 
 QString SelectionManager::serializeAsMarkdown() const
 {
-    return {}; // stubbed — implemented in Task 7
+    if (!m_anchorItem || !m_currentItem)
+        return {};
+
+    int anchorIdx = m_items.indexOf(m_anchorItem);
+    int currentIdx = m_items.indexOf(m_currentItem);
+    if (anchorIdx < 0 || currentIdx < 0)
+        return {};
+
+    int lo = qMin(anchorIdx, currentIdx);
+    int hi = qMax(anchorIdx, currentIdx);
+    QString result;
+
+    for (int i = lo; i <= hi; ++i) {
+        SelectableItem *item = m_items[i];
+        if (i == anchorIdx || i == currentIdx) {
+            if (item->isTextItem())
+                result += item->selectedMarkdown();
+            else
+                result += item->toMarkdown();
+        } else {
+            if (item->isTextItem())
+                result += item->allMarkdown();
+            else
+                result += item->toMarkdown();
+        }
+    }
+    return result;
 }
 
 } // namespace Markoff

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
 #include <QGraphicsScene>
+#include <QMimeData>
 #include <QTextCursor>
 #include "SelectionManager.h"
 #include "MarkdownTextItem.h"
@@ -25,6 +26,12 @@ private Q_SLOTS:
     void testApplySelectionMiddleItemFullySelected();
     void testApplySelectionClearsOutOfRange();
     void testApplySelectionDragReversal();
+    void testSerializeMarkdownForward();
+    void testSerializeMarkdownWithBlockItem();
+    void testCtrlCCreatesCorrectMimeData();
+    void testCtrlAClearsAndSelectsAll();
+    void testEscapeClearsSelection();
+    void testClearSelectionResetsAll();
 };
 
 void TestSelection::testInitialState()
@@ -281,6 +288,175 @@ void TestSelection::testApplySelectionDragReversal()
     QVERIFY(!c3.hasSelection());
     QTextCursor c1 = text1->textControl()->textCursor();
     QVERIFY(c1.hasSelection());
+}
+
+void TestSelection::testSerializeMarkdownForward()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("Hello World"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("Goodbye Moon"));
+    scene.addItem(text2);
+    text2->setPos(0, 30);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, text2});
+
+    mgr.handleMousePress(QPointF(0, 5), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(200, 35));
+
+    std::unique_ptr<QMimeData> data(mgr.createMimeData());
+    QString md = data->text();
+    QVERIFY(md.contains(QStringLiteral("Hello")));
+    QVERIFY(md.contains(QStringLiteral("Goodbye")));
+}
+
+void TestSelection::testSerializeMarkdownWithBlockItem()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("Before table"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    QString tableMd = QStringLiteral("| A | B |\n|---|---|\n| 1 | 2 |");
+    auto *block = new StubBlockItem(tableMd, 600, 60);
+    scene.addItem(block);
+    block->setPos(0, 30);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("After table"));
+    scene.addItem(text2);
+    text2->setPos(0, 100);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, block, text2});
+
+    mgr.handleMousePress(QPointF(0, 5), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(600, 115));
+
+    std::unique_ptr<QMimeData> data(mgr.createMimeData());
+    QString md = data->text();
+    QVERIFY(md.contains(QStringLiteral("Before table")));
+    QVERIFY(md.contains(QStringLiteral("| A | B |")));
+    QVERIFY(md.contains(QStringLiteral("After table")));
+}
+
+void TestSelection::testCtrlCCreatesCorrectMimeData()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("Copy me"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("And me"));
+    scene.addItem(text2);
+    text2->setPos(0, 30);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, text2});
+
+    mgr.handleMousePress(QPointF(0, 5), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(10, 35));
+    QCOMPARE(mgr.mode(), SelectionMode::CrossBoundary);
+
+    QKeyEvent copyEvent(QEvent::KeyPress, Qt::Key_C, Qt::ControlModifier);
+    bool consumed = mgr.handleKeyPress(&copyEvent);
+    QVERIFY(consumed);
+}
+
+void TestSelection::testCtrlAClearsAndSelectsAll()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("First"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *block = new StubBlockItem(QStringLiteral("| T |"), 600, 60);
+    scene.addItem(block);
+    block->setPos(0, 30);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("Second"));
+    scene.addItem(text2);
+    text2->setPos(0, 100);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, block, text2});
+
+    QKeyEvent selectAllEvent(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+    bool consumed = mgr.handleKeyPress(&selectAllEvent);
+    QVERIFY(consumed);
+    QCOMPARE(mgr.mode(), SelectionMode::CrossBoundary);
+    QVERIFY(block->isFullySelected());
+
+    QTextCursor c1 = text1->textControl()->textCursor();
+    QVERIFY(c1.hasSelection());
+    QCOMPARE(c1.selectedText(), QStringLiteral("First"));
+
+    QTextCursor c2 = text2->textControl()->textCursor();
+    QVERIFY(c2.hasSelection());
+    QCOMPARE(c2.selectedText(), QStringLiteral("Second"));
+}
+
+void TestSelection::testEscapeClearsSelection()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("Hello"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("World"));
+    scene.addItem(text2);
+    text2->setPos(0, 30);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, text2});
+
+    mgr.handleMousePress(QPointF(10, 5), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(10, 35));
+    QCOMPARE(mgr.mode(), SelectionMode::CrossBoundary);
+
+    QKeyEvent escEvent(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    bool consumed = mgr.handleKeyPress(&escEvent);
+    QVERIFY(consumed);
+    QCOMPARE(mgr.mode(), SelectionMode::None);
+    QVERIFY(!mgr.hasSelection());
+}
+
+void TestSelection::testClearSelectionResetsAll()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("Hello"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *block = new StubBlockItem(QStringLiteral("| A |"), 600, 60);
+    scene.addItem(block);
+    block->setPos(0, 30);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, block});
+
+    mgr.handleMousePress(QPointF(10, 5), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(10, 50));
+    QVERIFY(block->isFullySelected());
+
+    mgr.clearSelection();
+    QVERIFY(!block->isFullySelected());
+    QTextCursor c1 = text1->textControl()->textCursor();
+    QVERIFY(!c1.hasSelection());
+    QCOMPARE(mgr.mode(), SelectionMode::None);
 }
 
 QTEST_MAIN(TestSelection)
