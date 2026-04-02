@@ -16,7 +16,9 @@ This document exercises every rendering feature implemented so far.
 Here is **bold text**, *italic text*, ~~strikethrough~~, and `inline code`.
 You can combine them: ***bold italic***, **bold with `code` inside**.
 
-Here is ==highlighted text== that should have a yellow background.
+Here is ==highlighted text== that should have a yellow background. gdf This works.
+
+Okay, interesting. 
 
 This has a %%hidden comment%% that disappears in reading view.
 

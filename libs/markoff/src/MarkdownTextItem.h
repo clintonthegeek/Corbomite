@@ -27,6 +27,9 @@ public:
     QTextDocument *document() const;
     TextControl *textControl() const { return m_control; }
 
+    /// Set the text width (for word wrap). Triggers relayout.
+    void setTextWidth(qreal width);
+
     // QGraphicsItem
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
@@ -37,8 +40,11 @@ protected:
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void inputMethodEvent(QInputMethodEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;
+    QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
 
 public:
 
@@ -53,7 +59,8 @@ public:
     QString toMarkdown() const override;
 
 Q_SIGNALS:
-    /// Emitted when Shift+Arrow can't move further.
+    void textChanged();
+    /// Emitted when arrow key can't move further.
     void cursorAtBoundary(Qt::Edge edge);
 
 private:

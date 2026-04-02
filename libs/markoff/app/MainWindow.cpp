@@ -22,7 +22,6 @@ MainWindow::MainWindow(QWidget *parent)
 {
     resize(1200, 700);
 
-    // Central widget: horizontal splitter
     auto *splitter = new QSplitter(Qt::Horizontal, this);
 
     m_editor = new Markoff::Editor(splitter);
@@ -66,22 +65,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(modeAction, &QAction::toggled, this, &MainWindow::onModeToggle);
 
     connect(fontSpin, &QSpinBox::valueChanged, this, [this](int size) {
-        // Update reading view
         Markoff::RenderSettings settings;
         settings.baseFontSizePt = size;
         m_readingView->setSettings(settings);
-
-        // Update editor (source mode + live preview rendered blocks)
         m_editor->setFontSize(size);
-
-        // Re-render
         onTextChanged();
     });
 
-    // Apply initial font size
     m_editor->setFontSize(14);
 
-    // Connect editor text changes
     connect(m_editor, &Markoff::Editor::textChanged, this, &MainWindow::onTextChanged);
 
     // Status bar
@@ -111,7 +103,6 @@ void MainWindow::openFile(const QString &path)
     m_editor->setPlainText(stream.readAll());
     m_filePath = path;
 
-    // Set basePath for image resolution
     Markoff::RenderSettings settings;
     settings.basePath = QFileInfo(path).absolutePath();
     m_readingView->setSettings(settings);

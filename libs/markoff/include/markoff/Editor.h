@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Forked from Qt's QPlainTextEdit / QWidgetTextControl
-// Original: Copyright (C) The Qt Company Ltd. (GPL-2.0-only OR GPL-3.0-only)
-
 #ifndef MARKOFF_EDITOR_H
 #define MARKOFF_EDITOR_H
 
-#include <QAbstractScrollArea>
-#include <memory>
-
-class QTextDocument;
-class QTextTable;
-class QPainter;
+#include <QGraphicsView>
 
 namespace Markoff {
 
-class Editor : public QAbstractScrollArea {
+class SelectionScene;
+class SceneCoordinator;
+
+/// QGraphicsView-based markdown editor.
+/// Splits markdown at block boundaries (tables, code blocks) into
+/// independent editable text items and non-text block items.
+/// Supports cross-boundary selection with markdown clipboard.
+class Editor : public QGraphicsView {
     Q_OBJECT
 public:
     enum class Mode { Source, LivePreview };
@@ -25,46 +24,25 @@ public:
     void setPlainText(const QString &text);
     QString toPlainText() const;
 
-    QTextDocument *document() const;
-
     void setMode(Mode mode);
-    Mode mode() const;
+    Mode mode() const { return m_mode; }
 
     void setFontSize(int pointSize);
-
-    void ensureCursorVisible();
-    QRect cursorRect() const;
-
-    // Forward-declared here, defined in Editor_p.h
-    struct Private;
 
 Q_SIGNALS:
     void textChanged();
 
 protected:
-    void paintEvent(QPaintEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
-    void keyPressEvent(QKeyEvent *e) override;
-    void mousePressEvent(QMouseEvent *e) override;
-    void mouseReleaseEvent(QMouseEvent *e) override;
-    void mouseMoveEvent(QMouseEvent *e) override;
-    void mouseDoubleClickEvent(QMouseEvent *e) override;
-    void focusInEvent(QFocusEvent *e) override;
-    void focusOutEvent(QFocusEvent *e) override;
-    void inputMethodEvent(QInputMethodEvent *e) override;
-    QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
-    void scrollContentsBy(int dx, int dy) override;
-    void contextMenuEvent(QContextMenuEvent *e) override;
-    void dragEnterEvent(QDragEnterEvent *e) override;
-    void dragMoveEvent(QDragMoveEvent *e) override;
-    void dropEvent(QDropEvent *e) override;
-    bool event(QEvent *e) override;
 
 private:
-    void paintTable(QPainter *painter, QTextTable *table,
-                    const QRectF &tableRect, const QRect &viewportRect);
+    void rebuildScene();
 
-    std::unique_ptr<Private> d;
+    SelectionScene *m_scene = nullptr;
+    SceneCoordinator *m_coordinator = nullptr;
+    Mode m_mode = Mode::Source;
+    QString m_sourceText;
+    int m_fontSize = 14;
 };
 
 } // namespace Markoff

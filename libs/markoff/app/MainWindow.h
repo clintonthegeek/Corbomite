@@ -2,7 +2,6 @@
 #ifndef MARKOFF_TESTAPP_MAINWINDOW_H
 #define MARKOFF_TESTAPP_MAINWINDOW_H
 #include <QMainWindow>
-#include <memory>
 namespace Markoff { class Editor; class ReadingView; }
 class MainWindow : public QMainWindow {
     Q_OBJECT

@@ -9,6 +9,8 @@
 #include <QStyleOptionGraphicsItem>
 #include <QGraphicsSceneMouseEvent>
 #include <QFocusEvent>
+#include <QKeyEvent>
+#include <QInputMethodEvent>
 
 namespace Markoff {
 
@@ -29,6 +31,8 @@ MarkdownTextItem::MarkdownTextItem(QGraphicsItem *parent)
             this, &MarkdownTextItem::updateGeometry);
     connect(m_control, &TextControl::updateRequest,
             this, [this]() { update(); });
+    connect(m_control, &TextControl::textChanged,
+            this, &MarkdownTextItem::textChanged);
 }
 
 MarkdownTextItem::~MarkdownTextItem() = default;
@@ -36,6 +40,15 @@ MarkdownTextItem::~MarkdownTextItem() = default;
 void MarkdownTextItem::setPlainText(const QString &text)
 {
     m_document->setPlainText(text);
+}
+
+void MarkdownTextItem::setTextWidth(qreal width)
+{
+    if (qFuzzyCompare(m_width, width))
+        return;
+    prepareGeometryChange();
+    m_width = width;
+    m_document->setTextWidth(width);
 }
 
 QTextDocument *MarkdownTextItem::document() const
@@ -112,6 +125,35 @@ void MarkdownTextItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 void MarkdownTextItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 {
     m_control->processEvent(event);
+}
+
+void MarkdownTextItem::keyPressEvent(QKeyEvent *event)
+{
+    // Check for cursor-at-boundary before forwarding
+    QTextCursor cursor = m_control->textCursor();
+    bool atStart = cursor.atStart();
+    bool atEnd = cursor.atEnd();
+
+    m_control->processEvent(event);
+
+    // If cursor didn't move for arrow keys, we're at a boundary
+    if (event->key() == Qt::Key_Up || event->key() == Qt::Key_Home) {
+        if (atStart && m_control->textCursor().atStart())
+            emit cursorAtBoundary(Qt::TopEdge);
+    } else if (event->key() == Qt::Key_Down || event->key() == Qt::Key_End) {
+        if (atEnd && m_control->textCursor().atEnd())
+            emit cursorAtBoundary(Qt::BottomEdge);
+    }
+}
+
+void MarkdownTextItem::inputMethodEvent(QInputMethodEvent *event)
+{
+    m_control->processEvent(event);
+}
+
+QVariant MarkdownTextItem::inputMethodQuery(Qt::InputMethodQuery query) const
+{
+    return m_control->inputMethodQuery(query, QVariant());
 }
 
 void MarkdownTextItem::focusInEvent(QFocusEvent *event)
