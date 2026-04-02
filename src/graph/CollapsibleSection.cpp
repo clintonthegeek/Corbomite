@@ -14,15 +14,16 @@ CollapsibleSection::CollapsibleSection(const QString &title, QWidget *parent)
     m_layout->setSpacing(0);
 
     m_headerButton = new QToolButton(this);
-    m_headerButton->setText(title);
+    m_headerButton->setText(QStringLiteral("  ") + title);
     m_headerButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     m_headerButton->setArrowType(Qt::RightArrow);
     m_headerButton->setCheckable(true);
     m_headerButton->setChecked(false);
+    m_headerButton->setAutoRaise(true);
     m_headerButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    m_headerButton->setStyleSheet(
-        QStringLiteral("QToolButton { border: none; font-weight: bold; padding: 4px; }")
-    );
+    QFont headerFont = m_headerButton->font();
+    headerFont.setBold(true);
+    m_headerButton->setFont(headerFont);
 
     m_layout->addWidget(m_headerButton);
 
