@@ -198,6 +198,7 @@ void Editor::Private::init(const QString &txt)
     QObject::connect(control, &TextControl::textChanged, q, [this, reparseTimer]() {
         if (mode == Editor::Mode::LivePreview && !inReparse) {
             needsReparse = true;
+            highlighter->setSpanMapStale(true);  // freeze formatting until reparse
             reparseTimer->start();  // restart 150ms countdown
         }
     });
@@ -209,6 +210,7 @@ void Editor::Private::init(const QString &txt)
                     control->textCursor().block().blockNumber(),
                     control->textCursor().positionInBlock());
                 reparseDocument();  // revert tables, parse, highlight setup, block formats
+                highlighter->setSpanMapStale(false);  // span map is fresh now
                 highlighter->rehighlight();
                 updateBlockDisplayModes();
                 // Convert tables as the VERY LAST step — after all block

@@ -330,6 +330,12 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     if (text.isEmpty())
         return;
 
+    // If the span map is stale (text changed but reparse hasn't run yet),
+    // skip re-formatting. The block keeps its pre-edit formatting which is
+    // close enough until the debounced reparse fixes everything.
+    if (m_spanMapStale)
+        return;
+
     const int blockNum = currentBlock().blockNumber();
     const int blockPos = currentBlock().position();
     const int blockLen = text.length();

@@ -57,6 +57,13 @@ private:
     int m_cursorBlock = -1;
     int m_cursorColumn = -1;
 
+public:
+    /// When true, highlightBlock() preserves existing formatting instead of
+    /// applying the (now stale) span map. Set on text change, cleared on reparse.
+    void setSpanMapStale(bool stale) { m_spanMapStale = stale; }
+private:
+    bool m_spanMapStale = false;
+
     void highlightCodeBlock(const QString &text, const DecoratedRange &dr, int blockNum);
 
     QList<SourceSpan> m_spans;
