@@ -7,6 +7,7 @@
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QGraphicsItem>
+#include <limits>
 
 namespace Markoff {
 
@@ -222,17 +223,34 @@ void SelectionManager::applySelection()
 
 SelectableItem *SelectionManager::itemAt(const QPointF &scenePos) const
 {
+    if (m_items.isEmpty())
+        return nullptr;
+
+    // Direct hit
     for (auto *item : m_items) {
         QGraphicsItem *gi = item->asGraphicsItem();
         if (gi->sceneBoundingRect().contains(scenePos))
             return item;
     }
-    // Fallback: find nearest item by Y
-    if (m_items.isEmpty())
-        return nullptr;
-    if (scenePos.y() <= m_items.first()->asGraphicsItem()->sceneBoundingRect().top())
-        return m_items.first();
-    return m_items.last();
+
+    // No hit — find nearest item by Y distance
+    qreal y = scenePos.y();
+    SelectableItem *nearest = m_items.first();
+    qreal nearestDist = std::numeric_limits<qreal>::max();
+
+    for (auto *item : m_items) {
+        QRectF rect = item->asGraphicsItem()->sceneBoundingRect();
+        qreal dist = 0;
+        if (y < rect.top())
+            dist = rect.top() - y;
+        else if (y > rect.bottom())
+            dist = y - rect.bottom();
+        if (dist < nearestDist) {
+            nearestDist = dist;
+            nearest = item;
+        }
+    }
+    return nearest;
 }
 
 QString SelectionManager::serializeAsMarkdown() const
