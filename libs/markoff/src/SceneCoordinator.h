@@ -68,6 +68,9 @@ private:
     qreal m_topMargin = 12.0;
     QFont m_font;
     bool m_inReparse = false;
+    int m_keyboardCurrentIdx = -1;
+    int m_keyboardAnchorIdx = -1;
+    int m_keyboardAnchorPos = -1;
 };
 
 } // namespace Markoff

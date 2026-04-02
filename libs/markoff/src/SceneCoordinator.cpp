@@ -165,66 +165,119 @@ void SceneCoordinator::handleBoundary(MarkdownTextItem *from, Qt::Edge edge)
     auto *mgr = m_scene->selectionManager();
 
     if (!shiftHeld) {
-        if (mgr->mode() == SelectionMode::CrossBoundary)
+        if (mgr->mode() == SelectionMode::CrossBoundary) {
             mgr->clearSelection();
+            m_keyboardCurrentIdx = -1;
+            m_keyboardAnchorIdx = -1;
+        }
         moveFocusTo(from, edge);
         return;
     }
 
-    // Shift+Arrow at boundary — caret must move to the next text item.
     int dir = (edge == Qt::BottomEdge) ? 1 : -1;
     int fromIdx = m_items.indexOf(static_cast<SelectableItem *>(from));
     if (fromIdx < 0) return;
 
-    // First time entering cross-boundary: record anchor and finalize
-    // the departing item's selection from anchor to its edge.
+    // First time entering cross-boundary: record anchor
     if (mgr->mode() != SelectionMode::CrossBoundary) {
         QTextCursor cursor = from->textControl()->textCursor();
-        int anchorPos = cursor.anchor();
+        m_keyboardAnchorPos = cursor.anchor();
+        m_keyboardAnchorIdx = fromIdx;
+        m_keyboardCurrentIdx = fromIdx;
+
+        // Finalize anchor item's selection to its edge
         int edgePos = (edge == Qt::BottomEdge)
             ? from->allMarkdown().length() : 0;
-        from->setSelection(anchorPos, edgePos);
-
-        mgr->beginOrExtendKeyboardSelection(from, anchorPos, from, edgePos);
-    } else {
-        // Already in cross-boundary. The item we're leaving is fully
-        // traversed — select it fully (unless it's the anchor).
-        if (from != mgr->anchorItem()) {
-            from->setSelection(0, from->allMarkdown().length());
-        }
+        from->setSelection(m_keyboardAnchorPos, edgePos);
+        mgr->beginOrExtendKeyboardSelection(from, m_keyboardAnchorPos, from, edgePos);
     }
 
-    // Walk from current position, marking blocks as fully selected,
-    // until we find the next text item.
-    MarkdownTextItem *nextText = nullptr;
-    for (int i = fromIdx + dir; i >= 0 && i < m_items.size(); i += dir) {
-        auto *item = m_items[i];
-        if (item->isTextItem()) {
-            nextText = static_cast<MarkdownTextItem *>(item);
-            break;
+    // Determine if extending (away from anchor) or contracting (toward anchor)
+    bool extending = (dir > 0 && m_keyboardCurrentIdx >= m_keyboardAnchorIdx)
+                  || (dir < 0 && m_keyboardCurrentIdx <= m_keyboardAnchorIdx);
+
+    int nextIdx = m_keyboardCurrentIdx + dir;
+    if (nextIdx < 0 || nextIdx >= m_items.size())
+        return;
+
+    if (extending) {
+        // Advancing away from anchor — select the next item
+        auto *next = m_items[nextIdx];
+        m_keyboardCurrentIdx = nextIdx;
+
+        if (next->isTextItem()) {
+            // Transfer focus, place caret at entry edge
+            auto *textItem = static_cast<MarkdownTextItem *>(next);
+            textItem->setFocus();
+            QTextCursor cursor(textItem->document());
+            if (edge == Qt::BottomEdge)
+                cursor.movePosition(QTextCursor::Start);
+            else
+                cursor.movePosition(QTextCursor::End);
+            textItem->textControl()->setTextCursor(cursor);
         } else {
-            // Block item — fully select it
-            item->setFullySelected(true);
+            // Block item — fully select it, focus stays on current text item
+            next->setFullySelected(true);
+        }
+
+        mgr->beginOrExtendKeyboardSelection(
+            mgr->anchorItem(), -1, m_items[nextIdx],
+            next->isTextItem() ? 0 : -1);
+
+    } else {
+        // Contracting back toward anchor — deselect the current item
+        auto *departing = m_items[m_keyboardCurrentIdx];
+        if (departing->isTextItem())
+            departing->clearSelection();
+        else
+            departing->setFullySelected(false);
+
+        m_keyboardCurrentIdx = nextIdx;
+        auto *arriving = m_items[m_keyboardCurrentIdx];
+
+        if (m_keyboardCurrentIdx == m_keyboardAnchorIdx) {
+            // Returned to anchor item — restore within-item selection
+            auto *anchorText = static_cast<MarkdownTextItem *>(arriving);
+            anchorText->setFocus();
+            QTextCursor cursor(anchorText->document());
+            cursor.setPosition(m_keyboardAnchorPos);
+            // Position at the edge we arrived from
+            int edgePos = (edge == Qt::BottomEdge)
+                ? 0 : anchorText->allMarkdown().length();
+            cursor.setPosition(edgePos, QTextCursor::KeepAnchor);
+            anchorText->textControl()->setTextCursor(cursor);
+
+            // Exit cross-boundary mode — back to within-item
+            mgr->clearSelection();
+            // Re-apply the within-item selection we just set
+            anchorText->setSelection(m_keyboardAnchorPos, edgePos);
+            m_keyboardCurrentIdx = -1;
+            m_keyboardAnchorIdx = -1;
+
+        } else if (arriving->isTextItem()) {
+            // Arrived at a non-anchor text item — transfer focus
+            auto *textItem = static_cast<MarkdownTextItem *>(arriving);
+            textItem->setFocus();
+            // Place caret at the edge we arrived from, with full selection
+            QTextCursor cursor(textItem->document());
+            if (edge == Qt::BottomEdge) {
+                // Contracting upward, arriving from below
+                cursor.movePosition(QTextCursor::Start);
+                cursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
+            } else {
+                // Contracting downward, arriving from above
+                cursor.movePosition(QTextCursor::End);
+                cursor.movePosition(QTextCursor::Start, QTextCursor::KeepAnchor);
+            }
+            textItem->textControl()->setTextCursor(cursor);
+            mgr->beginOrExtendKeyboardSelection(
+                mgr->anchorItem(), -1, arriving, cursor.position());
+
+        } else {
+            // Arrived at a block — it stays selected (we just deselected the one beyond it)
+            // Focus stays on the text item that still has focus
         }
     }
-    if (!nextText) return;
-
-    // Move focus and caret to the target text item.
-    nextText->setFocus();
-    QTextCursor cursor(nextText->document());
-    if (edge == Qt::BottomEdge)
-        cursor.movePosition(QTextCursor::Start);
-    else
-        cursor.movePosition(QTextCursor::End);
-    nextText->textControl()->setTextCursor(cursor);
-
-    // Update SelectionManager endpoint (but don't call applySelection —
-    // we've already set all the visuals directly above, and the target
-    // item's selection is managed by its TextControl as the user keeps
-    // pressing Shift+Arrow).
-    mgr->beginOrExtendKeyboardSelection(
-        mgr->anchorItem(), -1, // keep existing anchor
-        nextText, cursor.position());
 }
 
 void SceneCoordinator::clearItems()
