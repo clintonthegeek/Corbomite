@@ -726,38 +726,49 @@ void EditorControl::insertFromMimeData(const QMimeData *source) {
 
 QTextBlock EditorControl::firstVisibleBlock() const
 {
-    return document()->findBlockByNumber(topBlock);
+    // Pixel-based scrolling: find the block whose cumulative Y position
+    // is at or just before the scroll offset.
+    qreal scrollY = textEdit->verticalScrollBar()->value();
+    qreal margin = document()->documentMargin();
+    PlainTextDocumentLayout *dl = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
+    Q_ASSERT(dl);
+
+    qreal y = margin;
+    QTextBlock block = document()->begin();
+    while (block.isValid()) {
+        qreal h = dl->blockBoundingRect(block).height();
+        if (y + h > scrollY)
+            return block;
+        y += h;
+        block = block.next();
+    }
+    return document()->lastBlock();
 }
 
 int EditorControl::hitTest(const QPointF &point, Qt::HitTestAccuracy) const {
-    int currentBlockNumber = topBlock;
-    QTextBlock currentBlock = document()->findBlockByNumber(currentBlockNumber);
-    if (!currentBlock.isValid())
-        return -1;
+    // Pixel-based: point.y() is relative to the viewport.
+    // Convert to document coordinates by adding scroll offset.
+    qreal docY = point.y() + textEdit->verticalScrollBar()->value();
 
     PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
     Q_ASSERT(documentLayout);
 
-    QPointF offset;
-    QRectF r = documentLayout->blockBoundingRect(currentBlock);
-    while (currentBlock.next().isValid() && r.bottom() + offset.y() <= point.y()) {
-        offset.ry() += r.height();
+    // Find the block at this document Y position
+    qreal y = document()->documentMargin();
+    QTextBlock currentBlock = document()->begin();
+    while (currentBlock.isValid()) {
+        qreal h = documentLayout->blockBoundingRect(currentBlock).height();
+        if (y + h > docY)
+            break;
+        y += h;
         currentBlock = currentBlock.next();
-        ++currentBlockNumber;
-        r = documentLayout->blockBoundingRect(currentBlock);
-    }
-    while (currentBlock.previous().isValid() && r.top() + offset.y() > point.y()) {
-        offset.ry() -= r.height();
-        currentBlock = currentBlock.previous();
-        --currentBlockNumber;
-        r = documentLayout->blockBoundingRect(currentBlock);
     }
 
     if (!currentBlock.isValid())
         return -1;
     QTextLayout *layout = currentBlock.layout();
     int off = 0;
-    QPointF pos = point - offset;
+    QPointF pos(point.x(), docY - y);  // pos relative to block top
     for (int i = 0; i < layout->lineCount(); ++i) {
         QTextLine line = layout->lineAt(i);
         const QRectF lr = line.naturalTextRect();
@@ -776,51 +787,20 @@ int EditorControl::hitTest(const QPointF &point, Qt::HitTestAccuracy) const {
 }
 
 QRectF EditorControl::blockBoundingRect(const QTextBlock &block) const {
-    int currentBlockNumber = topBlock;
-    int blockNumber = block.blockNumber();
-    QTextBlock currentBlock = document()->findBlockByNumber(currentBlockNumber);
-    if (!currentBlock.isValid())
-        return QRectF();
-    Q_ASSERT(currentBlock.blockNumber() == currentBlockNumber);
-    QTextDocument *doc = document();
-    PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(doc->documentLayout());
-    Q_ASSERT(documentLayout);
-
-    QPointF offset;
     if (!block.isValid())
         return QRectF();
-    QRectF r = documentLayout->blockBoundingRect(currentBlock);
-    int maxVerticalOffset = r.height();
-    while (currentBlockNumber < blockNumber && offset.y() - maxVerticalOffset <= 2* textEdit->viewport()->height()) {
-        offset.ry() += r.height();
-        currentBlock = currentBlock.next();
-        ++currentBlockNumber;
-        if (!currentBlock.isVisible()) {
-            currentBlock = doc->findBlockByLineNumber(currentBlock.firstLineNumber());
-            currentBlockNumber = currentBlock.blockNumber();
-        }
-        r = documentLayout->blockBoundingRect(currentBlock);
+    PlainTextDocumentLayout *dl = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
+    Q_ASSERT(dl);
+    QRectF r = dl->blockBoundingRect(block);
+    // Compute block's pixel Y by summing heights of preceding blocks
+    qreal blockY = document()->documentMargin();
+    QTextBlock b = document()->begin();
+    while (b.isValid() && b != block) {
+        blockY += dl->blockBoundingRect(b).height();
+        b = b.next();
     }
-    while (currentBlockNumber > blockNumber && offset.y() + maxVerticalOffset >= -textEdit->viewport()->height()) {
-        currentBlock = currentBlock.previous();
-        --currentBlockNumber;
-        while (!currentBlock.isVisible()) {
-            currentBlock = currentBlock.previous();
-            --currentBlockNumber;
-        }
-        if (!currentBlock.isValid())
-            break;
-
-        r = documentLayout->blockBoundingRect(currentBlock);
-        offset.ry() -= r.height();
-    }
-
-    if (currentBlockNumber != blockNumber) {
-        r = documentLayout->blockBoundingRect(block);
-        if (currentBlockNumber > blockNumber)
-            offset.ry() -= r.height();
-    }
-    r.translate(offset);
+    qreal scrollY = textEdit->verticalScrollBar()->value();
+    r.translate(0, blockY - scrollY);
     return r;
 }
 
@@ -1306,174 +1286,65 @@ void Editor::Private::verticalScrollbarActionTriggered(int action)
     }
 }
 
-qreal Editor::Private::verticalOffset(int topBlock, int topLine) const
+qreal Editor::Private::verticalOffset() const
 {
-    qreal offset = 0;
-    QTextDocument *doc = control->document();
-
-    if (topLine) {
-        QTextBlock currentBlock = doc->findBlockByNumber(topBlock);
-        PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(doc->documentLayout());
-        Q_ASSERT(documentLayout);
-        QRectF r = documentLayout->blockBoundingRect(currentBlock);
-        Q_UNUSED(r);
-        QTextLayout *layout = currentBlock.layout();
-        if (layout && topLine <= layout->lineCount()) {
-            QTextLine line = layout->lineAt(topLine - 1);
-            const QRectF lr = line.naturalTextRect();
-            offset = lr.bottom();
-        }
-    }
-    if (topBlock == 0 && topLine == 0)
-        offset -= doc->documentMargin();
-    return offset;
+    // Pixel-based scrolling: scrollbar value IS the pixel offset.
+    // Subtract document margin so the first block starts at the margin.
+    return q->verticalScrollBar()->value() - q->document()->documentMargin();
 }
 
-qreal Editor::Private::verticalOffset() const {
-    return verticalOffset(control->topBlock, topLine) + topLineFracture;
+qreal Editor::Private::blockPixelPosition(const QTextBlock &block) const
+{
+    // Compute the cumulative Y position of a block in the document.
+    PlainTextDocumentLayout *dl = qobject_cast<PlainTextDocumentLayout*>(
+        control->document()->documentLayout());
+    Q_ASSERT(dl);
+    qreal y = 0;
+    QTextBlock b = control->document()->begin();
+    while (b.isValid() && b != block) {
+        y += dl->blockBoundingRect(b).height();
+        b = b.next();
+    }
+    return y;
 }
 
-void Editor::Private::setTopLine(int visualTopLine, int dx)
+void Editor::Private::setTopLine(int /*visualTopLine*/, int /*dx*/)
 {
-    QTextDocument *doc = control->document();
-    QTextBlock block = doc->findBlockByLineNumber(visualTopLine);
-    int blockNumber = block.blockNumber();
-    int lineNumber = visualTopLine - block.firstLineNumber();
-
-    // If the target block is inside a table, decide whether to show the
-    // table at the top or skip past it entirely.
-    QTextTable *table = tableForBlock(block);
-    if (table) {
-        QTextTableCell firstCell = table->cellAt(0, 0);
-        QTextBlock tableStart = firstCell.firstCursorPosition().block();
-        QTextTableCell lastCell = table->cellAt(table->rows() - 1, table->columns() - 1);
-        QTextBlock tableEnd = lastCell.lastCursorPosition().block();
-
-        // If already showing this table at the top, skip to after the table
-        if (control->topBlock == tableStart.blockNumber() && topLine == 0
-            && blockNumber > tableStart.blockNumber()) {
-            QTextBlock afterTable = tableEnd.next();
-            if (afterTable.isValid()) {
-                blockNumber = afterTable.blockNumber();
-                lineNumber = 0;
-            }
-        } else {
-            // Snap to the table's first block
-            blockNumber = tableStart.blockNumber();
-            lineNumber = 0;
-        }
-    }
-
-    setTopBlock(blockNumber, lineNumber, dx);
+    // Legacy line-based entry point — no longer used with pixel scrolling.
+    // scrollContentsBy() drives scrolling directly via the scrollbar value.
 }
 
-void Editor::Private::setTopBlock(int blockNumber, int lineNumber, int dx)
+void Editor::Private::setTopBlock(int blockNumber, int /*lineNumber*/, int /*dx*/)
 {
-    auto *vbar = q->verticalScrollBar();
-    auto *vp = q->viewport();
-
-    blockNumber = qMax(0, blockNumber);
-    lineNumber = qMax(0, lineNumber);
-    QTextDocument *doc = control->document();
-    QTextBlock block = doc->findBlockByNumber(blockNumber);
-
-    int newTopLine = block.firstLineNumber() + lineNumber;
-    int maxTopLine = vbar->maximum();
-
-    if (newTopLine > maxTopLine) {
-        block = doc->findBlockByLineNumber(maxTopLine);
-        blockNumber = block.blockNumber();
-        lineNumber = maxTopLine - block.firstLineNumber();
-    }
-
-    vbar->setValue(newTopLine);
-
-    if (!dx && blockNumber == control->topBlock && lineNumber == topLine)
-        return;
-
-    if (vp->updatesEnabled() && vp->isVisible()) {
-        int dy = 0;
-        if (doc->findBlockByNumber(control->topBlock).isValid()) {
-            // Calculate block bounding geometry for scroll offset
-            PlainTextDocumentLayout *docLayout = qobject_cast<PlainTextDocumentLayout*>(doc->documentLayout());
-            Q_ASSERT(docLayout);
-            QRectF blockGeom = control->blockBoundingRect(block);
-            qreal realdy = -blockGeom.y()
-                    + verticalOffset() - verticalOffset(blockNumber, lineNumber);
-            dy = (int)realdy;
-            topLineFracture = realdy - dy;
-        }
-        control->topBlock = blockNumber;
-        topLine = lineNumber;
-
-        vbar->setValue(block.firstLineNumber() + lineNumber);
-
-        if (dx || dy) {
-            vp->scroll(q->isRightToLeft() ? -dx : dx, dy);
-            QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle | Qt::ImAnchorRectangle);
-        } else {
-            vp->update();
-            topLineFracture = 0;
-        }
-        // Emit updateRequest equivalent
-    } else {
-        control->topBlock = blockNumber;
-        topLine = lineNumber;
-        topLineFracture = 0;
-    }
+    // Scroll so that the given block is at the top of the viewport.
+    qreal y = blockPixelPosition(q->document()->findBlockByNumber(qMax(0, blockNumber)));
+    q->verticalScrollBar()->setValue(static_cast<int>(y + q->document()->documentMargin()));
 }
 
 void Editor::Private::ensureVisible(int position, bool center, bool forceCenter) {
-    QRectF visible = QRectF(q->viewport()->rect()).translated(
-        q->isRightToLeft() ? (q->horizontalScrollBar()->maximum() - q->horizontalScrollBar()->value()) : -q->horizontalScrollBar()->value(),
-        -verticalOffset());
     QTextBlock block = control->document()->findBlock(position);
     if (!block.isValid())
         return;
-    QRectF br = control->blockBoundingRect(block);
-    if (!br.isValid())
-        return;
+
+    // Compute the pixel Y of the cursor position
+    qreal blockY = blockPixelPosition(block) + q->document()->documentMargin();
     QTextLine line = block.layout()->lineForTextPosition(position - block.position());
-    Q_ASSERT(line.isValid());
-    QRectF lr = line.naturalTextRect().translated(br.topLeft());
+    qreal cursorY = blockY;
+    if (line.isValid())
+        cursorY += line.naturalTextRect().top();
 
-    if (lr.bottom() >= visible.bottom() || (center && lr.top() < visible.top()) || forceCenter){
-        qreal height = visible.height();
-        if (center)
-            height /= 2;
+    auto *vbar = q->verticalScrollBar();
+    int scrollY = vbar->value();
+    int vpHeight = q->viewport()->height();
 
-        qreal h = center ? line.naturalTextRect().center().y() : line.naturalTextRect().bottom();
-
-        QTextBlock previousVisibleBlock = block;
-        while (h < height && block.previous().isValid()) {
-            previousVisibleBlock = block;
-            do {
-                block = block.previous();
-            } while (!block.isVisible() && block.previous().isValid());
-
-            PlainTextDocumentLayout *docLayout = qobject_cast<PlainTextDocumentLayout*>(
-                control->document()->documentLayout());
-            Q_ASSERT(docLayout);
-            h += docLayout->blockBoundingRect(block).height();
-        }
-
-        int l = 0;
-        int lineCount = block.layout()->lineCount();
-        qreal voffset = verticalOffset(block.blockNumber(), 0);
-        while (l < lineCount) {
-            QRectF lineRect = block.layout()->lineAt(l).naturalTextRect();
-            if (h - voffset - lineRect.top() <= height)
-                break;
-            ++l;
-        }
-
-        if (l >= lineCount) {
-            block = previousVisibleBlock;
-            l = 0;
-        }
-        setTopBlock(block.blockNumber(), l);
-    } else if (lr.top() < visible.top()) {
-        setTopBlock(block.blockNumber(), line.lineNumber());
+    if (forceCenter || center) {
+        vbar->setValue(static_cast<int>(cursorY - vpHeight / 2));
+    } else if (cursorY < scrollY) {
+        // Cursor above viewport — scroll up
+        vbar->setValue(static_cast<int>(cursorY));
+    } else if (cursorY + (line.isValid() ? line.height() : 20) > scrollY + vpHeight) {
+        // Cursor below viewport — scroll down to show it at bottom
+        vbar->setValue(static_cast<int>(cursorY + (line.isValid() ? line.height() : 20) - vpHeight));
     }
 }
 
@@ -1573,7 +1444,7 @@ void Editor::Private::pageUpDown(QTextCursor::MoveOperation op, QTextCursor::Mov
         qreal h = 0;
         while (h >= visible.top()) {
             if (!block.previous().isValid()) {
-                if (control->topBlock == 0 && topLine == 0) {
+                if (q->verticalScrollBar()->value() == 0) {
                     lastY = 0;
                 }
                 break;
@@ -1632,83 +1503,26 @@ void Editor::Private::adjustScrollbars()
     documentLayout->priv()->blockDocumentSizeChanged = true;
     qreal margin = doc->documentMargin();
 
-    int vmax = 0;
-    int vSliderLength = 0;
-
-    if (!centerOnScroll && q->isVisible()) {
-        QTextBlock block = doc->lastBlock();
-        const qreal visible = vp->rect().height() - margin - 1;
-        qreal y = 0;
-        int visibleFromBottom = 0;
-
-        while (block.isValid()) {
-            if (!block.isVisible()) {
-                block = block.previous();
-                continue;
-            }
-
-            // Table blocks: the first block reports full table height,
-            // internal blocks have zero height. Count the whole table
-            // as one scrollable unit and skip internal blocks.
-            QTextTable *table = tableForBlock(block);
-            if (table) {
-                QTextTableCell firstCell = table->cellAt(0, 0);
-                QTextBlock tableStart = firstCell.firstCursorPosition().block();
-                if (block != tableStart) {
-                    // Internal table block — skip
-                    block = block.previous();
-                    continue;
-                }
-                // First table block — count as one line
-                y += documentLayout->blockBoundingRect(block).height();
-                if (y > visible) break;
-                visibleFromBottom += 1;
-                block = block.previous();
-                continue;
-            }
-
-            y += documentLayout->blockBoundingRect(block).height();
-
-            QTextLayout *layout = block.layout();
-            int layoutLineCount = layout->lineCount();
-            if (y > visible) {
-                int lineNumber = 0;
-                while (lineNumber < layoutLineCount) {
-                    QTextLine line = layout->lineAt(lineNumber);
-                    const QRectF lr = line.naturalTextRect();
-                    if (lr.top() >= y - visible)
-                        break;
-                    ++lineNumber;
-                }
-                if (lineNumber < layoutLineCount)
-                    visibleFromBottom += (layoutLineCount - lineNumber);
-                break;
-            }
-            visibleFromBottom += layoutLineCount;
-            block = block.previous();
-        }
-        vmax = qMax(0, doc->lineCount() - visibleFromBottom);
-        vSliderLength = visibleFromBottom;
-    } else {
-        vmax = qMax(0, doc->lineCount() - 1);
-        int lineSpacing = q->fontMetrics().lineSpacing();
-        vSliderLength = lineSpacing != 0 ? vp->height() / lineSpacing : 0;
+    // Pixel-based scrolling: compute total document height in pixels.
+    qreal totalHeight = margin;
+    QTextBlock block = doc->begin();
+    while (block.isValid()) {
+        totalHeight += documentLayout->blockBoundingRect(block).height();
+        block = block.next();
     }
+    totalHeight += margin;
+
+    int viewportHeight = vp->height();
+    int vmax = qMax(0, static_cast<int>(totalHeight - viewportHeight));
+
+    vbar->setRange(0, vmax);
+    vbar->setPageStep(viewportHeight);
+    vbar->setSingleStep(q->fontMetrics().lineSpacing());
 
     QSizeF documentSize = documentLayout->documentSize();
-    vbar->setRange(0, qMax(0, vmax));
-    vbar->setPageStep(vSliderLength);
-    int visualTopLine = vmax;
-    QTextBlock firstVisibleBlock = control->firstVisibleBlock();
-    if (firstVisibleBlock.isValid())
-        visualTopLine = firstVisibleBlock.firstLineNumber() + topLine;
-
-    vbar->setValue(visualTopLine);
-
     hbar->setRange(0, (int)documentSize.width() - vp->width());
     hbar->setPageStep(vp->width());
     documentLayout->priv()->blockDocumentSizeChanged = documentSizeChangedBlocked;
-    setTopLine(vbar->value());
 }
 
 void Editor::Private::ensureViewportLayouted()
@@ -1895,7 +1709,13 @@ void Editor::ensureCursorVisible()
 
 QPointF contentOffset(const Editor::Private *d, const Editor *q)
 {
-    return QPointF(-d->horizontalOffset(), -d->verticalOffset());
+    // Pixel-based scrolling: the Y offset positions the first visible block
+    // correctly in the viewport. We compute the cumulative pixel position of
+    // the first visible block and subtract the scroll position.
+    QTextBlock fvb = d->control->firstVisibleBlock();
+    qreal blockY = d->blockPixelPosition(fvb) + q->document()->documentMargin();
+    qreal scrollY = q->verticalScrollBar()->value();
+    return QPointF(-d->horizontalOffset(), blockY - scrollY);
 }
 
 QRect Editor::cursorRect() const
@@ -2455,9 +2275,11 @@ void Editor::inputMethodEvent(QInputMethodEvent *e)
     ensureCursorVisible();
 }
 
-void Editor::scrollContentsBy(int dx, int /*dy*/)
+void Editor::scrollContentsBy(int /*dx*/, int /*dy*/)
 {
-    d->setTopLine(verticalScrollBar()->value(), dx);
+    // Pixel-based scrolling: the scrollbar value already changed.
+    // Just repaint the viewport.
+    viewport()->update();
 }
 
 QVariant Editor::inputMethodQuery(Qt::InputMethodQuery property) const

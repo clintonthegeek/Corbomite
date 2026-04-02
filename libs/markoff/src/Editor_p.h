@@ -60,8 +60,8 @@ struct Editor::Private {
         return (q->isRightToLeft() ? (hbar->maximum() - hbar->value()) : hbar->value());
     }
 
-    qreal verticalOffset(int topBlock, int topLine) const;
     qreal verticalOffset() const;
+    qreal blockPixelPosition(const QTextBlock &block) const; // cumulative Y of block
 
     void sendControlEvent(QEvent *e); // defined in Editor.cpp (EditorControl is incomplete here)
 
@@ -72,11 +72,9 @@ struct Editor::Private {
 
     EditorControl *control = nullptr;
     MarkdownHighlighter *highlighter = nullptr;
-    qreal topLineFracture = 0;
     qreal pageUpDownLastCursorY = 0;
     QTextOption::WrapMode wordWrap = QTextOption::WrapAtWordBoundaryOrAnywhere;
     int originalOffsetY = 0;
-    int topLine = 0;
 
     uint tabChangesFocus : 1 = 0;
     uint showCursorOnInitialShow : 1 = 0;
