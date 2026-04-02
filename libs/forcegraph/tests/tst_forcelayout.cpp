@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
+#include <QSet>
 #include <QSignalSpy>
 #include <cmath>
 #include "forcegraph/ForceLayoutEngine.h"
@@ -148,6 +149,93 @@ private Q_SLOTS:
         double spreadHigh = runWithRepel(3000.0);
         QVERIFY2(spreadHigh > spreadLow,
                  qPrintable(QStringLiteral("Low: %1, High: %2").arg(spreadLow).arg(spreadHigh)));
+    }
+    void testBFSPlacementProducesLayeredLayout()
+    {
+        // Build a linear chain: 0 — 1 — 2 — 3 — 4
+        ForceGraph::ForceLayoutEngine engine;
+
+        QVector<ForceGraph::GraphNode> nodes;
+        for (int i = 0; i < 5; ++i) {
+            ForceGraph::GraphNode n;
+            n.id = QString::number(i);
+            n.position = QPointF(0, 0); // All at origin
+            nodes.append(n);
+        }
+        engine.setNodes(nodes);
+
+        QVector<ForceGraph::GraphEdge> edges;
+        for (int i = 0; i < 4; ++i) {
+            ForceGraph::GraphEdge e;
+            e.sourceId = QString::number(i);
+            e.targetId = QString::number(i + 1);
+            edges.append(e);
+        }
+        engine.setEdges(edges);
+
+        // Run a few steps to trigger bfsInitialPlacement
+        engine.step();
+
+        auto result = engine.nodes();
+
+        // Nodes at different BFS depths should be at different distances from the first node
+        // After BFS placement, they should be at different radii
+        QSet<int> uniqueDistanceBuckets;
+        for (const auto &n : result) {
+            double dist = std::sqrt(n.position.x() * n.position.x() + n.position.y() * n.position.y());
+            // Bucket by rough distance (multiples of linkDistance/2)
+            int bucket = static_cast<int>(dist / 50.0);
+            uniqueDistanceBuckets.insert(bucket);
+        }
+        // A chain of 5 nodes should produce at least 3 distinct distance buckets
+        QVERIFY2(uniqueDistanceBuckets.size() >= 3,
+                 qPrintable(QStringLiteral("Only %1 distance buckets for chain of 5").arg(uniqueDistanceBuckets.size())));
+    }
+
+    void testBFSPlacementDisconnectedComponents()
+    {
+        // Two disconnected pairs: {a-b} and {c-d}
+        ForceGraph::ForceLayoutEngine engine;
+
+        QVector<ForceGraph::GraphNode> nodes;
+        for (const auto &id : {QStringLiteral("a"), QStringLiteral("b"),
+                               QStringLiteral("c"), QStringLiteral("d")}) {
+            ForceGraph::GraphNode n;
+            n.id = id;
+            n.position = QPointF(0, 0);
+            nodes.append(n);
+        }
+        engine.setNodes(nodes);
+
+        QVector<ForceGraph::GraphEdge> edges;
+        ForceGraph::GraphEdge e1; e1.sourceId = QStringLiteral("a"); e1.targetId = QStringLiteral("b");
+        ForceGraph::GraphEdge e2; e2.sourceId = QStringLiteral("c"); e2.targetId = QStringLiteral("d");
+        edges << e1 << e2;
+        engine.setEdges(edges);
+
+        // Run one step to trigger BFS placement
+        engine.step();
+
+        auto result = engine.nodes();
+
+        // Find center of each component
+        QPointF center1, center2;
+        for (const auto &n : result) {
+            if (n.id == QStringLiteral("a") || n.id == QStringLiteral("b")) {
+                center1 += n.position;
+            } else {
+                center2 += n.position;
+            }
+        }
+        center1 /= 2.0;
+        center2 /= 2.0;
+
+        // Components should be placed apart (offset by at least gap = 3 * linkDistance)
+        double separation = std::sqrt(
+            std::pow(center1.x() - center2.x(), 2) +
+            std::pow(center1.y() - center2.y(), 2));
+        QVERIFY2(separation > 100.0,
+                 qPrintable(QStringLiteral("Component separation: %1").arg(separation)));
     }
 };
 

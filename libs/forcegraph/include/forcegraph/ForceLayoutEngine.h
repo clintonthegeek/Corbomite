@@ -39,12 +39,15 @@ Q_SIGNALS:
     void simulationStable();
 private:
     void buildNodeIndex();
+    void buildAdjacency();
+    void bfsInitialPlacement();
     double estimateCanvasArea() const;
     void randomizePositionsIfNeeded();
 
     QVector<GraphNode> m_nodes;
     QVector<GraphEdge> m_edges;
     QHash<QString, int> m_nodeIndex;
+    QHash<QString, QVector<QString>> m_adjacency;
     QVector<QPointF> m_displacements;
     QVector<QPointF> m_prevDisplacements;
     QVector<double> m_vertexTemperatures;

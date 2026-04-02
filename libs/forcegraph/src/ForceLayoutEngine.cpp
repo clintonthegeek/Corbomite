@@ -2,7 +2,9 @@
 #include "forcegraph/ForceLayoutEngine.h"
 #include "forcegraph/QuadTree.h"
 
+#include <QQueue>
 #include <QRandomGenerator>
+#include <QSet>
 #include <QTimer>
 #include <cmath>
 
@@ -28,6 +30,7 @@ void ForceLayoutEngine::setNodes(const QVector<GraphNode> &nodes)
 void ForceLayoutEngine::setEdges(const QVector<GraphEdge> &edges)
 {
     m_edges = edges;
+    buildAdjacency();
 }
 
 void ForceLayoutEngine::clear()
@@ -35,6 +38,7 @@ void ForceLayoutEngine::clear()
     m_nodes.clear();
     m_edges.clear();
     m_nodeIndex.clear();
+    m_adjacency.clear();
     m_displacements.clear();
     m_prevDisplacements.clear();
     m_vertexTemperatures.clear();
@@ -50,6 +54,178 @@ void ForceLayoutEngine::buildNodeIndex()
     m_nodeIndex.clear();
     for (int i = 0; i < m_nodes.size(); ++i) {
         m_nodeIndex[m_nodes[i].id] = i;
+    }
+}
+
+void ForceLayoutEngine::buildAdjacency()
+{
+    m_adjacency.clear();
+    // Pre-insert all node IDs so disconnected nodes appear in the adjacency map
+    for (const auto &node : m_nodes) {
+        m_adjacency[node.id]; // default-construct empty vector
+    }
+    for (const auto &edge : m_edges) {
+        m_adjacency[edge.sourceId].append(edge.targetId);
+        m_adjacency[edge.targetId].append(edge.sourceId);
+    }
+}
+
+void ForceLayoutEngine::bfsInitialPlacement()
+{
+    if (m_nodes.size() <= 1) return;
+
+    // Only run if all nodes are at origin (first layout)
+    bool allAtOrigin = true;
+    for (const auto &node : m_nodes) {
+        if (std::abs(node.position.x()) > EPSILON || std::abs(node.position.y()) > EPSILON) {
+            allAtOrigin = false;
+            break;
+        }
+    }
+    if (!allAtOrigin) return;
+
+    // Find connected components via BFS
+    QVector<QVector<QString>> components;
+    QSet<QString> visited;
+
+    for (const auto &node : m_nodes) {
+        if (visited.contains(node.id)) continue;
+
+        QVector<QString> component;
+        QQueue<QString> queue;
+        queue.enqueue(node.id);
+        visited.insert(node.id);
+
+        while (!queue.isEmpty()) {
+            QString current = queue.dequeue();
+            component.append(current);
+
+            const auto &neighbors = m_adjacency.value(current);
+            for (const auto &neighbor : neighbors) {
+                if (!visited.contains(neighbor)) {
+                    visited.insert(neighbor);
+                    queue.enqueue(neighbor);
+                }
+            }
+        }
+        components.append(component);
+    }
+
+    // Sort components by size descending (largest first)
+    std::sort(components.begin(), components.end(),
+              [](const QVector<QString> &a, const QVector<QString> &b) {
+                  return a.size() > b.size();
+              });
+
+    double offsetX = 0.0;
+    double gap = m_linkDistance * 3.0;
+
+    for (const auto &component : components) {
+        if (component.size() == 1) {
+            // Isolated node: place at offset
+            int idx = m_nodeIndex.value(component[0], -1);
+            if (idx >= 0 && !m_nodes[idx].pinned) {
+                m_nodes[idx].position = QPointF(offsetX, 0.0);
+            }
+            offsetX += gap;
+            continue;
+        }
+
+        // Convert component to QSet for O(1) membership tests
+        QSet<QString> componentSet(component.begin(), component.end());
+
+        // Two-pass BFS to find approximate diameter endpoints
+        // Pass 1: BFS from arbitrary node to find farthest
+        auto bfsFarthest = [&](const QString &startId) -> QString {
+            QHash<QString, int> dist;
+            QQueue<QString> q;
+            q.enqueue(startId);
+            dist[startId] = 0;
+            QString farthest = startId;
+            int maxDist = 0;
+
+            while (!q.isEmpty()) {
+                QString current = q.dequeue();
+                const auto &neighbors = m_adjacency.value(current);
+                for (const auto &neighbor : neighbors) {
+                    if (!dist.contains(neighbor) && componentSet.contains(neighbor)) {
+                        dist[neighbor] = dist[current] + 1;
+                        if (dist[neighbor] > maxDist) {
+                            maxDist = dist[neighbor];
+                            farthest = neighbor;
+                        }
+                        q.enqueue(neighbor);
+                    }
+                }
+            }
+            return farthest;
+        };
+
+        QString endpoint1 = bfsFarthest(component[0]);
+        QString endpoint2 = bfsFarthest(endpoint1);
+        Q_UNUSED(endpoint2); // endpoint2 is the other end of the diameter
+
+        // BFS from endpoint1 to assign layers
+        QHash<QString, int> layer;
+        QQueue<QString> queue;
+        queue.enqueue(endpoint1);
+        layer[endpoint1] = 0;
+        int maxLayer = 0;
+
+        while (!queue.isEmpty()) {
+            QString current = queue.dequeue();
+            const auto &neighbors = m_adjacency.value(current);
+            for (const auto &neighbor : neighbors) {
+                if (!layer.contains(neighbor) && componentSet.contains(neighbor)) {
+                    layer[neighbor] = layer[current] + 1;
+                    maxLayer = std::max(maxLayer, layer[neighbor]);
+                    queue.enqueue(neighbor);
+                }
+            }
+        }
+
+        // Count nodes per layer for angular distribution
+        QHash<int, int> layerCounts;
+        QHash<int, int> layerCurrentIndex;
+        for (const auto &nodeId : component) {
+            int l = layer.value(nodeId, 0);
+            layerCounts[l]++;
+            layerCurrentIndex[l] = 0;
+        }
+
+        // Place nodes on concentric rings
+        auto *rng = QRandomGenerator::global();
+        double componentMaxRadius = 0.0;
+
+        for (const auto &nodeId : component) {
+            int idx = m_nodeIndex.value(nodeId, -1);
+            if (idx < 0) continue;
+            if (m_nodes[idx].pinned) continue;
+
+            int l = layer.value(nodeId, 0);
+            double radius = l * m_linkDistance;
+            componentMaxRadius = std::max(componentMaxRadius, radius);
+
+            int count = layerCounts[l];
+            int index = layerCurrentIndex[l]++;
+
+            double angle;
+            if (count == 1) {
+                angle = 0.0;
+            } else {
+                double angleStep = 2.0 * M_PI / count;
+                angle = index * angleStep;
+            }
+            // Small jitter to prevent exact overlaps
+            angle += (rng->generateDouble() - 0.5) * 0.2;
+
+            m_nodes[idx].position = QPointF(
+                offsetX + radius * std::cos(angle),
+                radius * std::sin(angle)
+            );
+        }
+
+        offsetX += 2.0 * componentMaxRadius + gap;
     }
 }
 
@@ -109,7 +285,7 @@ void ForceLayoutEngine::start()
     // Scale iterations with graph size — large graphs need more time to reach equilibrium
     m_maxIterations = std::max(500, static_cast<int>(std::sqrt(static_cast<double>(m_nodes.size())) * 100.0));
 
-    randomizePositionsIfNeeded();
+    bfsInitialPlacement();
 
     double area = estimateCanvasArea();
     m_initialTemperature = std::sqrt(area) / 10.0;
@@ -158,7 +334,7 @@ void ForceLayoutEngine::step()
 
     // --- Initialize per-step state on first call (if not started via start()) ---
     if (m_displacements.size() != n) {
-        randomizePositionsIfNeeded();
+        bfsInitialPlacement();
         double area = estimateCanvasArea();
         m_initialTemperature = std::sqrt(area) / 10.0;
         m_temperature = m_initialTemperature;
