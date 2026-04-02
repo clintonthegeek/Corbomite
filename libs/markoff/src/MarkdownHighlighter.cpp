@@ -331,10 +331,10 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
         return;
 
     // If the span map is stale (text changed but reparse hasn't run yet),
-    // only skip re-formatting for blocks OTHER than the cursor block.
-    // The cursor block must always be rehighlighted so cursor-proximity
-    // formatting (delimiter show/hide) works on click.
-    if (m_spanMapStale && currentBlock().blockNumber() != m_cursorBlock)
+    // skip ALL re-formatting. Blocks keep their pre-edit formatting
+    // until the debounced reparse provides fresh offsets. Applying stale
+    // offsets causes formatting from adjacent sections to bleed in.
+    if (m_spanMapStale)
         return;
 
     const int blockNum = currentBlock().blockNumber();
