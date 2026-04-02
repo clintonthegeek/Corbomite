@@ -90,9 +90,17 @@ struct TableLayoutData : public QTextFrameLayoutData
     }
 };
 
+/// Check if a block is inside a QTextTable cell — no cursor creation,
+/// no recursion risk. Table cell blocks have TableCellRowSpan set.
+static bool isTableCellBlock(const QTextBlock &block)
+{
+    return block.blockFormat().hasProperty(QTextFormat::TableCellRowSpan);
+}
+
 static QTextTable *tableForBlock(const QTextBlock &block)
 {
-    // QTextCursor is lightweight — this is cheap
+    if (!isTableCellBlock(block))
+        return nullptr;
     QTextCursor cursor(block);
     return cursor.currentTable();
 }
@@ -216,25 +224,25 @@ QRectF PlainTextDocumentLayout::blockBoundingRect(const QTextBlock &block) const
 {
     if (!block.isValid()) { return QRectF(); }
 
-    // Table detection creates QTextCursor objects, which can trigger
-    // Qt to call back into blockBoundingRect() — guard against recursion.
-    if (!d.inBlockBoundingRect) {
-        d.inBlockBoundingRect = true;
-        QTextTable *table = tableForBlock(block);
-        if (table) {
-            if (isFirstTableBlock(block, table)) {
+    // Fast check: is this block inside a table cell? Uses block format
+    // property — no cursor creation, no recursion risk.
+    if (isTableCellBlock(block)) {
+        // Need the full cursor-based check only for the first block
+        // to get the QTextTable pointer. Guard against recursion.
+        if (!d.inBlockBoundingRect) {
+            d.inBlockBoundingRect = true;
+            QTextTable *table = tableForBlock(block);
+            if (table && isFirstTableBlock(block, table)) {
                 TableLayoutData *td = tableLayoutData(table);
                 if (td->dirty)
                     const_cast<PlainTextDocumentLayout*>(this)->layoutTable(table);
                 d.inBlockBoundingRect = false;
                 return QRectF(0, 0, td->tableWidth, td->tableHeight);
-            } else {
-                // Non-first block inside table: zero height
-                d.inBlockBoundingRect = false;
-                return QRectF(0, 0, 0, 0);
             }
+            d.inBlockBoundingRect = false;
         }
-        d.inBlockBoundingRect = false;
+        // Non-first table block OR re-entrant call: zero height always
+        return QRectF(0, 0, 0, 0);
     }
 
     QTextLayout *tl = block.layout();
@@ -1129,6 +1137,13 @@ void Editor::Private::updateBlockDisplayModes()
     bool anyChanged = false;
 
     while (block.isValid()) {
+        // Skip table cell blocks — they're rendered by paintTable(),
+        // not by the per-block display mode system.
+        if (isTableCellBlock(block)) {
+            block = block.next();
+            continue;
+        }
+
         auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
         if (!data) {
             data = new MarkoffBlockData;
