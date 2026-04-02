@@ -16,6 +16,7 @@
 #include "markoff/Renderer.h"
 #include "markoff/RenderSettings.h"
 
+#include <algorithm>
 #include <qfont.h>
 #include <qpainter.h>
 #include <qevent.h>
@@ -135,6 +136,16 @@ struct PlainTextDocumentLayoutPrivate {
     int textLayoutFlags = 0;
     mutable bool inBlockBoundingRect = false;  // recursion guard for table detection
     bool inTableLayout = false;  // guard: don't re-dirty table during layoutTable()
+
+    // Cached cumulative block Y positions for O(1) lookup.
+    // blockYPositions[i] = pixel Y of block i (from document top, excluding margin).
+    // blockYPositions[blockCount] = total document content height.
+    mutable QList<qreal> blockYPositions;
+    mutable bool blockYDirty = true;
+
+    void ensureBlockYCache(QTextDocument *doc) const;
+    qreal cachedBlockY(int blockNumber) const;
+    qreal cachedTotalHeight() const;
 
     void layoutBlock(QTextDocument *doc, const QTextBlock &block);
     qreal blockWidth(const QTextBlock &block);
@@ -316,12 +327,62 @@ void PlainTextDocumentLayoutPrivate::relayout(QTextDocument *doc)
         block.setLineCount(block.isVisible() ? 1 : 0);
         block = block.next();
     }
-    // Signal update via the layout's document; the layout will emit update()
-    // when documentChanged is called, or we can request it explicitly.
+    blockYDirty = true;
+}
+
+void PlainTextDocumentLayoutPrivate::ensureBlockYCache(QTextDocument *doc) const
+{
+    if (!blockYDirty) return;
+    blockYPositions.clear();
+    qreal y = 0;
+    QTextBlock block = doc->begin();
+    while (block.isValid()) {
+        blockYPositions.append(y);
+        // Call the layout's blockBoundingRect — but we need to avoid
+        // the recursion guard issue. Use the same logic inline.
+        qreal h = 0;
+        if (isTableCellBlock(block)) {
+            // Check if first table block
+            if (!inBlockBoundingRect) {
+                inBlockBoundingRect = true;
+                QTextTable *table = tableForBlock(block);
+                if (table && isFirstTableBlock(block, table)) {
+                    TableLayoutData *td = tableLayoutData(table);
+                    // Don't trigger layout during cache build
+                    h = td->dirty ? 0 : td->tableHeight;
+                }
+                inBlockBoundingRect = false;
+            }
+        } else {
+            QTextLayout *tl = block.layout();
+            if (tl->lineCount() > 0)
+                h = tl->boundingRect().height();
+            else
+                h = 20;  // approximate for un-laid-out blocks
+        }
+        y += h;
+        block = block.next();
+    }
+    blockYPositions.append(y);  // total height
+    blockYDirty = false;
+}
+
+qreal PlainTextDocumentLayoutPrivate::cachedBlockY(int blockNumber) const
+{
+    if (blockNumber < 0 || blockNumber >= blockYPositions.size())
+        return 0;
+    return blockYPositions.at(blockNumber);
+}
+
+qreal PlainTextDocumentLayoutPrivate::cachedTotalHeight() const
+{
+    return blockYPositions.isEmpty() ? 0 : blockYPositions.last();
 }
 
 void PlainTextDocumentLayout::documentChanged(int from, int charsRemoved, int charsAdded)
 {
+    d.blockYDirty = true;  // invalidate block position cache
+
     QTextDocument *doc = document();
     int newBlockCount = doc->blockCount();
     int charsChanged = charsRemoved + charsAdded;
@@ -734,43 +795,40 @@ void EditorControl::insertFromMimeData(const QMimeData *source) {
 
 QTextBlock EditorControl::firstVisibleBlock() const
 {
-    // Pixel-based scrolling: find the block whose cumulative Y position
-    // is at or just before the scroll offset.
     qreal scrollY = textEdit->verticalScrollBar()->value();
     qreal margin = document()->documentMargin();
     PlainTextDocumentLayout *dl = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
     Q_ASSERT(dl);
+    dl->priv()->ensureBlockYCache(document());
+    const auto &cache = dl->priv()->blockYPositions;
 
-    qreal y = margin;
-    QTextBlock block = document()->begin();
-    while (block.isValid()) {
-        qreal h = dl->blockBoundingRect(block).height();
-        if (y + h > scrollY)
-            return block;
-        y += h;
-        block = block.next();
-    }
-    return document()->lastBlock();
+    // Binary search for the block at scrollY
+    qreal target = scrollY - margin;
+    // Find first block where cachedY > target → the one before is our block
+    auto it = std::upper_bound(cache.constBegin(), cache.constEnd(), target);
+    int idx = static_cast<int>(it - cache.constBegin()) - 1;
+    idx = qBound(0, idx, document()->blockCount() - 1);
+    return document()->findBlockByNumber(idx);
 }
 
 int EditorControl::hitTest(const QPointF &point, Qt::HitTestAccuracy) const {
     // point is already in document coordinates — processEvent() transforms
     // viewport coords by verticalOffset() before calling us.
     qreal docY = point.y();
+    qreal margin = document()->documentMargin();
 
     PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
     Q_ASSERT(documentLayout);
+    documentLayout->priv()->ensureBlockYCache(document());
 
-    // Find the block at this document Y position
-    qreal y = document()->documentMargin();
-    QTextBlock currentBlock = document()->begin();
-    while (currentBlock.isValid()) {
-        qreal h = documentLayout->blockBoundingRect(currentBlock).height();
-        if (y + h > docY)
-            break;
-        y += h;
-        currentBlock = currentBlock.next();
-    }
+    // Find the block at this document Y position using cached positions
+    qreal target = docY - margin;
+    const auto &cache = documentLayout->priv()->blockYPositions;
+    auto it = std::upper_bound(cache.constBegin(), cache.constEnd(), target);
+    int idx = static_cast<int>(it - cache.constBegin()) - 1;
+    idx = qBound(0, idx, document()->blockCount() - 1);
+    QTextBlock currentBlock = document()->findBlockByNumber(idx);
+    qreal y = margin + cache.at(idx);
 
     if (!currentBlock.isValid())
         return -1;
@@ -799,15 +857,11 @@ QRectF EditorControl::blockBoundingRect(const QTextBlock &block) const {
         return QRectF();
     PlainTextDocumentLayout *dl = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
     Q_ASSERT(dl);
+    dl->priv()->ensureBlockYCache(document());
     QRectF r = dl->blockBoundingRect(block);
-    // Return rect in document coordinates (not viewport).
-    // TextControl operates in document space via processEvent transform.
-    qreal blockY = document()->documentMargin();
-    QTextBlock b = document()->begin();
-    while (b.isValid() && b != block) {
-        blockY += dl->blockBoundingRect(b).height();
-        b = b.next();
-    }
+    // Return rect in document coordinates (TextControl operates in
+    // document space via processEvent transform).
+    qreal blockY = document()->documentMargin() + dl->priv()->cachedBlockY(block.blockNumber());
     r.translate(0, blockY);
     return r;
 }
@@ -1073,6 +1127,7 @@ void Editor::Private::revertTables()
     }
     liveTables.clear();
     tableAlignments.clear();
+    hoverTable = nullptr;  // prevent dangling pointer
 }
 
 void Editor::Private::checkTableCreationTrigger()
@@ -1362,17 +1417,11 @@ qreal Editor::Private::verticalOffset() const
 
 qreal Editor::Private::blockPixelPosition(const QTextBlock &block) const
 {
-    // Compute the cumulative Y position of a block in the document.
     PlainTextDocumentLayout *dl = qobject_cast<PlainTextDocumentLayout*>(
         control->document()->documentLayout());
     Q_ASSERT(dl);
-    qreal y = 0;
-    QTextBlock b = control->document()->begin();
-    while (b.isValid() && b != block) {
-        y += dl->blockBoundingRect(b).height();
-        b = b.next();
-    }
-    return y;
+    dl->priv()->ensureBlockYCache(control->document());
+    return dl->priv()->cachedBlockY(block.blockNumber());
 }
 
 void Editor::Private::setTopLine(int /*visualTopLine*/, int /*dx*/)
@@ -1570,14 +1619,9 @@ void Editor::Private::adjustScrollbars()
     documentLayout->priv()->blockDocumentSizeChanged = true;
     qreal margin = doc->documentMargin();
 
-    // Pixel-based scrolling: compute total document height in pixels.
-    qreal totalHeight = margin;
-    QTextBlock block = doc->begin();
-    while (block.isValid()) {
-        totalHeight += documentLayout->blockBoundingRect(block).height();
-        block = block.next();
-    }
-    totalHeight += margin;
+    // Pixel-based scrolling: total document height from cached positions.
+    documentLayout->priv()->ensureBlockYCache(doc);
+    qreal totalHeight = margin + documentLayout->priv()->cachedTotalHeight() + margin;
 
     int viewportHeight = vp->height();
     int vmax = qMax(0, static_cast<int>(totalHeight - viewportHeight));
