@@ -33,6 +33,11 @@ set_target_properties(ts-markdown PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(markoff STATIC
     include/markoff/Editor.h
     include/markoff/ReadingView.h
+    src/SelectableItem.h
+    src/BlockItem.h
+    src/BlockItem.cpp
+    src/StubBlockItem.h
+    src/StubBlockItem.cpp
     src/Document.cpp
     src/DocumentBuilder.cpp
     src/TreeSitterParser.cpp
