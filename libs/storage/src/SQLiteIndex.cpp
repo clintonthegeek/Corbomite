@@ -463,14 +463,19 @@ void SQLiteIndex::extractAndInsertLinks(const QString &sourcePath, const QString
     static const QRegularExpression wikiAliasPattern(QStringLiteral(R"(\[\[([^\]|]+)\|([^\]]+)\]\])"));
     static const QRegularExpression wikiPattern(QStringLiteral(R"(\[\[([^\]|]+)\]\])"));
     static const QRegularExpression mdLinkPattern(QStringLiteral(R"(\[([^\]]+)\]\(([^)]+\.md)\))"));
+    static const QRegularExpression inlineCodePattern(QStringLiteral(R"(`[^`]+`)"));
 
     const auto lines = content.split(QLatin1Char('\n'));
-    for (const auto &line : lines) {
-        if (codeFencePattern.match(line).hasMatch()) {
+    for (const auto &rawLine : lines) {
+        if (codeFencePattern.match(rawLine).hasMatch()) {
             inCodeBlock = !inCodeBlock;
             continue;
         }
         if (inCodeBlock) continue;
+
+        // Strip inline code spans so wikilinks inside `backticks` are ignored
+        QString line = rawLine;
+        line.replace(inlineCodePattern, QString());
 
         // Embeds: ![[target]]
         auto it = embedPattern.globalMatch(line);
