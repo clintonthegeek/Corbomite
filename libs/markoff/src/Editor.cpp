@@ -1066,6 +1066,57 @@ void Editor::Private::revertTables()
     tableAlignments.clear();
 }
 
+void Editor::Private::checkTableCreationTrigger()
+{
+    if (mode != Editor::Mode::LivePreview)
+        return;
+
+    QTextCursor tc = control->textCursor();
+    QTextBlock currentBlock = tc.block();
+    QString currentText = currentBlock.text().trimmed();
+
+    // Is this line a valid separator? (|---|---|)
+    static const QRegularExpression separatorRe(
+        QStringLiteral(R"(^\s*\|[\s:]*-+[\s:]*(\|[\s:]*-+[\s:]*)*\|\s*$)"));
+    if (!separatorRe.match(currentText).hasMatch())
+        return;
+
+    // Is the previous line a valid header row? (| A | B |)
+    QTextBlock prevBlock = currentBlock.previous();
+    if (!prevBlock.isValid())
+        return;
+    static const QRegularExpression pipeRowRe(
+        QStringLiteral(R"(^\s*\|.*\|\s*$)"));
+    if (!pipeRowRe.match(prevBlock.text()).hasMatch())
+        return;
+
+    // We have header + separator — convert to table
+    ParsedTable pt;
+    pt.firstBlock = prevBlock.blockNumber();
+    pt.lastBlock = currentBlock.blockNumber();
+    pt.headers = TableHandler::parseRow(prevBlock.text());
+
+    QStringList sepCells = TableHandler::parseRow(currentBlock.text());
+    for (const QString &cell : sepCells)
+        pt.alignments.append(TableHandler::parseAlignment(cell));
+    while (pt.alignments.size() < pt.headers.size())
+        pt.alignments.append(Qt::AlignLeft);
+
+    QTextTable *tt = TableHandler::convertToQTextTable(q->document(), pt);
+    if (tt) {
+        liveTables.append(tt);
+        tableAlignments.append(pt.alignments);
+
+        // Place cursor in first cell of data row (row 1, col 0)
+        QTextTableCell dataCell = tt->cellAt(1, 0);
+        control->setTextCursor(dataCell.firstCursorPosition());
+
+        // Cancel the pending deferred reparse — we already converted the table
+        // and don't want revertTables() to undo our work and lose cursor position.
+        needsReparse = false;
+    }
+}
+
 void Editor::Private::updateBlockDisplayModes()
 {
     if (mode != Editor::Mode::LivePreview) return;
@@ -2193,6 +2244,11 @@ void Editor::keyPressEvent(QKeyEvent *e)
 #endif // QT_NO_SHORTCUT
 
     d->sendControlEvent(e);
+
+    // After input: check if typing | completed a table separator line
+    if (e->text() == QStringLiteral("|") && d->mode == Mode::LivePreview) {
+        d->checkTableCreationTrigger();
+    }
 }
 
 void Editor::mousePressEvent(QMouseEvent *e)

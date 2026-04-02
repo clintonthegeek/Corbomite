@@ -117,6 +117,7 @@ struct Editor::Private {
     QList<QList<Qt::Alignment>> tableAlignments;
     void convertTables();
     void revertTables();
+    void checkTableCreationTrigger();
 
     void cursorPositionChanged();
     void modificationChanged(bool);

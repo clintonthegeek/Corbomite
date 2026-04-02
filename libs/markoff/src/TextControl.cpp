@@ -887,6 +887,65 @@ void TextControlPrivate::keyPressEvent(QKeyEvent *e)
 #endif
 #endif // QT_NO_SHORTCUT
 
+    // Table cell navigation
+    QTextTable *table = cursor.currentTable();
+    if (table) {
+        if (e->key() == Qt::Key_Tab && !(e->modifiers() & Qt::ShiftModifier)) {
+            // Tab: move to next cell, insert row if at last cell
+            QTextTableCell cell = table->cellAt(cursor);
+            int row = cell.row();
+            int col = cell.column() + cell.columnSpan();
+            if (col >= table->columns()) {
+                col = 0;
+                ++row;
+            }
+            if (row >= table->rows()) {
+                table->insertRows(table->rows(), 1);
+                row = table->rows() - 1;
+                col = 0;
+            }
+            cursor = table->cellAt(row, col).firstCursorPosition();
+            q->ensureCursorVisible();
+            e->accept();
+            goto accept;
+        }
+        if (e->key() == Qt::Key_Tab && (e->modifiers() & Qt::ShiftModifier)) {
+            // Shift+Tab: move to previous cell
+            QTextTableCell cell = table->cellAt(cursor);
+            int row = cell.row();
+            int col = cell.column() - 1;
+            if (col < 0) {
+                col = table->columns() - 1;
+                --row;
+            }
+            if (row >= 0) {
+                cursor = table->cellAt(row, col).firstCursorPosition();
+                q->ensureCursorVisible();
+            }
+            e->accept();
+            goto accept;
+        }
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+            // Enter: insert new row below current, move cursor there
+            QTextTableCell cell = table->cellAt(cursor);
+            int row = cell.row();
+            table->insertRows(row + 1, 1);
+            cursor = table->cellAt(row + 1, 0).firstCursorPosition();
+            q->ensureCursorVisible();
+            e->accept();
+            goto accept;
+        }
+        if (e->key() == Qt::Key_Escape) {
+            // Escape: move cursor out of table (to block after table)
+            QTextTableCell lastCell = table->cellAt(table->rows() - 1, table->columns() - 1);
+            cursor = lastCell.lastCursorPosition();
+            cursor.movePosition(QTextCursor::NextBlock);
+            q->ensureCursorVisible();
+            e->accept();
+            goto accept;
+        }
+    }
+
     if (interactionFlags & Qt::TextSelectableByKeyboard
         && cursorMoveKeyEvent(e))
         goto accept;
