@@ -42,10 +42,15 @@ public:
     /// Whether there is any active cross-boundary selection.
     bool hasSelection() const;
 
-    /// Current mode (for testing).
+    /// Current mode (for testing and UI feedback).
     SelectionMode mode() const { return m_mode; }
 
+Q_SIGNALS:
+    void modeChanged(Markoff::SelectionMode mode);
+
 private:
+    void setMode(SelectionMode mode);
+
     void applySelection();
     SelectableItem *itemAt(const QPointF &scenePos) const;
     QString serializeAsMarkdown() const;

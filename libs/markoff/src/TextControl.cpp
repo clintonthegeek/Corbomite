@@ -8,6 +8,7 @@
 #include <qfont.h>
 #include <qpainter.h>
 #include <qevent.h>
+#include <QGraphicsSceneEvent>
 #include <qdebug.h>
 #if QT_CONFIG(draganddrop)
 #include <qdrag.h>
@@ -217,6 +218,28 @@ void TextControl::processEvent(QEvent *e, const QTransform &transform, QWidget *
             d->mouseDoubleClickEvent(ev, ev->button(), transform.map(ev->position()), ev->modifiers(),
                                      ev->buttons(), ev->globalPosition());
             break; }
+#if QT_CONFIG(graphicsview)
+        case QEvent::GraphicsSceneMousePress: {
+            QGraphicsSceneMouseEvent *ev = static_cast<QGraphicsSceneMouseEvent *>(e);
+            d->mousePressEvent(ev, ev->button(), transform.map(ev->pos()), ev->modifiers(),
+                               ev->buttons(), ev->screenPos());
+            break; }
+        case QEvent::GraphicsSceneMouseMove: {
+            QGraphicsSceneMouseEvent *ev = static_cast<QGraphicsSceneMouseEvent *>(e);
+            d->mouseMoveEvent(ev, ev->button(), transform.map(ev->pos()), ev->modifiers(),
+                              ev->buttons(), ev->screenPos());
+            break; }
+        case QEvent::GraphicsSceneMouseRelease: {
+            QGraphicsSceneMouseEvent *ev = static_cast<QGraphicsSceneMouseEvent *>(e);
+            d->mouseReleaseEvent(ev, ev->button(), transform.map(ev->pos()), ev->modifiers(),
+                                 ev->buttons(), ev->screenPos());
+            break; }
+        case QEvent::GraphicsSceneMouseDoubleClick: {
+            QGraphicsSceneMouseEvent *ev = static_cast<QGraphicsSceneMouseEvent *>(e);
+            d->mouseDoubleClickEvent(ev, ev->button(), transform.map(ev->pos()), ev->modifiers(),
+                                     ev->buttons(), ev->screenPos());
+            break; }
+#endif
         case QEvent::InputMethod:
             d->inputMethodEvent(static_cast<QInputMethodEvent *>(e));
             break;

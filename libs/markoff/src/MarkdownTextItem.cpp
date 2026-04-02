@@ -7,6 +7,8 @@
 #include <QTextCursor>
 #include <QAbstractTextDocumentLayout>
 #include <QStyleOptionGraphicsItem>
+#include <QGraphicsSceneMouseEvent>
+#include <QFocusEvent>
 
 namespace Markoff {
 
@@ -16,7 +18,12 @@ MarkdownTextItem::MarkdownTextItem(QGraphicsItem *parent)
     , m_control(new TextControl(this))
 {
     m_control->setDocument(m_document);
+    m_control->setTextInteractionFlags(Qt::TextEditorInteraction);
     m_document->setDocumentMargin(0);
+
+    setFlag(ItemIsFocusable);
+    setFlag(ItemAcceptsInputMethod);
+    setAcceptedMouseButtons(Qt::AllButtons);
 
     connect(m_document->documentLayout(), &QAbstractTextDocumentLayout::documentSizeChanged,
             this, &MarkdownTextItem::updateGeometry);
@@ -85,6 +92,38 @@ QString MarkdownTextItem::allMarkdown() const
 QString MarkdownTextItem::toMarkdown() const
 {
     return allMarkdown();
+}
+
+void MarkdownTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
+{
+    m_control->processEvent(event);
+}
+
+void MarkdownTextItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
+{
+    m_control->processEvent(event);
+}
+
+void MarkdownTextItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+{
+    m_control->processEvent(event);
+}
+
+void MarkdownTextItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
+{
+    m_control->processEvent(event);
+}
+
+void MarkdownTextItem::focusInEvent(QFocusEvent *event)
+{
+    m_control->setFocus(true, event->reason());
+    QGraphicsObject::focusInEvent(event);
+}
+
+void MarkdownTextItem::focusOutEvent(QFocusEvent *event)
+{
+    m_control->setFocus(false, event->reason());
+    QGraphicsObject::focusOutEvent(event);
 }
 
 void MarkdownTextItem::updateGeometry()

@@ -15,6 +15,14 @@ SelectionManager::SelectionManager(QObject *parent)
 {
 }
 
+void SelectionManager::setMode(SelectionMode mode)
+{
+    if (m_mode == mode)
+        return;
+    m_mode = mode;
+    emit modeChanged(m_mode);
+}
+
 void SelectionManager::setItems(const QList<SelectableItem *> &items)
 {
     m_items = items;
@@ -29,7 +37,7 @@ bool SelectionManager::handleMousePress(const QPointF &scenePos,
     if (modifiers & Qt::ShiftModifier && m_anchorItem) {
         m_currentItem = pressedItem ? pressedItem : m_anchorItem;
         m_currentTextPos = m_currentItem->hitTest(scenePos);
-        m_mode = SelectionMode::CrossBoundary;
+        setMode(SelectionMode::CrossBoundary);
         applySelection();
         return true; // consumed — we handle this entirely
     }
@@ -41,11 +49,11 @@ bool SelectionManager::handleMousePress(const QPointF &scenePos,
 
     m_anchorItem = pressedItem;
     if (!m_anchorItem) {
-        m_mode = SelectionMode::None;
+        setMode(SelectionMode::None);
         return false;
     }
     m_anchorTextPos = m_anchorItem->hitTest(scenePos);
-    m_mode = SelectionMode::WithinItem;
+    setMode(SelectionMode::WithinItem);
     return false; // let Qt handle the press normally
 }
 
@@ -64,7 +72,7 @@ bool SelectionManager::handleMouseMove(const QPointF &scenePos)
         if (gi->boundingRect().contains(gi->mapFromScene(scenePos)))
             return false; // still within item, let Qt handle
         // Transition to CrossBoundary
-        m_mode = SelectionMode::CrossBoundary;
+        setMode(SelectionMode::CrossBoundary);
     }
 
     // CrossBoundary mode
@@ -78,10 +86,10 @@ bool SelectionManager::handleMouseRelease(const QPointF &scenePos)
 {
     Q_UNUSED(scenePos);
     if (m_mode == SelectionMode::CrossBoundary) {
-        m_mode = SelectionMode::None;
+        setMode(SelectionMode::None);
         return true; // consumed
     }
-    m_mode = SelectionMode::None;
+    setMode(SelectionMode::None);
     return false;
 }
 
@@ -97,7 +105,7 @@ bool SelectionManager::handleKeyPress(QKeyEvent *event)
         m_currentTextPos = m_currentItem->isTextItem()
             ? m_currentItem->allMarkdown().length()
             : -1;
-        m_mode = SelectionMode::CrossBoundary;
+        setMode(SelectionMode::CrossBoundary);
         applySelection();
         return true;
     }
@@ -138,7 +146,7 @@ void SelectionManager::clearSelection()
     m_currentItem = nullptr;
     m_anchorTextPos = -1;
     m_currentTextPos = -1;
-    m_mode = SelectionMode::None;
+    setMode(SelectionMode::None);
 }
 
 bool SelectionManager::hasSelection() const
