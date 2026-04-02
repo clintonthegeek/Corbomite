@@ -154,11 +154,6 @@ void SelectionManager::beginOrExtendKeyboardSelection(
     SelectableItem *anchorItem, int anchorTextPos,
     SelectableItem *targetItem, int targetTextPos)
 {
-    if (m_mode != SelectionMode::CrossBoundary) {
-        // Starting fresh — set anchor
-        m_anchorItem = anchorItem;
-        m_anchorTextPos = anchorTextPos;
-    }
     // anchorTextPos == -1 means "keep existing anchor" (extending)
     if (anchorTextPos >= 0) {
         m_anchorItem = anchorItem;
@@ -168,7 +163,9 @@ void SelectionManager::beginOrExtendKeyboardSelection(
     m_currentItem = targetItem;
     m_currentTextPos = targetTextPos;
     setMode(SelectionMode::CrossBoundary);
-    applySelection();
+    // Don't call applySelection() — the caller (SceneCoordinator) manages
+    // visuals directly. The current item's selection is driven by its
+    // TextControl as the user presses Shift+Arrow.
 }
 
 bool SelectionManager::hasSelection() const

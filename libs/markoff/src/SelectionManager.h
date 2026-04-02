@@ -61,6 +61,7 @@ Q_SIGNALS:
 
 private:
     void setMode(SelectionMode mode);
+    void applySelectionSkipCurrent();
 
     void applySelection();
     SelectableItem *itemAt(const QPointF &scenePos) const;

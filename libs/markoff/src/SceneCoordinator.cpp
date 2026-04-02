@@ -165,47 +165,66 @@ void SceneCoordinator::handleBoundary(MarkdownTextItem *from, Qt::Edge edge)
     auto *mgr = m_scene->selectionManager();
 
     if (!shiftHeld) {
-        // Normal navigation — clear any cross-boundary selection and move focus
         if (mgr->mode() == SelectionMode::CrossBoundary)
             mgr->clearSelection();
         moveFocusTo(from, edge);
         return;
     }
 
-    // Shift+Arrow at boundary — enter or extend keyboard selection
+    // Shift+Arrow at boundary — caret must move to the next text item.
     int dir = (edge == Qt::BottomEdge) ? 1 : -1;
+    int fromIdx = m_items.indexOf(static_cast<SelectableItem *>(from));
+    if (fromIdx < 0) return;
 
-    // Determine anchor: use TextControl's selection anchor if starting fresh,
-    // or keep existing anchor if already in CrossBoundary mode
-    SelectableItem *anchorItem;
-    int anchorTextPos;
-    if (mgr->mode() == SelectionMode::CrossBoundary) {
-        anchorItem = mgr->anchorItem();
-        anchorTextPos = -1; // keep existing
-    } else {
-        anchorItem = from;
+    // First time entering cross-boundary: record anchor and finalize
+    // the departing item's selection from anchor to its edge.
+    if (mgr->mode() != SelectionMode::CrossBoundary) {
         QTextCursor cursor = from->textControl()->textCursor();
-        anchorTextPos = cursor.anchor();
+        int anchorPos = cursor.anchor();
+        int edgePos = (edge == Qt::BottomEdge)
+            ? from->allMarkdown().length() : 0;
+        from->setSelection(anchorPos, edgePos);
+
+        mgr->beginOrExtendKeyboardSelection(from, anchorPos, from, edgePos);
+    } else {
+        // Already in cross-boundary. The item we're leaving is fully
+        // traversed — select it fully (unless it's the anchor).
+        if (from != mgr->anchorItem()) {
+            from->setSelection(0, from->allMarkdown().length());
+        }
     }
 
-    // Find target: advance from current endpoint (or from 'from' if starting)
-    SelectableItem *startFrom = (mgr->mode() == SelectionMode::CrossBoundary)
-        ? mgr->currentItem() : static_cast<SelectableItem *>(from);
-    int startIdx = m_items.indexOf(startFrom);
-    if (startIdx < 0) return;
-
-    int targetIdx = startIdx + dir;
-    if (targetIdx < 0 || targetIdx >= m_items.size()) return;
-
-    SelectableItem *target = m_items[targetIdx];
-    int targetTextPos = -1;
-    if (target->isTextItem()) {
-        targetTextPos = (edge == Qt::BottomEdge) ? 0
-            : target->allMarkdown().length();
+    // Walk from current position, marking blocks as fully selected,
+    // until we find the next text item.
+    MarkdownTextItem *nextText = nullptr;
+    for (int i = fromIdx + dir; i >= 0 && i < m_items.size(); i += dir) {
+        auto *item = m_items[i];
+        if (item->isTextItem()) {
+            nextText = static_cast<MarkdownTextItem *>(item);
+            break;
+        } else {
+            // Block item — fully select it
+            item->setFullySelected(true);
+        }
     }
+    if (!nextText) return;
 
-    mgr->beginOrExtendKeyboardSelection(anchorItem, anchorTextPos,
-                                         target, targetTextPos);
+    // Move focus and caret to the target text item.
+    nextText->setFocus();
+    QTextCursor cursor(nextText->document());
+    if (edge == Qt::BottomEdge)
+        cursor.movePosition(QTextCursor::Start);
+    else
+        cursor.movePosition(QTextCursor::End);
+    nextText->textControl()->setTextCursor(cursor);
+
+    // Update SelectionManager endpoint (but don't call applySelection —
+    // we've already set all the visuals directly above, and the target
+    // item's selection is managed by its TextControl as the user keeps
+    // pressing Shift+Arrow).
+    mgr->beginOrExtendKeyboardSelection(
+        mgr->anchorItem(), -1, // keep existing anchor
+        nextText, cursor.position());
 }
 
 void SceneCoordinator::clearItems()
