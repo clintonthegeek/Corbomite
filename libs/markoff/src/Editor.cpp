@@ -221,25 +221,25 @@ QRectF PlainTextDocumentLayout::blockBoundingRect(const QTextBlock &block) const
 {
     if (!block.isValid()) { return QRectF(); }
 
-    // Table detection creates QTextCursor objects, which can trigger
-    // Qt to call back into blockBoundingRect() — guard against recursion.
-    if (!d.inBlockBoundingRect) {
-        d.inBlockBoundingRect = true;
-        QTextTable *table = tableForBlock(block);
-        if (table) {
-            if (isFirstTableBlock(block, table)) {
+    // Fast, recursion-safe check: is this block inside a table cell?
+    // Uses block format property — no cursor, no re-entrancy.
+    if (isTableCellBlock(block)) {
+        // Only the first block of a table reports the full table height.
+        // All other table cell blocks report zero.
+        if (!d.inBlockBoundingRect) {
+            d.inBlockBoundingRect = true;
+            QTextTable *table = tableForBlock(block);
+            if (table && isFirstTableBlock(block, table)) {
                 TableLayoutData *td = tableLayoutData(table);
                 if (td->dirty)
                     const_cast<PlainTextDocumentLayout*>(this)->layoutTable(table);
                 d.inBlockBoundingRect = false;
                 return QRectF(0, 0, td->tableWidth, td->tableHeight);
-            } else {
-                // Non-first block inside table: zero height
-                d.inBlockBoundingRect = false;
-                return QRectF(0, 0, 0, 0);
             }
+            d.inBlockBoundingRect = false;
         }
-        d.inBlockBoundingRect = false;
+        // Non-first table block OR re-entrant call: always zero height.
+        return QRectF(0, 0, 0, 0);
     }
 
     QTextLayout *tl = block.layout();
