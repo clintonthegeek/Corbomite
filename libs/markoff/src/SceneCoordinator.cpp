@@ -11,6 +11,7 @@
 
 #include <QTimer>
 #include <QTextDocument>
+#include <QGuiApplication>
 
 namespace Markoff {
 
@@ -56,7 +57,7 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
             this, &SceneCoordinator::onItemTextChanged);
     connect(item, &MarkdownTextItem::cursorAtBoundary,
             this, [this, item](Qt::Edge edge) {
-        moveFocusTo(item, edge);
+        handleBoundary(item, edge);
     });
 
     return item;
@@ -156,6 +157,55 @@ bool SceneCoordinator::moveFocusTo(MarkdownTextItem *from, Qt::Edge edge)
         }
     }
     return false;
+}
+
+void SceneCoordinator::handleBoundary(MarkdownTextItem *from, Qt::Edge edge)
+{
+    bool shiftHeld = QGuiApplication::keyboardModifiers() & Qt::ShiftModifier;
+    auto *mgr = m_scene->selectionManager();
+
+    if (!shiftHeld) {
+        // Normal navigation — clear any cross-boundary selection and move focus
+        if (mgr->mode() == SelectionMode::CrossBoundary)
+            mgr->clearSelection();
+        moveFocusTo(from, edge);
+        return;
+    }
+
+    // Shift+Arrow at boundary — enter or extend keyboard selection
+    int dir = (edge == Qt::BottomEdge) ? 1 : -1;
+
+    // Determine anchor: use TextControl's selection anchor if starting fresh,
+    // or keep existing anchor if already in CrossBoundary mode
+    SelectableItem *anchorItem;
+    int anchorTextPos;
+    if (mgr->mode() == SelectionMode::CrossBoundary) {
+        anchorItem = mgr->anchorItem();
+        anchorTextPos = -1; // keep existing
+    } else {
+        anchorItem = from;
+        QTextCursor cursor = from->textControl()->textCursor();
+        anchorTextPos = cursor.anchor();
+    }
+
+    // Find target: advance from current endpoint (or from 'from' if starting)
+    SelectableItem *startFrom = (mgr->mode() == SelectionMode::CrossBoundary)
+        ? mgr->currentItem() : static_cast<SelectableItem *>(from);
+    int startIdx = m_items.indexOf(startFrom);
+    if (startIdx < 0) return;
+
+    int targetIdx = startIdx + dir;
+    if (targetIdx < 0 || targetIdx >= m_items.size()) return;
+
+    SelectableItem *target = m_items[targetIdx];
+    int targetTextPos = -1;
+    if (target->isTextItem()) {
+        targetTextPos = (edge == Qt::BottomEdge) ? 0
+            : target->allMarkdown().length();
+    }
+
+    mgr->beginOrExtendKeyboardSelection(anchorItem, anchorTextPos,
+                                         target, targetTextPos);
 }
 
 void SceneCoordinator::clearItems()

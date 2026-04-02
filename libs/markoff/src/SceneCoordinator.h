@@ -52,6 +52,7 @@ Q_SIGNALS:
 private:
     MarkdownTextItem *createTextItem(const QString &text,
                                       MarkdownHighlighter::Mode hlMode);
+    void handleBoundary(MarkdownTextItem *from, Qt::Edge edge);
     void clearItems();
     void repositionItems();
     void onItemTextChanged();

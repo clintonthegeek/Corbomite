@@ -42,6 +42,17 @@ public:
     /// Whether there is any active cross-boundary selection.
     bool hasSelection() const;
 
+    /// Enter or advance keyboard-driven cross-boundary selection.
+    /// Called when Shift+Arrow hits an item boundary.
+    void beginOrExtendKeyboardSelection(SelectableItem *anchorItem,
+                                         int anchorTextPos,
+                                         SelectableItem *targetItem,
+                                         int targetTextPos);
+
+    /// Access current selection endpoints (for advancing keyboard selection).
+    SelectableItem *anchorItem() const { return m_anchorItem; }
+    SelectableItem *currentItem() const { return m_currentItem; }
+
     /// Current mode (for testing and UI feedback).
     SelectionMode mode() const { return m_mode; }
 

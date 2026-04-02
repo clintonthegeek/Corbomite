@@ -150,6 +150,27 @@ void SelectionManager::clearSelection()
     setMode(SelectionMode::None);
 }
 
+void SelectionManager::beginOrExtendKeyboardSelection(
+    SelectableItem *anchorItem, int anchorTextPos,
+    SelectableItem *targetItem, int targetTextPos)
+{
+    if (m_mode != SelectionMode::CrossBoundary) {
+        // Starting fresh — set anchor
+        m_anchorItem = anchorItem;
+        m_anchorTextPos = anchorTextPos;
+    }
+    // anchorTextPos == -1 means "keep existing anchor" (extending)
+    if (anchorTextPos >= 0) {
+        m_anchorItem = anchorItem;
+        m_anchorTextPos = anchorTextPos;
+    }
+    // Update current endpoint
+    m_currentItem = targetItem;
+    m_currentTextPos = targetTextPos;
+    setMode(SelectionMode::CrossBoundary);
+    applySelection();
+}
+
 bool SelectionManager::hasSelection() const
 {
     if (m_mode == SelectionMode::CrossBoundary && m_anchorItem && m_currentItem)
