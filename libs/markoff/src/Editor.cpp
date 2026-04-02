@@ -223,7 +223,9 @@ int PlainTextDocumentLayout::pageCount() const
 
 QSizeF PlainTextDocumentLayout::documentSize() const
 {
-    return QSizeF(d.maximumWidth, document()->lineCount());
+    d.ensureBlockYCache(document());
+    qreal margin = document()->documentMargin();
+    return QSizeF(qMax(d.width, d.maximumWidth), d.cachedTotalHeight() + 2 * margin);
 }
 
 QRectF PlainTextDocumentLayout::frameBoundingRect(QTextFrame *) const
@@ -859,10 +861,11 @@ QRectF EditorControl::blockBoundingRect(const QTextBlock &block) const {
     Q_ASSERT(dl);
     dl->priv()->ensureBlockYCache(document());
     QRectF r = dl->blockBoundingRect(block);
-    // Return rect in document coordinates (TextControl operates in
-    // document space via processEvent transform).
-    qreal blockY = document()->documentMargin() + dl->priv()->cachedBlockY(block.blockNumber());
-    r.translate(0, blockY);
+    // Position in document coordinates. TextControl operates in document
+    // space (processEvent transforms viewport coords by adding scrollOffset).
+    qreal margin = document()->documentMargin();
+    qreal blockY = margin + dl->priv()->cachedBlockY(block.blockNumber());
+    r.moveTop(blockY);
     return r;
 }
 
@@ -1411,8 +1414,8 @@ void Editor::Private::verticalScrollbarActionTriggered(int action)
 qreal Editor::Private::verticalOffset() const
 {
     // Pixel-based scrolling: scrollbar value IS the pixel offset.
-    // Subtract document margin so the first block starts at the margin.
-    return q->verticalScrollBar()->value() - q->document()->documentMargin();
+    // Identical to QTextEdit's model.
+    return q->verticalScrollBar()->value();
 }
 
 qreal Editor::Private::blockPixelPosition(const QTextBlock &block) const
@@ -1608,6 +1611,7 @@ void Editor::Private::pageUpDown(QTextCursor::MoveOperation op, QTextCursor::Mov
 
 void Editor::Private::adjustScrollbars()
 {
+    // Pixel-based scrolling, modeled after QTextEdit::adjustScrollbars().
     auto *vbar = q->verticalScrollBar();
     auto *hbar = q->horizontalScrollBar();
     auto *vp = q->viewport();
@@ -1617,22 +1621,17 @@ void Editor::Private::adjustScrollbars()
     Q_ASSERT(documentLayout);
     bool documentSizeChangedBlocked = documentLayout->priv()->blockDocumentSizeChanged;
     documentLayout->priv()->blockDocumentSizeChanged = true;
-    qreal margin = doc->documentMargin();
 
-    // Pixel-based scrolling: total document height from cached positions.
-    documentLayout->priv()->ensureBlockYCache(doc);
-    qreal totalHeight = margin + documentLayout->priv()->cachedTotalHeight() + margin;
+    QSizeF docSize = documentLayout->documentSize();
+    QSize viewportSize = vp->size();
 
-    int viewportHeight = vp->height();
-    int vmax = qMax(0, static_cast<int>(totalHeight - viewportHeight));
-
-    vbar->setRange(0, vmax);
-    vbar->setPageStep(viewportHeight);
+    vbar->setRange(0, qMax(0, static_cast<int>(docSize.height()) - viewportSize.height()));
+    vbar->setPageStep(viewportSize.height());
     vbar->setSingleStep(q->fontMetrics().lineSpacing());
 
-    QSizeF documentSize = documentLayout->documentSize();
-    hbar->setRange(0, (int)documentSize.width() - vp->width());
-    hbar->setPageStep(vp->width());
+    hbar->setRange(0, qMax(0, static_cast<int>(docSize.width()) - viewportSize.width()));
+    hbar->setPageStep(viewportSize.width());
+
     documentLayout->priv()->blockDocumentSizeChanged = documentSizeChangedBlocked;
 }
 
@@ -1818,15 +1817,11 @@ void Editor::ensureCursorVisible()
     d->ensureCursorVisible(d->centerOnScroll);
 }
 
-QPointF contentOffset(const Editor::Private *d, const Editor *q)
+QPointF contentOffset(const Editor::Private *d, const Editor * /*q*/)
 {
-    // Pixel-based scrolling: the Y offset positions the first visible block
-    // correctly in the viewport. We compute the cumulative pixel position of
-    // the first visible block and subtract the scroll position.
-    QTextBlock fvb = d->control->firstVisibleBlock();
-    qreal blockY = d->blockPixelPosition(fvb) + q->document()->documentMargin();
-    qreal scrollY = q->verticalScrollBar()->value();
-    return QPointF(-d->horizontalOffset(), blockY - scrollY);
+    // Pixel-based scrolling, modeled after QTextEdit:
+    // just translate by negative scroll offset.
+    return QPointF(-d->horizontalOffset(), -d->verticalOffset());
 }
 
 QRect Editor::cursorRect() const
@@ -1999,9 +1994,13 @@ void Editor::paintTable(QPainter *painter, QTextTable *table,
 void Editor::paintEvent(QPaintEvent *e)
 {
     QPainter painter(viewport());
-    Q_ASSERT(qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout()));
+    PlainTextDocumentLayout *docLayout = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
+    Q_ASSERT(docLayout);
+    docLayout->priv()->ensureBlockYCache(document());
 
-    QPointF offset = Markoff::contentOffset(d.get(), this);
+    const qreal scrollX = d->horizontalOffset();
+    const qreal scrollY = d->verticalOffset();
+    const qreal margin = document()->documentMargin();
 
     QRect er = e->rect();
     QRect viewportRect = viewport()->rect();
@@ -2009,13 +2008,8 @@ void Editor::paintEvent(QPaintEvent *e)
     bool editable = true; // always editable in Markoff
 
     QTextBlock block = Markoff::firstVisibleBlock(d.get());
-    qreal maximumWidth = document()->documentLayout()->documentSize().width();
+    qreal maximumWidth = docLayout->documentSize().width();
 
-    painter.setBrushOrigin(offset);
-
-    int maxX = offset.x() + qMax((qreal)viewportRect.width(), maximumWidth)
-               - document()->documentMargin() + d->control->cursorWidth();
-    er.setRight(qMin(er.right(), maxX));
     painter.setClipRect(er);
 
     // Get paint context
@@ -2023,11 +2017,15 @@ void Editor::paintEvent(QPaintEvent *e)
     painter.setPen(context.palette.text().color());
 
     while (block.isValid()) {
-        QRectF r = Markoff::blockBoundingRect(d.get(), block).translated(offset);
+        // Block position in viewport coordinates using cached document Y
+        qreal blockDocY = margin + docLayout->priv()->cachedBlockY(block.blockNumber());
+        QRectF layoutRect = docLayout->blockBoundingRect(block);
+        QRectF r(margin - scrollX, blockDocY - scrollY, layoutRect.width(), layoutRect.height());
+        QPointF offset(margin - scrollX, blockDocY - scrollY);
+
         QTextLayout *layout = block.layout();
 
         if (!block.isVisible()) {
-            offset.ry() += r.height();
             block = block.next();
             continue;
         }
@@ -2042,7 +2040,6 @@ void Editor::paintEvent(QPaintEvent *e)
                 QTextTableCell lastCell = table->cellAt(table->rows() - 1,
                                                          table->columns() - 1);
                 block = lastCell.lastCursorPosition().block();
-                offset.ry() += r.height();
                 block = block.next();
                 continue;
             }
@@ -2257,15 +2254,16 @@ void Editor::paintEvent(QPaintEvent *e)
             }
         }
 
-        offset.ry() += r.height();
-        if (offset.y() > viewportRect.height())
+        if (r.top() > viewportRect.height())
             break;
         block = block.next();
     }
 
-    if (d->backgroundVisible && !block.isValid() && offset.y() <= er.bottom()
+    if (d->backgroundVisible && !block.isValid()
         && (d->centerOnScroll || verticalScrollBar()->maximum() == verticalScrollBar()->minimum())) {
-        painter.fillRect(QRect(QPoint((int)er.left(), (int)offset.y()), er.bottomRight()), palette().window());
+        qreal docBottom = docLayout->documentSize().height() - scrollY;
+        if (docBottom <= er.bottom())
+            painter.fillRect(QRect(QPoint(er.left(), (int)docBottom), er.bottomRight()), palette().window());
     }
 }
 
@@ -2479,11 +2477,13 @@ void Editor::inputMethodEvent(QInputMethodEvent *e)
     ensureCursorVisible();
 }
 
-void Editor::scrollContentsBy(int /*dx*/, int /*dy*/)
+void Editor::scrollContentsBy(int dx, int dy)
 {
-    // Pixel-based scrolling: the scrollbar value already changed.
-    // Just repaint the viewport.
-    viewport()->update();
+    // Pixel-based scrolling, modeled after QTextEdit:
+    // scroll the viewport pixmap for smooth visual scroll.
+    if (isRightToLeft())
+        dx = -dx;
+    viewport()->scroll(dx, dy);
 }
 
 QVariant Editor::inputMethodQuery(Qt::InputMethodQuery property) const
