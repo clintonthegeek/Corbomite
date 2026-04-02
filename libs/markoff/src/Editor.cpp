@@ -198,9 +198,13 @@ void Editor::Private::init(const QString &txt)
     // Adjust span map offsets immediately on edit — BEFORE Qt's auto-rehighlight.
     // contentsChange fires before contentsChanged/textChanged, so the span map
     // has correct offsets by the time highlightBlock() runs.
+    // Adjust span map offsets on EVERY document change — including during
+    // table conversion (inReparse=true). The span map must stay in sync
+    // with the document even as convertTables() replaces pipe text with
+    // QTextTable objects. Without this, spans after tables have wrong offsets.
     QObject::connect(doc, &QTextDocument::contentsChange, q,
         [this](int from, int charsRemoved, int charsAdded) {
-        if (mode == Editor::Mode::LivePreview && !inReparse) {
+        if (mode == Editor::Mode::LivePreview) {
             highlighter->adjustSpanOffsets(from, charsRemoved, charsAdded);
         }
     });
@@ -225,6 +229,11 @@ void Editor::Private::init(const QString &txt)
                 // is done. These functions walk all blocks and would corrupt
                 // QTextTable cell structure if tables existed during their run.
                 convertTables();
+                // Re-detect decorated ranges now that tables have changed
+                // block numbers. Ranges detected before conversion had
+                // pre-conversion block numbers that are now stale.
+                detectDecoratedRanges();
+                highlighter->setDecoratedRanges(decoratedRanges);
                 // Clear inReparse on the NEXT event loop iteration,
                 // after any deferred rehighlight format changes have
                 // fired their textChanged signals (still suppressed).
@@ -919,6 +928,8 @@ void Editor::setMode(Mode m)
         d->updateBlockDisplayModes();
         // Convert tables LAST, after all block iteration is complete
         d->convertTables();
+        d->detectDecoratedRanges();
+        d->highlighter->setDecoratedRanges(d->decoratedRanges);
         // Clear inReparse on next event loop, after deferred rehighlight
         QTimer::singleShot(0, this, [this]() {
             d->inReparse = false;
