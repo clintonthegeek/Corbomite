@@ -286,6 +286,8 @@ QString SelectionManager::serializeAsMarkdown() const
     QString result;
 
     for (int i = lo; i <= hi; ++i) {
+        if (i > lo)
+            result += QLatin1Char('\n');
         SelectableItem *item = m_items[i];
         if (i == anchorIdx || i == currentIdx) {
             if (item->isTextItem())
