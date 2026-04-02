@@ -103,7 +103,60 @@ bool SelectionManager::hasSelection() const
 
 void SelectionManager::applySelection()
 {
-    // Stubbed — implemented in Task 6
+    if (!m_anchorItem || !m_currentItem)
+        return;
+
+    int anchorIdx = m_items.indexOf(m_anchorItem);
+    int currentIdx = m_items.indexOf(m_currentItem);
+    if (anchorIdx < 0 || currentIdx < 0)
+        return;
+
+    bool forward = currentIdx >= anchorIdx;
+    int lo = qMin(anchorIdx, currentIdx);
+    int hi = qMax(anchorIdx, currentIdx);
+
+    for (int i = 0; i < m_items.size(); ++i) {
+        SelectableItem *item = m_items[i];
+
+        if (i < lo || i > hi) {
+            if (item->isTextItem())
+                item->clearSelection();
+            else
+                item->setFullySelected(false);
+        } else if (i == anchorIdx && i == currentIdx) {
+            if (item->isTextItem())
+                item->setSelection(m_anchorTextPos, m_currentTextPos);
+            else
+                item->setFullySelected(true);
+        } else if (i == anchorIdx) {
+            if (item->isTextItem()) {
+                int end = item->allMarkdown().length();
+                if (forward)
+                    item->setSelection(m_anchorTextPos, end);
+                else
+                    item->setSelection(m_anchorTextPos, 0);
+            } else {
+                item->setFullySelected(true);
+            }
+        } else if (i == currentIdx) {
+            if (item->isTextItem()) {
+                int end = item->allMarkdown().length();
+                if (forward)
+                    item->setSelection(0, m_currentTextPos);
+                else
+                    item->setSelection(end, m_currentTextPos);
+            } else {
+                item->setFullySelected(true);
+            }
+        } else {
+            if (item->isTextItem()) {
+                int end = item->allMarkdown().length();
+                item->setSelection(0, end);
+            } else {
+                item->setFullySelected(true);
+            }
+        }
+    }
 }
 
 SelectableItem *SelectionManager::itemAt(const QPointF &scenePos) const

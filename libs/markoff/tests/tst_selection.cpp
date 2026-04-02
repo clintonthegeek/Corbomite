@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
 #include <QGraphicsScene>
+#include <QTextCursor>
 #include "SelectionManager.h"
 #include "MarkdownTextItem.h"
 #include "StubBlockItem.h"
+#include "TextControl.h"
 
 using namespace Markoff;
 
@@ -18,6 +20,11 @@ private Q_SLOTS:
     void testMoveCrossBoundaryTransitions();
     void testReleaseFromCrossBoundaryResetsToNone();
     void testReleaseFromWithinItemResetsToNone();
+    void testApplySelectionForward();
+    void testApplySelectionBackward();
+    void testApplySelectionMiddleItemFullySelected();
+    void testApplySelectionClearsOutOfRange();
+    void testApplySelectionDragReversal();
 };
 
 void TestSelection::testInitialState()
@@ -132,6 +139,148 @@ void TestSelection::testReleaseFromWithinItemResetsToNone()
     bool consumed = mgr.handleMouseRelease(QPointF(50, 5));
     QVERIFY(!consumed); // Qt handles within-item release
     QCOMPARE(mgr.mode(), SelectionMode::None);
+}
+
+void TestSelection::testApplySelectionForward()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("AAABBB"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("CCCDDD"));
+    scene.addItem(text2);
+    text2->setPos(0, 30);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, text2});
+
+    mgr.handleMousePress(QPointF(10, 5), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(10, 35));
+
+    QTextCursor c1 = text1->textControl()->textCursor();
+    QVERIFY(c1.hasSelection());
+
+    QTextCursor c2 = text2->textControl()->textCursor();
+    QVERIFY(c2.hasSelection());
+    QCOMPARE(c2.anchor(), 0);
+}
+
+void TestSelection::testApplySelectionBackward()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("AAABBB"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("CCCDDD"));
+    scene.addItem(text2);
+    text2->setPos(0, 30);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, text2});
+
+    mgr.handleMousePress(QPointF(10, 35), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(10, 5));
+    QCOMPARE(mgr.mode(), SelectionMode::CrossBoundary);
+
+    QTextCursor c2 = text2->textControl()->textCursor();
+    QVERIFY(c2.hasSelection());
+
+    QTextCursor c1 = text1->textControl()->textCursor();
+    QVERIFY(c1.hasSelection());
+}
+
+void TestSelection::testApplySelectionMiddleItemFullySelected()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("First"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *block = new StubBlockItem(QStringLiteral("| A |\n|---|\n| 1 |"), 600, 60);
+    scene.addItem(block);
+    block->setPos(0, 30);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("Second"));
+    scene.addItem(text2);
+    text2->setPos(0, 100);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, block, text2});
+
+    mgr.handleMousePress(QPointF(10, 5), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(10, 105));
+    QCOMPARE(mgr.mode(), SelectionMode::CrossBoundary);
+    QVERIFY(block->isFullySelected());
+}
+
+void TestSelection::testApplySelectionClearsOutOfRange()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("First"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *block = new StubBlockItem(QStringLiteral("| A |"), 600, 60);
+    scene.addItem(block);
+    block->setPos(0, 30);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("Second"));
+    scene.addItem(text2);
+    text2->setPos(0, 100);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, block, text2});
+
+    mgr.handleMousePress(QPointF(10, 5), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(10, 105));
+
+    // Now drag back to block (text2 should be cleared)
+    mgr.handleMouseMove(QPointF(10, 50));
+    QTextCursor c2 = text2->textControl()->textCursor();
+    QVERIFY(!c2.hasSelection());
+}
+
+void TestSelection::testApplySelectionDragReversal()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("Above"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("Middle"));
+    scene.addItem(text2);
+    text2->setPos(0, 30);
+
+    auto *text3 = new MarkdownTextItem;
+    text3->setPlainText(QStringLiteral("Below"));
+    scene.addItem(text3);
+    text3->setPos(0, 60);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, text2, text3});
+
+    mgr.handleMousePress(QPointF(10, 35), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(10, 65));
+    QCOMPARE(mgr.mode(), SelectionMode::CrossBoundary);
+
+    // Reverse: drag up to text1
+    mgr.handleMouseMove(QPointF(10, 5));
+    QTextCursor c3 = text3->textControl()->textCursor();
+    QVERIFY(!c3.hasSelection());
+    QTextCursor c1 = text1->textControl()->textCursor();
+    QVERIFY(c1.hasSelection());
 }
 
 QTEST_MAIN(TestSelection)
