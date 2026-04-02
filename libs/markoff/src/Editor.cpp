@@ -336,32 +336,18 @@ void PlainTextDocumentLayoutPrivate::ensureBlockYCache(QTextDocument *doc) const
 {
     if (!blockYDirty) return;
     blockYPositions.clear();
+
+    // Get our layout to call blockBoundingRect properly
+    QAbstractTextDocumentLayout *abstractLayout = doc->documentLayout();
+
     qreal y = 0;
     QTextBlock block = doc->begin();
     while (block.isValid()) {
         blockYPositions.append(y);
-        // Call the layout's blockBoundingRect — but we need to avoid
-        // the recursion guard issue. Use the same logic inline.
-        qreal h = 0;
-        if (isTableCellBlock(block)) {
-            // Check if first table block
-            if (!inBlockBoundingRect) {
-                inBlockBoundingRect = true;
-                QTextTable *table = tableForBlock(block);
-                if (table && isFirstTableBlock(block, table)) {
-                    TableLayoutData *td = tableLayoutData(table);
-                    // Don't trigger layout during cache build
-                    h = td->dirty ? 0 : td->tableHeight;
-                }
-                inBlockBoundingRect = false;
-            }
-        } else {
-            QTextLayout *tl = block.layout();
-            if (tl->lineCount() > 0)
-                h = tl->boundingRect().height();
-            else
-                h = 20;  // approximate for un-laid-out blocks
-        }
+        // Use the layout's blockBoundingRect which handles table blocks
+        // (first block = table height, others = 0), normal blocks (with
+        // proper layout setup), and rendered blocks (renderedHeight).
+        qreal h = abstractLayout->blockBoundingRect(block).height();
         y += h;
         block = block.next();
     }
