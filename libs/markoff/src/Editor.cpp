@@ -74,8 +74,8 @@ void Editor::setFontSize(int pointSize)
 void Editor::resizeEvent(QResizeEvent *e)
 {
     QGraphicsView::resizeEvent(e);
-    qreal width = viewport()->width() - 4; // small margin
-    if (width > 0)
+    qreal width = viewport()->width() - 80; // 40px margin each side
+    if (width > 100)
         m_coordinator->setItemWidth(width);
 }
 
@@ -87,8 +87,8 @@ void Editor::rebuildScene()
         m_coordinator->loadMarkdown(m_sourceText);
 
     // Set width and font
-    qreal width = viewport()->width() - 4;
-    if (width > 0)
+    qreal width = viewport()->width() - 80; // 40px margin each side
+    if (width > 100)
         m_coordinator->setItemWidth(width);
     if (m_fontSize > 0) {
         QFont font = this->font();

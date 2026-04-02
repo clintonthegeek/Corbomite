@@ -169,13 +169,13 @@ void SceneCoordinator::clearItems()
 
 void SceneCoordinator::repositionItems()
 {
-    qreal y = 0;
+    qreal y = m_topMargin;
     for (auto *item : m_items) {
         QGraphicsItem *gi = item->asGraphicsItem();
-        gi->setPos(0, y);
+        gi->setPos(m_leftMargin, y);
         y += gi->boundingRect().height() + m_spacing;
     }
-    m_scene->setSceneRect(0, 0, m_itemWidth, y);
+    m_scene->setSceneRect(0, 0, m_leftMargin + m_itemWidth + m_leftMargin, y + m_topMargin);
 }
 
 void SceneCoordinator::onItemTextChanged()
