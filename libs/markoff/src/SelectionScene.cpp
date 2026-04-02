@@ -28,14 +28,6 @@ void SelectionScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 
 void SelectionScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
-    // Only engage SelectionManager for mouse moves with buttons pressed.
-    // Without this guard, scroll-induced scene updates or hover events
-    // could disrupt keyboard-driven cross-boundary selection.
-    if (!event->buttons()) {
-        QGraphicsScene::mouseMoveEvent(event);
-        return;
-    }
-
     SelectionMode prevMode = m_selectionMgr.mode();
     bool consumed = m_selectionMgr.handleMouseMove(event->scenePos());
 

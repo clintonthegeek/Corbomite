@@ -129,7 +129,9 @@ void TestSelection::testReleaseFromCrossBoundaryResetsToNone()
 
     bool consumed = mgr.handleMouseRelease(QPointF(30, ITEM_GAP + 10));
     QVERIFY(consumed);
-    QCOMPARE(mgr.mode(), SelectionMode::None);
+    // Cross-boundary selection persists after release (for Ctrl+C).
+    // Cleared on next click or Escape.
+    QVERIFY(mgr.hasSelection());
 }
 
 void TestSelection::testReleaseFromWithinItemResetsToNone()

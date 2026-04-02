@@ -54,6 +54,7 @@ bool SelectionManager::handleMousePress(const QPointF &scenePos,
         return false;
     }
     m_anchorTextPos = m_anchorItem->hitTest(scenePos);
+    m_mouseDragging = true;
     setMode(SelectionMode::WithinItem);
     return false; // let Qt handle the press normally
 }
@@ -62,6 +63,8 @@ bool SelectionManager::handleMouseMove(const QPointF &scenePos)
 {
     if (m_mode == SelectionMode::None)
         return false;
+    if (!m_mouseDragging)
+        return false; // keyboard selection in progress — ignore mouse
 
     SelectableItem *hoverItem = itemAt(scenePos);
 
@@ -87,9 +90,12 @@ bool SelectionManager::handleMouseRelease(const QPointF &scenePos)
 {
     Q_UNUSED(scenePos);
     if (m_mode == SelectionMode::CrossBoundary) {
-        setMode(SelectionMode::None);
-        return true; // consumed
+        // Keep the cross-boundary selection live after mouse release.
+        // The user can still Ctrl+C. Cleared on next click or Escape.
+        m_mouseDragging = false;
+        return true; // consumed (don't send release to base class)
     }
+    m_mouseDragging = false;
     setMode(SelectionMode::None);
     return false;
 }
@@ -147,6 +153,7 @@ void SelectionManager::clearSelection()
     m_currentItem = nullptr;
     m_anchorTextPos = -1;
     m_currentTextPos = -1;
+    m_mouseDragging = false;
     setMode(SelectionMode::None);
 }
 

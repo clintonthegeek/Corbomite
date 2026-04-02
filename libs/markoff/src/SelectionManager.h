@@ -75,6 +75,7 @@ private:
     SelectableItem *m_currentItem = nullptr;
     int m_currentTextPos = -1;
 
+    bool m_mouseDragging = false;
     QList<SelectableItem *> m_items;
 };
 
