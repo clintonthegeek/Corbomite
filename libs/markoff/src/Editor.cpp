@@ -41,9 +41,20 @@
 
 namespace Markoff {
 
+/// Check if a block is inside a QTextTable — no cursor creation,
+/// no recursion risk. Checks if the block's position falls within
+/// any child frame of the root frame (child frames are QTextTables).
 static bool isTableCellBlock(const QTextBlock &block)
 {
-    return block.blockFormat().hasProperty(QTextFormat::TableCellRowSpan);
+    const QTextDocument *doc = block.document();
+    if (!doc) return false;
+    int pos = block.position();
+    const auto childFrames = doc->rootFrame()->childFrames();
+    for (QTextFrame *frame : childFrames) {
+        if (pos >= frame->firstPosition() && pos <= frame->lastPosition())
+            return true;
+    }
+    return false;
 }
 
 // ============================================================================
@@ -224,8 +235,6 @@ QRectF PlainTextDocumentLayout::blockBoundingRect(const QTextBlock &block) const
     // Fast, recursion-safe check: is this block inside a table cell?
     // Uses block format property — no cursor, no re-entrancy.
     if (isTableCellBlock(block)) {
-        // Only the first block of a table reports the full table height.
-        // All other table cell blocks report zero.
         if (!d.inBlockBoundingRect) {
             d.inBlockBoundingRect = true;
             QTextTable *table = tableForBlock(block);
@@ -238,7 +247,6 @@ QRectF PlainTextDocumentLayout::blockBoundingRect(const QTextBlock &block) const
             }
             d.inBlockBoundingRect = false;
         }
-        // Non-first table block OR re-entrant call: always zero height.
         return QRectF(0, 0, 0, 0);
     }
 
@@ -1045,23 +1053,12 @@ void Editor::Private::convertTables()
         return;
 
     QList<ParsedTable> tables = TableHandler::detectTables(q->document());
-    qDebug() << "convertTables: detected" << tables.size() << "tables";
 
     // Convert in reverse order so block numbers stay valid
     for (int i = tables.size() - 1; i >= 0; --i) {
         const ParsedTable &pt = tables[i];
-        qDebug() << "  table" << i << "blocks" << pt.firstBlock << "-" << pt.lastBlock
-                 << "headers:" << pt.headers << "rows:" << pt.rows.size();
         QTextTable *tt = TableHandler::convertToQTextTable(q->document(), pt);
         if (tt) {
-            // Verify cell content right after conversion
-            for (int r = 0; r < qMin(tt->rows(), 2); ++r) {
-                for (int c = 0; c < tt->columns(); ++c) {
-                    QTextTableCell cell = tt->cellAt(r, c);
-                    qDebug() << "    post-convert cell(" << r << "," << c << ") ="
-                             << cell.firstCursorPosition().block().text();
-                }
-            }
             liveTables.prepend(tt);
             tableAlignments.prepend(pt.alignments);
         }
@@ -1073,7 +1070,6 @@ void Editor::Private::revertTables()
     if (liveTables.isEmpty())
         return;
 
-    qDebug() << "revertTables: reverting" << liveTables.size() << "tables";
 
     // Revert in reverse order to preserve document positions
     for (int i = liveTables.size() - 1; i >= 0; --i) {
@@ -1940,33 +1936,11 @@ void Editor::paintTable(QPainter *painter, QTextTable *table,
                         const QRectF &tableRect, const QRect &viewportRect)
 {
     auto *td = static_cast<TableLayoutData *>(table->layoutData());
-    if (!td || td->dirty) {
-        qDebug() << "paintTable: bailing, td=" << td << "dirty=" << (td ? td->dirty : true);
-        return;
-    }
+    if (!td || td->dirty) return;
 
     const int rows = table->rows();
     const int cols = table->columns();
     const qreal margin = document()->documentMargin();
-
-    static int paintCount = 0;
-    if (paintCount++ % 60 == 0) {  // log every ~60 paints to avoid spam
-        qDebug() << "paintTable:" << rows << "x" << cols
-                 << "tableRect=" << tableRect
-                 << "tableWidth=" << td->tableWidth << "tableHeight=" << td->tableHeight;
-        for (int c = 0; c < cols; ++c)
-            qDebug() << "  col" << c << "pos=" << td->columnPositions[c] << "width=" << td->widths[c];
-        for (int r = 0; r < rows; ++r)
-            qDebug() << "  row" << r << "pos=" << td->rowPositions[r] << "height=" << td->heights[r];
-        // Log first few cells' text
-        for (int r = 0; r < qMin(rows, 3); ++r) {
-            for (int c = 0; c < cols; ++c) {
-                QTextTableCell cell = table->cellAt(r, c);
-                QString text = cell.firstCursorPosition().block().text();
-                qDebug() << "  cell(" << r << "," << c << ") text=" << text;
-            }
-        }
-    }
 
     // The table rect's top-left gives us the position in viewport coords.
     // td->columnPositions and td->rowPositions are relative to the table origin.
