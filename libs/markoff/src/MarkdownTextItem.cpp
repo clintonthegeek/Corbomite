@@ -7,10 +7,13 @@
 #include <QTextCursor>
 #include <QAbstractTextDocumentLayout>
 #include <QStyleOptionGraphicsItem>
+#include "MarkdownHighlighter.h"
+#include "SourceSpan.h"
 #include <QGraphicsSceneMouseEvent>
 #include <QFocusEvent>
 #include <QKeyEvent>
 #include <QInputMethodEvent>
+#include <QSyntaxHighlighter>
 
 namespace Markoff {
 
@@ -33,6 +36,8 @@ MarkdownTextItem::MarkdownTextItem(QGraphicsItem *parent)
             this, [this]() { update(); });
     connect(m_control, &TextControl::textChanged,
             this, &MarkdownTextItem::textChanged);
+    connect(m_control, &TextControl::cursorPositionChanged,
+            this, &MarkdownTextItem::onCursorPositionChanged);
 }
 
 MarkdownTextItem::~MarkdownTextItem() = default;
@@ -166,6 +171,53 @@ void MarkdownTextItem::focusOutEvent(QFocusEvent *event)
 {
     m_control->setFocus(false, event->reason());
     QGraphicsObject::focusOutEvent(event);
+}
+
+void MarkdownTextItem::onCursorPositionChanged()
+{
+    if (m_snappingCursor)
+        return;
+
+    // 1. Snap cursor past hidden delimiters
+    snapCursorPastDelimiters();
+
+    // 2. Notify highlighter of cursor position (shows/hides delimiters)
+    auto *hl = qobject_cast<MarkdownHighlighter *>(
+        m_document->findChild<QSyntaxHighlighter *>());
+    if (hl) {
+        QTextCursor cursor = m_control->textCursor();
+        hl->setCursorPosition(cursor.block().blockNumber(),
+                              cursor.positionInBlock());
+    }
+}
+
+void MarkdownTextItem::snapCursorPastDelimiters()
+{
+    auto *hl = qobject_cast<MarkdownHighlighter *>(
+        m_document->findChild<QSyntaxHighlighter *>());
+    if (!hl || hl->mode() != MarkdownHighlighter::Mode::LivePreview)
+        return;
+
+    QTextCursor cursor = m_control->textCursor();
+    if (cursor.hasSelection())
+        return; // don't snap during selection
+
+    int pos = cursor.position();
+
+    for (const SourceSpan &span : hl->spans()) {
+        if (!span.isDelimiter)
+            continue;
+        int spanStart = span.charOffset;
+        int spanEnd = span.charOffset + span.charLength;
+        if (pos >= spanStart && pos < spanEnd) {
+            // Cursor is inside a hidden delimiter — snap to end
+            m_snappingCursor = true;
+            cursor.setPosition(spanEnd);
+            m_control->setTextCursor(cursor);
+            m_snappingCursor = false;
+            return;
+        }
+    }
 }
 
 void MarkdownTextItem::updateGeometry()

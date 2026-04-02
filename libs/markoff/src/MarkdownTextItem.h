@@ -65,10 +65,13 @@ Q_SIGNALS:
 
 private:
     void updateGeometry();
+    void onCursorPositionChanged();
+    void snapCursorPastDelimiters();
 
     TextControl *m_control = nullptr;
     QTextDocument *m_document = nullptr;
     qreal m_width = 600.0;
+    bool m_snappingCursor = false;
 };
 
 } // namespace Markoff
