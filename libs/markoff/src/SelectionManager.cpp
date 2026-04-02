@@ -23,8 +23,23 @@ void SelectionManager::setItems(const QList<SelectableItem *> &items)
 bool SelectionManager::handleMousePress(const QPointF &scenePos,
                                         Qt::KeyboardModifiers modifiers)
 {
-    Q_UNUSED(modifiers);
-    m_anchorItem = itemAt(scenePos);
+    SelectableItem *pressedItem = itemAt(scenePos);
+
+    // Shift+Click: extend from existing anchor to new position
+    if (modifiers & Qt::ShiftModifier && m_anchorItem) {
+        m_currentItem = pressedItem ? pressedItem : m_anchorItem;
+        m_currentTextPos = m_currentItem->hitTest(scenePos);
+        m_mode = SelectionMode::CrossBoundary;
+        applySelection();
+        return true; // consumed — we handle this entirely
+    }
+
+    // Click without Shift: clear any existing cross-boundary selection
+    if (m_mode == SelectionMode::CrossBoundary || hasSelection()) {
+        clearSelection();
+    }
+
+    m_anchorItem = pressedItem;
     if (!m_anchorItem) {
         m_mode = SelectionMode::None;
         return false;
@@ -128,7 +143,15 @@ void SelectionManager::clearSelection()
 
 bool SelectionManager::hasSelection() const
 {
-    return m_mode == SelectionMode::CrossBoundary && m_anchorItem && m_currentItem;
+    if (m_mode == SelectionMode::CrossBoundary && m_anchorItem && m_currentItem)
+        return true;
+    for (auto *item : m_items) {
+        if (item->isTextItem() && !item->selectedMarkdown().isEmpty())
+            return true;
+        if (!item->isTextItem() && item->isFullySelected())
+            return true;
+    }
+    return false;
 }
 
 void SelectionManager::applySelection()

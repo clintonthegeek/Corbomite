@@ -32,6 +32,8 @@ private Q_SLOTS:
     void testCtrlAClearsAndSelectsAll();
     void testEscapeClearsSelection();
     void testClearSelectionResetsAll();
+    void testShiftClickExtendsCrossBoundary();
+    void testClickWithoutShiftClearsSelection();
 };
 
 void TestSelection::testInitialState()
@@ -457,6 +459,65 @@ void TestSelection::testClearSelectionResetsAll()
     QTextCursor c1 = text1->textControl()->textCursor();
     QVERIFY(!c1.hasSelection());
     QCOMPARE(mgr.mode(), SelectionMode::None);
+}
+
+void TestSelection::testShiftClickExtendsCrossBoundary()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("First"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("Second"));
+    scene.addItem(text2);
+    text2->setPos(0, 30);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, text2});
+
+    // Normal press in text1 to set anchor
+    mgr.handleMousePress(QPointF(10, 5), Qt::NoModifier);
+    mgr.handleMouseRelease(QPointF(10, 5));
+    QCOMPARE(mgr.mode(), SelectionMode::None);
+
+    // Shift+click in text2 should jump to CrossBoundary
+    mgr.handleMousePress(QPointF(10, 35), Qt::ShiftModifier);
+    QCOMPARE(mgr.mode(), SelectionMode::CrossBoundary);
+    QVERIFY(mgr.hasSelection());
+
+    // text1 should have selection (anchor item)
+    QTextCursor c1 = text1->textControl()->textCursor();
+    QVERIFY(c1.hasSelection());
+}
+
+void TestSelection::testClickWithoutShiftClearsSelection()
+{
+    QGraphicsScene scene;
+    auto *text1 = new MarkdownTextItem;
+    text1->setPlainText(QStringLiteral("First"));
+    scene.addItem(text1);
+    text1->setPos(0, 0);
+
+    auto *text2 = new MarkdownTextItem;
+    text2->setPlainText(QStringLiteral("Second"));
+    scene.addItem(text2);
+    text2->setPos(0, 30);
+
+    SelectionManager mgr;
+    mgr.setItems({text1, text2});
+
+    // Create a cross-boundary selection
+    mgr.handleMousePress(QPointF(10, 5), Qt::NoModifier);
+    mgr.handleMouseMove(QPointF(10, 35));
+    QCOMPARE(mgr.mode(), SelectionMode::CrossBoundary);
+    mgr.handleMouseRelease(QPointF(10, 35));
+
+    // Click without Shift should clear everything
+    mgr.handleMousePress(QPointF(10, 5), Qt::NoModifier);
+    QTextCursor c2 = text2->textControl()->textCursor();
+    QVERIFY(!c2.hasSelection());
 }
 
 QTEST_MAIN(TestSelection)
