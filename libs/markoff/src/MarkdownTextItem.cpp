@@ -21,7 +21,7 @@ MarkdownTextItem::MarkdownTextItem(QGraphicsItem *parent)
 {
     m_control->setDocument(m_document);
     m_control->setTextInteractionFlags(Qt::TextEditorInteraction);
-    m_document->setDocumentMargin(0);
+    m_document->setDocumentMargin(8);
 
     setFlag(ItemIsFocusable);
     setFlag(ItemAcceptsInputMethod);

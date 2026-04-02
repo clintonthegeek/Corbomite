@@ -63,7 +63,7 @@ private:
     QTimer *m_reparseTimer = nullptr;
     qreal m_itemWidth = 600.0;
     qreal m_spacing = 8.0;
-    qreal m_leftMargin = 40.0;
+    qreal m_leftMargin = 16.0;
     qreal m_topMargin = 12.0;
     QFont m_font;
     bool m_inReparse = false;
