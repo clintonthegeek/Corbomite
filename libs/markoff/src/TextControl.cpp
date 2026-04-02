@@ -974,6 +974,49 @@ void TextControlPrivate::keyPressEvent(QKeyEvent *e)
 
     repaintSelection();
 
+    // Table destruction: backspace at start of line after a table
+    if (e->key() == Qt::Key_Backspace && !cursor.hasSelection()
+        && !(e->modifiers() & ~(Qt::ShiftModifier | Qt::GroupSwitchModifier))) {
+        if (cursor.atBlockStart()) {
+            // Check if previous block is inside a table
+            QTextBlock prevBlock = cursor.block().previous();
+            if (prevBlock.isValid()) {
+                QTextCursor probe(prevBlock);
+                QTextTable *table = probe.currentTable();
+                if (table) {
+                    // Select the entire table frame
+                    int frameStart = table->firstPosition() - 1;
+                    int frameEnd = table->lastPosition() + 1;
+                    cursor.setPosition(frameStart);
+                    cursor.setPosition(frameEnd, QTextCursor::KeepAnchor);
+                    repaintSelection();
+                    e->accept();
+                    goto accept;
+                }
+            }
+        }
+    }
+
+    // Backspace with table selected: delete the table
+    if (e->key() == Qt::Key_Backspace && cursor.hasSelection()
+        && !(e->modifiers() & ~(Qt::ShiftModifier | Qt::GroupSwitchModifier))) {
+        // Check if the selection spans a table frame
+        int start = cursor.selectionStart();
+        int end = cursor.selectionEnd();
+        QTextBlock startBlock = cursor.document()->findBlock(start + 1);
+        if (startBlock.isValid()) {
+            QTextCursor startProbe(startBlock);
+            QTextTable *table = startProbe.currentTable();
+            if (table && table->lastPosition() < end) {
+                // Selection spans the table — delete it
+                cursor.removeSelectedText();
+                repaintSelection();
+                e->accept();
+                goto accept;
+            }
+        }
+    }
+
     if (e->key() == Qt::Key_Backspace && !(e->modifiers() & ~(Qt::ShiftModifier | Qt::GroupSwitchModifier))) {
         QTextBlockFormat blockFmt = cursor.blockFormat();
         QTextList *list = cursor.currentList();
