@@ -21,6 +21,11 @@ private Q_SLOTS:
     void testSerializeFromQTextTable();
     void testRoundTrip();
     void testRoundTripWithAlignment();
+    void testConvertSingleColumn();
+    void testSerializePreservesNewRows();
+    void testSerializePreservesNewColumns();
+    void testLongCellContent();
+    void testMultipleTablesIndependent();
 };
 
 void TestTable::testDetectSimpleTable()
@@ -191,6 +196,110 @@ void TestTable::testRoundTripWithAlignment()
     QCOMPARE(tables2[0].alignments[0], Qt::AlignLeft);
     QCOMPARE(tables2[0].alignments[1], Qt::AlignCenter);
     QCOMPARE(tables2[0].alignments[2], Qt::AlignRight);
+}
+
+void TestTable::testConvertSingleColumn()
+{
+    QTextDocument doc;
+    doc.setPlainText(QStringLiteral("| X |\n|---|\n| 1 |"));
+    auto tables = Markoff::TableHandler::detectTables(&doc);
+    QCOMPARE(tables.size(), 1);
+    QTextTable *tt = Markoff::TableHandler::convertToQTextTable(&doc, tables[0]);
+    QVERIFY(tt != nullptr);
+    QCOMPARE(tt->columns(), 1);
+    QCOMPARE(tt->rows(), 2);
+}
+
+void TestTable::testSerializePreservesNewRows()
+{
+    QTextDocument doc;
+    doc.setPlainText(QStringLiteral("| A | B |\n|---|---|\n| 1 | 2 |"));
+    auto tables = Markoff::TableHandler::detectTables(&doc);
+    auto aligns = tables[0].alignments;
+    QTextTable *tt = Markoff::TableHandler::convertToQTextTable(&doc, tables[0]);
+    QVERIFY(tt != nullptr);
+
+    // Add a row via QTextTable API
+    tt->appendRows(1);
+    QTextTableCell newCell = tt->cellAt(2, 0);
+    QTextCursor c = newCell.firstCursorPosition();
+    c.insertText(QStringLiteral("3"));
+
+    QString md = Markoff::TableHandler::serializeToMarkdown(tt, aligns);
+    QVERIFY(md.contains(QStringLiteral("| 3")));
+
+    // Verify the new row round-trips
+    QTextDocument doc2;
+    doc2.setPlainText(md);
+    auto tables2 = Markoff::TableHandler::detectTables(&doc2);
+    QCOMPARE(tables2[0].rows.size(), 2);  // original + new
+}
+
+void TestTable::testSerializePreservesNewColumns()
+{
+    QTextDocument doc;
+    doc.setPlainText(QStringLiteral("| A | B |\n|---|---|\n| 1 | 2 |"));
+    auto tables = Markoff::TableHandler::detectTables(&doc);
+    auto aligns = tables[0].alignments;
+    QTextTable *tt = Markoff::TableHandler::convertToQTextTable(&doc, tables[0]);
+    QVERIFY(tt != nullptr);
+    QCOMPARE(tt->columns(), 2);
+
+    // Add a column
+    tt->appendColumns(1);
+    QCOMPARE(tt->columns(), 3);
+
+    // The new column has empty cells — serialization should handle this
+    aligns.append(Qt::AlignLeft);
+    QString md = Markoff::TableHandler::serializeToMarkdown(tt, aligns);
+
+    QTextDocument doc2;
+    doc2.setPlainText(md);
+    auto tables2 = Markoff::TableHandler::detectTables(&doc2);
+    QCOMPARE(tables2.size(), 1);
+    QCOMPARE(tables2[0].headers.size(), 3);
+}
+
+void TestTable::testLongCellContent()
+{
+    QString longText = QStringLiteral("This is a very long cell content that should cause word wrapping in the table cell");
+    QTextDocument doc;
+    doc.setPlainText(QStringLiteral("| Header |\n|---|\n| ") + longText + QStringLiteral(" |"));
+    auto tables = Markoff::TableHandler::detectTables(&doc);
+    QCOMPARE(tables.size(), 1);
+    QTextTable *tt = Markoff::TableHandler::convertToQTextTable(&doc, tables[0]);
+    QVERIFY(tt != nullptr);
+
+    // Verify the long text is preserved
+    QTextTableCell cell = tt->cellAt(1, 0);
+    QCOMPARE(cell.firstCursorPosition().block().text(), longText);
+
+    // Round-trip
+    auto aligns = tables[0].alignments;
+    QString md = Markoff::TableHandler::serializeToMarkdown(tt, aligns);
+    QVERIFY(md.contains(longText));
+}
+
+void TestTable::testMultipleTablesIndependent()
+{
+    QTextDocument doc;
+    doc.setPlainText(QStringLiteral(
+        "| A | B |\n|---|---|\n| 1 | 2 |\n\nText between\n\n| X | Y | Z |\n|---|---|---|\n| a | b | c |"));
+    auto tables = Markoff::TableHandler::detectTables(&doc);
+    QCOMPARE(tables.size(), 2);
+
+    // Convert both (reverse order like the editor does)
+    QTextTable *tt2 = Markoff::TableHandler::convertToQTextTable(&doc, tables[1]);
+    QTextTable *tt1 = Markoff::TableHandler::convertToQTextTable(&doc, tables[0]);
+
+    QVERIFY(tt1 != nullptr);
+    QVERIFY(tt2 != nullptr);
+    QCOMPARE(tt1->columns(), 2);
+    QCOMPARE(tt2->columns(), 3);
+
+    // Verify cell content of each table is independent
+    QCOMPARE(tt1->cellAt(0, 0).firstCursorPosition().block().text(), QStringLiteral("A"));
+    QCOMPARE(tt2->cellAt(0, 0).firstCursorPosition().block().text(), QStringLiteral("X"));
 }
 
 QTEST_MAIN(TestTable)
