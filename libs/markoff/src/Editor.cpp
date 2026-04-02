@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Forked from Qt's QPlainTextEdit / QPlainTextDocumentLayout
-// Original: Copyright (C) The Qt Company Ltd. (GPL-2.0-only OR GPL-3.0-only)
+// Scrolling model follows QTextEdit exactly (pixel-based, QTextDocumentLayout).
+// Original QPlainTextEdit fork removed — QTextDocument's default layout handles
+// QTextTable, pixel scrolling, variable heights, and hit testing natively.
 
 #include "Editor_p.h"
 #include "TextControl.h"
@@ -57,58 +58,8 @@ static bool isTableCellBlock(const QTextBlock &block)
     return false;
 }
 
-// ============================================================================
-// PlainTextDocumentLayout — forked from QPlainTextDocumentLayout
-// ============================================================================
-
-/// Layout data for a QTextTable, stored via QTextFrame::setLayoutData().
-/// Simplified from Qt's QTextTableData — uses qreal instead of QFixed,
-/// no pagination, no border-collapse, no CSS box model.
-struct TableLayoutData : public QTextFrameLayoutData
-{
-    qreal cellPadding = 4.0;
-    qreal cellSpacing = 0.0;
-
-    QList<qreal> widths;           // column widths
-    QList<qreal> heights;          // row heights
-    QList<qreal> columnPositions;  // x position of each column
-    QList<qreal> rowPositions;     // y position of each row
-    QList<qreal> cellVerticalOffsets; // vertical alignment offsets per cell
-
-    qreal contentsWidth = 0;
-    qreal tableWidth = 0;
-    qreal tableHeight = 0;
-
-    bool dirty = true;
-
-    qreal cellWidth(int column, int colspan) const
-    {
-        return columnPositions.at(column + colspan - 1) + widths.at(column + colspan - 1)
-               - columnPositions.at(column);
-    }
-
-    void calcRowPosition(int row)
-    {
-        if (row > 0)
-            rowPositions[row] = rowPositions.at(row - 1) + heights.at(row - 1) + cellSpacing;
-    }
-
-    QRectF cellRect(const QTextTableCell &cell) const
-    {
-        const int row = cell.row();
-        const int rowSpan = cell.rowSpan();
-        const int column = cell.column();
-        const int colSpan = cell.columnSpan();
-        return QRectF(columnPositions.at(column),
-                      rowPositions.at(row),
-                      cellWidth(column, colSpan),
-                      rowPositions.at(row + rowSpan - 1) + heights.at(row + rowSpan - 1) - rowPositions.at(row));
-    }
-};
-
 static QTextTable *tableForBlock(const QTextBlock &block)
 {
-    // QTextCursor is lightweight — this is cheap
     QTextCursor cursor(block);
     return cursor.currentTable();
 }
@@ -118,572 +69,6 @@ static bool isFirstTableBlock(const QTextBlock &block, QTextTable *table)
     if (!table) return false;
     QTextTableCell firstCell = table->cellAt(0, 0);
     return firstCell.firstCursorPosition().block() == block;
-}
-
-static TableLayoutData *tableLayoutData(QTextTable *table)
-{
-    auto *data = static_cast<TableLayoutData *>(table->layoutData());
-    if (!data) {
-        data = new TableLayoutData;
-        table->setLayoutData(data);
-    }
-    return data;
-}
-
-// Private data for PlainTextDocumentLayout (replaces QPlainTextDocumentLayoutPrivate)
-struct PlainTextDocumentLayoutPrivate {
-    qreal width = 0;
-    qreal maximumWidth = 0;
-    int maximumWidthBlockNumber = 0;
-    int blockCount = 1;
-    Editor::Private *mainViewPrivate = nullptr;
-    bool blockUpdate = false;
-    bool blockDocumentSizeChanged = false;
-    int cursorWidth = 1;
-    int textLayoutFlags = 0;
-    mutable bool inBlockBoundingRect = false;  // recursion guard for table detection
-    bool inTableLayout = false;  // guard: don't re-dirty table during layoutTable()
-
-    void layoutBlock(QTextDocument *doc, const QTextBlock &block);
-    qreal blockWidth(const QTextBlock &block);
-    void relayout(QTextDocument *doc);
-};
-
-class PlainTextDocumentLayout : public QAbstractTextDocumentLayout {
-    Q_OBJECT
-public:
-    PlainTextDocumentLayout(QTextDocument *document);
-    ~PlainTextDocumentLayout() override;
-
-    void draw(QPainter *, const PaintContext &) override;
-    int hitTest(const QPointF &, Qt::HitTestAccuracy) const override;
-    int pageCount() const override;
-    QSizeF documentSize() const override;
-    QRectF frameBoundingRect(QTextFrame *) const override;
-    QRectF blockBoundingRect(const QTextBlock &block) const override;
-
-    void ensureBlockLayout(const QTextBlock &block) const;
-
-    void setCursorWidth(int width);
-    int cursorWidth() const;
-
-    void requestUpdate();
-    void setTextWidth(qreal newWidth);
-    qreal textWidth() const;
-
-    PlainTextDocumentLayoutPrivate *priv() { return &d; }
-    const PlainTextDocumentLayoutPrivate *priv() const { return &d; }
-
-protected:
-    void documentChanged(int from, int charsRemoved, int charsAdded) override;
-
-private:
-    void layoutBlock(const QTextBlock &block);
-    qreal blockWidth(const QTextBlock &block);
-
-    struct CellLayoutResult {
-        qreal height = 0;
-        qreal minimumWidth = 0;
-        qreal maximumWidth = 0;
-    };
-    CellLayoutResult layoutCellContent(QTextTable *table, const QTextTableCell &cell, qreal width);
-    void layoutTable(QTextTable *table);
-
-    PlainTextDocumentLayoutPrivate d;
-
-    friend class Editor;
-    friend struct Editor::Private;
-};
-
-
-PlainTextDocumentLayout::PlainTextDocumentLayout(QTextDocument *document)
-    : QAbstractTextDocumentLayout(document)
-{
-    // Set cursorWidth as a dynamic property so TextControl::cursorWidth()
-    // can read it via property("cursorWidth")
-    setProperty("cursorWidth", d.cursorWidth);
-}
-
-PlainTextDocumentLayout::~PlainTextDocumentLayout() {}
-
-void PlainTextDocumentLayout::draw(QPainter *, const PaintContext &)
-{
-}
-
-int PlainTextDocumentLayout::hitTest(const QPointF &, Qt::HitTestAccuracy) const
-{
-    return -1;
-}
-
-int PlainTextDocumentLayout::pageCount() const
-{ return 1; }
-
-QSizeF PlainTextDocumentLayout::documentSize() const
-{
-    return QSizeF(d.maximumWidth, document()->lineCount());
-}
-
-QRectF PlainTextDocumentLayout::frameBoundingRect(QTextFrame *) const
-{
-    return QRectF(0, 0, qMax(d.width, d.maximumWidth), qreal(INT_MAX));
-}
-
-QRectF PlainTextDocumentLayout::blockBoundingRect(const QTextBlock &block) const
-{
-    if (!block.isValid()) { return QRectF(); }
-
-    // Fast, recursion-safe check: is this block inside a table cell?
-    // Uses block format property — no cursor, no re-entrancy.
-    if (isTableCellBlock(block)) {
-        if (!d.inBlockBoundingRect) {
-            d.inBlockBoundingRect = true;
-            QTextTable *table = tableForBlock(block);
-            if (table && isFirstTableBlock(block, table)) {
-                TableLayoutData *td = tableLayoutData(table);
-                if (td->dirty)
-                    const_cast<PlainTextDocumentLayout*>(this)->layoutTable(table);
-                d.inBlockBoundingRect = false;
-                return QRectF(0, 0, td->tableWidth, td->tableHeight);
-            }
-            d.inBlockBoundingRect = false;
-        }
-        return QRectF(0, 0, 0, 0);
-    }
-
-    QTextLayout *tl = block.layout();
-    if (!tl->lineCount())
-        const_cast<PlainTextDocumentLayout*>(this)->layoutBlock(block);
-    QRectF br;
-    if (block.isVisible()) {
-        br = QRectF(QPointF(0, 0), tl->boundingRect().bottomRight());
-        if (tl->lineCount() == 1)
-            br.setWidth(qMax(br.width(), tl->lineAt(0).naturalTextWidth()));
-        qreal margin = document()->documentMargin();
-        br.adjust(0, 0, margin, 0);
-        if (!block.next().isValid())
-            br.adjust(0, 0, 0, margin);
-
-        // Variable block heights for live preview: if this block has a
-        // rendered height (from MarkoffBlockData), use it instead of the
-        // text layout height. This makes rendered blocks (which may be
-        // Variable block heights for rendered content
-        auto *data = dynamic_cast<MarkoffBlockData *>(block.userData());
-        if (data && data->displayMode == MarkoffBlockData::Rendered
-            && data->renderedHeight > 0) {
-            br.setHeight(data->renderedHeight);
-        }
-    }
-    return br;
-}
-
-void PlainTextDocumentLayout::ensureBlockLayout(const QTextBlock &block) const
-{
-    if (!block.isValid())
-        return;
-    QTextLayout *tl = block.layout();
-    if (!tl->lineCount())
-        const_cast<PlainTextDocumentLayout*>(this)->layoutBlock(block);
-}
-
-void PlainTextDocumentLayout::setCursorWidth(int width)
-{
-    d.cursorWidth = width;
-    // Also set as a dynamic property so TextControl::cursorWidth() can read it
-    setProperty("cursorWidth", width);
-}
-
-int PlainTextDocumentLayout::cursorWidth() const
-{
-    return d.cursorWidth;
-}
-
-void PlainTextDocumentLayout::requestUpdate()
-{
-    emit update(QRectF(0., -document()->documentMargin(), 1000000000., 1000000000.));
-}
-
-void PlainTextDocumentLayout::setTextWidth(qreal newWidth)
-{
-    d.width = d.maximumWidth = newWidth;
-    d.relayout(document());
-}
-
-qreal PlainTextDocumentLayout::textWidth() const
-{
-    return d.width;
-}
-
-void PlainTextDocumentLayoutPrivate::relayout(QTextDocument *doc)
-{
-    QTextBlock block = doc->firstBlock();
-    while (block.isValid()) {
-        block.layout()->clearLayout();
-        block.setLineCount(block.isVisible() ? 1 : 0);
-        block = block.next();
-    }
-    // Signal update via the layout's document; the layout will emit update()
-    // when documentChanged is called, or we can request it explicitly.
-}
-
-void PlainTextDocumentLayout::documentChanged(int from, int charsRemoved, int charsAdded)
-{
-    QTextDocument *doc = document();
-    int newBlockCount = doc->blockCount();
-    int charsChanged = charsRemoved + charsAdded;
-
-    QTextBlock changeStartBlock = doc->findBlock(from);
-
-    // If we're inside layoutTable(), block layout changes trigger
-    // documentChanged but we must NOT re-dirty the table.
-    if (d.inTableLayout) {
-        d.blockCount = newBlockCount;
-        return;
-    }
-
-    // If the change is inside a table, mark the table layout dirty
-    // and invalidate the whole viewport
-    QTextTable *table = tableForBlock(changeStartBlock);
-    if (table) {
-        TableLayoutData *td = tableLayoutData(table);
-        td->dirty = true;
-        d.blockCount = newBlockCount;
-        emit update(QRectF(0., -doc->documentMargin(), 1000000000., 1000000000.));
-        return;
-    }
-
-    QTextBlock changeEndBlock = doc->findBlock(qMax(0, from + charsChanged - 1));
-    bool blockVisibilityChanged = false;
-
-    if (changeStartBlock == changeEndBlock && newBlockCount == d.blockCount) {
-        QTextBlock block = changeStartBlock;
-        if (block.isValid() && block.length()) {
-            QRectF oldBr = blockBoundingRect(block);
-            layoutBlock(block);
-            QRectF newBr = blockBoundingRect(block);
-            if (newBr.height() == oldBr.height()) {
-                if (!d.blockUpdate)
-                    emit updateBlock(block);
-                return;
-            }
-        }
-    } else {
-        QTextBlock block = changeStartBlock;
-        do {
-            block.clearLayout();
-            if (block.isVisible()
-                    ? (block.lineCount() == 0)
-                    : (block.lineCount() > 0)) {
-                blockVisibilityChanged = true;
-                block.setLineCount(block.isVisible() ? 1 : 0);
-            }
-            if (block == changeEndBlock)
-                break;
-            block = block.next();
-        } while(block.isValid());
-    }
-
-    if (newBlockCount != d.blockCount || blockVisibilityChanged) {
-        int changeEnd = changeEndBlock.blockNumber();
-        int blockDiff = newBlockCount - d.blockCount;
-        int oldChangeEnd = changeEnd - blockDiff;
-
-        if (d.maximumWidthBlockNumber > oldChangeEnd)
-            d.maximumWidthBlockNumber += blockDiff;
-
-        d.blockCount = newBlockCount;
-        if (d.blockCount == 1)
-            d.maximumWidth = d.blockWidth(doc->firstBlock());
-
-        if (!d.blockDocumentSizeChanged)
-            emit documentSizeChanged(documentSize());
-
-        if (blockDiff == 1 && changeEnd == newBlockCount -1 ) {
-            if (!d.blockUpdate) {
-                QTextBlock b = changeStartBlock;
-                for(;;) {
-                    emit updateBlock(b);
-                    if (b == changeEndBlock)
-                        break;
-                    b = b.next();
-                }
-            }
-            return;
-        }
-    }
-
-    if (!d.blockUpdate)
-        emit update(QRectF(0., -doc->documentMargin(), 1000000000., 1000000000.));
-}
-
-void PlainTextDocumentLayout::layoutBlock(const QTextBlock &block)
-{
-    d.layoutBlock(document(), block);
-}
-
-void PlainTextDocumentLayoutPrivate::layoutBlock(QTextDocument *doc, const QTextBlock &block)
-{
-    qreal margin = doc->documentMargin();
-    qreal blockMaximumWidth = 0;
-
-    qreal height = 0;
-    QTextLayout *tl = block.layout();
-    QTextOption option = doc->defaultTextOption();
-    tl->setTextOption(option);
-
-    int extraMargin = 0;
-    if (option.flags() & QTextOption::AddSpaceForLineAndParagraphSeparators) {
-        QFontMetrics fm(block.charFormat().font());
-        extraMargin += fm.horizontalAdvance(QChar(0x21B5));
-    }
-    tl->beginLayout();
-    qreal availableWidth = width;
-    if (availableWidth <= 0) {
-        availableWidth = qreal(INT_MAX);
-    }
-    availableWidth -= 2*margin + extraMargin;
-    while (1) {
-        QTextLine line = tl->createLine();
-        if (!line.isValid())
-            break;
-        line.setLeadingIncluded(true);
-        line.setLineWidth(availableWidth);
-        line.setPosition(QPointF(margin, height));
-        height += line.height();
-        if (line.leading() < 0)
-            height += qCeil(line.leading());
-        blockMaximumWidth = qMax(blockMaximumWidth, line.naturalTextWidth() + 2*margin);
-    }
-    tl->endLayout();
-
-    int previousLineCount = doc->lineCount();
-    const_cast<QTextBlock&>(block).setLineCount(block.isVisible() ? tl->lineCount() : 0);
-    int lineCount = doc->lineCount();
-
-    bool emitDocumentSizeChanged = previousLineCount != lineCount;
-    if (blockMaximumWidth > maximumWidth) {
-        maximumWidth = blockMaximumWidth;
-        maximumWidthBlockNumber = block.blockNumber();
-        emitDocumentSizeChanged = true;
-    } else if (block.blockNumber() == maximumWidthBlockNumber && blockMaximumWidth < maximumWidth) {
-        QTextBlock b = doc->firstBlock();
-        maximumWidth = 0;
-        QTextBlock maximumBlock;
-        while (b.isValid()) {
-            qreal bw = blockWidth(b);
-            if (bw > maximumWidth) {
-                maximumWidth = bw;
-                maximumBlock = b;
-            }
-            b = b.next();
-        }
-        if (maximumBlock.isValid()) {
-            maximumWidthBlockNumber = maximumBlock.blockNumber();
-            emitDocumentSizeChanged = true;
-        }
-    }
-    if (emitDocumentSizeChanged && !blockDocumentSizeChanged) {
-        auto *layout = qobject_cast<PlainTextDocumentLayout*>(doc->documentLayout());
-        if (layout)
-            emit layout->documentSizeChanged(layout->documentSize());
-    }
-}
-
-qreal PlainTextDocumentLayout::blockWidth(const QTextBlock &block)
-{
-    return d.blockWidth(block);
-}
-
-qreal PlainTextDocumentLayoutPrivate::blockWidth(const QTextBlock &block)
-{
-    QTextLayout *layout = block.layout();
-    if (!layout->lineCount())
-        return 0;
-    qreal bw = 0;
-    for (int i = 0; i < layout->lineCount(); ++i) {
-        QTextLine line = layout->lineAt(i);
-        bw = qMax(line.naturalTextWidth() + 8, bw);
-    }
-    return bw;
-}
-
-
-// ============================================================================
-// Table layout — harvested from Qt's QTextDocumentLayout, simplified
-// ============================================================================
-
-PlainTextDocumentLayout::CellLayoutResult
-PlainTextDocumentLayout::layoutCellContent(
-    QTextTable * /*table*/, const QTextTableCell &cell, qreal width)
-{
-    CellLayoutResult result;
-    QTextBlock block = cell.firstCursorPosition().block();
-    QTextBlock lastBlock = cell.lastCursorPosition().block();
-
-    while (block.isValid()) {
-        QTextLayout *tl = block.layout();
-        QTextOption option = document()->defaultTextOption();
-        option.setTextDirection(tl->textOption().textDirection());
-        option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
-
-        tl->setTextOption(option);
-        tl->setCacheEnabled(true);
-
-        const qreal availWidth = qMax(width, qreal(0));
-        tl->beginLayout();
-        qreal textHeight = 0;
-        qreal maxLineWidth = 0;
-        while (true) {
-            QTextLine line = tl->createLine();
-            if (!line.isValid())
-                break;
-            line.setLeadingIncluded(true);
-            line.setLineWidth(availWidth);
-            line.setPosition(QPointF(0, textHeight));
-            textHeight += line.height();
-            maxLineWidth = qMax(maxLineWidth, line.naturalTextWidth());
-        }
-        tl->endLayout();
-
-        result.height += textHeight;
-        result.maximumWidth = qMax(result.maximumWidth, maxLineWidth);
-        // minimumWidth() on QTextLayout returns the width of the longest
-        // word — the smallest width that won't break mid-word.
-        result.minimumWidth = qMax(result.minimumWidth, tl->minimumWidth());
-
-        if (block == lastBlock)
-            break;
-        block = block.next();
-    }
-
-    return result;
-}
-
-void PlainTextDocumentLayout::layoutTable(QTextTable *table)
-{
-    d.inTableLayout = true;
-    TableLayoutData *td = tableLayoutData(table);
-    const int rows = table->rows();
-    const int cols = table->columns();
-    const QTextTableFormat fmt = table->format();
-
-    td->cellPadding = fmt.cellPadding();
-    td->cellSpacing = fmt.cellSpacing();
-
-    const qreal availableWidth = d.width > 0 ? d.width : 500.0;
-
-    // Column width constraints from the table format
-    QList<QTextLength> constraints = fmt.columnWidthConstraints();
-    constraints.resize(cols);
-
-    // Step 1: Compute min/max widths for each column
-    td->widths.resize(cols);
-    td->widths.fill(0);
-    QList<qreal> minWidths(cols, 1.0);
-    QList<qreal> maxWidths(cols, 0.0);
-
-    for (int c = 0; c < cols; ++c) {
-        for (int r = 0; r < rows; ++r) {
-            QTextTableCell cell = table->cellAt(r, c);
-            if (cell.column() != c) continue; // skip spanned
-            int cspan = cell.columnSpan();
-
-            qreal padding = td->cellPadding * 2;
-            CellLayoutResult lr = layoutCellContent(table, cell, 10000.0);
-
-            qreal minW = (lr.minimumWidth + padding) / cspan;
-            qreal maxW = (lr.maximumWidth + padding) / cspan;
-
-            for (int n = 0; n < cspan; ++n) {
-                minWidths[c + n] = qMax(minWidths[c + n], minW);
-                maxWidths[c + n] = qMax(maxWidths[c + n], maxW);
-            }
-        }
-    }
-
-    // Step 2: Distribute widths
-    qreal totalAvailable = availableWidth - (cols + 1) * td->cellSpacing - cols * td->cellPadding * 2;
-    qreal totalMin = 0;
-    for (int c = 0; c < cols; ++c) totalMin += minWidths[c];
-
-    if (totalMin >= totalAvailable) {
-        // Minimum widths exceed available — just use minimums
-        for (int c = 0; c < cols; ++c)
-            td->widths[c] = minWidths[c];
-    } else {
-        // Distribute extra space proportionally to max-min gap
-        qreal extra = totalAvailable - totalMin;
-        qreal totalGap = 0;
-        for (int c = 0; c < cols; ++c)
-            totalGap += qMax(maxWidths[c] - minWidths[c], qreal(0));
-
-        for (int c = 0; c < cols; ++c) {
-            if (totalGap > 0) {
-                qreal gap = qMax(maxWidths[c] - minWidths[c], qreal(0));
-                td->widths[c] = minWidths[c] + extra * gap / totalGap;
-            } else {
-                td->widths[c] = minWidths[c] + extra / cols;
-            }
-        }
-    }
-
-    // Step 3: Column positions (prefix sum)
-    td->columnPositions.resize(cols);
-    td->columnPositions[0] = td->cellSpacing;
-    for (int c = 1; c < cols; ++c)
-        td->columnPositions[c] = td->columnPositions[c-1] + td->widths[c-1] + td->cellSpacing;
-
-    td->contentsWidth = td->columnPositions.last() + td->widths.last() + td->cellSpacing;
-
-    // Step 4: Row heights
-    td->heights.resize(rows);
-    td->heights.fill(0);
-    td->rowPositions.resize(rows);
-    td->rowPositions[0] = td->cellSpacing;
-
-    QList<qreal> heightToDistribute(cols, 0);
-
-    for (int r = 0; r < rows; ++r) {
-        td->calcRowPosition(r);
-
-        for (int c = 0; c < cols; ++c) {
-            QTextTableCell cell = table->cellAt(r, c);
-            if (cell.column() != c) continue; // skip spanned
-
-            int rspan = cell.rowSpan();
-            int cspan = cell.columnSpan();
-
-            if (rspan > 1 && cell.row() != r) {
-                // This cell started in an earlier row; only add remaining height at last row
-                if (cell.row() + rspan - 1 == r)
-                    td->heights[r] = qMax(td->heights[r], heightToDistribute[c]);
-                continue;
-            }
-
-            qreal cellW = td->cellWidth(c, cspan) - td->cellPadding * 2;
-            CellLayoutResult lr = layoutCellContent(table, cell, cellW);
-            qreal height = lr.height + td->cellPadding * 2;
-
-            if (rspan > 1)
-                heightToDistribute[c] = height;
-            else
-                td->heights[r] = qMax(td->heights[r], height);
-        }
-
-        // Subtract this row's contribution from pending row-span heights
-        qreal effectiveHeight = td->heights[r] + td->cellSpacing;
-        for (int c = 0; c < cols; ++c)
-            heightToDistribute[c] = qMax(heightToDistribute[c] - effectiveHeight, qreal(0));
-    }
-
-    // Step 5: Vertical alignment offsets (all top-aligned for now)
-    td->cellVerticalOffsets.resize(rows * cols);
-    td->cellVerticalOffsets.fill(0);
-
-    // Final size
-    td->tableWidth = td->contentsWidth;
-    td->tableHeight = td->rowPositions.last() + td->heights.last() + td->cellSpacing;
-    td->dirty = false;
-    d.inTableLayout = false;
 }
 
 // ============================================================================
@@ -715,7 +100,6 @@ public:
     QVariant loadResource(int /*type*/, const QUrl &/*name*/) { return QVariant(); }
 
     Editor *textEdit;
-    int topBlock = 0;
     QTextBlock firstVisibleBlock() const;
 };
 
@@ -739,102 +123,29 @@ void EditorControl::insertFromMimeData(const QMimeData *source) {
 
 QTextBlock EditorControl::firstVisibleBlock() const
 {
-    return document()->findBlockByNumber(topBlock);
+    // Walk blocks using the layout's absolute positions to find
+    // the first block visible at the current scroll offset.
+    QAbstractTextDocumentLayout *layout = document()->documentLayout();
+    qreal scrollY = textEdit->verticalScrollBar()->value();
+    QTextBlock block = document()->begin();
+    while (block.isValid()) {
+        QRectF r = layout->blockBoundingRect(block);
+        if (r.top() + r.height() > scrollY)
+            return block;
+        block = block.next();
+    }
+    return document()->lastBlock();
 }
 
-int EditorControl::hitTest(const QPointF &point, Qt::HitTestAccuracy) const {
-    int currentBlockNumber = topBlock;
-    QTextBlock currentBlock = document()->findBlockByNumber(currentBlockNumber);
-    if (!currentBlock.isValid())
-        return -1;
-
-    PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
-    Q_ASSERT(documentLayout);
-
-    QPointF offset;
-    QRectF r = documentLayout->blockBoundingRect(currentBlock);
-    while (currentBlock.next().isValid() && r.bottom() + offset.y() <= point.y()) {
-        offset.ry() += r.height();
-        currentBlock = currentBlock.next();
-        ++currentBlockNumber;
-        r = documentLayout->blockBoundingRect(currentBlock);
-    }
-    while (currentBlock.previous().isValid() && r.top() + offset.y() > point.y()) {
-        offset.ry() -= r.height();
-        currentBlock = currentBlock.previous();
-        --currentBlockNumber;
-        r = documentLayout->blockBoundingRect(currentBlock);
-    }
-
-    if (!currentBlock.isValid())
-        return -1;
-    QTextLayout *layout = currentBlock.layout();
-    int off = 0;
-    QPointF pos = point - offset;
-    for (int i = 0; i < layout->lineCount(); ++i) {
-        QTextLine line = layout->lineAt(i);
-        const QRectF lr = line.naturalTextRect();
-        if (lr.top() > pos.y()) {
-            off = qMin(off, line.textStart());
-        } else if (lr.bottom() <= pos.y()) {
-            off = qMax(off, line.textStart() + line.textLength());
-        } else {
-            off = line.xToCursor(pos.x(), overwriteMode() ?
-                                 QTextLine::CursorOnCharacter : QTextLine::CursorBetweenCharacters);
-            break;
-        }
-    }
-
-    return currentBlock.position() + off;
+int EditorControl::hitTest(const QPointF &point, Qt::HitTestAccuracy accuracy) const {
+    // QTextDocumentLayout has its own hitTest. The point is already in
+    // document coordinates (processEvent transforms it).
+    return document()->documentLayout()->hitTest(point, accuracy);
 }
 
 QRectF EditorControl::blockBoundingRect(const QTextBlock &block) const {
-    int currentBlockNumber = topBlock;
-    int blockNumber = block.blockNumber();
-    QTextBlock currentBlock = document()->findBlockByNumber(currentBlockNumber);
-    if (!currentBlock.isValid())
-        return QRectF();
-    Q_ASSERT(currentBlock.blockNumber() == currentBlockNumber);
-    QTextDocument *doc = document();
-    PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(doc->documentLayout());
-    Q_ASSERT(documentLayout);
-
-    QPointF offset;
-    if (!block.isValid())
-        return QRectF();
-    QRectF r = documentLayout->blockBoundingRect(currentBlock);
-    int maxVerticalOffset = r.height();
-    while (currentBlockNumber < blockNumber && offset.y() - maxVerticalOffset <= 2* textEdit->viewport()->height()) {
-        offset.ry() += r.height();
-        currentBlock = currentBlock.next();
-        ++currentBlockNumber;
-        if (!currentBlock.isVisible()) {
-            currentBlock = doc->findBlockByLineNumber(currentBlock.firstLineNumber());
-            currentBlockNumber = currentBlock.blockNumber();
-        }
-        r = documentLayout->blockBoundingRect(currentBlock);
-    }
-    while (currentBlockNumber > blockNumber && offset.y() + maxVerticalOffset >= -textEdit->viewport()->height()) {
-        currentBlock = currentBlock.previous();
-        --currentBlockNumber;
-        while (!currentBlock.isVisible()) {
-            currentBlock = currentBlock.previous();
-            --currentBlockNumber;
-        }
-        if (!currentBlock.isValid())
-            break;
-
-        r = documentLayout->blockBoundingRect(currentBlock);
-        offset.ry() -= r.height();
-    }
-
-    if (currentBlockNumber != blockNumber) {
-        r = documentLayout->blockBoundingRect(block);
-        if (currentBlockNumber > blockNumber)
-            offset.ry() -= r.height();
-    }
-    r.translate(offset);
-    return r;
+    // QTextDocumentLayout positions blocks with absolute Y offsets.
+    return document()->documentLayout()->blockBoundingRect(block);
 }
 
 QString EditorControl::anchorAt(const QPointF &pos) const
@@ -858,17 +169,15 @@ void Editor::Private::init(const QString &txt)
 {
     control = new EditorControl(q);
 
+    // QTextDocument creates a QTextDocumentLayout by default.
+    // We use it as-is — no custom layout needed.
     QTextDocument *doc = new QTextDocument(control);
-    QAbstractTextDocumentLayout *layout = new PlainTextDocumentLayout(doc);
-    doc->setDocumentLayout(layout);
     control->setDocument(doc);
 
     highlighter = new MarkdownHighlighter(doc);
 
     control->setPalette(q->palette());
 
-    QObject::connect(q->verticalScrollBar(), &QAbstractSlider::actionTriggered,
-                     q, [this](int action) { verticalScrollbarActionTriggered(action); });
     QObject::connect(control, &TextControl::microFocusChanged, q,
                      [this]() { q->updateMicroFocus(); });
     QObject::connect(control, &TextControl::documentSizeChanged, q,
@@ -879,14 +188,20 @@ void Editor::Private::init(const QString &txt)
     QObject::connect(control, &TextControl::textChanged, q, [this]() { q->updateMicroFocus(); });
 
     // Live preview: re-parse on text changes.
-    // Deferred with QTimer::singleShot(0) so the reparse runs AFTER the
-    // current event fully completes. This handles multi-step operations
-    // (drag-drop = delete + insert, undo, etc.) that fire textChanged on
-    // intermediate states. The reparse always sees the final document.
-    QObject::connect(control, &TextControl::textChanged, q, [this]() {
-        if (mode == Editor::Mode::LivePreview && !needsReparse && !inReparse) {
+    // Debounced: wait 150ms after the last keystroke before reparsing.
+    // This avoids full-document reparse on every character typed.
+    // The reparse (md4c + tree-sitter + rehighlight + block walks)
+    // is O(N) over the whole document — too expensive per keystroke.
+    auto *reparseTimer = new QTimer(q);
+    reparseTimer->setSingleShot(true);
+    reparseTimer->setInterval(150);
+    QObject::connect(control, &TextControl::textChanged, q, [this, reparseTimer]() {
+        if (mode == Editor::Mode::LivePreview && !inReparse) {
             needsReparse = true;
-            QTimer::singleShot(0, q, [this]() {
+            reparseTimer->start();  // restart 150ms countdown
+        }
+    });
+    QObject::connect(reparseTimer, &QTimer::timeout, q, [this]() {
                 if (!needsReparse) return;
                 needsReparse = false;
                 inReparse = true;
@@ -901,26 +216,37 @@ void Editor::Private::init(const QString &txt)
                 // is done. These functions walk all blocks and would corrupt
                 // QTextTable cell structure if tables existed during their run.
                 convertTables();
-                inReparse = false;
-                inReparse = false;
-            });
-        }
+                // Clear inReparse on the NEXT event loop iteration,
+                // after any deferred rehighlight format changes have
+                // fired their textChanged signals (still suppressed).
+                QTimer::singleShot(0, q, [this]() {
+                    inReparse = false;
+                    needsReparse = false;
+                });
     });
 
     // Live preview: update display modes and highlighter on cursor movement.
     // Suppressed during mouse drag to avoid per-pixel rehighlighting.
     QObject::connect(control, &TextControl::cursorPositionChanged, q, [this]() {
-        if (mouseDragging)
-            return;  // defer until mouse release
+        if (mouseDragging || inReparse)
+            return;
+
+        // Temporarily suppress textChanged -> reparse during display mode
+        // updates, because setUserData() triggers documentChanged.
+        bool wasInReparse = inReparse;
+        inReparse = true;
 
         if (mode == Editor::Mode::LivePreview) {
             int cursorBlockNum = control->textCursor().block().blockNumber();
             highlighter->setCursorPosition(cursorBlockNum, control->textCursor().positionInBlock());
         }
         updateBlockDisplayModes();
+        inReparse = wasInReparse;
     });
 
-    doc->setTextWidth(-1);
+    // Use setPageSize like QTextEdit — initially null to avoid relayouting
+    // until the widget is shown. relayoutDocument() sets it to viewport width.
+    doc->setPageSize(QSize(0, 0));
     doc->documentLayout()->setPaintDevice(q->viewport());
     doc->setDefaultFont(q->font());
 
@@ -928,7 +254,7 @@ void Editor::Private::init(const QString &txt)
         control->setPlainText(txt);
 
     q->horizontalScrollBar()->setSingleStep(20);
-    q->verticalScrollBar()->setSingleStep(1);
+    q->verticalScrollBar()->setSingleStep(20);
 
     q->viewport()->setBackgroundRole(QPalette::Base);
     q->setAcceptDrops(true);
@@ -937,9 +263,6 @@ void Editor::Private::init(const QString &txt)
     q->setAttribute(Qt::WA_InputMethodEnabled);
 
     // Ensure cursor is visible and blinking when the widget gets focus.
-    // Qt's QPlainTextEdit has a showCursorOnInitialShow mechanism in
-    // showEvent. We simplify: set showCursorOnInitialShow and handle
-    // it in the first focusInEvent.
     showCursorOnInitialShow = 1;
     q->setInputMethodHints(Qt::ImhMultiLine);
 
@@ -950,16 +273,10 @@ void Editor::Private::init(const QString &txt)
 
 void Editor::Private::cursorPositionChanged()
 {
-    pageUpDownLastCursorYIsValid = false;
-
     // Track active atomic block and update highlighter cursor
     if (mode == Editor::Mode::LivePreview) {
         int cursorBlockNum = control->textCursor().block().blockNumber();
-
-        // Update highlighter so it knows which blocks to show raw
         highlighter->setCursorPosition(cursorBlockNum, control->textCursor().positionInBlock());
-
-
     }
 }
 
@@ -974,12 +291,13 @@ void Editor::Private::reparseDocument()
     revertTables();
 
     // Parse for rendering (reading view, canvas cards)
-    parsedDoc = Document::fromMarkdown(q->toPlainText());
+    const QString text = q->toPlainText();
+    parsedDoc = Document::fromMarkdown(text);
 
     // Parse the exact editor text with tree-sitter for the highlighter.
     // Tree-sitter produces a CST with explicit delimiter nodes and byte
     // offsets that match the QTextDocument positions exactly.
-    tsParser.parse(q->toPlainText());
+    tsParser.parse(text);
     auto spans = tsParser.buildSpanMap();
     highlighter->setSpanMap(std::move(spans));
 
@@ -1070,7 +388,6 @@ void Editor::Private::revertTables()
     if (liveTables.isEmpty())
         return;
 
-
     // Revert in reverse order to preserve document positions
     for (int i = liveTables.size() - 1; i >= 0; --i) {
         QTextTable *tt = liveTables[i];
@@ -1080,11 +397,14 @@ void Editor::Private::revertTables()
         const auto &aligns = i < tableAlignments.size()
             ? tableAlignments[i] : QList<Qt::Alignment>();
         QString md = TableHandler::serializeToMarkdown(tt, aligns);
+        // Trim trailing newline — the frame boundary replacement
+        // already provides block separation. An extra newline adds
+        // a blank block that accumulates on each revert/convert cycle.
+        if (md.endsWith(QLatin1Char('\n')))
+            md.chop(1);
 
         // To remove a QTextTable frame entirely (not just empty its cells),
         // we must select from OUTSIDE the frame boundaries.
-        // QTextFrame::firstPosition() / lastPosition() are INSIDE the frame.
-        // The frame boundary characters are at firstPosition()-1 and lastPosition()+1.
         int frameStart = tt->firstPosition() - 1;
         int frameEnd = tt->lastPosition() + 1;
 
@@ -1092,7 +412,7 @@ void Editor::Private::revertTables()
         cursor.setPosition(frameStart);
         cursor.setPosition(frameEnd, QTextCursor::KeepAnchor);
         cursor.beginEditBlock();
-        cursor.insertText(md);  // replaceSelectedText: removes frame + inserts pipe text
+        cursor.insertText(md);
         cursor.endEditBlock();
     }
     liveTables.clear();
@@ -1196,18 +516,12 @@ void Editor::Private::renderBlock(QTextBlock &block)
     }
 
     // Render this block's markdown through our renderer
-    // Rendered blocks use RenderSettings (same as reading view) — not the
-    // editor's source font. The layout engine handles the height difference.
     auto blockDoc = Document::fromMarkdown(blockText);
     auto rendered = renderer.renderToTextDocument(*blockDoc);
 
-    // Match the editor's document margin so rendered content aligns
-    // with raw text at the same x-offset
     rendered->setDocumentMargin(q->document()->documentMargin());
 
-    // Strip paragraph margins from rendered blocks — the editor's layout
-    // already handles inter-block spacing. Without this, we get double
-    // spacing (editor block gap + rendered <p> margins).
+    // Strip paragraph margins from rendered blocks
     QTextBlock renderedBlock = rendered->begin();
     while (renderedBlock.isValid()) {
         QTextCursor c(renderedBlock);
@@ -1218,7 +532,6 @@ void Editor::Private::renderBlock(QTextBlock &block)
         renderedBlock = renderedBlock.next();
     }
 
-    // Get the viewport width for rendering
     int width = q->viewport()->width();
     rendered->setTextWidth(width);
 
@@ -1239,7 +552,7 @@ void Editor::Private::renderBlock(QTextBlock &block)
 }
 
 // ---------------------------------------------------------------------------
-// Atomic block management
+// Decorated range detection
 // ---------------------------------------------------------------------------
 
 void Editor::Private::detectDecoratedRanges()
@@ -1351,165 +664,92 @@ const DecoratedRange *Editor::Private::decoratedRangeAt(int blockNumber) const
     return nullptr;
 }
 
-void Editor::Private::verticalScrollbarActionTriggered(int action)
+// ============================================================================
+// Scrolling — follows QTextEdit exactly (pixel-based)
+// ============================================================================
+
+void Editor::Private::adjustScrollbars()
 {
-    const auto a = static_cast<QAbstractSlider::SliderAction>(action);
-    switch (a) {
-    case QAbstractSlider::SliderPageStepAdd:
-        pageUpDown(QTextCursor::Down, QTextCursor::MoveAnchor, false);
-        break;
-    case QAbstractSlider::SliderPageStepSub:
-        pageUpDown(QTextCursor::Up, QTextCursor::MoveAnchor, false);
-        break;
-    default:
-        break;
-    }
-}
+    if (ignoreAutomaticScrollbarAdjustment)
+        return;
+    ignoreAutomaticScrollbarAdjustment = true;
 
-qreal Editor::Private::verticalOffset(int topBlock, int topLine) const
-{
-    qreal offset = 0;
-    QTextDocument *doc = control->document();
-
-    if (topLine) {
-        QTextBlock currentBlock = doc->findBlockByNumber(topBlock);
-        PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(doc->documentLayout());
-        Q_ASSERT(documentLayout);
-        QRectF r = documentLayout->blockBoundingRect(currentBlock);
-        Q_UNUSED(r);
-        QTextLayout *layout = currentBlock.layout();
-        if (layout && topLine <= layout->lineCount()) {
-            QTextLine line = layout->lineAt(topLine - 1);
-            const QRectF lr = line.naturalTextRect();
-            offset = lr.bottom();
-        }
-    }
-    if (topBlock == 0 && topLine == 0)
-        offset -= doc->documentMargin();
-    return offset;
-}
-
-qreal Editor::Private::verticalOffset() const {
-    return verticalOffset(control->topBlock, topLine) + topLineFracture;
-}
-
-void Editor::Private::setTopLine(int visualTopLine, int dx)
-{
-    QTextDocument *doc = control->document();
-    QTextBlock block = doc->findBlockByLineNumber(visualTopLine);
-    int blockNumber = block.blockNumber();
-    int lineNumber = visualTopLine - block.firstLineNumber();
-    setTopBlock(blockNumber, lineNumber, dx);
-}
-
-void Editor::Private::setTopBlock(int blockNumber, int lineNumber, int dx)
-{
     auto *vbar = q->verticalScrollBar();
+    auto *hbar = q->horizontalScrollBar();
+    auto *vp = q->viewport();
+    QAbstractTextDocumentLayout *layout = control->document()->documentLayout();
+
+    QSize viewportSize = vp->size();
+    QSizeF docSize = layout->documentSize();
+
+    // Iterate like QTextEdit to stabilize scrollbar/viewport sizes
+    for (int i = 0; i < 4; ++i) {
+        hbar->setRange(0, qMax(0, static_cast<int>(docSize.width()) - viewportSize.width()));
+        hbar->setPageStep(viewportSize.width());
+
+        vbar->setRange(0, qMax(0, static_cast<int>(docSize.height()) - viewportSize.height()));
+        vbar->setPageStep(viewportSize.height());
+
+        if (q->isRightToLeft())
+            vp->update();
+
+        const QSize oldViewportSize = viewportSize;
+        viewportSize = vp->size();
+        if (viewportSize.width() != oldViewportSize.width())
+            relayoutDocument();
+
+        QSizeF newDocSize = layout->documentSize();
+        if (viewportSize == oldViewportSize
+            && qFuzzyCompare(newDocSize.width(), docSize.width())
+            && qFuzzyCompare(newDocSize.height(), docSize.height()))
+            break;
+        docSize = newDocSize;
+    }
+
+    ignoreAutomaticScrollbarAdjustment = false;
+}
+
+void Editor::Private::ensureVisible(const QRectF &_rect)
+{
+    const QRect rect = _rect.toRect();
+    auto *vbar = q->verticalScrollBar();
+    auto *hbar = q->horizontalScrollBar();
     auto *vp = q->viewport();
 
-    blockNumber = qMax(0, blockNumber);
-    lineNumber = qMax(0, lineNumber);
-    QTextDocument *doc = control->document();
-    QTextBlock block = doc->findBlockByNumber(blockNumber);
+    if ((vbar->isVisible() && vbar->maximum() < rect.bottom())
+        || (hbar->isVisible() && hbar->maximum() < rect.right()))
+        adjustScrollbars();
 
-    int newTopLine = block.firstLineNumber() + lineNumber;
-    int maxTopLine = vbar->maximum();
+    const int visibleWidth = vp->width();
+    const int visibleHeight = vp->height();
+    const bool rtl = q->isRightToLeft();
 
-    if (newTopLine > maxTopLine) {
-        block = doc->findBlockByLineNumber(maxTopLine);
-        blockNumber = block.blockNumber();
-        lineNumber = maxTopLine - block.firstLineNumber();
+    if (rect.x() < horizontalOffset()) {
+        if (rtl)
+            hbar->setValue(hbar->maximum() - rect.x());
+        else
+            hbar->setValue(rect.x());
+    } else if (rect.x() + rect.width() > horizontalOffset() + visibleWidth) {
+        if (rtl)
+            hbar->setValue(hbar->maximum() - (rect.x() + rect.width() - visibleWidth));
+        else
+            hbar->setValue(rect.x() + rect.width() - visibleWidth);
     }
 
-    vbar->setValue(newTopLine);
-
-    if (!dx && blockNumber == control->topBlock && lineNumber == topLine)
-        return;
-
-    if (vp->updatesEnabled() && vp->isVisible()) {
-        int dy = 0;
-        if (doc->findBlockByNumber(control->topBlock).isValid()) {
-            // Calculate block bounding geometry for scroll offset
-            PlainTextDocumentLayout *docLayout = qobject_cast<PlainTextDocumentLayout*>(doc->documentLayout());
-            Q_ASSERT(docLayout);
-            QRectF blockGeom = control->blockBoundingRect(block);
-            qreal realdy = -blockGeom.y()
-                    + verticalOffset() - verticalOffset(blockNumber, lineNumber);
-            dy = (int)realdy;
-            topLineFracture = realdy - dy;
-        }
-        control->topBlock = blockNumber;
-        topLine = lineNumber;
-
-        vbar->setValue(block.firstLineNumber() + lineNumber);
-
-        if (dx || dy) {
-            vp->scroll(q->isRightToLeft() ? -dx : dx, dy);
-            QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle | Qt::ImAnchorRectangle);
-        } else {
-            vp->update();
-            topLineFracture = 0;
-        }
-        // Emit updateRequest equivalent
-    } else {
-        control->topBlock = blockNumber;
-        topLine = lineNumber;
-        topLineFracture = 0;
-    }
+    if (rect.y() < verticalOffset())
+        vbar->setValue(rect.y());
+    else if (rect.y() + rect.height() > verticalOffset() + visibleHeight)
+        vbar->setValue(rect.y() + rect.height() - visibleHeight);
 }
 
-void Editor::Private::ensureVisible(int position, bool center, bool forceCenter) {
-    QRectF visible = QRectF(q->viewport()->rect()).translated(
-        q->isRightToLeft() ? (q->horizontalScrollBar()->maximum() - q->horizontalScrollBar()->value()) : -q->horizontalScrollBar()->value(),
-        -verticalOffset());
-    QTextBlock block = control->document()->findBlock(position);
-    if (!block.isValid())
-        return;
-    QRectF br = control->blockBoundingRect(block);
-    if (!br.isValid())
-        return;
-    QTextLine line = block.layout()->lineForTextPosition(position - block.position());
-    Q_ASSERT(line.isValid());
-    QRectF lr = line.naturalTextRect().translated(br.topLeft());
-
-    if (lr.bottom() >= visible.bottom() || (center && lr.top() < visible.top()) || forceCenter){
-        qreal height = visible.height();
-        if (center)
-            height /= 2;
-
-        qreal h = center ? line.naturalTextRect().center().y() : line.naturalTextRect().bottom();
-
-        QTextBlock previousVisibleBlock = block;
-        while (h < height && block.previous().isValid()) {
-            previousVisibleBlock = block;
-            do {
-                block = block.previous();
-            } while (!block.isVisible() && block.previous().isValid());
-
-            PlainTextDocumentLayout *docLayout = qobject_cast<PlainTextDocumentLayout*>(
-                control->document()->documentLayout());
-            Q_ASSERT(docLayout);
-            h += docLayout->blockBoundingRect(block).height();
-        }
-
-        int l = 0;
-        int lineCount = block.layout()->lineCount();
-        qreal voffset = verticalOffset(block.blockNumber(), 0);
-        while (l < lineCount) {
-            QRectF lineRect = block.layout()->lineAt(l).naturalTextRect();
-            if (h - voffset - lineRect.top() <= height)
-                break;
-            ++l;
-        }
-
-        if (l >= lineCount) {
-            block = previousVisibleBlock;
-            l = 0;
-        }
-        setTopBlock(block.blockNumber(), l);
-    } else if (lr.top() < visible.top()) {
-        setTopBlock(block.blockNumber(), line.lineNumber());
-    }
+void Editor::Private::ensureCursorVisible()
+{
+    // TextControl::ensureCursorVisible emits visibilityRequest(crect) which
+    // we handle via the ensureVisible(QRectF) method above if we connect it.
+    // But for simplicity, compute cursor rect in document coordinates and scroll.
+    QRectF crect = control->cursorRect();
+    crect = crect.adjusted(-5, 0, 5, 0);
+    ensureVisible(crect);
 }
 
 void Editor::Private::updateViewport()
@@ -1520,14 +760,14 @@ void Editor::Private::updateViewport()
 void Editor::Private::repaintContents(const QRectF &contentsRect)
 {
     if (!contentsRect.isValid()) {
-        updateViewport();
+        q->viewport()->update();
         return;
     }
     const int xOffset = horizontalOffset();
-    const int yOffset = (int)verticalOffset();
-    const QRect visibleRect(xOffset, yOffset, q->viewport()->width(), q->viewport()->height());
+    const int yOffset = verticalOffset();
+    const QRectF visibleRect(xOffset, yOffset, q->viewport()->width(), q->viewport()->height());
 
-    QRect r = contentsRect.adjusted(-1, -1, 1, 1).intersected(visibleRect).toAlignedRect();
+    QRect r = contentsRect.intersected(visibleRect).toAlignedRect();
     if (r.isEmpty())
         return;
 
@@ -1535,215 +775,44 @@ void Editor::Private::repaintContents(const QRectF &contentsRect)
     q->viewport()->update(r);
 }
 
-void Editor::Private::pageUpDown(QTextCursor::MoveOperation op, QTextCursor::MoveMode moveMode, bool moveCursor)
+void Editor::Private::pageUpDown(QTextCursor::MoveOperation op, QTextCursor::MoveMode moveMode)
 {
-    auto *vbar = q->verticalScrollBar();
-    auto *vp = q->viewport();
-
+    // Follows QTextEdit's pageUpDown exactly
     QTextCursor cursor = control->textCursor();
-    if (moveCursor) {
-        ensureCursorVisible();
-        if (!pageUpDownLastCursorYIsValid)
-            pageUpDownLastCursorY = control->cursorRect(cursor).top() - verticalOffset();
-    }
+    bool moved = false;
+    qreal lastY = control->cursorRect(cursor).top();
+    qreal distance = 0;
+    do {
+        qreal y = control->cursorRect(cursor).top();
+        distance += qAbs(y - lastY);
+        lastY = y;
+        moved = cursor.movePosition(op, moveMode);
+    } while (moved && distance < q->viewport()->height());
 
-    qreal lastY = pageUpDownLastCursorY;
-
-    if (op == QTextCursor::Down) {
-        QRectF visible = QRectF(vp->rect()).translated(
-            -(q->isRightToLeft() ? (q->horizontalScrollBar()->maximum() - q->horizontalScrollBar()->value()) : q->horizontalScrollBar()->value()),
-            -verticalOffset());
-        QTextBlock firstVB = control->firstVisibleBlock();
-        QTextBlock block = firstVB;
-
-        PlainTextDocumentLayout *docLayout = qobject_cast<PlainTextDocumentLayout*>(
-            control->document()->documentLayout());
-        Q_ASSERT(docLayout);
-
-        QRectF br = docLayout->blockBoundingRect(block);
-        qreal h = 0;
-        int atEnd = false;
-        while (h + br.height() <= visible.bottom()) {
-            if (!block.next().isValid()) {
-                atEnd = true;
-                lastY = visible.bottom();
-                break;
-            }
-            h += br.height();
-            block = block.next();
-            br = docLayout->blockBoundingRect(block);
-        }
-
-        if (!atEnd) {
-            int line = 0;
-            qreal diff = visible.bottom() - h;
-            int lineCount = block.layout()->lineCount();
-            while (line < lineCount - 1) {
-                if (block.layout()->lineAt(line).naturalTextRect().bottom() > diff)
-                    break;
-                ++line;
-            }
-            setTopBlock(block.blockNumber(), line);
-        }
-
-        if (moveCursor) {
-            lastY += verticalOffset();
-            bool moved = false;
-            do {
-                moved = cursor.movePosition(op, moveMode);
-            } while (moved && control->cursorRect(cursor).top() < lastY);
-        }
-
-    } else if (op == QTextCursor::Up) {
-        QRectF visible = QRectF(vp->rect()).translated(
-            -(q->isRightToLeft() ? (q->horizontalScrollBar()->maximum() - q->horizontalScrollBar()->value()) : q->horizontalScrollBar()->value()),
-            -verticalOffset());
-        visible.translate(0, -visible.height());
-        QTextBlock block = control->firstVisibleBlock();
-
-        PlainTextDocumentLayout *docLayout = qobject_cast<PlainTextDocumentLayout*>(
-            control->document()->documentLayout());
-        Q_ASSERT(docLayout);
-
-        qreal h = 0;
-        while (h >= visible.top()) {
-            if (!block.previous().isValid()) {
-                if (control->topBlock == 0 && topLine == 0) {
-                    lastY = 0;
-                }
-                break;
-            }
-            block = block.previous();
-            QRectF br = docLayout->blockBoundingRect(block);
-            h -= br.height();
-        }
-
-        int line = 0;
-        if (block.isValid()) {
-            qreal diff = visible.top() - h;
-            int lineCount = block.layout()->lineCount();
-            while (line < lineCount) {
-                if (block.layout()->lineAt(line).naturalTextRect().top() >= diff)
-                    break;
-                ++line;
-            }
-            if (line == lineCount) {
-                if (block.next().isValid() && block.next() != control->firstVisibleBlock()) {
-                    block = block.next();
-                    line = 0;
-                } else {
-                    --line;
-                }
-            }
-        }
-        setTopBlock(block.blockNumber(), line);
-
-        if (moveCursor) {
-            cursor.setVisualNavigation(true);
-            lastY += verticalOffset();
-            bool moved = false;
-            do {
-                moved = cursor.movePosition(op, moveMode);
-            } while (moved && control->cursorRect(cursor).top() > lastY);
+    if (moved) {
+        if (op == QTextCursor::Up) {
+            cursor.movePosition(QTextCursor::Down, moveMode);
+            q->verticalScrollBar()->triggerAction(QAbstractSlider::SliderPageStepSub);
+        } else {
+            cursor.movePosition(QTextCursor::Up, moveMode);
+            q->verticalScrollBar()->triggerAction(QAbstractSlider::SliderPageStepAdd);
         }
     }
-
-    if (moveCursor) {
-        control->setTextCursor(cursor, moveMode == QTextCursor::KeepAnchor);
-        pageUpDownLastCursorYIsValid = true;
-    }
-}
-
-void Editor::Private::adjustScrollbars()
-{
-    auto *vbar = q->verticalScrollBar();
-    auto *hbar = q->horizontalScrollBar();
-    auto *vp = q->viewport();
-
-    QTextDocument *doc = control->document();
-    PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(doc->documentLayout());
-    Q_ASSERT(documentLayout);
-    bool documentSizeChangedBlocked = documentLayout->priv()->blockDocumentSizeChanged;
-    documentLayout->priv()->blockDocumentSizeChanged = true;
-    qreal margin = doc->documentMargin();
-
-    int vmax = 0;
-    int vSliderLength = 0;
-
-    if (!centerOnScroll && q->isVisible()) {
-        QTextBlock block = doc->lastBlock();
-        const qreal visible = vp->rect().height() - margin - 1;
-        qreal y = 0;
-        int visibleFromBottom = 0;
-
-        while (block.isValid()) {
-            if (!block.isVisible()) {
-                block = block.previous();
-                continue;
-            }
-            y += documentLayout->blockBoundingRect(block).height();
-
-            QTextLayout *layout = block.layout();
-            int layoutLineCount = layout->lineCount();
-            if (y > visible) {
-                int lineNumber = 0;
-                while (lineNumber < layoutLineCount) {
-                    QTextLine line = layout->lineAt(lineNumber);
-                    const QRectF lr = line.naturalTextRect();
-                    if (lr.top() >= y - visible)
-                        break;
-                    ++lineNumber;
-                }
-                if (lineNumber < layoutLineCount)
-                    visibleFromBottom += (layoutLineCount - lineNumber);
-                break;
-            }
-            visibleFromBottom += layoutLineCount;
-            block = block.previous();
-        }
-        vmax = qMax(0, doc->lineCount() - visibleFromBottom);
-        vSliderLength = visibleFromBottom;
-    } else {
-        vmax = qMax(0, doc->lineCount() - 1);
-        int lineSpacing = q->fontMetrics().lineSpacing();
-        vSliderLength = lineSpacing != 0 ? vp->height() / lineSpacing : 0;
-    }
-
-    QSizeF documentSize = documentLayout->documentSize();
-    vbar->setRange(0, qMax(0, vmax));
-    vbar->setPageStep(vSliderLength);
-    int visualTopLine = vmax;
-    QTextBlock firstVisibleBlock = control->firstVisibleBlock();
-    if (firstVisibleBlock.isValid())
-        visualTopLine = firstVisibleBlock.firstLineNumber() + topLine;
-
-    vbar->setValue(visualTopLine);
-
-    hbar->setRange(0, (int)documentSize.width() - vp->width());
-    hbar->setPageStep(vp->width());
-    documentLayout->priv()->blockDocumentSizeChanged = documentSizeChangedBlocked;
-    setTopLine(vbar->value());
-}
-
-void Editor::Private::ensureViewportLayouted()
-{
+    control->setTextCursor(cursor, moveMode == QTextCursor::KeepAnchor);
 }
 
 void Editor::Private::relayoutDocument()
 {
     QTextDocument *doc = control->document();
-    PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(doc->documentLayout());
-    Q_ASSERT(documentLayout);
-    documentLayoutPtr = documentLayout;
+
+    const bool oldIgnore = ignoreAutomaticScrollbarAdjustment;
+    ignoreAutomaticScrollbarAdjustment = true;
 
     int width = q->viewport()->width();
+    doc->setPageSize(QSize(width, -1));
 
-    if (documentLayout->priv()->mainViewPrivate == nullptr
-        || documentLayout->priv()->mainViewPrivate == this
-        || width > documentLayout->textWidth()) {
-        documentLayout->priv()->mainViewPrivate = this;
-        documentLayout->setTextWidth(width);
-    }
+    ignoreAutomaticScrollbarAdjustment = oldIgnore;
+    adjustScrollbars();
 }
 
 void Editor::Private::updateDefaultTextOption()
@@ -1758,22 +827,6 @@ void Editor::Private::updateDefaultTextOption()
 
     if (opt.wrapMode() != oldWrapMode)
         doc->setDefaultTextOption(opt);
-}
-
-void Editor::Private::ensureCursorVisible(bool center)
-{
-    QRect visible = q->viewport()->rect();
-    QRect cr = q->cursorRect();
-    if (cr.top() < visible.top() || cr.bottom() > visible.bottom()) {
-        ensureVisible(control->textCursor().position(), center);
-    }
-
-    const bool rtl = q->isRightToLeft();
-    if (cr.left() < visible.left() || cr.right() > visible.right()) {
-        auto *hbar = q->horizontalScrollBar();
-        int x = cr.center().x() + horizontalOffset() - visible.width()/2;
-        hbar->setValue(rtl ? hbar->maximum() - x : x);
-    }
 }
 
 
@@ -1808,10 +861,6 @@ Editor::Editor(QWidget *parent)
 
 Editor::~Editor()
 {
-    if (d->documentLayoutPtr) {
-        if (d->documentLayoutPtr->priv()->mainViewPrivate == d.get())
-            d->documentLayoutPtr->priv()->mainViewPrivate = nullptr;
-    }
 }
 
 void Editor::setPlainText(const QString &text)
@@ -1837,7 +886,6 @@ void Editor::setMode(Mode m)
     // Default source mode margin (QTextDocument default)
     static constexpr qreal sourceMargin = 4.0;
     // Live preview margin — matches the renderer's typographic margin
-    // so raw and rendered lines align at the same x-offset
     static constexpr qreal livePreviewMargin = 20.0;
 
     if (m == Mode::LivePreview) {
@@ -1849,8 +897,8 @@ void Editor::setMode(Mode m)
         settings.marginPx = 0;
         d->renderer.setSettings(settings);
 
-        // Parse first so spans are available, THEN switch mode
-        // (setMode calls rehighlight, which needs the spans)
+        // Parse first so spans are available, THEN switch mode.
+        d->inReparse = true;
         d->reparseDocument();
         d->highlighter->setCursorPosition(d->control->textCursor().block().blockNumber(),
                                           d->control->textCursor().positionInBlock());
@@ -1858,6 +906,11 @@ void Editor::setMode(Mode m)
         d->updateBlockDisplayModes();
         // Convert tables LAST, after all block iteration is complete
         d->convertTables();
+        // Clear inReparse on next event loop, after deferred rehighlight
+        QTimer::singleShot(0, this, [this]() {
+            d->inReparse = false;
+            d->needsReparse = false;
+        });
     } else {
         // Revert QTextTables to pipe markdown before switching to source
         d->revertTables();
@@ -1904,127 +957,75 @@ void Editor::setFontSize(int pointSize)
 
 void Editor::ensureCursorVisible()
 {
-    d->ensureCursorVisible(d->centerOnScroll);
-}
-
-QPointF contentOffset(const Editor::Private *d, const Editor *q)
-{
-    return QPointF(-d->horizontalOffset(), -d->verticalOffset());
+    d->ensureCursorVisible();
 }
 
 QRect Editor::cursorRect() const
 {
-    QRect r = d->control->cursorRect().toRect();
-    r.translate(-d->horizontalOffset(), -(int)d->verticalOffset());
-    return r;
+    QRectF r = d->control->cursorRect();
+    r.translate(-d->horizontalOffset(), -d->verticalOffset());
+    return r.toRect();
 }
 
-QTextBlock firstVisibleBlock(const Editor::Private *d)
-{
-    return d->control->firstVisibleBlock();
-}
-
-QRectF blockBoundingRect(const Editor::Private *d, const QTextBlock &block)
-{
-    PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(
-        d->control->document()->documentLayout());
-    Q_ASSERT(documentLayout);
-    return documentLayout->blockBoundingRect(block);
-}
+// ============================================================================
+// Paint — follows QTextEdit: translate painter, then drawContents
+// ============================================================================
 
 void Editor::paintTable(QPainter *painter, QTextTable *table,
-                        const QRectF &tableRect, const QRect &viewportRect)
+                        const QRectF &tableRect, const QRect &/*viewportRect*/)
 {
-    auto *td = static_cast<TableLayoutData *>(table->layoutData());
-    if (!td || td->dirty) return;
-
+    // The painter is already translated to document coordinates.
+    // tableRect is in document coordinates from frameBoundingRect.
     const int rows = table->rows();
     const int cols = table->columns();
-    const qreal margin = document()->documentMargin();
 
-    // The table rect's top-left gives us the position in viewport coords.
-    // td->columnPositions and td->rowPositions are relative to the table origin.
-    const qreal tableX = tableRect.left() + margin;
+    const qreal tableX = tableRect.left();
     const qreal tableY = tableRect.top();
+    const qreal tableW = tableRect.width();
+    const qreal tableH = tableRect.height();
 
     painter->save();
 
     // Background
     painter->setPen(Qt::NoPen);
     painter->setBrush(QColor(0xfa, 0xfa, 0xfa));
-    painter->drawRect(QRectF(tableX, tableY, td->tableWidth, td->tableHeight));
+    painter->drawRect(tableRect);
 
-    // Grid lines
+    // Grid lines — compute from cell geometry
+    // QTextDocumentLayout positions cells; we get cell rects from the table format
+    // For simplicity, draw lines between rows/columns using cell positions
     painter->setPen(QPen(QColor(0xe0, 0xe0, 0xe0), 1));
 
-    // Horizontal lines
-    for (int r = 0; r <= rows; ++r) {
-        qreal y;
-        if (r < rows)
-            y = tableY + td->rowPositions[r];
-        else
-            y = tableY + td->rowPositions[rows - 1] + td->heights[rows - 1] + td->cellSpacing;
-        painter->drawLine(QPointF(tableX, y),
-                          QPointF(tableX + td->tableWidth, y));
-    }
+    // Outer border
+    painter->drawRect(tableRect);
 
-    // Vertical lines
-    for (int c = 0; c <= cols; ++c) {
-        qreal x;
-        if (c < cols)
-            x = tableX + td->columnPositions[c];
-        else
-            x = tableX + td->columnPositions[cols - 1] + td->widths[cols - 1] + td->cellSpacing;
-        painter->drawLine(QPointF(x, tableY),
-                          QPointF(x, tableY + td->tableHeight));
-    }
-
-    // Thicker header separator
-    if (rows > 1) {
-        painter->setPen(QPen(QColor(0xc0, 0xc0, 0xc0), 2));
-        qreal sepY = tableY + td->rowPositions[1];
-        painter->drawLine(QPointF(tableX, sepY),
-                          QPointF(tableX + td->tableWidth, sepY));
-    }
-
-    // Cell text
-    QFont cellFont = font();
-    QFontMetricsF fm(cellFont);
-    for (int r = 0; r < rows; ++r) {
-        if (r == 0) {
-            QFont bold = cellFont;
-            bold.setWeight(QFont::Bold);
-            painter->setFont(bold);
-        } else if (r == 1) {
-            painter->setFont(cellFont);
+    // Horizontal lines between rows
+    for (int r = 1; r < rows; ++r) {
+        QTextTableCell cell = table->cellAt(r, 0);
+        QRectF cellRect = document()->documentLayout()->blockBoundingRect(
+            cell.firstCursorPosition().block());
+        // The cell block's Y is the row's Y in document coords
+        // We need to get the row start from the table frame
+        // Use the first cell of each row to find row boundaries
+        qreal y = cellRect.top();
+        // For the header separator, use thicker line
+        if (r == 1) {
+            painter->save();
+            painter->setPen(QPen(QColor(0xc0, 0xc0, 0xc0), 2));
+            painter->drawLine(QPointF(tableX, y), QPointF(tableX + tableW, y));
+            painter->restore();
+        } else {
+            painter->drawLine(QPointF(tableX, y), QPointF(tableX + tableW, y));
         }
-        painter->setPen(palette().color(QPalette::Text));
+    }
 
-        for (int c = 0; c < cols; ++c) {
-            QTextTableCell cell = table->cellAt(r, c);
-            if (cell.row() != r || cell.column() != c) continue;  // skip spanned
-
-            // Get cell text (may span multiple blocks)
-            QString text;
-            QTextBlock b = cell.firstCursorPosition().block();
-            QTextBlock lastB = cell.lastCursorPosition().block();
-            while (b.isValid()) {
-                if (!text.isEmpty()) text += QLatin1Char(' ');
-                text += b.text();
-                if (b == lastB) break;
-                b = b.next();
-            }
-
-            // Cell rect in viewport coordinates
-            qreal cellX = tableX + td->columnPositions[c] + td->cellPadding;
-            qreal cellY = tableY + td->rowPositions[r] + td->cellPadding;
-            qreal cellW = td->widths[c] - td->cellPadding * 2;
-            qreal cellH = td->heights[r] - td->cellPadding * 2;
-
-            QRectF textRect(cellX, cellY, cellW, cellH);
-            painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter,
-                              fm.elidedText(text, Qt::ElideRight, cellW));
-        }
+    // Vertical lines between columns (approximate from first row cell positions)
+    for (int c = 1; c < cols; ++c) {
+        QTextTableCell cell = table->cellAt(0, c);
+        QRectF cellRect = document()->documentLayout()->blockBoundingRect(
+            cell.firstCursorPosition().block());
+        qreal x = cellRect.left();
+        painter->drawLine(QPointF(x, tableY), QPointF(x, tableY + tableH));
     }
 
     // Cursor highlight: if cursor is inside this table, highlight the cell
@@ -2033,15 +1034,12 @@ void Editor::paintTable(QPainter *painter, QTextTable *table,
     if (cursorTable == table) {
         QTextTableCell curCell = table->cellAt(tc);
         if (curCell.isValid()) {
-            int cr = curCell.row();
-            int cc = curCell.column();
-            QRectF highlight(tableX + td->columnPositions[cc],
-                             tableY + td->rowPositions[cr],
-                             td->widths[cc],
-                             td->heights[cr]);
+            QRectF cellBR = document()->documentLayout()->blockBoundingRect(
+                curCell.firstCursorPosition().block());
+            // Approximate cell rect
             painter->setPen(QPen(palette().color(QPalette::Highlight), 2));
             painter->setBrush(Qt::NoBrush);
-            painter->drawRect(highlight.adjusted(1, 1, -1, -1));
+            painter->drawRect(cellBR.adjusted(1, 1, -1, -1));
         }
     }
 
@@ -2051,287 +1049,224 @@ void Editor::paintTable(QPainter *painter, QTextTable *table,
 void Editor::paintEvent(QPaintEvent *e)
 {
     QPainter painter(viewport());
-    Q_ASSERT(qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout()));
 
-    QPointF offset = Markoff::contentOffset(d.get(), this);
+    const int xOffset = d->horizontalOffset();
+    const int yOffset = d->verticalOffset();
 
     QRect er = e->rect();
-    QRect viewportRect = viewport()->rect();
 
-    bool editable = true; // always editable in Markoff
+    // Translate to document coordinates (like QTextEdit)
+    painter.translate(-xOffset, -yOffset);
+    er.translate(xOffset, yOffset);
 
-    QTextBlock block = Markoff::firstVisibleBlock(d.get());
-    qreal maximumWidth = document()->documentLayout()->documentSize().width();
-
-    painter.setBrushOrigin(offset);
-
-    int maxX = offset.x() + qMax((qreal)viewportRect.width(), maximumWidth)
-               - document()->documentMargin() + d->control->cursorWidth();
-    er.setRight(qMin(er.right(), maxX));
-    painter.setClipRect(er);
-
-    // Get paint context
-    QAbstractTextDocumentLayout::PaintContext context = d->control->getPaintContext(viewport());
-    painter.setPen(context.palette.text().color());
-
-    while (block.isValid()) {
-        QRectF r = Markoff::blockBoundingRect(d.get(), block).translated(offset);
-        QTextLayout *layout = block.layout();
-
-        if (!block.isVisible()) {
-            offset.ry() += r.height();
-            block = block.next();
-            continue;
-        }
-
-        if (r.bottom() >= er.top() && r.top() <= er.bottom()) {
-
-            // Table blocks: paint the entire table, then skip past it
-            QTextTable *table = tableForBlock(block);
-            if (table && isFirstTableBlock(block, table)) {
-                paintTable(&painter, table, r, viewportRect);
-                // Skip to the block after the table
-                QTextTableCell lastCell = table->cellAt(table->rows() - 1,
-                                                         table->columns() - 1);
-                block = lastCell.lastCursorPosition().block();
-                offset.ry() += r.height();
-                block = block.next();
-                continue;
-            }
-
-            // Skip non-first table blocks (their height is 0)
-            if (table) {
-                block = block.next();
-                continue;
-            }
-
-            // Live preview: paint decorations BEHIND text for decorated ranges.
-            // The text draws normally afterward via layout->draw().
-            if (d->mode == Mode::LivePreview) {
-                const DecoratedRange *dr = d->decoratedRangeAt(block.blockNumber());
-                if (dr && block.blockNumber() == dr->firstBlock) {
-                    // First block of a decorated range: paint the background
-                    // spanning all blocks in the range.
-                    qreal margin = document()->documentMargin();
-                    qreal rangeHeight = 0;
-                    QTextBlock b = document()->findBlockByNumber(dr->firstBlock);
-                    for (int i = dr->firstBlock; i <= dr->lastBlock && b.isValid(); ++i, b = b.next())
-                        rangeHeight += Markoff::blockBoundingRect(d.get(), b).height();
-
-                    QRectF bgRect(r.left() + margin - 4, r.top(),
-                                  viewportRect.width() - margin * 2 + 8, rangeHeight);
-
-                    if (dr->type == DecoratedRange::CodeBlock) {
-                        // Gray background with rounded corners
-                        painter.save();
-                        painter.setPen(Qt::NoPen);
-                        painter.setBrush(QColor(0xf5, 0xf5, 0xf5));
-                        painter.setRenderHint(QPainter::Antialiasing);
-                        painter.drawRoundedRect(bgRect, 4, 4);
-                        // Border
-                        painter.setPen(QPen(QColor(0xe0, 0xe0, 0xe0), 1));
-                        painter.setBrush(Qt::NoBrush);
-                        painter.drawRoundedRect(bgRect.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
-                        // Language label
-                        if (!dr->language.isEmpty()) {
-                            QFont labelFont = font();
-                            labelFont.setPointSize(qMax(8, font().pointSize() - 2));
-                            painter.setFont(labelFont);
-                            painter.setPen(QColor(0x9e, 0x9e, 0x9e));
-                            QRectF labelRect(bgRect.right() - 80, bgRect.top() + 2, 72, 16);
-                            painter.drawText(labelRect, Qt::AlignRight | Qt::AlignVCenter, dr->language);
-                        }
-                        painter.restore();
-                    } else if (dr->type == DecoratedRange::Callout) {
-                        // Colored left border + faint background
-                        painter.save();
-                        painter.setRenderHint(QPainter::Antialiasing);
-                        QColor bg = dr->calloutColor;
-                        bg.setAlpha(20);
-                        painter.setPen(Qt::NoPen);
-                        painter.setBrush(bg);
-                        painter.drawRoundedRect(bgRect, 4, 4);
-                        // Left border
-                        painter.setBrush(dr->calloutColor);
-                        painter.drawRoundedRect(QRectF(bgRect.left(), bgRect.top(), 4, bgRect.height()), 2, 2);
-
-                        // Title styling handled by the highlighter (hideRange +
-                        // colored text), same approach as bold/italic.
-                        // TODO: for no-title callouts, paint default title here.
-                        painter.restore();
-                    }
-                }
-
-                // Paint blockquote vertical lines in the indent space.
-                // One line per nesting level, dark gray.
-                qreal leftMargin = block.blockFormat().leftMargin();
-                if (leftMargin > 0) {
-                    const auto &spans = d->highlighter->spans();
-                    int bqDepth = 0;
-                    int blockStart = block.position();
-                    int blockEnd = blockStart + block.length();
-                    for (const SourceSpan &s : spans) {
-                        int se = s.charOffset + s.charLength;
-                        if (se <= blockStart) continue;
-                        if (s.charOffset >= blockEnd) break;
-                        if (s.blockquoteDepth > bqDepth)
-                            bqDepth = s.blockquoteDepth;
-                    }
-
-                    if (bqDepth > 0) {
-                        // Check if this block is inside a callout (callouts paint their own border)
-                        const DecoratedRange *calloutDr = d->decoratedRangeAt(block.blockNumber());
-                        bool isCallout = calloutDr && calloutDr->type == DecoratedRange::Callout;
-
-                        if (!isCallout) {
-                            painter.save();
-                            qreal margin = document()->documentMargin();
-                            QFontMetricsF fm(font());
-                            qreal chevronWidth = qCeil(fm.horizontalAdvance(QStringLiteral("> ")));
-                            // Derive line color from blockquote text color, lighter
-                            QColor bqTextColor = d->highlighter->blockquoteColor();
-                            QColor lineColor = bqTextColor.lighter(140);
-                            painter.setPen(QPen(lineColor, 2));
-
-                            for (int level = 0; level < bqDepth; ++level) {
-                                qreal x = offset.x() + margin + level * chevronWidth + 1;
-                                painter.drawLine(QPointF(x, r.top()),
-                                                QPointF(x, r.top() + r.height()));
-                            }
-                            painter.restore();
-                        }
-                    }
-                }
-
-                // Paint horizontal rules — a line where --- or *** text is
-                {
-                    const auto &spans = d->highlighter->spans();
-                    int blockStart = block.position();
-                    int blockEnd = blockStart + block.length();
-                    bool isHR = false;
-                    for (const SourceSpan &s : spans) {
-                        int se = s.charOffset + s.charLength;
-                        if (se <= blockStart) continue;
-                        if (s.charOffset >= blockEnd) break;
-                        if (s.isHorizontalRule) { isHR = true; break; }
-                    }
-                    int cursorBlockNum = d->control->textCursor().block().blockNumber();
-                    if (isHR && block.blockNumber() != cursorBlockNum) {
-                        painter.save();
-                        qreal margin = document()->documentMargin();
-                        qreal y = r.top() + r.height() / 2;
-                        qreal x1 = margin;
-                        qreal x2 = viewportRect.width() - margin;
-                        painter.setPen(QPen(QColor(0xcc, 0xcc, 0xcc), 1));
-                        painter.drawLine(QPointF(x1, y), QPointF(x2, y));
-                        painter.restore();
-                    }
-                }
-
-                // Fall through to normal text painting
-            }
-
-            QTextBlockFormat blockFormat = block.blockFormat();
-
-            QBrush bg = blockFormat.background();
-            if (bg != Qt::NoBrush) {
-                QRectF contentsRect = r;
-                contentsRect.setWidth(qMax(r.width(), maximumWidth));
-                fillBackground(&painter, contentsRect, bg);
-            }
-
-            QList<QTextLayout::FormatRange> selections;
-            int blpos = block.position();
-            int bllen = block.length();
-            for (int i = 0; i < context.selections.size(); ++i) {
-                const QAbstractTextDocumentLayout::Selection &range = context.selections.at(i);
-                const int selStart = range.cursor.selectionStart() - blpos;
-                const int selEnd = range.cursor.selectionEnd() - blpos;
-                if (selStart < bllen && selEnd > 0
-                    && selEnd > selStart) {
-                    QTextLayout::FormatRange o;
-                    o.start = selStart;
-                    o.length = selEnd - selStart;
-                    o.format = range.format;
-                    selections.append(o);
-                } else if (!range.cursor.hasSelection() && range.format.hasProperty(QTextFormat::FullWidthSelection)
-                           && block.contains(range.cursor.position())) {
-                    QTextLayout::FormatRange o;
-                    QTextLine l = layout->lineForTextPosition(range.cursor.position() - blpos);
-                    o.start = l.textStart();
-                    o.length = l.textLength();
-                    if (o.start + o.length == bllen - 1)
-                        ++o.length;
-                    o.format = range.format;
-                    selections.append(o);
-                }
-            }
-
-            bool drawCursor = (context.cursorPosition >= blpos
-                               && context.cursorPosition < blpos + bllen);
-
-            bool drawCursorAsBlock = drawCursor && d->control->overwriteMode();
-
-            if (drawCursorAsBlock) {
-                if (context.cursorPosition == blpos + bllen - 1) {
-                    drawCursorAsBlock = false;
-                } else {
-                    QTextLayout::FormatRange o;
-                    o.start = context.cursorPosition - blpos;
-                    o.length = 1;
-                    o.format.setForeground(palette().base());
-                    o.format.setBackground(palette().text());
-                    selections.append(o);
-                }
-            }
-
-            // Apply blockquote indentation by offsetting the draw position.
-            // Our PlainTextDocumentLayout ignores QTextBlockFormat::leftMargin,
-            // so we apply it here in the paint path.
-            QPointF drawOffset = offset;
-            if (d->mode == Mode::LivePreview) {
-                qreal leftMargin = block.blockFormat().leftMargin();
-                if (leftMargin > 0)
-                    drawOffset.rx() += leftMargin;
-            }
-
-            layout->draw(&painter, drawOffset, selections, er);
-
-            if ((drawCursor && !drawCursorAsBlock)
-                || (editable && context.cursorPosition < -1
-                    && !layout->preeditAreaText().isEmpty())) {
-                int cpos = context.cursorPosition;
-                if (cpos < -1)
-                    cpos = layout->preeditAreaPosition() - (cpos + 2);
-                else
-                    cpos -= blpos;
-                layout->drawCursor(&painter, drawOffset, cpos, d->control->cursorWidth());
-            }
-        }
-
-        offset.ry() += r.height();
-        if (offset.y() > viewportRect.height())
-            break;
-        block = block.next();
+    // Paint decorated range backgrounds BEFORE text (in document coordinates)
+    if (d->mode == Mode::LivePreview) {
+        paintDecoratedRangeBackgrounds(&painter, er);
     }
 
-    if (d->backgroundVisible && !block.isValid() && offset.y() <= er.bottom()
-        && (d->centerOnScroll || verticalScrollBar()->maximum() == verticalScrollBar()->minimum())) {
-        painter.fillRect(QRect(QPoint((int)er.left(), (int)offset.y()), er.bottomRight()), palette().window());
+    // Paint all document content (text, tables, inline objects)
+    // QTextDocumentLayout::draw() handles everything including QTextTable
+    d->control->drawContents(&painter, er, this);
+
+    // Paint table chrome ON TOP (grid lines, hover handles)
+    if (d->mode == Mode::LivePreview) {
+        paintTableChrome(&painter, er);
     }
 }
+
+void Editor::paintDecoratedRangeBackgrounds(QPainter *painter, const QRect &docRect)
+{
+    QAbstractTextDocumentLayout *layout = document()->documentLayout();
+
+    for (const DecoratedRange &dr : d->decoratedRanges) {
+        // Compute the range's bounding rect in document coordinates
+        QTextBlock firstBlock = document()->findBlockByNumber(dr.firstBlock);
+        QTextBlock lastBlock = document()->findBlockByNumber(dr.lastBlock);
+        if (!firstBlock.isValid()) continue;
+
+        QRectF firstBR = layout->blockBoundingRect(firstBlock);
+        qreal rangeTop = firstBR.top();
+        qreal rangeHeight = 0;
+        QTextBlock b = firstBlock;
+        for (int i = dr.firstBlock; i <= dr.lastBlock && b.isValid(); ++i, b = b.next())
+            rangeHeight += layout->blockBoundingRect(b).height();
+
+        QRectF rangeRect(firstBR.left(), rangeTop, firstBR.width(), rangeHeight);
+        if (!rangeRect.intersects(QRectF(docRect)))
+            continue;
+
+        qreal margin = document()->documentMargin();
+        QRectF bgRect(margin - 4, rangeTop,
+                      viewport()->width() - margin * 2 + 8, rangeHeight);
+
+        if (dr.type == DecoratedRange::CodeBlock) {
+            painter->save();
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QColor(0xf5, 0xf5, 0xf5));
+            painter->setRenderHint(QPainter::Antialiasing);
+            painter->drawRoundedRect(bgRect, 4, 4);
+            // Border
+            painter->setPen(QPen(QColor(0xe0, 0xe0, 0xe0), 1));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRoundedRect(bgRect.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
+            // Language label
+            if (!dr.language.isEmpty()) {
+                QFont labelFont = font();
+                labelFont.setPointSize(qMax(8, font().pointSize() - 2));
+                painter->setFont(labelFont);
+                painter->setPen(QColor(0x9e, 0x9e, 0x9e));
+                QRectF labelRect(bgRect.right() - 80, bgRect.top() + 2, 72, 16);
+                painter->drawText(labelRect, Qt::AlignRight | Qt::AlignVCenter, dr.language);
+            }
+            painter->restore();
+        } else if (dr.type == DecoratedRange::Callout) {
+            painter->save();
+            painter->setRenderHint(QPainter::Antialiasing);
+            QColor bg = dr.calloutColor;
+            bg.setAlpha(20);
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(bg);
+            painter->drawRoundedRect(bgRect, 4, 4);
+            // Left border
+            painter->setBrush(dr.calloutColor);
+            painter->drawRoundedRect(QRectF(bgRect.left(), bgRect.top(), 4, bgRect.height()), 2, 2);
+            painter->restore();
+        }
+
+        // Blockquote vertical lines for blocks in this range
+        QTextBlock blk = firstBlock;
+        for (int i = dr.firstBlock; i <= dr.lastBlock && blk.isValid(); ++i, blk = blk.next()) {
+            qreal leftMargin = blk.blockFormat().leftMargin();
+            if (leftMargin > 0) {
+                const auto &spans = d->highlighter->spans();
+                int bqDepth = 0;
+                int blockStart = blk.position();
+                int blockEnd = blockStart + blk.length();
+                for (const SourceSpan &s : spans) {
+                    int se = s.charOffset + s.charLength;
+                    if (se <= blockStart) continue;
+                    if (s.charOffset >= blockEnd) break;
+                    if (s.blockquoteDepth > bqDepth)
+                        bqDepth = s.blockquoteDepth;
+                }
+
+                if (bqDepth > 0) {
+                    bool isCallout = dr.type == DecoratedRange::Callout;
+                    if (!isCallout) {
+                        QRectF blkR = layout->blockBoundingRect(blk);
+                        painter->save();
+                        QFontMetricsF fm(font());
+                        qreal chevronWidth = qCeil(fm.horizontalAdvance(QStringLiteral("> ")));
+                        QColor lineColor = d->highlighter->blockquoteColor().lighter(140);
+                        painter->setPen(QPen(lineColor, 2));
+                        for (int level = 0; level < bqDepth; ++level) {
+                            qreal x = margin + level * chevronWidth + 1;
+                            painter->drawLine(QPointF(x, blkR.top()),
+                                            QPointF(x, blkR.top() + blkR.height()));
+                        }
+                        painter->restore();
+                    }
+                }
+            }
+        }
+    }
+
+    // Paint blockquote vertical lines for blocks NOT in any decorated range
+    QTextBlock block = document()->begin();
+    while (block.isValid()) {
+        if (d->mode == Mode::LivePreview && !d->decoratedRangeAt(block.blockNumber())) {
+            qreal leftMargin = block.blockFormat().leftMargin();
+            if (leftMargin > 0) {
+                const auto &spans = d->highlighter->spans();
+                int bqDepth = 0;
+                int blockStart = block.position();
+                int blockEnd = blockStart + block.length();
+                for (const SourceSpan &s : spans) {
+                    int se = s.charOffset + s.charLength;
+                    if (se <= blockStart) continue;
+                    if (s.charOffset >= blockEnd) break;
+                    if (s.blockquoteDepth > bqDepth)
+                        bqDepth = s.blockquoteDepth;
+                }
+
+                if (bqDepth > 0) {
+                    QRectF blkR = layout->blockBoundingRect(block);
+                    if (blkR.intersects(QRectF(docRect))) {
+                        painter->save();
+                        qreal margin = document()->documentMargin();
+                        QFontMetricsF fm(font());
+                        qreal chevronWidth = qCeil(fm.horizontalAdvance(QStringLiteral("> ")));
+                        QColor lineColor = d->highlighter->blockquoteColor().lighter(140);
+                        painter->setPen(QPen(lineColor, 2));
+                        for (int level = 0; level < bqDepth; ++level) {
+                            qreal x = margin + level * chevronWidth + 1;
+                            painter->drawLine(QPointF(x, blkR.top()),
+                                            QPointF(x, blkR.top() + blkR.height()));
+                        }
+                        painter->restore();
+                    }
+                }
+            }
+        }
+
+        // Horizontal rule painting
+        if (d->mode == Mode::LivePreview) {
+            const auto &spans = d->highlighter->spans();
+            int blockStart = block.position();
+            int blockEnd = blockStart + block.length();
+            bool isHR = false;
+            for (const SourceSpan &s : spans) {
+                int se = s.charOffset + s.charLength;
+                if (se <= blockStart) continue;
+                if (s.charOffset >= blockEnd) break;
+                if (s.isHorizontalRule) { isHR = true; break; }
+            }
+            int cursorBlockNum = d->control->textCursor().block().blockNumber();
+            if (isHR && block.blockNumber() != cursorBlockNum) {
+                QRectF r = layout->blockBoundingRect(block);
+                if (r.intersects(QRectF(docRect))) {
+                    painter->save();
+                    qreal margin = document()->documentMargin();
+                    qreal y = r.top() + r.height() / 2;
+                    qreal x1 = margin;
+                    qreal x2 = viewport()->width() - margin;
+                    painter->setPen(QPen(QColor(0xcc, 0xcc, 0xcc), 1));
+                    painter->drawLine(QPointF(x1, y), QPointF(x2, y));
+                    painter->restore();
+                }
+            }
+        }
+
+        block = block.next();
+    }
+}
+
+void Editor::paintTableChrome(QPainter *painter, const QRect &docRect)
+{
+    for (QTextTable *table : d->liveTables) {
+        if (!table) continue;
+        QRectF tableRect = document()->documentLayout()->frameBoundingRect(table);
+        if (!tableRect.intersects(QRectF(docRect)))
+            continue;
+        paintTable(painter, table, tableRect, docRect);
+    }
+}
+
+// ============================================================================
+// Event handlers
+// ============================================================================
 
 void Editor::resizeEvent(QResizeEvent *e)
 {
     if (e->oldSize().width() != e->size().width())
         d->relayoutDocument();
-    d->adjustScrollbars();
+    else
+        d->adjustScrollbars();
 }
 
 void Editor::keyPressEvent(QKeyEvent *e)
 {
-    // Atomic block input routing
-            e->accept();
+    e->accept();
 #ifndef QT_NO_SHORTCUT
     Qt::TextInteractionFlags tif = d->control->textInteractionFlags();
 
@@ -2420,8 +1355,6 @@ void Editor::mouseReleaseEvent(QMouseEvent *e)
     d->sendControlEvent(e);
 
     // Apply deferred highlighter update after drag selection.
-    // Note: do NOT reparse here — if this is a drag-drop, the text
-    // hasn't moved yet (dropEvent fires AFTER mouseRelease).
     if (d->mode == Mode::LivePreview) {
         int cursorBlockNum = d->control->textCursor().block().blockNumber();
         d->highlighter->setCursorPosition(cursorBlockNum,
@@ -2472,9 +1405,13 @@ void Editor::inputMethodEvent(QInputMethodEvent *e)
     ensureCursorVisible();
 }
 
-void Editor::scrollContentsBy(int dx, int /*dy*/)
+void Editor::scrollContentsBy(int dx, int dy)
 {
-    d->setTopLine(verticalScrollBar()->value(), dx);
+    Q_UNUSED(dy);
+    if (isRightToLeft())
+        dx = -dx;
+    viewport()->scroll(dx, dy);
+    QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle | Qt::ImAnchorRectangle);
 }
 
 QVariant Editor::inputMethodQuery(Qt::InputMethodQuery property) const
@@ -2490,7 +1427,7 @@ QVariant Editor::inputMethodQuery(Qt::InputMethodQuery property) const
         break;
     }
 
-    const QPointF offset = Markoff::contentOffset(d.get(), this);
+    const QPointF offset(-d->horizontalOffset(), -d->verticalOffset());
     QVariant argument;
     v = d->control->inputMethodQuery(property, argument);
     switch (v.userType()) {
