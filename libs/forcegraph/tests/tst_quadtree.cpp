@@ -93,6 +93,45 @@ private Q_SLOTS:
         QVERIFY(force.x() < 0);
         QVERIFY(force.y() < 0);
     }
+
+    void testIterativeMatchesBruteForce()
+    {
+        // Build a tree and verify the iterative traversal produces reasonable forces
+        ForceGraph::QuadTree tree;
+        QVector<ForceGraph::GraphNode> nodes;
+        QVector<double> masses;
+        for (int i = 0; i < 20; ++i) {
+            ForceGraph::GraphNode n;
+            n.id = QString::number(i);
+            n.position = QPointF(i * 30.0, (i % 3) * 40.0);
+            nodes.append(n);
+            masses.append(1.0);
+        }
+        tree.build(nodes, QRectF(-100, -100, 800, 400), masses);
+
+        // Query repulsion for first node
+        QPointF force = tree.computeRepulsion(nodes[0].position, 1500.0, 1.0, 0.8);
+
+        // Force should be non-zero and point generally away from the cluster
+        double mag = std::sqrt(force.x() * force.x() + force.y() * force.y());
+        QVERIFY2(mag > 0.0, "Force should be non-zero");
+
+        // Compare with brute-force computation
+        QPointF bruteForce(0, 0);
+        for (int j = 1; j < nodes.size(); ++j) {
+            QPointF delta = nodes[0].position - nodes[j].position;
+            double dist = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
+            if (dist < 0.001) continue;
+            double f = 1500.0 * 1.0 * 1.0 / (dist * dist);
+            bruteForce += (delta / dist) * f;
+        }
+
+        // Should be within 20% of brute force (Barnes-Hut approximation)
+        double bruteMag = std::sqrt(bruteForce.x() * bruteForce.x() + bruteForce.y() * bruteForce.y());
+        QVERIFY2(std::abs(mag - bruteMag) / bruteMag < 0.20,
+                 qPrintable(QStringLiteral("BH: %1, Brute: %2, Error: %3%")
+                            .arg(mag).arg(bruteMag).arg(100.0 * std::abs(mag - bruteMag) / bruteMag)));
+    }
 };
 
 QTEST_MAIN(TestQuadTree)

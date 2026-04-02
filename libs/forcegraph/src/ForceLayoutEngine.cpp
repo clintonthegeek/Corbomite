@@ -393,7 +393,7 @@ void ForceLayoutEngine::step()
         for (int i = 0; i < n; ++i) {
             double nodeMass = m_degree.value(m_nodes[i].id, 0) + 1.0;
             QPointF repulsion = quadTree.computeRepulsion(
-                m_nodes[i].position, m_repelForce, nodeMass, 0.8);
+                m_nodes[i].position, m_repelForce, nodeMass, m_theta);
             m_displacements[i] += repulsion;
         }
     } else {
@@ -543,6 +543,19 @@ void ForceLayoutEngine::step()
         }
     } else {
         m_stableCount = 0;
+    }
+
+    // Adaptive theta: use higher theta (faster, less accurate) when energy is high,
+    // lower theta (slower, more accurate) when energy is low and layout is settling
+    if (m_prevEnergy > 0 && m_energy > 0) {
+        double energyRatio = m_energy / m_prevEnergy;
+        if (energyRatio > 0.95) {
+            m_theta = 1.2;   // Still lots of movement — be fast
+        } else if (energyRatio > 0.5) {
+            m_theta = 0.8;   // Moderate — balanced
+        } else {
+            m_theta = 0.5;   // Settling — be precise
+        }
     }
 
     m_prevEnergy = m_energy;

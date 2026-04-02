@@ -22,6 +22,8 @@ void QuadTree::build(const QVector<GraphNode> &nodes, const QRectF &bounds,
         m_masses.fill(1.0, nodes.size());
     }
 
+    m_nodes.reserve(5 * nodes.size());
+
     // Create root node
     QuadNode root;
     root.bounds = bounds;
@@ -104,42 +106,43 @@ void QuadTree::subdivide(int quadNodeIdx)
     }
 }
 
-QPointF QuadTree::computeRepulsion(const QPointF &nodePos, double repelForce,
+QPointF QuadTree::computeRepulsion(const QPointF &pos, double repelForce,
                                     double nodeMass, double theta) const
 {
-    if (m_root < 0) return QPointF(0, 0);
-    return computeRepulsionRecursive(m_root, nodePos, repelForce, nodeMass, theta);
-}
-
-QPointF QuadTree::computeRepulsionRecursive(int quadNodeIdx, const QPointF &pos,
-                                             double repelForce, double nodeMass,
-                                             double theta) const
-{
-    const auto &qn = m_nodes[quadNodeIdx];
-
-    if (qn.totalMass == 0) return QPointF(0, 0);
-
-    QPointF delta = pos - qn.centerOfMass;
-    double dist = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
-
-    if (dist < 0.001) return QPointF(0, 0); // Coincident — skip
-
-    // Barnes-Hut criterion: if node is far enough, treat cluster as single body
-    double size = std::max(qn.bounds.width(), qn.bounds.height());
-
-    if (qn.isLeaf() || (size / dist < theta)) {
-        // Treat as single body: F = repelForce * nodeMass * clusterMass / dist^2
-        double force = repelForce * nodeMass * qn.totalMass / (dist * dist);
-        return QPointF(delta.x() / dist * force, delta.y() / dist * force);
-    }
-
-    // Recurse into children
     QPointF totalForce(0, 0);
-    for (int i = 0; i < 4; ++i) {
-        if (qn.children[i] >= 0) {
-            totalForce += computeRepulsionRecursive(qn.children[i], pos, repelForce, nodeMass, theta);
+    if (m_nodes.isEmpty() || m_root < 0) return totalForce;
+
+    // Fixed-size stack (tree depth bounded by ~log4(n) ≈ 10)
+    int stack[40];
+    int stackSize = 0;
+    stack[stackSize++] = m_root;
+
+    while (stackSize > 0) {
+        int idx = stack[--stackSize];
+        const auto &node = m_nodes[idx];
+
+        if (node.totalMass < 0.001) continue;
+
+        QPointF delta = pos - node.centerOfMass;
+        double dist = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
+
+        if (dist < 0.001) continue;
+
+        double size = std::max(node.bounds.width(), node.bounds.height());
+
+        if (node.isLeaf() || (size / dist < theta)) {
+            // Treat as single body
+            double force = repelForce * nodeMass * node.totalMass / (dist * dist);
+            totalForce += (delta / dist) * force;
+        } else {
+            // Push children onto stack (reverse order for depth-first)
+            for (int i = 3; i >= 0; --i) {
+                if (node.children[i] >= 0)
+                    stack[stackSize++] = node.children[i];
+            }
         }
     }
+
     return totalForce;
 }
 

@@ -52,6 +52,7 @@ private:
     QHash<QString, int> m_degree;
     QVector<QPointF> m_displacements;
     QVector<QPointF> m_previousForces;
+    double m_theta = 0.8;
     double m_centerForce = 0.01;
     double m_repelForce = 1500.0;
     double m_linkForce = 0.05;

@@ -28,8 +28,5 @@ private:
     int m_root = -1;
     void insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &nodes);
     void subdivide(int quadNodeIdx);
-    QPointF computeRepulsionRecursive(int quadNodeIdx, const QPointF &pos,
-                                       double repelForce, double nodeMass,
-                                       double theta) const;
 };
 } // namespace ForceGraph
