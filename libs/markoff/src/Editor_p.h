@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Forked from Qt's QPlainTextEdit (QPlainTextEditPrivate)
-// Original: Copyright (C) The Qt Company Ltd. (GPL-2.0-only OR GPL-3.0-only)
+// Scrolling model follows QTextEdit exactly (pixel-based, QTextDocumentLayout).
 
 #ifndef MARKOFF_EDITOR_P_H
 #define MARKOFF_EDITOR_P_H
@@ -30,7 +29,6 @@
 
 namespace Markoff {
 
-class PlainTextDocumentLayout;
 class EditorControl;
 
 // Editor::Private is declared as a private nested struct in Editor.h,
@@ -48,11 +46,9 @@ struct Editor::Private {
     }
 
     void adjustScrollbars();
-    void verticalScrollbarActionTriggered(int action);
-    void ensureViewportLayouted();
     void relayoutDocument();
 
-    void pageUpDown(QTextCursor::MoveOperation op, QTextCursor::MoveMode moveMode, bool moveCursor = true);
+    void pageUpDown(QTextCursor::MoveOperation op, QTextCursor::MoveMode moveMode);
 
     int horizontalOffset() const
     {
@@ -60,8 +56,7 @@ struct Editor::Private {
         return (q->isRightToLeft() ? (hbar->maximum() - hbar->value()) : hbar->value());
     }
 
-    qreal verticalOffset(int topBlock, int topLine) const;
-    qreal verticalOffset() const;
+    int verticalOffset() const { return q->verticalScrollBar()->value(); }
 
     void sendControlEvent(QEvent *e); // defined in Editor.cpp (EditorControl is incomplete here)
 
@@ -72,11 +67,8 @@ struct Editor::Private {
 
     EditorControl *control = nullptr;
     MarkdownHighlighter *highlighter = nullptr;
-    qreal topLineFracture = 0;
     qreal pageUpDownLastCursorY = 0;
     QTextOption::WrapMode wordWrap = QTextOption::WrapAtWordBoundaryOrAnywhere;
-    int originalOffsetY = 0;
-    int topLine = 0;
 
     uint tabChangesFocus : 1 = 0;
     uint showCursorOnInitialShow : 1 = 0;
@@ -84,16 +76,11 @@ struct Editor::Private {
     uint centerOnScroll : 1 = 0;
     uint inDrag : 1 = 0;
     uint clickCausedFocus : 1 = 0;
-    uint pageUpDownLastCursorYIsValid : 1 = 0;
+    uint ignoreAutomaticScrollbarAdjustment : 1 = 0;
 
-    void setTopLine(int visualTopLine, int dx = 0);
-    void setTopBlock(int newTopBlock, int newTopLine, int dx = 0);
-
-    void ensureVisible(int position, bool center, bool forceCenter = false);
-    void ensureCursorVisible(bool center = false);
+    void ensureVisible(const QRectF &rect);
+    void ensureCursorVisible();
     void updateViewport();
-
-    QPointer<PlainTextDocumentLayout> documentLayoutPtr;
 
     // Live preview
     Editor::Mode mode = Editor::Mode::Source;
@@ -114,8 +101,9 @@ struct Editor::Private {
     void detectDecoratedRanges();
     const DecoratedRange *decoratedRangeAt(int blockNumber) const;
 
-    // Live tables (QTextTable objects that replaced pipe text)
-    QList<QTextTable *> liveTables;
+    // Live tables (QTextTable objects that replaced pipe text).
+    // QPointer auto-nulls when the table is destroyed (e.g. by undo).
+    QList<QPointer<QTextTable>> liveTables;
     QList<QList<Qt::Alignment>> tableAlignments;
     QTextTable *hoverTable = nullptr;
     void convertTables();

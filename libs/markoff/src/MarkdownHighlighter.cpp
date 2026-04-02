@@ -330,6 +330,17 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     if (text.isEmpty())
         return;
 
+    // Skip table cell blocks — QTextDocumentLayout renders table content
+    // natively. Applying markdown span formatting to cell blocks can make
+    // text invisible (delimiter hiding) or apply wrong styles.
+    {
+        const auto frames = currentBlock().document()->rootFrame()->childFrames();
+        int pos = currentBlock().position();
+        for (auto *f : frames) {
+            if (pos >= f->firstPosition() && pos <= f->lastPosition())
+                return;
+        }
+    }
 
     const int blockNum = currentBlock().blockNumber();
     const int blockPos = currentBlock().position();
