@@ -898,6 +898,7 @@ void Editor::Private::init(const QString &txt)
     q->verticalScrollBar()->setSingleStep(1);
 
     q->viewport()->setBackgroundRole(QPalette::Base);
+    q->viewport()->setMouseTracking(true);  // fire mouseMoveEvent without button pressed
     q->setAcceptDrops(true);
     q->setFocusPolicy(Qt::StrongFocus);
     q->setAttribute(Qt::WA_KeyCompression);
@@ -1902,6 +1903,37 @@ void Editor::paintTable(QPainter *painter, QTextTable *table,
         }
     }
 
+    // Hover chrome: + buttons at edges when hovering over a table
+    if (d->hoverTable == table) {
+        QFont smallFont = font();
+        smallFont.setPointSize(qMax(8, font().pointSize() - 2));
+        painter->setFont(smallFont);
+
+        // + button at right edge (append column)
+        {
+            qreal x = tableX + td->tableWidth + 4;
+            qreal y = tableY + td->tableHeight / 2 - 10;
+            QRectF btnRect(x, y, 20, 20);
+            painter->setPen(QPen(QColor(0x99, 0x99, 0x99), 1));
+            painter->setBrush(QColor(0xf0, 0xf0, 0xf0));
+            painter->drawRoundedRect(btnRect, 3, 3);
+            painter->setPen(QColor(0x66, 0x66, 0x66));
+            painter->drawText(btnRect, Qt::AlignCenter, QStringLiteral("+"));
+        }
+
+        // + button at bottom edge (append row)
+        {
+            qreal x = tableX + td->tableWidth / 2 - 10;
+            qreal y = tableY + td->tableHeight + 4;
+            QRectF btnRect(x, y, 20, 20);
+            painter->setPen(QPen(QColor(0x99, 0x99, 0x99), 1));
+            painter->setBrush(QColor(0xf0, 0xf0, 0xf0));
+            painter->drawRoundedRect(btnRect, 3, 3);
+            painter->setPen(QColor(0x66, 0x66, 0x66));
+            painter->drawText(btnRect, Qt::AlignCenter, QStringLiteral("+"));
+        }
+    }
+
     painter->restore();
 }
 
@@ -2253,6 +2285,40 @@ void Editor::keyPressEvent(QKeyEvent *e)
 
 void Editor::mousePressEvent(QMouseEvent *e)
 {
+    // Check if click lands on a table + button
+    if (d->mode == Mode::LivePreview && d->hoverTable && e->button() == Qt::LeftButton) {
+        auto *td = static_cast<TableLayoutData *>(d->hoverTable->layoutData());
+        if (td && !td->dirty) {
+            QPointF pos = e->position();
+            const qreal margin = document()->documentMargin();
+            QPointF offset = Markoff::contentOffset(d.get(), this);
+            QTextBlock firstBlock = d->hoverTable->cellAt(0, 0).firstCursorPosition().block();
+            QRectF tableRect = Markoff::blockBoundingRect(d.get(), firstBlock).translated(offset);
+            qreal tableX = tableRect.left() + margin;
+            qreal tableY = tableRect.top();
+
+            // Right + button (append column)
+            QRectF rightBtn(tableX + td->tableWidth + 4,
+                            tableY + td->tableHeight / 2 - 10, 20, 20);
+            if (rightBtn.contains(pos)) {
+                d->hoverTable->appendColumns(1);
+                viewport()->update();
+                e->accept();
+                return;
+            }
+
+            // Bottom + button (append row)
+            QRectF bottomBtn(tableX + td->tableWidth / 2 - 10,
+                             tableY + td->tableHeight + 4, 20, 20);
+            if (bottomBtn.contains(pos)) {
+                d->hoverTable->appendRows(1);
+                viewport()->update();
+                e->accept();
+                return;
+            }
+        }
+    }
+
     d->mouseDragging = true;
     d->sendControlEvent(e);
 }
@@ -2262,6 +2328,29 @@ void Editor::mouseMoveEvent(QMouseEvent *e)
     d->inDrag = false;
     const QPoint pos = e->position().toPoint();
     d->sendControlEvent(e);
+
+    // Update table hover state for chrome painting
+    if (d->mode == Mode::LivePreview) {
+        QPointF docPos = e->position() + QPointF(d->horizontalOffset(), d->verticalOffset());
+        QTextCursor tc = d->control->cursorForPosition(docPos);
+        QTextTable *table = tc.currentTable();
+
+        int newRow = -1;
+        int newCol = -1;
+        if (table) {
+            QTextTableCell cell = table->cellAt(tc);
+            newRow = cell.row();
+            newCol = cell.column();
+        }
+
+        if (table != d->hoverTable || newRow != d->hoverTableRow || newCol != d->hoverTableCol) {
+            d->hoverTable = table;
+            d->hoverTableRow = newRow;
+            d->hoverTableCol = newCol;
+            viewport()->update();
+        }
+    }
+
     if (!(e->buttons() & Qt::LeftButton))
         return;
     if (e->source() == Qt::MouseEventNotSynthesized) {
@@ -2371,6 +2460,54 @@ QVariant Editor::inputMethodQuery(Qt::InputMethodQuery property) const
 
 void Editor::contextMenuEvent(QContextMenuEvent *e)
 {
+    if (d->mode == Mode::LivePreview) {
+        QPointF docPos = QPointF(e->pos()) + QPointF(d->horizontalOffset(), d->verticalOffset());
+        QTextCursor tc = d->control->cursorForPosition(docPos);
+        QTextTable *table = tc.currentTable();
+        if (table) {
+            QTextTableCell cell = table->cellAt(tc);
+            int row = cell.row();
+            int col = cell.column();
+
+            QMenu menu(this);
+            menu.addAction(tr("Insert Row Above"), this, [this, table, row]() {
+                table->insertRows(row, 1);
+                viewport()->update();
+            });
+            menu.addAction(tr("Insert Row Below"), this, [this, table, row]() {
+                table->insertRows(row + 1, 1);
+                viewport()->update();
+            });
+            menu.addSeparator();
+            menu.addAction(tr("Insert Column Before"), this, [this, table, col]() {
+                table->insertColumns(col, 1);
+                viewport()->update();
+            });
+            menu.addAction(tr("Insert Column After"), this, [this, table, col]() {
+                table->insertColumns(col + 1, 1);
+                viewport()->update();
+            });
+            menu.addSeparator();
+            if (table->rows() > 1) {
+                menu.addAction(tr("Delete Row"), this, [this, table, row]() {
+                    table->removeRows(row, 1);
+                    viewport()->update();
+                });
+            }
+            if (table->columns() > 1) {
+                menu.addAction(tr("Delete Column"), this, [this, table, col]() {
+                    table->removeColumns(col, 1);
+                    viewport()->update();
+                });
+            }
+
+            menu.exec(e->globalPos());
+            e->accept();
+            return;
+        }
+    }
+
+    // Default context menu for non-table areas
     d->sendControlEvent(e);
 }
 

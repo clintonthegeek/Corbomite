@@ -121,6 +121,11 @@ struct Editor::Private {
 
     void cursorPositionChanged();
     void modificationChanged(bool);
+
+    // Table hover state (for chrome: handles, buttons)
+    QTextTable *hoverTable = nullptr;
+    int hoverTableRow = -1;
+    int hoverTableCol = -1;
 };
 
 } // namespace Markoff
