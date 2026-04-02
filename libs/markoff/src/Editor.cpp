@@ -746,9 +746,9 @@ QTextBlock EditorControl::firstVisibleBlock() const
 }
 
 int EditorControl::hitTest(const QPointF &point, Qt::HitTestAccuracy) const {
-    // Pixel-based: point.y() is relative to the viewport.
-    // Convert to document coordinates by adding scroll offset.
-    qreal docY = point.y() + textEdit->verticalScrollBar()->value();
+    // point is already in document coordinates — processEvent() transforms
+    // viewport coords by verticalOffset() before calling us.
+    qreal docY = point.y();
 
     PlainTextDocumentLayout *documentLayout = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
     Q_ASSERT(documentLayout);
@@ -792,15 +792,15 @@ QRectF EditorControl::blockBoundingRect(const QTextBlock &block) const {
     PlainTextDocumentLayout *dl = qobject_cast<PlainTextDocumentLayout*>(document()->documentLayout());
     Q_ASSERT(dl);
     QRectF r = dl->blockBoundingRect(block);
-    // Compute block's pixel Y by summing heights of preceding blocks
+    // Return rect in document coordinates (not viewport).
+    // TextControl operates in document space via processEvent transform.
     qreal blockY = document()->documentMargin();
     QTextBlock b = document()->begin();
     while (b.isValid() && b != block) {
         blockY += dl->blockBoundingRect(b).height();
         b = b.next();
     }
-    qreal scrollY = textEdit->verticalScrollBar()->value();
-    r.translate(0, blockY - scrollY);
+    r.translate(0, blockY);
     return r;
 }
 
