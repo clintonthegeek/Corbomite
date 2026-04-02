@@ -58,11 +58,10 @@ private:
     int m_cursorColumn = -1;
 
 public:
-    /// When true, highlightBlock() preserves existing formatting instead of
-    /// applying the (now stale) span map. Set on text change, cleared on reparse.
-    void setSpanMapStale(bool stale) { m_spanMapStale = stale; }
+    /// Adjust span map offsets after a text edit. Call BEFORE Qt's
+    /// automatic rehighlight runs (connect to contentsChange, not contentsChanged).
+    void adjustSpanOffsets(int editPos, int charsRemoved, int charsAdded);
 private:
-    bool m_spanMapStale = false;
 
     void highlightCodeBlock(const QString &text, const DecoratedRange &dr, int blockNum);
 

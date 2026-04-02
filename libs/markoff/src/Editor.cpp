@@ -195,10 +195,18 @@ void Editor::Private::init(const QString &txt)
     auto *reparseTimer = new QTimer(q);
     reparseTimer->setSingleShot(true);
     reparseTimer->setInterval(150);
+    // Adjust span map offsets immediately on edit — BEFORE Qt's auto-rehighlight.
+    // contentsChange fires before contentsChanged/textChanged, so the span map
+    // has correct offsets by the time highlightBlock() runs.
+    QObject::connect(doc, &QTextDocument::contentsChange, q,
+        [this](int from, int charsRemoved, int charsAdded) {
+        if (mode == Editor::Mode::LivePreview && !inReparse) {
+            highlighter->adjustSpanOffsets(from, charsRemoved, charsAdded);
+        }
+    });
     QObject::connect(control, &TextControl::textChanged, q, [this, reparseTimer]() {
         if (mode == Editor::Mode::LivePreview && !inReparse) {
             needsReparse = true;
-            highlighter->setSpanMapStale(true);  // freeze formatting until reparse
             reparseTimer->start();  // restart 150ms countdown
         }
     });
@@ -210,7 +218,6 @@ void Editor::Private::init(const QString &txt)
                     control->textCursor().block().blockNumber(),
                     control->textCursor().positionInBlock());
                 reparseDocument();  // revert tables, parse, highlight setup, block formats
-                highlighter->setSpanMapStale(false);  // span map is fresh now
                 highlighter->rehighlight();
                 updateBlockDisplayModes();
                 // Convert tables as the VERY LAST step — after all block

@@ -330,12 +330,6 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     if (text.isEmpty())
         return;
 
-    // If the span map is stale (text changed but reparse hasn't run yet),
-    // skip ALL re-formatting. Blocks keep their pre-edit formatting
-    // until the debounced reparse provides fresh offsets. Applying stale
-    // offsets causes formatting from adjacent sections to bleed in.
-    if (m_spanMapStale)
-        return;
 
     const int blockNum = currentBlock().blockNumber();
     const int blockPos = currentBlock().position();
@@ -443,6 +437,46 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
 
     // Note: blockquote indentation is handled by Editor::applyBlockFormats()
     // because QSyntaxHighlighter can only set character formats, not block formats.
+}
+
+void MarkdownHighlighter::adjustSpanOffsets(int editPos, int charsRemoved, int charsAdded)
+{
+    int delta = charsAdded - charsRemoved;
+    if (delta == 0) return;
+
+    for (auto &span : m_spans) {
+        int spanEnd = span.charOffset + span.charLength;
+
+        // Span entirely before edit — unchanged
+        if (spanEnd <= editPos)
+            continue;
+
+        // Span entirely after the removed region — shift
+        if (span.charOffset >= editPos + charsRemoved) {
+            span.charOffset += delta;
+            if (span.parentCharStart >= editPos + charsRemoved) {
+                span.parentCharStart += delta;
+                span.parentCharEnd += delta;
+            }
+            continue;
+        }
+
+        // Span overlaps the edit — adjust length
+        if (charsRemoved == 0) {
+            // Pure insertion inside this span: grow it
+            span.charLength += charsAdded;
+            if (span.parentCharEnd >= editPos)
+                span.parentCharEnd += charsAdded;
+        } else {
+            // Deletion/replacement overlaps this span
+            int overlapStart = qMax(span.charOffset, editPos);
+            int overlapEnd = qMin(spanEnd, editPos + charsRemoved);
+            int removed = overlapEnd - overlapStart;
+            span.charLength = qMax(0, span.charLength - removed + (span.charOffset <= editPos ? charsAdded : 0));
+            if (span.charOffset > editPos)
+                span.charOffset = editPos + charsAdded;
+        }
+    }
 }
 
 } // namespace Markoff
