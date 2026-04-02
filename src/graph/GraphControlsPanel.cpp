@@ -5,6 +5,7 @@
 #include <KLocalizedString>
 
 #include <QCheckBox>
+#include <QPalette>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
@@ -24,14 +25,9 @@ GraphControlsPanel::GraphControlsPanel(QWidget *parent)
     setAutoFillBackground(true);
     setFixedWidth(220);
 
-    // Semi-transparent background with rounded corners
-    setStyleSheet(QStringLiteral(
-        "GraphControlsPanel {"
-        "  background-color: rgba(30, 30, 30, 230);"
-        "  border-radius: 8px;"
-        "  border: 1px solid rgba(255, 255, 255, 30);"
-        "}"
-    ));
+    // Let the system theme handle colors — just set the frame style
+    setFrameShadow(QFrame::Raised);
+    setLineWidth(1);
 
     auto *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(8, 8, 8, 8);
@@ -42,7 +38,9 @@ GraphControlsPanel::GraphControlsPanel(QWidget *parent)
     headerLayout->setContentsMargins(0, 0, 0, 0);
 
     auto *titleLabel = new QLabel(i18n("Graph Controls"), this);
-    titleLabel->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 12px;"));
+    QFont titleFont = titleLabel->font();
+    titleFont.setBold(true);
+    titleLabel->setFont(titleFont);
     headerLayout->addWidget(titleLabel);
     headerLayout->addStretch();
 
@@ -260,10 +258,13 @@ QWidget *GraphControlsPanel::createSliderRow(const QString &labelText, QSlider *
     auto *topRow = new QHBoxLayout;
     topRow->setContentsMargins(0, 0, 0, 0);
     auto *label = new QLabel(labelText, row);
-    label->setStyleSheet(QStringLiteral("font-size: 11px;"));
+    QFont smallFont = label->font();
+    smallFont.setPointSize(smallFont.pointSize() - 1);
+    label->setFont(smallFont);
     topRow->addWidget(label);
     topRow->addStretch();
-    valueLabel->setStyleSheet(QStringLiteral("font-size: 11px; color: #aaa;"));
+    valueLabel->setFont(smallFont);
+    valueLabel->setForegroundRole(QPalette::PlaceholderText);
     valueLabel->setFixedWidth(40);
     valueLabel->setAlignment(Qt::AlignRight);
     topRow->addWidget(valueLabel);
