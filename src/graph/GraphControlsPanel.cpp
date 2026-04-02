@@ -21,42 +21,19 @@ namespace Corbomite {
 GraphControlsPanel::GraphControlsPanel(QWidget *parent)
     : QFrame(parent)
 {
-    setFrameShape(QFrame::StyledPanel);
-    setAutoFillBackground(true);
-    setFixedWidth(220);
-
-    // Let the system theme handle colors — just set the frame style
-    setFrameShadow(QFrame::Raised);
-    setLineWidth(1);
+    // No frame styling needed — lives inside a KDE sidebar tool view
 
     auto *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(8, 8, 8, 8);
     mainLayout->setSpacing(4);
 
-    // Header row: title + reset + close
-    auto *headerLayout = new QHBoxLayout;
-    headerLayout->setContentsMargins(0, 0, 0, 0);
-
-    auto *titleLabel = new QLabel(i18n("Graph Controls"), this);
-    QFont titleFont = titleLabel->font();
-    titleFont.setBold(true);
-    titleLabel->setFont(titleFont);
-    headerLayout->addWidget(titleLabel);
-    headerLayout->addStretch();
-
+    // Reset button
     m_resetButton = new QToolButton(this);
+    m_resetButton->setText(i18n("Reset"));
     m_resetButton->setIcon(QIcon::fromTheme(QStringLiteral("edit-undo")));
-    m_resetButton->setToolTip(i18n("Reset all controls to defaults"));
+    m_resetButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     m_resetButton->setAutoRaise(true);
-    headerLayout->addWidget(m_resetButton);
-
-    m_closeButton = new QToolButton(this);
-    m_closeButton->setIcon(QIcon::fromTheme(QStringLiteral("window-close")));
-    m_closeButton->setToolTip(i18n("Close panel"));
-    m_closeButton->setAutoRaise(true);
-    headerLayout->addWidget(m_closeButton);
-
-    mainLayout->addLayout(headerLayout);
+    mainLayout->addWidget(m_resetButton);
 
     // Search debounce timer
     m_searchDebounce = new QTimer(this);
@@ -75,7 +52,6 @@ GraphControlsPanel::GraphControlsPanel(QWidget *parent)
 
     // Connections — panel
     connect(m_resetButton, &QToolButton::clicked, this, &GraphControlsPanel::resetToDefaults);
-    connect(m_closeButton, &QToolButton::clicked, this, &GraphControlsPanel::closeRequested);
 }
 
 void GraphControlsPanel::setupFiltersSection()

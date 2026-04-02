@@ -12,6 +12,7 @@
 #include "sidebar/OutlinksPanel.h"
 #include "sidebar/OutlinePanel.h"
 #include "graph/LocalGraphPanel.h"
+#include "graph/GraphControlsPanel.h"
 #include "graph/GraphViewTab.h"
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
@@ -530,6 +531,17 @@ void MainWindow::setupSidebars()
     localGraphView->layout()->addWidget(m_localGraphPanel);
     connect(m_localGraphPanel, &LocalGraphPanel::noteActivated,
             this, &MainWindow::onNoteActivated);
+
+    // Right sidebar: Graph Controls
+    auto *graphControlsView = createToolView(
+        nullptr,
+        QStringLiteral("graph_controls_panel"),
+        KMultiTabBar::Right,
+        QIcon::fromTheme(QStringLiteral("configure")),
+        i18n("Graph Controls")
+    );
+    m_graphControlsPanel = new GraphControlsPanel(graphControlsView);
+    graphControlsView->layout()->addWidget(m_graphControlsPanel);
 }
 
 void MainWindow::setupStatusBar()
@@ -986,6 +998,19 @@ void MainWindow::openGraphView()
 {
     if (!m_vaultService->isOpen() || !m_searchIndex) return;
     m_editorManager->openGraphView(m_searchIndex, m_vaultService->vault());
+
+    // Wire the sidebar graph controls panel to the newly opened graph tab
+    if (m_graphControlsPanel) {
+        auto *space = m_editorManager->activeViewSpace();
+        if (space) {
+            // Find the GraphViewTab in the active space
+            for (int i = 0; i < space->findChildren<GraphViewTab *>().size(); ++i) {
+                auto *graphTab = space->findChildren<GraphViewTab *>().at(i);
+                graphTab->setControlsPanel(m_graphControlsPanel);
+                break;
+            }
+        }
+    }
 }
 
 void MainWindow::showSearchPanel()

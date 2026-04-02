@@ -4,8 +4,6 @@
 #include <QWidget>
 #include <forcegraph/GraphTypes.h>
 
-class QToolButton;
-
 namespace ForceGraph {
 class ForceLayoutEngine;
 class ForceGraphView;
@@ -25,6 +23,7 @@ public:
     ~GraphViewTab() override;
 
     void buildGraph();
+    void setControlsPanel(GraphControlsPanel *panel);
 
 Q_SIGNALS:
     void noteActivated(const QString &relativePath);
@@ -32,13 +31,9 @@ Q_SIGNALS:
     void revealInNavigationRequested(const QString &relativePath);
     void deleteNoteRequested(const QString &relativePath);
 
-protected:
-    void resizeEvent(QResizeEvent *event) override;
-
 private:
-    void setupControlsPanel();
+    void wireControlsPanel();
     void applyFilters();
-    void positionControlsPanel();
     void showNodeContextMenu(const QString &nodeId, const QPoint &globalPos);
 
     ForceGraph::ForceGraphView *m_graphView;
@@ -47,7 +42,6 @@ private:
     VaultModel *m_vault;
 
     GraphControlsPanel *m_controlsPanel = nullptr;
-    QToolButton *m_showPanelButton = nullptr;
 
     // Cached full graph data (before filtering)
     QVector<ForceGraph::GraphNode> m_allNodes;

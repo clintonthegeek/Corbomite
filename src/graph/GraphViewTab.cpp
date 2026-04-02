@@ -52,7 +52,6 @@ GraphViewTab::GraphViewTab(SQLiteIndex *index, VaultModel *vault, QWidget *paren
             this, &GraphViewTab::showNodeContextMenu);
 
     buildGraph();
-    setupControlsPanel();
 }
 
 GraphViewTab::~GraphViewTab()
@@ -109,19 +108,17 @@ void GraphViewTab::buildGraph()
     }, Qt::SingleShotConnection);
 }
 
-void GraphViewTab::setupControlsPanel()
+void GraphViewTab::setControlsPanel(GraphControlsPanel *panel)
 {
-    // Panel floats over the graph view — not in the layout
-    m_controlsPanel = new GraphControlsPanel(this);
-    m_controlsPanel->show();
+    m_controlsPanel = panel;
+    if (m_controlsPanel) {
+        wireControlsPanel();
+    }
+}
 
-    // Small toggle button to re-show panel when hidden
-    m_showPanelButton = new QToolButton(this);
-    m_showPanelButton->setIcon(QIcon::fromTheme(QStringLiteral("configure")));
-    m_showPanelButton->setToolTip(i18n("Show graph controls"));
-    m_showPanelButton->setAutoRaise(true);
-    m_showPanelButton->setIconSize(QSize(22, 22));
-    m_showPanelButton->hide();
+void GraphViewTab::wireControlsPanel()
+{
+    if (!m_controlsPanel) return;
 
     // --- Force signals → engine ---
     connect(m_controlsPanel, &GraphControlsPanel::centerForceChanged, this, [this](double v) {
@@ -165,38 +162,6 @@ void GraphViewTab::setupControlsPanel()
         m_engine->randomizePositions();
         m_engine->start();
     });
-
-    // --- Panel show/hide ---
-    connect(m_controlsPanel, &GraphControlsPanel::closeRequested, this, [this]() {
-        m_controlsPanel->hide();
-        m_showPanelButton->show();
-        positionControlsPanel();
-    });
-    connect(m_showPanelButton, &QToolButton::clicked, this, [this]() {
-        m_controlsPanel->show();
-        m_showPanelButton->hide();
-        positionControlsPanel();
-    });
-
-    positionControlsPanel();
-}
-
-void GraphViewTab::positionControlsPanel()
-{
-    if (m_controlsPanel) {
-        int x = width() - m_controlsPanel->width() - 8;
-        m_controlsPanel->move(x, 8);
-    }
-    if (m_showPanelButton) {
-        int x = width() - m_showPanelButton->width() - 8;
-        m_showPanelButton->move(x, 8);
-    }
-}
-
-void GraphViewTab::resizeEvent(QResizeEvent *event)
-{
-    QWidget::resizeEvent(event);
-    positionControlsPanel();
 }
 
 void GraphViewTab::applyFilters()

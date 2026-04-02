@@ -24,6 +24,7 @@ class BacklinksPanel;
 class OutlinksPanel;
 class OutlinePanel;
 class LocalGraphPanel;
+class GraphControlsPanel;
 class TemplateService;
 class DailyNoteService;
 class WelcomeScreen;
@@ -80,6 +81,7 @@ private:
     OutlinksPanel *m_outlinksPanel = nullptr;
     OutlinePanel *m_outlinePanel = nullptr;
     LocalGraphPanel *m_localGraphPanel = nullptr;
+    GraphControlsPanel *m_graphControlsPanel = nullptr;
     KRecentFilesAction *m_recentVaults = nullptr;
     TemplateService *m_templateService = nullptr;
     DailyNoteService *m_dailyNoteService = nullptr;
