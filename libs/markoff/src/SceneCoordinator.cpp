@@ -30,6 +30,46 @@ SceneCoordinator::~SceneCoordinator()
     delete m_parser;
 }
 
+MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
+                                                     MarkdownHighlighter::Mode hlMode)
+{
+    auto *item = new MarkdownTextItem;
+    item->setTextWidth(m_itemWidth);
+    item->setPlainText(text);
+    if (m_font.pointSize() > 0)
+        item->document()->setDefaultFont(m_font);
+
+    auto *highlighter = new MarkdownHighlighter(item->document());
+    highlighter->setMode(hlMode);
+
+    // Parse this item's text for its own span map
+    TreeSitterParser itemParser;
+    if (itemParser.parse(text)) {
+        highlighter->setSpanMap(itemParser.buildSpanMap());
+        highlighter->rehighlight(); // force initial highlight with span map
+    }
+
+    m_scene->addItem(item);
+    m_items.append(item);
+
+    connect(item, &MarkdownTextItem::textChanged,
+            this, &SceneCoordinator::onItemTextChanged);
+    connect(item, &MarkdownTextItem::cursorAtBoundary,
+            this, [this, item](Qt::Edge edge) {
+        moveFocusTo(item, edge);
+    });
+
+    return item;
+}
+
+void SceneCoordinator::loadSource(const QString &markdown)
+{
+    clearItems();
+    createTextItem(markdown, MarkdownHighlighter::Mode::Source);
+    repositionItems();
+    m_scene->setSelectableItems(m_items);
+}
+
 void SceneCoordinator::loadMarkdown(const QString &markdown)
 {
     clearItems();
@@ -38,33 +78,8 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
 
     for (const auto &seg : segments) {
         if (seg.type == MarkdownSegment::Text) {
-            auto *item = new MarkdownTextItem;
-            item->setTextWidth(m_itemWidth);
-            item->setPlainText(seg.text);
-            if (m_font.pointSize() > 0)
-                item->document()->setDefaultFont(m_font);
-
-            // Highlighter per text item
-            auto *highlighter = new MarkdownHighlighter(item->document());
-            highlighter->setMode(MarkdownHighlighter::Mode::LivePreview);
-
-            // Parse this item's text for its own span map
-            TreeSitterParser itemParser;
-            if (itemParser.parse(seg.text)) {
-                highlighter->setSpanMap(itemParser.buildSpanMap());
-            }
-
-            m_scene->addItem(item);
-            m_items.append(item);
-
-            connect(item, &MarkdownTextItem::textChanged,
-                    this, &SceneCoordinator::onItemTextChanged);
-            connect(item, &MarkdownTextItem::cursorAtBoundary,
-                    this, [this, item](Qt::Edge edge) {
-                moveFocusTo(item, edge);
-            });
+            createTextItem(seg.text, MarkdownHighlighter::Mode::LivePreview);
         } else {
-            // Non-text block: StubBlockItem for now
             auto *item = new StubBlockItem(seg.text, m_itemWidth, 80);
             m_scene->addItem(item);
             m_items.append(item);
@@ -197,32 +212,10 @@ void SceneCoordinator::reparse()
     }
 
     if (structureChanged) {
-        // Full rebuild — save cursor info if possible
-        // TODO: could be smarter about preserving focus
         clearItems();
         for (const auto &seg : newSegments) {
             if (seg.type == MarkdownSegment::Text) {
-                auto *item = new MarkdownTextItem;
-                item->setTextWidth(m_itemWidth);
-                item->setPlainText(seg.text);
-                if (m_font.pointSize() > 0)
-                    item->document()->setDefaultFont(m_font);
-
-                auto *highlighter = new MarkdownHighlighter(item->document());
-                highlighter->setMode(MarkdownHighlighter::Mode::LivePreview);
-                TreeSitterParser itemParser;
-                if (itemParser.parse(seg.text))
-                    highlighter->setSpanMap(itemParser.buildSpanMap());
-
-                m_scene->addItem(item);
-                m_items.append(item);
-
-                connect(item, &MarkdownTextItem::textChanged,
-                        this, &SceneCoordinator::onItemTextChanged);
-                connect(item, &MarkdownTextItem::cursorAtBoundary,
-                        this, [this, item](Qt::Edge edge) {
-                    moveFocusTo(item, edge);
-                });
+                createTextItem(seg.text, MarkdownHighlighter::Mode::LivePreview);
             } else {
                 auto *item = new StubBlockItem(seg.text, m_itemWidth, 80);
                 m_scene->addItem(item);

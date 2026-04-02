@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
+#include <QFile>
+#include <QTextStream>
 #include "MarkdownSplitter.h"
 #include "TreeSitterParser.h"
+
+#ifndef SHOWCASE_PATH
+#define SHOWCASE_PATH "/home/clinton/dev/Corbomite/libs/markoff/tests/showcase.md"
+#endif
 
 using namespace Markoff;
 
@@ -18,6 +24,7 @@ private Q_SLOTS:
     void testEmptyDocument();
     void testBlockAtStart();
     void testBlockAtEnd();
+    void testShowcaseFile();
 };
 
 void TestSplitter::testNoBlocks()
@@ -113,6 +120,30 @@ void TestSplitter::testBlockAtEnd()
     QCOMPARE(segments[0].type, MarkdownSegment::Text);
     QVERIFY(segments[0].text.contains(QStringLiteral("Text before")));
     QCOMPARE(segments.last().type, MarkdownSegment::Table);
+}
+
+void TestSplitter::testShowcaseFile()
+{
+    TreeSitterParser parser;
+    QFile f(QStringLiteral(SHOWCASE_PATH));
+    QVERIFY2(f.open(QIODevice::ReadOnly), "Cannot open showcase.md");
+    QString md = QTextStream(&f).readAll();
+    auto segments = MarkdownSplitter::split(md, parser);
+
+    // showcase.md has 3 code blocks, 2 tables, and text between them
+    // So we expect at least 8 segments
+    for (int i = 0; i < segments.size(); ++i) {
+        QString typeName = segments[i].type == MarkdownSegment::Text ? QStringLiteral("Text")
+            : segments[i].type == MarkdownSegment::Table ? QStringLiteral("Table")
+            : QStringLiteral("CodeBlock");
+        QString preview = segments[i].text.left(50).replace(QLatin1Char('\n'), QStringLiteral("\\n"));
+        qDebug() << i << typeName << "len:" << segments[i].text.size() << preview;
+    }
+    QVERIFY2(segments.size() >= 8,
+             qPrintable(QStringLiteral("Expected >=8 segments, got %1").arg(segments.size())));
+
+    // Last segment should contain "Frontmatter" (near end of file)
+    QVERIFY(segments.last().text.contains(QStringLiteral("Frontmatter")));
 }
 
 QTEST_MAIN(TestSplitter)

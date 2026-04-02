@@ -81,16 +81,10 @@ void Editor::resizeEvent(QResizeEvent *e)
 
 void Editor::rebuildScene()
 {
-    if (m_mode == Mode::Source) {
-        // Single MarkdownTextItem with all text, source mode highlighting
+    if (m_mode == Mode::Source)
+        m_coordinator->loadSource(m_sourceText);
+    else
         m_coordinator->loadMarkdown(m_sourceText);
-        // In source mode, just show raw text without splitting
-        // loadMarkdown already handles this — if there are no block
-        // boundaries, everything stays as one text item
-    } else {
-        // LivePreview: split at block boundaries
-        m_coordinator->loadMarkdown(m_sourceText);
-    }
 
     // Set width and font
     qreal width = viewport()->width() - 4;
