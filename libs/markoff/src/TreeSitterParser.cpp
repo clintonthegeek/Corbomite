@@ -643,4 +643,48 @@ QList<SourceSpan> TreeSitterParser::buildSpanMap() const
     return spans;
 }
 
+static void collectBlockBoundaries(TSNode node,
+                                    const TreeSitterParser *parser,
+                                    QList<TreeSitterParser::BlockBoundary> &boundaries)
+{
+    uint32_t childCount = ts_node_child_count(node);
+    for (uint32_t i = 0; i < childCount; ++i) {
+        TSNode child = ts_node_child(node, i);
+        const char *type = ts_node_type(child);
+
+        if (strcmp(type, "pipe_table") == 0 || strcmp(type, "fenced_code_block") == 0) {
+            TreeSitterParser::BlockBoundary b;
+            b.type = (strcmp(type, "pipe_table") == 0)
+                ? TreeSitterParser::BlockBoundary::Table
+                : TreeSitterParser::BlockBoundary::FencedCodeBlock;
+            b.startByte = static_cast<int>(ts_node_start_byte(child));
+            b.endByte = static_cast<int>(ts_node_end_byte(child));
+            b.startChar = parser->utf8ToCharOffset(b.startByte);
+            b.endChar = parser->utf8ToCharOffset(b.endByte);
+            boundaries.append(b);
+        } else {
+            // Recurse into sections and other container nodes
+            collectBlockBoundaries(child, parser, boundaries);
+        }
+    }
+}
+
+QList<TreeSitterParser::BlockBoundary> TreeSitterParser::findBlockBoundaries() const
+{
+    QList<BlockBoundary> boundaries;
+    if (!m_blockTree)
+        return boundaries;
+
+    TSNode root = ts_tree_root_node(m_blockTree);
+    collectBlockBoundaries(root, this, boundaries);
+
+    // Sort by start position (should already be in order, but be safe)
+    std::sort(boundaries.begin(), boundaries.end(),
+              [](const BlockBoundary &a, const BlockBoundary &b) {
+                  return a.startByte < b.startByte;
+              });
+
+    return boundaries;
+}
+
 } // namespace Markoff

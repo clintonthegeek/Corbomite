@@ -35,12 +35,28 @@ public:
     /// Check if a tree exists (parse was successful)
     bool hasTree() const { return m_blockTree != nullptr; }
 
+    /// A non-text block boundary found by the parser.
+    struct BlockBoundary {
+        enum Type { Table, FencedCodeBlock };
+        Type type;
+        int startByte = 0;  ///< UTF-8 byte offset of block start
+        int endByte = 0;    ///< UTF-8 byte offset of block end
+        int startChar = 0;  ///< QString char offset of block start
+        int endChar = 0;    ///< QString char offset of block end
+    };
+
+    /// Find all non-text block boundaries in the parsed document.
+    /// Must call parse() first.
+    QList<BlockBoundary> findBlockBoundaries() const;
+
     /// Get the raw UTF-8 source (for offset mapping)
     const QByteArray &utf8Source() const { return m_utf8; }
 
+    /// Convert a UTF-8 byte offset to a QString char offset.
+    int utf8ToCharOffset(int byteOffset) const;
+
 private:
     void walkNode(TSNode node, QList<SourceSpan> &spans) const;
-    int utf8ToCharOffset(int byteOffset) const;
 
     TSParser *m_blockParser = nullptr;
     TSParser *m_inlineParser = nullptr;

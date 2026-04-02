@@ -44,6 +44,8 @@ add_library(markoff STATIC
     src/SelectionManager.cpp
     src/SelectionScene.h
     src/SelectionScene.cpp
+    src/MarkdownSplitter.h
+    src/MarkdownSplitter.cpp
     src/Document.cpp
     src/DocumentBuilder.cpp
     src/TreeSitterParser.cpp
