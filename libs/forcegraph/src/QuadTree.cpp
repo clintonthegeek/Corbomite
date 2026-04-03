@@ -184,8 +184,8 @@ QPointF QuadTree::computeRepulsion(const QPointF &pos, double repelForce,
     QPointF totalForce(0, 0);
     if (m_nodes.isEmpty() || m_root < 0) return totalForce;
 
-    // Fixed-size stack (tree depth bounded by ~log4(n) ≈ 10)
-    int stack[40];
+    // Fixed-size stack — worst case pushes 4 children per level, depth ≤ MAX_DEPTH
+    int stack[4 * MAX_DEPTH + 4];
     int stackSize = 0;
     stack[stackSize++] = m_root;
 

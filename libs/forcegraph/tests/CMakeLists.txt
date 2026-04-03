@@ -15,3 +15,11 @@ add_executable(tst_forcelayout tst_forcelayout.cpp)
 add_test(NAME tst_forcelayout COMMAND tst_forcelayout)
 target_link_libraries(tst_forcelayout PRIVATE Qt6::Test forcegraph)
 set_tests_properties(tst_forcelayout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_benchmark_layout tst_benchmark_layout.cpp)
+add_test(NAME tst_benchmark_layout COMMAND tst_benchmark_layout)
+target_link_libraries(tst_benchmark_layout PRIVATE Qt6::Core forcegraph)
+set_tests_properties(tst_benchmark_layout PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 120
+    LABELS "benchmark")
