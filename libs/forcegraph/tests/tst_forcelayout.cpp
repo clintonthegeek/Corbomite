@@ -438,6 +438,8 @@ private Q_SLOTS:
                  qPrintable(QStringLiteral("Only %1 nodes moved from origin").arg(nonOrigin)));
     }
 
+    void testCoarseningQuality();
+
     void testLayoutLevelEarlyConvergence()
     {
         // Build a small grid — already near equilibrium so convergence should be fast.
@@ -488,6 +490,56 @@ private Q_SLOTS:
                  qPrintable(QStringLiteral("Took %1 ms — early convergence not working").arg(elapsed)));
     }
 };
+
+void TestForceLayout::testCoarseningQuality()
+{
+    // Build a 1000-node scale-free graph and run computeLayout.
+    QVector<ForceGraph::GraphNode> nodes;
+    nodes.reserve(1000);
+    for (int i = 0; i < 1000; ++i) {
+        ForceGraph::GraphNode n;
+        n.id = QString::number(i);
+        nodes.append(n);
+    }
+
+    // Preferential attachment edges
+    QVector<ForceGraph::GraphEdge> edges;
+    auto *rng = QRandomGenerator::global();
+    QVector<int> targets;
+    targets.append(0);
+    for (int i = 1; i < 1000; ++i) {
+        int target = targets[rng->bounded(targets.size())];
+        edges.append({QString::number(i), QString::number(target)});
+        targets.append(i);
+        targets.append(target);
+    }
+
+    ForceGraph::MultilevelConfig config;
+    config.minCoarseNodes = 50;
+
+    QElapsedTimer timer;
+    timer.start();
+    auto result = ForceGraph::MultilevelLayout::computeLayout(nodes, edges, config);
+    qint64 elapsed = timer.elapsed();
+
+    QCOMPARE(result.size(), 1000);
+
+    // With good coarsening (3+ levels), 1000 nodes should layout in <5 seconds.
+    qDebug("testCoarseningQuality: %lld ms for 1000 nodes", elapsed);
+    QVERIFY2(elapsed < 5000,
+             qPrintable(QStringLiteral("Took %1 ms — coarsening likely poor").arg(elapsed)));
+
+    // Layout quality: node 0 should be closer to node 1 (connected) than node 999
+    auto dist = [](const ForceGraph::GraphNode &a, const ForceGraph::GraphNode &b) {
+        double dx = a.position.x() - b.position.x();
+        double dy = a.position.y() - b.position.y();
+        return std::sqrt(dx * dx + dy * dy);
+    };
+    double d01 = dist(result[0], result[1]);
+    double d0999 = dist(result[0], result[999]);
+    QVERIFY2(d01 < d0999,
+             qPrintable(QStringLiteral("d(0,1)=%1 should be < d(0,999)=%2").arg(d01).arg(d0999)));
+}
 
 QTEST_MAIN(TestForceLayout)
 #include "tst_forcelayout.moc"

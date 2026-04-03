@@ -55,7 +55,7 @@ MultilevelLayout::Level MultilevelLayout::buildLevel0(
 }
 
 // ---------------------------------------------------------------------------
-// coarsen — maximal edge matching (Walshaw)
+// coarsen — degree-ordered maximal matching with second pass (Walshaw)
 // ---------------------------------------------------------------------------
 MultilevelLayout::Level MultilevelLayout::coarsen(const Level &fine)
 {
@@ -69,18 +69,17 @@ MultilevelLayout::Level MultilevelLayout::coarsen(const Level &fine)
         adj[fine.edgeTgt[e]].append({fine.edgeSrc[e], e});
     }
 
-    // Shuffle vertex order for better matching quality
+    // Degree-ordered matching: sort by degree ascending.
+    // Low-degree nodes have fewer matching opportunities, so match them first.
     QVector<int> order(n);
     std::iota(order.begin(), order.end(), 0);
-    auto *rng = QRandomGenerator::global();
-    for (int i = n - 1; i > 0; --i) {
-        int j = rng->bounded(i + 1);
-        std::swap(order[i], order[j]);
-    }
+    std::sort(order.begin(), order.end(), [&adj](int a, int b) {
+        return adj[a].size() < adj[b].size();
+    });
 
-    // Greedy maximal matching: pick heaviest unmatched neighbor
+    // Pass 1: Greedy maximal matching — pick heaviest unmatched neighbor
     QVector<bool> matched(n, false);
-    QVector<int> mate(n, -1); // mate[v] = matched partner, or -1
+    QVector<int> mate(n, -1);
 
     for (int idx = 0; idx < n; ++idx) {
         int v = order[idx];
@@ -105,23 +104,63 @@ MultilevelLayout::Level MultilevelLayout::coarsen(const Level &fine)
         }
     }
 
-    // Build coarse graph: assign each fine node to a coarse node
+    // Pass 2: Unmatched nodes merge with their heaviest matched neighbor.
+    // This creates triplet coarse nodes but improves the coarsening ratio.
+    for (int idx = 0; idx < n; ++idx) {
+        int v = order[idx];
+        if (matched[v])
+            continue;
+
+        int bestNeighbor = -1;
+        double bestWeight = -1.0;
+
+        for (const auto &[u, eIdx] : adj[v]) {
+            if (fine.edgeWeight[eIdx] > bestWeight) {
+                bestWeight = fine.edgeWeight[eIdx];
+                bestNeighbor = u;
+            }
+        }
+
+        if (bestNeighbor >= 0) {
+            matched[v] = true;
+            mate[v] = bestNeighbor;
+        }
+    }
+
+    // Build coarse graph: assign each fine node to a coarse node.
+    // Matched pairs and triplets → single coarse node.
     Level coarse;
     QVector<int> fineToCoarse(n, -1);
     int coarseCount = 0;
 
-    // Matched pairs → single coarse node
     for (int v = 0; v < n; ++v) {
         if (fineToCoarse[v] >= 0)
             continue;
 
+        // Check if v's mate already has a coarse assignment
+        if (mate[v] >= 0 && fineToCoarse[mate[v]] >= 0) {
+            fineToCoarse[v] = fineToCoarse[mate[v]];
+            coarse.nodeWeight[fineToCoarse[v]] += fine.nodeWeight[v];
+            continue;
+        }
+
         int c = coarseCount++;
         fineToCoarse[v] = c;
+        double weight = fine.nodeWeight[v];
 
-        if (mate[v] >= 0) {
+        if (mate[v] >= 0 && fineToCoarse[mate[v]] < 0) {
             fineToCoarse[mate[v]] = c;
-            coarse.nodeWeight.append(fine.nodeWeight[v] + fine.nodeWeight[mate[v]]);
-        } else {
+            weight += fine.nodeWeight[mate[v]];
+        }
+
+        coarse.nodeWeight.append(weight);
+    }
+
+    // Handle any remaining unassigned nodes (isolated, no neighbors)
+    for (int v = 0; v < n; ++v) {
+        if (fineToCoarse[v] < 0) {
+            int c = coarseCount++;
+            fineToCoarse[v] = c;
             coarse.nodeWeight.append(fine.nodeWeight[v]);
         }
     }
@@ -131,14 +170,13 @@ MultilevelLayout::Level MultilevelLayout::coarsen(const Level &fine)
     coarse.positions.resize(coarseCount);
 
     // Build coarse edges: collapse parallel edges by summing weights
-    // Use a hash to merge edges between the same coarse node pair
-    QHash<qint64, int> edgeMap; // (min*N + max) → index in coarse edge arrays
+    QHash<qint64, int> edgeMap;
 
     for (int e = 0; e < m; ++e) {
         int cs = fineToCoarse[fine.edgeSrc[e]];
         int ct = fineToCoarse[fine.edgeTgt[e]];
         if (cs == ct)
-            continue; // contracted into same coarse node
+            continue;
 
         int lo = std::min(cs, ct);
         int hi = std::max(cs, ct);
