@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "markoff/Theme.h"
 #include <QFontDatabase>
+#include <QSettings>
 
 namespace Markoff {
 
@@ -271,9 +272,152 @@ Theme Theme::defaultDark()
 
 Theme Theme::fromSchemeFile(const QString &path)
 {
-    Q_UNUSED(path)
-    // Stub: full QOwnNotes INI parser implemented in Task 10
-    return defaultLight();
+    QSettings settings(path, QSettings::IniFormat);
+
+    // Find the first schema key
+    QString schemaList = settings.value(QStringLiteral("Editor/DefaultColorSchemes")).toString();
+    if (schemaList.isEmpty())
+        return defaultLight();
+
+    QString schemaKey = schemaList.split(QStringLiteral(",")).first().trimmed();
+    if (schemaKey.isEmpty())
+        return defaultLight();
+
+    Theme t;
+    t.textFont = QFont();
+    t.textFont.setPointSize(14);
+    t.codeFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    t.codeFont.setPointSize(14);
+
+    settings.beginGroup(schemaKey);
+
+    // Map QOwnNotes indices to Markoff elements
+    struct IndexMapping {
+        int qonIndex;
+        Element element;
+    };
+    static const IndexMapping mappings[] = {
+        {-1, Element::Text},
+        {0,  Element::Link},
+        {4,  Element::CodeBlock},
+        {7,  Element::Italic},
+        {8,  Element::Bold},
+        {9,  Element::ListMarker},
+        {11, Element::Comment},
+        {12, Element::H1},
+        {13, Element::H2},
+        {14, Element::H3},
+        {15, Element::H4},
+        {16, Element::H5},
+        {17, Element::H6},
+        {18, Element::BlockQuote},
+        {21, Element::HorizontalRule},
+        {22, Element::Table},
+        {23, Element::InlineCode},
+        {24, Element::MaskedSyntax},
+        {25, Element::CurrentLineBackground},
+        {26, Element::BrokenLink},
+        {27, Element::FrontmatterBlock},
+        {28, Element::TrailingSpace},
+        {29, Element::CheckboxUnchecked},
+        {30, Element::CheckboxChecked},
+        {1000, Element::CodeKeyword},
+        {1001, Element::CodeString},
+        {1002, Element::CodeComment},
+        {1003, Element::CodeType},
+        {1004, Element::CodeOther},
+        {1005, Element::CodeNumLiteral},
+        {1006, Element::CodeBuiltIn},
+    };
+
+    for (const auto &m : mappings) {
+        QTextCharFormat fmt;
+        QString idx = QString::number(m.qonIndex);
+
+        // Foreground
+        bool fgEnabled = settings.value(
+            QStringLiteral("ForegroundColorEnabled_%1").arg(idx), false).toBool();
+        if (fgEnabled) {
+            QColor color = settings.value(
+                QStringLiteral("ForegroundColor_%1").arg(idx)).value<QColor>();
+            if (color.isValid())
+                fmt.setForeground(color);
+        }
+
+        // Background
+        bool bgEnabled = settings.value(
+            QStringLiteral("BackgroundColorEnabled_%1").arg(idx), false).toBool();
+        if (bgEnabled) {
+            QColor color = settings.value(
+                QStringLiteral("BackgroundColor_%1").arg(idx)).value<QColor>();
+            if (color.isValid())
+                fmt.setBackground(color);
+        }
+
+        // Bold
+        if (settings.value(QStringLiteral("Bold_%1").arg(idx), false).toBool())
+            fmt.setFontWeight(QFont::Bold);
+
+        // Italic
+        if (settings.value(QStringLiteral("Italic_%1").arg(idx), false).toBool())
+            fmt.setFontItalic(true);
+
+        // Underline
+        if (settings.value(QStringLiteral("Underline_%1").arg(idx), false).toBool())
+            fmt.setFontUnderline(true);
+
+        // Font size adaptation (for headings)
+        int sizeAdapt = settings.value(
+            QStringLiteral("FontSizeAdaption_%1").arg(idx), 100).toInt();
+        if (sizeAdapt != 100) {
+            QFont font = t.textFont;
+            font.setPointSize(qRound(t.textFont.pointSize() * sizeAdapt / 100.0));
+            fmt.setFont(font, QTextCharFormat::FontPropertiesSpecifiedOnly);
+            // Re-apply bold if it was set (setFont may clear it)
+            if (settings.value(QStringLiteral("Bold_%1").arg(idx), false).toBool())
+                fmt.setFontWeight(QFont::Bold);
+        }
+
+        // Code-related elements get monospace font family (preserves size adaptation)
+        if (m.qonIndex == 4 || m.qonIndex == 23 ||
+            (m.qonIndex >= 1000 && m.qonIndex <= 1006)) {
+            fmt.setFontFamilies(t.codeFont.families());
+        }
+
+        t.formats[m.element] = fmt;
+    }
+
+    settings.endGroup();
+
+    // Elements not in QOwnNotes — fill with sensible defaults
+    if (!t.formats.contains(Element::Highlight)) {
+        QTextCharFormat hlFmt;
+        hlFmt.setBackground(QColor(255, 249, 196));
+        t.formats[Element::Highlight] = hlFmt;
+    }
+    if (!t.formats.contains(Element::Tag)) {
+        t.formats[Element::Tag] = fgFormat(QColor(230, 81, 0));
+    }
+    if (!t.formats.contains(Element::WikiLink)) {
+        QTextCharFormat wlFmt;
+        wlFmt.setForeground(QColor(0, 137, 123));
+        wlFmt.setFontUnderline(true);
+        t.formats[Element::WikiLink] = wlFmt;
+    }
+    if (!t.formats.contains(Element::Image)) {
+        t.formats[Element::Image] = fgFormat(QColor(0, 137, 123));
+    }
+    if (!t.formats.contains(Element::Callout)) {
+        t.formats[Element::Callout] = fgFormat(QColor(68, 138, 255));
+    }
+    if (!t.formats.contains(Element::Strikethrough)) {
+        QTextCharFormat sFmt;
+        sFmt.setFontStrikeOut(true);
+        sFmt.setForeground(QColor(150, 150, 150));
+        t.formats[Element::Strikethrough] = sFmt;
+    }
+
+    return t;
 }
 
 } // namespace Markoff

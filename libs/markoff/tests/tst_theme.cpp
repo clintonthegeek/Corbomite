@@ -1,6 +1,7 @@
 // libs/markoff/tests/tst_theme.cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
+#include <QFile>
 #include "markoff/Theme.h"
 
 class TestTheme : public QObject
@@ -15,6 +16,7 @@ private Q_SLOTS:
     void testDefaultDarkHasTextFormat();
     void testDefaultDarkBackgroundIsDark();
     void testDefaultLightBoldIsBold();
+    void testFromSchemeFileLoadsColors();
 };
 
 void TestTheme::testDefaultLightHasTextFormat()
@@ -83,6 +85,26 @@ void TestTheme::testDefaultLightBoldIsBold()
     auto theme = Markoff::Theme::defaultLight();
     QVERIFY(theme.formats.contains(Markoff::Element::Bold));
     QVERIFY(theme.formats[Markoff::Element::Bold].fontWeight() >= QFont::Bold);
+}
+
+void TestTheme::testFromSchemeFileLoadsColors()
+{
+    QString schemePath = QStringLiteral("/home/clinton/src/QOwnNotes/src/configurations/schemes.conf");
+    if (!QFile::exists(schemePath))
+        QSKIP("QOwnNotes schemes.conf not found — skipping");
+
+    auto theme = Markoff::Theme::fromSchemeFile(schemePath);
+
+    // Should have loaded Text format
+    QVERIFY(theme.formats.contains(Markoff::Element::Text));
+    QColor fg = theme.formats[Markoff::Element::Text].foreground().color();
+    QVERIFY(fg.isValid());
+
+    // Should have headings
+    QVERIFY(theme.formats.contains(Markoff::Element::H1));
+
+    // H1 should be bold
+    QVERIFY(theme.formats[Markoff::Element::H1].fontWeight() >= QFont::Bold);
 }
 
 QTEST_MAIN(TestTheme)
