@@ -5,6 +5,7 @@
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
 #include "StubBlockItem.h"
+#include "TableBlockItem.h"
 #include "MarkdownSplitter.h"
 #include "MarkdownHighlighter.h"
 #include "TreeSitterParser.h"
@@ -92,7 +93,7 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
         if (seg.type == MarkdownSegment::Text) {
             createTextItem(seg.text, MarkdownHighlighter::Mode::LivePreview);
         } else {
-            auto *item = new StubBlockItem(seg.text, m_itemWidth, 80);
+            auto *item = new TableBlockItem(seg.text, m_itemWidth);
             m_scene->addItem(item);
             m_items.append(item);
         }
@@ -138,6 +139,8 @@ void SceneCoordinator::setFont(const QFont &font)
         if (item->isTextItem()) {
             auto *textItem = static_cast<MarkdownTextItem *>(item);
             textItem->document()->setDefaultFont(font);
+        } else if (auto *table = dynamic_cast<TableBlockItem *>(item->asGraphicsItem())) {
+            table->setFont(font);
         }
     }
     repositionItems();
@@ -350,7 +353,7 @@ void SceneCoordinator::reparse()
             if (seg.type == MarkdownSegment::Text) {
                 createTextItem(seg.text, MarkdownHighlighter::Mode::LivePreview);
             } else {
-                auto *item = new StubBlockItem(seg.text, m_itemWidth, 80);
+                auto *item = new TableBlockItem(seg.text, m_itemWidth);
                 m_scene->addItem(item);
                 m_items.append(item);
             }
