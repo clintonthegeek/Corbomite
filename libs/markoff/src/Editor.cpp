@@ -139,16 +139,19 @@ void Editor::stopAutoScroll()
 void Editor::doAutoScroll()
 {
     QScrollBar *vbar = verticalScrollBar();
-    vbar->setValue(vbar->value() + m_autoScrollDelta);
+    int oldVal = vbar->value();
+    vbar->setValue(oldVal + m_autoScrollDelta);
+    if (vbar->value() == oldVal)
+        return; // scrollbar didn't move (at min/max)
 
-    // Update mouse selection at the new scroll position.
-    // Map the edge of the viewport to scene coordinates and tell
-    // the SelectionManager to update the current endpoint.
+    // Update mouse selection at the new scroll position by mapping
+    // the current mouse position (clamped to viewport edge) to scene
+    // coords. The SelectionManager tracks the updated position.
     QPoint viewportEdge;
     if (m_autoScrollDelta < 0)
         viewportEdge = QPoint(viewport()->width() / 2, 0);
     else
-        viewportEdge = QPoint(viewport()->width() / 2, viewport()->height());
+        viewportEdge = QPoint(viewport()->width() / 2, viewport()->height() - 1);
     QPointF scenePos = mapToScene(viewportEdge);
     m_scene->selectionManager()->handleMouseMove(scenePos);
 }

@@ -20,10 +20,16 @@ void SelectionScene::setSelectableItems(const QList<SelectableItem *> &items)
 
 void SelectionScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-    bool consumed = m_selectionMgr.handleMousePress(event->scenePos(),
-                                                     event->modifiers());
-    if (!consumed)
+    // Only engage SelectionManager for left button. Right-click should
+    // NOT clear the selection — it opens the context menu.
+    if (event->button() == Qt::LeftButton) {
+        bool consumed = m_selectionMgr.handleMousePress(event->scenePos(),
+                                                         event->modifiers());
+        if (!consumed)
+            QGraphicsScene::mousePressEvent(event);
+    } else {
         QGraphicsScene::mousePressEvent(event);
+    }
 }
 
 void SelectionScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
@@ -44,9 +50,13 @@ void SelectionScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 
 void SelectionScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
-    bool consumed = m_selectionMgr.handleMouseRelease(event->scenePos());
-    if (!consumed)
+    if (event->button() == Qt::LeftButton) {
+        bool consumed = m_selectionMgr.handleMouseRelease(event->scenePos());
+        if (!consumed)
+            QGraphicsScene::mouseReleaseEvent(event);
+    } else {
         QGraphicsScene::mouseReleaseEvent(event);
+    }
 }
 
 void SelectionScene::keyPressEvent(QKeyEvent *event)
