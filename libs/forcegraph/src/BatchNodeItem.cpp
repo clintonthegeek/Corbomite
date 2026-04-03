@@ -26,6 +26,7 @@ void BatchNodeItem::setNodes(const QVector<NodeData> &nodes)
     m_maxRadius = 0;
     for (const auto &n : nodes)
         m_maxRadius = std::max(m_maxRadius, n.radius);
+    rebuildGrid();
     update();
 }
 
@@ -51,6 +52,24 @@ QRectF BatchNodeItem::boundingRect() const
     return QRectF(-10000, -10000, 20000, 20000);
 }
 
+void BatchNodeItem::rebuildGrid()
+{
+    if (m_nodes.isEmpty()) return;
+
+    QVector<QPointF> positions;
+    positions.reserve(m_nodes.size());
+    double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    for (const auto &n : m_nodes) {
+        positions.append(n.position);
+        minX = std::min(minX, n.position.x());
+        minY = std::min(minY, n.position.y());
+        maxX = std::max(maxX, n.position.x());
+        maxY = std::max(maxY, n.position.y());
+    }
+    // Expand bounds slightly to avoid edge cases
+    m_grid.build(positions, QRectF(minX - 1, minY - 1, maxX - minX + 2, maxY - minY + 2));
+}
+
 void BatchNodeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *)
 {
     double lod = QStyleOptionGraphicsItem::levelOfDetailFromTransform(
@@ -60,20 +79,34 @@ void BatchNodeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opt
     if (lod < 0.03)
         return;
 
+    // Clip to exposed area
+    if (option && !option->exposedRect.isEmpty())
+        painter->setClipRect(option->exposedRect);
+
     // Compute visible rect in scene coordinates for viewport culling
     QRectF visibleRect = painter->worldTransform().inverted().mapRect(
         QRectF(painter->viewport()));
     double maxR = m_maxRadius * m_sizeScale;
     visibleRect.adjust(-maxR, -maxR, maxR, maxR);
 
+    // Query spatial grid for visible node indices
+    QVector<int> visibleIndices;
+    if (!m_grid.isEmpty()) {
+        m_grid.query(visibleRect, visibleIndices);
+    } else {
+        // Fallback: all nodes (grid not built yet)
+        visibleIndices.reserve(m_nodes.size());
+        for (int i = 0; i < m_nodes.size(); ++i)
+            visibleIndices.append(i);
+    }
+
     painter->setPen(Qt::NoPen);
 
     // Group visible nodes by effective color for minimal state changes
     QHash<QRgb, QVector<std::pair<QPointF, double>>> colorGroups;
 
-    for (const auto &node : m_nodes) {
-        if (!visibleRect.contains(node.position))
-            continue;
+    for (int idx : visibleIndices) {
+        const auto &node = m_nodes[idx];
 
         QColor c = node.color;
         if (node.dimmed)
@@ -130,12 +163,11 @@ void BatchNodeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opt
     double h = TextBoxHeight * parallaxScale;
     double gap = 3.0 * parallaxScale;
 
-    for (const auto &node : m_nodes) {
+    for (int idx : visibleIndices) {
+        const auto &node = m_nodes[idx];
         if (node.dimmed || node.label.isEmpty())
             continue;
         if (node.degree < degreeThreshold)
-            continue;
-        if (!visibleRect.contains(node.position))
             continue;
 
         double r = node.radius * m_sizeScale;

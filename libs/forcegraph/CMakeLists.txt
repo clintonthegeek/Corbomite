@@ -26,6 +26,7 @@ add_library(forcegraph STATIC
     include/forcegraph/BatchNodeItem.h
     include/forcegraph/BatchEdgeItem.h
     include/forcegraph/MultilevelLayout.h
+    include/forcegraph/SpatialGrid.h
 )
 set_target_properties(forcegraph PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

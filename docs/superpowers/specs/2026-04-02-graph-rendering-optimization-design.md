@@ -446,6 +446,6 @@ Stage 1+2 can be done in one pass since they both modify the same paint() method
 
 - [x] **Stage 1+2: Viewport culling + aggressive LOD** — done. BatchNodeItem and BatchEdgeItem paint() rewritten with visible rect culling, LOD edge hiding (lod<0.03), sub-pixel edge skipping, auto arrow suppression (lod<0.5), text greeking, pre-sorted edge partitioning.
 - [x] **Stage 3: Edge hiding during interaction** — done. ForceGraphView hides edges during pan/zoom for graphs >2000 nodes, restores after 150ms idle via QTimer.
-- [ ] **Stage 4: Spatial hash grid** — not started.
-- [ ] **Stage 5: Cosmetic pens & minor wins** — not started.
-- [ ] **Build & test** — not yet built.
+- [x] **Stage 4: Spatial hash grid** — done. SpatialGrid (header-only, 64x64 grid) with prefix-sum packed storage. BatchNodeItem queries grid for O(visible) iteration instead of O(all).
+- [x] **Stage 5: Cosmetic pens & minor wins** — done. Cosmetic pens on batch edges, exposed rect clipping via ItemUsesExtendedStyleOption + setClipRect in both batch items.
+- [x] **Build & test** — all graph tests pass (tst_graphdatabuilder, tst_quadtree, tst_forcelayout).

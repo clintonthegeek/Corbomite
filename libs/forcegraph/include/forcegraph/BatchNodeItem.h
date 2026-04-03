@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include "SpatialGrid.h"
 #include <QGraphicsItem>
 #include <QVector>
 #include <QColor>
@@ -31,7 +32,10 @@ public:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
 private:
+    void rebuildGrid();
+
     QVector<NodeData> m_nodes;
+    SpatialGrid m_grid;
     double m_sizeScale = 1.0;
     double m_textFadeThreshold = 1.0;
     int m_maxDegree = 1;

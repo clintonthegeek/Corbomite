@@ -58,7 +58,7 @@ QRectF BatchEdgeItem::boundingRect() const
     return QRectF(-10000, -10000, 20000, 20000);
 }
 
-void BatchEdgeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
+void BatchEdgeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *)
 {
     if (m_edges.isEmpty())
         return;
@@ -69,6 +69,10 @@ void BatchEdgeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, Q
     // At extreme zoom-out, edges are invisible
     if (lod < 0.03)
         return;
+
+    // Clip to exposed area
+    if (option && !option->exposedRect.isEmpty())
+        painter->setClipRect(option->exposedRect);
 
     // Visible rect in scene coordinates for viewport culling
     QRectF visibleRect = painter->worldTransform().inverted().mapRect(
@@ -118,15 +122,19 @@ void BatchEdgeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, Q
         dimmedLines.append(edge.line);
     }
 
-    // Batch-draw normal edges
+    // Batch-draw normal edges (cosmetic pens: constant device-pixel width, faster rasterization)
     if (!normalLines.isEmpty()) {
-        painter->setPen(QPen(QColor(150, 150, 150, 60), 0.8 * m_widthScale));
+        QPen normalPen(QColor(150, 150, 150, 60), 0.8 * m_widthScale);
+        normalPen.setCosmetic(true);
+        painter->setPen(normalPen);
         painter->drawLines(normalLines);
     }
 
     // Batch-draw dimmed edges
     if (!dimmedLines.isEmpty()) {
-        painter->setPen(QPen(QColor(200, 200, 200, 20), 0.3 * m_widthScale));
+        QPen dimmedPen(QColor(200, 200, 200, 20), 0.3 * m_widthScale);
+        dimmedPen.setCosmetic(true);
+        painter->setPen(dimmedPen);
         painter->drawLines(dimmedLines);
     }
 
