@@ -11,8 +11,9 @@ struct MultilevelConfig {
     double linkDistance = 100.0;
     double centerForce = 0.01;
     int minCoarseNodes = 50;
-    int coarsestIterations = 500;
+    int coarsestIterations = 200;
     double convergenceThreshold = 0.5;
+    double refinementConvergenceThreshold = 15.0;
 };
 
 class MultilevelLayout {

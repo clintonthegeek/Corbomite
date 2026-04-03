@@ -490,12 +490,17 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
     }
 
     // Phase 3: Uncoarsen and refine
+    // Refinement levels use a looser convergence threshold — positions are
+    // pre-seeded from coarsening and only need to be "good enough" since the
+    // runtime simulation refines further.
+    MultilevelConfig refinementConfig = config;
+    refinementConfig.convergenceThreshold = config.refinementConvergenceThreshold;
+
     for (int l = L - 1; l >= 0; --l) {
         interpolate(levels[l], levels[l + 1]);
 
-        // Refinement: fewer iterations at finer levels
-        int iters = std::max(20, static_cast<int>(std::sqrt(levels[l].nodeCount) * 3));
-        layoutLevel(levels[l], config, iters);
+        int iters = std::max(20, static_cast<int>(std::sqrt(levels[l].nodeCount) * 1.5));
+        layoutLevel(levels[l], refinementConfig, iters);
     }
 
     // Write positions back to nodes
