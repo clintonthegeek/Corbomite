@@ -10,6 +10,8 @@ class QuadTree {
 public:
     void build(const QVector<GraphNode> &nodes, const QRectF &bounds,
                 const QVector<double> &masses = {});
+    void build(const QVector<QPointF> &positions, const QRectF &bounds,
+               const QVector<double> &masses);
     QPointF computeRepulsion(const QPointF &nodePos, double repelForce,
                               double nodeMass = 1.0, double theta = 0.8) const;
     void clear();
@@ -27,6 +29,7 @@ private:
     QVector<double> m_masses;
     int m_root = -1;
     void insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &nodes);
+    void insert(int quadNodeIdx, int nodeIdx, const QVector<QPointF> &positions);
     void subdivide(int quadNodeIdx);
 };
 } // namespace ForceGraph

@@ -36,6 +36,29 @@ void QuadTree::build(const QVector<GraphNode> &nodes, const QRectF &bounds,
     }
 }
 
+void QuadTree::build(const QVector<QPointF> &positions, const QRectF &bounds,
+                      const QVector<double> &masses)
+{
+    clear();
+    if (positions.isEmpty()) return;
+
+    m_masses = masses;
+    if (m_masses.isEmpty()) {
+        m_masses.fill(1.0, positions.size());
+    }
+
+    m_nodes.reserve(5 * positions.size());
+
+    QuadNode root;
+    root.bounds = bounds;
+    m_nodes.append(root);
+    m_root = 0;
+
+    for (int i = 0; i < positions.size(); ++i) {
+        insert(m_root, i, positions);
+    }
+}
+
 void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &nodes)
 {
     const QPointF &pos = nodes[nodeIdx].position;
@@ -80,6 +103,45 @@ void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &no
     }
 
     insert(m_nodes[quadNodeIdx].children[childIdx], nodeIdx, nodes);
+}
+
+void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<QPointF> &positions)
+{
+    const QPointF &pos = positions[nodeIdx];
+
+    double nodeMass = m_masses.value(nodeIdx, 1.0);
+    double newMass = m_nodes[quadNodeIdx].totalMass + nodeMass;
+    m_nodes[quadNodeIdx].centerOfMass =
+        (m_nodes[quadNodeIdx].centerOfMass * m_nodes[quadNodeIdx].totalMass + pos) / newMass;
+    m_nodes[quadNodeIdx].totalMass = newMass;
+
+    if (m_nodes[quadNodeIdx].isEmpty()) {
+        m_nodes[quadNodeIdx].nodeIndex = nodeIdx;
+        return;
+    }
+
+    if (m_nodes[quadNodeIdx].isLeaf()) {
+        int existingIdx = m_nodes[quadNodeIdx].nodeIndex;
+        m_nodes[quadNodeIdx].nodeIndex = -1;
+        subdivide(quadNodeIdx);
+        insert(quadNodeIdx, existingIdx, positions);
+    }
+
+    if (m_nodes[quadNodeIdx].children[0] < 0) {
+        subdivide(quadNodeIdx);
+    }
+
+    double midX = m_nodes[quadNodeIdx].bounds.center().x();
+    double midY = m_nodes[quadNodeIdx].bounds.center().y();
+
+    int childIdx;
+    if (pos.x() <= midX) {
+        childIdx = (pos.y() <= midY) ? 0 : 2;
+    } else {
+        childIdx = (pos.y() <= midY) ? 1 : 3;
+    }
+
+    insert(m_nodes[quadNodeIdx].children[childIdx], nodeIdx, positions);
 }
 
 void QuadTree::subdivide(int quadNodeIdx)
