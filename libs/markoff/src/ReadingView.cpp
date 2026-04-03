@@ -49,6 +49,9 @@ ReadingView::~ReadingView() = default;
 
 void ReadingView::setDocument(const Document &doc)
 {
+    // Note: Document is not copy-constructible (private constructor, no copy ctor),
+    // so d->document cannot be updated here. Callers who need document() to reflect
+    // the current state should use setMarkdown() instead.
     auto textDoc = d->renderer.renderToTextDocument(doc);
     d->browser->setHtml(textDoc->toHtml());
 }
@@ -115,8 +118,11 @@ int ReadingView::naturalHeight(int width) const
 {
     QTextDocument *doc = d->browser->document();
     if (!doc) return 0;
+    const qreal savedWidth = doc->textWidth();
     doc->setTextWidth(width);
-    return qRound(doc->size().height());
+    const int height = qRound(doc->size().height());
+    doc->setTextWidth(savedWidth);
+    return height;
 }
 
 } // namespace Markoff
