@@ -115,6 +115,7 @@ QString MarkdownTextItem::toMarkdown() const
 void MarkdownTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
     m_control->processEvent(event);
+    event->accept(); // Accept all buttons to hold grab for middle-click paste
 }
 
 void MarkdownTextItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
