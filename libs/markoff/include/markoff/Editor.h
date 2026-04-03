@@ -49,6 +49,9 @@ private:
     void startAutoScroll(int mouseY);
     void stopAutoScroll();
     void doAutoScroll();
+    void jumpToDocumentEdge(bool toStart, bool select);
+    void pageUpDown(bool up, bool select);
+    MarkdownTextItem *focusedTextItem() const;
 
     SelectionScene *m_scene = nullptr;
     SceneCoordinator *m_coordinator = nullptr;
