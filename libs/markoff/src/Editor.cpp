@@ -18,6 +18,7 @@
 #include <QClipboard>
 #include <QGraphicsSceneMouseEvent>
 #include <QMimeData>
+#include <limits>
 
 namespace Markoff {
 
@@ -331,26 +332,32 @@ void Editor::pageUpDown(bool up, bool select)
     int pageStep = viewport()->height();
     vbar->setValue(vbar->value() + (up ? -pageStep : pageStep));
 
-    // Find the text item at viewport center
+    // Find the text item nearest to viewport center (same nearest-by-Y
+    // logic as SelectionManager::itemAt).
     QPointF sceneTarget = mapToScene(viewport()->width() / 2,
                                       viewport()->height() / 2);
     MarkdownTextItem *targetItem = nullptr;
     int targetPos = -1;
+    qreal bestDist = std::numeric_limits<qreal>::max();
 
     for (auto *item : m_coordinator->items()) {
         if (!item->isTextItem()) continue;
-        auto *textItem = static_cast<MarkdownTextItem *>(item);
-        QRectF sceneBounds = textItem->asGraphicsItem()->sceneBoundingRect();
-        if (sceneBounds.contains(sceneTarget) ||
-            (up && sceneBounds.bottom() >= sceneTarget.y()) ||
-            (!up && sceneBounds.top() <= sceneTarget.y())) {
-            targetItem = textItem;
-            QPointF localPos = textItem->mapFromScene(sceneTarget);
-            targetPos = textItem->document()->documentLayout()->hitTest(localPos, Qt::FuzzyHit);
-            break;
+        QRectF r = item->asGraphicsItem()->sceneBoundingRect();
+        qreal dist = 0;
+        if (sceneTarget.y() < r.top())
+            dist = r.top() - sceneTarget.y();
+        else if (sceneTarget.y() > r.bottom())
+            dist = sceneTarget.y() - r.bottom();
+        if (dist < bestDist) {
+            bestDist = dist;
+            targetItem = static_cast<MarkdownTextItem *>(item);
         }
     }
-    if (!targetItem || targetPos < 0) return;
+    if (!targetItem) return;
+
+    QPointF localPos = targetItem->mapFromScene(sceneTarget);
+    targetPos = targetItem->document()->documentLayout()->hitTest(localPos, Qt::FuzzyHit);
+    if (targetPos < 0) targetPos = 0;
 
     if (!select) {
         // Simple navigation — clear any selection, move cursor
