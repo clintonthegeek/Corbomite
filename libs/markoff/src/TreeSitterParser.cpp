@@ -652,11 +652,9 @@ static void collectBlockBoundaries(TSNode node,
         TSNode child = ts_node_child(node, i);
         const char *type = ts_node_type(child);
 
-        if (strcmp(type, "pipe_table") == 0 || strcmp(type, "fenced_code_block") == 0) {
+        if (strcmp(type, "pipe_table") == 0) {
             TreeSitterParser::BlockBoundary b;
-            b.type = (strcmp(type, "pipe_table") == 0)
-                ? TreeSitterParser::BlockBoundary::Table
-                : TreeSitterParser::BlockBoundary::FencedCodeBlock;
+            b.type = TreeSitterParser::BlockBoundary::Table;
             b.startByte = static_cast<int>(ts_node_start_byte(child));
             b.endByte = static_cast<int>(ts_node_end_byte(child));
             b.startChar = parser->utf8ToCharOffset(b.startByte);

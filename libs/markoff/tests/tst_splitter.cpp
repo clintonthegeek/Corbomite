@@ -49,11 +49,13 @@ void TestSplitter::testSingleTable()
 
 void TestSplitter::testSingleCodeBlock()
 {
+    // Code blocks are NOT split out — they stay as text, rendered
+    // by the highlighter with syntax coloring (like the old Editor).
     TreeSitterParser parser;
     auto segments = MarkdownSplitter::split(
         QStringLiteral("```python\nprint('hi')\n```"), parser);
     QCOMPARE(segments.size(), 1);
-    QCOMPARE(segments[0].type, MarkdownSegment::FencedCodeBlock);
+    QCOMPARE(segments[0].type, MarkdownSegment::Text);
     QVERIFY(segments[0].text.contains(QStringLiteral("python")));
 }
 
@@ -84,12 +86,13 @@ void TestSplitter::testMultipleBlocks()
         "```js\nconsole.log('x')\n```\n\n"
         "End");
     auto segments = MarkdownSplitter::split(md, parser);
-    QCOMPARE(segments.size(), 5);
+    // Code blocks stay as text; only tables are split out
+    QCOMPARE(segments.size(), 3);
     QCOMPARE(segments[0].type, MarkdownSegment::Text);
     QCOMPARE(segments[1].type, MarkdownSegment::Table);
     QCOMPARE(segments[2].type, MarkdownSegment::Text);
-    QCOMPARE(segments[3].type, MarkdownSegment::FencedCodeBlock);
-    QCOMPARE(segments[4].type, MarkdownSegment::Text);
+    // The code block should be in the last text segment
+    QVERIFY(segments[2].text.contains(QStringLiteral("console.log")));
 }
 
 void TestSplitter::testEmptyDocument()
@@ -139,8 +142,11 @@ void TestSplitter::testShowcaseFile()
         QString preview = segments[i].text.left(50).replace(QLatin1Char('\n'), QStringLiteral("\\n"));
         qDebug() << i << typeName << "len:" << segments[i].text.size() << preview;
     }
-    QVERIFY2(segments.size() >= 8,
-             qPrintable(QStringLiteral("Expected >=8 segments, got %1").arg(segments.size())));
+    // Only tables are split out (code blocks stay as text).
+    // showcase.md has 2 tables, so expect 5 segments: text, table, table, text
+    // (or text, table, text, table, text depending on spacing)
+    QVERIFY2(segments.size() >= 3,
+             qPrintable(QStringLiteral("Expected >=3 segments, got %1").arg(segments.size())));
 
     // Last segment should contain "Frontmatter" (near end of file)
     QVERIFY(segments.last().text.contains(QStringLiteral("Frontmatter")));
