@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "markoff/Renderer.h"
+#include "Renderer.h"
 #include "markoff/Document.h"
 #include "markoff/RenderSettings.h"
 #include "DocumentBuilder_p.h"

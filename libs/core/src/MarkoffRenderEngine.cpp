@@ -6,7 +6,7 @@
 
 #include <QTextDocument>
 #include <markoff/Document.h>
-#include <markoff/Renderer.h>
+#include "Renderer.h"
 #include <markoff/RenderSettings.h>
 
 namespace Corbomite {

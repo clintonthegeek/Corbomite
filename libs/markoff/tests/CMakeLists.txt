@@ -14,6 +14,7 @@ set_tests_properties(tst_markoff_document PROPERTIES ENVIRONMENT "QT_QPA_PLATFOR
 add_executable(tst_markoff_renderer tst_renderer.cpp)
 add_test(NAME tst_markoff_renderer COMMAND tst_markoff_renderer)
 target_link_libraries(tst_markoff_renderer PRIVATE Qt6::Test markoff)
+target_include_directories(tst_markoff_renderer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 set_tests_properties(tst_markoff_renderer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_markoff_table tst_table.cpp)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "markoff/ReadingView.h"
 #include "markoff/Document.h"
-#include "markoff/Renderer.h"
+#include "Renderer.h"
 #include "markoff/RenderSettings.h"
 #include "markoff/ResourceProvider.h"
 #include <QTextBrowser>
