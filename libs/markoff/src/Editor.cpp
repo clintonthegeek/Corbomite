@@ -320,42 +320,80 @@ void Editor::jumpToDocumentEdge(bool toStart, bool select)
 
 void Editor::pageUpDown(bool up, bool select)
 {
-    auto *ti = focusedTextItem();
-    if (!ti) return;
+    auto *sourceItem = focusedTextItem();
+    if (!sourceItem) return;
 
-    // Scroll by viewport height (following QPlainTextEdit pattern)
+    // Remember anchor for selection before scrolling
+    int anchorPos = sourceItem->textControl()->textCursor().anchor();
+
+    // Scroll by viewport height
     QScrollBar *vbar = verticalScrollBar();
     int pageStep = viewport()->height();
-    if (up)
-        vbar->setValue(vbar->value() - pageStep);
-    else
-        vbar->setValue(vbar->value() + pageStep);
+    vbar->setValue(vbar->value() + (up ? -pageStep : pageStep));
 
-    // Move cursor to visible area. Map the viewport center to scene
-    // coords and find the nearest text item at that position.
-    QPointF sceneCenter = mapToScene(viewport()->width() / 2,
+    // Find the text item at viewport center
+    QPointF sceneTarget = mapToScene(viewport()->width() / 2,
                                       viewport()->height() / 2);
-    // Find which text item is near this position
+    MarkdownTextItem *targetItem = nullptr;
+    int targetPos = -1;
+
     for (auto *item : m_coordinator->items()) {
         if (!item->isTextItem()) continue;
         auto *textItem = static_cast<MarkdownTextItem *>(item);
         QRectF sceneBounds = textItem->asGraphicsItem()->sceneBoundingRect();
-        if (sceneBounds.contains(sceneCenter) ||
-            (up && sceneBounds.bottom() >= sceneCenter.y()) ||
-            (!up && sceneBounds.top() <= sceneCenter.y())) {
-            textItem->setFocus();
-            QPointF localPos = textItem->mapFromScene(sceneCenter);
-            int pos = textItem->document()->documentLayout()->hitTest(localPos, Qt::FuzzyHit);
-            if (pos >= 0) {
-                QTextCursor cursor = textItem->textControl()->textCursor();
-                if (select)
-                    cursor.setPosition(pos, QTextCursor::KeepAnchor);
-                else
-                    cursor.setPosition(pos);
-                textItem->textControl()->setTextCursor(cursor);
-            }
+        if (sceneBounds.contains(sceneTarget) ||
+            (up && sceneBounds.bottom() >= sceneTarget.y()) ||
+            (!up && sceneBounds.top() <= sceneTarget.y())) {
+            targetItem = textItem;
+            QPointF localPos = textItem->mapFromScene(sceneTarget);
+            targetPos = textItem->document()->documentLayout()->hitTest(localPos, Qt::FuzzyHit);
             break;
         }
+    }
+    if (!targetItem || targetPos < 0) return;
+
+    if (!select) {
+        // Simple navigation — clear any selection, move cursor
+        m_scene->selectionManager()->clearSelection();
+        targetItem->setFocus();
+        QTextCursor cursor(targetItem->document());
+        cursor.setPosition(targetPos);
+        targetItem->textControl()->setTextCursor(cursor);
+    } else if (targetItem == sourceItem) {
+        // Same item — extend within-item selection
+        QTextCursor cursor = sourceItem->textControl()->textCursor();
+        cursor.setPosition(targetPos, QTextCursor::KeepAnchor);
+        sourceItem->textControl()->setTextCursor(cursor);
+    } else {
+        // Cross-item — use SelectionManager
+        auto *mgr = m_scene->selectionManager();
+
+        // Set anchor item's selection from anchor to its edge
+        int edgePos = up ? 0 : sourceItem->allMarkdown().length();
+        sourceItem->setSelection(anchorPos, edgePos);
+
+        // Fully select all items between source and target
+        const auto &items = m_coordinator->items();
+        int srcIdx = items.indexOf(static_cast<SelectableItem *>(sourceItem));
+        int tgtIdx = items.indexOf(static_cast<SelectableItem *>(targetItem));
+        int lo = qMin(srcIdx, tgtIdx), hi = qMax(srcIdx, tgtIdx);
+        for (int i = lo + 1; i < hi; ++i) {
+            if (items[i]->isTextItem())
+                items[i]->setSelection(0, items[i]->allMarkdown().length());
+            else
+                items[i]->setFullySelected(true);
+        }
+
+        // Move focus and caret to target
+        targetItem->setFocus();
+        QTextCursor cursor(targetItem->document());
+        int entryPos = up ? targetItem->allMarkdown().length() : 0;
+        cursor.setPosition(entryPos);
+        cursor.setPosition(targetPos, QTextCursor::KeepAnchor);
+        targetItem->textControl()->setTextCursor(cursor);
+
+        mgr->beginOrExtendKeyboardSelection(
+            sourceItem, anchorPos, targetItem, targetPos);
     }
 }
 
