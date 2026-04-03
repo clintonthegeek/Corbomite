@@ -9,7 +9,9 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets)
 find_package(KF6SyntaxHighlighting REQUIRED)
 find_package(PkgConfig REQUIRED)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../jkqtmathtext ${CMAKE_CURRENT_BINARY_DIR}/jkqtmathtext)
+if(NOT TARGET jkqtmathtext)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../jkqtmathtext ${CMAKE_CURRENT_BINARY_DIR}/jkqtmathtext)
+endif()
 pkg_check_modules(TREESITTER REQUIRED IMPORTED_TARGET tree-sitter)
 pkg_check_modules(MD4C REQUIRED IMPORTED_TARGET md4c)  # kept temporarily for Renderer
 
