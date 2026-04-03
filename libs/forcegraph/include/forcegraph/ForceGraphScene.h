@@ -19,6 +19,9 @@ public:
     void clearHighlight();
     ForceGraphNode *nodeItem(const QString &id) const;
 
+    /// Bounding rect of actual node positions (not the fixed scene rect)
+    QRectF contentBoundingRect() const;
+
     // Display settings — propagate to all items
     void setNodeSizeScale(double scale);
     void setEdgeWidthScale(double scale);

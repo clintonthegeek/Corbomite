@@ -111,13 +111,16 @@ void ForceGraphView::clearHighlight()
 
 void ForceGraphView::zoomToFit()
 {
-    if (!scene() || scene()->items().isEmpty())
+    if (!m_scene || m_scene->nodeCount() == 0)
         return;
 
-    // Instant — called during simulation lifecycle where animation would
-    // fight with moving nodes
-    fitInView(scene()->itemsBoundingRect().adjusted(-50, -50, 50, 50),
-              Qt::KeepAspectRatio);
+    // Use actual node positions, not itemsBoundingRect() which includes
+    // batch items with their full 20K×20K scene-covering bounding rects
+    QRectF content = m_scene->contentBoundingRect();
+    if (content.isEmpty())
+        return;
+
+    fitInView(content.adjusted(-50, -50, 50, 50), Qt::KeepAspectRatio);
 }
 
 void ForceGraphView::zoomToNode(const QString &id)

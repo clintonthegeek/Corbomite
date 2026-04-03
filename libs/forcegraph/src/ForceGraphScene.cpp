@@ -188,6 +188,23 @@ ForceGraphNode *ForceGraphScene::nodeItem(const QString &id) const
     return m_nodeItems.value(id, nullptr);
 }
 
+QRectF ForceGraphScene::contentBoundingRect() const
+{
+    if (m_nodeItems.isEmpty())
+        return QRectF();
+
+    double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    for (auto it = m_nodeItems.constBegin(); it != m_nodeItems.constEnd(); ++it) {
+        QPointF p = it.value()->pos();
+        double r = it.value()->nodeRadius();
+        minX = std::min(minX, p.x() - r);
+        minY = std::min(minY, p.y() - r);
+        maxX = std::max(maxX, p.x() + r);
+        maxY = std::max(maxY, p.y() + r);
+    }
+    return QRectF(minX, minY, maxX - minX, maxY - minY);
+}
+
 void ForceGraphScene::setNodeSizeScale(double scale)
 {
     m_nodeSizeScale = scale;
