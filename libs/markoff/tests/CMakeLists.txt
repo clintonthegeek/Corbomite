@@ -38,3 +38,8 @@ add_executable(tst_markoff_theme tst_theme.cpp)
 add_test(NAME tst_markoff_theme COMMAND tst_markoff_theme)
 target_link_libraries(tst_markoff_theme PRIVATE Qt6::Test markoff)
 set_tests_properties(tst_markoff_theme PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_markoff_resourceprovider tst_resourceprovider.cpp)
+add_test(NAME tst_markoff_resourceprovider COMMAND tst_markoff_resourceprovider)
+target_link_libraries(tst_markoff_resourceprovider PRIVATE Qt6::Test markoff)
+set_tests_properties(tst_markoff_resourceprovider PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

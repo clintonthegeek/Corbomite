@@ -62,6 +62,7 @@ add_library(markoff STATIC
     src/SourceSpan.cpp
     src/DecoratedRange.cpp
     src/TableHandler.cpp
+    src/ResourceProvider.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Markoff::Markoff ALIAS markoff)
