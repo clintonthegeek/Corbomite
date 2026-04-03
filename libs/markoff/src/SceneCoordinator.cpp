@@ -396,6 +396,7 @@ void SceneCoordinator::reparse()
     QTimer::singleShot(0, this, [this]() {
         m_inReparse = false;
     });
+    emit reparsed();
 }
 
 } // namespace Markoff

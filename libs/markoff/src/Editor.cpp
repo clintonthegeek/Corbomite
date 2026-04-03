@@ -52,7 +52,7 @@ Editor::Editor(QWidget *parent)
             this, &Editor::textChanged);
     connect(m_coordinator, &SceneCoordinator::textChanged,
             this, &Editor::ensureFocusedCursorVisible);
-    connect(m_coordinator, &SceneCoordinator::textChanged,
+    connect(m_coordinator, &SceneCoordinator::reparsed,
             this, &Editor::onDocumentReparsed);
 }
 

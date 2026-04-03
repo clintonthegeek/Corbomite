@@ -52,6 +52,7 @@ public:
 
 Q_SIGNALS:
     void textChanged();
+    void reparsed();
 
 private:
     MarkdownTextItem *createTextItem(const QString &text,
