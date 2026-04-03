@@ -16,6 +16,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
+#include <QGraphicsSceneMouseEvent>
 
 namespace Markoff {
 
@@ -144,16 +145,24 @@ void Editor::doAutoScroll()
     if (vbar->value() == oldVal)
         return; // scrollbar didn't move (at min/max)
 
-    // Update mouse selection at the new scroll position by mapping
-    // the current mouse position (clamped to viewport edge) to scene
-    // coords. The SelectionManager tracks the updated position.
+    // Synthesize a mouse move event at the viewport edge. This goes
+    // through the normal scene event path so both within-item selection
+    // (TextControl extends via the grabbed item) and cross-boundary
+    // selection (SelectionManager takes over) work correctly.
     QPoint viewportEdge;
     if (m_autoScrollDelta < 0)
         viewportEdge = QPoint(viewport()->width() / 2, 0);
     else
         viewportEdge = QPoint(viewport()->width() / 2, viewport()->height() - 1);
+
     QPointF scenePos = mapToScene(viewportEdge);
-    m_scene->selectionManager()->handleMouseMove(scenePos);
+    QGraphicsSceneMouseEvent moveEvent(QEvent::GraphicsSceneMouseMove);
+    moveEvent.setScenePos(scenePos);
+    moveEvent.setScreenPos(mapToGlobal(viewportEdge));
+    moveEvent.setButtons(Qt::LeftButton);
+    moveEvent.setButton(Qt::NoButton);
+    moveEvent.setModifiers(QApplication::keyboardModifiers());
+    QApplication::sendEvent(m_scene, &moveEvent);
 }
 
 // =========================================================================
