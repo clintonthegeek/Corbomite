@@ -3,13 +3,13 @@
 #define MARKOFF_MARKDOWNHIGHLIGHTER_H
 
 #include <QSyntaxHighlighter>
-#include <QTextCharFormat>
 #include <KSyntaxHighlighting/Repository>
 #include <KSyntaxHighlighting/Definition>
 #include <KSyntaxHighlighting/Theme>
 #include <KSyntaxHighlighting/State>
 #include <KSyntaxHighlighting/Format>
 #include <KSyntaxHighlighting/AbstractHighlighter>
+#include "markoff/Theme.h"
 #include "SourceSpan.h"
 #include "DecoratedRange.h"
 
@@ -27,6 +27,9 @@ public:
 
     enum class Mode { Source, LivePreview };
     void setMode(Mode mode);
+
+    /// Replace the current theme and rehighlight.
+    void setTheme(const Theme &theme);
     Mode mode() const { return m_mode; }
 
     /// Update the span map after a reparse.
@@ -42,7 +45,9 @@ public:
     const QList<SourceSpan> &spans() const { return m_spans; }
 
     /// Access format colors (for Editor decoration painting)
-    QColor blockquoteColor() const { return m_blockquoteFormat.foreground().color(); }
+    QColor blockquoteColor() const {
+        return m_theme.formats.value(Element::BlockQuote).foreground().color();
+    }
 
 protected:
     void highlightBlock(const QString &text) override;
@@ -69,24 +74,7 @@ private:
     QList<DecoratedRange> m_decoratedRanges;
     KSyntaxHighlighting::Repository m_syntaxRepo;
 
-    // Format definitions
-    QTextCharFormat m_headingFormat[6];
-    QTextCharFormat m_boldFormat;
-    QTextCharFormat m_italicFormat;
-    QTextCharFormat m_strikethroughFormat;
-    QTextCharFormat m_inlineCodeFormat;
-    QTextCharFormat m_linkFormat;
-    QTextCharFormat m_wikilinkFormat;
-    QTextCharFormat m_blockquoteFormat;
-    QTextCharFormat m_listMarkerFormat;
-    QTextCharFormat m_codeBlockFormat;
-    QTextCharFormat m_horizontalRuleFormat;
-    QTextCharFormat m_mathFormat;
-    QTextCharFormat m_highlightFormat;
-    QTextCharFormat m_commentFormat;
-    QTextCharFormat m_tagFormat;
-    QTextCharFormat m_frontmatterFormat;
-    QTextCharFormat m_calloutFormat;
+    Theme m_theme;
 };
 
 } // namespace Markoff

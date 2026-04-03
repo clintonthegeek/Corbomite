@@ -2,7 +2,6 @@
 #include "MarkdownHighlighter.h"
 
 #include <QFont>
-#include <QColor>
 #include <QTextDocument>
 #include <QTextBlock>
 #include <QRegularExpression>
@@ -12,55 +11,13 @@ namespace Markoff {
 MarkdownHighlighter::MarkdownHighlighter(QTextDocument *parent)
     : QSyntaxHighlighter(parent)
 {
-    // H1-H6: bold, scaled point sizes, dark color
-    const int headingSizes[6] = { 24, 20, 17, 15, 14, 13 };
-    for (int i = 0; i < 6; ++i) {
-        m_headingFormat[i].setFontWeight(QFont::Bold);
-        m_headingFormat[i].setFontPointSize(headingSizes[i]);
-        m_headingFormat[i].setForeground(QColor(QStringLiteral("#1a1a2e")));
-    }
+    m_theme = Theme::defaultLight();
+}
 
-    m_boldFormat.setFontWeight(700);
-    m_italicFormat.setFontItalic(true);
-    m_strikethroughFormat.setFontStrikeOut(true);
-
-    QFont monoFont;
-    monoFont.setFamilies({QStringLiteral("JetBrains Mono"),
-                          QStringLiteral("Fira Code"),
-                          QStringLiteral("monospace")});
-    m_inlineCodeFormat.setFontFamilies({QStringLiteral("JetBrains Mono"),
-                                        QStringLiteral("Fira Code"),
-                                        QStringLiteral("monospace")});
-    m_inlineCodeFormat.setBackground(QColor(QStringLiteral("#f0f0f0")));
-
-    m_linkFormat.setForeground(QColor(QStringLiteral("#2196F3")));
-    m_linkFormat.setFontUnderline(true);
-
-    m_wikilinkFormat.setForeground(QColor(QStringLiteral("#7B1FA2")));
-    m_wikilinkFormat.setFontUnderline(true);
-
-    m_blockquoteFormat.setForeground(QColor(QStringLiteral("#757575")));
-    m_listMarkerFormat.setForeground(QColor(QStringLiteral("#009688")));
-
-    QFont codeBlockFont;
-    codeBlockFont.setFamilies({QStringLiteral("JetBrains Mono"),
-                               QStringLiteral("Fira Code"),
-                               QStringLiteral("monospace")});
-    m_codeBlockFormat.setFont(codeBlockFont);
-    m_codeBlockFormat.setBackground(QColor(QStringLiteral("#f5f5f5")));
-
-    m_horizontalRuleFormat.setForeground(QColor(QStringLiteral("#9E9E9E")));
-    m_mathFormat.setForeground(QColor(QStringLiteral("#2E7D32")));
-    m_highlightFormat.setBackground(QColor(QStringLiteral("#FFF9C4")));
-
-    m_commentFormat.setForeground(QColor(QStringLiteral("#BDBDBD")));
-    m_commentFormat.setFontItalic(true);
-
-    m_tagFormat.setForeground(QColor(QStringLiteral("#E65100")));
-    m_frontmatterFormat.setForeground(QColor(QStringLiteral("#78909C")));
-
-    m_calloutFormat.setForeground(QColor(QStringLiteral("#00897B")));
-    m_calloutFormat.setFontWeight(QFont::Bold);
+void MarkdownHighlighter::setTheme(const Theme &theme)
+{
+    m_theme = theme;
+    rehighlight();
 }
 
 void MarkdownHighlighter::setMode(Mode mode)
@@ -154,33 +111,38 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             hideRange(localStart, localLen);
         } else {
             // Source mode or cursor-adjacent: show delimiter with context coloring
+            static const Element headingElements[6] = {
+                Element::H1, Element::H2, Element::H3,
+                Element::H4, Element::H5, Element::H6
+            };
             if (span.isHeading && span.headingLevel >= 1 && span.headingLevel <= 6) {
-                setFormat(localStart, localLen, m_headingFormat[span.headingLevel - 1]);
+                setFormat(localStart, localLen,
+                          m_theme.formats.value(headingElements[span.headingLevel - 1]));
             } else if (span.code) {
-                setFormat(localStart, localLen, m_inlineCodeFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::InlineCode));
             } else if (span.bold && span.italic) {
                 QTextCharFormat fmt;
                 fmt.setFontWeight(700);
                 fmt.setFontItalic(true);
                 setFormat(localStart, localLen, fmt);
             } else if (span.bold) {
-                setFormat(localStart, localLen, m_boldFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::Bold));
             } else if (span.italic) {
-                setFormat(localStart, localLen, m_italicFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::Italic));
             } else if (span.strikethrough) {
-                setFormat(localStart, localLen, m_strikethroughFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::Strikethrough));
             } else if (span.math || span.mathDisplay) {
-                setFormat(localStart, localLen, m_mathFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::InlineCode));
             } else if (span.highlight) {
-                setFormat(localStart, localLen, m_highlightFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::Highlight));
             } else if (span.comment) {
-                setFormat(localStart, localLen, m_commentFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::Comment));
             } else if (span.isBlockquoteMarker) {
-                setFormat(localStart, localLen, m_blockquoteFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::BlockQuote));
             } else if (span.isWikilink) {
-                setFormat(localStart, localLen, m_wikilinkFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::WikiLink));
             } else if (span.isLink) {
-                setFormat(localStart, localLen, m_linkFormat);
+                setFormat(localStart, localLen, m_theme.formats.value(Element::Link));
             }
         }
         return;
@@ -199,11 +161,16 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
     if (!hasAnyFormat)
         return;
 
+    static const Element headingElements[6] = {
+        Element::H1, Element::H2, Element::H3,
+        Element::H4, Element::H5, Element::H6
+    };
+
     for (int i = localStart; i < localEnd; ++i) {
         QTextCharFormat fmt = format(i);
 
         if (span.isHeading && span.headingLevel >= 1 && span.headingLevel <= 6) {
-            const auto &hfmt = m_headingFormat[span.headingLevel - 1];
+            const auto &hfmt = m_theme.formats.value(headingElements[span.headingLevel - 1]);
             fmt.setFontWeight(hfmt.fontWeight());
             fmt.setFontPointSize(hfmt.fontPointSize());
             fmt.setForeground(hfmt.foreground());
@@ -216,21 +183,21 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         if (span.strikethrough)
             fmt.setFontStrikeOut(true);
         if (span.code)
-            fmt.merge(m_inlineCodeFormat);
+            fmt.merge(m_theme.formats.value(Element::InlineCode));
         if (span.math || span.mathDisplay)
-            fmt.setForeground(m_mathFormat.foreground());
+            fmt.setForeground(m_theme.formats.value(Element::InlineCode).foreground());
         if (span.highlight)
-            fmt.setBackground(m_highlightFormat.background());
+            fmt.setBackground(m_theme.formats.value(Element::Highlight).background());
         if (span.comment) {
-            fmt.setForeground(m_commentFormat.foreground());
+            fmt.setForeground(m_theme.formats.value(Element::Comment).foreground());
             fmt.setFontItalic(true);
         }
         if (span.isTag)
-            fmt.setForeground(m_tagFormat.foreground());
+            fmt.setForeground(m_theme.formats.value(Element::Tag).foreground());
         if (span.isLink)
-            fmt.merge(m_linkFormat);
+            fmt.merge(m_theme.formats.value(Element::Link));
         if (span.isWikilink)
-            fmt.merge(m_wikilinkFormat);
+            fmt.merge(m_theme.formats.value(Element::WikiLink));
         if (span.isHorizontalRule) {
             // Make text transparent — decoration painter draws the line
             fmt.setForeground(Qt::transparent);
@@ -247,13 +214,13 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             return;
         }
         if (span.isListMarker)
-            fmt.setForeground(m_listMarkerFormat.foreground());
+            fmt.setForeground(m_theme.formats.value(Element::ListMarker).foreground());
         if (span.isCodeBlockContent)
             fmt.setFontFamilies({QStringLiteral("JetBrains Mono"),
                                  QStringLiteral("Fira Code"),
                                  QStringLiteral("monospace")});
         if (span.isBlockquote && !span.isHeading && !span.bold && !span.italic)
-            fmt.setForeground(m_blockquoteFormat.foreground());
+            fmt.setForeground(m_theme.formats.value(Element::BlockQuote).foreground());
 
         setFormat(i, 1, fmt);
     }
