@@ -36,19 +36,26 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
 {
     auto *item = new MarkdownTextItem;
     item->setTextWidth(m_itemWidth);
-    item->setPlainText(text);
     if (m_font.pointSize() > 0)
         item->document()->setDefaultFont(m_font);
 
     auto *highlighter = new MarkdownHighlighter(item->document());
     highlighter->setMode(hlMode);
 
-    // Parse this item's text for its own span map
-    TreeSitterParser itemParser;
-    if (itemParser.parse(text)) {
-        highlighter->setSpanMap(itemParser.buildSpanMap());
-        highlighter->rehighlight(); // force initial highlight with span map
-    }
+    // Parse and set span map BEFORE setting text. This way, when
+    // setPlainText triggers Qt's automatic highlightBlock calls,
+    // the span map is already available — no need for a separate
+    // rehighlight() pass.
+    if (m_parser->parse(text))
+        highlighter->setSpanMap(m_parser->buildSpanMap());
+
+    item->setPlainText(text);
+
+    // Connect incremental span offset adjustment. Fires on every
+    // document change BEFORE Qt's auto-rehighlight, keeping the
+    // span map approximately correct between full reparses.
+    connect(item->document(), &QTextDocument::contentsChange,
+            highlighter, &MarkdownHighlighter::adjustSpanOffsets);
 
     m_scene->addItem(item);
     m_items.append(item);
@@ -347,18 +354,18 @@ void SceneCoordinator::reparse()
         repositionItems();
         m_scene->setSelectableItems(m_items);
     } else {
-        // Structure unchanged — just update span maps for each text item
+        // Structure unchanged — update span maps using the shared parser.
+        // Don't call rehighlight() — the adjustSpanOffsets connection keeps
+        // spans approximately correct, and setSpanMap + targeted block
+        // rehighlight on the next cursor-driven repaint is sufficient.
         for (int i = 0; i < m_items.size(); ++i) {
             if (m_items[i]->isTextItem()) {
                 auto *textItem = static_cast<MarkdownTextItem *>(m_items[i]);
-                TreeSitterParser itemParser;
-                if (itemParser.parse(textItem->allMarkdown())) {
+                if (m_parser->parse(textItem->allMarkdown())) {
                     auto *highlighter = qobject_cast<MarkdownHighlighter *>(
                         textItem->document()->findChild<QSyntaxHighlighter *>());
-                    if (highlighter) {
-                        highlighter->setSpanMap(itemParser.buildSpanMap());
-                        highlighter->rehighlight();
-                    }
+                    if (highlighter)
+                        highlighter->setSpanMap(m_parser->buildSpanMap());
                 }
             }
         }

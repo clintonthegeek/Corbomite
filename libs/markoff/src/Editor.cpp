@@ -27,9 +27,15 @@ Editor::Editor(QWidget *parent)
     setScene(m_scene);
     setAlignment(Qt::AlignLeft | Qt::AlignTop);
     setDragMode(QGraphicsView::NoDrag);
-    setRenderHint(QPainter::Antialiasing);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFrameShape(QFrame::NoFrame);
+
+    // Performance: disable BSP indexing (linear scan faster for <20 items),
+    // skip painter state save/restore, avoid viewport update coalescing issues.
+    m_scene->setItemIndexMethod(QGraphicsScene::NoIndex);
+    setOptimizationFlag(QGraphicsView::DontSavePainterState, true);
+    setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+    setCacheMode(QGraphicsView::CacheNone);
 
     viewport()->setBackgroundRole(QPalette::Base);
     viewport()->setCursor(Qt::IBeamCursor);
