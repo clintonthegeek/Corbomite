@@ -59,7 +59,7 @@ void QuadTree::build(const QVector<QPointF> &positions, const QRectF &bounds,
     }
 }
 
-void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &nodes)
+void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &nodes, int depth)
 {
     const QPointF &pos = nodes[nodeIdx].position;
 
@@ -76,6 +76,12 @@ void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &no
         return;
     }
 
+    // At max depth, stop subdividing — just accumulate mass.
+    // This handles coincident/near-coincident nodes that would cause infinite recursion.
+    if (depth >= MAX_DEPTH) {
+        return;
+    }
+
     if (m_nodes[quadNodeIdx].isLeaf()) {
         // Occupied leaf — subdivide and reinsert existing node
         int existingIdx = m_nodes[quadNodeIdx].nodeIndex;
@@ -83,7 +89,7 @@ void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &no
         subdivide(quadNodeIdx);
         // Re-fetch not needed here since subdivide uses index-based access,
         // but reinsert existing node (this may further subdivide)
-        insert(quadNodeIdx, existingIdx, nodes);
+        insert(quadNodeIdx, existingIdx, nodes, depth + 1);
     }
 
     // Find which quadrant the new node belongs to
@@ -102,10 +108,10 @@ void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &no
         childIdx = (pos.y() <= midY) ? 1 : 3; // NE or SE
     }
 
-    insert(m_nodes[quadNodeIdx].children[childIdx], nodeIdx, nodes);
+    insert(m_nodes[quadNodeIdx].children[childIdx], nodeIdx, nodes, depth + 1);
 }
 
-void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<QPointF> &positions)
+void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<QPointF> &positions, int depth)
 {
     const QPointF &pos = positions[nodeIdx];
 
@@ -120,11 +126,15 @@ void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<QPointF> &posi
         return;
     }
 
+    if (depth >= MAX_DEPTH) {
+        return;
+    }
+
     if (m_nodes[quadNodeIdx].isLeaf()) {
         int existingIdx = m_nodes[quadNodeIdx].nodeIndex;
         m_nodes[quadNodeIdx].nodeIndex = -1;
         subdivide(quadNodeIdx);
-        insert(quadNodeIdx, existingIdx, positions);
+        insert(quadNodeIdx, existingIdx, positions, depth + 1);
     }
 
     if (m_nodes[quadNodeIdx].children[0] < 0) {
@@ -141,7 +151,7 @@ void QuadTree::insert(int quadNodeIdx, int nodeIdx, const QVector<QPointF> &posi
         childIdx = (pos.y() <= midY) ? 1 : 3;
     }
 
-    insert(m_nodes[quadNodeIdx].children[childIdx], nodeIdx, positions);
+    insert(m_nodes[quadNodeIdx].children[childIdx], nodeIdx, positions, depth + 1);
 }
 
 void QuadTree::subdivide(int quadNodeIdx)

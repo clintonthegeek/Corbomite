@@ -28,8 +28,9 @@ private:
     QVector<QuadNode> m_nodes;
     QVector<double> m_masses;
     int m_root = -1;
-    void insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &nodes);
-    void insert(int quadNodeIdx, int nodeIdx, const QVector<QPointF> &positions);
+    static constexpr int MAX_DEPTH = 30;
+    void insert(int quadNodeIdx, int nodeIdx, const QVector<GraphNode> &nodes, int depth = 0);
+    void insert(int quadNodeIdx, int nodeIdx, const QVector<QPointF> &positions, int depth = 0);
     void subdivide(int quadNodeIdx);
 };
 } // namespace ForceGraph
