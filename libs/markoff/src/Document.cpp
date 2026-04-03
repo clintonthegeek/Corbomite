@@ -165,6 +165,146 @@ QString Document::footnoteContent(int number) const
 }
 
 // ---------------------------------------------------------------------------
+// Query API helpers
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// Recursively collect all inlines from a block tree
+void collectInlines(const QList<Block> &blocks, QList<InlineRun> &out)
+{
+    for (const auto &block : blocks) {
+        for (const auto &run : block.inlines)
+            out.append(run);
+        collectInlines(block.children, out);
+    }
+}
+
+// Recursively collect all blocks from a block tree
+void collectBlocks(const QList<Block> &blocks, QList<const Block *> &out)
+{
+    for (const auto &block : blocks) {
+        out.append(&block);
+        collectBlocks(block.children, out);
+    }
+}
+
+} // anonymous namespace
+
+QList<HeadingInfo> Document::headings() const
+{
+    QList<HeadingInfo> result;
+    QList<const Block *> allBlocks;
+    collectBlocks(d->blocks, allBlocks);
+
+    for (const auto *block : allBlocks) {
+        if (block->type != MD_BLOCK_H)
+            continue;
+        HeadingInfo info;
+        info.level = block->headingLevel;
+        info.sourceOffset = block->sourceOffset;
+        // Concatenate inline text
+        QString text;
+        for (const auto &run : block->inlines)
+            text += run.text;
+        info.text = text.trimmed();
+        result.append(info);
+    }
+    return result;
+}
+
+QList<LinkInfo> Document::links() const
+{
+    QList<LinkInfo> result;
+    QList<InlineRun> allInlines;
+    collectInlines(d->blocks, allInlines);
+
+    for (const auto &run : allInlines) {
+        if (!run.wikiTarget.isEmpty()) {
+            // Wiki link: [[Target]] or [[Target|display]]
+            // Check if it's an embed (starts with !)
+            LinkInfo info;
+            info.type = run.wikiTarget.startsWith(QLatin1Char('!')) ? LinkInfo::Embed : LinkInfo::Wiki;
+            info.target = run.wikiTarget;
+            info.displayText = run.text;
+            info.sourceOffset = run.sourceOffset;
+            result.append(info);
+        } else if (!run.imageSrc.isEmpty()) {
+            LinkInfo info;
+            info.type = LinkInfo::Image;
+            info.target = run.imageSrc;
+            info.displayText = run.text;
+            info.sourceOffset = run.sourceOffset;
+            result.append(info);
+        } else if (!run.linkHref.isEmpty()) {
+            LinkInfo info;
+            info.type = LinkInfo::Standard;
+            info.target = run.linkHref;
+            info.displayText = run.text;
+            info.sourceOffset = run.sourceOffset;
+            result.append(info);
+        }
+    }
+    return result;
+}
+
+QList<LinkInfo> Document::wikiLinks() const
+{
+    QList<LinkInfo> all = links();
+    QList<LinkInfo> result;
+    for (const auto &l : all) {
+        if (l.type == LinkInfo::Wiki || l.type == LinkInfo::Embed)
+            result.append(l);
+    }
+    return result;
+}
+
+QList<TagInfo> Document::tags() const
+{
+    QList<TagInfo> result;
+    QList<InlineRun> allInlines;
+    collectInlines(d->blocks, allInlines);
+
+    for (const auto &run : allInlines) {
+        if (!run.isTag)
+            continue;
+        TagInfo info;
+        // Strip leading '#' if present
+        info.name = run.text.startsWith(QLatin1Char('#')) ? run.text.mid(1) : run.text;
+        info.sourceOffset = run.sourceOffset;
+        result.append(info);
+    }
+    return result;
+}
+
+QList<FootnoteInfo> Document::footnotes() const
+{
+    QList<FootnoteInfo> result;
+    for (const auto &fn : d->footnotes) {
+        FootnoteInfo info;
+        info.number = fn.number;
+        info.label = fn.label;
+        info.content = fn.content;
+        result.append(info);
+    }
+    return result;
+}
+
+int Document::wordCount() const
+{
+    const QString content = markdownContent().trimmed();
+    if (content.isEmpty())
+        return 0;
+    static const QRegularExpression whitespace(QStringLiteral("\\s+"));
+    return content.split(whitespace, Qt::SkipEmptyParts).size();
+}
+
+int Document::characterCount() const
+{
+    return markdownContent().length();
+}
+
+// ---------------------------------------------------------------------------
 // Internal accessor for Renderer/Editor
 // ---------------------------------------------------------------------------
 

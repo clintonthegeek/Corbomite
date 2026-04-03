@@ -4,8 +4,34 @@
 
 #include <memory>
 #include <QString>
+#include <QList>
 
 namespace Markoff {
+
+struct HeadingInfo {
+    int level;
+    QString text;
+    int sourceOffset;
+};
+
+struct LinkInfo {
+    enum Type { Standard, Wiki, Image, Embed };
+    Type type;
+    QString target;
+    QString displayText;
+    int sourceOffset;
+};
+
+struct TagInfo {
+    QString name;
+    int sourceOffset;
+};
+
+struct FootnoteInfo {
+    int number;
+    QString label;
+    QString content;
+};
 
 class Document
 {
@@ -25,6 +51,15 @@ public:
     // Footnote access for the renderer
     int footnoteCount() const;
     QString footnoteContent(int number) const;  // 1-based
+
+    // Query API
+    QList<HeadingInfo> headings() const;
+    QList<LinkInfo> links() const;
+    QList<LinkInfo> wikiLinks() const;
+    QList<TagInfo> tags() const;
+    QList<FootnoteInfo> footnotes() const;
+    int wordCount() const;
+    int characterCount() const;
 
 private:
     Document();
