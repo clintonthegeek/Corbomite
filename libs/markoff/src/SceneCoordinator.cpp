@@ -51,6 +51,9 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
 
     item->setPlainText(text);
 
+    // Pass decorated ranges to highlighter for code block syntax coloring
+    highlighter->setDecoratedRanges(item->decoratedRanges());
+
     // Connect incremental span offset adjustment. Fires on every
     // document change BEFORE Qt's auto-rehighlight, keeping the
     // span map approximately correct between full reparses.

@@ -13,6 +13,7 @@
 #include <QFocusEvent>
 #include <QKeyEvent>
 #include <QInputMethodEvent>
+#include <QRegularExpression>
 #include <QSyntaxHighlighter>
 
 namespace Markoff {
@@ -45,6 +46,7 @@ MarkdownTextItem::~MarkdownTextItem() = default;
 void MarkdownTextItem::setPlainText(const QString &text)
 {
     m_document->setPlainText(text);
+    detectDecoratedRanges();
 }
 
 void MarkdownTextItem::setTextWidth(qreal width)
@@ -71,6 +73,7 @@ void MarkdownTextItem::paint(QPainter *painter,
                              QWidget *widget)
 {
     painter->save();
+    paintDecoratedRanges(painter);
     m_control->drawContents(painter, boundingRect(), widget);
     painter->restore();
 }
@@ -217,6 +220,139 @@ void MarkdownTextItem::snapCursorPastDelimiters()
             m_control->setTextCursor(cursor);
             m_snappingCursor = false;
             return;
+        }
+    }
+}
+
+void MarkdownTextItem::detectDecoratedRanges()
+{
+    m_decoratedRanges.clear();
+
+    // Detect fenced code blocks: ``` ... ```
+    QTextBlock block = m_document->begin();
+    while (block.isValid()) {
+        const QString text = block.text().trimmed();
+        if (text.startsWith(QStringLiteral("```"))) {
+            int firstBlockNum = block.blockNumber();
+            QString lang = text.mid(3).trimmed();
+
+            block = block.next();
+            int lastBlockNum = firstBlockNum;
+            while (block.isValid()) {
+                if (block.text().trimmed().startsWith(QStringLiteral("```"))) {
+                    lastBlockNum = block.blockNumber();
+                    break;
+                }
+                lastBlockNum = block.blockNumber();
+                block = block.next();
+            }
+            if (block.isValid() && block.text().trimmed().startsWith(QStringLiteral("```"))) {
+                DecoratedRange dr;
+                dr.type = DecoratedRange::CodeBlock;
+                dr.firstBlock = firstBlockNum;
+                dr.lastBlock = lastBlockNum;
+                dr.language = lang;
+                m_decoratedRanges.append(dr);
+            }
+        }
+        if (block.isValid()) block = block.next();
+    }
+
+    // Detect callout blocks (> [!type] ...)
+    block = m_document->begin();
+    static const QRegularExpression calloutRe(
+        QStringLiteral(R"(^>\s*\[!(\w+)\]([+-])?\s*(.*)?$)"));
+
+    while (block.isValid()) {
+        bool inCodeBlock = false;
+        for (const auto &dr : m_decoratedRanges) {
+            if (dr.type == DecoratedRange::CodeBlock
+                && block.blockNumber() >= dr.firstBlock
+                && block.blockNumber() <= dr.lastBlock) {
+                inCodeBlock = true;
+                break;
+            }
+        }
+        if (inCodeBlock) { block = block.next(); continue; }
+
+        auto match = calloutRe.match(block.text());
+        if (match.hasMatch()) {
+            int firstBlockNum = block.blockNumber();
+            QString type = match.captured(1).toLower();
+            QString title = match.captured(3).trimmed();
+
+            QTextBlock bodyBlock = block.next();
+            int lastBlockNum = firstBlockNum;
+            while (bodyBlock.isValid() && bodyBlock.text().startsWith(QLatin1Char('>'))) {
+                lastBlockNum = bodyBlock.blockNumber();
+                bodyBlock = bodyBlock.next();
+            }
+
+            DecoratedRange dr;
+            dr.type = DecoratedRange::Callout;
+            dr.firstBlock = firstBlockNum;
+            dr.lastBlock = lastBlockNum;
+            dr.calloutType = type;
+            dr.calloutTitle = title.isEmpty()
+                ? type.at(0).toUpper() + type.mid(1) : title;
+            dr.calloutColor = DecoratedRange::colorForCalloutType(type);
+            m_decoratedRanges.append(dr);
+
+            block = bodyBlock;
+            continue;
+        }
+        block = block.next();
+    }
+}
+
+void MarkdownTextItem::paintDecoratedRanges(QPainter *painter)
+{
+    if (m_decoratedRanges.isEmpty())
+        return;
+
+    QAbstractTextDocumentLayout *layout = m_document->documentLayout();
+    qreal margin = m_document->documentMargin();
+
+    for (const DecoratedRange &dr : m_decoratedRanges) {
+        QTextBlock firstBlock = m_document->findBlockByNumber(dr.firstBlock);
+        if (!firstBlock.isValid()) continue;
+
+        QRectF firstBR = layout->blockBoundingRect(firstBlock);
+        qreal rangeTop = firstBR.top();
+        qreal rangeHeight = 0;
+        QTextBlock b = firstBlock;
+        for (int i = dr.firstBlock; i <= dr.lastBlock && b.isValid(); ++i, b = b.next())
+            rangeHeight += layout->blockBoundingRect(b).height();
+
+        QRectF bgRect(margin - 4, rangeTop, m_width - margin * 2 + 8, rangeHeight);
+
+        if (dr.type == DecoratedRange::CodeBlock) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QColor(0xf5, 0xf5, 0xf5));
+            painter->setRenderHint(QPainter::Antialiasing);
+            painter->drawRoundedRect(bgRect, 4, 4);
+            painter->setPen(QPen(QColor(0xe0, 0xe0, 0xe0), 1));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRoundedRect(bgRect.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
+            if (!dr.language.isEmpty()) {
+                QFont labelFont = painter->font();
+                labelFont.setPointSize(qMax(8, labelFont.pointSize() - 2));
+                painter->setFont(labelFont);
+                painter->setPen(QColor(0x9e, 0x9e, 0x9e));
+                QRectF labelRect(bgRect.right() - 80, bgRect.top() + 2, 72, 16);
+                painter->drawText(labelRect, Qt::AlignRight | Qt::AlignVCenter,
+                                  dr.language);
+            }
+        } else if (dr.type == DecoratedRange::Callout) {
+            QColor bg = dr.calloutColor;
+            bg.setAlpha(20);
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(bg);
+            painter->setRenderHint(QPainter::Antialiasing);
+            painter->drawRoundedRect(bgRect, 4, 4);
+            painter->setBrush(dr.calloutColor);
+            painter->drawRoundedRect(
+                QRectF(bgRect.left(), bgRect.top(), 4, bgRect.height()), 2, 2);
         }
     }
 }

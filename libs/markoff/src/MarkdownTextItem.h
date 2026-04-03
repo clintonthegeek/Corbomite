@@ -3,6 +3,7 @@
 #define MARKOFF_MARKDOWNTEXTITEM_H
 
 #include "SelectableItem.h"
+#include "DecoratedRange.h"
 #include <QGraphicsObject>
 
 class QTextDocument;
@@ -29,6 +30,9 @@ public:
 
     /// Set the text width (for word wrap). Triggers relayout.
     void setTextWidth(qreal width);
+
+    /// Decorated ranges detected in this item's document.
+    const QList<DecoratedRange> &decoratedRanges() const { return m_decoratedRanges; }
 
     // QGraphicsItem
     QRectF boundingRect() const override;
@@ -67,11 +71,14 @@ private:
     void updateGeometry();
     void onCursorPositionChanged();
     void snapCursorPastDelimiters();
+    void detectDecoratedRanges();
+    void paintDecoratedRanges(QPainter *painter);
 
     TextControl *m_control = nullptr;
     QTextDocument *m_document = nullptr;
     qreal m_width = 600.0;
     bool m_snappingCursor = false;
+    QList<DecoratedRange> m_decoratedRanges;
 };
 
 } // namespace Markoff
