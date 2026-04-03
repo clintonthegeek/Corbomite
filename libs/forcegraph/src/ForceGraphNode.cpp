@@ -2,8 +2,15 @@
 #include "forcegraph/ForceGraphNode.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
+#include <cmath>
 
 namespace ForceGraph {
+
+// Text grows at 3/4 the rate of graph zoom — parallax depth effect
+static constexpr double TextZoomExponent = 0.75;
+static constexpr double BaseFontSize = 10.0;
+static constexpr double TextBoxWidth = 120.0;
+static constexpr double TextBoxHeight = 40.0;
 
 ForceGraphNode::ForceGraphNode(const GraphNode &data, QGraphicsItem *parent)
     : QGraphicsEllipseItem(parent)
@@ -16,6 +23,8 @@ ForceGraphNode::ForceGraphNode(const GraphNode &data, QGraphicsItem *parent)
     setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
     setAcceptHoverEvents(true);
     setZValue(1); // Above edges
+    if (!m_data.tooltip.isEmpty())
+        setToolTip(m_data.tooltip);
 }
 
 void ForceGraphNode::setData(const GraphNode &data)
@@ -33,6 +42,31 @@ QString ForceGraphNode::nodeId() const
 QString ForceGraphNode::nodeLabel() const
 {
     return m_data.label;
+}
+
+QColor ForceGraphNode::nodeColor() const
+{
+    return m_data.color;
+}
+
+double ForceGraphNode::nodeRadius() const
+{
+    return m_data.radius;
+}
+
+int ForceGraphNode::nodeDegree() const
+{
+    return m_data.degree;
+}
+
+bool ForceGraphNode::isDimmed() const
+{
+    return m_dimmed;
+}
+
+bool ForceGraphNode::isHighlighted() const
+{
+    return m_highlighted;
 }
 
 void ForceGraphNode::setHighlighted(bool highlighted)
@@ -61,7 +95,12 @@ void ForceGraphNode::setTextFadeThreshold(double threshold)
     update();
 }
 
-void ForceGraphNode::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *)
+void ForceGraphNode::setMaxDegree(int maxDeg)
+{
+    m_maxDegree = std::max(maxDeg, 1);
+}
+
+void ForceGraphNode::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
 {
     double lod = QStyleOptionGraphicsItem::levelOfDetailFromTransform(
         painter->worldTransform());
@@ -78,45 +117,68 @@ void ForceGraphNode::paint(QPainter *painter, const QStyleOptionGraphicsItem *op
     painter->setBrush(color);
 
     if (lod < 0.05) {
-        // Ultra-low: skip entirely (minimumRenderSize should handle this, but belt-and-suspenders)
         painter->fillRect(QRectF(-1, -1, 2, 2), color);
         return;
     }
 
     if (lod < 0.3) {
-        // Low: filled circle only, no label, no outline
         painter->drawEllipse(rect());
         return;
     }
 
-    // Medium: circle with outline
-    if (m_highlighted) {
+    // Hub glow: soft halo behind the node (only at medium+ zoom)
+    if (m_data.type == NodeType::Hub && !m_dimmed) {
+        QColor glow = color;
+        glow.setAlphaF(0.25);
+        double gr = m_data.radius * m_sizeScale * 1.8;
+        painter->setBrush(glow);
+        painter->drawEllipse(QPointF(0, 0), gr, gr);
+        painter->setBrush(color);
+    }
+
+    // Unresolved: dashed border
+    if (m_data.type == NodeType::Unresolved && !m_dimmed) {
+        QPen dashPen(color.darker(120), 1.0, Qt::DashLine);
+        painter->setPen(dashPen);
+    } else if (m_highlighted) {
         painter->setPen(QPen(color.darker(150), 2));
     }
+
     painter->drawEllipse(rect());
 
-    if (lod < 2.0) {
-        // Medium: abbreviated label only when zoomed in past the threshold
-        if (lod >= m_textFadeThreshold && !m_data.label.isEmpty()) {
-            painter->setPen(m_dimmed ? QColor(128, 128, 128, 40) : QColor(80, 80, 80));
-            QFont font;
-            font.setPointSizeF(6.0);
-            painter->setFont(font);
-            painter->drawText(QPointF(-m_data.radius, m_data.radius + 10),
-                              m_data.label.left(12));
-        }
+    // Label: semantic zoom — high-degree nodes show labels first
+    if (m_data.label.isEmpty() || m_dimmed || lod < m_textFadeThreshold)
         return;
-    }
 
-    // Full detail (lod >= 2.0): circle + full label — only when zoomed in significantly
-    if (!m_data.label.isEmpty()) {
-        painter->setPen(m_dimmed ? QColor(128, 128, 128, 40) : QColor(40, 40, 40));
-        QFont font;
-        font.setPointSizeF(8.0);
-        painter->setFont(font);
-        QRectF textRect(QPointF(-50, m_data.radius + 4), QSizeF(100, 16));
-        painter->drawText(textRect, Qt::AlignHCenter, m_data.label);
-    }
+    // Degree-based label visibility: at threshold LOD only top-degree nodes
+    // show labels; by 2x threshold all labels are visible
+    double threshold = std::max(m_textFadeThreshold, 0.01);
+    double labelVisibility = (lod - threshold) / threshold;
+    labelVisibility = std::clamp(labelVisibility, 0.0, 1.0);
+    double degreeThreshold = (1.0 - labelVisibility) * m_maxDegree;
+    if (m_data.degree < degreeThreshold)
+        return;
+
+    // Parallax text scaling: font grows at 3/4 the rate of zoom.
+    // In scene coords the painter is at `lod` scale, so to achieve
+    // apparent growth of lod^0.75 we set font size to base / lod^0.25.
+    double parallaxScale = std::pow(lod, TextZoomExponent - 1.0); // lod^(-0.25)
+    double fontSize = BaseFontSize * parallaxScale;
+    if (fontSize < 0.5)
+        return;
+
+    QFont font;
+    font.setPointSizeF(fontSize);
+    painter->setFont(font);
+    painter->setPen(QColor(80, 80, 80));
+
+    // Text rect: also counter-scaled so it doesn't blow up with zoom
+    double w = TextBoxWidth * parallaxScale;
+    double h = TextBoxHeight * parallaxScale;
+    double r = m_data.radius * m_sizeScale;
+    double gap = 3.0 * parallaxScale;
+    QRectF textRect(QPointF(-w / 2.0, r + gap), QSizeF(w, h));
+    painter->drawText(textRect, Qt::AlignHCenter | Qt::TextWordWrap, m_data.label);
 }
 
 } // namespace ForceGraph

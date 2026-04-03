@@ -51,6 +51,7 @@ Q_SIGNALS:
     void textFadeThresholdChanged(double threshold);
     void nodeSizeScaleChanged(double scale);
     void linkThicknessScaleChanged(double scale);
+    void zoomToFitRequested();
     void animateRequested();
 
     // Forces
@@ -83,6 +84,7 @@ private:
     QLabel *m_nodeSizeValue;
     QSlider *m_linkThicknessSlider;
     QLabel *m_linkThicknessValue;
+    QPushButton *m_zoomToFitButton;
     QPushButton *m_animateButton;
 
     // Forces

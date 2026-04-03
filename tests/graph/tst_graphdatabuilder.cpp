@@ -62,7 +62,7 @@ private Q_SLOTS:
         bool foundUnresolved = false;
         for (const auto &node : result.nodes) {
             if (node.id == QStringLiteral("NonExistent.md")) {
-                QCOMPARE(node.color, QColor(136, 136, 136)); // Gray
+                QCOMPARE(node.type, ForceGraph::NodeType::Unresolved);
                 foundUnresolved = true;
             }
         }
@@ -88,11 +88,11 @@ private Q_SLOTS:
 
         QCOMPARE(result.nodes.size(), 3);
 
-        // Orphan should have light gray color
+        // Orphan should be typed as Orphan
         bool foundOrphan = false;
         for (const auto &node : result.nodes) {
             if (node.id == QStringLiteral("orphan.md")) {
-                QCOMPARE(node.color, QColor(170, 170, 170));
+                QCOMPARE(node.type, ForceGraph::NodeType::Orphan);
                 foundOrphan = true;
             }
         }

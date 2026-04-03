@@ -26,9 +26,18 @@ void ForceGraphEdge::adjust()
 ForceGraphNode *ForceGraphEdge::sourceNode() const { return m_source; }
 ForceGraphNode *ForceGraphEdge::targetNode() const { return m_target; }
 
+bool ForceGraphEdge::isDimmed() const { return m_dimmed; }
+bool ForceGraphEdge::isHighlighted() const { return m_highlighted; }
+
 void ForceGraphEdge::setDimmed(bool dimmed)
 {
     m_dimmed = dimmed;
+    updatePen();
+}
+
+void ForceGraphEdge::setHighlighted(bool highlighted)
+{
+    m_highlighted = highlighted;
     updatePen();
 }
 
@@ -47,9 +56,11 @@ void ForceGraphEdge::setShowArrows(bool show)
 void ForceGraphEdge::updatePen()
 {
     if (m_dimmed) {
-        setPen(QPen(QColor(200, 200, 200, 30), 0.5 * m_widthScale));
+        setPen(QPen(QColor(200, 200, 200, 20), 0.3 * m_widthScale));
+    } else if (m_highlighted) {
+        setPen(QPen(QColor(150, 150, 150, 180), 1.5 * m_widthScale));
     } else {
-        setPen(QPen(QColor(150, 150, 150, 100), 1.0 * m_widthScale));
+        setPen(QPen(QColor(150, 150, 150, 60), 0.8 * m_widthScale));
     }
 }
 

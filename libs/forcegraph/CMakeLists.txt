@@ -14,12 +14,18 @@ add_library(forcegraph STATIC
     src/ForceGraphScene.cpp
     src/ForceGraphNode.cpp
     src/ForceGraphEdge.cpp
+    src/BatchNodeItem.cpp
+    src/BatchEdgeItem.cpp
+    src/MultilevelLayout.cpp
     include/forcegraph/ForceLayoutEngine.h
     include/forcegraph/QuadTree.h
     include/forcegraph/ForceGraphView.h
     include/forcegraph/ForceGraphScene.h
     include/forcegraph/ForceGraphNode.h
     include/forcegraph/ForceGraphEdge.h
+    include/forcegraph/BatchNodeItem.h
+    include/forcegraph/BatchEdgeItem.h
+    include/forcegraph/MultilevelLayout.h
 )
 set_target_properties(forcegraph PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

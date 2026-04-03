@@ -9,7 +9,10 @@ public:
     void adjust();
     ForceGraphNode *sourceNode() const;
     ForceGraphNode *targetNode() const;
+    bool isDimmed() const;
+    bool isHighlighted() const;
     void setDimmed(bool dimmed);
+    void setHighlighted(bool highlighted);
     void setWidthScale(double scale);
     void setShowArrows(bool show);
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
@@ -18,6 +21,7 @@ private:
     ForceGraphNode *m_source;
     ForceGraphNode *m_target;
     bool m_dimmed = false;
+    bool m_highlighted = false;
     double m_widthScale = 1.0;
     bool m_showArrows = false;
 };

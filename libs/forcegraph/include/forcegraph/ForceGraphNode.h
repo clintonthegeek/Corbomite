@@ -9,10 +9,16 @@ public:
     void setData(const GraphNode &data);
     QString nodeId() const;
     QString nodeLabel() const;
+    QColor nodeColor() const;
+    double nodeRadius() const;
+    int nodeDegree() const;
+    bool isDimmed() const;
+    bool isHighlighted() const;
     void setHighlighted(bool highlighted);
     void setDimmed(bool dimmed);
     void setNodeSizeScale(double scale);
     void setTextFadeThreshold(double threshold);
+    void setMaxDegree(int maxDeg);
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 private:
     GraphNode m_data;
@@ -20,5 +26,6 @@ private:
     bool m_dimmed = false;
     double m_sizeScale = 1.0;
     double m_textFadeThreshold = 1.0;
+    int m_maxDegree = 1;
 };
 } // namespace ForceGraph

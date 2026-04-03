@@ -129,6 +129,10 @@ void GraphControlsPanel::setupDisplaySection()
     m_linkThicknessValue = new QLabel(QStringLiteral("1.0"), content);
     layout->addWidget(createSliderRow(i18n("Link thickness"), m_linkThicknessSlider, m_linkThicknessValue));
 
+    m_zoomToFitButton = new QPushButton(i18n("Zoom to Fit"), content);
+    m_zoomToFitButton->setIcon(QIcon::fromTheme(QStringLiteral("zoom-fit-best")));
+    layout->addWidget(m_zoomToFitButton);
+
     m_animateButton = new QPushButton(i18n("Animate"), content);
     m_animateButton->setIcon(QIcon::fromTheme(QStringLiteral("media-playback-start")));
     layout->addWidget(m_animateButton);
@@ -157,6 +161,8 @@ void GraphControlsPanel::setupDisplaySection()
         Q_EMIT linkThicknessScaleChanged(scale);
     });
 
+    connect(m_zoomToFitButton, &QPushButton::clicked,
+            this, &GraphControlsPanel::zoomToFitRequested);
     connect(m_animateButton, &QPushButton::clicked,
             this, &GraphControlsPanel::animateRequested);
 }
