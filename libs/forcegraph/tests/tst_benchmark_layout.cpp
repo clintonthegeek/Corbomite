@@ -146,6 +146,78 @@ static MultilevelLayout::Level generateDenseClique(int n)
 }
 
 // ---------------------------------------------------------------------------
+// GraphNode/GraphEdge generators for computeLayout pipeline benchmark
+// ---------------------------------------------------------------------------
+
+struct GraphData {
+    QVector<GraphNode> nodes;
+    QVector<GraphEdge> edges;
+};
+
+static GraphData generateGraphScaleFree(int n, int edgesPerNode = 2)
+{
+    GraphData data;
+    data.nodes.reserve(n);
+    for (int i = 0; i < n; ++i) {
+        GraphNode node;
+        node.id = QString::number(i);
+        node.label = QStringLiteral("N%1").arg(i);
+        data.nodes.append(node);
+    }
+
+    auto *rng = QRandomGenerator::global();
+    QVector<int> targets;
+    targets.reserve(n * edgesPerNode * 2);
+    targets.append(0);
+    for (int i = 1; i < n; ++i) {
+        for (int e = 0; e < edgesPerNode && !targets.isEmpty(); ++e) {
+            int target = targets[rng->bounded(targets.size())];
+            if (target != i) {
+                data.edges.append({QString::number(i), QString::number(target)});
+                targets.append(i);
+                targets.append(target);
+            }
+        }
+    }
+    return data;
+}
+
+static GraphData generateGraphGrid(int n)
+{
+    GraphData data;
+    data.nodes.reserve(n);
+    for (int i = 0; i < n; ++i) {
+        GraphNode node;
+        node.id = QString::number(i);
+        data.nodes.append(node);
+    }
+    int cols = static_cast<int>(std::ceil(std::sqrt(n)));
+    for (int i = 0; i < n; ++i) {
+        int col = i % cols;
+        if (col + 1 < cols && i + 1 < n)
+            data.edges.append({QString::number(i), QString::number(i + 1)});
+        if (i + cols < n)
+            data.edges.append({QString::number(i), QString::number(i + cols)});
+    }
+    return data;
+}
+
+static GraphData generateGraphStar(int n)
+{
+    GraphData data;
+    data.nodes.reserve(n);
+    for (int i = 0; i < n; ++i) {
+        GraphNode node;
+        node.id = QString::number(i);
+        data.nodes.append(node);
+    }
+    for (int i = 1; i < n; ++i) {
+        data.edges.append({QStringLiteral("0"), QString::number(i)});
+    }
+    return data;
+}
+
+// ---------------------------------------------------------------------------
 // Benchmark runner
 // ---------------------------------------------------------------------------
 
@@ -253,5 +325,53 @@ int main(int argc, char *argv[])
     }
 
     out << Qt::endl << "=== Benchmark complete ===" << Qt::endl;
+
+    out << Qt::endl;
+    out << "=== ForceGraph computeLayout Pipeline Benchmark ===" << Qt::endl;
+    out << Qt::endl;
+    out << QString("%1  %2  %3  %4")
+               .arg("Topology", -20)
+               .arg("Nodes", 7)
+               .arg("Edges", 7)
+               .arg("Time(ms)", 10)
+        << Qt::endl;
+    out << QString("-").repeated(48) << Qt::endl;
+
+    struct PipelineTestCase {
+        QString name;
+        std::function<GraphData(int)> generator;
+    };
+
+    QVector<PipelineTestCase> pipeTopologies = {
+        { QStringLiteral("scale-free"), [](int n) { return generateGraphScaleFree(n); } },
+        { QStringLiteral("grid"),       [](int n) { return generateGraphGrid(n); } },
+        { QStringLiteral("star"),       [](int n) { return generateGraphStar(n); } },
+    };
+
+    QVector<int> pipeSizes = { 500, 1000, 2000, 5000, 10000 };
+
+    for (const auto &topo : pipeTopologies) {
+        for (int n : pipeSizes) {
+            auto data = topo.generator(n);
+            MultilevelConfig pipeConfig;
+
+            QElapsedTimer pipeTimer;
+            pipeTimer.start();
+            auto result = MultilevelLayout::computeLayout(data.nodes, data.edges, pipeConfig);
+            qint64 pipeElapsed = pipeTimer.elapsed();
+
+            out << QString("%1  %2  %3  %4")
+                       .arg(topo.name, -20)
+                       .arg(n, 7)
+                       .arg(static_cast<int>(data.edges.size()), 7)
+                       .arg(pipeElapsed, 10)
+                << Qt::endl;
+            out.flush();
+        }
+        out << Qt::endl;
+    }
+
+    out << "=== Pipeline benchmark complete ===" << Qt::endl;
+
     return 0;
 }
