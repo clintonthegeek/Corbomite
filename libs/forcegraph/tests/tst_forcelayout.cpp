@@ -2,8 +2,11 @@
 #include <QTest>
 #include <QSet>
 #include <QSignalSpy>
+#include <QElapsedTimer>
+#include <QRandomGenerator>
 #include <cmath>
 #include "forcegraph/ForceLayoutEngine.h"
+#include "forcegraph/MultilevelLayout.h"
 
 class TestForceLayout : public QObject {
     Q_OBJECT
@@ -264,6 +267,69 @@ private Q_SLOTS:
         QVERIFY(engine.isStable());
     }
 
+    void testMultilevelLayoutProducesPositions()
+    {
+        // Build a chain of 100 nodes — exceeds minCoarseNodes threshold
+        QVector<ForceGraph::GraphNode> nodes;
+        for (int i = 0; i < 100; ++i) {
+            ForceGraph::GraphNode n;
+            n.id = QString::number(i);
+            n.label = QStringLiteral("Node %1").arg(i);
+            nodes.append(n);
+        }
+
+        QVector<ForceGraph::GraphEdge> edges;
+        for (int i = 0; i < 99; ++i) {
+            edges.append({QString::number(i), QString::number(i + 1)});
+        }
+
+        ForceGraph::MultilevelConfig config;
+        config.minCoarseNodes = 20;
+        auto result = ForceGraph::MultilevelLayout::computeLayout(nodes, edges, config);
+
+        QCOMPARE(result.size(), 100);
+
+        // Nodes should be spread out — not all at origin
+        int nonOrigin = 0;
+        for (const auto &n : result) {
+            if (std::abs(n.position.x()) > 0.1 || std::abs(n.position.y()) > 0.1)
+                ++nonOrigin;
+        }
+        QVERIFY2(nonOrigin > 90,
+                 qPrintable(QStringLiteral("Only %1 nodes moved from origin").arg(nonOrigin)));
+
+        // Connected nodes should be closer than distant nodes
+        // Check that node 0 is closer to node 1 than to node 99
+        auto dist = [](const ForceGraph::GraphNode &a, const ForceGraph::GraphNode &b) {
+            double dx = a.position.x() - b.position.x();
+            double dy = a.position.y() - b.position.y();
+            return std::sqrt(dx * dx + dy * dy);
+        };
+        double d01 = dist(result[0], result[1]);
+        double d099 = dist(result[0], result[99]);
+        QVERIFY2(d01 < d099,
+                 qPrintable(QStringLiteral("d(0,1)=%1 should be < d(0,99)=%2").arg(d01).arg(d099)));
+    }
+
+    void testMultilevelSkipsSmallGraphs()
+    {
+        // Graph smaller than threshold should be returned unchanged
+        QVector<ForceGraph::GraphNode> nodes;
+        for (int i = 0; i < 10; ++i) {
+            ForceGraph::GraphNode n;
+            n.id = QString::number(i);
+            n.position = QPointF(i * 10.0, 0);
+            nodes.append(n);
+        }
+
+        auto result = ForceGraph::MultilevelLayout::computeLayout(nodes, {});
+
+        // Should be returned unchanged (all positions preserved)
+        for (int i = 0; i < 10; ++i) {
+            QCOMPARE(result[i].position, QPointF(i * 10.0, 0));
+        }
+    }
+
     void testBFSPlacementDisconnectedComponents()
     {
         // Two disconnected pairs: {a-b} and {c-d}
@@ -308,6 +374,68 @@ private Q_SLOTS:
             std::pow(center1.y() - center2.y(), 2));
         QVERIFY2(separation > 100.0,
                  qPrintable(QStringLiteral("Component separation: %1").arg(separation)));
+    }
+
+    void testMultilevelLayoutSurvivesLargeGraph()
+    {
+        // 2000-node scale-free graph — must complete in <30 seconds
+        // (was infinite with O(n²) brute-force)
+        QVector<ForceGraph::GraphNode> nodes;
+        nodes.reserve(2000);
+        for (int i = 0; i < 2000; ++i) {
+            ForceGraph::GraphNode n;
+            n.id = QString::number(i);
+            n.label = QStringLiteral("Node %1").arg(i);
+            nodes.append(n);
+        }
+
+        // Preferential attachment — each new node connects to 1-2 existing nodes
+        QVector<ForceGraph::GraphEdge> edges;
+        auto *rng = QRandomGenerator::global();
+        QVector<int> targets; // Degree-weighted target pool
+        targets.append(0);
+        for (int i = 1; i < 2000; ++i) {
+            int target = targets[rng->bounded(targets.size())];
+            edges.append({QString::number(i), QString::number(target)});
+            targets.append(i);
+            targets.append(target);
+
+            // 30% chance of a second edge
+            if (rng->generateDouble() < 0.3 && targets.size() > 1) {
+                int target2 = targets[rng->bounded(targets.size())];
+                if (target2 != i) {
+                    edges.append({QString::number(i), QString::number(target2)});
+                    targets.append(i);
+                    targets.append(target2);
+                }
+            }
+        }
+
+        ForceGraph::MultilevelConfig config;
+        config.minCoarseNodes = 50;
+
+        QElapsedTimer timer;
+        timer.start();
+        auto result = ForceGraph::MultilevelLayout::computeLayout(nodes, edges, config);
+        qint64 elapsed = timer.elapsed();
+
+        qDebug("testMultilevelLayoutSurvivesLargeGraph: %lld ms for %d nodes, %lld edges",
+               elapsed, 2000, static_cast<long long>(edges.size()));
+
+        QCOMPARE(result.size(), 2000);
+
+        // Must complete in under 30 seconds (was effectively infinite before)
+        QVERIFY2(elapsed < 30000,
+                 qPrintable(QStringLiteral("Took %1 ms — too slow").arg(elapsed)));
+
+        // Nodes should be spread out
+        int nonOrigin = 0;
+        for (const auto &n : result) {
+            if (std::abs(n.position.x()) > 0.1 || std::abs(n.position.y()) > 0.1)
+                ++nonOrigin;
+        }
+        QVERIFY2(nonOrigin > 1800,
+                 qPrintable(QStringLiteral("Only %1 nodes moved from origin").arg(nonOrigin)));
     }
 };
 
