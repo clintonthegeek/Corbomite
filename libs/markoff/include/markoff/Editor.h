@@ -4,10 +4,13 @@
 
 #include <QGraphicsView>
 
+class QTimer;
+
 namespace Markoff {
 
 class SelectionScene;
 class SceneCoordinator;
+class MarkdownTextItem;
 
 /// QGraphicsView-based markdown editor.
 /// Splits markdown at block boundaries (tables, code blocks) into
@@ -34,15 +37,26 @@ Q_SIGNALS:
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
+    void mouseMoveEvent(QMouseEvent *e) override;
+    void mouseReleaseEvent(QMouseEvent *e) override;
+    void contextMenuEvent(QContextMenuEvent *e) override;
+    void keyPressEvent(QKeyEvent *e) override;
+    void wheelEvent(QWheelEvent *e) override;
 
 private:
     void rebuildScene();
+    void ensureFocusedCursorVisible();
+    void startAutoScroll(int mouseY);
+    void stopAutoScroll();
+    void doAutoScroll();
 
     SelectionScene *m_scene = nullptr;
     SceneCoordinator *m_coordinator = nullptr;
     Mode m_mode = Mode::Source;
     QString m_sourceText;
     int m_fontSize = 14;
+    QTimer *m_autoScrollTimer = nullptr;
+    int m_autoScrollDelta = 0;
 };
 
 } // namespace Markoff

@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "markoff/Editor.h"
 #include "SelectionScene.h"
+#include "SelectionManager.h"
 #include "SceneCoordinator.h"
+#include "SelectableItem.h"
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
 
 #include <QResizeEvent>
+#include <QContextMenuEvent>
 #include <QScrollBar>
 #include <QTextDocument>
+#include <QTimer>
+#include <QMenu>
+#include <QAction>
+#include <QApplication>
+#include <QClipboard>
 
 namespace Markoff {
 
@@ -28,8 +36,17 @@ Editor::Editor(QWidget *parent)
 
     verticalScrollBar()->setSingleStep(20);
 
+    // Auto-scroll timer for drag selection outside viewport
+    m_autoScrollTimer = new QTimer(this);
+    m_autoScrollTimer->setInterval(50);
+    connect(m_autoScrollTimer, &QTimer::timeout, this, &Editor::doAutoScroll);
+
     connect(m_coordinator, &SceneCoordinator::textChanged,
             this, &Editor::textChanged);
+
+    // Ensure cursor visible after text changes (typing, paste, etc.)
+    connect(m_coordinator, &SceneCoordinator::textChanged,
+            this, &Editor::ensureFocusedCursorVisible);
 }
 
 Editor::~Editor() = default;
@@ -43,10 +60,8 @@ void Editor::setPlainText(const QString &text)
 QString Editor::toPlainText() const
 {
     if (m_mode == Mode::Source) {
-        // In source mode there's a single text item
-        if (!m_coordinator->items().isEmpty() && m_coordinator->items().first()->isTextItem()) {
+        if (!m_coordinator->items().isEmpty() && m_coordinator->items().first()->isTextItem())
             return m_coordinator->items().first()->allMarkdown();
-        }
         return m_sourceText;
     }
     return m_coordinator->toMarkdown();
@@ -56,8 +71,6 @@ void Editor::setMode(Mode mode)
 {
     if (m_mode == mode)
         return;
-
-    // Serialize current state before switching
     m_sourceText = toPlainText();
     m_mode = mode;
     rebuildScene();
@@ -74,10 +87,254 @@ void Editor::setFontSize(int pointSize)
 void Editor::resizeEvent(QResizeEvent *e)
 {
     QGraphicsView::resizeEvent(e);
-    qreal width = viewport()->width() - 32; // 16px scene margin each side
+    qreal width = viewport()->width() - 32;
     if (width > 100)
         m_coordinator->setItemWidth(width);
 }
+
+// =========================================================================
+// Auto-scroll during drag selection
+// =========================================================================
+
+void Editor::mouseMoveEvent(QMouseEvent *e)
+{
+    QGraphicsView::mouseMoveEvent(e);
+
+    if (e->buttons() & Qt::LeftButton) {
+        int y = e->pos().y();
+        if (y < 0)
+            startAutoScroll(y);
+        else if (y > viewport()->height())
+            startAutoScroll(y - viewport()->height());
+        else
+            stopAutoScroll();
+    }
+}
+
+void Editor::mouseReleaseEvent(QMouseEvent *e)
+{
+    QGraphicsView::mouseReleaseEvent(e);
+    stopAutoScroll();
+}
+
+void Editor::startAutoScroll(int delta)
+{
+    m_autoScrollDelta = qBound(-60, delta, 60);
+    if (!m_autoScrollTimer->isActive())
+        m_autoScrollTimer->start();
+}
+
+void Editor::stopAutoScroll()
+{
+    m_autoScrollTimer->stop();
+    m_autoScrollDelta = 0;
+}
+
+void Editor::doAutoScroll()
+{
+    QScrollBar *vbar = verticalScrollBar();
+    vbar->setValue(vbar->value() + m_autoScrollDelta);
+
+    // Update mouse selection at the new scroll position.
+    // Map the edge of the viewport to scene coordinates and tell
+    // the SelectionManager to update the current endpoint.
+    QPoint viewportEdge;
+    if (m_autoScrollDelta < 0)
+        viewportEdge = QPoint(viewport()->width() / 2, 0);
+    else
+        viewportEdge = QPoint(viewport()->width() / 2, viewport()->height());
+    QPointF scenePos = mapToScene(viewportEdge);
+    m_scene->selectionManager()->handleMouseMove(scenePos);
+}
+
+// =========================================================================
+// Context menu
+// =========================================================================
+
+void Editor::contextMenuEvent(QContextMenuEvent *e)
+{
+    QMenu menu(this);
+    auto *mgr = m_scene->selectionManager();
+    bool hasCrossBoundary = mgr->hasSelection();
+
+    // Undo/Redo — delegate to focused text item
+    QAction *undoAction = menu.addAction(tr("Undo"), [this]() {
+        if (auto *item = m_scene->focusItem()) {
+            if (auto *textItem = dynamic_cast<MarkdownTextItem *>(item))
+                textItem->textControl()->undo();
+        }
+    });
+    QAction *redoAction = menu.addAction(tr("Redo"), [this]() {
+        if (auto *item = m_scene->focusItem()) {
+            if (auto *textItem = dynamic_cast<MarkdownTextItem *>(item))
+                textItem->textControl()->redo();
+        }
+    });
+    undoAction->setShortcut(QKeySequence::Undo);
+    redoAction->setShortcut(QKeySequence::Redo);
+
+    menu.addSeparator();
+
+    // Cut
+    QAction *cutAction = menu.addAction(tr("Cut"), [this, mgr]() {
+        if (mgr->hasSelection()) {
+            QMimeData *data = mgr->createMimeData();
+            QApplication::clipboard()->setMimeData(data);
+            // TODO: delete selected content
+        } else if (auto *item = m_scene->focusItem()) {
+            if (auto *textItem = dynamic_cast<MarkdownTextItem *>(item))
+                textItem->textControl()->cut();
+        }
+    });
+    cutAction->setShortcut(QKeySequence::Cut);
+
+    // Copy
+    QAction *copyAction = menu.addAction(tr("Copy"), [this, mgr]() {
+        if (mgr->hasSelection()) {
+            QMimeData *data = mgr->createMimeData();
+            QApplication::clipboard()->setMimeData(data);
+        } else if (auto *item = m_scene->focusItem()) {
+            if (auto *textItem = dynamic_cast<MarkdownTextItem *>(item))
+                textItem->textControl()->copy();
+        }
+    });
+    copyAction->setShortcut(QKeySequence::Copy);
+
+    // Paste
+    QAction *pasteAction = menu.addAction(tr("Paste"), [this]() {
+        if (auto *item = m_scene->focusItem()) {
+            if (auto *textItem = dynamic_cast<MarkdownTextItem *>(item))
+                textItem->textControl()->paste();
+        }
+    });
+    pasteAction->setShortcut(QKeySequence::Paste);
+
+    menu.addSeparator();
+
+    // Select All
+    menu.addAction(tr("Select All"), [mgr]() {
+        QKeyEvent selectAll(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+        mgr->handleKeyPress(&selectAll);
+    });
+
+    // Enable/disable based on state
+    bool hasSelection = hasCrossBoundary;
+    if (!hasSelection) {
+        if (auto *item = m_scene->focusItem()) {
+            if (auto *textItem = dynamic_cast<MarkdownTextItem *>(item))
+                hasSelection = textItem->textControl()->textCursor().hasSelection();
+        }
+    }
+    cutAction->setEnabled(hasSelection && m_mode != Mode::Source);
+    copyAction->setEnabled(hasSelection);
+
+    bool canPaste = QApplication::clipboard()->mimeData()
+        && QApplication::clipboard()->mimeData()->hasText();
+    pasteAction->setEnabled(canPaste);
+
+    menu.exec(e->globalPos());
+}
+
+// =========================================================================
+// Keyboard enhancements
+// =========================================================================
+
+void Editor::keyPressEvent(QKeyEvent *e)
+{
+    // Ctrl+Home: jump to document start
+    if (e->key() == Qt::Key_Home && e->modifiers() == Qt::ControlModifier) {
+        const auto &items = m_coordinator->items();
+        for (auto *item : items) {
+            if (item->isTextItem()) {
+                auto *textItem = static_cast<MarkdownTextItem *>(item);
+                textItem->setFocus();
+                QTextCursor cursor(textItem->document());
+                cursor.movePosition(QTextCursor::Start);
+                textItem->textControl()->setTextCursor(cursor);
+                ensureFocusedCursorVisible();
+                return;
+            }
+        }
+    }
+
+    // Ctrl+Plus/Minus: zoom
+    if (e->modifiers() & Qt::ControlModifier) {
+        if (e->key() == Qt::Key_Plus || e->key() == Qt::Key_Equal) {
+            if (m_fontSize < 48) setFontSize(m_fontSize + 1);
+            return;
+        }
+        if (e->key() == Qt::Key_Minus) {
+            if (m_fontSize > 6) setFontSize(m_fontSize - 1);
+            return;
+        }
+    }
+
+    // Ctrl+End: jump to document end
+    if (e->key() == Qt::Key_End && e->modifiers() == Qt::ControlModifier) {
+        const auto &items = m_coordinator->items();
+        for (int i = items.size() - 1; i >= 0; --i) {
+            if (items[i]->isTextItem()) {
+                auto *textItem = static_cast<MarkdownTextItem *>(items[i]);
+                textItem->setFocus();
+                QTextCursor cursor(textItem->document());
+                cursor.movePosition(QTextCursor::End);
+                textItem->textControl()->setTextCursor(cursor);
+                ensureFocusedCursorVisible();
+                return;
+            }
+        }
+    }
+
+    QGraphicsView::keyPressEvent(e);
+
+    // Ensure cursor is visible after any key press that might move it
+    if (e->key() == Qt::Key_Up || e->key() == Qt::Key_Down
+        || e->key() == Qt::Key_PageUp || e->key() == Qt::Key_PageDown
+        || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter
+        || e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Delete) {
+        ensureFocusedCursorVisible();
+    }
+}
+
+// =========================================================================
+// Zoom (Ctrl+scroll, Ctrl+Plus/Minus)
+// =========================================================================
+
+void Editor::wheelEvent(QWheelEvent *e)
+{
+    if (e->modifiers() & Qt::ControlModifier) {
+        // Zoom
+        int delta = e->angleDelta().y();
+        if (delta > 0 && m_fontSize < 48)
+            setFontSize(m_fontSize + 1);
+        else if (delta < 0 && m_fontSize > 6)
+            setFontSize(m_fontSize - 1);
+        e->accept();
+        return;
+    }
+    QGraphicsView::wheelEvent(e);
+}
+
+// =========================================================================
+// Ensure cursor visible
+// =========================================================================
+
+void Editor::ensureFocusedCursorVisible()
+{
+    auto *focusItem = m_scene->focusItem();
+    if (!focusItem) return;
+
+    auto *textItem = dynamic_cast<MarkdownTextItem *>(focusItem);
+    if (!textItem) return;
+
+    QRectF cursorRect = textItem->textControl()->cursorRect();
+    QRectF sceneRect = textItem->mapToScene(cursorRect).boundingRect();
+    ensureVisible(sceneRect, 0, 50);
+}
+
+// =========================================================================
+// Scene rebuild
+// =========================================================================
 
 void Editor::rebuildScene()
 {
@@ -86,8 +343,7 @@ void Editor::rebuildScene()
     else
         m_coordinator->loadMarkdown(m_sourceText);
 
-    // Set width and font
-    qreal width = viewport()->width() - 32; // 16px scene margin each side
+    qreal width = viewport()->width() - 32;
     if (width > 100)
         m_coordinator->setItemWidth(width);
     if (m_fontSize > 0) {
@@ -96,7 +352,6 @@ void Editor::rebuildScene()
         m_coordinator->setFont(font);
     }
 
-    // Focus the first text item
     for (auto *item : m_coordinator->items()) {
         if (item->isTextItem()) {
             item->asGraphicsItem()->setFocus();
