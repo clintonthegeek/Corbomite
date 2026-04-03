@@ -207,4 +207,65 @@ star                  10000     9999       32372
 
 ---
 
+## Optimization Round 2: 2026-04-02 — Aggressive Refinement Convergence + Lower Caps
+
+### Changes
+
+| Parameter | Round 1 | Round 2 |
+|-----------|---------|---------|
+| `coarsestIterations` | 500 | 200 |
+| `convergenceThreshold` (coarsest) | 0.5 | 0.5 (unchanged) |
+| `refinementConvergenceThreshold` | (same as coarsest) | 15.0 |
+| Refinement iteration cap | `sqrt(n)*3` | `sqrt(n)*1.5` |
+
+### Results: computeLayout Pipeline
+
+```
+Topology              Nodes    Edges    Time(ms)
+------------------------------------------------
+scale-free              500      998         412
+scale-free             1000     1995         474
+scale-free             2000     3995        1064
+scale-free             5000     9996        4643
+scale-free            10000    19997       20342
+
+grid                    500      955         353
+grid                   1000     1936         448
+grid                   2000     3910        1257
+grid                   5000     9858        3408
+grid                  10000    19800        8545
+
+star                    500      499         428
+star                   1000      999         168
+star                   2000     1999         534
+star                   5000     4999        5176
+star                  10000     9999       15671
+```
+
+### Comparison across all rounds
+
+| Case | Baseline (pre-BH) | Round 1 | Round 2 | Total speedup |
+|------|-------------------|---------|---------|---------------|
+| scale-free 10k | ~400s | 42s | **20s** | 20x |
+| grid 10k | ~400s | 44s | **8.5s** | 47x |
+| star 10k | ~400s | 32s | **16s** | 25x |
+| scale-free 5k | infinite | 15s | **4.6s** | - |
+| grid 5k | infinite | 14s | **3.4s** | - |
+| Test suite | 14.2s | 5.0s | **1.9s** | 7.5x |
+
+### Observations
+
+- **Grid topology benefits most** from aggressive refinement convergence — regular structure means interpolated positions are already very close to final positions, so refinement converges in very few iterations.
+- **Scale-free is hardest** — hub nodes with high degree create persistent force imbalances that take many iterations to settle, even with loose convergence thresholds.
+- **Tried sqrt(n)*1 for cap** — failed the layout quality test (connected nodes no longer closer than distant). sqrt(n)*1.5 is the sweet spot that maintains quality while cutting time.
+- **All quality tests still pass** — connected nodes closer than distant nodes, nodes spread from origin.
+
+### Known remaining issues
+
+1. **Main thread blocking** — still synchronous. Async `computeLayout` on a worker thread with progress indication is the biggest remaining UX improvement.
+2. **Scene creation + first paint (15s)** — creating 10k QGraphicsItems + 38k edges is its own bottleneck, separate from layout computation.
+3. **Scale-free 10k at 20s** — the hardest topology. Further improvement would require fundamentally different approaches (e.g., METIS partitioning, GPU-accelerated layout, or progressive/streaming layout).
+
+---
+
 <!-- Append future optimization results below this line -->
