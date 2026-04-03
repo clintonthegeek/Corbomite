@@ -42,17 +42,18 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
     auto *highlighter = new MarkdownHighlighter(item->document());
     highlighter->setMode(hlMode);
 
-    // Parse and set span map BEFORE setting text. This way, when
+    // Set span map and decorated ranges BEFORE setPlainText. When
     // setPlainText triggers Qt's automatic highlightBlock calls,
-    // the span map is already available — no need for a separate
-    // rehighlight() pass.
+    // both the span map and decorated ranges must already be available
+    // for correct syntax coloring on the first render.
     if (m_parser->parse(text))
         highlighter->setSpanMap(m_parser->buildSpanMap());
 
+    // Pre-detect decorated ranges from raw text so the highlighter
+    // has them during the initial highlight pass.
     item->setPlainText(text);
-
-    // Pass decorated ranges to highlighter for code block syntax coloring
     highlighter->setDecoratedRanges(item->decoratedRanges());
+    highlighter->rehighlight();
 
     // Connect incremental span offset adjustment. Fires on every
     // document change BEFORE Qt's auto-rehighlight, keeping the
