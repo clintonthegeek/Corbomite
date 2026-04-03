@@ -170,22 +170,58 @@ QString Document::footnoteContent(int number) const
 
 namespace {
 
-// Recursively collect all inlines from a block tree
-void collectInlines(const QList<Block> &blocks, QList<InlineRun> &out)
+// Recursively collect headings, links, and tags from a block tree.
+// Collects values directly rather than pointers, avoiding raw pointer fragility.
+void collectFromBlocks(const QList<Block> &blocks,
+                       QList<HeadingInfo> &headings,
+                       QList<LinkInfo> &links,
+                       QList<TagInfo> &tags)
 {
-    for (const auto &block : blocks) {
-        for (const auto &run : block.inlines)
-            out.append(run);
-        collectInlines(block.children, out);
-    }
-}
+    for (const Block &block : blocks) {
+        if (block.type == MD_BLOCK_H) {
+            HeadingInfo h;
+            h.level = block.headingLevel;
+            h.sourceOffset = block.sourceOffset;
+            QString text;
+            for (const InlineRun &run : block.inlines)
+                text += run.text;
+            h.text = text.trimmed();
+            headings.append(h);
+        }
 
-// Recursively collect all blocks from a block tree
-void collectBlocks(const QList<Block> &blocks, QList<const Block *> &out)
-{
-    for (const auto &block : blocks) {
-        out.append(&block);
-        collectBlocks(block.children, out);
+        for (const InlineRun &run : block.inlines) {
+            if (!run.wikiTarget.isEmpty()) {
+                LinkInfo li;
+                li.type = run.wikiTarget.startsWith(QLatin1Char('!')) ? LinkInfo::Embed : LinkInfo::Wiki;
+                li.target = run.wikiTarget;
+                li.displayText = run.text;
+                li.sourceOffset = run.sourceOffset;
+                links.append(li);
+            } else if (!run.imageSrc.isEmpty()) {
+                LinkInfo li;
+                li.type = LinkInfo::Image;
+                li.target = run.imageSrc;
+                li.displayText = run.text;
+                li.sourceOffset = run.sourceOffset;
+                links.append(li);
+            } else if (!run.linkHref.isEmpty()) {
+                LinkInfo li;
+                li.type = LinkInfo::Standard;
+                li.target = run.linkHref;
+                li.displayText = run.text;
+                li.sourceOffset = run.sourceOffset;
+                links.append(li);
+            }
+
+            if (run.isTag) {
+                TagInfo ti;
+                ti.name = run.text.startsWith(QLatin1Char('#')) ? run.text.mid(1) : run.text;
+                ti.sourceOffset = run.sourceOffset;
+                tags.append(ti);
+            }
+        }
+
+        collectFromBlocks(block.children, headings, links, tags);
     }
 }
 
@@ -194,57 +230,18 @@ void collectBlocks(const QList<Block> &blocks, QList<const Block *> &out)
 QList<HeadingInfo> Document::headings() const
 {
     QList<HeadingInfo> result;
-    QList<const Block *> allBlocks;
-    collectBlocks(d->blocks, allBlocks);
-
-    for (const auto *block : allBlocks) {
-        if (block->type != MD_BLOCK_H)
-            continue;
-        HeadingInfo info;
-        info.level = block->headingLevel;
-        info.sourceOffset = block->sourceOffset;
-        // Concatenate inline text
-        QString text;
-        for (const auto &run : block->inlines)
-            text += run.text;
-        info.text = text.trimmed();
-        result.append(info);
-    }
+    QList<LinkInfo> unusedLinks;
+    QList<TagInfo> unusedTags;
+    collectFromBlocks(d->blocks, result, unusedLinks, unusedTags);
     return result;
 }
 
 QList<LinkInfo> Document::links() const
 {
+    QList<HeadingInfo> unusedHeadings;
     QList<LinkInfo> result;
-    QList<InlineRun> allInlines;
-    collectInlines(d->blocks, allInlines);
-
-    for (const auto &run : allInlines) {
-        if (!run.wikiTarget.isEmpty()) {
-            // Wiki link: [[Target]] or [[Target|display]]
-            // Check if it's an embed (starts with !)
-            LinkInfo info;
-            info.type = run.wikiTarget.startsWith(QLatin1Char('!')) ? LinkInfo::Embed : LinkInfo::Wiki;
-            info.target = run.wikiTarget;
-            info.displayText = run.text;
-            info.sourceOffset = run.sourceOffset;
-            result.append(info);
-        } else if (!run.imageSrc.isEmpty()) {
-            LinkInfo info;
-            info.type = LinkInfo::Image;
-            info.target = run.imageSrc;
-            info.displayText = run.text;
-            info.sourceOffset = run.sourceOffset;
-            result.append(info);
-        } else if (!run.linkHref.isEmpty()) {
-            LinkInfo info;
-            info.type = LinkInfo::Standard;
-            info.target = run.linkHref;
-            info.displayText = run.text;
-            info.sourceOffset = run.sourceOffset;
-            result.append(info);
-        }
-    }
+    QList<TagInfo> unusedTags;
+    collectFromBlocks(d->blocks, unusedHeadings, result, unusedTags);
     return result;
 }
 
@@ -261,19 +258,10 @@ QList<LinkInfo> Document::wikiLinks() const
 
 QList<TagInfo> Document::tags() const
 {
+    QList<HeadingInfo> unusedHeadings;
+    QList<LinkInfo> unusedLinks;
     QList<TagInfo> result;
-    QList<InlineRun> allInlines;
-    collectInlines(d->blocks, allInlines);
-
-    for (const auto &run : allInlines) {
-        if (!run.isTag)
-            continue;
-        TagInfo info;
-        // Strip leading '#' if present
-        info.name = run.text.startsWith(QLatin1Char('#')) ? run.text.mid(1) : run.text;
-        info.sourceOffset = run.sourceOffset;
-        result.append(info);
-    }
+    collectFromBlocks(d->blocks, unusedHeadings, unusedLinks, result);
     return result;
 }
 
