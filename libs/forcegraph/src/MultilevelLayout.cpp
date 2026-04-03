@@ -494,7 +494,7 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
         interpolate(levels[l], levels[l + 1]);
 
         // Refinement: fewer iterations at finer levels
-        int iters = std::max(50, static_cast<int>(std::sqrt(levels[l].nodeCount) * 10));
+        int iters = std::max(20, static_cast<int>(std::sqrt(levels[l].nodeCount) * 3));
         layoutLevel(levels[l], config, iters);
     }
 
