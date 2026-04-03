@@ -42,6 +42,11 @@ public:
     /// Whether there is any active cross-boundary selection.
     bool hasSelection() const;
 
+    /// Force-extend the selection to a scene position during auto-scroll.
+    /// Works regardless of current mode — handles within-item, boundary
+    /// crossing, and cross-boundary extension in one call.
+    void extendSelectionTo(const QPointF &scenePos);
+
     /// Enter or advance keyboard-driven cross-boundary selection.
     /// Called when Shift+Arrow hits an item boundary.
     void beginOrExtendKeyboardSelection(SelectableItem *anchorItem,

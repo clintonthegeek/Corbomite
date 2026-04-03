@@ -145,10 +145,14 @@ void Editor::doAutoScroll()
     if (vbar->value() == oldVal)
         return; // scrollbar didn't move (at min/max)
 
-    // Synthesize a mouse move event at the viewport edge. This goes
-    // through the normal scene event path so both within-item selection
-    // (TextControl extends via the grabbed item) and cross-boundary
-    // selection (SelectionManager takes over) work correctly.
+    // Release the mouse grab if one exists — auto-scroll takes over
+    // selection management from the grabbed item's TextControl.
+    if (m_scene->mouseGrabberItem())
+        m_scene->mouseGrabberItem()->ungrabMouse();
+
+    // Extend selection directly to the viewport edge position.
+    // This bypasses the scene's event dispatch (with its grab/ungrab
+    // complexity) and handles within-item + cross-boundary in one call.
     QPoint viewportEdge;
     if (m_autoScrollDelta < 0)
         viewportEdge = QPoint(viewport()->width() / 2, 0);
@@ -156,13 +160,7 @@ void Editor::doAutoScroll()
         viewportEdge = QPoint(viewport()->width() / 2, viewport()->height() - 1);
 
     QPointF scenePos = mapToScene(viewportEdge);
-    QGraphicsSceneMouseEvent moveEvent(QEvent::GraphicsSceneMouseMove);
-    moveEvent.setScenePos(scenePos);
-    moveEvent.setScreenPos(mapToGlobal(viewportEdge));
-    moveEvent.setButtons(Qt::LeftButton);
-    moveEvent.setButton(Qt::NoButton);
-    moveEvent.setModifiers(QApplication::keyboardModifiers());
-    QApplication::sendEvent(m_scene, &moveEvent);
+    m_scene->selectionManager()->extendSelectionTo(scenePos);
 }
 
 // =========================================================================

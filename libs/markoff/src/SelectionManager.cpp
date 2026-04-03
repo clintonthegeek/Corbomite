@@ -157,6 +157,24 @@ void SelectionManager::clearSelection()
     setMode(SelectionMode::None);
 }
 
+void SelectionManager::extendSelectionTo(const QPointF &scenePos)
+{
+    if (!m_anchorItem)
+        return;
+
+    // Force into CrossBoundary mode if not already
+    if (m_mode != SelectionMode::CrossBoundary)
+        setMode(SelectionMode::CrossBoundary);
+
+    SelectableItem *target = itemAt(scenePos);
+    if (!target)
+        return;
+
+    m_currentItem = target;
+    m_currentTextPos = target->hitTest(scenePos);
+    applySelection();
+}
+
 void SelectionManager::beginOrExtendKeyboardSelection(
     SelectableItem *anchorItem, int anchorTextPos,
     SelectableItem *targetItem, int targetTextPos)
