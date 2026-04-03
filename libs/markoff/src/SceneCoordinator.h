@@ -3,6 +3,7 @@
 #define MARKOFF_SCENECOORDINATOR_H
 
 #include "MarkdownHighlighter.h"
+#include <markoff/Theme.h>
 #include <QObject>
 #include <QList>
 #include <QFont>
@@ -39,6 +40,9 @@ public:
 
     /// Set font for all text items.
     void setFont(const QFont &font);
+
+    /// Set theme for all text item highlighters.
+    void setTheme(const Theme &theme);
 
     /// Get ordered items (for external use).
     const QList<SelectableItem *> &items() const { return m_items; }

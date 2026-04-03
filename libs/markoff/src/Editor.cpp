@@ -19,6 +19,7 @@
 #include <QGraphicsSceneMouseEvent>
 #include <QMimeData>
 #include <limits>
+#include <memory>
 
 namespace Markoff {
 
@@ -51,6 +52,8 @@ Editor::Editor(QWidget *parent)
             this, &Editor::textChanged);
     connect(m_coordinator, &SceneCoordinator::textChanged,
             this, &Editor::ensureFocusedCursorVisible);
+    connect(m_coordinator, &SceneCoordinator::textChanged,
+            this, &Editor::onDocumentReparsed);
 }
 
 Editor::~Editor() = default;
@@ -78,6 +81,7 @@ void Editor::setMode(Mode mode)
     m_sourceText = toPlainText();
     m_mode = mode;
     rebuildScene();
+    Q_EMIT modeChanged(mode);
 }
 
 void Editor::setFontSize(int pointSize)
@@ -272,6 +276,8 @@ void Editor::keyPressEvent(QKeyEvent *e)
             ensureFocusedCursorVisible();
         break;
     }
+
+    detectCompletionTriggers(e->text());
 }
 
 void Editor::jumpToDocumentEdge(bool toStart, bool select)
@@ -472,6 +478,289 @@ void Editor::rebuildScene()
             break;
         }
     }
+}
+
+// =========================================================================
+// Configuration
+// =========================================================================
+
+void Editor::setTheme(const Theme &theme)
+{
+    m_theme = theme;
+    m_fontSize = theme.textFont.pointSize() > 0 ? theme.textFont.pointSize() : 14;
+    if (m_coordinator)
+        m_coordinator->setTheme(theme);
+}
+
+Theme Editor::theme() const { return m_theme; }
+
+void Editor::setEditorSettings(const EditorSettings &settings)
+{
+    m_editorSettings = settings;
+}
+
+EditorSettings Editor::editorSettings() const { return m_editorSettings; }
+
+void Editor::setRenderSettings(const RenderSettings &settings)
+{
+    m_renderSettings = settings;
+}
+
+RenderSettings Editor::renderSettings() const { return m_renderSettings; }
+
+void Editor::setResourceProvider(ResourceProvider *provider)
+{
+    m_resourceProvider = provider;
+}
+
+// =========================================================================
+// Document accessor
+// =========================================================================
+
+const Document *Editor::document() const { return m_document.get(); }
+
+// =========================================================================
+// Mode
+// =========================================================================
+
+Editor::Mode Editor::mode() const { return m_mode; }
+
+// =========================================================================
+// Document reparsed
+// =========================================================================
+
+void Editor::onDocumentReparsed()
+{
+    m_document = Document::fromMarkdown(toPlainText());
+    Q_EMIT headingsChanged(m_document->headings());
+    Q_EMIT linksChanged(m_document->links());
+    Q_EMIT tagsChanged(m_document->tags());
+    Q_EMIT wordCountChanged(m_document->wordCount());
+}
+
+// =========================================================================
+// Editing actions
+// =========================================================================
+
+void Editor::undo()      { if (auto *ti = focusedTextItem()) ti->textControl()->undo(); }
+void Editor::redo()      { if (auto *ti = focusedTextItem()) ti->textControl()->redo(); }
+void Editor::cut()       { if (auto *ti = focusedTextItem()) ti->textControl()->cut(); }
+void Editor::copy()      { if (auto *ti = focusedTextItem()) ti->textControl()->copy(); }
+void Editor::paste()     { if (auto *ti = focusedTextItem()) ti->textControl()->paste(); }
+void Editor::selectAll() { if (auto *ti = focusedTextItem()) ti->textControl()->selectAll(); }
+
+// =========================================================================
+// Formatting actions
+// =========================================================================
+
+void Editor::wrapSelection(const QString &before, const QString &after)
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return;
+    auto *tc = ti->textControl();
+    QTextCursor cursor = tc->textCursor();
+    if (cursor.hasSelection()) {
+        QString selected = cursor.selectedText();
+        cursor.insertText(before + selected + after);
+    } else {
+        int pos = cursor.position();
+        cursor.insertText(before + after);
+        cursor.setPosition(pos + before.length());
+        tc->setTextCursor(cursor);
+    }
+}
+
+void Editor::insertAtCursor(const QString &text)
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return;
+    ti->textControl()->insertPlainText(text);
+}
+
+void Editor::toggleBold()          { wrapSelection(QStringLiteral("**"), QStringLiteral("**")); }
+void Editor::toggleItalic()        { wrapSelection(QStringLiteral("*"),  QStringLiteral("*")); }
+void Editor::toggleStrikethrough() { wrapSelection(QStringLiteral("~~"), QStringLiteral("~~")); }
+void Editor::toggleInlineCode()    { wrapSelection(QStringLiteral("`"),  QStringLiteral("`")); }
+void Editor::insertLink()          { insertAtCursor(QStringLiteral("[]()")); }
+void Editor::insertWikiLink()      { insertAtCursor(QStringLiteral("[[]]")); }
+void Editor::insertImage()         { insertAtCursor(QStringLiteral("![]()")); }
+void Editor::insertCodeBlock()     { insertAtCursor(QStringLiteral("```\n\n```")); }
+void Editor::insertBlockQuote()    { insertAtCursor(QStringLiteral("> ")); }
+void Editor::insertHorizontalRule(){ insertAtCursor(QStringLiteral("\n---\n")); }
+void Editor::insertCallout(const QString &type) {
+    insertAtCursor(QStringLiteral("> [!%1]\n> ").arg(type));
+}
+
+void Editor::insertTable(int rows, int cols)
+{
+    QString table;
+    // Header row
+    for (int c = 0; c < cols; ++c)
+        table += QStringLiteral("| Col%1 ").arg(c + 1);
+    table += QStringLiteral("|\n");
+    // Separator
+    for (int c = 0; c < cols; ++c)
+        table += QStringLiteral("|---");
+    table += QStringLiteral("|\n");
+    // Data rows
+    for (int r = 0; r < rows - 1; ++r) {
+        for (int c = 0; c < cols; ++c)
+            table += QStringLiteral("|   ");
+        table += QStringLiteral("|\n");
+    }
+    insertAtCursor(table);
+}
+
+void Editor::increaseHeadingLevel()
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return;
+    auto *tc = ti->textControl();
+    QTextCursor cursor = tc->textCursor();
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    QString line = cursor.selectedText();
+    int level = 0;
+    while (level < line.size() && line.at(level) == QLatin1Char('#'))
+        ++level;
+    if (level < 6)
+        cursor.insertText(QStringLiteral("#") + (level == 0 ? QStringLiteral(" ") : QString()) + line);
+}
+
+void Editor::decreaseHeadingLevel()
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return;
+    auto *tc = ti->textControl();
+    QTextCursor cursor = tc->textCursor();
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    QString line = cursor.selectedText();
+    if (!line.startsWith(QLatin1Char('#'))) return;
+    cursor.insertText(line.mid(1));
+}
+
+void Editor::toggleCheckbox()
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return;
+    auto *tc = ti->textControl();
+    QTextCursor cursor = tc->textCursor();
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    QString line = cursor.selectedText();
+    if (line.contains(QStringLiteral("- [ ]"))) {
+        cursor.insertText(line.replace(QStringLiteral("- [ ]"), QStringLiteral("- [x]")));
+    } else if (line.contains(QStringLiteral("- [x]")) || line.contains(QStringLiteral("- [X]"))) {
+        cursor.insertText(line.replace(QStringLiteral("- [x]"), QStringLiteral("- [ ]"))
+                             .replace(QStringLiteral("- [X]"), QStringLiteral("- [ ]")));
+    } else {
+        cursor.insertText(QStringLiteral("- [ ] ") + line);
+    }
+}
+
+// =========================================================================
+// Cursor info & navigation
+// =========================================================================
+
+int Editor::cursorLine() const
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return 1;
+    return ti->textControl()->textCursor().blockNumber() + 1;
+}
+
+int Editor::cursorColumn() const
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return 1;
+    return ti->textControl()->textCursor().columnNumber() + 1;
+}
+
+void Editor::goToLine(int line)
+{
+    if (!m_coordinator) return;
+    auto *ti = focusedTextItem();
+    if (!ti) return;
+    auto *tc = ti->textControl();
+    QTextCursor cursor = tc->textCursor();
+    cursor.movePosition(QTextCursor::Start);
+    for (int i = 1; i < line; ++i)
+        cursor.movePosition(QTextCursor::NextBlock);
+    tc->setTextCursor(cursor);
+    ensureFocusedCursorVisible();
+}
+
+void Editor::scrollToHeading(const HeadingInfo &heading)
+{
+    goToLine(heading.sourceOffset + 1);
+}
+
+// =========================================================================
+// Completion trigger detection
+// =========================================================================
+
+void Editor::detectCompletionTriggers(const QString &insertedText)
+{
+    if (insertedText.isEmpty()) return;
+    auto *ti = focusedTextItem();
+    if (!ti) return;
+
+    QTextCursor cursor = ti->textControl()->textCursor();
+    int pos = cursor.positionInBlock();
+    QString blockText = cursor.block().text();
+
+    QChar ch = insertedText.at(0);
+    if (ch == QLatin1Char('[') && pos >= 2 &&
+        blockText.mid(pos - 2, 2) == QStringLiteral("[[")) {
+        Q_EMIT wikiLinkTrigger(cursor.position());
+    }
+    if (ch == QLatin1Char('#') && pos > 1) {
+        Q_EMIT tagTrigger(cursor.position());
+    }
+}
+
+// =========================================================================
+// Search
+// =========================================================================
+
+bool Editor::findText(const QString &text, QTextDocument::FindFlags flags)
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return false;
+    auto *doc = ti->document();
+    QTextCursor cursor = doc->find(text, ti->textControl()->textCursor(), flags);
+    if (cursor.isNull()) return false;
+    ti->textControl()->setTextCursor(cursor);
+    return true;
+}
+
+bool Editor::replaceText(const QString &find, const QString &replace,
+                         QTextDocument::FindFlags flags)
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return false;
+    auto *doc = ti->document();
+    QTextCursor cursor = doc->find(find, ti->textControl()->textCursor(), flags);
+    if (cursor.isNull()) return false;
+    cursor.insertText(replace);
+    ti->textControl()->setTextCursor(cursor);
+    return true;
+}
+
+int Editor::replaceAll(const QString &find, const QString &replace,
+                       QTextDocument::FindFlags flags)
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return 0;
+    auto *doc = ti->document();
+    int count = 0;
+    QTextCursor cursor(doc);
+    while (!(cursor = doc->find(find, cursor, flags)).isNull()) {
+        cursor.insertText(replace);
+        ++count;
+    }
+    return count;
 }
 
 } // namespace Markoff

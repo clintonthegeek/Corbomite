@@ -132,6 +132,19 @@ void SceneCoordinator::setItemWidth(qreal width)
     repositionItems();
 }
 
+void SceneCoordinator::setTheme(const Theme &theme)
+{
+    for (auto *item : m_items) {
+        if (item->isTextItem()) {
+            auto *textItem = static_cast<MarkdownTextItem *>(item);
+            auto *highlighter = qobject_cast<MarkdownHighlighter *>(
+                textItem->document()->findChild<QSyntaxHighlighter *>());
+            if (highlighter)
+                highlighter->setTheme(theme);
+        }
+    }
+}
+
 void SceneCoordinator::setFont(const QFont &font)
 {
     m_font = font;
