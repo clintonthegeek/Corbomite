@@ -50,6 +50,7 @@ add_library(markoff STATIC
     src/MarkdownSplitter.cpp
     src/SceneCoordinator.h
     src/SceneCoordinator.cpp
+    src/Theme.cpp
     src/Document.cpp
     src/DocumentBuilder.cpp
     src/TreeSitterParser.cpp
