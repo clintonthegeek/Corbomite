@@ -2,7 +2,6 @@
 #include "forcegraph/MultilevelLayout.h"
 #include "forcegraph/QuadTree.h"
 
-#include <QElapsedTimer>
 #include <QHash>
 #include <QPair>
 #include <QRandomGenerator>
@@ -182,16 +181,7 @@ void MultilevelLayout::layoutLevel(Level &level, const MultilevelConfig &config,
     QVector<QPointF> prevForces(n, QPointF(0, 0));
     double globalSpeed = 1.0;
 
-    // Log every ~10% of iterations, minimum every 50
-    int logInterval = std::max(iterations / 10, 1);
-    QElapsedTimer iterTimer;
-    iterTimer.start();
-
     for (int iter = 0; iter < iterations; ++iter) {
-        if (iter > 0 && iter % logInterval == 0) {
-            qDebug("    layoutLevel: iter %d/%d (%d nodes, %d edges) — %lld ms elapsed",
-                   iter, iterations, n, m, iterTimer.elapsed());
-        }
         // Reset forces
         for (int i = 0; i < n; ++i)
             forces[i] = QPointF(0, 0);
@@ -335,18 +325,12 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
     const QVector<GraphEdge> &edges,
     const MultilevelConfig &config)
 {
-    QElapsedTimer totalTimer;
-    totalTimer.start();
-
     if (nodes.size() <= config.minCoarseNodes) {
         // Too small to benefit from multilevel — return as-is
         return nodes;
     }
 
     // Phase 1: Build coarsening hierarchy
-    QElapsedTimer phaseTimer;
-    phaseTimer.start();
-
     QVector<Level> levels;
     levels.append(buildLevel0(nodes, edges));
 
@@ -365,7 +349,6 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
     int L = levels.size() - 1;
     qDebug("MultilevelLayout: %d levels, coarsest has %d nodes (from %lld)",
            L + 1, levels[L].nodeCount, static_cast<long long>(nodes.size()));
-    qDebug("  Phase 1 (coarsening): %lld ms", phaseTimer.elapsed());
 
     // Phase 2: Layout coarsest level
     // BFS radial placement for initial positions at coarsest level
@@ -451,10 +434,7 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
         }
 
         // Run force layout on coarsest level
-        phaseTimer.restart();
         layoutLevel(coarsest, config, config.coarsestIterations);
-        qDebug("  Phase 2 (coarsest layout, %d nodes, %d iters): %lld ms",
-               coarsest.nodeCount, config.coarsestIterations, phaseTimer.elapsed());
     }
 
     // Phase 3: Uncoarsen and refine
@@ -463,13 +443,8 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
 
         // Refinement: fewer iterations at finer levels
         int iters = std::max(50, static_cast<int>(std::sqrt(levels[l].nodeCount) * 10));
-        phaseTimer.restart();
         layoutLevel(levels[l], config, iters);
-        qDebug("  Phase 3 (refine level %d, %d nodes, %d iters): %lld ms",
-               l, levels[l].nodeCount, iters, phaseTimer.elapsed());
     }
-
-    qDebug("  MultilevelLayout total: %lld ms", totalTimer.elapsed());
 
     // Write positions back to nodes
     QVector<GraphNode> result = nodes;

@@ -2,6 +2,9 @@
 #include "forcegraph/ForceGraphScene.h"
 #include "forcegraph/ForceGraphNode.h"
 #include "forcegraph/ForceGraphEdge.h"
+#include "forcegraph/BatchNodeItem.h"
+#include "forcegraph/BatchEdgeItem.h"
+#include <algorithm>
 
 namespace ForceGraph {
 
@@ -9,33 +12,60 @@ ForceGraphScene::ForceGraphScene(QObject *parent)
     : QGraphicsScene(parent)
 {
     setSceneRect(-10000, -10000, 20000, 20000);
+
+    m_batchNodes = new BatchNodeItem;
+    m_batchEdges = new BatchEdgeItem;
+    m_batchNodes->setVisible(false);
+    m_batchEdges->setVisible(false);
+    addItem(m_batchNodes);
+    addItem(m_batchEdges);
 }
 
 void ForceGraphScene::onSimulationStarted()
 {
     setItemIndexMethod(QGraphicsScene::NoIndex);
+    setBatchMode(true);
 }
 
 void ForceGraphScene::onSimulationStopped()
 {
+    setBatchMode(false);
     setItemIndexMethod(QGraphicsScene::BspTreeIndex);
 }
 
 void ForceGraphScene::setNodes(const QVector<GraphNode> &nodes)
 {
-    // clear() deletes all items owned by the scene
+    // clear() deletes all items owned by the scene (including batch items)
     clear();
     m_nodeItems.clear();
     m_edgeItems.clear();
     m_highlightedId.clear();
+    m_batchMode = false;
+
+    // Recreate batch items (clear() destroyed them)
+    m_batchNodes = new BatchNodeItem;
+    m_batchEdges = new BatchEdgeItem;
+    m_batchNodes->setVisible(false);
+    m_batchEdges->setVisible(false);
+    addItem(m_batchNodes);
+    addItem(m_batchEdges);
+
+    // Find max degree for semantic zoom
+    int maxDeg = 1;
+    for (const auto &node : nodes) {
+        maxDeg = std::max(maxDeg, node.degree);
+    }
 
     for (const auto &node : nodes) {
         auto *item = new ForceGraphNode(node);
         item->setNodeSizeScale(m_nodeSizeScale);
         item->setTextFadeThreshold(m_textFadeThreshold);
+        item->setMaxDegree(maxDeg);
         addItem(item);
         m_nodeItems.insert(node.id, item);
     }
+
+    m_maxDegree = maxDeg;
 
     // Optimization for large graphs
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
@@ -43,6 +73,7 @@ void ForceGraphScene::setNodes(const QVector<GraphNode> &nodes)
         setMinimumRenderSize(1.0); // Skip items smaller than 1px on screen
     }
 #endif
+
 }
 
 void ForceGraphScene::setEdges(const QVector<GraphEdge> &edges)
@@ -66,10 +97,13 @@ void ForceGraphScene::setEdges(const QVector<GraphEdge> &edges)
         addItem(item);
         m_edgeItems.append(item);
     }
+
 }
 
 void ForceGraphScene::updatePositions(const QHash<QString, QPointF> &positions)
 {
+    // Always update individual item positions (needed for hit testing and
+    // for when we switch back to individual mode)
     for (auto it = positions.constBegin(); it != positions.constEnd(); ++it) {
         auto *item = m_nodeItems.value(it.key());
         if (item) {
@@ -79,6 +113,11 @@ void ForceGraphScene::updatePositions(const QHash<QString, QPointF> &positions)
 
     for (auto *edge : std::as_const(m_edgeItems)) {
         edge->adjust();
+    }
+
+    // In batch mode, rebuild the batch data from updated positions
+    if (m_batchMode) {
+        syncBatchData();
     }
 }
 
@@ -107,19 +146,23 @@ void ForceGraphScene::setHighlightedNode(const QString &id)
         if (it.key() == id) {
             it.value()->setHighlighted(true);
             it.value()->setDimmed(false);
+            it.value()->setScale(1.1);
         } else if (connectedIds.contains(it.key())) {
             it.value()->setHighlighted(false);
             it.value()->setDimmed(false);
+            it.value()->setScale(1.0);
         } else {
             it.value()->setHighlighted(false);
             it.value()->setDimmed(true);
+            it.value()->setScale(1.0);
         }
     }
 
-    // Set dim on all edges
+    // Set highlight/dim on all edges
     for (auto *edge : std::as_const(m_edgeItems)) {
         bool connected = (edge->sourceNode()->nodeId() == id
                           || edge->targetNode()->nodeId() == id);
+        edge->setHighlighted(connected);
         edge->setDimmed(!connected);
     }
 }
@@ -131,9 +174,11 @@ void ForceGraphScene::clearHighlight()
     for (auto it = m_nodeItems.constBegin(); it != m_nodeItems.constEnd(); ++it) {
         it.value()->setHighlighted(false);
         it.value()->setDimmed(false);
+        it.value()->setScale(1.0);
     }
 
     for (auto *edge : std::as_const(m_edgeItems)) {
+        edge->setHighlighted(false);
         edge->setDimmed(false);
     }
 }
@@ -188,6 +233,67 @@ void ForceGraphScene::setSearchFilter(const QString &text)
         bool targetMatch = lower.isEmpty() || edge->targetNode()->nodeLabel().toLower().contains(lower);
         edge->setDimmed(!sourceMatch && !targetMatch);
     }
+}
+
+void ForceGraphScene::setBatchMode(bool batch)
+{
+    if (m_batchMode == batch)
+        return;
+
+    m_batchMode = batch;
+
+    // Toggle visibility: batch items vs individual items
+    m_batchNodes->setVisible(batch);
+    m_batchEdges->setVisible(batch);
+
+    for (auto it = m_nodeItems.constBegin(); it != m_nodeItems.constEnd(); ++it) {
+        it.value()->setVisible(!batch);
+    }
+    for (auto *edge : std::as_const(m_edgeItems)) {
+        edge->setVisible(!batch);
+    }
+
+    if (batch) {
+        m_batchEdges->setWidthScale(m_edgeWidthScale);
+        m_batchEdges->setShowArrows(m_showArrows);
+        m_batchNodes->setSizeScale(m_nodeSizeScale);
+        m_batchNodes->setTextFadeThreshold(m_textFadeThreshold);
+        m_batchNodes->setMaxDegree(m_maxDegree);
+        syncBatchData();
+    }
+}
+
+void ForceGraphScene::syncBatchData()
+{
+    // Build node batch data from individual items
+    QVector<BatchNodeItem::NodeData> nodeData;
+    nodeData.reserve(m_nodeItems.size());
+
+    for (auto it = m_nodeItems.constBegin(); it != m_nodeItems.constEnd(); ++it) {
+        auto *node = it.value();
+        BatchNodeItem::NodeData nd;
+        nd.position = node->pos();
+        nd.radius = node->nodeRadius();
+        nd.color = node->nodeColor();
+        nd.label = node->nodeLabel();
+        nd.degree = node->nodeDegree();
+        nd.dimmed = node->isDimmed();
+        nd.highlighted = node->isHighlighted();
+        nodeData.append(nd);
+    }
+    m_batchNodes->setNodes(nodeData);
+
+    // Build edge batch data
+    QVector<BatchEdgeItem::EdgeData> edgeData;
+    edgeData.reserve(m_edgeItems.size());
+
+    for (auto *edge : std::as_const(m_edgeItems)) {
+        BatchEdgeItem::EdgeData ed;
+        ed.line = edge->line();
+        ed.dimmed = edge->isDimmed();
+        edgeData.append(ed);
+    }
+    m_batchEdges->setEdges(edgeData);
 }
 
 } // namespace ForceGraph

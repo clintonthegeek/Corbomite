@@ -6,6 +6,7 @@
 #include <corbomite/models/VaultModel.h>
 #include <forcegraph/ForceLayoutEngine.h>
 #include <forcegraph/ForceGraphView.h>
+#include <forcegraph/MultilevelLayout.h>
 
 #include <QClipboard>
 #include <QDesktopServices>
@@ -63,24 +64,13 @@ void GraphViewTab::buildGraph()
 {
     auto data = GraphDataBuilder::buildGlobalGraph(m_index, m_vault);
 
-    qDebug() << "Graph built:" << data.nodes.size() << "nodes," << data.edges.size() << "edges";
-    for (const auto &node : data.nodes) {
-        qDebug() << "  NODE:" << node.id << "radius:" << node.radius
-                 << "color:" << node.color.name();
-    }
-    for (const auto &edge : data.edges) {
-        qDebug() << "  EDGE:" << edge.sourceId << "->" << edge.targetId;
-    }
-
-    // Cap node count for performance — 6000+ node graphs freeze the UI.
-    // TODO: Implement multilevel coarsening (Handbook Ch. 12.6) for large graphs.
-    static constexpr int MAX_GRAPH_NODES = 1000;
+    // Cap at 10K — beyond that, GPU acceleration (P8) is needed
+    static constexpr int MAX_GRAPH_NODES = 10000;
     if (data.nodes.size() > MAX_GRAPH_NODES) {
         qWarning() << "Graph too large:" << data.nodes.size() << "nodes. Capping at" << MAX_GRAPH_NODES;
-        // Keep only the most connected nodes
         std::sort(data.nodes.begin(), data.nodes.end(),
                   [](const ForceGraph::GraphNode &a, const ForceGraph::GraphNode &b) {
-                      return a.radius > b.radius; // radius encodes degree
+                      return a.radius > b.radius;
                   });
         QSet<QString> kept;
         for (int i = 0; i < MAX_GRAPH_NODES && i < data.nodes.size(); ++i) {
@@ -88,7 +78,6 @@ void GraphViewTab::buildGraph()
         }
         data.nodes.resize(MAX_GRAPH_NODES);
 
-        // Filter edges to only include kept nodes
         QVector<ForceGraph::GraphEdge> filteredEdges;
         for (const auto &edge : data.edges) {
             if (kept.contains(edge.sourceId) && kept.contains(edge.targetId)) {
@@ -98,6 +87,13 @@ void GraphViewTab::buildGraph()
         data.edges = filteredEdges;
     }
 
+    // Multilevel coarsening for large graphs — eliminates local minima and
+    // converges in seconds by computing good initial positions
+    static constexpr int MULTILEVEL_THRESHOLD = 200;
+    if (data.nodes.size() > MULTILEVEL_THRESHOLD) {
+        data.nodes = ForceGraph::MultilevelLayout::computeLayout(data.nodes, data.edges);
+    }
+
     // Cache full graph data before filtering
     m_allNodes = data.nodes;
     m_allEdges = data.edges;
@@ -105,7 +101,6 @@ void GraphViewTab::buildGraph()
     m_graphView->setNodes(data.nodes);
     m_graphView->setEdges(data.edges);
 
-    // Zoom to fit IMMEDIATELY so user sees overview from the start
     m_graphView->zoomToFit();
 
     m_engine->start();
@@ -165,6 +160,11 @@ void GraphViewTab::wireControlsPanel()
     connect(m_controlsPanel, &GraphControlsPanel::orphansToggled,
             this, [this]() { applyFilters(); });
 
+    // --- Zoom to fit ---
+    connect(m_controlsPanel, &GraphControlsPanel::zoomToFitRequested, this, [this]() {
+        m_graphView->zoomToFit();
+    });
+
     // --- Animate: re-randomize + restart ---
     connect(m_controlsPanel, &GraphControlsPanel::animateRequested, this, [this]() {
         m_engine->stop();
@@ -191,8 +191,8 @@ void GraphViewTab::applyFilters()
     QSet<QString> keptIds;
 
     for (const auto &node : m_allNodes) {
-        // Existing files only: skip unresolved (gray, small radius) nodes
-        if (existingOnly && node.color == QColor(136, 136, 136) && node.radius <= 3.0) {
+        // Existing files only: skip unresolved link targets
+        if (existingOnly && node.type == ForceGraph::NodeType::Unresolved) {
             continue;
         }
 
@@ -222,7 +222,18 @@ void GraphViewTab::applyFilters()
     // Apply search dimming on the scene
     m_graphView->setSearchFilter(search);
 
-    m_graphView->zoomToFit();
+    // Zoom to first matching node if searching, otherwise zoom to fit all
+    if (!search.isEmpty()) {
+        for (const auto &node : filteredNodes) {
+            if (node.label.toLower().contains(search)) {
+                m_graphView->zoomToNode(node.id);
+                break;
+            }
+        }
+    } else {
+        m_graphView->zoomToFit();
+    }
+
     m_engine->start();
 }
 
