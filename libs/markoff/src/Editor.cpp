@@ -127,6 +127,7 @@ void Editor::mouseReleaseEvent(QMouseEvent *e)
 void Editor::startAutoScroll(int delta)
 {
     m_autoScrollDelta = qBound(-60, delta, 60);
+    m_autoScrollActive = true;
     if (!m_autoScrollTimer->isActive())
         m_autoScrollTimer->start();
 }
@@ -135,6 +136,7 @@ void Editor::stopAutoScroll()
 {
     m_autoScrollTimer->stop();
     m_autoScrollDelta = 0;
+    m_autoScrollActive = false;
 }
 
 void Editor::doAutoScroll()
@@ -337,6 +339,10 @@ void Editor::wheelEvent(QWheelEvent *e)
 
 void Editor::ensureFocusedCursorVisible()
 {
+    // Don't fight auto-scroll — it manages viewport position itself
+    if (m_autoScrollActive)
+        return;
+
     auto *focusItem = m_scene->focusItem();
     if (!focusItem) return;
 

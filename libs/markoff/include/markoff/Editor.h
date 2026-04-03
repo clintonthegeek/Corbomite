@@ -57,6 +57,7 @@ private:
     int m_fontSize = 14;
     QTimer *m_autoScrollTimer = nullptr;
     int m_autoScrollDelta = 0;
+    bool m_autoScrollActive = false;
 };
 
 } // namespace Markoff
