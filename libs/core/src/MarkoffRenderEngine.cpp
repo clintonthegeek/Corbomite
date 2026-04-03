@@ -25,7 +25,6 @@ std::unique_ptr<RenderedDocument> MarkoffRenderEngine::render(
 
     // Translate Corbomite settings → Markoff settings
     Markoff::RenderSettings settings;
-    settings.baseFontSizePt = options.baseFontSizePt.value_or(m_profile.baseFontSizePt);
     settings.maxWidthPx = options.maxWidthPx.value_or(m_profile.maxWidthPx);
     settings.marginPx = options.marginPx.value_or(m_profile.marginPx);
     settings.showFrontmatter = m_profile.showFrontmatter;

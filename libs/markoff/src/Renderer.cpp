@@ -6,8 +6,6 @@
 
 #include <QString>
 #include <QTextDocument>
-#include <QFileInfo>
-#include <QDir>
 #include <QImage>
 #include <QBuffer>
 #include <jkqtmathtext/jkqtmathtext.h>
@@ -151,13 +149,6 @@ static QString renderInlines(const QList<InlineRun> &inlines, const RenderSettin
         if (!run.imageSrc.isEmpty()) {
             if (settings.renderImages) {
                 QString src = run.imageSrc;
-                // Resolve relative paths against basePath
-                if (!settings.basePath.isEmpty() && !src.startsWith(QStringLiteral("http"))
-                    && !src.startsWith(QStringLiteral("data:"))) {
-                    QFileInfo fi(QDir(settings.basePath), src);
-                    if (fi.exists())
-                        src = fi.absoluteFilePath();
-                }
                 QString alt = escapeHtml(run.text);
                 html += QStringLiteral("<img src=\"%1\" alt=\"%2\" style=\"max-width: 100%;\"/>")
                             .arg(escapeHtml(src), alt);
@@ -422,7 +413,7 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
     }
 
     // Build CSS
-    QString bodyStyle = QStringLiteral("font-size: %1pt;").arg(s.baseFontSizePt);
+    QString bodyStyle = QStringLiteral("font-size: 14pt;");
     if (s.marginPx > 0)
         bodyStyle += QStringLiteral(" margin: %1px;").arg(s.marginPx);
     if (s.maxWidthPx > 0)

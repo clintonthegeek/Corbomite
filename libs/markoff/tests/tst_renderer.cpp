@@ -82,19 +82,32 @@ void TestRenderer::testRenderCodeBlock()
 
 void TestRenderer::testRenderSettingsAffectOutput()
 {
-    auto doc = Markoff::Document::fromMarkdown(QStringLiteral("Hello world"));
+    // showFrontmatter controls whether YAML frontmatter appears in output
+    const QString md = QStringLiteral("---\ntitle: My Note\n---\n\nHello world");
+    auto doc = Markoff::Document::fromMarkdown(md);
     QVERIFY(doc != nullptr);
 
-    Markoff::RenderSettings settings;
-    settings.baseFontSizePt = 20;
+    // Default: frontmatter hidden
+    {
+        Markoff::Renderer renderer;
+        auto textDoc = renderer.renderToTextDocument(*doc);
+        QVERIFY(textDoc != nullptr);
+        const QString html = textDoc->toHtml();
+        QVERIFY(!html.contains(QStringLiteral("title: My Note")));
+    }
 
-    Markoff::Renderer renderer;
-    renderer.setSettings(settings);
-    auto textDoc = renderer.renderToTextDocument(*doc);
+    // showFrontmatter = true: frontmatter visible
+    {
+        Markoff::RenderSettings settings;
+        settings.showFrontmatter = true;
 
-    QVERIFY(textDoc != nullptr);
-    const QString html = textDoc->toHtml();
-    QVERIFY(html.contains(QStringLiteral("20")));
+        Markoff::Renderer renderer;
+        renderer.setSettings(settings);
+        auto textDoc = renderer.renderToTextDocument(*doc);
+        QVERIFY(textDoc != nullptr);
+        const QString html = textDoc->toHtml();
+        QVERIFY(html.contains(QStringLiteral("title: My Note")));
+    }
 }
 
 void TestRenderer::testRenderEmptyDocument()
