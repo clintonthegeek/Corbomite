@@ -5,6 +5,9 @@
 #include <QBuffer>
 #include <QImage>
 #include <QPainter>
+#include <QSvgRenderer>
+
+#include "mmdr_ffi.h"
 
 #include <KSyntaxHighlighting/Repository>
 #include <KSyntaxHighlighting/Definition>
@@ -67,6 +70,55 @@ QString renderMathToDataUri(const QString &latex, bool displayMode)
     if (img.isNull())
         return QString();
 
+    QByteArray ba;
+    QBuffer buffer(&ba);
+    buffer.open(QIODevice::WriteOnly);
+    img.save(&buffer, "PNG");
+
+    return QStringLiteral("data:image/png;base64,") + QString::fromLatin1(ba.toBase64());
+}
+
+} // anonymous namespace
+
+namespace {
+
+QString renderMermaidToDataUri(const QString &mermaidText)
+{
+    char *output = nullptr;
+    int result = mmdr_render_svg(mermaidText.toUtf8().constData(), &output);
+
+    if (result != 0 || !output) {
+        if (output) mmdr_free(output);
+        return {}; // Render failed -- will fall back to code block display
+    }
+
+    QByteArray svgData = QByteArray::fromRawData(output, static_cast<int>(strlen(output)));
+
+    // Render SVG to PNG image for embedding in HTML
+    QSvgRenderer renderer(svgData);
+    if (!renderer.isValid()) {
+        mmdr_free(output);
+        return {};
+    }
+
+    QSize size = renderer.defaultSize();
+    if (size.isEmpty()) size = QSize(600, 400);
+
+    // Scale down if too large
+    if (size.width() > 800) {
+        double scale = 800.0 / size.width();
+        size = QSize(800, static_cast<int>(size.height() * scale));
+    }
+
+    QImage img(size, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+    QPainter painter(&img);
+    renderer.render(&painter);
+    painter.end();
+
+    mmdr_free(output);
+
+    // Convert to base64 data URI
     QByteArray ba;
     QBuffer buffer(&ba);
     buffer.open(QIODevice::WriteOnly);
@@ -156,6 +208,17 @@ QString MarkdownRenderer::processBlocks(const QString &markdown) const
                 codeBlockLang = codeFenceMatch.captured(1);
                 codeContent.clear();
             } else {
+                // Check if this is a mermaid code block
+                if (codeBlockLang == QLatin1String("mermaid")) {
+                    QString dataUri = renderMermaidToDataUri(codeContent);
+                    if (!dataUri.isEmpty()) {
+                        html += QStringLiteral("<div style='text-align:center'><img src='%1'/></div>\n").arg(dataUri);
+                        inCodeBlock = false;
+                        continue;
+                    }
+                    // Fall through to code block rendering if mermaid render fails
+                }
+
                 // Try KSyntaxHighlighting for code blocks
                 QString highlightedCode;
                 if (!codeBlockLang.isEmpty()) {
