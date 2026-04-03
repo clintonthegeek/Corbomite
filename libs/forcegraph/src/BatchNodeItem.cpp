@@ -30,6 +30,20 @@ void BatchNodeItem::setNodes(const QVector<NodeData> &nodes)
     update();
 }
 
+void BatchNodeItem::updatePositions(const QVector<QPointF> &positions)
+{
+    // Hot path during simulation — update positions in-place, no allocation
+    int count = std::min(positions.size(), m_nodes.size());
+    for (int i = 0; i < count; ++i)
+        m_nodes[i].position = positions[i];
+    // Rebuild grid every 10th call to amortize cost
+    if (++m_gridRebuildCounter >= 10) {
+        m_gridRebuildCounter = 0;
+        rebuildGrid();
+    }
+    update();
+}
+
 void BatchNodeItem::setSizeScale(double scale)
 {
     m_sizeScale = scale;

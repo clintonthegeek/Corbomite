@@ -24,6 +24,7 @@ public:
     explicit BatchNodeItem(QGraphicsItem *parent = nullptr);
 
     void setNodes(const QVector<NodeData> &nodes);
+    void updatePositions(const QVector<QPointF> &positions);
     void setSizeScale(double scale);
     void setTextFadeThreshold(double threshold);
     void setMaxDegree(int maxDeg);
@@ -40,6 +41,7 @@ private:
     double m_textFadeThreshold = 1.0;
     int m_maxDegree = 1;
     double m_maxRadius = 5.0;
+    int m_gridRebuildCounter = 0;
 };
 
 } // namespace ForceGraph

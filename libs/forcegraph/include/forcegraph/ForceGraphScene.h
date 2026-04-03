@@ -45,7 +45,9 @@ private:
     void syncBatchData();
 
     QHash<QString, ForceGraphNode *> m_nodeItems;
+    QVector<QString> m_nodeOrder; // stable iteration order for batch position sync
     QVector<ForceGraphEdge *> m_edgeItems;
+    QHash<QString, QPointF> m_pendingPositions; // cached during batch mode
     QString m_highlightedId;
 
     // Batch rendering items (visible during simulation)

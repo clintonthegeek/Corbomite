@@ -41,6 +41,15 @@ void BatchEdgeItem::setEdges(const QVector<EdgeData> &edges)
     update();
 }
 
+void BatchEdgeItem::updateLines(const QVector<QLineF> &lines)
+{
+    // Hot path during simulation — update line geometry in-place, no allocation
+    int count = std::min(lines.size(), m_edges.size());
+    for (int i = 0; i < count; ++i)
+        m_edges[i].line = lines[i];
+    update();
+}
+
 void BatchEdgeItem::setWidthScale(double scale)
 {
     m_widthScale = scale;

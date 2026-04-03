@@ -17,6 +17,7 @@ public:
     explicit BatchEdgeItem(QGraphicsItem *parent = nullptr);
 
     void setEdges(const QVector<EdgeData> &edges);
+    void updateLines(const QVector<QLineF> &lines);
     void setWidthScale(double scale);
     void setShowArrows(bool show);
 

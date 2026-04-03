@@ -29,6 +29,17 @@ void ForceGraphScene::onSimulationStarted()
 
 void ForceGraphScene::onSimulationStopped()
 {
+    // Flush cached positions to individual items before switching out of batch mode
+    if (!m_pendingPositions.isEmpty()) {
+        for (auto it = m_pendingPositions.constBegin(); it != m_pendingPositions.constEnd(); ++it) {
+            auto *item = m_nodeItems.value(it.key());
+            if (item)
+                item->setPos(it.value());
+        }
+        for (auto *edge : std::as_const(m_edgeItems))
+            edge->adjust();
+        m_pendingPositions.clear();
+    }
     setBatchMode(false);
     setItemIndexMethod(QGraphicsScene::BspTreeIndex);
 }
@@ -38,7 +49,9 @@ void ForceGraphScene::setNodes(const QVector<GraphNode> &nodes)
     // clear() deletes all items owned by the scene (including batch items)
     clear();
     m_nodeItems.clear();
+    m_nodeOrder.clear();
     m_edgeItems.clear();
+    m_pendingPositions.clear();
     m_highlightedId.clear();
     m_batchMode = false;
 
@@ -56,6 +69,7 @@ void ForceGraphScene::setNodes(const QVector<GraphNode> &nodes)
         maxDeg = std::max(maxDeg, node.degree);
     }
 
+    m_nodeOrder.reserve(nodes.size());
     for (const auto &node : nodes) {
         auto *item = new ForceGraphNode(node);
         item->setNodeSizeScale(m_nodeSizeScale);
@@ -63,6 +77,7 @@ void ForceGraphScene::setNodes(const QVector<GraphNode> &nodes)
         item->setMaxDegree(maxDeg);
         addItem(item);
         m_nodeItems.insert(node.id, item);
+        m_nodeOrder.append(node.id);
     }
 
     m_maxDegree = maxDeg;
@@ -102,22 +117,41 @@ void ForceGraphScene::setEdges(const QVector<GraphEdge> &edges)
 
 void ForceGraphScene::updatePositions(const QHash<QString, QPointF> &positions)
 {
-    // Always update individual item positions (needed for hit testing and
-    // for when we switch back to individual mode)
-    for (auto it = positions.constBegin(); it != positions.constEnd(); ++it) {
-        auto *item = m_nodeItems.value(it.key());
-        if (item) {
-            item->setPos(it.value());
-        }
-    }
-
-    for (auto *edge : std::as_const(m_edgeItems)) {
-        edge->adjust();
-    }
-
-    // In batch mode, rebuild the batch data from updated positions
     if (m_batchMode) {
-        syncBatchData();
+        // Fast path: update batch items directly, skip hidden individual items.
+        // Individual item positions are synced when batch mode ends.
+
+        // Build position array in stable order matching m_nodeOrder
+        QVector<QPointF> posArray(m_nodeOrder.size());
+        for (int i = 0; i < m_nodeOrder.size(); ++i) {
+            auto it = positions.find(m_nodeOrder[i]);
+            if (it != positions.end())
+                posArray[i] = it.value();
+        }
+        m_batchNodes->updatePositions(posArray);
+
+        // Build edge lines from engine positions directly
+        QVector<QLineF> lines(m_edgeItems.size());
+        for (int i = 0; i < m_edgeItems.size(); ++i) {
+            const QString &srcId = m_edgeItems[i]->sourceNode()->nodeId();
+            const QString &tgtId = m_edgeItems[i]->targetNode()->nodeId();
+            QPointF srcPos = positions.value(srcId);
+            QPointF tgtPos = positions.value(tgtId);
+            lines[i] = QLineF(srcPos, tgtPos);
+        }
+        m_batchEdges->updateLines(lines);
+
+        // Cache positions to apply to individual items when simulation stops
+        m_pendingPositions = positions;
+    } else {
+        // Individual mode: update each item
+        for (auto it = positions.constBegin(); it != positions.constEnd(); ++it) {
+            auto *item = m_nodeItems.value(it.key());
+            if (item)
+                item->setPos(it.value());
+        }
+        for (auto *edge : std::as_const(m_edgeItems))
+            edge->adjust();
     }
 }
 
