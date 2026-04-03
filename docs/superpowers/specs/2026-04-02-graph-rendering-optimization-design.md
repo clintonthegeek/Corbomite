@@ -439,3 +439,13 @@ Each stage is independent and shippable:
 5. **Cosmetic pens & minor wins** — scattered small changes across batch items
 
 Stage 1+2 can be done in one pass since they both modify the same paint() methods. Stage 3 is independent. Stage 4 builds on Stage 1's viewport rect computation. Stage 5 is sprinkled throughout.
+
+---
+
+## Implementation Progress
+
+- [x] **Stage 1+2: Viewport culling + aggressive LOD** — done. BatchNodeItem and BatchEdgeItem paint() rewritten with visible rect culling, LOD edge hiding (lod<0.03), sub-pixel edge skipping, auto arrow suppression (lod<0.5), text greeking, pre-sorted edge partitioning.
+- [x] **Stage 3: Edge hiding during interaction** — done. ForceGraphView hides edges during pan/zoom for graphs >2000 nodes, restores after 150ms idle via QTimer.
+- [ ] **Stage 4: Spatial hash grid** — not started.
+- [ ] **Stage 5: Cosmetic pens & minor wins** — not started.
+- [ ] **Build & test** — not yet built.

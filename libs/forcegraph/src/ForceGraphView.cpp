@@ -4,6 +4,9 @@
 #include "forcegraph/ForceGraphNode.h"
 #include "forcegraph/ForceGraphEdge.h"
 #include "forcegraph/ForceLayoutEngine.h"
+#include <QEasingCurve>
+#include <QTimeLine>
+#include <QTimer>
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QContextMenuEvent>
@@ -13,6 +16,7 @@
 namespace ForceGraph {
 
 static constexpr double ZoomFactor = 1.15;
+static constexpr int EdgeHideThreshold = 2000; // hide edges during interaction above this node count
 
 ForceGraphView::ForceGraphView(QWidget *parent)
     : QGraphicsView(parent)
@@ -109,8 +113,55 @@ void ForceGraphView::zoomToFit()
 {
     if (!scene() || scene()->items().isEmpty())
         return;
+
+    // Instant — called during simulation lifecycle where animation would
+    // fight with moving nodes
     fitInView(scene()->itemsBoundingRect().adjusted(-50, -50, 50, 50),
               Qt::KeepAspectRatio);
+}
+
+void ForceGraphView::zoomToNode(const QString &id)
+{
+    auto *item = m_scene->nodeItem(id);
+    if (!item)
+        return;
+
+    // Center on node with a reasonable zoom level
+    double r = 300.0; // scene units of context around the node
+    QRectF target(item->pos().x() - r, item->pos().y() - r, 2 * r, 2 * r);
+    animateToRect(target);
+}
+
+void ForceGraphView::animateToRect(const QRectF &targetRect)
+{
+    if (!m_zoomTimeLine) {
+        m_zoomTimeLine = new QTimeLine(300, this);
+        m_zoomTimeLine->setEasingCurve(QEasingCurve::InOutCubic);
+        m_zoomTimeLine->setUpdateInterval(16); // ~60fps
+
+        connect(m_zoomTimeLine, &QTimeLine::valueChanged, this, [this](qreal progress) {
+            // Interpolate between start and end rects
+            QRectF r(
+                m_zoomStartRect.x() + (m_zoomEndRect.x() - m_zoomStartRect.x()) * progress,
+                m_zoomStartRect.y() + (m_zoomEndRect.y() - m_zoomStartRect.y()) * progress,
+                m_zoomStartRect.width() + (m_zoomEndRect.width() - m_zoomStartRect.width()) * progress,
+                m_zoomStartRect.height() + (m_zoomEndRect.height() - m_zoomStartRect.height()) * progress
+            );
+            fitInView(r, Qt::KeepAspectRatio);
+        });
+    }
+
+    // Current visible rect in scene coords
+    m_zoomStartRect = mapToScene(viewport()->rect()).boundingRect();
+    m_zoomEndRect = targetRect;
+
+    // If the timeline is running, restart it from the current interpolated position
+    if (m_zoomTimeLine->state() == QTimeLine::Running) {
+        m_zoomTimeLine->stop();
+        m_zoomStartRect = mapToScene(viewport()->rect()).boundingRect();
+    }
+
+    m_zoomTimeLine->start();
 }
 
 void ForceGraphView::setNodeSizeScale(double scale)
@@ -138,8 +189,41 @@ void ForceGraphView::setSearchFilter(const QString &text)
     m_scene->setSearchFilter(text);
 }
 
+void ForceGraphView::beginInteraction()
+{
+    if (m_interacting)
+        return;
+
+    if (m_scene->nodeCount() < EdgeHideThreshold)
+        return;
+
+    m_interacting = true;
+    m_scene->setEdgesVisible(false);
+
+    if (!m_interactionTimer) {
+        m_interactionTimer = new QTimer(this);
+        m_interactionTimer->setSingleShot(true);
+        m_interactionTimer->setInterval(150);
+        connect(m_interactionTimer, &QTimer::timeout, this, &ForceGraphView::endInteraction);
+    }
+}
+
+void ForceGraphView::endInteraction()
+{
+    if (!m_interacting)
+        return;
+
+    m_interacting = false;
+    m_scene->setEdgesVisible(true);
+    viewport()->update();
+}
+
 void ForceGraphView::wheelEvent(QWheelEvent *event)
 {
+    beginInteraction();
+    if (m_interactionTimer)
+        m_interactionTimer->start(); // reset the timer
+
     if (event->angleDelta().y() > 0) {
         scale(ZoomFactor, ZoomFactor);
     } else {
@@ -176,6 +260,10 @@ void ForceGraphView::mousePressEvent(QMouseEvent *event)
 void ForceGraphView::mouseMoveEvent(QMouseEvent *event)
 {
     if (m_panning) {
+        beginInteraction();
+        if (m_interactionTimer)
+            m_interactionTimer->start(); // reset the timer
+
         QPoint delta = event->pos() - m_lastPanPos;
         m_lastPanPos = event->pos();
 

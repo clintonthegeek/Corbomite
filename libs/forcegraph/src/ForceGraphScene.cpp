@@ -235,6 +235,16 @@ void ForceGraphScene::setSearchFilter(const QString &text)
     }
 }
 
+void ForceGraphScene::setEdgesVisible(bool visible)
+{
+    if (m_batchMode) {
+        m_batchEdges->setVisible(visible);
+    } else {
+        for (auto *edge : std::as_const(m_edgeItems))
+            edge->setVisible(visible);
+    }
+}
+
 void ForceGraphScene::setBatchMode(bool batch)
 {
     if (m_batchMode == batch)

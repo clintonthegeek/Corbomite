@@ -2,6 +2,10 @@
 #pragma once
 #include <QGraphicsView>
 #include "GraphTypes.h"
+
+class QTimeLine;
+class QTimer;
+
 namespace ForceGraph {
 class ForceLayoutEngine;
 class ForceGraphScene;
@@ -16,6 +20,7 @@ public:
     void setHighlightedNode(const QString &id);
     void clearHighlight();
     void zoomToFit();
+    void zoomToNode(const QString &id);
 
     // Display settings — forwarded to scene
     void setNodeSizeScale(double scale);
@@ -39,9 +44,18 @@ protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
 private:
+    void animateToRect(const QRectF &targetRect);
+    void beginInteraction();
+    void endInteraction();
+
     ForceGraphScene *m_scene = nullptr;
     ForceLayoutEngine *m_engine = nullptr;
+    QTimeLine *m_zoomTimeLine = nullptr;
+    QTimer *m_interactionTimer = nullptr;
+    QRectF m_zoomStartRect;
+    QRectF m_zoomEndRect;
     bool m_panning = false;
+    bool m_interacting = false;
     QPoint m_lastPanPos;
 };
 } // namespace ForceGraph
