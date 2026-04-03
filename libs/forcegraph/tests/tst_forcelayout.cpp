@@ -437,6 +437,56 @@ private Q_SLOTS:
         QVERIFY2(nonOrigin > 1800,
                  qPrintable(QStringLiteral("Only %1 nodes moved from origin").arg(nonOrigin)));
     }
+
+    void testLayoutLevelEarlyConvergence()
+    {
+        // Build a small grid — already near equilibrium so convergence should be fast.
+        // 10x10 grid = 100 nodes with horizontal and vertical edges.
+        const int rows = 10, cols = 10;
+        const int N = rows * cols;
+        ForceGraph::MultilevelLayout::Level level;
+        level.nodeCount = N;
+        level.nodeWeight.fill(1.0, N);
+        level.positions.resize(N);
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                level.positions[r * cols + c] = QPointF(c * 100.0, r * 100.0);
+            }
+        }
+
+        // Horizontal edges
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols - 1; ++c) {
+                level.edgeSrc.append(r * cols + c);
+                level.edgeTgt.append(r * cols + c + 1);
+                level.edgeWeight.append(1.0);
+            }
+        }
+        // Vertical edges
+        for (int r = 0; r < rows - 1; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                level.edgeSrc.append(r * cols + c);
+                level.edgeTgt.append((r + 1) * cols + c);
+                level.edgeWeight.append(1.0);
+            }
+        }
+
+        // Run with very high iteration cap — convergence should exit early
+        ForceGraph::MultilevelConfig config;
+        config.convergenceThreshold = 0.5;
+
+        QElapsedTimer timer;
+        timer.start();
+        ForceGraph::MultilevelLayout::layoutLevel(level, config, 5000);
+        qint64 elapsed = timer.elapsed();
+
+        // A 10x10 grid starting at linkDistance spacing should converge quickly.
+        // Without early convergence, 5000 iterations on 100 nodes takes several seconds.
+        // With early convergence, should exit much sooner.
+        qDebug("testLayoutLevelEarlyConvergence: %lld ms (cap was 5000 iters)", elapsed);
+        QVERIFY2(elapsed < 3000,
+                 qPrintable(QStringLiteral("Took %1 ms — early convergence not working").arg(elapsed)));
+    }
 };
 
 QTEST_MAIN(TestForceLayout)

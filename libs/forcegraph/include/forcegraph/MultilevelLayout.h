@@ -12,6 +12,7 @@ struct MultilevelConfig {
     double centerForce = 0.01;
     int minCoarseNodes = 50;
     int coarsestIterations = 500;
+    double convergenceThreshold = 0.5;
 };
 
 class MultilevelLayout {

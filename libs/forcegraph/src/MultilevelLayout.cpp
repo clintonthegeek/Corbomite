@@ -180,6 +180,7 @@ void MultilevelLayout::layoutLevel(Level &level, const MultilevelConfig &config,
     QVector<QPointF> forces(n);
     QVector<QPointF> prevForces(n, QPointF(0, 0));
     double globalSpeed = 1.0;
+    int stableCount = 0;
 
     for (int iter = 0; iter < iterations; ++iter) {
         // Reset forces
@@ -276,6 +277,7 @@ void MultilevelLayout::layoutLevel(Level &level, const MultilevelConfig &config,
         globalSpeed = std::max(globalSpeed, EPSILON);
 
         // Apply displacement
+        double maxDisplacement = 0.0;
         for (int i = 0; i < n; ++i) {
             double swingX = forces[i].x() - prevForces[i].x();
             double swingY = forces[i].y() - prevForces[i].y();
@@ -291,12 +293,24 @@ void MultilevelLayout::layoutLevel(Level &level, const MultilevelConfig &config,
                 double scale = 50.0 / mag;
                 dx *= scale;
                 dy *= scale;
+                mag = 50.0;
             }
 
             level.positions[i] += QPointF(dx, dy);
+            maxDisplacement = std::max(maxDisplacement, mag);
         }
 
         prevForces = forces;
+
+        // Early convergence: if max displacement is below threshold for 3 consecutive iterations, stop
+        if (maxDisplacement < config.convergenceThreshold) {
+            ++stableCount;
+            if (stableCount >= 3) {
+                break;
+            }
+        } else {
+            stableCount = 0;
+        }
     }
 }
 
