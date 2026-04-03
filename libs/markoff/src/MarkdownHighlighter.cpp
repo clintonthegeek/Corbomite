@@ -10,8 +10,8 @@ namespace Markoff {
 
 MarkdownHighlighter::MarkdownHighlighter(QTextDocument *parent)
     : QSyntaxHighlighter(parent)
+    , m_theme(Theme::defaultLight())
 {
-    m_theme = Theme::defaultLight();
 }
 
 void MarkdownHighlighter::setTheme(const Theme &theme)
@@ -88,6 +88,11 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         return;
     int localLen = localEnd - localStart;
 
+    static const Element headingElements[6] = {
+        Element::H1, Element::H2, Element::H3,
+        Element::H4, Element::H5, Element::H6
+    };
+
     // Delimiter spans
     if (span.isDelimiter) {
         bool hide = shouldHideDelim;
@@ -111,10 +116,6 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             hideRange(localStart, localLen);
         } else {
             // Source mode or cursor-adjacent: show delimiter with context coloring
-            static const Element headingElements[6] = {
-                Element::H1, Element::H2, Element::H3,
-                Element::H4, Element::H5, Element::H6
-            };
             if (span.isHeading && span.headingLevel >= 1 && span.headingLevel <= 6) {
                 setFormat(localStart, localLen,
                           m_theme.formats.value(headingElements[span.headingLevel - 1]));
@@ -160,11 +161,6 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         span.isBlockquote || span.isFootnoteRef || span.isCodeBlockContent;
     if (!hasAnyFormat)
         return;
-
-    static const Element headingElements[6] = {
-        Element::H1, Element::H2, Element::H3,
-        Element::H4, Element::H5, Element::H6
-    };
 
     for (int i = localStart; i < localEnd; ++i) {
         QTextCharFormat fmt = format(i);
