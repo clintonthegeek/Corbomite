@@ -53,7 +53,7 @@ target_link_libraries(CorbomiteApp
         Corbomite::Core
         Corbomite::Storage
         Corbomite::Models
-        qmarkdowntextedit
+        Markoff::Markoff
         forcegraph
         canvas
 )
