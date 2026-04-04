@@ -7,12 +7,12 @@
 #include <QJsonObject>
 #include <memory>
 #include <functional>
+#include "NoteEditorWidget.h"
 
 namespace Corbomite {
 
 class MarkdownRenderEngine;
 class NoteDocument;
-class NoteEditorWidget;
 class EditorViewSpace;
 class SQLiteIndex;
 class VaultModel;
@@ -24,13 +24,14 @@ public:
     explicit EditorViewManager(QWidget *parent = nullptr);
     ~EditorViewManager() override;
 
-    // Existing API — targets active view space
     void openNote(NoteDocument *doc);
     void openCanvas(const QString &filePath);
     NoteEditorWidget *activeEditor() const;
     EditorViewSpace *activeViewSpace() const;
-    void toggleEditorMode();
-    bool isPreviewMode() const;
+
+    void setViewMode(NoteEditorWidget::ViewMode mode);
+    NoteEditorWidget::ViewMode viewMode() const;
+
     void openGraphView(SQLiteIndex *index, VaultModel *vault);
     bool hasGraphView() const;
 
@@ -69,7 +70,6 @@ private:
     QSplitter *m_rootSplitter;
     EditorViewSpace *m_activeViewSpace = nullptr;
     QVector<EditorViewSpace *> m_viewSpaces;
-    std::unique_ptr<MarkdownRenderEngine> m_readingEngine;
     std::unique_ptr<MarkdownRenderEngine> m_canvasEngine;
 };
 

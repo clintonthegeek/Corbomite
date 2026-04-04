@@ -57,7 +57,6 @@ private:
     void showCommandPalette();
     void showSearchPanel();
     void openGraphView();
-    void toggleEditorMode();
     void insertTemplate();
     void openDailyNote();
     void onVaultOpened();

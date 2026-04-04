@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "EditorViewSpace.h"
 #include "NoteEditorWidget.h"
-#include "NotePreviewWidget.h"
 #include "graph/GraphViewTab.h"
 #include "canvas/CanvasViewTab.h"
 #include "corbomite/core/NoteDocument.h"
@@ -38,14 +37,9 @@ EditorViewSpace::EditorViewSpace(QWidget *parent)
     connect(m_tabBar, &QTabBar::customContextMenuRequested, this, &EditorViewSpace::showTabContextMenu);
 }
 
-void EditorViewSpace::setRenderEngine(MarkdownRenderEngine *engine)
+void EditorViewSpace::setCanvasEngine(MarkdownRenderEngine *engine)
 {
-    m_engine = engine;
-
-    // Update any existing preview widgets
-    for (auto *preview : std::as_const(m_previews)) {
-        preview->setRenderEngine(engine);
-    }
+    m_canvasEngine = engine;
 }
 
 void EditorViewSpace::openNote(NoteDocument *doc)
@@ -54,7 +48,6 @@ void EditorViewSpace::openNote(NoteDocument *doc)
 
     const QString &path = doc->relativePath();
 
-    // If already open, activate that tab
     if (m_editors.contains(path)) {
         for (int i = 0; i < m_tabBar->count(); ++i) {
             if (m_tabBar->tabData(i).toString() == path) {
@@ -64,7 +57,6 @@ void EditorViewSpace::openNote(NoteDocument *doc)
         }
     }
 
-    // Create editor for this note
     auto *editor = new NoteEditorWidget(m_stack);
     editor->setNoteDocument(doc);
     m_editors.insert(path, editor);
@@ -76,7 +68,6 @@ void EditorViewSpace::openNote(NoteDocument *doc)
     m_tabBar->setCurrentIndex(tabIdx);
     m_tabModel.openTab(path);
 
-    // Connect dirty state to tab visual
     connect(doc, &NoteDocument::modificationChanged, this, [this, path](bool modified) {
         for (int i = 0; i < m_tabBar->count(); ++i) {
             if (m_tabBar->tabData(i).toString() == path) {
@@ -94,47 +85,17 @@ void EditorViewSpace::openNote(NoteDocument *doc)
             this, &EditorViewSpace::cursorInfoChanged);
 }
 
-void EditorViewSpace::setCanvasEngine(MarkdownRenderEngine *engine)
+void EditorViewSpace::setViewMode(NoteEditorWidget::ViewMode mode)
 {
-    m_canvasEngine = engine;
+    if (auto *editor = activeEditor())
+        editor->setViewMode(mode);
 }
 
-void EditorViewSpace::openCanvas(const QString &filePath)
+NoteEditorWidget::ViewMode EditorViewSpace::viewMode() const
 {
-    // Check if already open
-    for (int i = 0; i < m_tabBar->count(); ++i) {
-        if (m_tabBar->tabData(i).toString() == filePath) {
-            m_tabBar->setCurrentIndex(i);
-            return;
-        }
-    }
-
-    auto *canvasTab = new CanvasViewTab(filePath, m_stack);
-    if (m_canvasEngine) {
-        canvasTab->setRenderEngine(m_canvasEngine);
-    }
-    m_stack->addWidget(canvasTab);
-
-    // Extract filename for tab title
-    QString name = filePath.mid(filePath.lastIndexOf(QLatin1Char('/')) + 1);
-    if (name.endsWith(QStringLiteral(".canvas"))) name.chop(7);
-
-    int tabIdx = m_tabBar->addTab(QIcon::fromTheme(QStringLiteral("draw-rectangle")), name);
-    m_tabBar->setTabData(tabIdx, filePath);
-    m_tabBar->setCurrentIndex(tabIdx);
-
-    // Track modification state
-    connect(canvasTab, &CanvasViewTab::modificationChanged, this, [this, filePath](bool modified) {
-        for (int i = 0; i < m_tabBar->count(); ++i) {
-            if (m_tabBar->tabData(i).toString() == filePath) {
-                QString title = filePath.mid(filePath.lastIndexOf(QLatin1Char('/')) + 1);
-                if (title.endsWith(QStringLiteral(".canvas"))) title.chop(7);
-                if (modified) title += QStringLiteral(" \u2022");
-                m_tabBar->setTabText(i, title);
-                break;
-            }
-        }
-    });
+    if (auto *editor = activeEditor())
+        return editor->viewMode();
+    return NoteEditorWidget::ViewMode::Source;
 }
 
 void EditorViewSpace::closeTab(int index)
@@ -144,9 +105,7 @@ void EditorViewSpace::closeTab(int index)
     QString path = m_tabBar->tabData(index).toString();
     m_tabBar->removeTab(index);
 
-    // Check if this is a graph tab
     if (path == QStringLiteral("__graph__")) {
-        // Find and remove the GraphViewTab widget from the stack
         for (int i = 0; i < m_stack->count(); ++i) {
             if (auto *graph = qobject_cast<GraphViewTab *>(m_stack->widget(i))) {
                 m_stack->removeWidget(graph);
@@ -157,7 +116,6 @@ void EditorViewSpace::closeTab(int index)
         return;
     }
 
-    // Check if this is a canvas tab
     if (path.endsWith(QStringLiteral(".canvas"))) {
         for (int i = 0; i < m_stack->count(); ++i) {
             if (auto *canvas = qobject_cast<CanvasViewTab *>(m_stack->widget(i))) {
@@ -176,14 +134,6 @@ void EditorViewSpace::closeTab(int index)
         editor->deleteLater();
     }
 
-    // Clean up preview widget if any
-    if (auto *preview = m_previews.take(path)) {
-        m_stack->removeWidget(preview);
-        preview->deleteLater();
-    }
-    m_previewModePaths.remove(path);
-
-    // Find matching index in TabModel using the public tabPath() API
     for (int i = 0; i < m_tabModel.rowCount(); ++i) {
         if (m_tabModel.tabPath(i) == path) {
             m_tabModel.closeTab(i);
@@ -211,7 +161,6 @@ void EditorViewSpace::onTabChanged(int index)
 
     QString path = m_tabBar->tabData(index).toString();
 
-    // Handle graph tab
     if (path == QStringLiteral("__graph__")) {
         for (int i = 0; i < m_stack->count(); ++i) {
             if (auto *graph = qobject_cast<GraphViewTab *>(m_stack->widget(i))) {
@@ -223,7 +172,6 @@ void EditorViewSpace::onTabChanged(int index)
         return;
     }
 
-    // Handle canvas tab
     if (path.endsWith(QStringLiteral(".canvas"))) {
         for (int i = 0; i < m_stack->count(); ++i) {
             if (auto *canvas = qobject_cast<CanvasViewTab *>(m_stack->widget(i))) {
@@ -235,16 +183,6 @@ void EditorViewSpace::onTabChanged(int index)
         }
         Q_EMIT activeEditorChanged(nullptr);
         return;
-    }
-
-    if (m_previewModePaths.contains(path)) {
-        // Tab is in preview mode — show preview widget
-        if (auto *preview = m_previews.value(path)) {
-            m_stack->setCurrentWidget(preview);
-            m_tabModel.setActiveTab(index);
-            Q_EMIT activeEditorChanged(nullptr);
-            return;
-        }
     }
 
     if (auto *editor = m_editors.value(path)) {
@@ -259,54 +197,43 @@ void EditorViewSpace::onTabCloseRequested(int index)
     closeTab(index);
 }
 
-void EditorViewSpace::toggleEditorMode()
+void EditorViewSpace::openCanvas(const QString &filePath)
 {
-    int idx = m_tabBar->currentIndex();
-    if (idx < 0) return;
-    QString path = m_tabBar->tabData(idx).toString();
-
-    if (m_previewModePaths.contains(path)) {
-        // Switch from preview to editor
-        m_previewModePaths.remove(path);
-        if (auto *editor = m_editors.value(path)) {
-            m_stack->setCurrentWidget(editor);
+    for (int i = 0; i < m_tabBar->count(); ++i) {
+        if (m_tabBar->tabData(i).toString() == filePath) {
+            m_tabBar->setCurrentIndex(i);
+            return;
         }
-        Q_EMIT activeEditorChanged(m_editors.value(path));
-    } else {
-        // Switch from editor to preview
-        m_previewModePaths.insert(path);
-        auto *editor = m_editors.value(path);
-        if (!editor || !editor->noteDocument()) return;
-
-        auto *preview = m_previews.value(path);
-        if (!preview) {
-            preview = new NotePreviewWidget(m_stack);
-            preview->setRenderEngine(m_engine);
-            m_previews.insert(path, preview);
-            m_stack->addWidget(preview);
-
-            // Forward internal link clicks
-            connect(preview, &NotePreviewWidget::internalLinkClicked,
-                    this, &EditorViewSpace::internalLinkClicked);
-        }
-
-        preview->renderDocument(editor->noteDocument());
-        m_stack->setCurrentWidget(preview);
-        Q_EMIT activeEditorChanged(nullptr); // no active editor in preview mode
     }
-}
 
-bool EditorViewSpace::isPreviewMode() const
-{
-    int idx = m_tabBar->currentIndex();
-    if (idx < 0) return false;
-    QString path = m_tabBar->tabData(idx).toString();
-    return m_previewModePaths.contains(path);
+    auto *canvasTab = new CanvasViewTab(filePath, m_stack);
+    if (m_canvasEngine) {
+        canvasTab->setRenderEngine(m_canvasEngine);
+    }
+    m_stack->addWidget(canvasTab);
+
+    QString name = filePath.mid(filePath.lastIndexOf(QLatin1Char('/')) + 1);
+    if (name.endsWith(QStringLiteral(".canvas"))) name.chop(7);
+
+    int tabIdx = m_tabBar->addTab(QIcon::fromTheme(QStringLiteral("draw-rectangle")), name);
+    m_tabBar->setTabData(tabIdx, filePath);
+    m_tabBar->setCurrentIndex(tabIdx);
+
+    connect(canvasTab, &CanvasViewTab::modificationChanged, this, [this, filePath](bool modified) {
+        for (int i = 0; i < m_tabBar->count(); ++i) {
+            if (m_tabBar->tabData(i).toString() == filePath) {
+                QString title = filePath.mid(filePath.lastIndexOf(QLatin1Char('/')) + 1);
+                if (title.endsWith(QStringLiteral(".canvas"))) title.chop(7);
+                if (modified) title += QStringLiteral(" \u2022");
+                m_tabBar->setTabText(i, title);
+                break;
+            }
+        }
+    });
 }
 
 void EditorViewSpace::openGraphView(SQLiteIndex *index, VaultModel *vault)
 {
-    // Only one graph tab allowed
     for (int i = 0; i < m_tabBar->count(); ++i) {
         if (m_tabBar->tabData(i).toString() == QStringLiteral("__graph__")) {
             m_tabBar->setCurrentIndex(i);
@@ -323,22 +250,16 @@ void EditorViewSpace::openGraphView(SQLiteIndex *index, VaultModel *vault)
 
     connect(graphTab, &GraphViewTab::noteActivated,
             this, &EditorViewSpace::graphNoteActivated);
-
     connect(graphTab, &GraphViewTab::openNoteInNewTabRequested,
             this, [this](const QString &path) {
-        Q_EMIT graphNoteActivated(path);  // Reuse existing signal
+        Q_EMIT graphNoteActivated(path);
     });
-
     connect(graphTab, &GraphViewTab::revealInNavigationRequested,
             this, [this](const QString &path) {
-        // TODO: Wire to FileExplorerPanel::selectFile() via MainWindow
-        Q_EMIT graphNoteActivated(path);  // For now, just open the note
+        Q_EMIT graphNoteActivated(path);
     });
-
     connect(graphTab, &GraphViewTab::deleteNoteRequested,
             this, [this](const QString &path) {
-        // TODO: Wire to NoteService::deleteNote() via MainWindow
-        // For now, signal is emitted but not handled
         Q_UNUSED(path);
     });
 }

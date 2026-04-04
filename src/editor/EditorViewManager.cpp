@@ -21,10 +21,8 @@ namespace Corbomite {
 EditorViewManager::EditorViewManager(QWidget *parent)
     : QWidget(parent)
     , m_rootSplitter(new QSplitter(Qt::Horizontal, this))
-    , m_readingEngine(std::make_unique<RegexRenderEngine>())
     , m_canvasEngine(std::make_unique<RegexRenderEngine>())
 {
-    m_readingEngine->setProfile(RenderProfile::readingMode());
     m_canvasEngine->setProfile(RenderProfile::canvasCard());
 
     auto *layout = new QVBoxLayout(this);
@@ -42,7 +40,6 @@ EditorViewManager::~EditorViewManager() = default;
 EditorViewSpace *EditorViewManager::createViewSpace()
 {
     auto *space = new EditorViewSpace(this);
-    space->setRenderEngine(m_readingEngine.get());
     space->setCanvasEngine(m_canvasEngine.get());
     connectViewSpace(space);
     m_viewSpaces.append(space);
@@ -97,14 +94,14 @@ EditorViewSpace *EditorViewManager::activeViewSpace() const
     return m_activeViewSpace;
 }
 
-void EditorViewManager::toggleEditorMode()
+void EditorViewManager::setViewMode(NoteEditorWidget::ViewMode mode)
 {
-    if (m_activeViewSpace) m_activeViewSpace->toggleEditorMode();
+    if (m_activeViewSpace) m_activeViewSpace->setViewMode(mode);
 }
 
-bool EditorViewManager::isPreviewMode() const
+NoteEditorWidget::ViewMode EditorViewManager::viewMode() const
 {
-    return m_activeViewSpace ? m_activeViewSpace->isPreviewMode() : false;
+    return m_activeViewSpace ? m_activeViewSpace->viewMode() : NoteEditorWidget::ViewMode::Source;
 }
 
 void EditorViewManager::openGraphView(SQLiteIndex *index, VaultModel *vault)
@@ -359,9 +356,16 @@ QJsonObject EditorViewManager::buildSessionState() const
                             ? editor->editor()->verticalScrollBar()->value() : 0;
                     }
 
-                    // Save reading mode state
-                    if (space->isPreviewMode() && tabBar->currentIndex() == i) {
-                        tabObj[QStringLiteral("readingMode")] = true;
+                    // Save view mode for the active tab
+                    if (tabBar->currentIndex() == i) {
+                        auto *ed = space->activeEditor();
+                        if (ed) {
+                            auto vm = ed->viewMode();
+                            if (vm == NoteEditorWidget::ViewMode::LivePreview)
+                                tabObj[QStringLiteral("viewMode")] = QStringLiteral("livePreview");
+                            else if (vm == NoteEditorWidget::ViewMode::Reading)
+                                tabObj[QStringLiteral("viewMode")] = QStringLiteral("reading");
+                        }
                     }
                 }
 
@@ -509,9 +513,13 @@ void EditorViewManager::restoreTabState(const QJsonObject &paneJson, EditorViewS
 
     if (type != QStringLiteral("note")) return;
 
-    // Restore reading mode
-    if (tabObj[QStringLiteral("readingMode")].toBool()) {
-        space->toggleEditorMode();
+    // Restore view mode (backwards compatible with old readingMode key)
+    QString savedMode = tabObj[QStringLiteral("viewMode")].toString();
+    if (savedMode == QStringLiteral("livePreview")) {
+        space->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
+    } else if (savedMode == QStringLiteral("reading")
+               || tabObj[QStringLiteral("readingMode")].toBool()) {
+        space->setViewMode(NoteEditorWidget::ViewMode::Reading);
     }
 
     // Restore cursor position

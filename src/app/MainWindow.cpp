@@ -6,7 +6,6 @@
 #include "editor/EditorViewSpace.h"
 #include "editor/NoteEditorWidget.h"
 #include <markoff/Editor.h>
-#include "editor/NotePreviewWidget.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
 #include "sidebar/BacklinksPanel.h"
@@ -270,11 +269,30 @@ void MainWindow::setupActions()
     dailyNote->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
     connect(dailyNote, &QAction::triggered, this, &MainWindow::openDailyNote);
 
-    auto *toggleMode = ac->addAction(QStringLiteral("editor_toggle_mode"));
-    toggleMode->setText(i18n("Toggle Reading Mode"));
-    toggleMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
-    ac->setDefaultShortcut(toggleMode, QKeySequence(Qt::CTRL | Qt::Key_E));
-    connect(toggleMode, &QAction::triggered, this, &MainWindow::toggleEditorMode);
+    auto *sourceMode = ac->addAction(QStringLiteral("view_source_mode"));
+    sourceMode->setText(i18n("Source"));
+    sourceMode->setIcon(QIcon::fromTheme(QStringLiteral("text-x-markdown")));
+    connect(sourceMode, &QAction::triggered, this, [this]() {
+        if (auto *editor = m_editorManager->activeEditor())
+            editor->setViewMode(NoteEditorWidget::ViewMode::Source);
+    });
+
+    auto *livePreviewMode = ac->addAction(QStringLiteral("view_live_preview_mode"));
+    livePreviewMode->setText(i18n("Live Preview"));
+    livePreviewMode->setIcon(QIcon::fromTheme(QStringLiteral("view-split-left-right")));
+    connect(livePreviewMode, &QAction::triggered, this, [this]() {
+        if (auto *editor = m_editorManager->activeEditor())
+            editor->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
+    });
+
+    auto *readingMode = ac->addAction(QStringLiteral("view_reading_mode"));
+    readingMode->setText(i18n("Reading"));
+    readingMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
+    ac->setDefaultShortcut(readingMode, QKeySequence(Qt::CTRL | Qt::Key_E));
+    connect(readingMode, &QAction::triggered, this, [this]() {
+        if (auto *editor = m_editorManager->activeEditor())
+            editor->setViewMode(NoteEditorWidget::ViewMode::Reading);
+    });
 
     // Tab shortcuts
     auto *closeTab = ac->addAction(QStringLiteral("tab_close"));
@@ -756,6 +774,16 @@ void MainWindow::onVaultOpened()
         // Connect link navigation (UniqueConnection works here — pointer-to-member)
         connect(editor, &NoteEditorWidget::linkActivated,
                 this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
+        // Update status bar when view mode changes
+        connect(editor, &NoteEditorWidget::viewModeChanged,
+                this, [this](NoteEditorWidget::ViewMode mode) {
+            if (mode == NoteEditorWidget::ViewMode::Reading)
+                m_cursorPosLabel->setText(i18n("Reading"));
+            // For Source/LivePreview, next cursorInfoChanged restores cursor pos
+        }, Qt::UniqueConnection);
+        // Apply immediately if already in reading mode
+        if (editor->viewMode() == NoteEditorWidget::ViewMode::Reading)
+            m_cursorPosLabel->setText(i18n("Reading"));
     });
 
     // Create search index
@@ -1019,15 +1047,6 @@ void MainWindow::showSearchPanel()
     }
 }
 
-void MainWindow::toggleEditorMode()
-{
-    m_editorManager->toggleEditorMode();
-    // Update status bar
-    if (m_editorManager->isPreviewMode()) {
-        m_cursorPosLabel->setText(i18n("Reading"));
-    }
-}
-
 void MainWindow::insertTemplate()
 {
     if (!m_templateService) return;
@@ -1092,7 +1111,9 @@ void MainWindow::updateVaultActions()
     setEnabled(QStringLiteral("quick_switcher"), open);
     setEnabled(QStringLiteral("search_vault"), open);
     setEnabled(QStringLiteral("graph_view"), open);
-    setEnabled(QStringLiteral("editor_toggle_mode"), open);
+    setEnabled(QStringLiteral("view_source_mode"), open);
+    setEnabled(QStringLiteral("view_live_preview_mode"), open);
+    setEnabled(QStringLiteral("view_reading_mode"), open);
     setEnabled(QStringLiteral("tab_close"), open);
     setEnabled(QStringLiteral("tab_next"), open);
     setEnabled(QStringLiteral("tab_prev"), open);

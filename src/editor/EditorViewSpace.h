@@ -5,15 +5,14 @@
 #include <QTabBar>
 #include <QStackedWidget>
 #include <QHash>
-#include <QSet>
+#include "NoteEditorWidget.h"
 #include "corbomite/models/TabModel.h"
 
 namespace Corbomite {
 
 class MarkdownRenderEngine;
+
 class NoteDocument;
-class NoteEditorWidget;
-class NotePreviewWidget;
 class GraphViewTab;
 class CanvasViewTab;
 class SQLiteIndex;
@@ -25,14 +24,15 @@ class EditorViewSpace : public QWidget {
 public:
     explicit EditorViewSpace(QWidget *parent = nullptr);
 
-    void setRenderEngine(MarkdownRenderEngine *engine);
     void setCanvasEngine(MarkdownRenderEngine *engine);
     void openNote(NoteDocument *doc);
     void closeTab(int index);
     NoteEditorWidget *activeEditor() const;
     TabModel *tabModel();
-    void toggleEditorMode();
-    bool isPreviewMode() const;
+
+    void setViewMode(NoteEditorWidget::ViewMode mode);
+    NoteEditorWidget::ViewMode viewMode() const;
+
     void openCanvas(const QString &filePath);
     void openGraphView(SQLiteIndex *index, VaultModel *vault);
     bool hasGraphView() const;
@@ -62,9 +62,6 @@ private:
     QStackedWidget *m_stack;
     TabModel m_tabModel;
     QHash<QString, NoteEditorWidget *> m_editors; // relativePath -> editor
-    QHash<QString, NotePreviewWidget *> m_previews;
-    QSet<QString> m_previewModePaths; // paths currently in preview mode
-    MarkdownRenderEngine *m_engine = nullptr;
     MarkdownRenderEngine *m_canvasEngine = nullptr;
 };
 
