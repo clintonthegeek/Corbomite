@@ -2,6 +2,7 @@
 #include "EditorViewManager.h"
 #include "EditorViewSpace.h"
 #include "NoteEditorWidget.h"
+#include <markoff/Editor.h>
 #include "SessionManager.h"
 #include "corbomite/core/RegexRenderEngine.h"
 #include "corbomite/core/RenderProfile.h"
@@ -354,8 +355,8 @@ QJsonObject EditorViewManager::buildSessionState() const
                         && editor->noteDocument()->relativePath() == path) {
                         tabObj[QStringLiteral("cursorLine")] = editor->currentLine();
                         tabObj[QStringLiteral("cursorColumn")] = editor->currentColumn();
-                        tabObj[QStringLiteral("scrollPosition")] = editor->verticalScrollBar()
-                            ? editor->verticalScrollBar()->value() : 0;
+                        tabObj[QStringLiteral("scrollPosition")] = editor->editor()->verticalScrollBar()
+                            ? editor->editor()->verticalScrollBar()->value() : 0;
                     }
 
                     // Save reading mode state
@@ -520,13 +521,10 @@ void EditorViewManager::restoreTabState(const QJsonObject &paneJson, EditorViewS
         int column = tabObj[QStringLiteral("cursorColumn")].toInt(1);
         int scroll = tabObj[QStringLiteral("scrollPosition")].toInt(0);
 
-        QTextCursor cursor(editor->document()->findBlockByLineNumber(line - 1));
-        int pos = cursor.position() + qMin(column - 1, cursor.block().length() - 1);
-        cursor.setPosition(qMax(pos, cursor.position()));
-        editor->setTextCursor(cursor);
+        editor->editor()->goToLine(line);
 
-        if (editor->verticalScrollBar() && scroll > 0) {
-            editor->verticalScrollBar()->setValue(scroll);
+        if (editor->editor()->verticalScrollBar() && scroll > 0) {
+            editor->editor()->verticalScrollBar()->setValue(scroll);
         }
     }
 }

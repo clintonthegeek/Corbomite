@@ -5,6 +5,7 @@
 #include "editor/EditorViewManager.h"
 #include "editor/EditorViewSpace.h"
 #include "editor/NoteEditorWidget.h"
+#include <markoff/Editor.h>
 #include "editor/NotePreviewWidget.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
@@ -196,20 +197,17 @@ void MainWindow::setupActions()
     // Edit menu — standard actions (editor handles them, but they need menu visibility)
     KStandardAction::undo(this, [this]() {
         auto *editor = m_editorManager->activeEditor();
-        if (editor) editor->undo();
+        if (editor) editor->editor()->undo();
     }, ac);
 
     KStandardAction::redo(this, [this]() {
         auto *editor = m_editorManager->activeEditor();
-        if (editor) editor->redo();
+        if (editor) editor->editor()->redo();
     }, ac);
 
     KStandardAction::find(this, [this]() {
-        auto *editor = m_editorManager->activeEditor();
-        if (editor) {
-            QString empty;
-            editor->doSearch(empty);
-        }
+        // TODO: wire up find bar when implemented
+        Q_UNUSED(this)
     }, ac);
 
     // Help menu
@@ -514,9 +512,7 @@ void MainWindow::setupSidebars()
             this, [this](int lineNumber) {
         auto *editor = m_editorManager->activeEditor();
         if (!editor) return;
-        QTextCursor cursor(editor->document()->findBlockByLineNumber(lineNumber - 1));
-        editor->setTextCursor(cursor);
-        editor->centerCursor();
+        editor->editor()->goToLine(lineNumber);
     });
 
     // Right sidebar: Local Graph
@@ -1055,11 +1051,12 @@ void MainWindow::insertTemplate()
     QString expanded = m_templateService->loadAndExpand(name, editor->noteDocument()->name());
     if (expanded.isEmpty()) return;
 
-    // If note is empty, replace content; otherwise insert at cursor
+    // If note is empty, replace content; otherwise append at end
     if (editor->noteDocument()->markdown().trimmed().isEmpty()) {
         editor->noteDocument()->setMarkdown(expanded);
     } else {
-        editor->textCursor().insertText(expanded);
+        QString combined = editor->noteDocument()->markdown() + expanded;
+        editor->noteDocument()->setMarkdown(combined);
     }
 }
 
