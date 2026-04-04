@@ -19,6 +19,7 @@ add_library(CorbomiteApp STATIC
     editor/EditorViewManager.cpp
     editor/CompletionPopup.cpp
     editor/CompletionDelegate.cpp
+    editor/VaultResourceProvider.cpp
     editor/NotePreviewWidget.cpp
     reactors/AutosaveReactor.cpp
     reactors/FileWatchReactor.cpp
