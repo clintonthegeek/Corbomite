@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include <qmarkdowntextedit.h>
+#include <QWidget>
+
+namespace Markoff { class Editor; }
 
 namespace Corbomite {
 
 class NoteDocument;
 class VaultModel;
+class VaultResourceProvider;
 class CompletionPopup;
 
-class NoteEditorWidget : public QMarkdownTextEdit {
+class NoteEditorWidget : public QWidget {
     Q_OBJECT
 
 public:
@@ -19,6 +22,8 @@ public:
     NoteDocument *noteDocument() const;
     void setVaultModel(VaultModel *vault);
 
+    Markoff::Editor *editor() const;
+
     int currentLine() const;
     int currentColumn() const;
 
@@ -26,14 +31,11 @@ Q_SIGNALS:
     void cursorInfoChanged(int line, int column, int wordCount);
     void linkActivated(const QString &targetPath);
 
-protected:
-    void keyPressEvent(QKeyEvent *event) override;
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-
 private:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
     void onTextChanged();
-    void onCursorPositionChanged();
+    void onCursorPositionChanged(int line, int column);
     void syncFromDocument();
 
     // Completion
@@ -41,25 +43,22 @@ private:
     void triggerTagCompletion();
     void dismissCompletion();
     void onCompletionAccepted(const QString &text, const QString &data);
-    void updateCompletionFilter();
-    int completionTriggerPos() const;
-    QString textFromTrigger() const;
 
-    // Link navigation
-    QString wikiLinkTargetAtCursor(const QPoint &pos) const;
-    QString resolveWikiLinkTarget(const QString &rawTarget) const;
+    // Link resolution
+    QString resolveTarget(const QString &target) const;
 
+    Markoff::Editor *m_editor = nullptr;
     NoteDocument *m_doc = nullptr;
     VaultModel *m_vault = nullptr;
+    VaultResourceProvider *m_resourceProvider = nullptr;
     bool m_updatingFromDoc = false;
+    int m_cachedWordCount = 0;
 
     // Completion state
     CompletionPopup *m_completionPopup = nullptr;
     int m_completionTriggerPos = -1;
     enum class CompletionMode { None, WikiLink, Tag };
     CompletionMode m_completionMode = CompletionMode::None;
-    // Future: support [[Note|Display]] alias insertion mode
-    // Future: respect "use markdown links" setting
 };
 
 } // namespace Corbomite
