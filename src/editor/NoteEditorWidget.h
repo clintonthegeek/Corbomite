@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QStackedWidget>
 #include <QWidget>
 
-namespace Markoff { class Editor; }
+namespace Markoff {
+class Editor;
+class ReadingView;
+}
 
 namespace Corbomite {
 
@@ -16,11 +20,17 @@ class NoteEditorWidget : public QWidget {
     Q_OBJECT
 
 public:
+    enum class ViewMode { Source, LivePreview, Reading };
+    Q_ENUM(ViewMode)
+
     explicit NoteEditorWidget(QWidget *parent = nullptr);
 
     void setNoteDocument(NoteDocument *doc);
     NoteDocument *noteDocument() const;
     void setVaultModel(VaultModel *vault);
+
+    void setViewMode(ViewMode mode);
+    ViewMode viewMode() const;
 
     Markoff::Editor *editor() const;
 
@@ -30,6 +40,7 @@ public:
 Q_SIGNALS:
     void cursorInfoChanged(int line, int column, int wordCount);
     void linkActivated(const QString &targetPath);
+    void viewModeChanged(ViewMode mode);
 
 private:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -47,7 +58,11 @@ private:
     // Link resolution
     QString resolveTarget(const QString &target) const;
 
+    QStackedWidget *m_modeStack = nullptr;
     Markoff::Editor *m_editor = nullptr;
+    Markoff::ReadingView *m_readingView = nullptr;
+    ViewMode m_viewMode = ViewMode::Source;
+
     NoteDocument *m_doc = nullptr;
     VaultModel *m_vault = nullptr;
     VaultResourceProvider *m_resourceProvider = nullptr;
