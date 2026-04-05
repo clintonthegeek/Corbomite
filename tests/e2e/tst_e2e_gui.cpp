@@ -27,7 +27,6 @@
 #include "editor/EditorViewManager.h"
 #include "editor/EditorViewSpace.h"
 #include "editor/NoteEditorWidget.h"
-#include "editor/NotePreviewWidget.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
 #include "corbomite/models/VaultModel.h"
@@ -346,24 +345,25 @@ private Q_SLOTS:
     // ---------------------------------------------------------------
     void testReadingMode()
     {
-        // Toggle reading mode via action and verify it doesn't crash.
-        // Full widget detection is unreliable in QTest (NotePreviewWidget
-        // created deep in EditorViewSpace stacked widget may not be found
-        // by findChild after session state changes from earlier tests).
+        // Switch reading mode via action and verify it doesn't crash.
         m_mainWindow->onNoteActivated(QStringLiteral("Start Here.md"));
         settle(200);
 
-        auto *toggleAction = m_mainWindow->actionCollection()->action(
-            QStringLiteral("editor_toggle_mode"));
-        QVERIFY(toggleAction);
-        QVERIFY(toggleAction->isEnabled());
+        auto *readingAction = m_mainWindow->actionCollection()->action(
+            QStringLiteral("view_reading_mode"));
+        QVERIFY(readingAction);
+        QVERIFY(readingAction->isEnabled());
 
-        // Toggle to reading mode
-        toggleAction->trigger();
+        auto *sourceAction = m_mainWindow->actionCollection()->action(
+            QStringLiteral("view_source_mode"));
+        QVERIFY(sourceAction);
+
+        // Switch to reading mode
+        readingAction->trigger();
         settle(500);
 
-        // Toggle back to source mode
-        toggleAction->trigger();
+        // Switch back to source mode
+        sourceAction->trigger();
         settle(300);
 
         // Verify editor is back and accessible
