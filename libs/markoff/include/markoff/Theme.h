@@ -20,9 +20,13 @@ enum class Element {
 
     // Inline formatting
     Bold, Italic, Strikethrough, InlineCode,
+    Math,               // $...$ or $$...$$
     Highlight,          // ==text==
     Comment,            // %%text%%
     Tag,                // #tag
+
+    // Footnotes
+    FootnoteRef,        // ^[1] superscript ref
 
     // Links
     Link,               // [text](url)

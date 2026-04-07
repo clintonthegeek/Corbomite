@@ -10,7 +10,6 @@
 #include <QScrollBar>
 #include <QUrl>
 #include <QTextCursor>
-#include <cmath>
 
 namespace Markoff {
 
@@ -72,6 +71,7 @@ void ReadingView::setTheme(const Theme &theme)
     d->theme = theme;
     if (theme.textFont != QFont())
         d->browser->setFont(theme.textFont);
+    d->renderer.setTheme(theme);
 }
 
 Theme ReadingView::theme() const { return d->theme; }
@@ -87,6 +87,7 @@ RenderSettings ReadingView::renderSettings() const { return d->renderSettings; }
 void ReadingView::setResourceProvider(ResourceProvider *provider)
 {
     d->resourceProvider = provider;
+    d->renderer.setResourceProvider(provider);
 }
 
 qreal ReadingView::scrollFraction() const
@@ -106,12 +107,19 @@ void ReadingView::setScrollFraction(qreal fraction)
 
 void ReadingView::scrollToHeading(const HeadingInfo &heading)
 {
+    // Reading view renders the source markdown into HTML, so source-offset
+    // positions don't survive the transformation directly. We do a text
+    // search for the heading text — robust enough since headings live on
+    // their own block. Falls back to no-op on mismatch.
     QTextDocument *doc = d->browser->document();
+    if (!doc) return;
     QTextCursor cursor = doc->find(heading.text);
-    if (!cursor.isNull()) {
-        d->browser->setTextCursor(cursor);
-        d->browser->ensureCursorVisible();
-    }
+    if (cursor.isNull()) return;
+    // Move to start-of-block so the heading paints at the top of the
+    // viewport rather than mid-line.
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    d->browser->setTextCursor(cursor);
+    d->browser->ensureCursorVisible();
 }
 
 int ReadingView::naturalHeight(int width) const

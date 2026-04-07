@@ -47,6 +47,10 @@ add_library(markoff STATIC
     src/TableBlockItem.cpp
     src/MarkdownTextItem.h
     src/MarkdownTextItem.cpp
+    src/MathRenderer.h
+    src/MathRenderer.cpp
+    src/MathTextObject.h
+    src/MathTextObject.cpp
     src/SelectionManager.h
     src/SelectionManager.cpp
     src/SelectionScene.h

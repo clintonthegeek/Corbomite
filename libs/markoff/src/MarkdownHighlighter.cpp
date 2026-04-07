@@ -133,7 +133,7 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             } else if (span.strikethrough) {
                 setFormat(localStart, localLen, m_theme.formats.value(Element::Strikethrough));
             } else if (span.math || span.mathDisplay) {
-                setFormat(localStart, localLen, m_theme.formats.value(Element::InlineCode));
+                setFormat(localStart, localLen, m_theme.formats.value(Element::Math));
             } else if (span.highlight) {
                 setFormat(localStart, localLen, m_theme.formats.value(Element::Highlight));
             } else if (span.comment) {
@@ -181,7 +181,7 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         if (span.code)
             fmt.merge(m_theme.formats.value(Element::InlineCode));
         if (span.math || span.mathDisplay)
-            fmt.setForeground(m_theme.formats.value(Element::InlineCode).foreground());
+            fmt.setForeground(m_theme.formats.value(Element::Math).foreground());
         if (span.highlight)
             fmt.setBackground(m_theme.formats.value(Element::Highlight).background());
         if (span.comment) {
@@ -201,10 +201,12 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         if (span.isFootnoteRef) {
             // Hide the ^ character (first char) and superscript the number
             hideRange(localStart, 1); // hide ^
+            const QTextCharFormat refFmt = m_theme.formats.value(Element::FootnoteRef);
+            const QColor refColor = refFmt.foreground().color();
             for (int j = localStart + 1; j < localEnd; ++j) {
                 QTextCharFormat sfmt = format(j);
                 sfmt.setVerticalAlignment(QTextCharFormat::AlignSuperScript);
-                sfmt.setForeground(QColor(QStringLiteral("#1565C0")));
+                sfmt.setForeground(refColor);
                 setFormat(j, 1, sfmt);
             }
             return;
@@ -212,9 +214,7 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
         if (span.isListMarker)
             fmt.setForeground(m_theme.formats.value(Element::ListMarker).foreground());
         if (span.isCodeBlockContent)
-            fmt.setFontFamilies({QStringLiteral("JetBrains Mono"),
-                                 QStringLiteral("Fira Code"),
-                                 QStringLiteral("monospace")});
+            fmt.setFontFamilies(m_theme.codeFont.families());
         if (span.isBlockquote && !span.isHeading && !span.bold && !span.italic)
             fmt.setForeground(m_theme.formats.value(Element::BlockQuote).foreground());
 

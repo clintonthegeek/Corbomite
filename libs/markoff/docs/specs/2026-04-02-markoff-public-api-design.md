@@ -302,6 +302,7 @@ void setResourceProvider(ResourceProvider *provider);   // Non-owning
 
 ```cpp
 void setPlainText(const QString &text);
+void clear();                       // Equivalent to setPlainText({})
 QString toPlainText() const;
 
 const Document *document() const;   // Live parsed document, updated on text change
@@ -343,6 +344,7 @@ void insertCallout(const QString &type);
 ```cpp
 int cursorLine() const;         // 1-based
 int cursorColumn() const;       // 1-based
+QRect cursorScreenRect() const; // Screen-space rect for popup positioning
 void goToLine(int line);
 void scrollToHeading(const HeadingInfo &heading);
 ```

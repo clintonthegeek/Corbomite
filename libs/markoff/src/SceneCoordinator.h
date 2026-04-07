@@ -17,6 +17,7 @@ class SelectableItem;
 class MarkdownTextItem;
 class MarkdownHighlighter;
 class TreeSitterParser;
+class ResourceProvider;
 
 /// Manages the ordered list of scene items, their vertical positioning,
 /// splitting/merging on reparse, and serialization back to markdown.
@@ -44,6 +45,12 @@ public:
     /// Set theme for all text item highlighters.
     void setTheme(const Theme &theme);
 
+    /// Set a non-owning resource provider used to resolve relative
+    /// resource paths (images, embeds, links) in the editor pipeline.
+    /// Currently stored for future consumers; no item type reads it yet.
+    void setResourceProvider(ResourceProvider *provider);
+    ResourceProvider *resourceProvider() const { return m_resourceProvider; }
+
     /// Get ordered items (for external use).
     const QList<SelectableItem *> &items() const { return m_items; }
 
@@ -67,6 +74,7 @@ private:
     QList<SelectableItem *> m_items;
     TreeSitterParser *m_parser = nullptr;
     QTimer *m_reparseTimer = nullptr;
+    ResourceProvider *m_resourceProvider = nullptr;
     qreal m_itemWidth = 600.0;
     qreal m_spacing = 8.0;
     qreal m_leftMargin = 16.0;

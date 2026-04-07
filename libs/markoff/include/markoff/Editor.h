@@ -31,6 +31,7 @@ public:
 
     // --- Content ---
     void setPlainText(const QString &text);
+    void clear();
     QString toPlainText() const;
     const Document *document() const;
 
@@ -78,6 +79,7 @@ public:
     // --- Cursor & navigation ---
     int cursorLine() const;
     int cursorColumn() const;
+    QRect cursorScreenRect() const;
     void goToLine(int line);
     void scrollToHeading(const HeadingInfo &heading);
 

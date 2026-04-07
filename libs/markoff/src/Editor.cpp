@@ -64,6 +64,11 @@ void Editor::setPlainText(const QString &text)
     rebuildScene();
 }
 
+void Editor::clear()
+{
+    setPlainText({});
+}
+
 QString Editor::toPlainText() const
 {
     if (m_mode == Mode::Source) {
@@ -86,10 +91,15 @@ void Editor::setMode(Mode mode)
 
 void Editor::setFontSize(int pointSize)
 {
+    // Keep the editor's font-size knob in sync with its theme: bumping
+    // the size mutates the theme's textFont and re-applies. This way
+    // setTheme()/setFontSize() never disagree about which font is in use.
     m_fontSize = pointSize;
-    QFont font = this->font();
-    font.setPointSize(pointSize);
-    m_coordinator->setFont(font);
+    m_theme.textFont.setPointSize(pointSize);
+    if (m_coordinator) {
+        m_coordinator->setFont(m_theme.textFont);
+        m_coordinator->setTheme(m_theme);
+    }
 }
 
 void Editor::resizeEvent(QResizeEvent *e)
@@ -488,8 +498,14 @@ void Editor::setTheme(const Theme &theme)
 {
     m_theme = theme;
     m_fontSize = theme.textFont.pointSize() > 0 ? theme.textFont.pointSize() : 14;
-    if (m_coordinator)
+    if (m_coordinator) {
+        // Apply both the per-element char formats AND the document default
+        // font, otherwise body text would render at the old font size while
+        // the highlighter colors come from the new theme.
+        if (theme.textFont != QFont())
+            m_coordinator->setFont(theme.textFont);
         m_coordinator->setTheme(theme);
+    }
 }
 
 Theme Editor::theme() const { return m_theme; }
@@ -511,6 +527,8 @@ RenderSettings Editor::renderSettings() const { return m_renderSettings; }
 void Editor::setResourceProvider(ResourceProvider *provider)
 {
     m_resourceProvider = provider;
+    if (m_coordinator)
+        m_coordinator->setResourceProvider(provider);
 }
 
 // =========================================================================
@@ -559,15 +577,58 @@ void Editor::wrapSelection(const QString &before, const QString &after)
     if (!ti) return;
     auto *tc = ti->textControl();
     QTextCursor cursor = tc->textCursor();
+
     if (cursor.hasSelection()) {
         QString selected = cursor.selectedText();
+
+        // Toggle: if the selection is already wrapped in the same delimiters,
+        // strip them. e.g. **foo** + toggleBold → foo
+        if (selected.size() >= before.size() + after.size()
+            && selected.startsWith(before)
+            && selected.endsWith(after)) {
+            const QString inner = selected.mid(before.size(),
+                                                selected.size() - before.size() - after.size());
+            cursor.insertText(inner);
+            // Reselect the now-unwrapped inner text so the user can keep
+            // operating on it.
+            const int newEnd = cursor.position();
+            cursor.setPosition(newEnd - inner.size());
+            cursor.setPosition(newEnd, QTextCursor::KeepAnchor);
+            tc->setTextCursor(cursor);
+            return;
+        }
+
+        // Toggle: if the chars OUTSIDE the selection (just before / just
+        // after) are the delimiters, strip those instead. Lets the user
+        // double-click "foo" inside `**foo**` and toggle off without
+        // having to reselect the asterisks.
+        const int selStart = cursor.selectionStart();
+        const int selEnd = cursor.selectionEnd();
+        QTextDocument *doc = tc->document();
+        const QString docText = doc->toPlainText();
+        if (selStart >= before.size() && selEnd + after.size() <= docText.size()
+            && docText.mid(selStart - before.size(), before.size()) == before
+            && docText.mid(selEnd, after.size()) == after) {
+            QTextCursor outer(doc);
+            outer.setPosition(selStart - before.size());
+            outer.setPosition(selEnd + after.size(), QTextCursor::KeepAnchor);
+            outer.insertText(selected);
+            const int newEnd = outer.position();
+            outer.setPosition(newEnd - selected.size());
+            outer.setPosition(newEnd, QTextCursor::KeepAnchor);
+            tc->setTextCursor(outer);
+            return;
+        }
+
         cursor.insertText(before + selected + after);
-    } else {
-        int pos = cursor.position();
-        cursor.insertText(before + after);
-        cursor.setPosition(pos + before.length());
-        tc->setTextCursor(cursor);
+        return;
     }
+
+    // No selection: insert the empty pair and place the cursor between.
+    int pos = cursor.position();
+    cursor.insertText(before + after);
+    cursor.setPosition(pos + before.length());
+    tc->setTextCursor(cursor);
 }
 
 void Editor::insertAtCursor(const QString &text)
@@ -677,6 +738,17 @@ int Editor::cursorColumn() const
     return ti->textControl()->textCursor().columnNumber() + 1;
 }
 
+QRect Editor::cursorScreenRect() const
+{
+    auto *ti = focusedTextItem();
+    if (!ti) return {};
+    QRectF itemRect = ti->textControl()->cursorRect();
+    QRectF sceneRect = ti->mapToScene(itemRect).boundingRect();
+    QPoint viewTL = mapFromScene(sceneRect.topLeft());
+    QPoint viewBR = mapFromScene(sceneRect.bottomRight());
+    return QRect(mapToGlobal(viewTL), mapToGlobal(viewBR));
+}
+
 void Editor::goToLine(int line)
 {
     if (!m_coordinator) return;
@@ -693,7 +765,19 @@ void Editor::goToLine(int line)
 
 void Editor::scrollToHeading(const HeadingInfo &heading)
 {
-    goToLine(heading.sourceOffset + 1);
+    // HeadingInfo::sourceOffset is a UTF-8 byte offset into the document's
+    // serialized source. Convert it to a 1-based line number by counting
+    // newlines up to that offset, then defer to goToLine().
+    const QByteArray utf8 = toPlainText().toUtf8();
+    if (heading.sourceOffset < 0 || heading.sourceOffset >= utf8.size()) {
+        goToLine(1);
+        return;
+    }
+    int line = 1;
+    for (int i = 0; i < heading.sourceOffset; ++i) {
+        if (utf8[i] == '\n') ++line;
+    }
+    goToLine(line);
 }
 
 // =========================================================================
@@ -724,41 +808,121 @@ void Editor::detectCompletionTriggers(const QString &insertedText)
 // Search
 // =========================================================================
 
+// Walk every MarkdownTextItem in the scene in order, starting from the
+// focused item (if any), so find/replace can cross item boundaries.
+// Wraps around once.
+static QList<MarkdownTextItem *> textItemsInSearchOrder(SceneCoordinator *coord,
+                                                         MarkdownTextItem *startAfter,
+                                                         bool backward)
+{
+    QList<MarkdownTextItem *> result;
+    if (!coord) return result;
+    QList<MarkdownTextItem *> all;
+    for (auto *item : coord->items()) {
+        if (item->isTextItem())
+            all.append(static_cast<MarkdownTextItem *>(item));
+    }
+    if (all.isEmpty()) return result;
+
+    int startIdx = 0;
+    if (startAfter) {
+        for (int i = 0; i < all.size(); ++i) {
+            if (all[i] == startAfter) { startIdx = i; break; }
+        }
+    }
+    if (backward) {
+        for (int i = startIdx; i >= 0; --i) result.append(all[i]);
+        for (int i = all.size() - 1; i > startIdx; --i) result.append(all[i]);
+    } else {
+        for (int i = startIdx; i < all.size(); ++i) result.append(all[i]);
+        for (int i = 0; i < startIdx; ++i) result.append(all[i]);
+    }
+    return result;
+}
+
 bool Editor::findText(const QString &text, QTextDocument::FindFlags flags)
 {
-    auto *ti = focusedTextItem();
-    if (!ti) return false;
-    auto *doc = ti->document();
-    QTextCursor cursor = doc->find(text, ti->textControl()->textCursor(), flags);
-    if (cursor.isNull()) return false;
-    ti->textControl()->setTextCursor(cursor);
-    return true;
+    if (text.isEmpty()) return false;
+    const bool backward = flags & QTextDocument::FindBackward;
+
+    auto *focused = focusedTextItem();
+    auto items = textItemsInSearchOrder(m_coordinator, focused, backward);
+    if (items.isEmpty()) return false;
+
+    // Helper: search a single document, picking the right starting cursor.
+    auto searchOne = [&](MarkdownTextItem *ti, bool fromCursor) -> QTextCursor {
+        auto *doc = ti->document();
+        QTextCursor start;
+        if (fromCursor) {
+            start = ti->textControl()->textCursor();
+        } else {
+            start = QTextCursor(doc);
+            if (backward)
+                start.movePosition(QTextCursor::End);
+        }
+        return doc->find(text, start, flags);
+    };
+
+    // First pass: search the focused item from the current cursor (so
+    // repeated finds advance), then any other items from their edges.
+    bool isFirst = true;
+    for (auto *ti : items) {
+        QTextCursor found = searchOne(ti, isFirst && ti == focused);
+        if (!found.isNull()) {
+            ti->textControl()->setTextCursor(found);
+            ti->setFocus();
+            return true;
+        }
+        isFirst = false;
+    }
+
+    // Second pass: if nothing matched and we started mid-document on the
+    // focused item, wrap within that item by retrying from its edge. This
+    // is what users expect from "find next" — it should wrap around even
+    // for a single-item document.
+    if (focused) {
+        QTextCursor found = searchOne(focused, /*fromCursor=*/false);
+        if (!found.isNull()) {
+            focused->textControl()->setTextCursor(found);
+            focused->setFocus();
+            return true;
+        }
+    }
+    return false;
 }
 
 bool Editor::replaceText(const QString &find, const QString &replace,
                          QTextDocument::FindFlags flags)
 {
     auto *ti = focusedTextItem();
-    if (!ti) return false;
-    auto *doc = ti->document();
-    QTextCursor cursor = doc->find(find, ti->textControl()->textCursor(), flags);
-    if (cursor.isNull()) return false;
-    cursor.insertText(replace);
-    ti->textControl()->setTextCursor(cursor);
-    return true;
+    if (!ti) return findText(find, flags);
+    QTextCursor cursor = ti->textControl()->textCursor();
+    // Replace the current selection only if it actually matches `find`.
+    const bool caseSensitive = flags & QTextDocument::FindCaseSensitively;
+    if (cursor.hasSelection()
+        && cursor.selectedText().compare(find,
+                                          caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive) == 0) {
+        cursor.insertText(replace);
+        ti->textControl()->setTextCursor(cursor);
+    }
+    // Then advance to the next match (cross-item, wrapping).
+    return findText(find, flags);
 }
 
 int Editor::replaceAll(const QString &find, const QString &replace,
                        QTextDocument::FindFlags flags)
 {
-    auto *ti = focusedTextItem();
-    if (!ti) return 0;
-    auto *doc = ti->document();
+    if (find.isEmpty() || !m_coordinator) return 0;
     int count = 0;
-    QTextCursor cursor(doc);
-    while (!(cursor = doc->find(find, cursor, flags)).isNull()) {
-        cursor.insertText(replace);
-        ++count;
+    for (auto *item : m_coordinator->items()) {
+        if (!item->isTextItem()) continue;
+        auto *ti = static_cast<MarkdownTextItem *>(item);
+        auto *doc = ti->document();
+        QTextCursor cursor(doc);
+        while (!(cursor = doc->find(find, cursor, flags)).isNull()) {
+            cursor.insertText(replace);
+            ++count;
+        }
     }
     return count;
 }

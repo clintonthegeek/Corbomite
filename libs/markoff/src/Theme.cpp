@@ -84,6 +84,11 @@ Theme Theme::defaultLight()
     inlineCodeFmt.setFont(t.codeFont, QTextCharFormat::FontPropertiesSpecifiedOnly);
     t.formats[Element::InlineCode] = inlineCodeFmt;
 
+    QTextCharFormat mathFmt;
+    mathFmt.setForeground(QColor(46, 125, 50));         // #2E7D32 darker green
+    mathFmt.setFont(t.codeFont, QTextCharFormat::FontPropertiesSpecifiedOnly);
+    t.formats[Element::Math] = mathFmt;
+
     QTextCharFormat highlightFmt;
     highlightFmt.setBackground(QColor(255, 249, 196));   // #fff9c4
     t.formats[Element::Highlight] = highlightFmt;
@@ -93,6 +98,11 @@ Theme Theme::defaultLight()
     t.formats[Element::Comment] = commentFmt;
 
     t.formats[Element::Tag] = fgFormat(QColor(230, 81, 0)); // #E65100
+
+    QTextCharFormat footnoteRefFmt;
+    footnoteRefFmt.setForeground(QColor(21, 101, 192)); // #1565C0 blue
+    footnoteRefFmt.setVerticalAlignment(QTextCharFormat::AlignSuperScript);
+    t.formats[Element::FootnoteRef] = footnoteRefFmt;
 
     // --- Links ---
     QTextCharFormat linkFmt;
@@ -200,6 +210,11 @@ Theme Theme::defaultDark()
     inlineCodeFmt.setFont(t.codeFont, QTextCharFormat::FontPropertiesSpecifiedOnly);
     t.formats[Element::InlineCode] = inlineCodeFmt;
 
+    QTextCharFormat mathFmt;
+    mathFmt.setForeground(QColor(165, 220, 165));
+    mathFmt.setFont(t.codeFont, QTextCharFormat::FontPropertiesSpecifiedOnly);
+    t.formats[Element::Math] = mathFmt;
+
     QTextCharFormat highlightFmt;
     highlightFmt.setBackground(QColor(100, 90, 40));
     highlightFmt.setForeground(QColor(255, 249, 196));
@@ -210,6 +225,11 @@ Theme Theme::defaultDark()
     t.formats[Element::Comment] = commentFmt;
 
     t.formats[Element::Tag] = fgFormat(QColor(255, 152, 0)); // #ff9800
+
+    QTextCharFormat footnoteRefFmt;
+    footnoteRefFmt.setForeground(QColor(100, 181, 246)); // #64B5F6 lighter blue
+    footnoteRefFmt.setVerticalAlignment(QTextCharFormat::AlignSuperScript);
+    t.formats[Element::FootnoteRef] = footnoteRefFmt;
 
     // --- Links ---
     QTextCharFormat linkFmt;
@@ -415,6 +435,18 @@ Theme Theme::fromSchemeFile(const QString &path)
         sFmt.setFontStrikeOut(true);
         sFmt.setForeground(QColor(150, 150, 150));
         t.formats[Element::Strikethrough] = sFmt;
+    }
+    if (!t.formats.contains(Element::Math)) {
+        QTextCharFormat mFmt;
+        mFmt.setForeground(QColor(46, 125, 50));
+        mFmt.setFontFamilies(t.codeFont.families());
+        t.formats[Element::Math] = mFmt;
+    }
+    if (!t.formats.contains(Element::FootnoteRef)) {
+        QTextCharFormat fFmt;
+        fFmt.setForeground(QColor(21, 101, 192));
+        fFmt.setVerticalAlignment(QTextCharFormat::AlignSuperScript);
+        t.formats[Element::FootnoteRef] = fFmt;
     }
 
     return t;

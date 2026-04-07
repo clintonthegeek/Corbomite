@@ -4,7 +4,6 @@
 #include "SelectableItem.h"
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
-#include "StubBlockItem.h"
 #include "TableBlockItem.h"
 #include "MarkdownSplitter.h"
 #include "MarkdownHighlighter.h"
@@ -55,6 +54,11 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
     item->setPlainText(text);
     highlighter->setDecoratedRanges(item->decoratedRanges());
     highlighter->rehighlight();
+
+    // In LivePreview mode, replace inline-math source with rendered glyphs.
+    // The spans are now set, so the substitution can find them.
+    if (hlMode == MarkdownHighlighter::Mode::LivePreview)
+        item->refreshMathSubstitution();
 
     // Connect incremental span offset adjustment. Fires on every
     // document change BEFORE Qt's auto-rehighlight, keeping the
@@ -130,6 +134,11 @@ void SceneCoordinator::setItemWidth(qreal width)
         // StubBlockItems have fixed width — they'll be replaced by real items later
     }
     repositionItems();
+}
+
+void SceneCoordinator::setResourceProvider(ResourceProvider *provider)
+{
+    m_resourceProvider = provider;
 }
 
 void SceneCoordinator::setTheme(const Theme &theme)
@@ -378,15 +387,26 @@ void SceneCoordinator::reparse()
         // Don't call rehighlight() — the adjustSpanOffsets connection keeps
         // spans approximately correct, and setSpanMap + targeted block
         // rehighlight on the next cursor-driven repaint is sufficient.
+        //
+        // Math substitution: each text item may currently contain U+FFFC
+        // glyphs in place of $...$ regions. We strip them before applying
+        // the new span map (so document offsets line up with span offsets),
+        // then re-substitute afterwards.
         for (int i = 0; i < m_items.size(); ++i) {
             if (m_items[i]->isTextItem()) {
                 auto *textItem = static_cast<MarkdownTextItem *>(m_items[i]);
-                if (m_parser->parse(textItem->allMarkdown())) {
+                // allMarkdown() gives the canonical source via logical walk.
+                const QString src = textItem->allMarkdown();
+                // Now strip the document so its char offsets match `src`.
+                textItem->stripMathSubstitution();
+                if (m_parser->parse(src)) {
                     auto *highlighter = qobject_cast<MarkdownHighlighter *>(
                         textItem->document()->findChild<QSyntaxHighlighter *>());
                     if (highlighter)
                         highlighter->setSpanMap(m_parser->buildSpanMap());
                 }
+                // Re-apply substitution against the freshly-set spans.
+                textItem->refreshMathSubstitution();
             }
         }
         repositionItems();

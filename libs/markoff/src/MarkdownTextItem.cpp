@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
+#include "MathTextObject.h"
 
 #include <QPainter>
+#include <QTextBlock>
+#include <QTextCharFormat>
 #include <QTextDocument>
 #include <QTextCursor>
 #include <QAbstractTextDocumentLayout>
@@ -22,10 +25,16 @@ MarkdownTextItem::MarkdownTextItem(QGraphicsItem *parent)
     : QGraphicsObject(parent)
     , m_document(new QTextDocument(this))
     , m_control(new TextControl(this))
+    , m_mathObject(new MathTextObject(this))
 {
     m_control->setDocument(m_document);
     m_control->setTextInteractionFlags(Qt::TextEditorInteraction);
     m_document->setDocumentMargin(8);
+
+    // Register the inline-math text object with this document's layout so
+    // QChar::ObjectReplacementCharacter chars carrying MathTextObject::TypeId
+    // get rendered as math glyphs.
+    m_document->documentLayout()->registerHandler(MathTextObject::TypeId, m_mathObject);
 
     setFlag(ItemIsFocusable);
     setFlag(ItemAcceptsInputMethod);
@@ -107,12 +116,196 @@ QString MarkdownTextItem::selectedMarkdown() const
 
 QString MarkdownTextItem::allMarkdown() const
 {
-    return m_document->toPlainText();
+    // Walk the document, replacing each U+FFFC math object with the
+    // delimited source stored in its format. This produces canonical
+    // markdown — what the parser/serializer should see.
+    QString out;
+    out.reserve(m_document->characterCount());
+    for (QTextBlock block = m_document->begin(); block.isValid(); block = block.next()) {
+        const QString blockText = block.text();
+        if (!blockText.contains(QChar::ObjectReplacementCharacter)) {
+            out += blockText;
+        } else {
+            for (auto it = block.begin(); !it.atEnd(); ++it) {
+                const QTextFragment frag = it.fragment();
+                if (!frag.isValid()) continue;
+                const QTextCharFormat fmt = frag.charFormat();
+                const QString text = frag.text();
+                if (fmt.objectType() == MathTextObject::TypeId
+                    && text.size() == 1
+                    && text.at(0) == QChar::ObjectReplacementCharacter) {
+                    out += fmt.property(MathTextObject::RawProperty).toString();
+                } else {
+                    // Some characters in the fragment may still be U+FFFC if
+                    // (e.g.) the user pasted one. Strip them defensively.
+                    for (QChar c : text) {
+                        if (c != QChar::ObjectReplacementCharacter)
+                            out += c;
+                    }
+                }
+            }
+        }
+        if (block.next().isValid())
+            out += QLatin1Char('\n');
+    }
+    return out;
 }
 
 QString MarkdownTextItem::toMarkdown() const
 {
     return allMarkdown();
+}
+
+int MarkdownTextItem::stripMathSubstitution()
+{
+    if (m_inMathSubstitution) return 0;
+
+    // Find every U+FFFC with our object type, replace with the stored raw
+    // delimited source. We mutate from the END to keep earlier offsets stable.
+    struct Hit { int pos; QString raw; };
+    QList<Hit> hits;
+    for (QTextBlock block = m_document->begin(); block.isValid(); block = block.next()) {
+        for (auto it = block.begin(); !it.atEnd(); ++it) {
+            const QTextFragment frag = it.fragment();
+            if (!frag.isValid()) continue;
+            const QTextCharFormat fmt = frag.charFormat();
+            if (fmt.objectType() != MathTextObject::TypeId) continue;
+            const QString text = frag.text();
+            for (int i = 0; i < text.size(); ++i) {
+                if (text.at(i) != QChar::ObjectReplacementCharacter) continue;
+                hits.append({frag.position() + i,
+                             fmt.property(MathTextObject::RawProperty).toString()});
+            }
+        }
+    }
+    if (hits.isEmpty()) return 0;
+
+    m_inMathSubstitution = true;
+    int delta = 0;
+    QTextCursor cursor(m_document);
+    cursor.beginEditBlock();
+    for (int i = hits.size() - 1; i >= 0; --i) {
+        const Hit &h = hits[i];
+        cursor.setPosition(h.pos);
+        cursor.setPosition(h.pos + 1, QTextCursor::KeepAnchor);
+        // Use a default format so the replaced source text doesn't carry the
+        // math object metadata; the highlighter will paint it normally.
+        cursor.removeSelectedText();
+        cursor.insertText(h.raw);
+        delta += h.raw.size() - 1;
+    }
+    cursor.endEditBlock();
+    m_inMathSubstitution = false;
+    return delta;
+}
+
+void MarkdownTextItem::applyMathSubstitution()
+{
+    if (m_inMathSubstitution) return;
+
+    auto *hl = qobject_cast<MarkdownHighlighter *>(
+        m_document->findChild<QSyntaxHighlighter *>());
+    if (!hl) return;
+
+    // The tree-sitter parser emits math regions as a sequence of single-char
+    // spans (delimiter + content + delimiter), each with `math == true`. We
+    // walk those spans, group them into contiguous runs, and look up each
+    // run's $...$ or $$...$$ form directly in the document text. The
+    // `mathDisplay` flag from spans is unreliable in this grammar
+    // (tree-sitter-markdown labels both inline and block math as
+    // "latex_block"), so the source text is the source of truth for
+    // display vs inline.
+    QList<SourceSpan> mathSpans;
+    for (const SourceSpan &s : hl->spans()) {
+        if (s.math || s.mathDisplay)
+            mathSpans.append(s);
+    }
+    if (mathSpans.isEmpty()) return;
+
+    std::sort(mathSpans.begin(), mathSpans.end(),
+              [](const SourceSpan &a, const SourceSpan &b) {
+                  return a.charOffset < b.charOffset;
+              });
+
+    // Group abutting math spans into runs.
+    struct Run { int start; int end; };  // [start, end)
+    QList<Run> runs;
+    for (const SourceSpan &s : mathSpans) {
+        if (s.charLength <= 0) continue;
+        const int rStart = s.charOffset;
+        const int rEnd   = s.charOffset + s.charLength;
+        if (!runs.isEmpty() && runs.last().end == rStart) {
+            runs.last().end = rEnd;
+        } else {
+            runs.append({rStart, rEnd});
+        }
+    }
+
+    // For each run, decode the $...$ or $$...$$ form from the document.
+    const QString docText = m_document->toPlainText();
+    struct Region { int start; int len; QString latex; bool display; };
+    QList<Region> regions;
+    for (const Run &run : runs) {
+        if (run.start < 0 || run.end > docText.size() || run.end <= run.start)
+            continue;
+        const QString slice = docText.mid(run.start, run.end - run.start);
+
+        bool display = false;
+        QString latex;
+        if (slice.size() >= 4 && slice.startsWith(QStringLiteral("$$"))
+                              && slice.endsWith(QStringLiteral("$$"))) {
+            display = true;
+            latex = slice.mid(2, slice.size() - 4);
+        } else if (slice.size() >= 2 && slice.startsWith(QLatin1Char('$'))
+                                     && slice.endsWith(QLatin1Char('$'))) {
+            display = false;
+            latex = slice.mid(1, slice.size() - 2);
+        } else {
+            // Span run that doesn't actually look like math — skip.
+            continue;
+        }
+        if (latex.isEmpty()) continue;
+
+        Region r;
+        r.start = run.start;
+        r.len   = run.end - run.start;
+        r.latex = latex;
+        r.display = display;
+        regions.append(r);
+    }
+    if (regions.isEmpty()) return;
+
+    // Mutate from end to start so earlier offsets stay valid.
+    std::sort(regions.begin(), regions.end(),
+              [](const Region &a, const Region &b) { return a.start < b.start; });
+
+    m_inMathSubstitution = true;
+    QTextCursor cursor(m_document);
+    cursor.beginEditBlock();
+    for (int i = regions.size() - 1; i >= 0; --i) {
+        const Region &r = regions[i];
+        cursor.setPosition(r.start);
+        cursor.setPosition(r.start + r.len, QTextCursor::KeepAnchor);
+
+        QTextCharFormat fmt;
+        fmt.setObjectType(MathTextObject::TypeId);
+        fmt.setProperty(MathTextObject::SourceProperty, r.latex);
+        fmt.setProperty(MathTextObject::DisplayProperty, r.display);
+        const QString delim = r.display ? QStringLiteral("$$") : QStringLiteral("$");
+        fmt.setProperty(MathTextObject::RawProperty, delim + r.latex + delim);
+
+        cursor.removeSelectedText();
+        cursor.insertText(QString(QChar::ObjectReplacementCharacter), fmt);
+    }
+    cursor.endEditBlock();
+    m_inMathSubstitution = false;
+}
+
+void MarkdownTextItem::refreshMathSubstitution()
+{
+    if (m_inMathSubstitution) return;
+    stripMathSubstitution();
+    applyMathSubstitution();
 }
 
 void MarkdownTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event)

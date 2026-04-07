@@ -2,13 +2,15 @@
 #include "Renderer.h"
 #include "markoff/Document.h"
 #include "markoff/RenderSettings.h"
+#include "markoff/ResourceProvider.h"
+#include "markoff/Theme.h"
 #include "DocumentBuilder_p.h"
+#include "MathRenderer.h"
 
+#include <QColor>
 #include <QString>
 #include <QTextDocument>
-#include <QImage>
-#include <QBuffer>
-#include <jkqtmathtext/jkqtmathtext.h>
+#include <QUrl>
 #include <KSyntaxHighlighting/Repository>
 #include <KSyntaxHighlighting/Definition>
 #include <KSyntaxHighlighting/Theme>
@@ -19,30 +21,57 @@
 namespace Markoff {
 
 // ---------------------------------------------------------------------------
-// Math rendering
+// Callout type → color
 // ---------------------------------------------------------------------------
 
-static QString renderMathToDataUri(const QString &latex, bool displayMode)
+namespace {
+struct CalloutColor { const char *type; const char *color; };
+constexpr CalloutColor kCalloutColors[] = {
+    // Default (used when no other type matches)
+    {"note",      "#448aff"},
+    {"info",      "#448aff"},
+    // Warning family
+    {"warning",   "#ff9100"},
+    {"caution",   "#ff9100"},
+    {"attention", "#ff9100"},
+    // Danger / failure family
+    {"danger",    "#ff5252"},
+    {"error",     "#ff5252"},
+    {"failure",   "#ff5252"},
+    {"fail",      "#ff5252"},
+    {"missing",   "#ff5252"},
+    // Success family
+    {"success",   "#00c853"},
+    {"check",     "#00c853"},
+    {"done",      "#00c853"},
+    // Tip family
+    {"tip",       "#00bfa5"},
+    {"hint",      "#00bfa5"},
+    {"important", "#00bfa5"},
+    // Question family
+    {"question",  "#ffab00"},
+    {"help",      "#ffab00"},
+    {"faq",       "#ffab00"},
+    // Other singletons
+    {"bug",       "#ff1744"},
+    {"example",   "#7c4dff"},
+    {"quote",     "#9e9e9e"},
+    {"cite",      "#9e9e9e"},
+    {"abstract",  "#00b8d4"},
+    {"summary",   "#00b8d4"},
+    {"tldr",      "#00b8d4"},
+};
+
+QString colorForCalloutType(const QString &type)
 {
-    JKQTMathText mt;
-    mt.useXITS();
-    mt.setFontSize(displayMode ? 14 : 12);
-
-    const QString wrapped = QStringLiteral("$") + latex + QStringLiteral("$");
-    if (!mt.parse(wrapped))
-        return {};
-
-    QImage img = mt.drawIntoImage(false, Qt::transparent, 2, 1.0, 96);
-    if (img.isNull())
-        return {};
-
-    QByteArray ba;
-    QBuffer buffer(&ba);
-    buffer.open(QIODevice::WriteOnly);
-    img.save(&buffer, "PNG");
-
-    return QStringLiteral("data:image/png;base64,") + QString::fromLatin1(ba.toBase64());
+    const QByteArray utf8 = type.toUtf8();
+    for (const auto &cc : kCalloutColors) {
+        if (qstrcmp(utf8.constData(), cc.type) == 0)
+            return QString::fromLatin1(cc.color);
+    }
+    return QStringLiteral("#448aff");  // default blue
 }
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Syntax highlighting for code blocks
@@ -116,7 +145,22 @@ static QString highlightCodeBlock(const QString &code, const QString &lang)
 
 struct Renderer::Private {
     RenderSettings settings;
+    ResourceProvider *resourceProvider = nullptr;
+    // Optional theme — only used to derive a few CSS colors. Stored as
+    // pointer-or-nullptr-equivalent via a default-constructed Theme,
+    // detected by checking if the format hash is empty.
+    Theme theme;
 };
+
+namespace {
+/// Per-render context bundling the settings and the (optional) resource
+/// provider, so it can be threaded through the static helpers without
+/// adding individual parameters at every call site.
+struct RenderContext {
+    const RenderSettings &settings;
+    ResourceProvider *resourceProvider = nullptr;
+};
+}
 
 // ---------------------------------------------------------------------------
 // HTML helpers
@@ -137,7 +181,7 @@ static QString alignAttr(MD_ALIGN align)
     }
 }
 
-static QString renderInlines(const QList<InlineRun> &inlines, const RenderSettings &settings = {})
+static QString renderInlines(const QList<InlineRun> &inlines, const RenderContext &ctx)
 {
     QString html;
     for (const InlineRun &run : inlines) {
@@ -147,8 +191,18 @@ static QString renderInlines(const QList<InlineRun> &inlines, const RenderSettin
 
         // Image rendering
         if (!run.imageSrc.isEmpty()) {
-            if (settings.renderImages) {
+            if (ctx.settings.renderImages) {
                 QString src = run.imageSrc;
+                // Resolve relative paths via ResourceProvider when available.
+                // Skip http(s):// and data: URIs which are absolute.
+                if (ctx.resourceProvider
+                    && !src.startsWith(QStringLiteral("http://"))
+                    && !src.startsWith(QStringLiteral("https://"))
+                    && !src.startsWith(QStringLiteral("data:"))) {
+                    QUrl resolved = ctx.resourceProvider->resolveImage(src);
+                    if (!resolved.isEmpty())
+                        src = resolved.toString();
+                }
                 QString alt = escapeHtml(run.text);
                 html += QStringLiteral("<img src=\"%1\" alt=\"%2\" style=\"max-width: 100%;\"/>")
                             .arg(escapeHtml(src), alt);
@@ -167,7 +221,7 @@ static QString renderInlines(const QList<InlineRun> &inlines, const RenderSettin
         } else if (!run.linkHref.isEmpty()) {
             text = QStringLiteral("<a href=\"%1\">%2</a>").arg(escapeHtml(run.linkHref), text);
         } else if (run.math || run.mathDisplay) {
-            QString dataUri = renderMathToDataUri(run.text, run.mathDisplay);
+            QString dataUri = MathRenderer::renderToDataUri(run.text, run.mathDisplay);
             if (!dataUri.isEmpty()) {
                 QString style = run.mathDisplay
                     ? QStringLiteral("display: block; margin: 8px auto;")
@@ -199,26 +253,27 @@ static QString renderInlines(const QList<InlineRun> &inlines, const RenderSettin
     return html;
 }
 
-static QString renderBlocks(const QList<Block> &blocks, const RenderSettings &settings);
+static QString renderBlocks(const QList<Block> &blocks, const RenderContext &ctx);
 
-static QString renderBlock(const Block &block, const RenderSettings &settings)
+static QString renderBlock(const Block &block, const RenderContext &ctx)
 {
+    const RenderSettings &settings = ctx.settings;
     QString html;
 
     switch (block.type) {
     case MD_BLOCK_DOC:
-        html += renderBlocks(block.children, settings);
+        html += renderBlocks(block.children, ctx);
         break;
 
     case MD_BLOCK_H: {
         const int level = qBound(1, block.headingLevel, 6);
         const QString tag = QStringLiteral("h%1").arg(level);
-        html += QStringLiteral("<%1>%2</%1>").arg(tag, renderInlines(block.inlines, settings));
+        html += QStringLiteral("<%1>%2</%1>").arg(tag, renderInlines(block.inlines, ctx));
         break;
     }
 
     case MD_BLOCK_P:
-        html += QStringLiteral("<p>%1</p>").arg(renderInlines(block.inlines, settings));
+        html += QStringLiteral("<p>%1</p>").arg(renderInlines(block.inlines, ctx));
         break;
 
     case MD_BLOCK_CODE: {
@@ -241,30 +296,7 @@ static QString renderBlock(const Block &block, const RenderSettings &settings)
 
     case MD_BLOCK_QUOTE:
         if (block.isCallout) {
-            // Callout rendering with colored box
-            QString color = QStringLiteral("#448aff"); // default blue
-            const QString &t = block.calloutType;
-            if (t == QStringLiteral("warning") || t == QStringLiteral("caution") || t == QStringLiteral("attention"))
-                color = QStringLiteral("#ff9100");
-            else if (t == QStringLiteral("danger") || t == QStringLiteral("error"))
-                color = QStringLiteral("#ff5252");
-            else if (t == QStringLiteral("success") || t == QStringLiteral("check") || t == QStringLiteral("done"))
-                color = QStringLiteral("#00c853");
-            else if (t == QStringLiteral("tip") || t == QStringLiteral("hint") || t == QStringLiteral("important"))
-                color = QStringLiteral("#00bfa5");
-            else if (t == QStringLiteral("question") || t == QStringLiteral("help") || t == QStringLiteral("faq"))
-                color = QStringLiteral("#ffab00");
-            else if (t == QStringLiteral("bug"))
-                color = QStringLiteral("#ff1744");
-            else if (t == QStringLiteral("example"))
-                color = QStringLiteral("#7c4dff");
-            else if (t == QStringLiteral("quote") || t == QStringLiteral("cite"))
-                color = QStringLiteral("#9e9e9e");
-            else if (t == QStringLiteral("failure") || t == QStringLiteral("fail") || t == QStringLiteral("missing"))
-                color = QStringLiteral("#ff5252");
-            else if (t == QStringLiteral("abstract") || t == QStringLiteral("summary") || t == QStringLiteral("tldr"))
-                color = QStringLiteral("#00b8d4");
-
+            const QString color = colorForCalloutType(block.calloutType);
             QString title = block.calloutTitle.isEmpty()
                 ? block.calloutType.at(0).toUpper() + block.calloutType.mid(1)
                 : block.calloutTitle;
@@ -277,18 +309,18 @@ static QString renderBlock(const Block &block, const RenderSettings &settings)
                 .arg(color,
                      color, // used twice — once for border, once for faint bg
                      escapeHtml(title),
-                     renderBlocks(block.children, settings));
+                     renderBlocks(block.children, ctx));
         } else {
-            html += QStringLiteral("<blockquote>%1</blockquote>").arg(renderBlocks(block.children, settings));
+            html += QStringLiteral("<blockquote>%1</blockquote>").arg(renderBlocks(block.children, ctx));
         }
         break;
 
     case MD_BLOCK_UL:
-        html += QStringLiteral("<ul>%1</ul>").arg(renderBlocks(block.children, settings));
+        html += QStringLiteral("<ul>%1</ul>").arg(renderBlocks(block.children, ctx));
         break;
 
     case MD_BLOCK_OL:
-        html += QStringLiteral("<ol start=\"%1\">%2</ol>").arg(block.listStart).arg(renderBlocks(block.children, settings));
+        html += QStringLiteral("<ol start=\"%1\">%2</ol>").arg(block.listStart).arg(renderBlocks(block.children, ctx));
         break;
 
     case MD_BLOCK_LI: {
@@ -306,7 +338,7 @@ static QString renderBlock(const Block &block, const RenderSettings &settings)
             }
         }
         html += QStringLiteral("<li style=\"list-style-type: none;\">%1%2%3</li>")
-            .arg(prefix, renderInlines(block.inlines, settings), renderBlocks(block.children, settings));
+            .arg(prefix, renderInlines(block.inlines, ctx), renderBlocks(block.children, ctx));
         break;
     }
 
@@ -315,46 +347,46 @@ static QString renderBlock(const Block &block, const RenderSettings &settings)
         break;
 
     case MD_BLOCK_TABLE:
-        html += QStringLiteral("<table>%1</table>").arg(renderBlocks(block.children, settings));
+        html += QStringLiteral("<table>%1</table>").arg(renderBlocks(block.children, ctx));
         break;
 
     case MD_BLOCK_THEAD:
-        html += QStringLiteral("<thead>%1</thead>").arg(renderBlocks(block.children, settings));
+        html += QStringLiteral("<thead>%1</thead>").arg(renderBlocks(block.children, ctx));
         break;
 
     case MD_BLOCK_TBODY:
-        html += QStringLiteral("<tbody>%1</tbody>").arg(renderBlocks(block.children, settings));
+        html += QStringLiteral("<tbody>%1</tbody>").arg(renderBlocks(block.children, ctx));
         break;
 
     case MD_BLOCK_TR:
-        html += QStringLiteral("<tr>%1</tr>").arg(renderBlocks(block.children, settings));
+        html += QStringLiteral("<tr>%1</tr>").arg(renderBlocks(block.children, ctx));
         break;
 
     case MD_BLOCK_TH:
         html += QStringLiteral("<th%1>%2</th>")
-            .arg(alignAttr(block.tableAlign), renderInlines(block.inlines, settings));
+            .arg(alignAttr(block.tableAlign), renderInlines(block.inlines, ctx));
         break;
 
     case MD_BLOCK_TD:
         html += QStringLiteral("<td%1>%2</td>")
-            .arg(alignAttr(block.tableAlign), renderInlines(block.inlines, settings));
+            .arg(alignAttr(block.tableAlign), renderInlines(block.inlines, ctx));
         break;
 
     default:
         // Unknown block — render children and inlines inline
-        html += renderInlines(block.inlines, settings);
-        html += renderBlocks(block.children, settings);
+        html += renderInlines(block.inlines, ctx);
+        html += renderBlocks(block.children, ctx);
         break;
     }
 
     return html;
 }
 
-static QString renderBlocks(const QList<Block> &blocks, const RenderSettings &settings)
+static QString renderBlocks(const QList<Block> &blocks, const RenderContext &ctx)
 {
     QString html;
     for (const Block &block : blocks)
-        html += renderBlock(block, settings);
+        html += renderBlock(block, ctx);
     return html;
 }
 
@@ -379,6 +411,16 @@ RenderSettings Renderer::settings() const
     return d->settings;
 }
 
+void Renderer::setResourceProvider(ResourceProvider *provider)
+{
+    d->resourceProvider = provider;
+}
+
+void Renderer::setTheme(const Theme &theme)
+{
+    d->theme = theme;
+}
+
 std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &doc) const
 {
     auto textDoc = std::make_unique<QTextDocument>();
@@ -391,6 +433,7 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
 
     // Build body HTML
     const RenderSettings &s = d->settings;
+    const RenderContext ctx{s, d->resourceProvider};
     QString bodyHtml;
 
     // Optionally show frontmatter
@@ -401,7 +444,7 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
             .arg(escapeHtml(doc.frontmatter()));
     }
 
-    bodyHtml += renderBlocks(blocks, s);
+    bodyHtml += renderBlocks(blocks, ctx);
 
     // Append footnotes section
     if (doc.footnoteCount() > 0) {
@@ -412,7 +455,20 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
         bodyHtml += QStringLiteral("</ol>");
     }
 
-    // Build CSS
+    // Build CSS. Hardcoded fallbacks are used when the theme is empty
+    // (default-constructed) so the renderer is still usable without a
+    // theme — that's the legacy behavior.
+    auto colorOrFallback = [&](Element el, const QColor &fallback, bool background = false) {
+        const QTextCharFormat fmt = d->theme.formats.value(el);
+        const QColor c = background ? fmt.background().color() : fmt.foreground().color();
+        return c.isValid() && c.alpha() > 0 ? c.name() : fallback.name();
+    };
+    const QString blockquoteBorder = colorOrFallback(Element::BlockQuote, QColor(QStringLiteral("#aaa")));
+    const QString blockquoteText   = colorOrFallback(Element::BlockQuote, QColor(QStringLiteral("#555")));
+    const QString codeBg           = colorOrFallback(Element::CodeBlock, QColor(QStringLiteral("#f0f0f0")), /*background=*/true);
+    const QString hrColor          = colorOrFallback(Element::HorizontalRule, QColor(QStringLiteral("#ccc")));
+    const QString highlightBg      = colorOrFallback(Element::Highlight, QColor(QStringLiteral("#fff9c4")), /*background=*/true);
+
     QString bodyStyle = QStringLiteral("font-size: 14pt;");
     if (s.marginPx > 0)
         bodyStyle += QStringLiteral(" margin: %1px;").arg(s.marginPx);
@@ -421,15 +477,15 @@ std::unique_ptr<QTextDocument> Renderer::renderToTextDocument(const Document &do
 
     const QString css = QStringLiteral(
         "body { %1 }\n"
-        "code { font-family: monospace; background-color: #f0f0f0; padding: 1px 3px; }\n"
-        "pre  { background-color: #f0f0f0; padding: 8px; border-radius: 4px; }\n"
+        "code { font-family: monospace; background-color: %2; padding: 1px 3px; }\n"
+        "pre  { background-color: %2; padding: 8px; border-radius: 4px; }\n"
         "pre code { background-color: transparent; padding: 0; }\n"
-        "blockquote { border-left: 4px solid #aaa; margin-left: 0; padding-left: 12px; color: #555; }\n"
-        "hr { border: none; border-top: 1px solid #ccc; }\n"
+        "blockquote { border-left: 4px solid %3; margin-left: 0; padding-left: 12px; color: %4; }\n"
+        "hr { border: none; border-top: 1px solid %5; }\n"
         "table { border-collapse: collapse; }\n"
-        "th, td { border: 1px solid #ccc; padding: 4px 8px; }\n"
-        "mark { background-color: #fff9c4; padding: 1px 2px; }\n"
-    ).arg(bodyStyle);
+        "th, td { border: 1px solid %5; padding: 4px 8px; }\n"
+        "mark { background-color: %6; padding: 1px 2px; }\n"
+    ).arg(bodyStyle, codeBg, blockquoteBorder, blockquoteText, hrColor, highlightBg);
 
     const QString fullHtml = QStringLiteral(
         "<html><head><style>%1</style></head><body>%2</body></html>"

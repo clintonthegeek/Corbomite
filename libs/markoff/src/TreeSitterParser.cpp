@@ -268,8 +268,12 @@ static void applyNodeType(SourceSpan &span, const char *type)
     else if (strcmp(type, "highlight_delimiter") == 0) { span.isDelimiter = true; span.highlight = true; }
     else if (strcmp(type, "obsidian_comment") == 0) { span.comment = true; }
     else if (strcmp(type, "comment_delimiter") == 0) { span.isDelimiter = true; span.comment = true; }
+    // Note: tree-sitter-markdown does NOT have a separate `latex_span` node
+    // type — both `$x^2$` and `$$x^2$$` are parsed as `latex_block`. The
+    // mathDisplay flag is set by the caller via the source-byte inspection
+    // helper below, since this node-type mapper has no access to the bytes.
     else if (strcmp(type, "latex_span") == 0) { span.math = true; }
-    else if (strcmp(type, "latex_block") == 0) { span.math = true; span.mathDisplay = true; }
+    else if (strcmp(type, "latex_block") == 0) { span.math = true; }
     else if (strcmp(type, "wiki_link") == 0) { span.isWikilink = true; }
     // Links: tree-sitter uses inline_link, shortcut_link, full_reference_link, collapsed_reference_link
     else if (strcmp(type, "inline_link") == 0 || strcmp(type, "shortcut_link") == 0 ||
@@ -331,6 +335,15 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
 
         applyNodeType(span, type);
 
+        // latex_block can be either inline `$...$` or display `$$...$$`.
+        // The grammar uses one node type for both; disambiguate from source.
+        if (span.math
+            && spanStartByte + 1 < m_utf8.size()
+            && m_utf8[spanStartByte] == '$'
+            && m_utf8[spanStartByte + 1] == '$') {
+            span.mathDisplay = true;
+        }
+
         // Inherit formatting from parent context
         // (handled by the caller propagating parent formatting)
 
@@ -343,6 +356,15 @@ void TreeSitterParser::walkNode(TSNode node, QList<SourceSpan> &spans) const
     // First, check if this node adds formatting
     SourceSpan parentFmt;
     applyNodeType(parentFmt, type);
+
+    // Same disambiguation as the leaf path: latex_block covers both inline
+    // and display math; check for `$$` at the node's start byte.
+    if (parentFmt.math
+        && static_cast<int>(startByte) + 1 < m_utf8.size()
+        && m_utf8[startByte] == '$'
+        && m_utf8[startByte + 1] == '$') {
+        parentFmt.mathDisplay = true;
+    }
 
     // Determine heading level for heading nodes
     int headingLevel = 0;

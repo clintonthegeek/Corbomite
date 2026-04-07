@@ -11,6 +11,7 @@ class QTextDocument;
 namespace Markoff {
 
 class TextControl;
+class MathTextObject;
 
 /// Editable markdown text region in the graphics scene.
 /// Wraps TextControl + QTextDocument. Implements SelectableItem
@@ -62,6 +63,21 @@ public:
     QString allMarkdown() const override;
     QString toMarkdown() const override;
 
+    /// Reapply inline-math glyph substitution based on the highlighter's
+    /// current span map. Strips any existing math objects first, so this
+    /// is also the right place to call after the underlying source text
+    /// has been replaced.
+    ///
+    /// Mutates the document but is guarded so it does not retrigger
+    /// reparses.
+    void refreshMathSubstitution();
+
+    /// Replace any existing math object characters with their stored
+    /// source text, leaving the document in canonical source form.
+    /// SceneCoordinator calls this between reparse and re-substitution
+    /// so the highlighter span offsets line up with document positions.
+    int stripMathSubstitution();
+
 Q_SIGNALS:
     void textChanged();
     /// Emitted when arrow key can't move further.
@@ -74,10 +90,17 @@ private:
     void detectDecoratedRanges();
     void paintDecoratedRanges(QPainter *painter);
 
+    /// Walk the highlighter span map and replace each math span's
+    /// source text range with U+FFFC + a math format. Must be called on
+    /// a document that is in canonical source form (no leftover U+FFFC).
+    void applyMathSubstitution();
+
     TextControl *m_control = nullptr;
     QTextDocument *m_document = nullptr;
+    MathTextObject *m_mathObject = nullptr;
     qreal m_width = 600.0;
     bool m_snappingCursor = false;
+    bool m_inMathSubstitution = false;
     QList<DecoratedRange> m_decoratedRanges;
 };
 
