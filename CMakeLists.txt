@@ -39,6 +39,7 @@ add_subdirectory(libs/models)
 add_subdirectory(libs/forcegraph)
 add_subdirectory(libs/canvas)
 add_subdirectory(libs/mmdr)
+add_subdirectory(libs/markoff-parser)
 add_subdirectory(libs/markoff)
 
 # Application
