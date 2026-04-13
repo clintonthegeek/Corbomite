@@ -1,6 +1,7 @@
 # GraphicsView Editor Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: IMPLEMENTED** — Editor is now QGraphicsView-based with
+> SceneCoordinator, MarkdownSplitter, and SelectionManager.
 
 **Goal:** Replace the QAbstractScrollArea-based Editor with a QGraphicsView-based editor that splits markdown at block boundaries and supports cross-boundary selection.
 

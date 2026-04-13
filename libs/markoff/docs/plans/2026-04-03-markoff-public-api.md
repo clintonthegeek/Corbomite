@@ -1,6 +1,7 @@
 # Markoff Public API Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: IMPLEMENTED** — All seven public headers, Theme system,
+> Document query API, and ResourceProvider interface shipped.
 
 **Goal:** Implement the public API defined in `libs/markoff/docs/specs/2026-04-02-markoff-public-api-design.md` — seven public headers giving host applications full control over theming, editor behavior, resource resolution, and document querying.
 

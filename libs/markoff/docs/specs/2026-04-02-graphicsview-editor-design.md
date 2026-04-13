@@ -1,7 +1,10 @@
 # QGraphicsView-Based Editor Architecture
 
+> **Status: IMPLEMENTED** — Core architecture shipped. Retained for design
+> rationale. Superseded specs moved to `archive/`.
+
 Supersedes the QTextTable-in-QTextDocument approach from
-`2026-04-01-table-embedding-design.md`.
+`2026-04-01-table-embedding-design.md` (archived).
 
 ## Problem
 

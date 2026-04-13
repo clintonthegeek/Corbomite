@@ -1,5 +1,8 @@
 # Markoff Public API Design
 
+> **Status: IMPLEMENTED** — All seven public headers shipped. Retained for
+> design rationale and API contract documentation.
+
 ## Overview
 
 This spec defines markoff's stable public API — the surface that Corbomite and

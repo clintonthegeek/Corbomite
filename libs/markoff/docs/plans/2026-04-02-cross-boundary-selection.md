@@ -1,6 +1,7 @@
 # Cross-Boundary Selection Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: IMPLEMENTED** — SelectionManager with mouse and keyboard
+> selection, Ctrl+C/Ctrl+A/Escape handling all shipped.
 
 **Goal:** Implement unified selection across heterogeneous QGraphicsScene items (text, tables, code blocks, images) with markdown clipboard serialization.
 

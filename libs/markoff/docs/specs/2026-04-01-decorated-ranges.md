@@ -1,5 +1,9 @@
 # Decorated Block Ranges
 
+> **Status: IMPLEMENTED** — DecoratedRange struct and
+> MarkdownTextItem::paintDecoratedRanges() shipped. Retained for design
+> rationale.
+
 ## Problem
 
 Code blocks and callouts use atomic blocks (separate QPainter pixmaps)

@@ -1,8 +1,10 @@
 # Cross-Boundary Selection Design
 
+> **Status: IMPLEMENTED** — SelectionManager, SelectableItem, and
+> SelectionScene all shipped. Retained for design rationale.
+
 Companion to `2026-04-02-graphicsview-editor-design.md`.
-Supersedes `2026-04-02-cross-boundary-selection-research.md` (research
-notes retained for reference).
+Supersedes `2026-04-02-cross-boundary-selection-research.md` (archived).
 
 ## Problem
 
