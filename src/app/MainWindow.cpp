@@ -269,20 +269,12 @@ void MainWindow::setupActions()
     dailyNote->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
     connect(dailyNote, &QAction::triggered, this, &MainWindow::openDailyNote);
 
-    auto *sourceMode = ac->addAction(QStringLiteral("view_source_mode"));
-    sourceMode->setText(i18n("Source"));
-    sourceMode->setIcon(QIcon::fromTheme(QStringLiteral("text-x-markdown")));
-    connect(sourceMode, &QAction::triggered, this, [this]() {
+    auto *editingMode = ac->addAction(QStringLiteral("view_editing_mode"));
+    editingMode->setText(i18n("Editing"));
+    editingMode->setIcon(QIcon::fromTheme(QStringLiteral("text-x-markdown")));
+    connect(editingMode, &QAction::triggered, this, [this]() {
         if (auto *editor = m_editorManager->activeEditor())
-            editor->setViewMode(NoteEditorWidget::ViewMode::Source);
-    });
-
-    auto *livePreviewMode = ac->addAction(QStringLiteral("view_live_preview_mode"));
-    livePreviewMode->setText(i18n("Live Preview"));
-    livePreviewMode->setIcon(QIcon::fromTheme(QStringLiteral("view-split-left-right")));
-    connect(livePreviewMode, &QAction::triggered, this, [this]() {
-        if (auto *editor = m_editorManager->activeEditor())
-            editor->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
+            editor->setViewMode(NoteEditorWidget::ViewMode::Editing);
     });
 
     auto *readingMode = ac->addAction(QStringLiteral("view_reading_mode"));
@@ -1111,8 +1103,7 @@ void MainWindow::updateVaultActions()
     setEnabled(QStringLiteral("quick_switcher"), open);
     setEnabled(QStringLiteral("search_vault"), open);
     setEnabled(QStringLiteral("graph_view"), open);
-    setEnabled(QStringLiteral("view_source_mode"), open);
-    setEnabled(QStringLiteral("view_live_preview_mode"), open);
+    setEnabled(QStringLiteral("view_editing_mode"), open);
     setEnabled(QStringLiteral("view_reading_mode"), open);
     setEnabled(QStringLiteral("tab_close"), open);
     setEnabled(QStringLiteral("tab_next"), open);

@@ -101,7 +101,7 @@ void EditorViewManager::setViewMode(NoteEditorWidget::ViewMode mode)
 
 NoteEditorWidget::ViewMode EditorViewManager::viewMode() const
 {
-    return m_activeViewSpace ? m_activeViewSpace->viewMode() : NoteEditorWidget::ViewMode::Source;
+    return m_activeViewSpace ? m_activeViewSpace->viewMode() : NoteEditorWidget::ViewMode::Editing;
 }
 
 void EditorViewManager::openGraphView(SQLiteIndex *index, VaultModel *vault)
@@ -361,9 +361,7 @@ QJsonObject EditorViewManager::buildSessionState() const
                         auto *ed = space->activeEditor();
                         if (ed) {
                             auto vm = ed->viewMode();
-                            if (vm == NoteEditorWidget::ViewMode::LivePreview)
-                                tabObj[QStringLiteral("viewMode")] = QStringLiteral("livePreview");
-                            else if (vm == NoteEditorWidget::ViewMode::Reading)
+                            if (vm == NoteEditorWidget::ViewMode::Reading)
                                 tabObj[QStringLiteral("viewMode")] = QStringLiteral("reading");
                         }
                     }
@@ -516,7 +514,7 @@ void EditorViewManager::restoreTabState(const QJsonObject &paneJson, EditorViewS
     // Restore view mode (backwards compatible with old readingMode key)
     QString savedMode = tabObj[QStringLiteral("viewMode")].toString();
     if (savedMode == QStringLiteral("livePreview")) {
-        space->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
+        space->setViewMode(NoteEditorWidget::ViewMode::Editing);
     } else if (savedMode == QStringLiteral("reading")
                || tabObj[QStringLiteral("readingMode")].toBool()) {
         space->setViewMode(NoteEditorWidget::ViewMode::Reading);

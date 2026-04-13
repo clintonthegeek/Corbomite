@@ -95,7 +95,7 @@ NoteEditorWidget::ViewMode EditorViewSpace::viewMode() const
 {
     if (auto *editor = activeEditor())
         return editor->viewMode();
-    return NoteEditorWidget::ViewMode::Source;
+    return NoteEditorWidget::ViewMode::Editing;
 }
 
 void EditorViewSpace::closeTab(int index)

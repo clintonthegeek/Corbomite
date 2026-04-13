@@ -15,7 +15,6 @@ endif()
 # Markoff editor library
 add_library(markoff STATIC
     include/markoff/Editor.h
-    include/markoff/ReadingView.h
     src/SelectableItem.h
     src/BlockItem.h
     src/BlockItem.cpp
@@ -41,7 +40,6 @@ add_library(markoff STATIC
     src/MarkdownHighlighter.cpp
     src/DecoratedRange.cpp
     src/ResourceProvider.cpp
-    src/ReadingView.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Markoff::Markoff ALIAS markoff)

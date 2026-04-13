@@ -7,10 +7,8 @@
 #include "dialogs/QuickSwitcherModel.h"
 
 #include <markoff/Editor.h>
-#include <markoff/ReadingView.h>
 
 #include <QKeyEvent>
-#include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QStringListModel>
 
@@ -18,17 +16,11 @@ namespace Corbomite {
 
 NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     : QWidget(parent)
-    , m_modeStack(new QStackedWidget(this))
-    , m_editor(new Markoff::Editor(m_modeStack))
-    , m_readingView(new Markoff::ReadingView(m_modeStack))
+    , m_editor(new Markoff::Editor(this))
 {
-    m_modeStack->addWidget(m_editor);      // index 0: Source / LivePreview
-    m_modeStack->addWidget(m_readingView); // index 1: Reading
-    m_modeStack->setCurrentIndex(0);
-
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_modeStack);
+    layout->addWidget(m_editor);
 
     connect(m_editor, &Markoff::Editor::textChanged,
             this, &NoteEditorWidget::onTextChanged);
@@ -52,10 +44,6 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     });
     connect(m_editor, &Markoff::Editor::completionDismissHint,
             this, &NoteEditorWidget::dismissCompletion);
-    connect(m_readingView, &Markoff::ReadingView::linkClicked,
-            this, [this](const QString &target) {
-        Q_EMIT linkActivated(resolveTarget(target));
-    });
 
     m_editor->installEventFilter(this);
 }
@@ -65,20 +53,15 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
     m_doc = doc;
     if (m_doc) {
         m_editor->setResourceProvider(nullptr);
-        m_readingView->setResourceProvider(nullptr);
         delete m_resourceProvider;
         m_resourceProvider = nullptr;
         if (m_vault) {
             m_resourceProvider = new VaultResourceProvider(m_vault, m_doc->relativePath());
             m_editor->setResourceProvider(m_resourceProvider);
-            m_readingView->setResourceProvider(m_resourceProvider);
         }
         syncFromDocument();
-        if (m_viewMode == ViewMode::Reading)
-            m_readingView->setMarkdown(m_doc->markdown());
     } else {
         m_editor->clear();
-        m_readingView->setMarkdown({});
     }
 }
 
@@ -92,11 +75,9 @@ void NoteEditorWidget::setVaultModel(VaultModel *vault)
     m_vault = vault;
     if (m_doc && m_vault) {
         m_editor->setResourceProvider(nullptr);
-        m_readingView->setResourceProvider(nullptr);
         delete m_resourceProvider;
         m_resourceProvider = new VaultResourceProvider(m_vault, m_doc->relativePath());
         m_editor->setResourceProvider(m_resourceProvider);
-        m_readingView->setResourceProvider(m_resourceProvider);
     }
 }
 
@@ -105,16 +86,7 @@ void NoteEditorWidget::setViewMode(ViewMode mode)
     if (m_viewMode == mode) return;
     m_viewMode = mode;
 
-    if (mode == ViewMode::Reading) {
-        if (m_doc)
-            m_readingView->setMarkdown(m_editor->toPlainText());
-        m_modeStack->setCurrentWidget(m_readingView);
-    } else {
-        m_editor->setMode(mode == ViewMode::LivePreview
-            ? Markoff::Editor::Mode::LivePreview
-            : Markoff::Editor::Mode::Source);
-        m_modeStack->setCurrentWidget(m_editor);
-    }
+    m_editor->setReadOnly(mode == ViewMode::Reading);
 
     Q_EMIT viewModeChanged(mode);
 }

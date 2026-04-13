@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include <QStackedWidget>
 #include <QWidget>
 
 namespace Markoff {
 class Editor;
-class ReadingView;
 }
 
 namespace Corbomite {
@@ -20,7 +18,7 @@ class NoteEditorWidget : public QWidget {
     Q_OBJECT
 
 public:
-    enum class ViewMode { Source, LivePreview, Reading };
+    enum class ViewMode { Editing, Reading };
     Q_ENUM(ViewMode)
 
     explicit NoteEditorWidget(QWidget *parent = nullptr);
@@ -58,10 +56,8 @@ private:
     // Link resolution
     QString resolveTarget(const QString &target) const;
 
-    QStackedWidget *m_modeStack = nullptr;
     Markoff::Editor *m_editor = nullptr;
-    Markoff::ReadingView *m_readingView = nullptr;
-    ViewMode m_viewMode = ViewMode::Source;
+    ViewMode m_viewMode = ViewMode::Editing;
 
     NoteDocument *m_doc = nullptr;
     VaultModel *m_vault = nullptr;

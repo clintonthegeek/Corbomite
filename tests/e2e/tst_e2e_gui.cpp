@@ -354,16 +354,16 @@ private Q_SLOTS:
         QVERIFY(readingAction);
         QVERIFY(readingAction->isEnabled());
 
-        auto *sourceAction = m_mainWindow->actionCollection()->action(
-            QStringLiteral("view_source_mode"));
-        QVERIFY(sourceAction);
+        auto *editingAction = m_mainWindow->actionCollection()->action(
+            QStringLiteral("view_editing_mode"));
+        QVERIFY(editingAction);
 
         // Switch to reading mode
         readingAction->trigger();
         settle(500);
 
-        // Switch back to source mode
-        sourceAction->trigger();
+        // Switch back to editing mode
+        editingAction->trigger();
         settle(300);
 
         // Verify editor is back and accessible
