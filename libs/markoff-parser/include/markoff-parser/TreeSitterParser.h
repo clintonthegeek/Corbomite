@@ -13,6 +13,16 @@ typedef struct TSNode TSNode;
 
 namespace Markoff {
 
+struct HeadingInfo;
+struct LinkInfo;
+struct TagInfo;
+
+struct DocumentQueryResult {
+    QList<HeadingInfo> headings;
+    QList<LinkInfo> links;
+    QList<TagInfo> tags;
+};
+
 struct SourceSpan;
 
 /// Wraps tree-sitter's C API for parsing markdown.
@@ -31,6 +41,9 @@ public:
     /// Build a flat span map from the CST. Each span has byte offsets
     /// (converted to QString char offsets) and formatting/delimiter flags.
     QList<SourceSpan> buildSpanMap() const;
+
+    /// Walk the CST and extract headings, links, and tags as structured data.
+    DocumentQueryResult buildDocumentQueries() const;
 
     /// Check if a tree exists (parse was successful)
     bool hasTree() const { return m_blockTree != nullptr; }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <markoff-parser/TreeSitterParser.h>
 #include <markoff-parser/SourceSpan.h>
+#include <markoff-parser/Document.h>
 
 #include <tree_sitter/api.h>
 #include <tree-sitter/tree-sitter-markdown.h>
@@ -705,6 +706,187 @@ QList<TreeSitterParser::BlockBoundary> TreeSitterParser::findBlockBoundaries() c
               });
 
     return boundaries;
+}
+
+// ---------------------------------------------------------------------------
+// buildDocumentQueries — extract headings, links, tags from the CST
+// ---------------------------------------------------------------------------
+
+namespace {
+
+/// Recursively walk block tree for atx_heading nodes
+void collectHeadingsForQuery(TSNode node, const QByteArray &utf8,
+                             QList<HeadingInfo> &headings)
+{
+    const char *type = ts_node_type(node);
+
+    if (strcmp(type, "atx_heading") == 0) {
+        HeadingInfo h;
+        h.level = 1;
+        h.sourceOffset = static_cast<int>(ts_node_start_byte(node));
+        QString text;
+
+        uint32_t count = ts_node_child_count(node);
+        for (uint32_t i = 0; i < count; ++i) {
+            TSNode child = ts_node_child(node, i);
+            const char *ct = ts_node_type(child);
+
+            if (strncmp(ct, "atx_h", 5) == 0 && strstr(ct, "_marker")) {
+                h.level = ct[5] - '0';
+            } else if (strcmp(ct, "inline") == 0) {
+                int startByte = static_cast<int>(ts_node_start_byte(child));
+                int endByte = static_cast<int>(ts_node_end_byte(child));
+                text = QString::fromUtf8(utf8.mid(startByte, endByte - startByte));
+            }
+        }
+
+        h.text = text.trimmed();
+        headings.append(h);
+        return; // don't recurse into children of atx_heading
+    }
+
+    uint32_t count = ts_node_child_count(node);
+    for (uint32_t i = 0; i < count; ++i)
+        collectHeadingsForQuery(ts_node_child(node, i), utf8, headings);
+}
+
+/// Recursively walk an inline tree for links, wikilinks, images, and tags
+void collectInlineQueries(TSNode node, const QByteArray &utf8,
+                          QList<LinkInfo> &links, QList<TagInfo> &tags)
+{
+    const char *type = ts_node_type(node);
+
+    if (strcmp(type, "wiki_link") == 0) {
+        // Wiki link: [[target]] or [[target|display]] or ![[embed]]
+        int startByte = static_cast<int>(ts_node_start_byte(node));
+        int endByte = static_cast<int>(ts_node_end_byte(node));
+        QString raw = QString::fromUtf8(utf8.mid(startByte, endByte - startByte));
+
+        LinkInfo li;
+        li.sourceOffset = startByte;
+
+        // Check for embed prefix
+        bool isEmbed = raw.startsWith(QStringLiteral("![["));
+        li.type = isEmbed ? LinkInfo::Embed : LinkInfo::Wiki;
+
+        // Strip delimiters: ![[...]] or [[...]]
+        QString inner;
+        if (isEmbed)
+            inner = raw.mid(3, raw.size() - 5); // strip "![[" and "]]"
+        else
+            inner = raw.mid(2, raw.size() - 4); // strip "[[" and "]]"
+
+        // Split on | for display text
+        int pipeIdx = inner.indexOf(QLatin1Char('|'));
+        if (pipeIdx >= 0) {
+            li.target = inner.left(pipeIdx);
+            li.displayText = inner.mid(pipeIdx + 1);
+        } else {
+            li.target = inner;
+            li.displayText = inner;
+        }
+
+        links.append(li);
+        return; // don't recurse into wiki_link children
+    }
+
+    if (strcmp(type, "inline_link") == 0 ||
+        strcmp(type, "shortcut_link") == 0 ||
+        strcmp(type, "full_reference_link") == 0 ||
+        strcmp(type, "collapsed_reference_link") == 0) {
+
+        LinkInfo li;
+        li.type = LinkInfo::Standard;
+        li.sourceOffset = static_cast<int>(ts_node_start_byte(node));
+
+        uint32_t count = ts_node_child_count(node);
+        for (uint32_t i = 0; i < count; ++i) {
+            TSNode child = ts_node_child(node, i);
+            const char *ct = ts_node_type(child);
+            int cStart = static_cast<int>(ts_node_start_byte(child));
+            int cEnd = static_cast<int>(ts_node_end_byte(child));
+
+            if (strcmp(ct, "link_text") == 0) {
+                // link_text includes brackets, so strip them
+                QString raw = QString::fromUtf8(utf8.mid(cStart, cEnd - cStart));
+                if (raw.startsWith(QLatin1Char('[')) && raw.endsWith(QLatin1Char(']')))
+                    raw = raw.mid(1, raw.size() - 2);
+                li.displayText = raw;
+            } else if (strcmp(ct, "link_destination") == 0) {
+                li.target = QString::fromUtf8(utf8.mid(cStart, cEnd - cStart));
+            }
+        }
+
+        // For shortcut_link: target = displayText (no separate destination)
+        if (li.target.isEmpty() && !li.displayText.isEmpty())
+            li.target = li.displayText;
+
+        links.append(li);
+        return;
+    }
+
+    if (strcmp(type, "image") == 0) {
+        LinkInfo li;
+        li.type = LinkInfo::Image;
+        li.sourceOffset = static_cast<int>(ts_node_start_byte(node));
+
+        uint32_t count = ts_node_child_count(node);
+        for (uint32_t i = 0; i < count; ++i) {
+            TSNode child = ts_node_child(node, i);
+            const char *ct = ts_node_type(child);
+            int cStart = static_cast<int>(ts_node_start_byte(child));
+            int cEnd = static_cast<int>(ts_node_end_byte(child));
+
+            if (strcmp(ct, "image_description") == 0 || strcmp(ct, "link_text") == 0) {
+                li.displayText = QString::fromUtf8(utf8.mid(cStart, cEnd - cStart));
+            } else if (strcmp(ct, "link_destination") == 0) {
+                li.target = QString::fromUtf8(utf8.mid(cStart, cEnd - cStart));
+            }
+        }
+
+        links.append(li);
+        return;
+    }
+
+    if (strcmp(type, "tag") == 0) {
+        int startByte = static_cast<int>(ts_node_start_byte(node));
+        int endByte = static_cast<int>(ts_node_end_byte(node));
+        QString raw = QString::fromUtf8(utf8.mid(startByte, endByte - startByte));
+
+        TagInfo ti;
+        ti.sourceOffset = startByte;
+        // Strip leading #
+        ti.name = raw.startsWith(QLatin1Char('#')) ? raw.mid(1) : raw;
+        tags.append(ti);
+        return;
+    }
+
+    // Recurse into children
+    uint32_t count = ts_node_child_count(node);
+    for (uint32_t i = 0; i < count; ++i)
+        collectInlineQueries(ts_node_child(node, i), utf8, links, tags);
+}
+
+} // anonymous namespace
+
+DocumentQueryResult TreeSitterParser::buildDocumentQueries() const
+{
+    DocumentQueryResult result;
+
+    if (!m_blockTree)
+        return result;
+
+    // Walk block tree for headings
+    TSNode blockRoot = ts_tree_root_node(m_blockTree);
+    collectHeadingsForQuery(blockRoot, m_utf8, result.headings);
+
+    // Walk inline trees for links and tags
+    for (TSTree *tree : m_inlineTrees) {
+        TSNode inlineRoot = ts_tree_root_node(tree);
+        collectInlineQueries(inlineRoot, m_utf8, result.links, result.tags);
+    }
+
+    return result;
 }
 
 } // namespace Markoff
