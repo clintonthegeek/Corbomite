@@ -5,9 +5,9 @@
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
 #include "TableBlockItem.h"
-#include "MarkdownSplitter.h"
+#include <markoff-parser/MarkdownSplitter.h>
 #include "MarkdownHighlighter.h"
-#include "TreeSitterParser.h"
+#include <markoff-parser/TreeSitterParser.h>
 
 #include <QTimer>
 #include <QTextDocument>

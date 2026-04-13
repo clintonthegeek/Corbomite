@@ -11,7 +11,7 @@
 #include <QAbstractTextDocumentLayout>
 #include <QStyleOptionGraphicsItem>
 #include "MarkdownHighlighter.h"
-#include "SourceSpan.h"
+#include <markoff-parser/SourceSpan.h>
 #include <QGraphicsSceneMouseEvent>
 #include <QFocusEvent>
 #include <QKeyEvent>
@@ -111,7 +111,60 @@ void MarkdownTextItem::clearSelection()
 QString MarkdownTextItem::selectedMarkdown() const
 {
     QTextCursor cursor = m_control->textCursor();
-    return cursor.selectedText();
+    if (!cursor.hasSelection())
+        return {};
+
+    const int selStart = cursor.selectionStart();
+    const int selEnd = cursor.selectionEnd();
+
+    // Walk the selection range fragment by fragment, expanding any
+    // U+FFFC math glyphs back to their stored raw source. Mirrors
+    // allMarkdown()'s approach but constrained to the selection.
+    QString out;
+    out.reserve(selEnd - selStart);
+
+    QTextBlock block = m_document->findBlock(selStart);
+    while (block.isValid() && block.position() < selEnd) {
+        // Compute the intersection of this block with the selection.
+        const int blockStart = block.position();
+        const int blockEnd = blockStart + block.length() - 1;  // exclude paragraph sep
+        const int sliceStart = qMax(selStart, blockStart);
+        const int sliceEnd   = qMin(selEnd, blockEnd);
+
+        for (auto it = block.begin(); !it.atEnd(); ++it) {
+            const QTextFragment frag = it.fragment();
+            if (!frag.isValid()) continue;
+            const int fragStart = frag.position();
+            const int fragEnd = fragStart + frag.length();
+            if (fragEnd <= sliceStart) continue;
+            if (fragStart >= sliceEnd) break;
+
+            const QTextCharFormat fmt = frag.charFormat();
+            const QString fragText = frag.text();
+            const int localStart = qMax(0, sliceStart - fragStart);
+            const int localEnd = qMin(fragText.size(), sliceEnd - fragStart);
+
+            if (fmt.objectType() == MathTextObject::TypeId) {
+                // Expand each U+FFFC in this slice to its raw source.
+                for (int i = localStart; i < localEnd; ++i) {
+                    if (fragText.at(i) == QChar::ObjectReplacementCharacter)
+                        out += fmt.property(MathTextObject::RawProperty).toString();
+                    else
+                        out += fragText.at(i);
+                }
+            } else {
+                out += fragText.mid(localStart, localEnd - localStart);
+            }
+        }
+
+        // Append a newline between blocks if the selection crosses block
+        // boundaries.
+        if (sliceEnd >= blockEnd && block.next().isValid() && block.next().position() < selEnd)
+            out += QLatin1Char('\n');
+
+        block = block.next();
+    }
+    return out;
 }
 
 QString MarkdownTextItem::allMarkdown() const
@@ -279,11 +332,31 @@ void MarkdownTextItem::applyMathSubstitution()
     std::sort(regions.begin(), regions.end(),
               [](const Region &a, const Region &b) { return a.start < b.start; });
 
+    // Cursor-reveal: skip the region the cursor is currently inside, so the
+    // user can continue editing the raw source without being interrupted by
+    // a reparse swapping the glyph back in. "Inside" means strictly between
+    // the delimiters — a cursor exactly at `start` is before the opening `$`
+    // and a cursor at `start + len` is right after the closing `$`.
+    const int cursorPos = m_control->textCursor().position();
+
     m_inMathSubstitution = true;
     QTextCursor cursor(m_document);
     cursor.beginEditBlock();
+    int newRevealedStart = -1;
+    int newRevealedEnd = -1;
+    bool newRevealedIsDisplay = false;
     for (int i = regions.size() - 1; i >= 0; --i) {
         const Region &r = regions[i];
+        // Strict: cursor must be strictly between the delimiters to count
+        // as inside. pos == r.start is before the opening `$`; pos ==
+        // r.start + r.len is after the closing `$`.
+        if (cursorPos > r.start && cursorPos < r.start + r.len) {
+            newRevealedStart = r.start;
+            newRevealedEnd = r.start + r.len;
+            newRevealedIsDisplay = r.display;
+            continue;
+        }
+
         cursor.setPosition(r.start);
         cursor.setPosition(r.start + r.len, QTextCursor::KeepAnchor);
 
@@ -299,6 +372,10 @@ void MarkdownTextItem::applyMathSubstitution()
     }
     cursor.endEditBlock();
     m_inMathSubstitution = false;
+
+    m_revealedStart = newRevealedStart;
+    m_revealedEnd = newRevealedEnd;
+    m_revealedIsDisplay = newRevealedIsDisplay;
 }
 
 void MarkdownTextItem::refreshMathSubstitution()
@@ -310,7 +387,10 @@ void MarkdownTextItem::refreshMathSubstitution()
 
 void MarkdownTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
+    // Flag for updateMathReveal: reveal only on mouse clicks, not arrow keys.
+    m_mouseTriggered = true;
     m_control->processEvent(event);
+    m_mouseTriggered = false;
     event->accept(); // Accept all buttons to hold grab for middle-click paste
 }
 
@@ -374,11 +454,18 @@ void MarkdownTextItem::onCursorPositionChanged()
 {
     if (m_snappingCursor)
         return;
+    if (m_inMathSubstitution)
+        return;
 
     // 1. Snap cursor past hidden delimiters
     snapCursorPastDelimiters();
 
-    // 2. Notify highlighter of cursor position (shows/hides delimiters)
+    // 2. Math cursor reveal: expand the U+FFFC under the cursor to its raw
+    //    source, or collapse a previously-revealed region when the cursor
+    //    leaves it.
+    updateMathReveal();
+
+    // 3. Notify highlighter of cursor position (shows/hides delimiters)
     auto *hl = qobject_cast<MarkdownHighlighter *>(
         m_document->findChild<QSyntaxHighlighter *>());
     if (hl) {
@@ -388,11 +475,158 @@ void MarkdownTextItem::onCursorPositionChanged()
     }
 }
 
+void MarkdownTextItem::updateMathReveal()
+{
+    if (m_inMathSubstitution) return;
+
+    QTextCursor cursor = m_control->textCursor();
+    const int pos = cursor.position();
+
+    // Only reveal in live-preview mode (source mode shows raw text anyway).
+    auto *hl = qobject_cast<MarkdownHighlighter *>(
+        m_document->findChild<QSyntaxHighlighter *>());
+    if (!hl || hl->mode() != MarkdownHighlighter::Mode::LivePreview)
+        return;
+
+    // Case 1: we have a revealed region and the cursor is still strictly
+    // inside it. Leave it alone so the user can continue editing. Strict
+    // bounds: position AT the boundary means the cursor has moved just
+    // outside the `$...$` delimiters, so we collapse.
+    if (m_revealedStart >= 0 && pos > m_revealedStart && pos < m_revealedEnd)
+        return;
+
+    // Case 2: we have a revealed region but the cursor has left it. Collapse
+    // it back to a U+FFFC glyph. Do this before checking for a new reveal,
+    // since expanding shifts subsequent offsets.
+    if (m_revealedStart >= 0) {
+        const int start = m_revealedStart;
+        const int end = m_revealedEnd;
+        m_revealedStart = -1;
+        m_revealedEnd = -1;
+
+        if (end > start && end <= m_document->characterCount()) {
+            QTextCursor c(m_document);
+            c.setPosition(start);
+            c.setPosition(end, QTextCursor::KeepAnchor);
+            const QString slice = c.selectedText();
+
+            // Only re-substitute if the slice still looks like $...$ — the
+            // user may have deleted the delimiters while editing, in which
+            // case we leave it as plain text and let the next reparse sort
+            // it out.
+            bool display = false;
+            QString latex;
+            if (slice.size() >= 4 && slice.startsWith(QStringLiteral("$$"))
+                                  && slice.endsWith(QStringLiteral("$$"))) {
+                display = true;
+                latex = slice.mid(2, slice.size() - 4);
+            } else if (slice.size() >= 2 && slice.startsWith(QLatin1Char('$'))
+                                         && slice.endsWith(QLatin1Char('$'))) {
+                display = false;
+                latex = slice.mid(1, slice.size() - 2);
+            }
+
+            if (!latex.isEmpty()) {
+                QTextCharFormat fmt;
+                fmt.setObjectType(MathTextObject::TypeId);
+                fmt.setProperty(MathTextObject::SourceProperty, latex);
+                fmt.setProperty(MathTextObject::DisplayProperty, display);
+                const QString delim = display ? QStringLiteral("$$") : QStringLiteral("$");
+                fmt.setProperty(MathTextObject::RawProperty, delim + latex + delim);
+
+                m_inMathSubstitution = true;
+                c.beginEditBlock();
+                c.removeSelectedText();
+                c.insertText(QString(QChar::ObjectReplacementCharacter), fmt);
+                c.endEditBlock();
+                m_inMathSubstitution = false;
+
+                // Refresh cursor, since offsets shifted.
+                cursor = m_control->textCursor();
+            }
+        }
+    }
+
+    // Case 3: expand a glyph — ONLY on mouse clicks. Arrow keys just
+    // step past the 1-char U+FFFC naturally; the user clicks to reveal.
+    // This avoids all the arrow-key edge cases (stale span offsets,
+    // cursor position jumps, collapse→re-expand loops).
+    if (!m_mouseTriggered)
+        return;
+
+    auto glyphAt = [&](int p) -> QTextCharFormat {
+        if (p < 0 || p >= m_document->characterCount() - 1)
+            return {};
+        QTextCursor c(m_document);
+        c.setPosition(p);
+        c.setPosition(p + 1, QTextCursor::KeepAnchor);
+        if (c.selectedText() != QString(QChar::ObjectReplacementCharacter))
+            return {};
+        const QTextCharFormat fmt = c.charFormat();
+        if (fmt.objectType() != MathTextObject::TypeId)
+            return {};
+        return fmt;
+    };
+
+    int glyphPos = -1;
+    QTextCharFormat glyphFmt;
+    {
+        QTextCharFormat f = glyphAt(pos);
+        if (f.isValid() && f.objectType() == MathTextObject::TypeId) {
+            glyphPos = pos;
+            glyphFmt = f;
+        } else {
+            f = glyphAt(pos - 1);
+            if (f.isValid() && f.objectType() == MathTextObject::TypeId) {
+                glyphPos = pos - 1;
+                glyphFmt = f;
+            }
+        }
+    }
+    if (glyphPos < 0) return;
+
+    const QString raw = glyphFmt.property(MathTextObject::RawProperty).toString();
+    if (raw.isEmpty()) return;
+
+    // Replace the U+FFFC with the raw source.
+    m_inMathSubstitution = true;
+    QTextCursor c(m_document);
+    c.setPosition(glyphPos);
+    c.setPosition(glyphPos + 1, QTextCursor::KeepAnchor);
+    QTextCharFormat plain;
+    c.setCharFormat(plain);
+    c.beginEditBlock();
+    c.removeSelectedText();
+    c.insertText(raw);
+    c.endEditBlock();
+    m_inMathSubstitution = false;
+
+    m_revealedStart = glyphPos;
+    m_revealedEnd = glyphPos + raw.size();
+    m_revealedIsDisplay = raw.startsWith(QStringLiteral("$$"));
+
+    // Position the cursor right after the opening delimiter so the user
+    // lands inside the LaTeX content, ready to edit.
+    const int delim = m_revealedIsDisplay ? 2 : 1;
+    QTextCursor newCursor(m_document);
+    newCursor.setPosition(glyphPos + delim);
+    m_control->setTextCursor(newCursor);
+}
+
 void MarkdownTextItem::snapCursorPastDelimiters()
 {
     auto *hl = qobject_cast<MarkdownHighlighter *>(
         m_document->findChild<QSyntaxHighlighter *>());
     if (!hl || hl->mode() != MarkdownHighlighter::Mode::LivePreview)
+        return;
+
+    // If the document has any inline math glyphs substituted in, the
+    // highlighter's span offsets reference SOURCE-form positions and no
+    // longer match the document's character positions. Snapping based on
+    // those stale offsets would jump the cursor to arbitrary places.
+    // Math reveal handles cursor positioning around glyphs anyway, so
+    // disabling snap in this case is safe.
+    if (m_document->toPlainText().contains(QChar::ObjectReplacementCharacter))
         return;
 
     QTextCursor cursor = m_control->textCursor();

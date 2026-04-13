@@ -7,7 +7,7 @@
 #include <markoff/Theme.h>
 #include <markoff/EditorSettings.h>
 #include <markoff/RenderSettings.h>
-#include <markoff/Document.h>
+#include <markoff-parser/Document.h>
 
 class QTimer;
 

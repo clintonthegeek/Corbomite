@@ -10,7 +10,7 @@
 #include <KSyntaxHighlighting/Format>
 #include <KSyntaxHighlighting/AbstractHighlighter>
 #include "markoff/Theme.h"
-#include "SourceSpan.h"
+#include <markoff-parser/SourceSpan.h>
 #include "DecoratedRange.h"
 
 namespace Markoff {

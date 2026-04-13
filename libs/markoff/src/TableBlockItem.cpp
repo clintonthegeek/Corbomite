@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "TableBlockItem.h"
-#include "TableHandler.h"
+#include <markoff-parser/TableHandler.h>
 #include <QPainter>
 #include <QFontMetricsF>
 
