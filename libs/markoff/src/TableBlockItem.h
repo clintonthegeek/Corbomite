@@ -8,6 +8,17 @@
 
 namespace Markoff {
 
+// TODO: When Editor::setReadOnly(true) is active, TableBlockItem should still
+// allow column width adjustment via drag handles. This is an ephemeral
+// display affordance for readability — it does not modify the underlying
+// pipe-delimited markdown and is not persisted. The interaction model is:
+//   - Drag column border to resize
+//   - Widths are volatile (reset on reparse or document reload)
+//   - No undo/redo entry is created
+//   - toMarkdown() output is unaffected
+// This applies to all future interactive block items that offer similar
+// non-destructive display adjustments.
+
 /// Read-only table rendered from pipe-delimited markdown.
 class TableBlockItem : public BlockItem {
     Q_OBJECT
