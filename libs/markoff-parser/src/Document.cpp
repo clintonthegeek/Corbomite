@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <markoff-parser/Document.h>
+#include <markoff-parser/TreeSitterParser.h>
 
 #include <QStringList>
 #include <QRegularExpression>
@@ -15,7 +16,7 @@ struct Footnote {
 struct Document::Private {
     QString source;
     QString frontmatter;    // YAML frontmatter content (without --- delimiters)
-    QList<Block> blocks;
+    TreeSitterParser parser;
     QList<Footnote> footnotes;
 };
 
@@ -109,11 +110,8 @@ std::unique_ptr<Document> Document::fromMarkdown(const QString &source)
               [](const Footnote &a, const Footnote &b) { return a.number < b.number; });
     doc->d->footnotes = sorted;
 
-    DocumentBuilder builder;
-    if (builder.parse(markdown)) {
-        doc->d->blocks = builder.takeBlocks();
-        DocumentBuilder::postProcess(doc->d->blocks);
-    }
+    // Parse with tree-sitter
+    doc->d->parser.parse(markdown);
 
     return doc;
 }
@@ -164,84 +162,17 @@ QString Document::footnoteContent(int number) const
 }
 
 // ---------------------------------------------------------------------------
-// Query API helpers
+// Query API — delegates to TreeSitterParser::buildDocumentQueries()
 // ---------------------------------------------------------------------------
-
-namespace {
-
-// Recursively collect headings, links, and tags from a block tree.
-// Collects values directly rather than pointers, avoiding raw pointer fragility.
-void collectFromBlocks(const QList<Block> &blocks,
-                       QList<HeadingInfo> &headings,
-                       QList<LinkInfo> &links,
-                       QList<TagInfo> &tags)
-{
-    for (const Block &block : blocks) {
-        if (block.type == MD_BLOCK_H) {
-            HeadingInfo h;
-            h.level = block.headingLevel;
-            h.sourceOffset = block.sourceOffset;
-            QString text;
-            for (const InlineRun &run : block.inlines)
-                text += run.text;
-            h.text = text.trimmed();
-            headings.append(h);
-        }
-
-        for (const InlineRun &run : block.inlines) {
-            if (!run.wikiTarget.isEmpty()) {
-                LinkInfo li;
-                li.type = run.wikiTarget.startsWith(QLatin1Char('!')) ? LinkInfo::Embed : LinkInfo::Wiki;
-                li.target = run.wikiTarget;
-                li.displayText = run.text;
-                li.sourceOffset = run.sourceOffset;
-                links.append(li);
-            } else if (!run.imageSrc.isEmpty()) {
-                LinkInfo li;
-                li.type = LinkInfo::Image;
-                li.target = run.imageSrc;
-                li.displayText = run.text;
-                li.sourceOffset = run.sourceOffset;
-                links.append(li);
-            } else if (!run.linkHref.isEmpty()) {
-                LinkInfo li;
-                li.type = LinkInfo::Standard;
-                li.target = run.linkHref;
-                li.displayText = run.text;
-                li.sourceOffset = run.sourceOffset;
-                links.append(li);
-            }
-
-            if (run.isTag) {
-                TagInfo ti;
-                ti.name = run.text.startsWith(QLatin1Char('#')) ? run.text.mid(1) : run.text;
-                ti.sourceOffset = run.sourceOffset;
-                tags.append(ti);
-            }
-        }
-
-        collectFromBlocks(block.children, headings, links, tags);
-    }
-}
-
-} // anonymous namespace
 
 QList<HeadingInfo> Document::headings() const
 {
-    QList<HeadingInfo> result;
-    QList<LinkInfo> unusedLinks;
-    QList<TagInfo> unusedTags;
-    collectFromBlocks(d->blocks, result, unusedLinks, unusedTags);
-    return result;
+    return d->parser.buildDocumentQueries().headings;
 }
 
 QList<LinkInfo> Document::links() const
 {
-    QList<HeadingInfo> unusedHeadings;
-    QList<LinkInfo> result;
-    QList<TagInfo> unusedTags;
-    collectFromBlocks(d->blocks, unusedHeadings, result, unusedTags);
-    return result;
+    return d->parser.buildDocumentQueries().links;
 }
 
 QList<LinkInfo> Document::wikiLinks() const
@@ -257,11 +188,7 @@ QList<LinkInfo> Document::wikiLinks() const
 
 QList<TagInfo> Document::tags() const
 {
-    QList<HeadingInfo> unusedHeadings;
-    QList<LinkInfo> unusedLinks;
-    QList<TagInfo> result;
-    collectFromBlocks(d->blocks, unusedHeadings, unusedLinks, result);
-    return result;
+    return d->parser.buildDocumentQueries().tags;
 }
 
 QList<FootnoteInfo> Document::footnotes() const
@@ -292,20 +219,11 @@ int Document::characterCount() const
 }
 
 // ---------------------------------------------------------------------------
-// Internal accessor for Renderer/Editor
-// ---------------------------------------------------------------------------
-
-const QList<Block> &DocumentBlockAccessor::blocks(const Document &doc)
-{
-    return doc.d->blocks;
-}
-
-// ---------------------------------------------------------------------------
 // extractSubpath
 //
 // Handles two formats:
-//   "#^block-id"  — paragraph containing ^block-id marker
-//   "#heading"    — section from matching heading to next same/higher heading
+//   "#^block-id"  -- paragraph containing ^block-id marker
+//   "#heading"    -- section from matching heading to next same/higher heading
 // ---------------------------------------------------------------------------
 
 QString Document::extractSubpath(const QString &subpath) const
@@ -358,7 +276,7 @@ QString Document::extractSubpath(const QString &subpath) const
     // -----------------------------------------------------------------------
     // Heading mode
     // -----------------------------------------------------------------------
-    // Normalise the fragment: hyphens → spaces, lowercase
+    // Normalise the fragment: hyphens -> spaces, lowercase
     QString needle = fragment;
     needle.replace(QLatin1Char('-'), QLatin1Char(' '));
     needle = needle.toLower().trimmed();
