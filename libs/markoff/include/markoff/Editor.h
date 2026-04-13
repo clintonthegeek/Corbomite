@@ -6,7 +6,6 @@
 #include <QTextDocument>
 #include <markoff/Theme.h>
 #include <markoff/EditorSettings.h>
-#include <markoff/RenderSettings.h>
 #include <markoff-parser/Document.h>
 
 class QTimer;
@@ -20,12 +19,8 @@ class ResourceProvider;
 
 class Editor : public QGraphicsView {
     Q_OBJECT
-    Q_PROPERTY(Mode mode READ mode WRITE setMode NOTIFY modeChanged)
 
 public:
-    enum class Mode { Source, LivePreview };
-    Q_ENUM(Mode)
-
     explicit Editor(QWidget *parent = nullptr);
     ~Editor() override;
 
@@ -42,14 +37,20 @@ public:
     void setEditorSettings(const EditorSettings &settings);
     EditorSettings editorSettings() const;
 
-    void setRenderSettings(const RenderSettings &settings);
-    RenderSettings renderSettings() const;
-
     void setResourceProvider(ResourceProvider *provider);
 
-    // --- Mode ---
-    void setMode(Mode mode);
-    Mode mode() const;
+    /// Enable or disable editing. When read-only, the editor displays
+    /// live-preview-formatted markdown but does not accept input.
+    ///
+    /// NOTE: Read-only mode does NOT prevent all user interaction with
+    /// non-text block items. Specifically, TableBlockItem (and future
+    /// interactive block items) may allow non-destructive display
+    /// adjustments — such as column width resizing — that affect only
+    /// the visual presentation and do not modify the underlying markdown.
+    /// These are ephemeral viewport affordances for readability, not
+    /// editing operations, and are not persisted or serialized.
+    void setReadOnly(bool readOnly);
+    bool isReadOnly() const;
 
     // --- Editing actions ---
     void undo();
@@ -95,7 +96,6 @@ public:
 
 Q_SIGNALS:
     void textChanged();
-    void modeChanged(Markoff::Editor::Mode mode);
     void cursorPositionChanged(int line, int column);
     void undoAvailable(bool available);
     void redoAvailable(bool available);
@@ -134,16 +134,15 @@ private:
 
     SelectionScene *m_scene = nullptr;
     SceneCoordinator *m_coordinator = nullptr;
-    Mode m_mode = Mode::Source;
     QString m_sourceText;
     int m_fontSize = 14;
     QTimer *m_autoScrollTimer = nullptr;
     int m_autoScrollDelta = 0;
     bool m_autoScrollActive = false;
+    bool m_readOnly = false;
 
     Theme m_theme;
     EditorSettings m_editorSettings;
-    RenderSettings m_renderSettings;
     ResourceProvider *m_resourceProvider = nullptr;
     std::unique_ptr<Document> m_document;
 };

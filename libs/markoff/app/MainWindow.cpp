@@ -102,10 +102,7 @@ void MainWindow::onSave()
 
 void MainWindow::onModeToggle()
 {
-    if (m_editor->mode() == Markoff::Editor::Mode::Source)
-        m_editor->setMode(Markoff::Editor::Mode::LivePreview);
-    else
-        m_editor->setMode(Markoff::Editor::Mode::Source);
+    m_editor->setReadOnly(!m_editor->isReadOnly());
 }
 
 void MainWindow::updateStatusBar()

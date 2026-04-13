@@ -2,7 +2,6 @@
 #ifndef MARKOFF_SCENECOORDINATOR_H
 #define MARKOFF_SCENECOORDINATOR_H
 
-#include "MarkdownHighlighter.h"
 #include <markoff/Theme.h>
 #include <QObject>
 #include <QList>
@@ -27,11 +26,8 @@ public:
     explicit SceneCoordinator(SelectionScene *scene, QObject *parent = nullptr);
     ~SceneCoordinator() override;
 
-    /// Load markdown in live preview mode: split at block boundaries.
+    /// Load markdown: split at block boundaries, apply live-preview formatting.
     void loadMarkdown(const QString &markdown);
-
-    /// Load markdown in source mode: single text item, no splitting.
-    void loadSource(const QString &markdown);
 
     /// Serialize all items back to flat markdown.
     QString toMarkdown() const;
@@ -62,8 +58,7 @@ Q_SIGNALS:
     void reparsed();
 
 private:
-    MarkdownTextItem *createTextItem(const QString &text,
-                                      MarkdownHighlighter::Mode hlMode);
+    MarkdownTextItem *createTextItem(const QString &text);
     void handleBoundary(MarkdownTextItem *from, Qt::Edge edge);
     void clearItems();
     void repositionItems();

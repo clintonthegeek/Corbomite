@@ -482,11 +482,9 @@ void MarkdownTextItem::updateMathReveal()
     QTextCursor cursor = m_control->textCursor();
     const int pos = cursor.position();
 
-    // Only reveal in live-preview mode (source mode shows raw text anyway).
     auto *hl = qobject_cast<MarkdownHighlighter *>(
         m_document->findChild<QSyntaxHighlighter *>());
-    if (!hl || hl->mode() != MarkdownHighlighter::Mode::LivePreview)
-        return;
+    if (!hl) return;
 
     // Case 1: we have a revealed region and the cursor is still strictly
     // inside it. Leave it alone so the user can continue editing. Strict
@@ -617,8 +615,7 @@ void MarkdownTextItem::snapCursorPastDelimiters()
 {
     auto *hl = qobject_cast<MarkdownHighlighter *>(
         m_document->findChild<QSyntaxHighlighter *>());
-    if (!hl || hl->mode() != MarkdownHighlighter::Mode::LivePreview)
-        return;
+    if (!hl) return;
 
     // If the document has any inline math glyphs substituted in, the
     // highlighter's span offsets reference SOURCE-form positions and no

@@ -25,12 +25,8 @@ class MarkdownHighlighter : public QSyntaxHighlighter {
 public:
     explicit MarkdownHighlighter(QTextDocument *parent);
 
-    enum class Mode { Source, LivePreview };
-    void setMode(Mode mode);
-
     /// Replace the current theme and rehighlight.
     void setTheme(const Theme &theme);
-    Mode mode() const { return m_mode; }
 
     /// Update the span map after a reparse.
     void setSpanMap(QList<SourceSpan> spans);
@@ -58,7 +54,6 @@ private:
     void applySpanFormat(const SourceSpan &span, int blockCharStart, int blockCharEnd,
                           bool shouldHideDelim, int cursorCol);
 
-    Mode m_mode = Mode::Source;
     int m_cursorBlock = -1;
     int m_cursorColumn = -1;
 

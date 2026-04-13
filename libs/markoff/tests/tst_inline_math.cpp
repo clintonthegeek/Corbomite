@@ -39,7 +39,6 @@ MarkdownTextItem *TestInlineMath::makeItem(const QString &source)
     m_scene.addItem(item);
 
     auto *hl = new MarkdownHighlighter(item->document());
-    hl->setMode(MarkdownHighlighter::Mode::LivePreview);
 
     if (!m_parser.parse(source)) {
         qFatal("parser failed to accept test source: %s", qPrintable(source));

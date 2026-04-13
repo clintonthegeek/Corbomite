@@ -27,13 +27,12 @@ Editor *TestEditorFormatting::makeEditor(const QString &text)
 {
     auto *editor = new Editor;
     editor->resize(400, 300);
-    editor->setMode(Editor::Mode::Source);
     editor->setPlainText(text);
     editor->show();
     QTest::qWaitForWindowExposed(editor);
 
-    // Source mode produces a single MarkdownTextItem; give it focus so the
-    // editor's formatting actions (which delegate to focusedTextItem()) work.
+    // Live-preview mode may produce multiple MarkdownTextItems; give the
+    // first one focus so the editor's formatting actions work.
     const auto items = editor->scene()->items();
     if (!items.isEmpty())
         items.first()->setFocus();

@@ -20,13 +20,6 @@ void MarkdownHighlighter::setTheme(const Theme &theme)
     rehighlight();
 }
 
-void MarkdownHighlighter::setMode(Mode mode)
-{
-    if (m_mode == mode) return;
-    m_mode = mode;
-    rehighlight();
-}
-
 void MarkdownHighlighter::setSpanMap(QList<SourceSpan> spans)
 {
     m_spans = std::move(spans);
@@ -46,16 +39,14 @@ void MarkdownHighlighter::setCursorPosition(int blockNumber, int columnInBlock)
     m_cursorBlock = blockNumber;
     m_cursorColumn = columnInBlock;
 
-    if (m_mode == Mode::LivePreview) {
-        QTextDocument *doc = document();
-        if (blockChanged && oldBlock >= 0) {
-            QTextBlock b = doc->findBlockByNumber(oldBlock);
-            if (b.isValid()) rehighlightBlock(b);
-        }
-        {
-            QTextBlock b = doc->findBlockByNumber(blockNumber);
-            if (b.isValid()) rehighlightBlock(b);
-        }
+    QTextDocument *doc = document();
+    if (blockChanged && oldBlock >= 0) {
+        QTextBlock b = doc->findBlockByNumber(oldBlock);
+        if (b.isValid()) rehighlightBlock(b);
+    }
+    {
+        QTextBlock b = doc->findBlockByNumber(blockNumber);
+        if (b.isValid()) rehighlightBlock(b);
     }
 }
 
@@ -309,10 +300,10 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     const int blockPos = currentBlock().position();
     const int blockLen = text.length();
 
-    // Determine cursor-related visibility
+    // Determine cursor-related visibility (always live-preview behavior)
     bool isCursorLine = (blockNum == m_cursorBlock);
-    bool hideDelimiters = (m_mode == Mode::LivePreview && !isCursorLine);
-    int cursorCol = (m_mode == Mode::LivePreview && isCursorLine) ? m_cursorColumn : -1;
+    bool hideDelimiters = !isCursorLine;
+    int cursorCol = isCursorLine ? m_cursorColumn : -1;
 
 
     // Find all spans that overlap this block's character range
@@ -336,7 +327,7 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     }
 
     // Make table blocks transparent (embedded QTableWidget renders on top)
-    if (m_mode == Mode::LivePreview && !isCursorLine) {
+    if (!isCursorLine) {
         for (const DecoratedRange &dr : m_decoratedRanges) {
             if (dr.type == DecoratedRange::Table &&
                 blockNum >= dr.firstBlock && blockNum <= dr.lastBlock) {
@@ -361,7 +352,7 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
     // Callout first line: hide the [!type] marker and style the title.
     // Works like bold — delimiters hidden, content styled. Click on title
     // reveals the [!type] prefix (same shift behavior as ** for bold).
-    if (m_mode == Mode::LivePreview) {
+    {
         for (const DecoratedRange &dr : m_decoratedRanges) {
             if (dr.type == DecoratedRange::Callout && blockNum == dr.firstBlock) {
                 static const QRegularExpression calloutMarkerRe(

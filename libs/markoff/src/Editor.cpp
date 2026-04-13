@@ -10,6 +10,7 @@
 #include <QResizeEvent>
 #include <QContextMenuEvent>
 #include <QScrollBar>
+#include <QTextBlock>
 #include <QTextDocument>
 #include <QTimer>
 #include <QMenu>
@@ -71,22 +72,7 @@ void Editor::clear()
 
 QString Editor::toPlainText() const
 {
-    if (m_mode == Mode::Source) {
-        if (!m_coordinator->items().isEmpty() && m_coordinator->items().first()->isTextItem())
-            return m_coordinator->items().first()->allMarkdown();
-        return m_sourceText;
-    }
     return m_coordinator->toMarkdown();
-}
-
-void Editor::setMode(Mode mode)
-{
-    if (m_mode == mode)
-        return;
-    m_sourceText = toPlainText();
-    m_mode = mode;
-    rebuildScene();
-    Q_EMIT modeChanged(mode);
 }
 
 void Editor::setFontSize(int pointSize)
@@ -194,23 +180,9 @@ void Editor::contextMenuEvent(QContextMenuEvent *e)
 
     menu.addSeparator();
 
-    auto *cutAction = menu.addAction(tr("Cut"), this, [this, mgr]() {
-        if (mgr->hasSelection()) {
-            QApplication::clipboard()->setMimeData(mgr->createMimeData());
-        } else if (auto *ti = focusedTextItem()) {
-            ti->textControl()->cut();
-        }
-    });
-    auto *copyAction = menu.addAction(tr("Copy"), this, [this, mgr]() {
-        if (mgr->hasSelection()) {
-            QApplication::clipboard()->setMimeData(mgr->createMimeData());
-        } else if (auto *ti = focusedTextItem()) {
-            ti->textControl()->copy();
-        }
-    });
-    auto *pasteAction = menu.addAction(tr("Paste"), this, [this]() {
-        if (auto *ti = focusedTextItem()) ti->textControl()->paste();
-    });
+    auto *cutAction = menu.addAction(tr("Cut"), this, [this]() { cut(); });
+    auto *copyAction = menu.addAction(tr("Copy"), this, [this]() { copy(); });
+    auto *pasteAction = menu.addAction(tr("Paste"), this, [this]() { paste(); });
 
     menu.addSeparator();
 
@@ -249,6 +221,12 @@ void Editor::keyPressEvent(QKeyEvent *e)
             if (m_fontSize > 6) setFontSize(m_fontSize - 1);
             return;
         }
+        // Ctrl+C / Ctrl+X / Ctrl+V — route through our copy/cut/paste
+        // overrides so the clipboard gets expanded math source instead
+        // of literal U+FFFC characters.
+        if (e->key() == Qt::Key_C) { copy(); return; }
+        if (e->key() == Qt::Key_X) { cut();  return; }
+        if (e->key() == Qt::Key_V) { paste(); return; }
     }
 
     bool shift = e->modifiers() & Qt::ShiftModifier;
@@ -468,10 +446,7 @@ MarkdownTextItem *Editor::focusedTextItem() const
 
 void Editor::rebuildScene()
 {
-    if (m_mode == Mode::Source)
-        m_coordinator->loadSource(m_sourceText);
-    else
-        m_coordinator->loadMarkdown(m_sourceText);
+    m_coordinator->loadMarkdown(m_sourceText);
 
     qreal width = viewport()->width() - 32;
     if (width > 100)
@@ -517,13 +492,6 @@ void Editor::setEditorSettings(const EditorSettings &settings)
 
 EditorSettings Editor::editorSettings() const { return m_editorSettings; }
 
-void Editor::setRenderSettings(const RenderSettings &settings)
-{
-    m_renderSettings = settings;
-}
-
-RenderSettings Editor::renderSettings() const { return m_renderSettings; }
-
 void Editor::setResourceProvider(ResourceProvider *provider)
 {
     m_resourceProvider = provider;
@@ -532,16 +500,32 @@ void Editor::setResourceProvider(ResourceProvider *provider)
 }
 
 // =========================================================================
+// Read-only mode
+// =========================================================================
+
+void Editor::setReadOnly(bool readOnly)
+{
+    m_readOnly = readOnly;
+    // TextBrowserInteraction allows link clicking and selection but not editing
+    auto flags = readOnly ? Qt::TextBrowserInteraction : Qt::TextEditorInteraction;
+    for (auto *item : m_coordinator->items()) {
+        if (item->isTextItem()) {
+            auto *textItem = static_cast<MarkdownTextItem *>(item->asGraphicsItem());
+            textItem->textControl()->setTextInteractionFlags(flags);
+        }
+    }
+}
+
+bool Editor::isReadOnly() const
+{
+    return m_readOnly;
+}
+
+// =========================================================================
 // Document accessor
 // =========================================================================
 
 const Document *Editor::document() const { return m_document.get(); }
-
-// =========================================================================
-// Mode
-// =========================================================================
-
-Editor::Mode Editor::mode() const { return m_mode; }
 
 // =========================================================================
 // Document reparsed
@@ -562,8 +546,50 @@ void Editor::onDocumentReparsed()
 
 void Editor::undo()      { if (auto *ti = focusedTextItem()) ti->textControl()->undo(); }
 void Editor::redo()      { if (auto *ti = focusedTextItem()) ti->textControl()->redo(); }
-void Editor::cut()       { if (auto *ti = focusedTextItem()) ti->textControl()->cut(); }
-void Editor::copy()      { if (auto *ti = focusedTextItem()) ti->textControl()->copy(); }
+void Editor::copy()
+{
+    // Try SelectionManager first — but only if it has a genuine cross-
+    // boundary selection (m_anchorItem set). hasSelection() alone is not
+    // enough because it also returns true for within-item cursor
+    // selections, and serializeAsMarkdown() returns empty in that case.
+    auto *mgr = m_scene->selectionManager();
+    if (mgr) {
+        QMimeData *data = mgr->createMimeData();
+        if (data && !data->text().isEmpty()) {
+            QApplication::clipboard()->setMimeData(data);
+            return;
+        }
+        delete data;
+    }
+    // Fall back to the focused item's cursor selection, expanding any
+    // math glyphs to raw $...$ source.
+    auto *ti = focusedTextItem();
+    if (!ti) return;
+    const QString text = ti->selectedMarkdown();
+    if (text.isEmpty()) return;
+    QApplication::clipboard()->setText(text);
+}
+
+void Editor::cut()
+{
+    // Copy first (handles both cross-boundary and within-item).
+    copy();
+    // Then delete the selected content.
+    auto *mgr = m_scene->selectionManager();
+    if (mgr) {
+        // Delete across all items that have selections.
+        for (auto *item : m_coordinator->items()) {
+            if (item->isTextItem()) {
+                auto *ti = static_cast<MarkdownTextItem *>(item);
+                QTextCursor c = ti->textControl()->textCursor();
+                if (c.hasSelection())
+                    c.removeSelectedText();
+            }
+        }
+        mgr->clearSelection();
+    }
+}
+
 void Editor::paste()     { if (auto *ti = focusedTextItem()) ti->textControl()->paste(); }
 void Editor::selectAll() { if (auto *ti = focusedTextItem()) ti->textControl()->selectAll(); }
 

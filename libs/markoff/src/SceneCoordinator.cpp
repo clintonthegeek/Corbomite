@@ -31,8 +31,7 @@ SceneCoordinator::~SceneCoordinator()
     delete m_parser;
 }
 
-MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
-                                                     MarkdownHighlighter::Mode hlMode)
+MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text)
 {
     auto *item = new MarkdownTextItem;
     item->setTextWidth(m_itemWidth);
@@ -40,7 +39,6 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
         item->document()->setDefaultFont(m_font);
 
     auto *highlighter = new MarkdownHighlighter(item->document());
-    highlighter->setMode(hlMode);
 
     // Set span map and decorated ranges BEFORE setPlainText. When
     // setPlainText triggers Qt's automatic highlightBlock calls,
@@ -55,10 +53,9 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
     highlighter->setDecoratedRanges(item->decoratedRanges());
     highlighter->rehighlight();
 
-    // In LivePreview mode, replace inline-math source with rendered glyphs.
+    // Replace inline-math source with rendered glyphs.
     // The spans are now set, so the substitution can find them.
-    if (hlMode == MarkdownHighlighter::Mode::LivePreview)
-        item->refreshMathSubstitution();
+    item->refreshMathSubstitution();
 
     // Connect incremental span offset adjustment. Fires on every
     // document change BEFORE Qt's auto-rehighlight, keeping the
@@ -79,14 +76,6 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text,
     return item;
 }
 
-void SceneCoordinator::loadSource(const QString &markdown)
-{
-    clearItems();
-    createTextItem(markdown, MarkdownHighlighter::Mode::Source);
-    repositionItems();
-    m_scene->setSelectableItems(m_items);
-}
-
 void SceneCoordinator::loadMarkdown(const QString &markdown)
 {
     clearItems();
@@ -95,7 +84,7 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
 
     for (const auto &seg : segments) {
         if (seg.type == MarkdownSegment::Text) {
-            createTextItem(seg.text, MarkdownHighlighter::Mode::LivePreview);
+            createTextItem(seg.text);
         } else {
             auto *item = new TableBlockItem(seg.text, m_itemWidth);
             m_scene->addItem(item);
@@ -373,7 +362,7 @@ void SceneCoordinator::reparse()
         clearItems();
         for (const auto &seg : newSegments) {
             if (seg.type == MarkdownSegment::Text) {
-                createTextItem(seg.text, MarkdownHighlighter::Mode::LivePreview);
+                createTextItem(seg.text);
             } else {
                 auto *item = new TableBlockItem(seg.text, m_itemWidth);
                 m_scene->addItem(item);
