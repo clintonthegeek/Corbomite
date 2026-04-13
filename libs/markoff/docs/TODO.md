@@ -14,11 +14,10 @@ implementation; the rest are implementation tasks.
   reading view but not the editor. Needs a new `ImageBlockItem` graphics
   item plus `MarkdownSplitter` segment type, paralleling the math
   `TableBlockItem` pattern. **(blocked: spec)**
-- [ ] **Math source-edit cursor reveal** — inline math currently substitutes
-  `$x^2$` with a U+FFFC glyph. Editing means selecting and retyping the
-  whole atom. The Obsidian behavior is to swap back to source when the
-  cursor is inside the math region. Mirrors the existing delimiter-hide
-  cursor tracking in `MarkdownHighlighter::setCursorPosition`. **(blocked: spec)**
+- [ ] **Math cursor reveal polish** — inline math cursor reveal is
+  implemented but the mechanism is complex (~300 lines with reentrancy
+  guards). Consider simplifying — e.g., per-item reveal instead of
+  per-glyph reveal.
 - [ ] **Obsidian-flavored grammar additions** in vendored tree-sitter:
   - `![[embed]]` (embed prefix on wikilinks)
   - `^block-id` block reference
@@ -72,11 +71,6 @@ implementation; the rest are implementation tasks.
 - [ ] List bullet rendering — styled bullet character instead of raw `-`.
 
 ## Parser / Grammar
-
-- [ ] Remove MD4C dependency (currently kept for `Renderer.cpp` /
-  reading view path; tree-sitter handles the editor side).
-- [ ] Migrate `Renderer.cpp` to use the tree-sitter CST instead of the
-  MD4C AST. Closes the path to dropping MD4C.
 
 ## Editor API gaps
 

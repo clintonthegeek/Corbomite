@@ -1,10 +1,19 @@
 # Markoff Architecture
 
-A Qt6/C++ markdown editing and rendering library. Markoff is a standalone
-library that does not depend on Corbomite. It owns all Obsidian-flavored
-markdown concerns: parsing, rendering, syntax highlighting, inline math,
-and interactive block editing. Application-level features (vault navigation,
-completion popups, session management) remain in the host application.
+Two Qt6/C++ libraries for Obsidian-flavored markdown:
+
+**MarkoffParser** (`libs/markoff-parser/`) — standalone parser wrapping
+tree-sitter-markdown with Obsidian extensions. Depends only on Qt6::Core
+and tree-sitter. Provides a typed query API for headings, links, wikilinks,
+tags, footnotes, and word count.
+
+**MarkoffEditor** (`libs/markoff/`) — live-preview editor widget. Depends
+on MarkoffParser plus Qt6::Widgets, KF6SyntaxHighlighting, and JKQTMathText.
+Always operates in live preview mode. Read-only display is the same widget
+with editing disabled via `setReadOnly(true)`.
+
+Neither library depends on Corbomite. Application-level features (vault
+navigation, completion popups, session management) remain in the host.
 
 ---
 
@@ -87,21 +96,29 @@ completion popups, session management) remain in the host application.
 
 ### Layer 1: Public API
 
-Seven headers in `include/markoff/`:
+**MarkoffParser** — five headers in `include/markoff-parser/`:
+
+| Header | Type | Purpose |
+|--------|------|---------|
+| `Document.h` | Model | Parsed markdown with query API |
+| `TreeSitterParser.h` | Parser | tree-sitter wrapper, span map, block boundaries |
+| `SourceSpan.h` | Data | Formatting span struct, UTF-8 offset utilities |
+| `MarkdownSplitter.h` | Utility | Split markdown at block boundaries |
+| `TableHandler.h` | Utility | Pipe table parsing and serialization |
+
+**MarkoffEditor** — four headers in `include/markoff/`:
 
 | Header | Type | Purpose |
 |--------|------|---------|
 | `Editor.h` | Widget | Main editor widget (QGraphicsView) |
-| `ReadingView.h` | Widget | Non-editable rendered view |
-| `Document.h` | Model | Parsed markdown with query API |
 | `Theme.h` | Config | Colors, fonts, element formats |
 | `EditorSettings.h` | Config | Tab size, line numbers, wrapping |
-| `RenderSettings.h` | Config | Max width, margins, feature toggles |
 | `ResourceProvider.h` | Interface | Image/link/embed resolution |
 
-The public API deliberately hides all scene internals. Consumers never
-see SelectionScene, SceneCoordinator, MarkdownTextItem, or any other
-implementation class.
+The editor API hides all scene internals. Consumers never see
+SelectionScene, SceneCoordinator, MarkdownTextItem, or any other
+implementation class. Read-only mode is `Editor::setReadOnly(true)` —
+no separate reading view widget.
 
 ### Layer 2: Scene Architecture
 
@@ -286,19 +303,17 @@ KDE color schemes (Breeze, etc.) for native desktop integration?
 
 ---
 
-## Mode Switching
+## Read-Only Mode
 
-**Source mode**: SceneCoordinator creates a single MarkdownTextItem
-containing the entire markdown document. No splitting, no block items.
-Raw markdown visible with syntax highlighting.
+The editor has a single display mode: live preview. `setReadOnly(true)`
+disables text editing while preserving the visual presentation.
+`Qt::TextBrowserInteraction` flags are set on all text items, allowing
+link clicking and text selection but not input.
 
-**LivePreview mode**: SceneCoordinator splits at block boundaries. Each
-text segment becomes a MarkdownTextItem with its own highlighter. Tables
-become TableBlockItems. Syntax delimiters (`**`, `*`, `#`, etc.) are
-hidden away from the cursor.
-
-Mode switching serializes all items back to flat markdown, then rebuilds
-the scene in the new mode.
+Non-text block items (TableBlockItem) may still allow non-destructive
+display adjustments in read-only mode — such as column width resizing —
+that affect only visual presentation and do not modify the underlying
+markdown.
 
 ---
 
@@ -330,26 +345,15 @@ we only split items for geometrically-incompatible blocks?
 
 ---
 
-## Parsing: Dual Parser Situation
+## Parsing
 
-Markoff currently has two parsers:
+Tree-sitter-markdown is the sole parser. It lives in MarkoffParser and
+serves both the editor (span map, block boundaries) and the Document
+query API (headings, links, tags) via separate CST traversals:
 
-| Parser | Drives | Used For |
-|--------|--------|----------|
-| tree-sitter-markdown | Editor pipeline | Span map, block boundaries, delimiter positions |
-| MD4C (via DocumentBuilder) | Reading view | Document AST, query API (headings, links, tags) |
-
-This means every markdown feature must be implemented twice. The path
-forward is to migrate Renderer to walk the tree-sitter CST, then delete
-MD4C, DocumentBuilder, DocumentBuilder_p.h, and SourceSpan (the gap-based
-span builder).
-
-**Open question**: The Document query API (headings, links, wikilinks,
-tags, footnotes, word count) currently depends on the MD4C-based AST. Can
-tree-sitter provide equivalent queries? Tree-sitter's CST has explicit
-nodes for headings, links, etc., but the query ergonomics differ from
-walking a typed AST. Should Document internally use tree-sitter queries,
-or should it build its own lightweight AST from the CST?
+- `TreeSitterParser::buildSpanMap()` — flat formatting ranges for the highlighter
+- `TreeSitterParser::buildDocumentQueries()` — structured HeadingInfo/LinkInfo/TagInfo
+- `TreeSitterParser::findBlockBoundaries()` — table/code block split points
 
 **Open question**: tree-sitter supports incremental parsing via
 `ts_tree_edit()`. The current implementation does a full reparse on every
@@ -365,9 +369,8 @@ The vendored tree-sitter-markdown grammar supports wiki links and tags
 via compile-time flags. Several Obsidian-flavored constructs are NOT
 yet in the grammar:
 
-- `==highlighted text==` — currently detected by DocumentBuilder's Layer 2
-  post-processing, which will be deleted when MD4C is removed
-- `%%comment text%%` — same situation
+- `==highlighted text==` — handled by the vendored grammar's `highlight` node
+- `%%comment text%%` — handled by the vendored grammar's `obsidian_comment` node
 - `![[embed]]` — embed prefix on wikilinks
 - `^block-id` — block references
 - `> [!type]` — callout blocks (partially handled by DecoratedRange
@@ -404,8 +407,7 @@ extending into adjacent items.
 
 Roughly ordered by dependency and value:
 
-1. **Remove MD4C** — migrate Renderer to tree-sitter, collapse dual parser
-2. **Incremental tree-sitter parsing** — `ts_tree_edit()` for keystroke-level
+1. **Incremental tree-sitter parsing** — `ts_tree_edit()` for keystroke-level
    performance on large documents
 3. **Incremental rehighlight** — only rehighlight blocks whose spans changed
 4. **Theme-driven visual constants** — move hardcoded colors/layout values
@@ -425,65 +427,72 @@ Roughly ordered by dependency and value:
 
 ## Dependencies
 
-| Dependency | Version | Purpose | Notes |
-|-----------|---------|---------|-------|
-| Qt6 | 6.8+ | GUI framework | Core, Gui, Widgets |
-| KF6SyntaxHighlighting | KF6 | Code block syntax coloring | |
-| tree-sitter | system | Incremental parser framework | via pkg-config |
-| tree-sitter-markdown | vendored | Markdown grammar + inline grammar | with EXTENSION_WIKI_LINK, EXTENSION_TAGS |
-| MD4C | system | SAX markdown parser | *Planned for removal* |
-| JKQTMathText | sibling lib | LaTeX math rendering | |
+**MarkoffParser:**
+
+| Dependency | Version | Purpose |
+|-----------|---------|---------|
+| Qt6::Core | 6.8+ | QString, QList, QByteArray |
+| tree-sitter | system | Parser framework (via pkg-config) |
+| tree-sitter-markdown | vendored | Markdown + inline grammars (EXTENSION_WIKI_LINK, EXTENSION_TAGS) |
+
+**MarkoffEditor** (in addition to MarkoffParser):
+
+| Dependency | Version | Purpose |
+|-----------|---------|---------|
+| Qt6::Gui, Qt6::Widgets | 6.8+ | QGraphicsView, QPainter, etc. |
+| KF6SyntaxHighlighting | KF6 | Code block syntax coloring |
+| JKQTMathText | sibling lib | LaTeX math rendering |
 
 ---
 
 ## File Map
 
 ```
-libs/markoff/
-+-- include/markoff/           # Public API (7 headers)
-|   +-- Editor.h               # QGraphicsView widget
-|   +-- Document.h             # Parsed document + query API
-|   +-- ReadingView.h          # Non-editable rendered view
-|   +-- Theme.h                # Colors, fonts, element formats
-|   +-- EditorSettings.h       # Editor behavior config
-|   +-- RenderSettings.h       # Rendering config
-|   +-- ResourceProvider.h     # Image/link/embed resolution interface
-|
-+-- src/                       # Implementation (~11,000 lines)
-|   +-- Editor.cpp             # QGraphicsView widget implementation
-|   +-- SceneCoordinator.h/cpp # Scene item management, reparse
-|   +-- SelectionScene.h/cpp   # QGraphicsScene + SelectionManager delegation
-|   +-- SelectionManager.h/cpp # Cross-boundary selection state machine
-|   +-- SelectableItem.h       # Item interface for selection
-|   +-- MarkdownTextItem.h/cpp # Editable text region (TextControl + QTextDocument)
-|   +-- BlockItem.h/cpp        # Non-text item base class
-|   +-- TableBlockItem.h/cpp   # Read-only table rendering
-|   +-- StubBlockItem.h/cpp    # Minimal block for testing
-|   +-- TextControl.h/cpp      # Forked from Qt's QWidgetTextControl
-|   +-- TextControl_p.h        # Private implementation details
-|   +-- MarkdownHighlighter.h/cpp  # AST-driven syntax highlighting
-|   +-- TreeSitterParser.h/cpp # tree-sitter C API wrapper
-|   +-- MarkdownSplitter.h/cpp # Split markdown at block boundaries
-|   +-- SourceSpan.h/cpp       # Span map from AST (planned for removal with MD4C)
-|   +-- Document.cpp           # Document model implementation
-|   +-- DocumentBuilder.cpp    # MD4C SAX builder (planned for removal)
-|   +-- DocumentBuilder_p.h    # Internal types (planned for removal)
-|   +-- Renderer.cpp           # Document AST -> QTextDocument HTML
-|   +-- ReadingView.cpp        # ReadingView widget
-|   +-- Theme.cpp              # Theme factory methods and defaults
-|   +-- MathRenderer.h/cpp     # LaTeX -> QImage via JKQTMathText
-|   +-- MathTextObject.h/cpp   # QTextObjectInterface for inline math
-|   +-- DecoratedRange.h/cpp   # Code block/callout/blockquote ranges
-|   +-- TableHandler.h/cpp     # Pipe table parsing and serialization
-|   +-- ResourceProvider.cpp   # Filesystem resource provider
-|   +-- MarkoffBlockData.h     # Per-block user data
-|   +-- vendor/
-|       +-- tree-sitter-markdown/  # Vendored grammar (will be forked)
-|
-+-- tests/                     # 12 test executables
-+-- app/                       # Test application + scene demo
-+-- docs/                      # This file, specs, plans, research
-    +-- archive/               # Superseded specs and plans
+libs/markoff-parser/                    # MarkoffParser library
++-- include/markoff-parser/
+|   +-- Document.h                      # Parsed document + query API
+|   +-- TreeSitterParser.h              # tree-sitter wrapper
+|   +-- SourceSpan.h                    # Span struct + UTF-8 utilities
+|   +-- MarkdownSplitter.h             # Block boundary splitting
+|   +-- TableHandler.h                  # Pipe table parsing
++-- src/
+|   +-- Document.cpp                    # Tree-sitter-based document model
+|   +-- TreeSitterParser.cpp            # CST building, span map, document queries
+|   +-- SourceSpan.cpp                  # UTF-8 offset mapping
+|   +-- MarkdownSplitter.cpp
+|   +-- TableHandler.cpp
+|   +-- vendor/tree-sitter-markdown/    # Vendored grammar
++-- tests/
+
+libs/markoff/                           # MarkoffEditor library
++-- include/markoff/
+|   +-- Editor.h                        # QGraphicsView widget
+|   +-- Theme.h                         # Colors, fonts, element formats
+|   +-- EditorSettings.h               # Editor behavior config
+|   +-- ResourceProvider.h              # Image/link/embed resolution
++-- src/
+|   +-- Editor.cpp
+|   +-- SceneCoordinator.h/cpp          # Scene item management, reparse
+|   +-- SelectionScene.h/cpp            # QGraphicsScene + SelectionManager
+|   +-- SelectionManager.h/cpp          # Cross-boundary selection
+|   +-- SelectableItem.h               # Item interface
+|   +-- MarkdownTextItem.h/cpp          # Editable text region
+|   +-- BlockItem.h/cpp                 # Non-text item base
+|   +-- TableBlockItem.h/cpp            # Read-only table rendering
+|   +-- StubBlockItem.h/cpp             # Testing placeholder
+|   +-- TextControl.h/cpp              # Forked from Qt
+|   +-- TextControl_p.h
+|   +-- MarkdownHighlighter.h/cpp       # AST-driven syntax highlighting
+|   +-- MathRenderer.h/cpp             # LaTeX rendering
+|   +-- MathTextObject.h/cpp            # QTextObjectInterface for math
+|   +-- DecoratedRange.h/cpp            # Block decoration ranges
+|   +-- ResourceProvider.cpp
+|   +-- Theme.cpp
+|   +-- MarkoffBlockData.h
++-- tests/
++-- app/
++-- docs/
+    +-- archive/
 ```
 
 ---
