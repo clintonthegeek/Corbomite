@@ -285,10 +285,10 @@ static void applyNodeType(SourceSpan &span, const char *type)
     else if (strcmp(type, "image") == 0) { span.isImage = true; }
     else if (strcmp(type, "tag") == 0) { span.isTag = true; }
 
-    // Task list markers
-    else if (strcmp(type, "task_list_marker_checked") == 0) { span.isListMarker = true; }
-    else if (strcmp(type, "task_list_marker_unchecked") == 0) { span.isListMarker = true; }
-    else if (strcmp(type, "task_list_marker_extended") == 0) { span.isListMarker = true; }
+    // Task list markers — isListMarker for coloring, isTaskMarker for checkbox substitution
+    else if (strcmp(type, "task_list_marker_checked") == 0) { span.isListMarker = true; span.isTaskMarker = true; }
+    else if (strcmp(type, "task_list_marker_unchecked") == 0) { span.isListMarker = true; span.isTaskMarker = true; }
+    else if (strcmp(type, "task_list_marker_extended") == 0) { span.isListMarker = true; span.isTaskMarker = true; }
 
     // Heading content inherits heading level from parent
     else if (strcmp(type, "atx_heading") == 0) { span.isHeading = true; }
@@ -683,6 +683,30 @@ static void collectBlockBoundaries(TSNode node,
             b.startChar = parser->utf8ToCharOffset(b.startByte);
             b.endChar = parser->utf8ToCharOffset(b.endByte);
             boundaries.append(b);
+        } else if (strcmp(type, "paragraph") == 0) {
+            // Check if this paragraph is a standalone image (the only
+            // content is an image syntax: ![alt](url) or ![[embed]])
+            int startB = static_cast<int>(ts_node_start_byte(child));
+            int endB = static_cast<int>(ts_node_end_byte(child));
+            const QByteArray slice = parser->utf8Source().mid(startB, endB - startB);
+            const QByteArray trimmed = slice.trimmed();
+            bool isImage = false;
+            if (trimmed.startsWith("![[") && trimmed.endsWith("]]"))
+                isImage = true;
+            else if (trimmed.startsWith("![") && trimmed.contains("](") && trimmed.endsWith(")"))
+                isImage = true;
+
+            if (isImage) {
+                TreeSitterParser::BlockBoundary b;
+                b.type = TreeSitterParser::BlockBoundary::Image;
+                b.startByte = startB;
+                b.endByte = endB;
+                b.startChar = parser->utf8ToCharOffset(startB);
+                b.endChar = parser->utf8ToCharOffset(endB);
+                boundaries.append(b);
+            } else {
+                collectBlockBoundaries(child, parser, boundaries);
+            }
         } else {
             // Recurse into sections and other container nodes
             collectBlockBoundaries(child, parser, boundaries);

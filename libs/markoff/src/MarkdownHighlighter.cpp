@@ -54,7 +54,9 @@ void MarkdownHighlighter::hideRange(int start, int length)
 {
     QTextCharFormat hidden;
     hidden.setForeground(Qt::transparent);
-    hidden.setFontLetterSpacing(-100);
+    // PercentageSpacing(1) ≈ 1% of glyph advance → near-zero total width.
+    // -100 produces NEGATIVE advance in Qt6, shifting subsequent text left.
+    hidden.setFontLetterSpacing(1);
     hidden.setFontPointSize(1);
     setFormat(start, length, hidden);
 }
@@ -202,7 +204,7 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             }
             return;
         }
-        if (span.isListMarker)
+        if (span.isListMarker && !span.isTaskMarker)
             fmt.setForeground(m_theme.formats.value(Element::ListMarker).foreground());
         if (span.isCodeBlockContent)
             fmt.setFontFamilies(m_theme.codeFont.families());
@@ -283,6 +285,8 @@ void MarkdownHighlighter::highlightBlock(const QString &text)
 {
     if (text.isEmpty())
         return;
+
+
 
     // Skip table cell blocks — QTextDocumentLayout renders table content
     // natively. Applying markdown span formatting to cell blocks can make

@@ -187,7 +187,9 @@ Here is a sentence with a footnote[^1] and another[^2].
 
 ## Images
 
-![Alt text for a test image](nonexistent.png)
+![A blue test banner](test-image.png)
+
+![This image does not exist](missing-image.png)
 
 ## Frontmatter
 

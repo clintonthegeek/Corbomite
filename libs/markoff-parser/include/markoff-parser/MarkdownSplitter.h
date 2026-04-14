@@ -11,7 +11,7 @@ class TreeSitterParser;
 
 /// A segment of a markdown document — either text or a non-text block.
 struct MarkdownSegment {
-    enum Type { Text, Table, FencedCodeBlock };
+    enum Type { Text, Table, FencedCodeBlock, Image };
     Type type = Text;
     QString text;       ///< The raw markdown for this segment
     int sourceStart = 0; ///< QString char offset in original document

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MainWindow.h"
 #include "markoff/Editor.h"
+#include "markoff/ResourceProvider.h"
 #include "markoff/Theme.h"
 #include <markoff-parser/Document.h>
 
@@ -140,13 +141,23 @@ MainWindow::MainWindow(QWidget *parent)
     updateTitle();
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    delete m_resourceProvider;
+}
 
 void MainWindow::openFile(const QString &path)
 {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
+
+    // Set up resource provider for the file's directory so images resolve.
+    const QString dir = QFileInfo(path).absolutePath();
+    delete m_resourceProvider;
+    m_resourceProvider = new Markoff::FilesystemResourceProvider(dir);
+    m_editor->setResourceProvider(m_resourceProvider);
+
     QTextStream stream(&file);
     m_editor->setPlainText(stream.readAll());
     m_filePath = path;

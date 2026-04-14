@@ -370,7 +370,7 @@ void Editor::pageUpDown(bool up, bool select)
         auto *mgr = m_scene->selectionManager();
 
         // Set anchor item's selection from anchor to its edge
-        int edgePos = up ? 0 : sourceItem->allMarkdown().length();
+        int edgePos = up ? 0 : sourceItem->documentLength();
         sourceItem->setSelection(anchorPos, edgePos);
 
         // Fully select all items between source and target
@@ -380,7 +380,7 @@ void Editor::pageUpDown(bool up, bool select)
         int lo = qMin(srcIdx, tgtIdx), hi = qMax(srcIdx, tgtIdx);
         for (int i = lo + 1; i < hi; ++i) {
             if (items[i]->isTextItem())
-                items[i]->setSelection(0, items[i]->allMarkdown().length());
+                items[i]->setSelection(0, items[i]->documentLength());
             else
                 items[i]->setFullySelected(true);
         }
@@ -388,7 +388,7 @@ void Editor::pageUpDown(bool up, bool select)
         // Move focus and caret to target
         targetItem->setFocus();
         QTextCursor cursor(targetItem->document());
-        int entryPos = up ? targetItem->allMarkdown().length() : 0;
+        int entryPos = up ? targetItem->documentLength() : 0;
         cursor.setPosition(entryPos);
         cursor.setPosition(targetPos, QTextCursor::KeepAnchor);
         targetItem->textControl()->setTextCursor(cursor);

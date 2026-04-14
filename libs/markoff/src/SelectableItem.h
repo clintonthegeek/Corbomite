@@ -25,6 +25,10 @@ public:
     virtual void clearSelection() {}
     virtual QString selectedMarkdown() const { return {}; }
     virtual QString allMarkdown() const { return {}; }
+    /// Character count in the document (for cursor positioning).
+    /// For text items with U+FFFC substitutions, this is shorter than
+    /// allMarkdown().length().
+    virtual int documentLength() const { return 0; }
 
     // --- Non-text item operations (no-op defaults for text) ---
     virtual void setFullySelected(bool selected) { Q_UNUSED(selected); }

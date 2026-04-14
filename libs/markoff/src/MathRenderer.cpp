@@ -59,7 +59,14 @@ QImage renderUncached(const QString &latex, bool displayMode,
     if (!mt.parse(wrapped))
         return {};
 
-    QImage img = mt.drawIntoImage(false, Qt::transparent, 2, 1.0, qRound(96 * dpr));
+    // Render at dpr × base DPI for supersampling. `resolution_factor`
+    // passed to JKQTMathText is also bumped to dpr so glyph strokes use
+    // more pixel detail before the final rasterization — without this,
+    // JKQTMathText renders at 96 DPI internally and setting dpr alone
+    // just changes how Qt *tags* the image, not how it's actually drawn.
+    QImage img = mt.drawIntoImage(false, Qt::transparent, 2,
+                                    /*resolution_factor=*/dpr,
+                                    /*dpi=*/96);
     if (img.isNull())
         return {};
 

@@ -2,6 +2,7 @@
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
 #include "MathTextObject.h"
+#include "CheckboxTextObject.h"
 
 #include <QPainter>
 #include <QTextBlock>
@@ -18,6 +19,7 @@
 #include <QInputMethodEvent>
 #include <QRegularExpression>
 #include <QSyntaxHighlighter>
+#include <QTextBlockFormat>
 
 namespace Markoff {
 
@@ -26,15 +28,15 @@ MarkdownTextItem::MarkdownTextItem(QGraphicsItem *parent)
     , m_document(new QTextDocument(this))
     , m_control(new TextControl(this))
     , m_mathObject(new MathTextObject(this))
+    , m_checkboxObject(new CheckboxTextObject(this))
 {
     m_control->setDocument(m_document);
     m_control->setTextInteractionFlags(Qt::TextEditorInteraction);
     m_document->setDocumentMargin(8);
 
-    // Register the inline-math text object with this document's layout so
-    // QChar::ObjectReplacementCharacter chars carrying MathTextObject::TypeId
-    // get rendered as math glyphs.
+    // Register inline object handlers with this document's layout.
     m_document->documentLayout()->registerHandler(MathTextObject::TypeId, m_mathObject);
+    m_document->documentLayout()->registerHandler(CheckboxTextObject::TypeId, m_checkboxObject);
 
     setFlag(ItemIsFocusable);
     setFlag(ItemAcceptsInputMethod);
@@ -56,6 +58,7 @@ void MarkdownTextItem::setPlainText(const QString &text)
 {
     m_document->setPlainText(text);
     detectDecoratedRanges();
+    applyBlockFormats();
 }
 
 void MarkdownTextItem::setTextWidth(qreal width)
@@ -118,7 +121,7 @@ QString MarkdownTextItem::selectedMarkdown() const
     const int selEnd = cursor.selectionEnd();
 
     // Walk the selection range fragment by fragment, expanding any
-    // U+FFFC math glyphs back to their stored raw source. Mirrors
+    // U+FFFC inline objects back to their stored raw source. Mirrors
     // allMarkdown()'s approach but constrained to the selection.
     QString out;
     out.reserve(selEnd - selStart);
@@ -144,11 +147,12 @@ QString MarkdownTextItem::selectedMarkdown() const
             const int localStart = qMax(0, sliceStart - fragStart);
             const int localEnd = qMin(fragText.size(), sliceEnd - fragStart);
 
-            if (fmt.objectType() == MathTextObject::TypeId) {
-                // Expand each U+FFFC in this slice to its raw source.
+            const QString raw = fmt.property(MathTextObject::RawProperty).toString();
+            if (!raw.isEmpty()) {
+                // Expand each U+FFFC inline object to its raw source.
                 for (int i = localStart; i < localEnd; ++i) {
                     if (fragText.at(i) == QChar::ObjectReplacementCharacter)
-                        out += fmt.property(MathTextObject::RawProperty).toString();
+                        out += raw;
                     else
                         out += fragText.at(i);
                 }
@@ -169,9 +173,8 @@ QString MarkdownTextItem::selectedMarkdown() const
 
 QString MarkdownTextItem::allMarkdown() const
 {
-    // Walk the document, replacing each U+FFFC math object with the
-    // delimited source stored in its format. This produces canonical
-    // markdown — what the parser/serializer should see.
+    // Walk the document, expanding each U+FFFC inline object (math,
+    // checkbox, etc.) back to the delimited source stored in RawProperty.
     QString out;
     out.reserve(m_document->characterCount());
     for (QTextBlock block = m_document->begin(); block.isValid(); block = block.next()) {
@@ -184,13 +187,11 @@ QString MarkdownTextItem::allMarkdown() const
                 if (!frag.isValid()) continue;
                 const QTextCharFormat fmt = frag.charFormat();
                 const QString text = frag.text();
-                if (fmt.objectType() == MathTextObject::TypeId
-                    && text.size() == 1
+                const QString raw = fmt.property(MathTextObject::RawProperty).toString();
+                if (!raw.isEmpty() && text.size() == 1
                     && text.at(0) == QChar::ObjectReplacementCharacter) {
-                    out += fmt.property(MathTextObject::RawProperty).toString();
+                    out += raw;
                 } else {
-                    // Some characters in the fragment may still be U+FFFC if
-                    // (e.g.) the user pasted one. Strip them defensively.
                     for (QChar c : text) {
                         if (c != QChar::ObjectReplacementCharacter)
                             out += c;
@@ -204,17 +205,25 @@ QString MarkdownTextItem::allMarkdown() const
     return out;
 }
 
+int MarkdownTextItem::documentLength() const
+{
+    // characterCount() includes trailing paragraph separator; subtract 1
+    // for the last valid cursor position.
+    return qMax(0, m_document->characterCount() - 1);
+}
+
 QString MarkdownTextItem::toMarkdown() const
 {
     return allMarkdown();
 }
 
-int MarkdownTextItem::stripMathSubstitution()
+int MarkdownTextItem::stripInlineSubstitutions()
 {
-    if (m_inMathSubstitution) return 0;
+    if (m_inSubstitution) return 0;
 
-    // Find every U+FFFC with our object type, replace with the stored raw
-    // delimited source. We mutate from the END to keep earlier offsets stable.
+    // Find every U+FFFC inline object (math, checkbox, etc.) that carries a
+    // RawProperty, and replace it with the stored source. Mutate from the END
+    // to keep earlier offsets stable.
     struct Hit { int pos; QString raw; };
     QList<Hit> hits;
     for (QTextBlock block = m_document->begin(); block.isValid(); block = block.next()) {
@@ -222,18 +231,19 @@ int MarkdownTextItem::stripMathSubstitution()
             const QTextFragment frag = it.fragment();
             if (!frag.isValid()) continue;
             const QTextCharFormat fmt = frag.charFormat();
-            if (fmt.objectType() != MathTextObject::TypeId) continue;
+            const QString raw = fmt.property(MathTextObject::RawProperty).toString();
+            if (raw.isEmpty()) continue;
             const QString text = frag.text();
             for (int i = 0; i < text.size(); ++i) {
                 if (text.at(i) != QChar::ObjectReplacementCharacter) continue;
-                hits.append({frag.position() + i,
-                             fmt.property(MathTextObject::RawProperty).toString()});
+                hits.append({frag.position() + i, raw});
             }
         }
     }
     if (hits.isEmpty()) return 0;
 
-    m_inMathSubstitution = true;
+    m_inSubstitution = true;
+    const bool blocked = m_document->blockSignals(true);
     int delta = 0;
     QTextCursor cursor(m_document);
     cursor.beginEditBlock();
@@ -241,153 +251,258 @@ int MarkdownTextItem::stripMathSubstitution()
         const Hit &h = hits[i];
         cursor.setPosition(h.pos);
         cursor.setPosition(h.pos + 1, QTextCursor::KeepAnchor);
-        // Use a default format so the replaced source text doesn't carry the
-        // math object metadata; the highlighter will paint it normally.
         cursor.removeSelectedText();
         cursor.insertText(h.raw);
         delta += h.raw.size() - 1;
     }
     cursor.endEditBlock();
-    m_inMathSubstitution = false;
+    m_document->blockSignals(blocked);
+    m_inSubstitution = false;
     return delta;
 }
 
-void MarkdownTextItem::applyMathSubstitution()
+void MarkdownTextItem::applyInlineSubstitutions()
 {
-    if (m_inMathSubstitution) return;
+    if (m_inSubstitution) return;
 
     auto *hl = qobject_cast<MarkdownHighlighter *>(
         m_document->findChild<QSyntaxHighlighter *>());
     if (!hl) return;
 
-    // The tree-sitter parser emits math regions as a sequence of single-char
-    // spans (delimiter + content + delimiter), each with `math == true`. We
-    // walk those spans, group them into contiguous runs, and look up each
-    // run's $...$ or $$...$$ form directly in the document text. The
-    // `mathDisplay` flag from spans is unreliable in this grammar
-    // (tree-sitter-markdown labels both inline and block math as
-    // "latex_block"), so the source text is the source of truth for
-    // display vs inline.
-    QList<SourceSpan> mathSpans;
-    for (const SourceSpan &s : hl->spans()) {
-        if (s.math || s.mathDisplay)
-            mathSpans.append(s);
-    }
-    if (mathSpans.isEmpty()) return;
-
-    std::sort(mathSpans.begin(), mathSpans.end(),
-              [](const SourceSpan &a, const SourceSpan &b) {
-                  return a.charOffset < b.charOffset;
-              });
-
-    // Group abutting math spans into runs.
-    struct Run { int start; int end; };  // [start, end)
-    QList<Run> runs;
-    for (const SourceSpan &s : mathSpans) {
-        if (s.charLength <= 0) continue;
-        const int rStart = s.charOffset;
-        const int rEnd   = s.charOffset + s.charLength;
-        if (!runs.isEmpty() && runs.last().end == rStart) {
-            runs.last().end = rEnd;
-        } else {
-            runs.append({rStart, rEnd});
-        }
-    }
-
-    // For each run, decode the $...$ or $$...$$ form from the document.
     const QString docText = m_document->toPlainText();
-    struct Region { int start; int len; QString latex; bool display; };
-    QList<Region> regions;
-    for (const Run &run : runs) {
-        if (run.start < 0 || run.end > docText.size() || run.end <= run.start)
-            continue;
-        const QString slice = docText.mid(run.start, run.end - run.start);
-
-        bool display = false;
-        QString latex;
-        if (slice.size() >= 4 && slice.startsWith(QStringLiteral("$$"))
-                              && slice.endsWith(QStringLiteral("$$"))) {
-            display = true;
-            latex = slice.mid(2, slice.size() - 4);
-        } else if (slice.size() >= 2 && slice.startsWith(QLatin1Char('$'))
-                                     && slice.endsWith(QLatin1Char('$'))) {
-            display = false;
-            latex = slice.mid(1, slice.size() - 2);
-        } else {
-            // Span run that doesn't actually look like math — skip.
-            continue;
-        }
-        if (latex.isEmpty()) continue;
-
-        Region r;
-        r.start = run.start;
-        r.len   = run.end - run.start;
-        r.latex = latex;
-        r.display = display;
-        regions.append(r);
-    }
-    if (regions.isEmpty()) return;
-
-    // Mutate from end to start so earlier offsets stay valid.
-    std::sort(regions.begin(), regions.end(),
-              [](const Region &a, const Region &b) { return a.start < b.start; });
-
-    // Cursor-reveal: skip the region the cursor is currently inside, so the
-    // user can continue editing the raw source without being interrupted by
-    // a reparse swapping the glyph back in. "Inside" means strictly between
-    // the delimiters — a cursor exactly at `start` is before the opening `$`
-    // and a cursor at `start + len` is right after the closing `$`.
     const int cursorPos = m_control->textCursor().position();
 
-    m_inMathSubstitution = true;
+    // Unified substitution entry — math and checkboxes share one list so
+    // we can apply all replacements from end-to-start in one pass.
+    struct Entry {
+        int start;
+        int len;
+        QTextCharFormat fmt;
+        bool skipForReveal = false; // math cursor-reveal: keep as source
+    };
+    QList<Entry> entries;
+
+    // --- Math entries ---
+    // Group abutting math spans into runs, decode $/$$ form.
+    {
+        QList<SourceSpan> mathSpans;
+        for (const SourceSpan &s : hl->spans()) {
+            if (s.math || s.mathDisplay)
+                mathSpans.append(s);
+        }
+        std::sort(mathSpans.begin(), mathSpans.end(),
+                  [](const SourceSpan &a, const SourceSpan &b) {
+                      return a.charOffset < b.charOffset;
+                  });
+
+        struct Run { int start; int end; };
+        QList<Run> runs;
+        for (const SourceSpan &s : mathSpans) {
+            if (s.charLength <= 0) continue;
+            const int rStart = s.charOffset;
+            const int rEnd   = s.charOffset + s.charLength;
+            if (!runs.isEmpty() && runs.last().end == rStart)
+                runs.last().end = rEnd;
+            else
+                runs.append({rStart, rEnd});
+        }
+
+        for (const Run &run : runs) {
+            if (run.start < 0 || run.end > docText.size() || run.end <= run.start)
+                continue;
+            const QString slice = docText.mid(run.start, run.end - run.start);
+
+            bool display = false;
+            QString latex;
+            if (slice.size() >= 4 && slice.startsWith(QStringLiteral("$$"))
+                                  && slice.endsWith(QStringLiteral("$$"))) {
+                display = true;
+                latex = slice.mid(2, slice.size() - 4);
+            } else if (slice.size() >= 2 && slice.startsWith(QLatin1Char('$'))
+                                         && slice.endsWith(QLatin1Char('$'))) {
+                display = false;
+                latex = slice.mid(1, slice.size() - 2);
+            } else {
+                continue;
+            }
+            if (latex.isEmpty()) continue;
+
+            QTextCharFormat fmt;
+            fmt.setObjectType(MathTextObject::TypeId);
+            fmt.setProperty(MathTextObject::SourceProperty, latex);
+            fmt.setProperty(MathTextObject::DisplayProperty, display);
+            const QString delim = display ? QStringLiteral("$$") : QStringLiteral("$");
+            fmt.setProperty(MathTextObject::RawProperty, delim + latex + delim);
+
+            bool reveal = (cursorPos > run.start && cursorPos < run.end);
+            entries.append({run.start, run.end - run.start, fmt, reveal});
+        }
+    }
+
+    // --- Checkbox entries ---
+    for (const SourceSpan &s : hl->spans()) {
+        if (!s.isTaskMarker || s.charLength <= 0) continue;
+        const int start = s.charOffset;
+        const int len = s.charLength;
+        if (start < 0 || start + len > docText.size()) continue;
+
+        const QString raw = docText.mid(start, len);
+        // [x] or [X] = checked; [ ] = unchecked
+        bool checked = raw.contains(QLatin1Char('x'), Qt::CaseInsensitive);
+
+        QTextCharFormat fmt;
+        fmt.setObjectType(CheckboxTextObject::TypeId);
+        fmt.setProperty(CheckboxTextObject::CheckedProperty, checked);
+        fmt.setProperty(MathTextObject::RawProperty, raw); // shared for round-trip
+
+        entries.append({start, len, fmt, false});
+    }
+
+    if (entries.isEmpty()) return;
+
+    // Sort ascending by start position, then apply from end to start.
+    std::sort(entries.begin(), entries.end(),
+              [](const Entry &a, const Entry &b) { return a.start < b.start; });
+
+    m_inSubstitution = true;
+
+    // Block document signals during the substitution pass. This prevents
+    // adjustSpanOffsets from running on each individual remove+insert
+    // (which causes cascading offset errors across multiple checkboxes)
+    // and suppresses the automatic rehighlight that would use the now-stale
+    // span map. The highlighting was already applied before substitution;
+    // the glyphs render via QTextObjectInterface, not the highlighter.
+    const bool blocked = m_document->blockSignals(true);
+
     QTextCursor cursor(m_document);
     cursor.beginEditBlock();
     int newRevealedStart = -1;
     int newRevealedEnd = -1;
     bool newRevealedIsDisplay = false;
-    for (int i = regions.size() - 1; i >= 0; --i) {
-        const Region &r = regions[i];
-        // Strict: cursor must be strictly between the delimiters to count
-        // as inside. pos == r.start is before the opening `$`; pos ==
-        // r.start + r.len is after the closing `$`.
-        if (cursorPos > r.start && cursorPos < r.start + r.len) {
-            newRevealedStart = r.start;
-            newRevealedEnd = r.start + r.len;
-            newRevealedIsDisplay = r.display;
+
+    for (int i = entries.size() - 1; i >= 0; --i) {
+        const Entry &e = entries[i];
+        if (e.skipForReveal) {
+            newRevealedStart = e.start;
+            newRevealedEnd = e.start + e.len;
+            newRevealedIsDisplay = e.fmt.property(MathTextObject::DisplayProperty).toBool();
             continue;
         }
 
-        cursor.setPosition(r.start);
-        cursor.setPosition(r.start + r.len, QTextCursor::KeepAnchor);
-
-        QTextCharFormat fmt;
-        fmt.setObjectType(MathTextObject::TypeId);
-        fmt.setProperty(MathTextObject::SourceProperty, r.latex);
-        fmt.setProperty(MathTextObject::DisplayProperty, r.display);
-        const QString delim = r.display ? QStringLiteral("$$") : QStringLiteral("$");
-        fmt.setProperty(MathTextObject::RawProperty, delim + r.latex + delim);
-
+        cursor.setPosition(e.start);
+        cursor.setPosition(e.start + e.len, QTextCursor::KeepAnchor);
         cursor.removeSelectedText();
-        cursor.insertText(QString(QChar::ObjectReplacementCharacter), fmt);
+        cursor.insertText(QString(QChar::ObjectReplacementCharacter), e.fmt);
     }
     cursor.endEditBlock();
-    m_inMathSubstitution = false;
+    m_document->blockSignals(blocked);
+
+    // Adjust span offsets to match the substituted document. Each non-skipped
+    // entry replaced `len` chars with 1 char. Entries are sorted ascending by
+    // start (source positions). Compute cumulative shift for each span.
+    {
+        // Build shift table: source positions where substitutions occurred
+        struct Shift { int srcPos; int delta; }; // delta = len - 1
+        QList<Shift> shifts;
+        for (const Entry &e : entries) {
+            if (e.skipForReveal) continue;
+            shifts.append({e.start, e.len - 1});
+        }
+
+        for (SourceSpan &span : hl->mutableSpans()) {
+            int cumShift = 0;
+            for (const Shift &s : shifts) {
+                if (s.srcPos >= span.charOffset) break;
+                cumShift += s.delta;
+            }
+            span.charOffset -= cumShift;
+            span.charLength = qMax(0, span.charLength);
+            if (span.parentCharStart >= 0) {
+                int parentShift = 0;
+                for (const Shift &s : shifts) {
+                    if (s.srcPos >= span.parentCharStart) break;
+                    parentShift += s.delta;
+                }
+                span.parentCharStart -= parentShift;
+                int parentEndShift = 0;
+                for (const Shift &s : shifts) {
+                    if (s.srcPos >= span.parentCharEnd) break;
+                    parentEndShift += s.delta;
+                }
+                span.parentCharEnd -= parentEndShift;
+            }
+        }
+        hl->rehighlight();
+    }
+
+    m_inSubstitution = false;
 
     m_revealedStart = newRevealedStart;
     m_revealedEnd = newRevealedEnd;
     m_revealedIsDisplay = newRevealedIsDisplay;
 }
 
-void MarkdownTextItem::refreshMathSubstitution()
+void MarkdownTextItem::refreshInlineSubstitutions()
 {
-    if (m_inMathSubstitution) return;
-    stripMathSubstitution();
-    applyMathSubstitution();
+    if (m_inSubstitution) return;
+    stripInlineSubstitutions();
+    applyInlineSubstitutions();
+}
+
+void MarkdownTextItem::refreshBlockFormatting()
+{
+    detectDecoratedRanges();
+    applyBlockFormats();
+    auto *hl = qobject_cast<MarkdownHighlighter *>(
+        m_document->findChild<QSyntaxHighlighter *>());
+    if (hl)
+        hl->setDecoratedRanges(m_decoratedRanges);
 }
 
 void MarkdownTextItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-    // Flag for updateMathReveal: reveal only on mouse clicks, not arrow keys.
+    // Check for checkbox toggle before other event handling.
+    if (event->button() == Qt::LeftButton) {
+        const int pos = m_document->documentLayout()->hitTest(event->pos(), Qt::FuzzyHit);
+        auto checkboxAt = [&](int p) -> int {
+            if (p < 0 || p >= m_document->characterCount() - 1) return -1;
+            QTextCursor c(m_document);
+            c.setPosition(p);
+            c.setPosition(p + 1, QTextCursor::KeepAnchor);
+            if (c.selectedText() != QString(QChar::ObjectReplacementCharacter)) return -1;
+            if (c.charFormat().objectType() != CheckboxTextObject::TypeId) return -1;
+            return p;
+        };
+        int cbPos = checkboxAt(pos);
+        if (cbPos < 0) cbPos = checkboxAt(pos - 1);
+
+        if (cbPos >= 0) {
+            QTextCursor c(m_document);
+            c.setPosition(cbPos);
+            c.setPosition(cbPos + 1, QTextCursor::KeepAnchor);
+            const QTextCharFormat oldFmt = c.charFormat();
+            const bool checked = oldFmt.property(CheckboxTextObject::CheckedProperty).toBool();
+            const QString newRaw = checked ? QStringLiteral("[ ]") : QStringLiteral("[x]");
+
+            // Update the format in-place via setCharFormat (no remove+insert).
+            // Block document signals so the change doesn't propagate through
+            // textChanged → SceneCoordinator → Editor::ensureFocusedCursorVisible,
+            // which would auto-scroll to the cursor position.
+            QTextCharFormat newFmt;
+            newFmt.setObjectType(CheckboxTextObject::TypeId);
+            newFmt.setProperty(CheckboxTextObject::CheckedProperty, !checked);
+            newFmt.setProperty(MathTextObject::RawProperty, newRaw);
+
+            const bool blocked = m_document->blockSignals(true);
+            c.setCharFormat(newFmt);
+            m_document->blockSignals(blocked);
+            update(); // repaint with updated glyph
+            event->accept();
+            return;
+        }
+    }
+
+    // Flag for updateReveal: reveal only on mouse clicks, not arrow keys.
     m_mouseTriggered = true;
     m_control->processEvent(event);
     m_mouseTriggered = false;
@@ -454,7 +569,7 @@ void MarkdownTextItem::onCursorPositionChanged()
 {
     if (m_snappingCursor)
         return;
-    if (m_inMathSubstitution)
+    if (m_inSubstitution)
         return;
 
     // 1. Snap cursor past hidden delimiters
@@ -463,7 +578,7 @@ void MarkdownTextItem::onCursorPositionChanged()
     // 2. Math cursor reveal: expand the U+FFFC under the cursor to its raw
     //    source, or collapse a previously-revealed region when the cursor
     //    leaves it.
-    updateMathReveal();
+    updateReveal();
 
     // 3. Notify highlighter of cursor position (shows/hides delimiters)
     auto *hl = qobject_cast<MarkdownHighlighter *>(
@@ -475,9 +590,9 @@ void MarkdownTextItem::onCursorPositionChanged()
     }
 }
 
-void MarkdownTextItem::updateMathReveal()
+void MarkdownTextItem::updateReveal()
 {
-    if (m_inMathSubstitution) return;
+    if (m_inSubstitution) return;
 
     QTextCursor cursor = m_control->textCursor();
     const int pos = cursor.position();
@@ -532,12 +647,12 @@ void MarkdownTextItem::updateMathReveal()
                 const QString delim = display ? QStringLiteral("$$") : QStringLiteral("$");
                 fmt.setProperty(MathTextObject::RawProperty, delim + latex + delim);
 
-                m_inMathSubstitution = true;
+                m_inSubstitution = true;
                 c.beginEditBlock();
                 c.removeSelectedText();
                 c.insertText(QString(QChar::ObjectReplacementCharacter), fmt);
                 c.endEditBlock();
-                m_inMathSubstitution = false;
+                m_inSubstitution = false;
 
                 // Refresh cursor, since offsets shifted.
                 cursor = m_control->textCursor();
@@ -587,7 +702,7 @@ void MarkdownTextItem::updateMathReveal()
     if (raw.isEmpty()) return;
 
     // Replace the U+FFFC with the raw source.
-    m_inMathSubstitution = true;
+    m_inSubstitution = true;
     QTextCursor c(m_document);
     c.setPosition(glyphPos);
     c.setPosition(glyphPos + 1, QTextCursor::KeepAnchor);
@@ -597,7 +712,7 @@ void MarkdownTextItem::updateMathReveal()
     c.removeSelectedText();
     c.insertText(raw);
     c.endEditBlock();
-    m_inMathSubstitution = false;
+    m_inSubstitution = false;
 
     m_revealedStart = glyphPos;
     m_revealedEnd = glyphPos + raw.size();
@@ -652,81 +767,209 @@ void MarkdownTextItem::detectDecoratedRanges()
 {
     m_decoratedRanges.clear();
 
-    // Detect fenced code blocks: ``` ... ```
-    QTextBlock block = m_document->begin();
-    while (block.isValid()) {
-        const QString text = block.text().trimmed();
-        if (text.startsWith(QStringLiteral("```"))) {
-            int firstBlockNum = block.blockNumber();
-            QString lang = text.mid(3).trimmed();
+    auto *hl = qobject_cast<MarkdownHighlighter *>(
+        m_document->findChild<QSyntaxHighlighter *>());
+    if (!hl || hl->spans().isEmpty())
+        return;
 
-            block = block.next();
-            int lastBlockNum = firstBlockNum;
-            while (block.isValid()) {
-                if (block.text().trimmed().startsWith(QStringLiteral("```"))) {
-                    lastBlockNum = block.blockNumber();
-                    break;
-                }
-                lastBlockNum = block.blockNumber();
-                block = block.next();
-            }
-            if (block.isValid() && block.text().trimmed().startsWith(QStringLiteral("```"))) {
+    const int blockCount = m_document->blockCount();
+
+    // Per-block flags derived from the span map (single source of truth)
+    struct BlockInfo {
+        bool isCodeFence = false;
+        bool isCodeContent = false;
+        bool isHR = false;
+        bool isBlockquote = false;
+        bool isHeading = false;
+    };
+    QList<BlockInfo> bi(blockCount);
+
+    for (const SourceSpan &s : hl->spans()) {
+        if (s.charLength <= 0) continue;
+        QTextBlock b = m_document->findBlock(s.charOffset);
+        while (b.isValid() && b.position() < s.charOffset + s.charLength) {
+            const int bn = b.blockNumber();
+            if (bn >= blockCount) break;
+            if (s.isCodeBlockFence)   bi[bn].isCodeFence = true;
+            if (s.isCodeBlockContent) bi[bn].isCodeContent = true;
+            if (s.isHorizontalRule)   bi[bn].isHR = true;
+            if (s.isBlockquote)       bi[bn].isBlockquote = true;
+            if (s.isHeading)          bi[bn].isHeading = true;
+            b = b.next();
+        }
+    }
+
+    // 1. Fenced code blocks: opening fence → content → closing fence.
+    //    Span-based detection handles ~~~ fences and edge cases the old
+    //    regex missed. Interior empty lines are included by range.
+    {
+        int bn = 0;
+        while (bn < blockCount) {
+            if (bi[bn].isCodeFence) {
+                int first = bn;
+                ++bn;
+                while (bn < blockCount && !bi[bn].isCodeFence) ++bn;
+                int last = (bn < blockCount) ? bn : blockCount - 1;
+
                 DecoratedRange dr;
                 dr.type = DecoratedRange::CodeBlock;
-                dr.firstBlock = firstBlockNum;
-                dr.lastBlock = lastBlockNum;
-                dr.language = lang;
+                dr.firstBlock = first;
+                dr.lastBlock = last;
+                QTextBlock fb = m_document->findBlockByNumber(first);
+                if (fb.isValid()) {
+                    QString text = fb.text().trimmed();
+                    // Extract language after ``` or ~~~
+                    if (text.startsWith(QStringLiteral("```")))
+                        dr.language = text.mid(3).trimmed();
+                    else if (text.startsWith(QStringLiteral("~~~")))
+                        dr.language = text.mid(3).trimmed();
+                }
                 m_decoratedRanges.append(dr);
+                ++bn;
+            } else {
+                ++bn;
             }
         }
-        if (block.isValid()) block = block.next();
     }
 
-    // Detect callout blocks (> [!type] ...)
-    block = m_document->begin();
-    static const QRegularExpression calloutRe(
-        QStringLiteral(R"(^>\s*\[!(\w+)\]([+-])?\s*(.*)?$)"));
+    // 2. Callouts: blockquote lines where the first line matches [!type].
+    //    Still regex-based — tree-sitter doesn't parse Obsidian callouts.
+    {
+        static const QRegularExpression calloutRe(
+            QStringLiteral(R"(^>\s*\[!(\w+)\]([+-])?\s*(.*)?$)"));
 
-    while (block.isValid()) {
-        bool inCodeBlock = false;
+        QTextBlock block = m_document->begin();
+        while (block.isValid()) {
+            const int bn = block.blockNumber();
+            bool skip = false;
+            for (const auto &dr : m_decoratedRanges) {
+                if (bn >= dr.firstBlock && bn <= dr.lastBlock) { skip = true; break; }
+            }
+            if (skip || !bi[bn].isBlockquote) { block = block.next(); continue; }
+
+            auto match = calloutRe.match(block.text());
+            if (match.hasMatch()) {
+                QString type = match.captured(1).toLower();
+                QString title = match.captured(3).trimmed();
+
+                QTextBlock bodyBlock = block.next();
+                int lastBlockNum = bn;
+                while (bodyBlock.isValid() && bodyBlock.text().startsWith(QLatin1Char('>'))) {
+                    lastBlockNum = bodyBlock.blockNumber();
+                    bodyBlock = bodyBlock.next();
+                }
+
+                DecoratedRange dr;
+                dr.type = DecoratedRange::Callout;
+                dr.firstBlock = bn;
+                dr.lastBlock = lastBlockNum;
+                dr.calloutType = type;
+                dr.calloutTitle = title.isEmpty()
+                    ? type.at(0).toUpper() + type.mid(1) : title;
+                dr.calloutColor = DecoratedRange::colorForCalloutType(type);
+                m_decoratedRanges.append(dr);
+
+                block = bodyBlock;
+                continue;
+            }
+            block = block.next();
+        }
+    }
+
+    auto inExistingRange = [this](int bn) {
         for (const auto &dr : m_decoratedRanges) {
-            if (dr.type == DecoratedRange::CodeBlock
-                && block.blockNumber() >= dr.firstBlock
-                && block.blockNumber() <= dr.lastBlock) {
-                inCodeBlock = true;
-                break;
-            }
+            if (bn >= dr.firstBlock && bn <= dr.lastBlock) return true;
         }
-        if (inCodeBlock) { block = block.next(); continue; }
+        return false;
+    };
 
-        auto match = calloutRe.match(block.text());
-        if (match.hasMatch()) {
-            int firstBlockNum = block.blockNumber();
-            QString type = match.captured(1).toLower();
-            QString title = match.captured(3).trimmed();
-
-            QTextBlock bodyBlock = block.next();
-            int lastBlockNum = firstBlockNum;
-            while (bodyBlock.isValid() && bodyBlock.text().startsWith(QLatin1Char('>'))) {
-                lastBlockNum = bodyBlock.blockNumber();
-                bodyBlock = bodyBlock.next();
-            }
-
+    // 3. Horizontal rules: span-flagged blocks not in other ranges
+    for (int bn = 0; bn < blockCount; ++bn) {
+        if (bi[bn].isHR && !inExistingRange(bn)) {
             DecoratedRange dr;
-            dr.type = DecoratedRange::Callout;
-            dr.firstBlock = firstBlockNum;
-            dr.lastBlock = lastBlockNum;
-            dr.calloutType = type;
-            dr.calloutTitle = title.isEmpty()
-                ? type.at(0).toUpper() + type.mid(1) : title;
-            dr.calloutColor = DecoratedRange::colorForCalloutType(type);
+            dr.type = DecoratedRange::HorizontalRule;
+            dr.firstBlock = bn;
+            dr.lastBlock = bn;
             m_decoratedRanges.append(dr);
-
-            block = bodyBlock;
-            continue;
         }
-        block = block.next();
     }
+
+    // 4. Blockquotes: consecutive span-flagged blocks not claimed above
+    {
+        int bn = 0;
+        while (bn < blockCount) {
+            if (bi[bn].isBlockquote && !inExistingRange(bn)) {
+                int first = bn;
+                while (bn < blockCount && bi[bn].isBlockquote && !inExistingRange(bn))
+                    ++bn;
+                DecoratedRange dr;
+                dr.type = DecoratedRange::Blockquote;
+                dr.firstBlock = first;
+                dr.lastBlock = bn - 1;
+                m_decoratedRanges.append(dr);
+            } else {
+                ++bn;
+            }
+        }
+    }
+
+}
+
+void MarkdownTextItem::applyBlockFormats()
+{
+    auto *hl = qobject_cast<MarkdownHighlighter *>(
+        m_document->findChild<QSyntaxHighlighter *>());
+    if (!hl) return;
+
+    const int blockCount = m_document->blockCount();
+
+    // Per-block info from span map
+    struct BlockInfo { bool hasListMarker = false; bool isHeading = false; int bqDepth = 0; };
+    QList<BlockInfo> bi(blockCount);
+    for (const SourceSpan &s : hl->spans()) {
+        if (s.charLength <= 0) continue;
+        const int bn = m_document->findBlock(s.charOffset).blockNumber();
+        if (bn < 0 || bn >= blockCount) continue;
+        if (s.isListMarker) bi[bn].hasListMarker = true;
+        if (s.isHeading)    bi[bn].isHeading = true;
+        if (s.blockquoteDepth > bi[bn].bqDepth) bi[bn].bqDepth = s.blockquoteDepth;
+    }
+
+    const qreal indentStep = 20.0;  // px per nesting level
+
+    QTextCursor cursor(m_document);
+    cursor.beginEditBlock();
+    for (QTextBlock block = m_document->begin(); block.isValid(); block = block.next()) {
+        const int bn = block.blockNumber();
+        const QString text = block.text();
+
+        // Count leading whitespace to determine nesting level
+        int spaces = 0;
+        for (int i = 0; i < text.size(); ++i) {
+            if (text[i] == QLatin1Char(' ')) ++spaces;
+            else if (text[i] == QLatin1Char('\t')) spaces += 4;
+            else break;
+        }
+
+        qreal leftMargin = 0;
+
+        // List indentation: each 2 spaces of leading whitespace = 1 indent level
+        if (bi[bn].hasListMarker && spaces > 0)
+            leftMargin = (spaces / 2) * indentStep;
+
+        // Blockquote indentation: add margin per depth level (additive with
+        // list indent, so nested lists inside blockquotes work)
+        if (bi[bn].bqDepth > 0)
+            leftMargin += bi[bn].bqDepth * indentStep;
+
+        QTextBlockFormat fmt = block.blockFormat();
+        if (!qFuzzyCompare(fmt.leftMargin(), leftMargin)) {
+            fmt.setLeftMargin(leftMargin);
+            cursor.setPosition(block.position());
+            cursor.setBlockFormat(fmt);
+        }
+    }
+    cursor.endEditBlock();
 }
 
 void MarkdownTextItem::paintDecoratedRanges(QPainter *painter)
@@ -736,6 +979,10 @@ void MarkdownTextItem::paintDecoratedRanges(QPainter *painter)
 
     QAbstractTextDocumentLayout *layout = m_document->documentLayout();
     qreal margin = m_document->documentMargin();
+
+    // Get theme colors from the highlighter
+    auto *hl = qobject_cast<MarkdownHighlighter *>(
+        m_document->findChild<QSyntaxHighlighter *>());
 
     for (const DecoratedRange &dr : m_decoratedRanges) {
         QTextBlock firstBlock = m_document->findBlockByNumber(dr.firstBlock);
@@ -777,6 +1024,37 @@ void MarkdownTextItem::paintDecoratedRanges(QPainter *painter)
             painter->setBrush(dr.calloutColor);
             painter->drawRoundedRect(
                 QRectF(bgRect.left(), bgRect.top(), 4, bgRect.height()), 2, 2);
+
+        } else if (dr.type == DecoratedRange::HorizontalRule) {
+            QColor lineColor = hl ? hl->horizontalRuleColor() : QColor(0xb4, 0xb4, 0xb4);
+            qreal centerY = rangeTop + rangeHeight / 2;
+            painter->setPen(QPen(lineColor, 1.5));
+            painter->drawLine(QPointF(margin, centerY),
+                              QPointF(m_width - margin, centerY));
+
+        } else if (dr.type == DecoratedRange::Blockquote) {
+            QColor accentColor = hl ? hl->blockquoteColor() : QColor(111, 159, 0);
+            painter->setPen(Qt::NoPen);
+            painter->setRenderHint(QPainter::Antialiasing);
+            // Per-block depth-aware accent bars
+            b = firstBlock;
+            for (int i = dr.firstBlock; i <= dr.lastBlock && b.isValid(); ++i, b = b.next()) {
+                QRectF blockBR = layout->blockBoundingRect(b);
+                // Count > markers to determine depth
+                const QString text = b.text();
+                int depth = 0;
+                for (int j = 0; j < text.size(); ++j) {
+                    if (text[j] == QLatin1Char('>')) ++depth;
+                    else if (text[j] != QLatin1Char(' ')) break;
+                }
+                for (int d = 0; d < depth; ++d) {
+                    qreal barX = margin - 4 + d * 16;
+                    painter->setBrush(accentColor);
+                    painter->drawRoundedRect(
+                        QRectF(barX, blockBR.top(), 4, blockBR.height()), 2, 2);
+                }
+            }
+
         }
     }
 }

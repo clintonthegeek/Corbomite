@@ -43,7 +43,7 @@ public:
 
     /// Set a non-owning resource provider used to resolve relative
     /// resource paths (images, embeds, links) in the editor pipeline.
-    /// Currently stored for future consumers; no item type reads it yet.
+    /// Used by ImageBlockItem for image resolution.
     void setResourceProvider(ResourceProvider *provider);
     ResourceProvider *resourceProvider() const { return m_resourceProvider; }
 

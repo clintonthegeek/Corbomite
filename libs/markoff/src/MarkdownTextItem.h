@@ -12,6 +12,7 @@ namespace Markoff {
 
 class TextControl;
 class MathTextObject;
+class CheckboxTextObject;
 
 /// Editable markdown text region in the graphics scene.
 /// Wraps TextControl + QTextDocument. Implements SelectableItem
@@ -61,22 +62,22 @@ public:
     void clearSelection() override;
     QString selectedMarkdown() const override;
     QString allMarkdown() const override;
+    int documentLength() const override;
     QString toMarkdown() const override;
 
-    /// Reapply inline-math glyph substitution based on the highlighter's
-    /// current span map. Strips any existing math objects first, so this
-    /// is also the right place to call after the underlying source text
-    /// has been replaced.
-    ///
-    /// Mutates the document but is guarded so it does not retrigger
-    /// reparses.
-    void refreshMathSubstitution();
+    /// Reapply all inline object substitutions (math, checkboxes, etc.)
+    /// based on the highlighter's span map. Strips existing objects first.
+    void refreshInlineSubstitutions();
 
-    /// Replace any existing math object characters with their stored
-    /// source text, leaving the document in canonical source form.
-    /// SceneCoordinator calls this between reparse and re-substitution
-    /// so the highlighter span offsets line up with document positions.
-    int stripMathSubstitution();
+    /// Re-detect decorated ranges and block formatting from the current
+    /// span map. Called by SceneCoordinator after updating the span map
+    /// during a non-structural reparse.
+    void refreshBlockFormatting();
+
+    /// Replace all U+FFFC inline objects with their stored source text,
+    /// leaving the document in canonical source form. Called between
+    /// reparse and re-substitution so span offsets line up.
+    int stripInlineSubstitutions();
 
 Q_SIGNALS:
     void textChanged();
@@ -89,19 +90,35 @@ private:
     void snapCursorPastDelimiters();
     void detectDecoratedRanges();
     void paintDecoratedRanges(QPainter *painter);
+    void applyBlockFormats();
 
-    /// Walk the highlighter span map and replace each math span's
-    /// source text range with U+FFFC + a math format. Must be called on
-    /// a document that is in canonical source form (no leftover U+FFFC).
-    void applyMathSubstitution();
+    /// Walk the highlighter span map and replace each inline object span
+    /// (math, checkboxes, etc.) with U+FFFC + format. Must be called on
+    /// a document in canonical source form (no leftover U+FFFC).
+    void applyInlineSubstitutions();
+
+    /// Cursor-driven reveal/collapse: expand a U+FFFC under the cursor
+    /// to its source text on mouse click; collapse when cursor leaves.
+    /// Type-dispatched: math gets reveal/collapse, checkboxes get toggle.
+    void updateReveal();
 
     TextControl *m_control = nullptr;
     QTextDocument *m_document = nullptr;
     MathTextObject *m_mathObject = nullptr;
+    CheckboxTextObject *m_checkboxObject = nullptr;
     qreal m_width = 600.0;
     bool m_snappingCursor = false;
-    bool m_inMathSubstitution = false;
+    bool m_inSubstitution = false;
     QList<DecoratedRange> m_decoratedRanges;
+
+    // Cursor-reveal state for inline math. At most one math region is
+    // "revealed" (shown as raw source) at a time — the one the cursor is
+    // currently inside. Values are char offsets in the current document;
+    // -1 means nothing is revealed.
+    int m_revealedStart = -1;
+    int m_revealedEnd = -1;
+    bool m_revealedIsDisplay = false;  // $$ vs $
+    bool m_mouseTriggered = false;     // reveal only on mouse clicks
 };
 
 } // namespace Markoff

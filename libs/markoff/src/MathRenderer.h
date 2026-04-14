@@ -23,9 +23,11 @@ public:
     /// Render the given LaTeX source. Returns a null image on parse failure.
     /// `displayMode` selects display vs inline math sizing.
     /// `fontSize` is the base font size in points; pass 0 to use the default.
-    /// `dpr` is the target device pixel ratio (for HiDPI screens).
+    /// `dpr` is the target device pixel ratio (for HiDPI screens). Defaults
+    /// to 3.0 so the cached glyph has enough pixels to look crisp when
+    /// downsampled on regular (1x) displays.
     static QImage render(const QString &latex, bool displayMode,
-                          qreal fontSize = 0.0, qreal dpr = 2.0);
+                          qreal fontSize = 0.0, qreal dpr = 3.0);
 
     /// PNG-encoded base64 data URI of the rendered image. Empty on failure.
     /// Used by Renderer.cpp to embed math in HTML output.

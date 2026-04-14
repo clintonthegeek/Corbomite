@@ -69,6 +69,9 @@ QList<MarkdownSegment> MarkdownSplitter::split(const QString &markdown,
         case TreeSitterParser::BlockBoundary::FencedCodeBlock:
             blockSeg.type = MarkdownSegment::FencedCodeBlock;
             break;
+        case TreeSitterParser::BlockBoundary::Image:
+            blockSeg.type = MarkdownSegment::Image;
+            break;
         }
         blockSeg.text = markdown.mid(boundary.startChar,
                                       boundary.endChar - boundary.startChar);

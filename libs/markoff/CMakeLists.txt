@@ -22,12 +22,16 @@ add_library(markoff STATIC
     src/StubBlockItem.cpp
     src/TableBlockItem.h
     src/TableBlockItem.cpp
+    src/ImageBlockItem.h
+    src/ImageBlockItem.cpp
     src/MarkdownTextItem.h
     src/MarkdownTextItem.cpp
     src/MathRenderer.h
     src/MathRenderer.cpp
     src/MathTextObject.h
     src/MathTextObject.cpp
+    src/CheckboxTextObject.h
+    src/CheckboxTextObject.cpp
     src/SelectionManager.h
     src/SelectionManager.cpp
     src/SelectionScene.h

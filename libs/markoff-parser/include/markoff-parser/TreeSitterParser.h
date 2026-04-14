@@ -50,7 +50,7 @@ public:
 
     /// A non-text block boundary found by the parser.
     struct BlockBoundary {
-        enum Type { Table, FencedCodeBlock };
+        enum Type { Table, FencedCodeBlock, Image };
         Type type;
         int startByte = 0;  ///< UTF-8 byte offset of block start
         int endByte = 0;    ///< UTF-8 byte offset of block end

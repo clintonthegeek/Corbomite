@@ -5,6 +5,7 @@
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
 #include "TableBlockItem.h"
+#include "ImageBlockItem.h"
 #include <markoff-parser/MarkdownSplitter.h>
 #include "MarkdownHighlighter.h"
 #include <markoff-parser/TreeSitterParser.h>
@@ -55,7 +56,7 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text)
 
     // Replace inline-math source with rendered glyphs.
     // The spans are now set, so the substitution can find them.
-    item->refreshMathSubstitution();
+    item->refreshInlineSubstitutions();
 
     // Connect incremental span offset adjustment. Fires on every
     // document change BEFORE Qt's auto-rehighlight, keeping the
@@ -85,6 +86,10 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
     for (const auto &seg : segments) {
         if (seg.type == MarkdownSegment::Text) {
             createTextItem(seg.text);
+        } else if (seg.type == MarkdownSegment::Image) {
+            auto *item = new ImageBlockItem(seg.text, m_itemWidth, m_resourceProvider);
+            m_scene->addItem(item);
+            m_items.append(item);
         } else {
             auto *item = new TableBlockItem(seg.text, m_itemWidth);
             m_scene->addItem(item);
@@ -100,11 +105,15 @@ QString SceneCoordinator::toMarkdown() const
 {
     QString result;
     for (int i = 0; i < m_items.size(); ++i) {
-        if (i > 0)
-            result += QLatin1Char('\n');
+        if (i > 0) {
+            // Block items (images, tables) need a blank line separator
+            // to preserve the original markdown structure.
+            bool prevIsBlock = !m_items[i - 1]->isTextItem();
+            bool currIsBlock = !m_items[i]->isTextItem();
+            result += (prevIsBlock || currIsBlock)
+                ? QStringLiteral("\n\n") : QStringLiteral("\n");
+        }
         result += m_items[i]->toMarkdown();
-        if (i < m_items.size() - 1)
-            result += QLatin1Char('\n');
     }
     return result;
 }
@@ -212,7 +221,7 @@ void SceneCoordinator::handleBoundary(MarkdownTextItem *from, Qt::Edge edge)
 
         // Finalize anchor item's selection to its edge
         int edgePos = (edge == Qt::BottomEdge)
-            ? from->allMarkdown().length() : 0;
+            ? from->documentLength() : 0;
         from->setSelection(m_keyboardAnchorPos, edgePos);
         mgr->beginOrExtendKeyboardSelection(from, m_keyboardAnchorPos, from, edgePos);
     }
@@ -268,7 +277,7 @@ void SceneCoordinator::handleBoundary(MarkdownTextItem *from, Qt::Edge edge)
             cursor.setPosition(m_keyboardAnchorPos);
             // Position at the edge we arrived from
             int edgePos = (edge == Qt::BottomEdge)
-                ? 0 : anchorText->allMarkdown().length();
+                ? 0 : anchorText->documentLength();
             cursor.setPosition(edgePos, QTextCursor::KeepAnchor);
             anchorText->textControl()->setTextCursor(cursor);
 
@@ -363,6 +372,10 @@ void SceneCoordinator::reparse()
         for (const auto &seg : newSegments) {
             if (seg.type == MarkdownSegment::Text) {
                 createTextItem(seg.text);
+            } else if (seg.type == MarkdownSegment::Image) {
+                auto *item = new ImageBlockItem(seg.text, m_itemWidth, m_resourceProvider);
+                m_scene->addItem(item);
+                m_items.append(item);
             } else {
                 auto *item = new TableBlockItem(seg.text, m_itemWidth);
                 m_scene->addItem(item);
@@ -384,18 +397,26 @@ void SceneCoordinator::reparse()
         for (int i = 0; i < m_items.size(); ++i) {
             if (m_items[i]->isTextItem()) {
                 auto *textItem = static_cast<MarkdownTextItem *>(m_items[i]);
-                // allMarkdown() gives the canonical source via logical walk.
                 const QString src = textItem->allMarkdown();
-                // Now strip the document so its char offsets match `src`.
-                textItem->stripMathSubstitution();
+
+                // Block document signals for the entire update cycle.
+                // This prevents intermediate rehighlights between strip
+                // (source form) and apply (substituted form) from leaving
+                // formatting at stale character positions.
+                QTextDocument *doc = textItem->document();
+                const bool blocked = doc->blockSignals(true);
+
+                textItem->stripInlineSubstitutions();
                 if (m_parser->parse(src)) {
                     auto *highlighter = qobject_cast<MarkdownHighlighter *>(
-                        textItem->document()->findChild<QSyntaxHighlighter *>());
+                        doc->findChild<QSyntaxHighlighter *>());
                     if (highlighter)
                         highlighter->setSpanMap(m_parser->buildSpanMap());
                 }
-                // Re-apply substitution against the freshly-set spans.
-                textItem->refreshMathSubstitution();
+                textItem->refreshBlockFormatting();
+                textItem->refreshInlineSubstitutions();
+
+                doc->blockSignals(blocked);
             }
         }
         repositionItems();

@@ -7,7 +7,7 @@ class QLabel;
 class QTreeWidget;
 class QAction;
 
-namespace Markoff { class Editor; }
+namespace Markoff { class Editor; class ResourceProvider; }
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -35,6 +35,7 @@ private:
     QAction *m_themeAction = nullptr;
     QAction *m_sidebarAction = nullptr;
     QDockWidget *m_sidebarDock = nullptr;
+    Markoff::ResourceProvider *m_resourceProvider = nullptr;
     QString m_filePath;
     bool m_darkTheme = false;
 };

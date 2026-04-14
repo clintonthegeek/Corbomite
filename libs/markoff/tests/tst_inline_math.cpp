@@ -47,7 +47,7 @@ MarkdownTextItem *TestInlineMath::makeItem(const QString &source)
 
     item->setPlainText(source);
     hl->rehighlight();
-    item->refreshMathSubstitution();
+    item->refreshInlineSubstitutions();
     return item;
 }
 
@@ -100,7 +100,7 @@ void TestInlineMath::allMarkdownReturnsCanonicalSource()
     auto *item = makeItem(QStringLiteral("eq: $a+b$"));
     QVERIFY(item->document()->toPlainText().contains(QChar::ObjectReplacementCharacter));
 
-    item->stripMathSubstitution();
+    item->stripInlineSubstitutions();
     const QString docText = item->document()->toPlainText();
     QVERIFY(!docText.contains(QChar::ObjectReplacementCharacter));
     QCOMPARE(docText, QStringLiteral("eq: $a+b$"));
@@ -111,11 +111,11 @@ void TestInlineMath::allMarkdownReturnsCanonicalSource()
 void TestInlineMath::noSubstitutionWithoutHighlighter()
 {
     // A bare item without a highlighter should not crash on
-    // refreshMathSubstitution() — it's a no-op.
+    // refreshInlineSubstitutions() — it's a no-op.
     auto *item = new MarkdownTextItem;
     m_scene.addItem(item);
     item->setPlainText(QStringLiteral("$x^2$"));
-    item->refreshMathSubstitution();
+    item->refreshInlineSubstitutions();
     QCOMPARE(item->allMarkdown(), QStringLiteral("$x^2$"));
 }
 
@@ -139,7 +139,7 @@ void TestInlineMath::cursorInsideMathKeepsSourceRevealed()
 
     // Strip back to source form so we can put the cursor at a specific
     // offset in the literal markdown.
-    item->stripMathSubstitution();
+    item->stripInlineSubstitutions();
     QCOMPARE(item->document()->toPlainText(), QStringLiteral("before $x^2$ after"));
 
     // `$x^2$` is at offset 7..12 (inclusive). Position 9 is strictly
@@ -149,7 +149,7 @@ void TestInlineMath::cursorInsideMathKeepsSourceRevealed()
     // Re-apply substitution via the public refresh entry point. The
     // region containing the cursor should be skipped, leaving raw
     // source visible.
-    item->refreshMathSubstitution();
+    item->refreshInlineSubstitutions();
     const QString docText = item->document()->toPlainText();
     QVERIFY2(!docText.contains(QChar::ObjectReplacementCharacter),
              qPrintable(QStringLiteral("expected source form, got: ") + docText));
@@ -162,16 +162,16 @@ void TestInlineMath::cursorLeavingMathRecollapses()
     // Opposite of the above: start with source revealed (cursor inside),
     // then move cursor outside. Next refresh should re-collapse.
     auto *item = makeItem(QStringLiteral("before $x^2$ after"));
-    item->stripMathSubstitution();
+    item->stripInlineSubstitutions();
 
     // Put cursor inside the math and refresh -> stays revealed.
     setCursorAt(item, 9);
-    item->refreshMathSubstitution();
+    item->refreshInlineSubstitutions();
     QVERIFY(!item->document()->toPlainText().contains(QChar::ObjectReplacementCharacter));
 
     // Now move cursor outside (before the math) and refresh -> collapse.
     setCursorAt(item, 0);
-    item->refreshMathSubstitution();
+    item->refreshInlineSubstitutions();
     QVERIFY(item->document()->toPlainText().contains(QChar::ObjectReplacementCharacter));
 }
 

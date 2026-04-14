@@ -60,7 +60,14 @@ void MathTextObject::drawObject(QPainter *painter, const QRectF &rect,
         painter->restore();
         return;
     }
+    // Enable smooth transforms so downsampling from our 2x cached image to
+    // the logical rect doesn't produce nearest-neighbor blockiness on
+    // regular (1x) displays. Also turn on Antialiasing for the draw call.
+    painter->save();
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    painter->setRenderHint(QPainter::Antialiasing, true);
     painter->drawImage(rect, img);
+    painter->restore();
 }
 
 } // namespace Markoff

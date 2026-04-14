@@ -110,7 +110,7 @@ bool SelectionManager::handleKeyPress(QKeyEvent *event)
         m_anchorTextPos = 0;
         m_currentItem = m_items.last();
         m_currentTextPos = m_currentItem->isTextItem()
-            ? m_currentItem->allMarkdown().length()
+            ? m_currentItem->documentLength()
             : -1;
         setMode(SelectionMode::CrossBoundary);
         applySelection();
@@ -235,7 +235,7 @@ void SelectionManager::applySelection()
                 item->setFullySelected(true);
         } else if (i == anchorIdx) {
             if (item->isTextItem()) {
-                int end = item->allMarkdown().length();
+                int end = item->documentLength();
                 if (forward)
                     item->setSelection(m_anchorTextPos, end);
                 else
@@ -245,7 +245,7 @@ void SelectionManager::applySelection()
             }
         } else if (i == currentIdx) {
             if (item->isTextItem()) {
-                int end = item->allMarkdown().length();
+                int end = item->documentLength();
                 if (forward)
                     item->setSelection(0, m_currentTextPos);
                 else
@@ -255,7 +255,7 @@ void SelectionManager::applySelection()
             }
         } else {
             if (item->isTextItem()) {
-                int end = item->allMarkdown().length();
+                int end = item->documentLength();
                 item->setSelection(0, end);
             } else {
                 item->setFullySelected(true);
@@ -311,8 +311,12 @@ QString SelectionManager::serializeAsMarkdown() const
     QString result;
 
     for (int i = lo; i <= hi; ++i) {
-        if (i > lo)
-            result += QLatin1Char('\n');
+        if (i > lo) {
+            bool prevIsBlock = !m_items[i - 1]->isTextItem();
+            bool currIsBlock = !m_items[i]->isTextItem();
+            result += (prevIsBlock || currIsBlock)
+                ? QStringLiteral("\n\n") : QStringLiteral("\n");
+        }
         SelectableItem *item = m_items[i];
         if (i == anchorIdx || i == currentIdx) {
             if (item->isTextItem())

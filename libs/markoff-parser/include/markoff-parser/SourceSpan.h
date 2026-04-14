@@ -45,6 +45,7 @@ struct SourceSpan {
     bool isBlockquote = false;
     int blockquoteDepth = 0;
     bool isCalloutMarker = false;
+    bool isTaskMarker = false;       // task_list_marker_checked/unchecked
 
     // True for syntax delimiters (**, *, `, [[, ]], ==, %%, ~~, $)
     // that should be hidden in live preview when cursor is not adjacent

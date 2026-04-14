@@ -39,10 +39,17 @@ public:
 
     /// Access the current span map (for block-level formatting by Editor)
     const QList<SourceSpan> &spans() const { return m_spans; }
+    QList<SourceSpan> &mutableSpans() { return m_spans; }
 
     /// Access format colors (for Editor decoration painting)
     QColor blockquoteColor() const {
         return m_theme.formats.value(Element::BlockQuote).foreground().color();
+    }
+    QColor horizontalRuleColor() const {
+        return m_theme.formats.value(Element::HorizontalRule).foreground().color();
+    }
+    QColor headingBackground() const {
+        return m_theme.formats.value(Element::H1).background().color();
     }
 
 protected:

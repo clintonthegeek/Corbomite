@@ -11,7 +11,7 @@ namespace Markoff {
 /// The text stays in the QTextDocument; decorations are painted
 /// around it in paintEvent.
 struct DecoratedRange {
-    enum Type { CodeBlock, Callout, Blockquote, Table };
+    enum Type { CodeBlock, Callout, Blockquote, Table, HorizontalRule, Heading };
 
     Type type = CodeBlock;
     int firstBlock = -1;
@@ -24,6 +24,12 @@ struct DecoratedRange {
     QString calloutType;
     QString calloutTitle;
     QColor calloutColor;
+
+    // Blockquote (max depth in this range, for sizing)
+    int blockquoteDepth = 0;
+
+    // Heading
+    QColor headingBackground;
 
     /// Get the accent color for a callout type
     static QColor colorForCalloutType(const QString &type);
