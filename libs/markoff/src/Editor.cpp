@@ -1609,7 +1609,6 @@ void Editor::handleLinkHovered(const QString &href)
     }
 }
 
-#ifdef QT_TESTLIB_LIB
 void Editor::testActivateLink(const QString &href)
 {
     handleLinkActivated(href);
@@ -1619,6 +1618,5 @@ void Editor::testHoverLink(const QString &href)
 {
     handleLinkHovered(href);
 }
-#endif
 
 } // namespace Markoff

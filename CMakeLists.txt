@@ -119,6 +119,7 @@ endif()
 # Tests
 enable_testing()
 add_subdirectory(tests/core)
+add_subdirectory(tests/markoff)
 add_subdirectory(tests/storage)
 add_subdirectory(tests/search)
 add_subdirectory(tests/models)

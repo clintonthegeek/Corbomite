@@ -158,16 +158,17 @@ public:
     void setCurrentNotePath(const QString &path);
     QString currentNotePath() const;
 
-#ifdef QT_TESTLIB_LIB
     /// Test-only — synthesize a link activation at the editor level,
     /// bypassing QWidget click machinery. Accepts either a raw URL or a
     /// `wikilink://target` synthetic href (as produced by
-    /// MarkdownHighlighter for `[[target]]` spans).
+    /// MarkdownHighlighter for `[[target]]` spans). Do not use from
+    /// host code; present unconditionally because the alternative
+    /// QT_TESTLIB_LIB guard only fires when Qt6::Test is linked into
+    /// the defining translation unit, which is false for libmarkoff.
     void testActivateLink(const QString &href);
     /// Test-only — synthesize a link hover. Pass an empty href to
     /// simulate "leave".
     void testHoverLink(const QString &href);
-#endif
 
 Q_SIGNALS:
     void textChanged();
