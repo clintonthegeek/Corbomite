@@ -74,5 +74,71 @@ void TstFoldingModel::path_duplicateSiblings_firstHasNoSuffix() {
     QCOMPARE(paths[1], QStringList{ "Same#2" });
 }
 
-QTEST_MAIN(TstFoldingModel)
+#include "FoldingModel.h"
+
+class TstFoldingModelState : public QObject {
+    Q_OBJECT
+private slots:
+    void initialState_isEmpty();
+    void fold_addsPath();
+    void unfold_removesPath();
+    void toggle_flipsState();
+    void fold_duplicateCall_doesNotDoubleEmit();
+    void foldStateChanged_firesOnlyOnActualChange();
+};
+
+void TstFoldingModelState::initialState_isEmpty() {
+    FoldingModel m;
+    QVERIFY(m.foldedPaths().isEmpty());
+    QVERIFY(!m.isFolded({ "Anything" }));
+}
+
+void TstFoldingModelState::fold_addsPath() {
+    FoldingModel m;
+    m.fold({ "Intro" });
+    QVERIFY(m.isFolded({ "Intro" }));
+    QCOMPARE(m.foldedPaths().size(), 1);
+}
+
+void TstFoldingModelState::unfold_removesPath() {
+    FoldingModel m;
+    m.fold({ "Intro" });
+    m.unfold({ "Intro" });
+    QVERIFY(!m.isFolded({ "Intro" }));
+}
+
+void TstFoldingModelState::toggle_flipsState() {
+    FoldingModel m;
+    m.toggle({ "X" }); QVERIFY(m.isFolded({ "X" }));
+    m.toggle({ "X" }); QVERIFY(!m.isFolded({ "X" }));
+}
+
+void TstFoldingModelState::fold_duplicateCall_doesNotDoubleEmit() {
+    FoldingModel m;
+    QSignalSpy spy(&m, &FoldingModel::foldStateChanged);
+    m.fold({ "X" });
+    m.fold({ "X" }); // already folded; no-op.
+    QCOMPARE(spy.count(), 1);
+}
+
+void TstFoldingModelState::foldStateChanged_firesOnlyOnActualChange() {
+    FoldingModel m;
+    QSignalSpy spy(&m, &FoldingModel::foldStateChanged);
+    m.unfold({ "Nonexistent" }); // no-op
+    QCOMPARE(spy.count(), 0);
+}
+
+int main(int argc, char *argv[]) {
+    QCoreApplication app(argc, argv);
+    int status = 0;
+    {
+        TstFoldingModel t;
+        status |= QTest::qExec(&t, argc, argv);
+    }
+    {
+        TstFoldingModelState t;
+        status |= QTest::qExec(&t, argc, argv);
+    }
+    return status;
+}
 #include "tst_folding_model.moc"
