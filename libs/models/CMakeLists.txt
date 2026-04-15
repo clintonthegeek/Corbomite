@@ -20,6 +20,9 @@ add_library(corbomite-models STATIC
     include/corbomite/models/TemplateService.h
     src/DailyNoteService.cpp
     include/corbomite/models/DailyNoteService.h
+    src/PropertyTypeInference.cpp
+    include/corbomite/models/PropertyType.h
+    include/corbomite/models/PropertyTypeInference.h
 )
 set_target_properties(corbomite-models PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Models ALIAS corbomite-models)
@@ -27,7 +30,7 @@ add_library(Corbomite::Models ALIAS corbomite-models)
 target_include_directories(corbomite-models
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(corbomite-models PUBLIC Qt6::Core Qt6::Widgets)
+target_link_libraries(corbomite-models PUBLIC Qt6::Core Qt6::Widgets MarkoffParser::MarkoffParser)
 
 if(NOT PROJECT_IS_TOP_LEVEL)
     target_link_libraries(corbomite-models PUBLIC Corbomite::Core Corbomite::Storage)

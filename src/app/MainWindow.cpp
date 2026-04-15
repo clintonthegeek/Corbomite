@@ -9,6 +9,7 @@
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
 #include "sidebar/BacklinksPanel.h"
+#include "sidebar/PropertiesPanel.h"
 #include "sidebar/OutlinksPanel.h"
 #include "sidebar/OutlinePanel.h"
 #include "graph/LocalGraphPanel.h"
@@ -558,6 +559,17 @@ void MainWindow::setupSidebars()
         if (doc) m_editorManager->openNote(doc);
     });
 
+    // Right sidebar: Properties
+    auto *propertiesView = createToolView(
+        nullptr,
+        QStringLiteral("properties_panel"),
+        KMultiTabBar::Right,
+        QIcon::fromTheme(QStringLiteral("document-properties")),
+        i18n("Properties")
+    );
+    m_propertiesPanel = new PropertiesPanel(propertiesView);
+    propertiesView->layout()->addWidget(m_propertiesPanel);
+
     // Right sidebar: Outline
     auto *outlineView = createToolView(
         nullptr,
@@ -905,6 +917,7 @@ void MainWindow::onVaultOpened()
     m_localGraphPanel->setIndex(m_searchIndex);
     m_localGraphPanel->setVaultModel(vault);
     m_localGraphPanel->setMetadataCache(m_metadataCache);
+    m_propertiesPanel->setMetadataCache(m_metadataCache);
 
     // Update sidebar panels when active note changes
     connect(m_editorManager, &EditorViewManager::activeEditorChanged,
@@ -914,11 +927,13 @@ void MainWindow::onVaultOpened()
             m_outlinksPanel->setCurrentNote(editor->noteDocument());
             m_outlinePanel->setCurrentNote(editor->noteDocument());
             m_localGraphPanel->setCurrentNote(editor->noteDocument());
+            m_propertiesPanel->setCurrentNote(editor->noteDocument());
         } else {
             m_backlinksPanel->setCurrentNote(nullptr);
             m_outlinksPanel->setCurrentNote(nullptr);
             m_outlinePanel->setCurrentNote(nullptr);
             m_localGraphPanel->setCurrentNote(nullptr);
+            m_propertiesPanel->setCurrentNote(nullptr);
         }
     });
 
@@ -1118,6 +1133,8 @@ void MainWindow::onVaultClosed()
     m_localGraphPanel->setMetadataCache(nullptr);
     m_localGraphPanel->setVaultModel(nullptr);
     m_localGraphPanel->setCurrentNote(nullptr);
+    m_propertiesPanel->setCurrentNote(nullptr);
+    m_propertiesPanel->setMetadataCache(nullptr);
 
     // Close MetadataCache (flushes persistent store) BEFORE deleting the
     // SQLiteIndex — the index subscribes to cache signals and must not

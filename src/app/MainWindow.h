@@ -25,6 +25,7 @@ class LinkResolver;
 class BacklinksPanel;
 class OutlinksPanel;
 class OutlinePanel;
+class PropertiesPanel;
 class LocalGraphPanel;
 class GraphControlsPanel;
 class TemplateService;
@@ -90,6 +91,7 @@ private:
     BacklinksPanel *m_backlinksPanel = nullptr;
     OutlinksPanel *m_outlinksPanel = nullptr;
     OutlinePanel *m_outlinePanel = nullptr;
+    PropertiesPanel *m_propertiesPanel = nullptr;
     LocalGraphPanel *m_localGraphPanel = nullptr;
     GraphControlsPanel *m_graphControlsPanel = nullptr;
     KRecentFilesAction *m_recentVaults = nullptr;
