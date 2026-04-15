@@ -84,6 +84,16 @@ implementation; the rest are implementation tasks.
 
 ## Recently fixed (for context)
 
+- Heading folding (v1): `Editor::fold`, `unfold`, `toggleFold`,
+  `toggleFoldAtCursor`, `foldAll`, `unfoldAll`, `foldAllAtLevel`,
+  `foldLevel` and persistence hooks (`serializeFoldState` /
+  `restoreFoldState`). Left gutter with triangle arrows; Ctrl+Click
+  folds all at level. Auto-unfold on `scrollToHeading` and `findText`,
+  emitting `foldsAutoExpanded(paths)`. State keyed by heading hierarchy
+  path; reconciled per reparse so renames drop folds. Plan:
+  `docs/plans/2026-04-15-heading-folding.md`. Spec:
+  `docs/specs/2026-04-15-heading-folding-design.md`. Host integration
+  options: `docs/2026-04-15-heading-folding-host-integration.md`.
 - `Editor::wrapSelection` now toggles off when the selection is already
   wrapped, OR when the selection is inside outer delimiters. So
   `toggleBold` on `**foo**` (or on `foo` inside it) produces `foo`.
