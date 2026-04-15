@@ -478,6 +478,42 @@ QStringList SceneCoordinator::enclosingHeadingPath(int itemIndex) const
     return hIdx >= 0 ? hs[hIdx].path : QStringList{};
 }
 
+QStringList SceneCoordinator::enclosingHeadingPathAtBlock(int itemIndex, int blockNumber) const
+{
+    if (!m_foldingModel) return {};
+    const auto &hs = m_foldingModel->headings();
+    if (hs.isEmpty()) return {};
+
+    // Walk items[0..itemIndex], counting heading-type blocks in document order.
+    // Within the target itemIndex, stop after we have accounted for blocks at
+    // or before blockNumber (so we don't credit headings that come after the
+    // match position within the same item).
+    int hIdx = -1;
+    int hSeen = 0;
+
+    for (int i = 0; i <= itemIndex && i < m_items.size(); ++i) {
+        auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[i]);
+        if (!mti) continue;
+
+        QTextDocument *doc = mti->document();
+        QTextBlock block = doc->begin();
+        while (block.isValid()) {
+            // For the target item, only consider blocks up to blockNumber.
+            if (i == itemIndex && block.blockNumber() > blockNumber)
+                break;
+
+            const bool isHeading = block.text().trimmed().startsWith(QLatin1Char('#'));
+            if (isHeading && hSeen < hs.size()) {
+                hIdx = hSeen;
+                ++hSeen;
+            }
+            block = block.next();
+        }
+    }
+
+    return hIdx >= 0 ? hs[hIdx].path : QStringList{};
+}
+
 int SceneCoordinator::headingIndexForItem(int itemIndex) const
 {
     if (!m_foldingModel) return -1;

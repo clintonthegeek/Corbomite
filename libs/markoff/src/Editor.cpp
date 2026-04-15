@@ -875,6 +875,21 @@ void Editor::goToLine(int line)
 
 void Editor::scrollToHeading(const HeadingInfo &heading)
 {
+    // Auto-unfold: find the heading's path and unfold any folded ancestors
+    // so the target is visible before we scroll to it.
+    if (m_foldingModel) {
+        const auto &hs = m_foldingModel->headings();
+        for (const auto &entry : hs) {
+            if (entry.info.level == heading.level
+                && entry.info.text == heading.text) {
+                const auto unfolded = m_foldingModel->unfoldAncestors(entry.path);
+                if (!unfolded.isEmpty())
+                    Q_EMIT foldsAutoExpanded(unfolded);
+                break;
+            }
+        }
+    }
+
     // HeadingInfo::sourceOffset is a UTF-8 byte offset into the document's
     // serialized source. Convert it to a 1-based line number by counting
     // newlines up to that offset, then defer to goToLine().
@@ -973,14 +988,43 @@ bool Editor::findText(const QString &text, QTextDocument::FindFlags flags)
         return doc->find(text, start, flags);
     };
 
+    // Helper: given a matched item and cursor, auto-unfold ancestors if needed
+    // and position the cursor on the match.
+    auto commitMatch = [&](MarkdownTextItem *ti, const QTextCursor &found) {
+        ti->textControl()->setTextCursor(found);
+        ti->setFocus();
+
+        // Auto-unfold: determine the enclosing heading path for the match block
+        // and unfold any folded ancestors so the match is visible.
+        if (m_foldingModel && m_coordinator) {
+            const auto &allItems = m_coordinator->items();
+            int itemIdx = -1;
+            for (int i = 0; i < allItems.size(); ++i) {
+                if (allItems[i] == static_cast<SelectableItem *>(ti)) {
+                    itemIdx = i;
+                    break;
+                }
+            }
+            if (itemIdx >= 0) {
+                const int blockNum = found.block().blockNumber();
+                const QStringList path =
+                    m_coordinator->enclosingHeadingPathAtBlock(itemIdx, blockNum);
+                if (!path.isEmpty()) {
+                    const auto unfolded = m_foldingModel->unfoldAncestors(path);
+                    if (!unfolded.isEmpty())
+                        Q_EMIT foldsAutoExpanded(unfolded);
+                }
+            }
+        }
+    };
+
     // First pass: search the focused item from the current cursor (so
     // repeated finds advance), then any other items from their edges.
     bool isFirst = true;
     for (auto *ti : items) {
         QTextCursor found = searchOne(ti, isFirst && ti == focused);
         if (!found.isNull()) {
-            ti->textControl()->setTextCursor(found);
-            ti->setFocus();
+            commitMatch(ti, found);
             return true;
         }
         isFirst = false;
@@ -993,8 +1037,7 @@ bool Editor::findText(const QString &text, QTextDocument::FindFlags flags)
     if (focused) {
         QTextCursor found = searchOne(focused, /*fromCursor=*/false);
         if (!found.isNull()) {
-            focused->textControl()->setTextCursor(found);
-            focused->setFocus();
+            commitMatch(focused, found);
             return true;
         }
     }

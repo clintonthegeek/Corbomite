@@ -71,6 +71,14 @@ public:
     /// dispatch.
     int headingIndexForItem(int itemIndex) const;
 
+    /// Resolve the enclosing heading path for a specific QTextBlock within
+    /// the given item. Walks all items[0..itemIndex] tallying heading-blocks
+    /// (block.text().trimmed().startsWith('#')); within itemIndex, only counts
+    /// heading-blocks at or before blockNumber. Returns the path of the
+    /// most-recently-counted heading, or empty if none seen.
+    /// PUBLIC — used by Editor (Task 8) for find auto-unfold.
+    QStringList enclosingHeadingPathAtBlock(int itemIndex, int blockNumber) const;
+
 Q_SIGNALS:
     void textChanged();
     void reparsed();

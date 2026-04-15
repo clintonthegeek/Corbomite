@@ -160,11 +160,90 @@ void TstFoldingVisibility::nestedFold_independent() {
     QVERIFY(e.isFolded({"Intro","Goals"})); // unchanged
 }
 
+// ---------------------------------------------------------------------------
+// Auto-unfold tests — Task 8
+// ---------------------------------------------------------------------------
+// Verify that scrollToHeading() and findText() auto-unfold folded ancestors
+// and emit foldsAutoExpanded with the unfolded paths.
+// ---------------------------------------------------------------------------
+
+class TstFoldAutoExpand : public QObject {
+    Q_OBJECT
+private slots:
+    void scrollToHeading_foldedAncestor_autoUnfolds();
+    void findText_matchInFoldedRegion_autoUnfolds();
+};
+
+void TstFoldAutoExpand::scrollToHeading_foldedAncestor_autoUnfolds()
+{
+    Editor e;
+    // Document: H1 "Intro" -> H2 "Goals" (child). Fold "Intro" so "Goals" is
+    // hidden, then navigate to the "Goals" heading. The ancestor "Intro" should
+    // be auto-unfolded and foldsAutoExpanded should fire with its path.
+    e.setPlainText(kSample);
+    waitForReparse();
+
+    // Fold the parent heading so the child is hidden.
+    e.fold({"Intro"});
+    QVERIFY(e.isFolded({"Intro"}));
+
+    QSignalSpy spy(&e, &Editor::foldsAutoExpanded);
+
+    // Build a HeadingInfo for "Goals" to pass to scrollToHeading.
+    // sourceOffset: count bytes up to "## Goals" in kSample.
+    const QByteArray utf8 = kSample.toUtf8();
+    int goalsOffset = kSample.indexOf(QLatin1String("## Goals"));
+    QVERIFY(goalsOffset >= 0);
+
+    HeadingInfo goalsHeading;
+    goalsHeading.level = 2;
+    goalsHeading.text = QStringLiteral("Goals");
+    goalsHeading.sourceOffset = goalsOffset;
+
+    e.scrollToHeading(goalsHeading);
+
+    // The ancestor "Intro" must now be unfolded.
+    QVERIFY(!e.isFolded({"Intro"}));
+
+    // foldsAutoExpanded must have fired exactly once carrying the unfolded path.
+    QCOMPARE(spy.count(), 1);
+    auto arg = spy.at(0).at(0).value<QList<QStringList>>();
+    QVERIFY(arg.contains(QStringList{"Intro"}));
+}
+
+void TstFoldAutoExpand::findText_matchInFoldedRegion_autoUnfolds()
+{
+    Editor e;
+    // "More body" lives under "## Goals" which is under "# Intro".
+    // Fold "Intro" so "More body" is hidden, then findText("More body").
+    // The find should succeed, unfold Intro, and emit foldsAutoExpanded.
+    e.setPlainText(kSample);
+    waitForReparse();
+
+    e.fold({"Intro"});
+    QVERIFY(e.isFolded({"Intro"}));
+
+    QSignalSpy spy(&e, &Editor::foldsAutoExpanded);
+
+    const bool found = e.findText(QStringLiteral("More body"));
+    QVERIFY(found);
+
+    // The ancestor "Intro" must now be unfolded.
+    QVERIFY(!e.isFolded({"Intro"}));
+
+    // foldsAutoExpanded fired.
+    QCOMPARE(spy.count(), 1);
+    auto arg = spy.at(0).at(0).value<QList<QStringList>>();
+    // At minimum the "Intro" path should have been unfolded.
+    QVERIFY(!arg.isEmpty());
+}
+
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     int status = 0;
     { TstFoldingIntegration t;  status |= QTest::qExec(&t, argc, argv); }
     { TstFoldingVisibility  t;  status |= QTest::qExec(&t, argc, argv); }
+    { TstFoldAutoExpand     t;  status |= QTest::qExec(&t, argc, argv); }
     return status;
 }
 #include "tst_folding_integration.moc"
