@@ -433,6 +433,11 @@ protected:
     void setToolViewStyle(KMultiTabBar::KMultiTabBarStyle style);
     KMultiTabBar::KMultiTabBarStyle toolViewStyle() const;
 
+    // Insert a widget at the outermost-left position of the main horizontal
+    // layout — before the left KMultiTabBar. Used by subclasses to mount
+    // Obsidian-style ribbon slots.
+    void prependToMainHLayout(QWidget *widget);
+
 public:
     QWidget *centralWidget() const;
 
@@ -492,6 +497,7 @@ private:
     GUIClient *m_guiClient;
 
     QStackedWidget *m_statusBarStackedWidget;
+    QHBoxLayout *m_mainHLayout = nullptr;
     QHBoxLayout *m_bottomSidebarLayout = nullptr;
 
     struct DragState {

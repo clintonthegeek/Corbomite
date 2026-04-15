@@ -41,6 +41,7 @@
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
 #include "dialogs/TemplatePicker.h"
+#include "RibbonSlot.h"
 #include "corbomite/models/TemplateService.h"
 #include "corbomite/models/DailyNoteService.h"
 #include "corbomitesettings.h"
@@ -86,6 +87,7 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     setupEditor();
     setupSidebars();
     setupStatusBar();
+    setupRibbon();
 
 #ifdef CORBOMITE_DEV_BUILD
     setupGUI(Default, QStringLiteral("corbomite-devui.rc"));
@@ -619,6 +621,22 @@ void MainWindow::setupStatusBar()
 
     statusBar()->addPermanentWidget(m_wordCountLabel);
     statusBar()->addPermanentWidget(m_cursorPosLabel);
+}
+
+void MainWindow::setupRibbon()
+{
+    m_ribbon = new RibbonSlot(this);
+    prependToMainHLayout(m_ribbon);
+
+    m_ribbon->addRibbonIcon(QIcon::fromTheme(QStringLiteral("document-new")),
+                            i18n("New note"),
+                            [this] { createNewNote(); });
+    m_ribbon->addRibbonIcon(QIcon::fromTheme(QStringLiteral("quickopen")),
+                            i18n("Open quick switcher"),
+                            [this] { showQuickSwitcher(); });
+    m_ribbon->addRibbonIcon(QIcon::fromTheme(QStringLiteral("preferences-system-network")),
+                            i18n("Open graph view"),
+                            [this] { openGraphView(); });
 }
 
 void MainWindow::openVaultDialog()

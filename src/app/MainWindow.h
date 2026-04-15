@@ -38,6 +38,7 @@ class HoverPopover;
 class EditorSuggestManager;
 class WikiLinkSuggest;
 class TagSuggest;
+class RibbonSlot;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -57,6 +58,7 @@ private:
     void setupSidebars();
     void setupStatusBar();
     void setupEditor();
+    void setupRibbon();
 
     // Action handlers
     void openVaultDialog();
@@ -106,6 +108,7 @@ private:
     EditorSuggestManager *m_suggestManager = nullptr;
     WikiLinkSuggest *m_wikiSuggest = nullptr;
     TagSuggest *m_tagSuggest = nullptr;
+    RibbonSlot *m_ribbon = nullptr;
 };
 
 } // namespace Corbomite

@@ -1471,15 +1471,15 @@ MainWindow::MainWindow(QWidget *parent)
     toplevelVBox->setSpacing(0);
 
     // hbox for all splitters and other side bars
-    auto *hlayout = new QHBoxLayout;
-    hlayout->setContentsMargins(0, 0, 0, 0);
-    hlayout->setSpacing(0);
-    toplevelVBox->addLayout(hlayout);
+    m_mainHLayout = new QHBoxLayout;
+    m_mainHLayout->setContentsMargins(0, 0, 0, 0);
+    m_mainHLayout->setSpacing(0);
+    toplevelVBox->addLayout(m_mainHLayout);
 
     m_hSplitter = new QSplitter(Qt::Horizontal, hb);
     m_sidebars[KMultiTabBar::Left] = std::make_unique<Sidebar>(KMultiTabBar::Left, m_hSplitter, this, hb);
-    hlayout->addWidget(m_sidebars[KMultiTabBar::Left].get());
-    hlayout->addWidget(m_hSplitter);
+    m_mainHLayout->addWidget(m_sidebars[KMultiTabBar::Left].get());
+    m_mainHLayout->addWidget(m_hSplitter);
 
     auto *vb = new QFrame(m_hSplitter);
     auto *vlayout = new QVBoxLayout(vb);
@@ -1503,7 +1503,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_vSplitter->setStretchFactor(m_vSplitter->indexOf(m_centralWidget), 1);
 
     m_sidebars[KMultiTabBar::Right] = std::make_unique<Sidebar>(KMultiTabBar::Right, m_hSplitter, this, hb);
-    hlayout->addWidget(m_sidebars[KMultiTabBar::Right].get());
+    m_mainHLayout->addWidget(m_sidebars[KMultiTabBar::Right].get());
 
     auto separator = new QFrame(this);
     separator->setFrameShape(QFrame::HLine);
@@ -1573,6 +1573,12 @@ void MainWindow::insertWidgetBeforeStatusbar(QWidget *widget)
     const auto idxOfStatusbar = m_bottomSidebarLayout->indexOf(m_statusBarStackedWidget);
     Q_ASSERT(idxOfStatusbar != -1);
     m_bottomSidebarLayout->insertWidget(idxOfStatusbar, widget);
+}
+
+void MainWindow::prependToMainHLayout(QWidget *widget)
+{
+    Q_ASSERT(m_mainHLayout);
+    m_mainHLayout->insertWidget(0, widget);
 }
 
 void MainWindow::setStatusBarVisible(bool visible)
