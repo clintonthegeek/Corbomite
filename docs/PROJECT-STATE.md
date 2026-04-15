@@ -2,7 +2,7 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines. Update at the end of every meaningful work session per the Ritual 2 / Ritual 3 checklists in `docs/CONTRIBUTING-OPS.md`. Older "Recent decisions" entries archive to `docs/decisions-archive.md` quarterly.
 
-**Last updated:** 2026-04-14 — Cluster A Phase 1 in progress; markoff-parser ported to RapidYAML; libs/core/LinkUtils landed (19 tests green).
+**Last updated:** 2026-04-14 — Cluster A Phase 2 landed; LinkResolver (6-step shortest-path) + links-schema-v1 (subpath column in PK) + SQLiteIndex rewire. 20 LinkResolver tests + 4 graph tests green.
 
 ---
 
@@ -40,13 +40,12 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster A — Link / frontmatter correctness
-- **Phase:** 1 of 3
-- **Last completed step:** `libs/core/LinkUtils` (stripHeading, stripHeadingForLink, resolveSubpath) — 19 tests green (2026-04-14)
-- **Next expected step:** Phase 2 — `libs/storage/LinkResolver` (6-step shortest-path-wins) + `links` table migration (add `subpath TEXT NOT NULL DEFAULT ''`) + rewire the 2 callers in `SQLiteIndex::extractAndInsertLinks`
+- **Phase:** 2 of 3 (complete)
+- **Last completed step:** `libs/storage/LinkResolver` + `links` table migration to schema v1 (adds `subpath` column + in-PK) + SQLiteIndex rewire + unresolved-target `.md` normalisation — 20 LinkResolver tests + 4 graph tests green, zero regressions (2026-04-14)
+- **Next expected step:** Phase 3 — `libs/core/FrontMatterWriter` with `QSaveFile` atomic write + mutator API; wire existing ad-hoc frontmatter edit call-sites through it; end-to-end regression test.
 - **Owner:** clinton (pair w/ Claude)
 - **Date last touched:** 2026-04-14
-- **Open sub-questions:**
-  - Schema version tracking — add `PRAGMA user_version` now or defer? (Currently idempotent `CREATE TABLE IF NOT EXISTS`; proposed `ALTER TABLE ADD COLUMN` is also idempotent with IF NOT EXISTS-style guard.)
+- **Open sub-questions:** none
 
 When work begins, each in-flight cluster gets a row here:
 

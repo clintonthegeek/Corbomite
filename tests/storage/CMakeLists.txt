@@ -18,3 +18,7 @@ add_executable(tst_sqliteindex tst_sqliteindex.cpp)
 add_test(NAME tst_sqliteindex COMMAND tst_sqliteindex)
 target_link_libraries(tst_sqliteindex PRIVATE Qt6::Test Qt6::Sql Corbomite::Storage Corbomite::Core)
 set_tests_properties(tst_sqliteindex PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_linkresolver tst_linkresolver.cpp)
+add_test(NAME tst_linkresolver COMMAND tst_linkresolver)
+target_link_libraries(tst_linkresolver PRIVATE Qt6::Test Corbomite::Storage)

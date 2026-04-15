@@ -7,6 +7,8 @@
 #include <QStringList>
 #include <QVector>
 
+#include "corbomite/storage/LinkResolver.h"
+
 class QThread;
 
 namespace Corbomite {
@@ -22,6 +24,7 @@ struct LinkInfo {
     QString targetPath;
     QString linkType;       // "wiki", "markdown", "embed"
     QString displayText;    // alias, if any
+    QString subpath;        // "#heading" or "#^block", empty if none
 };
 
 class SQLiteIndex : public QObject {
@@ -64,13 +67,10 @@ private:
     void createTables();
     void extractAndInsertLinks(const QString &sourcePath, const QString &content);
     void extractAndInsertTags(const QString &notePath, const QString &content);
-    static QString resolveTarget(const QString &rawTarget);
-
-    QString resolveWikilink(const QString &rawTarget) const;
 
     QString m_connectionName;
     QString m_dbPath;
-    QHash<QString, QString> m_nameToPath; // "Note Name.md" -> "folder/Note Name.md"
+    LinkResolver m_resolver;
     bool m_isOpen = false;
     QThread *m_workerThread = nullptr;
 };

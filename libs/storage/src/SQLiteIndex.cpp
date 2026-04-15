@@ -6,7 +6,6 @@
 
 #include <QSqlDatabase>
 #include <QSqlQuery>
-#include <QSqlError>
 #include <QUuid>
 #include <QThread>
 #include <QCoreApplication>
@@ -65,14 +64,33 @@ void SQLiteIndex::createTables()
         "path, title, content, tokenize = 'porter unicode61'"
         ")"));
 
-    // Link relationships
+    // Schema migration: bumping user_version drops + recreates link/tag
+    // tables so subpath-aware schema takes effect on existing vaults.
+    // FTS data survives (it's cheap to rebuild from scan but also schema-stable).
+    {
+        QSqlQuery vq(QSqlDatabase::database(m_connectionName));
+        int schemaVersion = 0;
+        if (vq.exec(QStringLiteral("PRAGMA user_version")) && vq.next()) {
+            schemaVersion = vq.value(0).toInt();
+        }
+        if (schemaVersion < 1) {
+            vq.exec(QStringLiteral("DROP TABLE IF EXISTS links"));
+            vq.exec(QStringLiteral("DROP TABLE IF EXISTS note_tags"));
+            vq.exec(QStringLiteral("PRAGMA user_version = 1"));
+        }
+    }
+
+    // Link relationships — schema v1 adds subpath ("#heading" or "#^block"),
+    // making it part of the primary key so [[Note#A]] and [[Note#B]] from the
+    // same source are distinct rows.
     query.exec(QStringLiteral(
         "CREATE TABLE IF NOT EXISTS links ("
         "source_path TEXT NOT NULL, "
         "target_path TEXT NOT NULL, "
         "link_type TEXT NOT NULL, "
         "display_text TEXT, "
-        "PRIMARY KEY (source_path, target_path, link_type)"
+        "subpath TEXT NOT NULL DEFAULT '', "
+        "PRIMARY KEY (source_path, target_path, link_type, subpath)"
         ")"));
     query.exec(QStringLiteral(
         "CREATE INDEX IF NOT EXISTS idx_links_target ON links(target_path)"));
@@ -102,17 +120,13 @@ void SQLiteIndex::rebuildIndex(const QString &vaultRoot)
     FileSystemAdapter fs;
     auto notes = scanner.scan(vaultRoot);
 
-    // Build filename → relative path lookup for wikilink resolution
-    // Obsidian resolves [[Note Name]] by searching for "Note Name.md" anywhere in the vault
-    m_nameToPath.clear();
+    // Seed the 6-step resolver with the full vault.
+    QStringList allPaths;
+    allPaths.reserve(notes.size());
     for (const auto &meta : notes) {
-        QString filename = meta.relativePath.mid(
-            meta.relativePath.lastIndexOf(QLatin1Char('/')) + 1);
-        // First match wins (Obsidian's "shortest path" heuristic)
-        if (!m_nameToPath.contains(filename)) {
-            m_nameToPath.insert(filename, meta.relativePath);
-        }
+        allPaths.append(meta.relativePath);
     }
+    m_resolver.setVaultPaths(allPaths);
 
     int count = 0;
     for (const auto &meta : notes) {
@@ -187,6 +201,9 @@ void SQLiteIndex::indexNote(const QString &relativePath, const QString &title, c
 {
     QSqlQuery query(QSqlDatabase::database(m_connectionName));
 
+    // Ensure the resolver knows about this path (no-op if already present).
+    m_resolver.addVaultPath(relativePath);
+
     // Remove existing entries (upsert)
     query.prepare(QStringLiteral("DELETE FROM notes_fts WHERE path = ?"));
     query.addBindValue(relativePath);
@@ -216,6 +233,8 @@ void SQLiteIndex::indexNote(const QString &relativePath, const QString &title, c
 void SQLiteIndex::removeNote(const QString &relativePath)
 {
     QSqlQuery query(QSqlDatabase::database(m_connectionName));
+
+    m_resolver.removeVaultPath(relativePath);
 
     query.prepare(QStringLiteral("DELETE FROM notes_fts WHERE path = ?"));
     query.addBindValue(relativePath);
@@ -265,7 +284,7 @@ QVector<LinkInfo> SQLiteIndex::backlinksFor(const QString &targetPath) const
 
     QSqlQuery q(QSqlDatabase::database(m_connectionName));
     q.prepare(QStringLiteral(
-        "SELECT source_path, target_path, link_type, display_text "
+        "SELECT source_path, target_path, link_type, display_text, subpath "
         "FROM links WHERE target_path = ?"));
     q.addBindValue(targetPath);
     if (!q.exec()) return results;
@@ -276,6 +295,7 @@ QVector<LinkInfo> SQLiteIndex::backlinksFor(const QString &targetPath) const
         info.targetPath = q.value(1).toString();
         info.linkType = q.value(2).toString();
         info.displayText = q.value(3).toString();
+        info.subpath = q.value(4).toString();
         results.append(info);
     }
     return results;
@@ -288,7 +308,7 @@ QVector<LinkInfo> SQLiteIndex::outlinksFor(const QString &sourcePath) const
 
     QSqlQuery q(QSqlDatabase::database(m_connectionName));
     q.prepare(QStringLiteral(
-        "SELECT source_path, target_path, link_type, display_text "
+        "SELECT source_path, target_path, link_type, display_text, subpath "
         "FROM links WHERE source_path = ?"));
     q.addBindValue(sourcePath);
     if (!q.exec()) return results;
@@ -299,6 +319,7 @@ QVector<LinkInfo> SQLiteIndex::outlinksFor(const QString &sourcePath) const
         info.targetPath = q.value(1).toString();
         info.linkType = q.value(2).toString();
         info.displayText = q.value(3).toString();
+        info.subpath = q.value(4).toString();
         results.append(info);
     }
     return results;
@@ -329,7 +350,7 @@ QVector<LinkInfo> SQLiteIndex::allLinks() const
 
     QSqlQuery q(QSqlDatabase::database(m_connectionName));
     q.exec(QStringLiteral(
-        "SELECT source_path, target_path, link_type, display_text FROM links"));
+        "SELECT source_path, target_path, link_type, display_text, subpath FROM links"));
 
     while (q.next()) {
         LinkInfo info;
@@ -337,6 +358,7 @@ QVector<LinkInfo> SQLiteIndex::allLinks() const
         info.targetPath = q.value(1).toString();
         info.linkType = q.value(2).toString();
         info.displayText = q.value(3).toString();
+        info.subpath = q.value(4).toString();
         results.append(info);
     }
     return results;
@@ -450,6 +472,19 @@ int SQLiteIndex::repairLinks(const QString &oldTargetPath, const QString &newTar
 
 // --- Private extraction methods ---
 
+// Normalise an unresolved wikilink target: strip subpath, append .md if no
+// extension. Preserves the legacy behaviour where unresolved links appeared
+// in the graph as "Name.md" nodes.
+static QString unresolvedTargetNormalized(const QString &raw)
+{
+    QString s = raw;
+    const int hashPos = s.indexOf(QLatin1Char('#'));
+    if (hashPos >= 0) s = s.left(hashPos);
+    s = s.trimmed();
+    if (!s.contains(QLatin1Char('.'))) s += QStringLiteral(".md");
+    return s;
+}
+
 void SQLiteIndex::extractAndInsertLinks(const QString &sourcePath, const QString &content)
 {
     QSqlQuery query(QSqlDatabase::database(m_connectionName));
@@ -477,17 +512,31 @@ void SQLiteIndex::extractAndInsertLinks(const QString &sourcePath, const QString
         QString line = rawLine;
         line.replace(inlineCodePattern, QString());
 
-        // Embeds: ![[target]]
+        // Embeds: ![[target]] — media filenames (images, PDFs) pass through
+        // verbatim; note-embeds (e.g. ![[Note#Section]]) route through the
+        // resolver so the subpath is captured.
         auto it = embedPattern.globalMatch(line);
         while (it.hasNext()) {
             auto match = it.next();
-            QString target = match.captured(1);
-            // Don't append .md for embeds — they might be images/media
+            const QString raw = match.captured(1);
+            QString target = raw;
+            QString subpath;
+            // If the raw target contains '#' or has no extension other than .md,
+            // treat as a note-embed and resolve.
+            const bool looksLikeNote = raw.contains(QLatin1Char('#'))
+                || !raw.contains(QLatin1Char('.'))
+                || raw.endsWith(QStringLiteral(".md"), Qt::CaseInsensitive);
+            if (looksLikeNote) {
+                const auto resolved = m_resolver.resolve(sourcePath, raw);
+                if (resolved.resolved) target = resolved.path;
+                subpath = resolved.subpath;
+            }
             query.prepare(QStringLiteral(
-                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
-                "VALUES(?, ?, 'embed', NULL)"));
+                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text, subpath) "
+                "VALUES(?, ?, 'embed', NULL, ?)"));
             query.addBindValue(sourcePath);
             query.addBindValue(target);
+            query.addBindValue(subpath.isNull() ? QStringLiteral("") : subpath);
             query.exec();
         }
 
@@ -495,14 +544,19 @@ void SQLiteIndex::extractAndInsertLinks(const QString &sourcePath, const QString
         it = wikiAliasPattern.globalMatch(line);
         while (it.hasNext()) {
             auto match = it.next();
-            QString target = resolveWikilink(match.captured(1));
+            const auto resolved = m_resolver.resolve(sourcePath, match.captured(1));
+            QString target = resolved.resolved
+                ? resolved.path
+                : unresolvedTargetNormalized(match.captured(1));
             QString display = match.captured(2);
             query.prepare(QStringLiteral(
-                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
-                "VALUES(?, ?, 'wiki', ?)"));
+                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text, subpath) "
+                "VALUES(?, ?, 'wiki', ?, ?)"));
             query.addBindValue(sourcePath);
             query.addBindValue(target);
             query.addBindValue(display);
+            // QString() binds as NULL; ensure empty literal so NOT NULL holds.
+            query.addBindValue(resolved.subpath.isNull() ? QStringLiteral("") : resolved.subpath);
             query.exec();
         }
 
@@ -516,12 +570,16 @@ void SQLiteIndex::extractAndInsertLinks(const QString &sourcePath, const QString
         it = wikiPattern.globalMatch(lineWithoutAliases);
         while (it.hasNext()) {
             auto match = it.next();
-            QString target = resolveWikilink(match.captured(1));
+            const auto resolved = m_resolver.resolve(sourcePath, match.captured(1));
+            QString target = resolved.resolved
+                ? resolved.path
+                : unresolvedTargetNormalized(match.captured(1));
             query.prepare(QStringLiteral(
-                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
-                "VALUES(?, ?, 'wiki', NULL)"));
+                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text, subpath) "
+                "VALUES(?, ?, 'wiki', NULL, ?)"));
             query.addBindValue(sourcePath);
             query.addBindValue(target);
+            query.addBindValue(resolved.subpath.isNull() ? QStringLiteral("") : resolved.subpath);
             query.exec();
         }
 
@@ -567,45 +625,6 @@ void SQLiteIndex::extractAndInsertTags(const QString &notePath, const QString &c
             query.exec();
         }
     }
-}
-
-QString SQLiteIndex::resolveTarget(const QString &rawTarget)
-{
-    QString target = rawTarget;
-
-    // Strip heading/block reference: [[Note#heading]] -> Note
-    int hashPos = target.indexOf(QLatin1Char('#'));
-    if (hashPos >= 0) {
-        target = target.left(hashPos);
-    }
-
-    target = target.trimmed();
-
-    // Append .md if no extension
-    if (!target.contains(QLatin1Char('.'))) {
-        target += QStringLiteral(".md");
-    }
-
-    return target;
-}
-
-QString SQLiteIndex::resolveWikilink(const QString &rawTarget) const
-{
-    QString filename = resolveTarget(rawTarget);
-
-    // If the filename already contains a path separator, it's already a relative path
-    if (filename.contains(QLatin1Char('/'))) {
-        return filename;
-    }
-
-    // Look up by filename → full vault-relative path
-    auto it = m_nameToPath.find(filename);
-    if (it != m_nameToPath.end()) {
-        return it.value();
-    }
-
-    // Not found — return the bare filename (will become an "unresolved" node)
-    return filename;
 }
 
 } // namespace Corbomite

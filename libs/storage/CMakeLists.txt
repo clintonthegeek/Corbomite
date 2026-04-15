@@ -10,6 +10,8 @@ add_library(corbomite-storage STATIC
     src/VaultScanner.cpp
     src/SQLiteIndex.cpp
     include/corbomite/storage/SQLiteIndex.h
+    src/LinkResolver.cpp
+    include/corbomite/storage/LinkResolver.h
 )
 set_target_properties(corbomite-storage PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Storage ALIAS corbomite-storage)
@@ -17,7 +19,7 @@ add_library(Corbomite::Storage ALIAS corbomite-storage)
 target_include_directories(corbomite-storage
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(corbomite-storage PUBLIC Qt6::Core Qt6::Sql)
+target_link_libraries(corbomite-storage PUBLIC Qt6::Core Qt6::Sql MarkoffParser::MarkoffParser)
 
 if(NOT PROJECT_IS_TOP_LEVEL)
     target_link_libraries(corbomite-storage PUBLIC Corbomite::Core)
