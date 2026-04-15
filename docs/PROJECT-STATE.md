@@ -27,7 +27,7 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 | G | Views hierarchy + TextFileView contract | [scouting](superpowers/plans/2026-04-14-cluster-g-views-hierarchy-SCOUTING.md) | Scouting doc | Expand to full plan when Cluster C Phase 1 lands |
 | H | Menus / hover / suggester UI | [full](superpowers/plans/2026-04-14-cluster-h-menus-hover-suggester-ui.md) | Done | Landed 2026-04-15 across 5 commits. Unblocks N |
 | I | MetadataCache parity | [full](superpowers/plans/2026-04-15-cluster-i-metadatacache-parity.md) | Done | Landed 2026-04-15 (10 commits across 8 phases). Unblocks F, J, K (partial), L |
-| J | Embed / rendering primitives | [stub](superpowers/plans/2026-04-14-cluster-j-embed-rendering-primitives-STUB.md) | Stub plan | Unblocked 2026-04-15 (E + I done). Expand stub → full plan when prioritised. |
+| J | Embed / rendering primitives | [full](superpowers/plans/2026-04-15-cluster-j-embed-rendering.md) | In progress (phase 0) | Spec: `superpowers/specs/2026-04-15-cluster-j-embed-rendering-design.md`. 6 phases; Phases 3 + 4 parallel-dispatchable. Unblocks K, L-extensions, N. |
 | K | Bases | [scouting](superpowers/plans/2026-04-14-cluster-k-bases-SCOUTING.md) | Scouting doc | Blocked — expand when Bases DSL extraction addendum lands (follow-up #3 below) |
 | L | Properties panel | — | Done | Landed 2026-04-15 as single-phase normal task (commit 89b1df4); 6 editor widget types + 500ms debounced writeback via FrontMatterWriter |
 | M | Internal-plugin feature audits (Graph, Canvas) | — | Deferred | Treat as two normal tasks; no cluster plan needed |
