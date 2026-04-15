@@ -472,14 +472,32 @@ void SceneCoordinator::ensureHeadingMap() const
     const auto &hs = m_foldingModel->headings();
     if (hs.isEmpty()) return;
 
-    // Heading sourceOffsets are byte offsets into toMarkdown()'s output
-    // (that's the source tree-sitter parses). Convert each to a 0-based
-    // source-line for line-based comparison against item blocks.
-    const QByteArray utf8 = toMarkdown().toUtf8();
+    // Heading sourceOffsets are byte offsets into the POST-frontmatter
+    // source that tree-sitter sees. Document::fromMarkdown strips the
+    // YAML frontmatter (--- ... ---) before parsing, so when our items
+    // include the frontmatter we have to add its byte length back to
+    // each heading's offset before converting to a line in the full
+    // toMarkdown() output.
+    const QString full = toMarkdown();
+    const QByteArray utf8 = full.toUtf8();
+    int frontmatterBytes = 0;
+    if (full.startsWith(QStringLiteral("---\n")) ||
+        full.startsWith(QStringLiteral("---\r\n"))) {
+        const int endPos = full.indexOf(QStringLiteral("\n---"), 3);
+        if (endPos >= 0) {
+            int after = endPos + 4; // past "\n---"
+            if (after < full.size() && full[after] == QLatin1Char('\r')) ++after;
+            if (after < full.size() && full[after] == QLatin1Char('\n')) ++after;
+            frontmatterBytes = full.left(after).toUtf8().size();
+        }
+    }
+
     QHash<int, int> lineToHeadingIdx;
     lineToHeadingIdx.reserve(hs.size());
-    for (int i = 0; i < hs.size(); ++i)
-        lineToHeadingIdx.insert(sourceLineAt(utf8, hs[i].info.sourceOffset), i);
+    for (int i = 0; i < hs.size(); ++i) {
+        const int absOffset = hs[i].info.sourceOffset + frontmatterBytes;
+        lineToHeadingIdx.insert(sourceLineAt(utf8, absOffset), i);
+    }
 
     // Walk items in order, tracking the running source-line offset.
     // Mirror toMarkdown()'s separator rules so line counts align with
