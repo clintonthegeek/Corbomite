@@ -249,6 +249,45 @@ void SQLiteIndex::removeNote(const QString &relativePath)
     query.exec();
 }
 
+namespace {
+
+// FTS5's snippet() function wraps hits in caller-supplied delimiters
+// (we use `<b>` / `</b>`). Strip them out and translate their positions
+// into a merge-sorted, non-overlapping QVector<QPair<int,int>> over the
+// cleaned text so SearchMatch.matches lines up with what the panel renders.
+struct StrippedSnippet {
+    QString text;
+    QVector<QPair<int, int>> matches;
+};
+
+StrippedSnippet stripBoldMarkup(const QString &raw)
+{
+    static const QString openTag = QStringLiteral("<b>");
+    static const QString closeTag = QStringLiteral("</b>");
+    StrippedSnippet out;
+    out.text.reserve(raw.size());
+    int i = 0;
+    while (i < raw.size()) {
+        if (raw.mid(i, openTag.size()) == openTag) {
+            const int rangeStart = out.text.size();
+            i += openTag.size();
+            while (i < raw.size() && raw.mid(i, closeTag.size()) != closeTag) {
+                out.text.append(raw.at(i));
+                ++i;
+            }
+            if (i < raw.size()) i += closeTag.size();
+            const int rangeEnd = out.text.size();
+            if (rangeEnd > rangeStart) out.matches.append({rangeStart, rangeEnd});
+        } else {
+            out.text.append(raw.at(i));
+            ++i;
+        }
+    }
+    return out;
+}
+
+} // namespace
+
 QVector<SearchMatch> SQLiteIndex::search(const QString &query, int maxResults) const
 {
     QVector<SearchMatch> results;
@@ -267,7 +306,9 @@ QVector<SearchMatch> SQLiteIndex::search(const QString &query, int maxResults) c
     while (q.next()) {
         SearchMatch match;
         match.notePath = q.value(0).toString();
-        match.snippet = q.value(1).toString();
+        const auto snippet = stripBoldMarkup(q.value(1).toString());
+        match.snippet = snippet.text;
+        match.matches = snippet.matches;
         match.score = q.value(2).toDouble();
         results.append(match);
     }
@@ -325,7 +366,9 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
     while (q.next()) {
         SearchMatch match;
         match.notePath = q.value(0).toString();
-        match.snippet = q.value(1).toString();
+        const auto snippet = stripBoldMarkup(q.value(1).toString());
+        match.snippet = snippet.text;
+        match.matches = snippet.matches;
         match.score = q.value(2).toDouble();
         results.append(match);
     }

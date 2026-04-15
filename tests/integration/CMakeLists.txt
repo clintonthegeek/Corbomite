@@ -17,3 +17,9 @@ add_test(NAME tst_editor_save COMMAND tst_editor_save)
 target_link_libraries(tst_editor_save PRIVATE
     Qt6::Test Corbomite::Models Corbomite::Storage Corbomite::Core)
 set_tests_properties(tst_editor_save PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_search_dsl_pipeline tst_search_dsl_pipeline.cpp)
+add_test(NAME tst_search_dsl_pipeline COMMAND tst_search_dsl_pipeline)
+target_link_libraries(tst_search_dsl_pipeline PRIVATE
+    Qt6::Test Corbomite::Search Corbomite::Storage Corbomite::Core)
+set_tests_properties(tst_search_dsl_pipeline PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

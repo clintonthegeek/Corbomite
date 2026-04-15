@@ -574,6 +574,31 @@ private Q_SLOTS:
                         QStringLiteral("anything"));
         QCOMPARE(index.searchCompiled(QString(), {}, {}).size(), 0);
     }
+
+    // --- SearchMatch.matches population from FTS5 snippet markup ---
+
+    void testSearchPopulatesHighlightRanges()
+    {
+        QTemporaryDir tmp;
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.indexNote(QStringLiteral("note.md"), QStringLiteral("Note"),
+                        QStringLiteral("This is the hello text we look for"));
+
+        auto results = index.search(QStringLiteral("hello"));
+        QCOMPARE(results.size(), 1);
+        const auto &m = results.at(0);
+        QVERIFY(!m.matches.isEmpty());
+        // Each highlight range must point inside the cleaned snippet text and
+        // span a non-empty slice (the matched word).
+        for (const auto &r : m.matches) {
+            QVERIFY(r.first >= 0 && r.second <= m.snippet.size());
+            QVERIFY(r.first < r.second);
+        }
+        // The marker tags themselves must be gone from the snippet.
+        QVERIFY(!m.snippet.contains(QStringLiteral("<b>")));
+        QVERIFY(!m.snippet.contains(QStringLiteral("</b>")));
+    }
 };
 
 QTEST_MAIN(TestSQLiteIndex)
