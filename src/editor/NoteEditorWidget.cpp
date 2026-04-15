@@ -2,6 +2,7 @@
 #include "NoteEditorWidget.h"
 #include "CompletionPopup.h"
 #include "HoverPopover.h"
+#include "SourceEditor.h"
 #include "VaultResourceProvider.h"
 #include "corbomite/core/EditorSuggest.h"
 #include "corbomite/core/EditorSuggestManager.h"
@@ -25,6 +26,13 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_editor);
+
+    // Phase 2 mount — construct Corbomite::SourceEditor as a child and hide
+    // it. This proves the build link + widget instantiation without
+    // changing any user-visible behaviour. Cluster E Phase 7 will promote
+    // it into the ViewMode switch.
+    m_sourceEditor = new SourceEditor(this);
+    m_sourceEditor->hide();
 
     connect(m_editor, &Markoff::Editor::textChanged,
             this, &NoteEditorWidget::onTextChanged);

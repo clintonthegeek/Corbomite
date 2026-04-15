@@ -18,6 +18,7 @@ add_library(CorbomiteApp STATIC
     sidebar/PropertiesPanel.cpp
     sidebar/PropertyEditorWidget.cpp
     editor/NoteEditorWidget.cpp
+    editor/SourceEditor.cpp
     editor/EditorViewSpace.cpp
     editor/EditorViewManager.cpp
     editor/CompletionPopup.cpp
@@ -62,6 +63,7 @@ target_link_libraries(CorbomiteApp
         Corbomite::Storage
         Corbomite::Models
         Markoff::Markoff
+        Corbomite::QutepartSource
         forcegraph
         canvas
 )

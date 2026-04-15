@@ -10,6 +10,7 @@ class Editor;
 namespace Corbomite {
 
 class NoteDocument;
+class SourceEditor;
 class VaultModel;
 class VaultResourceProvider;
 class CompletionPopup;
@@ -72,6 +73,11 @@ private:
     QString resolveTarget(const QString &target) const;
 
     Markoff::Editor *m_editor = nullptr;
+    // Phase 2 mount of `Corbomite::SourceEditor` — constructed hidden so the
+    // widget instantiation + library link is proven without changing any
+    // user-visible behaviour. Cluster E Phase 7 will promote this into the
+    // ViewMode switch (Editing / Reading / Source).
+    SourceEditor *m_sourceEditor = nullptr;
     ViewMode m_viewMode = ViewMode::Editing;
 
     NoteDocument *m_doc = nullptr;
