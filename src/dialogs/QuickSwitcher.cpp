@@ -2,8 +2,8 @@
 #include "QuickSwitcher.h"
 #include "QuickSwitcherDelegate.h"
 #include "corbomite/models/VaultModel.h"
+#include "corbomite/search/FuzzyMatcher.h"
 
-#include <KFuzzyMatcher>
 #include <KLocalizedString>
 #include <QVBoxLayout>
 #include <QKeyEvent>
@@ -13,7 +13,8 @@
 
 namespace Corbomite {
 
-// Custom proxy that uses KFuzzyMatcher for filtering and scoring
+// Custom proxy that uses Corbomite::FuzzyMatcher for filtering and scoring,
+// preserving Obsidian's two-pass ranking semantics across all suggester surfaces.
 class FuzzyFilterProxyModel : public QSortFilterProxyModel {
 public:
     using QSortFilterProxyModel::QSortFilterProxyModel;
@@ -21,9 +22,10 @@ public:
     void setFilterPattern(const QString &pattern)
     {
         m_pattern = pattern;
+        m_prepared = FuzzyMatcher::prepareQuery(pattern);
         beginFilterChange();
         endFilterChange();
-        sort(0); // Re-sort by score
+        sort(0);
     }
 
     QString filterPattern() const { return m_pattern; }
@@ -32,16 +34,15 @@ protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
     {
         Q_UNUSED(sourceParent)
-        if (m_pattern.isEmpty()) return true;
-
+        if (m_prepared.isEmpty()) return true;
         auto idx = sourceModel()->index(sourceRow, 0);
-        QString name = idx.data(QuickSwitcherModel::NoteNameRole).toString();
-        return KFuzzyMatcher::matchSimple(m_pattern, name);
+        const QString name = idx.data(QuickSwitcherModel::NoteNameRole).toString();
+        return FuzzyMatcher::fuzzySearch(m_prepared, name).has_value();
     }
 
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override
     {
-        if (m_pattern.isEmpty()) {
+        if (m_prepared.isEmpty()) {
             // No filter: recent files first, then alphabetical
             bool leftRecent = left.data(QuickSwitcherModel::IsRecentRole).toBool();
             bool rightRecent = right.data(QuickSwitcherModel::IsRecentRole).toBool();
@@ -50,17 +51,16 @@ protected:
                        .compare(right.data(QuickSwitcherModel::NoteNameRole).toString(),
                                 Qt::CaseInsensitive) < 0;
         }
-
-        // With filter: sort by fuzzy score (higher = better = first)
-        QString leftName = left.data(QuickSwitcherModel::NoteNameRole).toString();
-        QString rightName = right.data(QuickSwitcherModel::NoteNameRole).toString();
-        auto leftResult = KFuzzyMatcher::match(m_pattern, leftName);
-        auto rightResult = KFuzzyMatcher::match(m_pattern, rightName);
-        return leftResult.score > rightResult.score;
+        const QString leftName = left.data(QuickSwitcherModel::NoteNameRole).toString();
+        const QString rightName = right.data(QuickSwitcherModel::NoteNameRole).toString();
+        const double leftScore = FuzzyMatcher::fuzzySearch(m_prepared, leftName).value_or(FuzzyMatch{}).score;
+        const double rightScore = FuzzyMatcher::fuzzySearch(m_prepared, rightName).value_or(FuzzyMatch{}).score;
+        return leftScore > rightScore;
     }
 
 private:
     QString m_pattern;
+    PreparedQuery m_prepared;
 };
 
 QuickSwitcher::QuickSwitcher(VaultModel *vault, const QStringList &recentPaths,

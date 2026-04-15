@@ -50,6 +50,7 @@ target_link_libraries(CorbomiteApp
         KF6::ConfigWidgets
         KF6::DBusAddons
         Corbomite::Core
+        Corbomite::Search
         Corbomite::Storage
         Corbomite::Models
         Markoff::Markoff

@@ -2,7 +2,8 @@
 #include "CompletionPopup.h"
 #include "CompletionDelegate.h"
 
-#include <KFuzzyMatcher>
+#include "corbomite/search/FuzzyMatcher.h"
+
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QGraphicsDropShadowEffect>
@@ -10,7 +11,8 @@
 
 namespace Corbomite {
 
-// Fuzzy proxy for completion
+// Fuzzy proxy for completion — shares the Corbomite::FuzzyMatcher pipeline with
+// QuickSwitcher and (eventually) every other suggester so ranking is uniform.
 class CompletionFilterProxy : public QSortFilterProxyModel {
 public:
     using QSortFilterProxyModel::QSortFilterProxyModel;
@@ -18,6 +20,7 @@ public:
     void setFilterPattern(const QString &pattern)
     {
         m_pattern = pattern;
+        m_prepared = FuzzyMatcher::prepareQuery(pattern);
         beginFilterChange();
         endFilterChange();
         sort(0);
@@ -27,27 +30,28 @@ protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
     {
         Q_UNUSED(sourceParent)
-        if (m_pattern.isEmpty()) return true;
-
+        if (m_prepared.isEmpty()) return true;
         auto idx = sourceModel()->index(sourceRow, 0);
-        QString text = idx.data(Qt::DisplayRole).toString();
-        return KFuzzyMatcher::matchSimple(m_pattern, text);
+        const QString text = idx.data(Qt::DisplayRole).toString();
+        return FuzzyMatcher::fuzzySearch(m_prepared, text).has_value();
     }
 
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override
     {
-        if (m_pattern.isEmpty()) {
+        if (m_prepared.isEmpty()) {
             return left.data(Qt::DisplayRole).toString()
                        .compare(right.data(Qt::DisplayRole).toString(), Qt::CaseInsensitive) < 0;
         }
-        QString leftText = left.data(Qt::DisplayRole).toString();
-        QString rightText = right.data(Qt::DisplayRole).toString();
-        return KFuzzyMatcher::match(m_pattern, leftText).score
-             > KFuzzyMatcher::match(m_pattern, rightText).score;
+        const QString leftText = left.data(Qt::DisplayRole).toString();
+        const QString rightText = right.data(Qt::DisplayRole).toString();
+        const double l = FuzzyMatcher::fuzzySearch(m_prepared, leftText).value_or(FuzzyMatch{}).score;
+        const double r = FuzzyMatcher::fuzzySearch(m_prepared, rightText).value_or(FuzzyMatch{}).score;
+        return l > r;
     }
 
 private:
     QString m_pattern;
+    PreparedQuery m_prepared;
 };
 
 CompletionPopup::CompletionPopup(QAbstractItemModel *sourceModel, QWidget *parent)

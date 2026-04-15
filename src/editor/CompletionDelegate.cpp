@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "CompletionDelegate.h"
 
-#include <KFuzzyMatcher>
-#include <QPainter>
+#include "corbomite/search/FuzzyMatcher.h"
+#include "corbomite/search/ResultHighlighter.h"
+
 #include <QApplication>
+#include <QPainter>
 
 namespace Corbomite {
 
@@ -23,34 +25,21 @@ void CompletionDelegate::paint(QPainter *painter, const QStyleOptionViewItem &op
     const QString text = index.data(Qt::DisplayRole).toString();
     const int padding = 4;
     QRect textRect = option.rect.adjusted(padding, 0, -padding, 0);
+    const int baseline = textRect.center().y() + option.fontMetrics.ascent() / 2 - 1;
 
     if (!m_pattern.isEmpty()) {
-        auto ranges = KFuzzyMatcher::matchedRanges(m_pattern, text);
-
-        int x = textRect.left();
-        int y = textRect.center().y() + option.fontMetrics.ascent() / 2 - 1;
-
-        for (int i = 0; i < text.length(); ++i) {
-            bool highlighted = false;
-            for (const auto &range : ranges) {
-                if (i >= range.start && i < range.start + range.length) {
-                    highlighted = true;
-                    break;
-                }
-            }
-
-            QFont charFont = option.font;
-            if (highlighted) {
-                charFont.setBold(true);
-                painter->setPen(option.palette.color(QPalette::Link));
-            } else {
-                painter->setPen(option.palette.color(QPalette::Text));
-            }
-            painter->setFont(charFont);
-            QString ch = text.mid(i, 1);
-            painter->drawText(x, y, ch);
-            x += QFontMetrics(charFont).horizontalAdvance(ch);
-        }
+        const auto prepared = FuzzyMatcher::prepareQuery(m_pattern);
+        const auto matchOpt = FuzzyMatcher::fuzzySearch(prepared, text);
+        const QVector<QPair<int, int>> ranges =
+            matchOpt ? matchOpt->matches : QVector<QPair<int, int>>{};
+        ResultHighlighter::drawHighlighted(painter,
+                                            textRect.left(),
+                                            baseline,
+                                            text,
+                                            ranges,
+                                            option.font,
+                                            option.palette.color(QPalette::Text),
+                                            option.palette.color(QPalette::Link));
     } else {
         painter->setPen(option.palette.color(QPalette::Text));
         painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, text);
