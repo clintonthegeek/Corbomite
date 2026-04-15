@@ -14,6 +14,8 @@ add_library(corbomite-storage STATIC
     include/corbomite/storage/SQLiteIndex.h
     src/LinkResolver.cpp
     include/corbomite/storage/LinkResolver.h
+    src/VaultConfig.cpp
+    include/corbomite/storage/VaultConfig.h
 )
 set_target_properties(corbomite-storage PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Storage ALIAS corbomite-storage)

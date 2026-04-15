@@ -22,3 +22,7 @@ set_tests_properties(tst_sqliteindex PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=off
 add_executable(tst_linkresolver tst_linkresolver.cpp)
 add_test(NAME tst_linkresolver COMMAND tst_linkresolver)
 target_link_libraries(tst_linkresolver PRIVATE Qt6::Test Corbomite::Storage)
+
+add_executable(tst_vaultconfig tst_vaultconfig.cpp)
+add_test(NAME tst_vaultconfig COMMAND tst_vaultconfig)
+target_link_libraries(tst_vaultconfig PRIVATE Qt6::Test Corbomite::Storage)
