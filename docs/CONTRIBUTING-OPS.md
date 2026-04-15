@@ -76,7 +76,7 @@ Execute every applicable step.
    - Optional: lessons for the next cluster.
    - Length: 200–500 words.
 4. **Propagate unblocking effects.** Find every other cluster's Roadmap row that says `Blocked — waiting on <this cluster>`. Update them to `Not started` (or `In progress` if work has begun on them concurrently).
-5. **Re-evaluate STUB plans.** Any STUB plan whose dependencies just landed: flag in PROJECT-STATE's `Open questions` whether to expand it now. Wait for human direction.
+5. **Re-evaluate STUB and SCOUTING plans.** Any STUB or SCOUTING plan whose documented expansion-trigger just fired: flag in PROJECT-STATE's `Open questions` whether to expand it now. Wait for human direction. (STUBs expand in ~hour-scale effort; SCOUTING docs usually in ~2–4 hour effort.)
 6. **Update `docs/superpowers/plans/INDEX.md`** Status column to `Done` for the completed cluster.
 7. **Add a Recent-decisions bullet** in PROJECT-STATE: `- **YYYY-MM-DD — Cluster <X> landed.** See cluster-retros/cluster-<letter>.md.`
 8. **Consider memory write.** If the cluster resolved a long-standing bug or established a load-bearing pattern, write a one-line memory entry per the auto-memory rules (`~/.claude/projects/.../memory/MEMORY.md`). Examples worth memorising: "vault-switch crash resolved by Kate-session destroy/rebuild pattern", "FrontMatter library is yaml-cpp configured per Obsidian options".
@@ -107,7 +107,7 @@ Execute every applicable step.
 - `docs/decisions-archive.md` (quarterly archive of older PROJECT-STATE Recent decisions)
 
 ### Naming conventions
-- Cluster plans: `YYYY-MM-DD-cluster-<letter>-<short-title>.md` (full plans) or `…STUB.md` suffix (stub plans).
+- Cluster plans: `YYYY-MM-DD-cluster-<letter>-<short-title>.md` (full plans), `…-STUB.md` suffix (stub plans — sketches ready to expand with ~hour-scale effort), or `…-SCOUTING.md` suffix (pre-plan notes capturing breadcrumbs when the cluster is externally blocked — not dispatchable, expand when trigger documented in the file fires).
 - Addenda: `YYYY-MM-DD-<short-topic>.md`.
 - Cluster retros: `cluster-<letter>.md`.
 - Dates are absolute (YYYY-MM-DD), never relative ("yesterday", "next week").

@@ -2,7 +2,7 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines. Update at the end of every meaningful work session per the Ritual 2 / Ritual 3 checklists in `docs/CONTRIBUTING-OPS.md`. Older "Recent decisions" entries archive to `docs/decisions-archive.md` quarterly.
 
-**Last updated:** 2026-04-14 — initial system stand-up after Pass 3 audit synthesis complete.
+**Last updated:** 2026-04-14 — added Cluster H full plan + G/K scouting docs; system stand-up still current focus.
 
 ---
 
@@ -24,11 +24,11 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 | D | Search / suggester parity | [full](superpowers/plans/2026-04-14-cluster-d-search-suggester-parity.md) | Not started | Weakly blocked on A (LinkUtils for heading-match search) |
 | E | Markoff three-mode pivot | [full](superpowers/plans/2026-04-14-cluster-e-markoff-three-mode-pivot.md) | Not started | Blocked — waiting on B Phase 3 (WorkspaceState) and A Phase 1 (frontmatter parsing) |
 | F | Templates / Daily Notes / Moment | [stub](superpowers/plans/2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md) | Stub plan | Expand after A + I land |
-| G | Views hierarchy + TextFileView contract | — | Plan-needed | Write full plan after A–E start landing |
-| H | Menus / hover / suggester UI | — | Plan-needed | Write full plan after A–E start landing |
+| G | Views hierarchy + TextFileView contract | [scouting](superpowers/plans/2026-04-14-cluster-g-views-hierarchy-SCOUTING.md) | Scouting doc | Expand to full plan when Cluster C Phase 1 lands |
+| H | Menus / hover / suggester UI | [full](superpowers/plans/2026-04-14-cluster-h-menus-hover-suggester-ui.md) | Not started | Parallelisable with A/B/D; blocked softly on C Phase 1 (Component base) |
 | I | MetadataCache parity | [stub](superpowers/plans/2026-04-14-cluster-i-metadatacache-parity-STUB.md) | Stub plan | Expand after A lands and C is in flight |
 | J | Embed / rendering primitives | [stub](superpowers/plans/2026-04-14-cluster-j-embed-rendering-primitives-STUB.md) | Stub plan | Expand after E lands and I is in flight |
-| K | Bases | — | Plan-needed | Blocked — waiting on Bases formula/filter DSL extraction (controller follow-up #3 below) |
+| K | Bases | [scouting](superpowers/plans/2026-04-14-cluster-k-bases-SCOUTING.md) | Scouting doc | Blocked — expand when Bases DSL extraction addendum lands (follow-up #3 below) |
 | L | Properties panel | — | Deferred | Treat as normal implementation task when A/B/I/C are done |
 | M | Internal-plugin feature audits (Graph, Canvas) | — | Deferred | Treat as two normal tasks; no cluster plan needed |
 | N | Plugin-ready surfaces | — | Deferred | Builds incrementally on top of B + C; no upfront plan |
@@ -59,6 +59,7 @@ Move the row to "Recent decisions" or a cluster retro on completion.
 
 Append-only. Most recent on top. Archive entries older than ~3 months to `docs/decisions-archive.md` (quarterly).
 
+- **2026-04-14 — Cluster H full plan written; Clusters G and K get scouting docs.** H is parallelisable with A/B/D and its prior-art targets (KDevelop hover-tooltips, KDevelop completion popup, KMessageWidget) are ripe for exploration now. G and K defer to full plans because G depends on C Phase 1 signatures and K depends on the Bases DSL extraction. Scouting docs capture prior-art breadcrumbs + architectural questions + rough phasing so full-plan expansion is ~90–240 min instead of green-field. A new convention lands: `*-SCOUTING.md` filenames for "pre-plan notes not ready to dispatch."
 - **2026-04-14 — Long-term-state machine adopted.** Standing up `PROJECT-STATE.md` + `CONTRIBUTING-OPS.md` + `plans/INDEX.md` + `obsidian-audit/addenda/` as the four-file persistence system. Reason: audit produced ~94k words of reference; we need a stable cursor to navigate it across sessions. CLAUDE.md is the single entry point. See `docs/CONTRIBUTING-OPS.md` for rituals.
 - **2026-04-14 — Cluster F/I/J kept as stub plans.** Won't expand until their dependencies (A–E) are at least in flight. Reason: full plans written now would be re-edited once A–E reveal Corbomite-side surface details.
 - **2026-04-14 — Local KDE source convention adopted.** All cluster plans require agents to grep `~/src/kde/src/<repo>` and forbid cloning from `invent.kde.org`. Reason: every KDE repo we cited is present locally; cloning wastes time and risks version drift.
