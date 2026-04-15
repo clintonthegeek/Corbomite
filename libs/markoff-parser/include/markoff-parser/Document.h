@@ -5,6 +5,7 @@
 #include <memory>
 #include <QString>
 #include <QList>
+#include <QVariant>
 
 namespace Markoff {
 
@@ -31,6 +32,11 @@ struct FootnoteInfo {
     int number;
     QString label;
     QString content;
+};
+
+struct FrontmatterProperty {
+    QString key;
+    QVariant value;
 };
 
 class Document
@@ -60,6 +66,7 @@ public:
     QList<FootnoteInfo> footnotes() const;
     int wordCount() const;
     int characterCount() const;
+    QList<FrontmatterProperty> parsedFrontmatter() const;
 
 private:
     Document();

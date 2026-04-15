@@ -4,6 +4,7 @@
 
 #include <QStringList>
 #include <QRegularExpression>
+#include <yaml-cpp/yaml.h>
 
 namespace Markoff {
 
@@ -326,6 +327,81 @@ QString Document::extractSubpath(const QString &subpath) const
         result.removeLast();
 
     return result.join(QLatin1Char('\n'));
+}
+
+static QVariant yamlNodeToVariant(const YAML::Node &node)
+{
+    if (!node.IsDefined() || node.IsNull())
+        return {};
+
+    if (node.IsScalar()) {
+        const std::string s = node.Scalar();
+        if (s == "true" || s == "True" || s == "TRUE")
+            return true;
+        if (s == "false" || s == "False" || s == "FALSE")
+            return false;
+        bool ok = false;
+        int i = QString::fromStdString(s).toInt(&ok);
+        if (ok) return i;
+        double d = QString::fromStdString(s).toDouble(&ok);
+        if (ok && s.find('.') != std::string::npos) return d;
+        return QString::fromStdString(s);
+    }
+
+    if (node.IsSequence()) {
+        QStringList list;
+        for (const auto &item : node)
+            list.append(yamlNodeToVariant(item).toString());
+        return list;
+    }
+
+    if (node.IsMap()) {
+        QVariantMap map;
+        for (const auto &pair : node)
+            map.insert(QString::fromStdString(pair.first.Scalar()),
+                       yamlNodeToVariant(pair.second));
+        return map;
+    }
+
+    return {};
+}
+
+static QVariant normalizeListValue(const QString &key, const QVariant &value)
+{
+    if ((key == QStringLiteral("tags") || key == QStringLiteral("aliases"))
+        && value.typeId() == QMetaType::QString) {
+        QStringList parts;
+        for (const auto &s : value.toString().split(QLatin1Char(','),
+                                                      Qt::SkipEmptyParts))
+            parts.append(s.trimmed());
+        return parts;
+    }
+    return value;
+}
+
+QList<FrontmatterProperty> Document::parsedFrontmatter() const
+{
+    const QString raw = d->frontmatter;
+    if (raw.isEmpty())
+        return {};
+
+    QList<FrontmatterProperty> result;
+    try {
+        YAML::Node root = YAML::Load(raw.toStdString());
+        if (!root.IsMap())
+            return {};
+
+        for (const auto &pair : root) {
+            FrontmatterProperty prop;
+            prop.key = QString::fromStdString(pair.first.Scalar());
+            prop.value = normalizeListValue(prop.key,
+                                            yamlNodeToVariant(pair.second));
+            result.append(prop);
+        }
+    } catch (const YAML::Exception &) {
+        return {};
+    }
+    return result;
 }
 
 } // namespace Markoff

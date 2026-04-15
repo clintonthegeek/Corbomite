@@ -7,6 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets)
 find_package(PkgConfig REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 pkg_check_modules(TREESITTER REQUIRED IMPORTED_TARGET tree-sitter)
 
@@ -54,6 +55,7 @@ target_link_libraries(markoff-parser
         Qt6::Widgets
         PkgConfig::TREESITTER
         ts-markdown-parser
+        yaml-cpp::yaml-cpp
 )
 
 enable_testing()
