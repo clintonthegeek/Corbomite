@@ -27,7 +27,6 @@
 
 #include "corbomite/storage/MetadataParser.h"
 
-#include <algorithm>
 #include <functional>
 #include <memory>
 #include <utility>
