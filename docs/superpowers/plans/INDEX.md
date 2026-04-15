@@ -2,7 +2,7 @@
 
 > **Living document.** Table of contents over `docs/superpowers/plans/cluster-*.md`. One row per cluster plan. Status mirrors `docs/PROJECT-STATE.md` Roadmap — when those diverge, **PROJECT-STATE is authoritative.** Update the Status column here per Ritual 3 (cluster done) or Ritual 2 (mid-cluster status change).
 
-**Last updated:** 2026-04-15 — Cluster I landed (all 8 phases, 10 commits). Cluster F stub expansion trigger fired (A + I now both done); ready to dispatch.
+**Last updated:** 2026-04-15 — Clusters I + F both landed (back-to-back). F took 5 implementation phases + doc closeout; see `docs/cluster-retros/cluster-f.md`.
 
 ## Plans
 
@@ -13,7 +13,7 @@
 | C | Lifecycle / plugin primitives | [2026-04-14-cluster-c-lifecycle-plugin-primitives.md](2026-04-14-cluster-c-lifecycle-plugin-primitives.md) | Full | Done (primitives + hookup) | Phase 4b-d held for consumers (see PROJECT-STATE §Follow-ups) |
 | D | Search / suggester parity | [2026-04-14-cluster-d-search-suggester-parity.md](2026-04-14-cluster-d-search-suggester-parity.md) | Full | Done | landed 2026-04-15 (5 commits) |
 | E | Markoff three-mode pivot | [2026-04-14-cluster-e-markoff-three-mode-pivot.md](2026-04-14-cluster-e-markoff-three-mode-pivot.md) | Full | Blocked on B Phase 3 + A Phase 1 | |
-| F | Templates / Daily Notes / Moment | [2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md](2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md) | Stub | Stub plan | expand after A + I land |
+| F | Templates / Daily Notes / Moment | [2026-04-15-cluster-f-templates-daily-notes-moment.md](2026-04-15-cluster-f-templates-daily-notes-moment.md) | Full | Done | landed 2026-04-15 (5 phases + doc closeout) |
 | G | Views hierarchy + TextFileView contract | [2026-04-14-cluster-g-views-hierarchy-SCOUTING.md](2026-04-14-cluster-g-views-hierarchy-SCOUTING.md) | Scouting | Scouting doc | expand when C Phase 1 lands |
 | H | Menus / hover / suggester UI | [2026-04-14-cluster-h-menus-hover-suggester-ui.md](2026-04-14-cluster-h-menus-hover-suggester-ui.md) | Full | Done | landed 2026-04-15 (5 commits) |
 | I | MetadataCache parity | [2026-04-15-cluster-i-metadatacache-parity.md](2026-04-15-cluster-i-metadatacache-parity.md) | Full | Done | landed 2026-04-15 (10 commits, 8 phases) |
