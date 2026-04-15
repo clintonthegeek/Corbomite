@@ -46,3 +46,7 @@ target_link_libraries(tst_obsidian_vault_roundtrip PRIVATE Qt6::Test Corbomite::
 add_executable(tst_cachedmetadata tst_cachedmetadata.cpp)
 add_test(NAME tst_cachedmetadata COMMAND tst_cachedmetadata)
 target_link_libraries(tst_cachedmetadata PRIVATE Qt6::Test Corbomite::Storage)
+
+add_executable(tst_metadataparser tst_metadataparser.cpp)
+add_test(NAME tst_metadataparser COMMAND tst_metadataparser)
+target_link_libraries(tst_metadataparser PRIVATE Qt6::Test Corbomite::Storage MarkoffParser::MarkoffParser)
