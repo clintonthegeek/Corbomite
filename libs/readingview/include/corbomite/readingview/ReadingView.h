@@ -21,6 +21,7 @@ class SectionLayout;
 class SectionRecyclePool;
 class StyleManager;
 class VaultResourceProvider;
+class VirtualScrollController;
 
 /// Obsidian-compatible Reading-mode widget. Phase 3b wires in eleven
 /// content types — headings, paragraphs, code blocks, lists, horizontal
@@ -64,13 +65,34 @@ public:
     /// discarded shapes until `clear()` or dtor.
     int recyclePoolSize() const;
 
+    /// Phase 6 — heading-fold persistence. `foldedHeadings()` returns the
+    /// source-line indices of collapsed headings; `setFoldedHeadings()`
+    /// restores them. Folding a level-N heading hides every subsequent
+    /// section until the next heading at level ≤ N.
+    QVector<int> foldedHeadings() const;
+    void setFoldedHeadings(const QVector<int> &lines);
+
+    /// Toggle the `headingCollapsed` flag on section `sectionIdx` and
+    /// re-evaluate visibility + mounting. No-op for non-heading sections.
+    void toggleFold(int sectionIdx);
+
+    /// Phase 6 accessor — number of sections currently mounted by the
+    /// virtual-scroll controller. Exposed for tests.
+    int mountedCount() const;
+
 Q_SIGNALS:
     void scrollPositionVisualLineChanged(float visualLine);
     void wikiLinkActivated(const QString &target);
     void wikiLinkHovered(const QString &target);
-    /// Emitted when every section of the most recent parse has been mounted
-    /// into the scene. Fires at the end of the frame-budgeted mount loop.
+    /// Emitted when every section of the most recent parse has been
+    /// considered for mount — i.e. the first visible window has been
+    /// populated and the scene rect has been seeded. Virtualized builds
+    /// never mount every section at once, so this signal no longer implies
+    /// "all sections have graphicsItem() != nullptr".
     void mountingFinished();
+    /// Phase 6 — fold state changed via `toggleFold()` or
+    /// `setFoldedHeadings()`. Caller may persist via `foldedHeadings()`.
+    void foldedHeadingsChanged();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -80,11 +102,19 @@ protected:
 private:
     void rebuild();
     void beginMount(QVector<std::shared_ptr<ReadingSection>> newSections);
-    void mountSectionsWithBudget(int startIdx);
+    void mountInitialWindowWithBudget(int startIdx);
     void onParseFinished(quint64 requestId,
                          QVector<std::shared_ptr<ReadingSection>> sections);
     qreal visualLineSpacing() const;
     QString wikiLinkTargetAt(const QPoint &viewportPos) const;
+    int sectionIndexAt(const QPoint &viewportPos) const;
+
+    // Phase 6 — fold + geometry machinery.
+    void recomputeFoldVisibility();
+    void recomputeLayoutGeometry();
+    QGraphicsItem *layoutSectionForController(int sectionIdx);
+    void releaseSectionForController(int sectionIdx, QGraphicsItem *item);
+    void updateViewportMount();
 
     QString m_markdown;
     QString m_lastMarkdown;
@@ -97,17 +127,17 @@ private:
     std::unique_ptr<StyleManager> m_styles;
     std::unique_ptr<SectionRecyclePool> m_recyclePool;
     std::unique_ptr<ReadingParseWorker> m_worker;
+    std::unique_ptr<VirtualScrollController> m_controller;
 
     QVector<std::shared_ptr<ReadingSection>> m_sections;
 
     // Mount-loop state — lives across frame yields. A fresh mount run
     // resets these in `beginMount`.
     QVector<std::shared_ptr<ReadingSection>> m_pendingSections;
-    QVector<std::shared_ptr<ReadingSection>> m_mountedSoFar;
     QMultiHash<QByteArray, std::shared_ptr<ReadingSection>> m_oldByShape;
-    qreal m_mountY = 0.0;
     bool m_pendingFmChanged = false;
     bool m_mountInProgress = false;
+    bool m_initialWindowDone = false;
 
     // Coalescing against stale parseFinished arrivals. Every setPlainText
     // call bumps `m_requestIdCounter`; parseFinished handlers ignore any

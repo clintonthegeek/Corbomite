@@ -35,6 +35,14 @@ public:
         Theme theme = Theme::Light;
         qreal contentWidth = 800.0;                    // pixel width for wrap
         VaultResourceProvider *vaultProvider = nullptr; // not owned
+
+        /// Phase 6: when true, heading sections get a clickable gutter
+        /// arrow (▶ collapsed, ▼ expanded) at the left edge. The arrow
+        /// carries `sectionIndex` in its QGraphicsItem data under the
+        /// ReadingView-internal property key so click-handling can map
+        /// hits back to `m_sections[idx]`.
+        bool headingCollapsedIndicator = true;
+        int sectionIndex = -1;
     };
 
     SectionLayout();

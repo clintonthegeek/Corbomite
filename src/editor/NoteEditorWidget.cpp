@@ -186,7 +186,14 @@ EphemeralState NoteEditorWidget::saveEphemeralState() const
         // a stub in Phase 2, live in Phase 3). Route through the
         // ReadingView surface so NoteEditorWidget's wiring stabilises
         // before Phase 3 swaps the underlying implementation.
-        s.scroll = m_readingView ? m_readingView->scrollPositionVisualLine() : 0.0f;
+        //
+        // Phase 6: heading-fold state is ReadingView-native — capture the
+        // source-line indices of collapsed headings so workspace.json
+        // round-trip preserves Reading-mode fold state across sessions.
+        if (m_readingView) {
+            s.scroll = m_readingView->scrollPositionVisualLine();
+            s.foldedHeadings = m_readingView->foldedHeadings();
+        }
         break;
     }
 
@@ -214,8 +221,14 @@ void NoteEditorWidget::restoreEphemeralState(const EphemeralState &state)
         // persistence work (cluster E Phase 7).
         break;
     case ViewMode::Reading:
-        if (m_readingView)
+        if (m_readingView) {
             m_readingView->setScrollPositionVisualLine(state.scroll);
+            // Phase 6: restore heading-fold state. Caller may have staged
+            // content into ReadingView via setPlainText before invoking
+            // restoreEphemeralState; ReadingView maps line-indices back to
+            // sections on the current parse.
+            m_readingView->setFoldedHeadings(state.foldedHeadings);
+        }
         break;
     }
 }
