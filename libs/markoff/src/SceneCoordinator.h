@@ -6,6 +6,8 @@
 #include <QObject>
 #include <QList>
 #include <QFont>
+#include <QHash>
+#include <QPair>
 
 class QTimer;
 
@@ -103,6 +105,16 @@ private:
 
     FoldingModel *m_foldingModel = nullptr;
     void applyFoldVisibility();
+
+    /// Authoritative map from (itemIdx, blockNumber) → index into
+    /// FoldingModel::headings(). Built from heading sourceOffsets so it
+    /// can't be confused by code-block content like "#include". Rebuilt
+    /// lazily when m_headingMapDirty is set (on reparsed() or
+    /// setFoldingModel).
+    mutable QHash<QPair<int,int>, int> m_blockToHeadingIdx;
+    mutable bool m_headingMapDirty = true;
+    void ensureHeadingMap() const;
+    int headingAtBlock(int itemIdx, int blockNumber) const;
 
     SelectionScene *m_scene = nullptr;
     QList<SelectableItem *> m_items;
