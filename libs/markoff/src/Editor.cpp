@@ -92,26 +92,9 @@ Editor::Editor(QWidget *parent)
     connect(m_searchBar, &SearchBar::closed, this, &Editor::hideSearchBar);
 
     m_foldingModel = new FoldingModel(this);
-    // Adapt QList<HeadingInfo> signal to the new QList<FoldableRegion> slot.
-    // Task 6 will replace this lambda with a full region computation (headings
-    // + code blocks).  For now we synthesise heading-only FoldableRegions so
-    // the connection type-checks and v1 fold behaviour is preserved.
-    connect(this, &Editor::headingsChanged,
-            m_foldingModel, [this](const QList<HeadingInfo> &hs) {
-                const QList<FoldRegionKey> paths = computeHeadingPaths(hs);
-                QList<FoldableRegion> regions;
-                regions.reserve(hs.size());
-                for (int i = 0; i < hs.size(); ++i) {
-                    FoldableRegion r;
-                    r.type = FoldableRegion::Heading;
-                    r.path = paths[i];
-                    r.level = hs[i].level;
-                    r.sourceOffset = hs[i].sourceOffset;
-                    r.info = hs[i];
-                    regions.append(r);
-                }
-                m_foldingModel->reconcile(regions);
-            });
+    connect(this, &Editor::headingsChanged, m_foldingModel, [this]() {
+        m_foldingModel->reconcile(m_coordinator->computeRegions());
+    });
     connect(m_foldingModel, &FoldingModel::foldStateChanged,
             this, &Editor::foldStateChanged);
     m_coordinator->setFoldingModel(m_foldingModel);
