@@ -18,6 +18,8 @@ add_library(corbomite-storage STATIC
     include/corbomite/storage/VaultConfig.h
     src/WorkspaceState.cpp
     include/corbomite/storage/WorkspaceState.h
+    src/EphemeralState.cpp
+    include/corbomite/storage/EphemeralState.h
     src/CaseSensitivityProbe.cpp
     include/corbomite/storage/CaseSensitivityProbe.h
     src/VaultTrash.cpp

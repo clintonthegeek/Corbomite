@@ -74,3 +74,8 @@ add_executable(tst_cachedmetadatastore tst_cachedmetadatastore.cpp)
 add_test(NAME tst_cachedmetadatastore COMMAND tst_cachedmetadatastore)
 target_link_libraries(tst_cachedmetadatastore PRIVATE Qt6::Test Qt6::Core Qt6::Sql Corbomite::Storage Corbomite::Core)
 set_tests_properties(tst_cachedmetadatastore PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster E Phase 1 — EphemeralState JSON round-trip.
+add_executable(tst_ephemeral_state tst_ephemeral_state.cpp)
+add_test(NAME tst_ephemeral_state COMMAND tst_ephemeral_state)
+target_link_libraries(tst_ephemeral_state PRIVATE Qt6::Test Corbomite::Storage)

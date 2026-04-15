@@ -117,7 +117,7 @@ void EditorViewManager::setViewMode(NoteEditorWidget::ViewMode mode)
 
 NoteEditorWidget::ViewMode EditorViewManager::viewMode() const
 {
-    return m_activeViewSpace ? m_activeViewSpace->viewMode() : NoteEditorWidget::ViewMode::Editing;
+    return m_activeViewSpace ? m_activeViewSpace->viewMode() : NoteEditorWidget::ViewMode::LivePreview;
 }
 
 void EditorViewManager::openGraphView(SQLiteIndex *index, VaultModel *vault)
@@ -471,7 +471,7 @@ void EditorViewManager::applyPaneLayout(
         if (leaf.mode == QStringLiteral("preview")) {
             space->setViewMode(NoteEditorWidget::ViewMode::Reading);
         } else if (leaf.mode == QStringLiteral("source")) {
-            space->setViewMode(NoteEditorWidget::ViewMode::Editing);
+            space->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
         }
         auto *editor = space->activeEditor();
         if (!editor) return;

@@ -9,6 +9,7 @@ class Editor;
 
 namespace Corbomite {
 
+struct EphemeralState;
 class NoteDocument;
 class SourceEditor;
 class VaultModel;
@@ -22,7 +23,12 @@ class NoteEditorWidget : public QWidget {
     Q_OBJECT
 
 public:
-    enum class ViewMode { Editing, Reading };
+    // Three-mode encoding per Cluster E plan. `LivePreview` is Markoff's
+    // cursor-in-block-reveals-source widget; `Source` is the plain-text
+    // qutepart-corbomite widget; `Reading` is the (still-stub) read-only
+    // view. On the wire these map through `ViewModeSerializer` to Obsidian's
+    // compound `{mode, source}` shape — we do not persist the enum integer.
+    enum class ViewMode { Source, LivePreview, Reading };
     Q_ENUM(ViewMode)
 
     explicit NoteEditorWidget(QWidget *parent = nullptr);
@@ -47,6 +53,13 @@ public:
 
     int currentLine() const;
     int currentColumn() const;
+
+    // Cluster E Phase 1 — ephemeral-state round-trip. Captures / restores
+    // scroll, cursor, mode, and fold through `Corbomite::EphemeralState`.
+    // Not yet wired into production save/load paths (that is Phase 7); the
+    // shape exists so tests + future wiring have a stable surface.
+    EphemeralState saveEphemeralState() const;
+    void restoreEphemeralState(const EphemeralState &state);
 
 Q_SIGNALS:
     void cursorInfoChanged(int line, int column, int wordCount);
@@ -78,7 +91,7 @@ private:
     // user-visible behaviour. Cluster E Phase 7 will promote this into the
     // ViewMode switch (Editing / Reading / Source).
     SourceEditor *m_sourceEditor = nullptr;
-    ViewMode m_viewMode = ViewMode::Editing;
+    ViewMode m_viewMode = ViewMode::LivePreview;
 
     NoteDocument *m_doc = nullptr;
     VaultModel *m_vault = nullptr;

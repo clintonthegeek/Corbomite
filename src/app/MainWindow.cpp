@@ -324,7 +324,7 @@ void MainWindow::setupActions()
     editingMode->setIcon(QIcon::fromTheme(QStringLiteral("text-x-markdown")));
     connect(editingMode, &QAction::triggered, this, [this]() {
         if (auto *editor = m_editorManager->activeEditor())
-            editor->setViewMode(NoteEditorWidget::ViewMode::Editing);
+            editor->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
     });
 
     auto *readingMode = ac->addAction(QStringLiteral("view_reading_mode"));

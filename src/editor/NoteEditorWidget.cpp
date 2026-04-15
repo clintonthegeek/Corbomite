@@ -3,11 +3,13 @@
 #include "CompletionPopup.h"
 #include "HoverPopover.h"
 #include "SourceEditor.h"
+#include "ViewModeSerializer.h"
 #include "VaultResourceProvider.h"
 #include "corbomite/core/EditorSuggest.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/models/VaultModel.h"
+#include "corbomite/storage/EphemeralState.h"
 #include "dialogs/QuickSwitcherModel.h"
 
 #include <markoff/Editor.h>
@@ -116,6 +118,10 @@ void NoteEditorWidget::setViewMode(ViewMode mode)
     if (m_viewMode == mode) return;
     m_viewMode = mode;
 
+    // Phase 1 keeps the old visible behaviour: Reading toggles the Markoff
+    // editor read-only, everything else is editable. Source mode is not yet
+    // reachable through the UI — Phase 7 promotes `m_sourceEditor` into a
+    // stacked-widget swap.
     m_editor->setReadOnly(mode == ViewMode::Reading);
 
     Q_EMIT viewModeChanged(mode);
@@ -139,6 +145,71 @@ int NoteEditorWidget::currentLine() const
 int NoteEditorWidget::currentColumn() const
 {
     return m_editor->cursorColumn();
+}
+
+// Cluster E Phase 1 — ephemeral state round-trip. Not yet called from the
+// session-save path; that wiring is Phase 7. Keeping the capture/restore
+// logic here now gives Phase 7 a stable surface to connect.
+EphemeralState NoteEditorWidget::saveEphemeralState() const
+{
+    EphemeralState s;
+    const auto compound = ViewModeSerializer::toCompound(m_viewMode);
+    s.modeRaw = compound.mode;
+    s.sourceFlag = compound.source;
+
+    switch (m_viewMode) {
+    case ViewMode::Source:
+        if (m_sourceEditor) {
+            s.scroll = m_sourceEditor->scrollPosition();
+            const auto cursor = m_sourceEditor->cursorPosition();
+            s.cursor.line = cursor.line;
+            s.cursor.column = cursor.column;
+            s.foldedHeadings = m_sourceEditor->foldedHeadings();
+        }
+        break;
+    case ViewMode::LivePreview:
+        // TODO(Cluster E Phase 2): Markoff lacks a visual-line float scroll
+        // accessor today. Using 0.0 as a placeholder; cursor line/column
+        // are available through the existing accessors.
+        s.scroll = 0.0f;
+        s.cursor.line = m_editor->cursorLine();
+        s.cursor.column = m_editor->cursorColumn();
+        break;
+    case ViewMode::Reading:
+        // Reading today is still `setReadOnly(true)` on Markoff (per the plan's
+        // "Reality reconciliation"). No scroll/fold accessor; the Phase 3
+        // ReadingView widget will fill these.
+        s.scroll = 0.0f;
+        break;
+    }
+
+    return s;
+}
+
+void NoteEditorWidget::restoreEphemeralState(const EphemeralState &state)
+{
+    const auto mode = ViewModeSerializer::fromCompound(state.modeRaw,
+                                                       std::optional<bool>{state.sourceFlag});
+    setViewMode(mode);
+
+    switch (mode) {
+    case ViewMode::Source:
+        if (m_sourceEditor) {
+            m_sourceEditor->setCursorPosition({state.cursor.line, state.cursor.column});
+            m_sourceEditor->setScrollPosition(state.scroll);
+            m_sourceEditor->setFoldedHeadings(state.foldedHeadings);
+        }
+        break;
+    case ViewMode::LivePreview:
+        // TODO(Cluster E Phase 2): no visual-line float scroll on Markoff
+        // yet. Cursor restore is similarly deferred — Markoff's
+        // setCursorPosition lands alongside ScrollPosition.
+        break;
+    case ViewMode::Reading:
+        // Reading widget is the stub `setReadOnly(true)` Markoff for now;
+        // Phase 3 builds the real ReadingView, Phase 7 wires restore.
+        break;
+    }
 }
 
 bool NoteEditorWidget::eventFilter(QObject *obj, QEvent *event)

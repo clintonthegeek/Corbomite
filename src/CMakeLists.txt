@@ -19,6 +19,7 @@ add_library(CorbomiteApp STATIC
     sidebar/PropertyEditorWidget.cpp
     editor/NoteEditorWidget.cpp
     editor/SourceEditor.cpp
+    editor/ViewModeSerializer.cpp
     editor/EditorViewSpace.cpp
     editor/EditorViewManager.cpp
     editor/CompletionPopup.cpp

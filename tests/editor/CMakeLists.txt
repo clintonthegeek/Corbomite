@@ -26,3 +26,24 @@ add_test(NAME tst_source_editor COMMAND tst_source_editor)
 set_tests_properties(tst_source_editor PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+# Cluster E Phase 1 — ViewModeSerializer is a pure translation between
+# NoteEditorWidget::ViewMode and Obsidian's {mode, source} compound.
+# NoteEditorWidget is a Q_OBJECT that lives in CorbomiteApp, so we link
+# against that static library to pick up the metaobject + enum symbols
+# without having to rebuild the widget's transitive-dep graph here.
+add_executable(tst_view_mode_serializer
+    tst_view_mode_serializer.cpp
+)
+target_include_directories(tst_view_mode_serializer PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_view_mode_serializer PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+)
+add_test(NAME tst_view_mode_serializer COMMAND tst_view_mode_serializer)
+set_tests_properties(tst_view_mode_serializer PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
