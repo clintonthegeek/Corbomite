@@ -498,6 +498,82 @@ private Q_SLOTS:
         QTest::qWait(100);
         QVERIFY(!index.isRebuilding());
     }
+
+    // --- searchCompiled (DSL executor) ---
+
+    void testSearchCompiledFts5Only()
+    {
+        QTemporaryDir tmp;
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.indexNote(QStringLiteral("a.md"), QStringLiteral("Alpha"),
+                        QStringLiteral("hello world"));
+        index.indexNote(QStringLiteral("b.md"), QStringLiteral("Beta"),
+                        QStringLiteral("goodbye world"));
+
+        auto results = index.searchCompiled(QStringLiteral("\"hello\""), {}, {});
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).notePath, QStringLiteral("a.md"));
+    }
+
+    void testSearchCompiledTagOnly()
+    {
+        QTemporaryDir tmp;
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.indexNote(QStringLiteral("a.md"), QStringLiteral("A"),
+                        QStringLiteral("Has #project tag"));
+        index.indexNote(QStringLiteral("b.md"), QStringLiteral("B"),
+                        QStringLiteral("Untagged note"));
+
+        auto results = index.searchCompiled(QString(), {QStringLiteral("project")}, {});
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).notePath, QStringLiteral("a.md"));
+    }
+
+    void testSearchCompiledTagPlusFts5()
+    {
+        QTemporaryDir tmp;
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.indexNote(QStringLiteral("a.md"), QStringLiteral("A"),
+                        QStringLiteral("Has #project and meeting"));
+        index.indexNote(QStringLiteral("b.md"), QStringLiteral("B"),
+                        QStringLiteral("Has #project but nothing else"));
+        index.indexNote(QStringLiteral("c.md"), QStringLiteral("C"),
+                        QStringLiteral("meeting without project tag"));
+
+        auto results = index.searchCompiled(QStringLiteral("\"meeting\""),
+                                             {QStringLiteral("project")}, {});
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).notePath, QStringLiteral("a.md"));
+    }
+
+    void testSearchCompiledExcludedTag()
+    {
+        QTemporaryDir tmp;
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.indexNote(QStringLiteral("a.md"), QStringLiteral("A"),
+                        QStringLiteral("Has #archived note"));
+        index.indexNote(QStringLiteral("b.md"), QStringLiteral("B"),
+                        QStringLiteral("Active note"));
+
+        auto results = index.searchCompiled(QStringLiteral("\"note\""), {},
+                                             {QStringLiteral("archived")});
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).notePath, QStringLiteral("b.md"));
+    }
+
+    void testSearchCompiledEmptyPlanReturnsNothing()
+    {
+        QTemporaryDir tmp;
+        Corbomite::SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.indexNote(QStringLiteral("a.md"), QStringLiteral("A"),
+                        QStringLiteral("anything"));
+        QCOMPARE(index.searchCompiled(QString(), {}, {}).size(), 0);
+    }
 };
 
 QTEST_MAIN(TestSQLiteIndex)

@@ -13,6 +13,26 @@ struct ParseResult {
     int errorOffset = -1;   // 0-based char offset of failing token, -1 on success
 };
 
+// Compiled, executor-ready form of a parsed query. Phase 4b coverage:
+//   - bare text / quoted phrase / OR / AND       → fts5Query
+//   - path: / file: / content:                   → fts5Query (column qualified)
+//   - tag:#X                                     → requiredTags / excludedTags
+//   - all other operators (regex, line/block/section/task*/match-case/property)
+//     are accumulated into `unsupported` for the UI to surface; they do not
+//     filter results until Phase 4c+ adds AST-walking post-filter and
+//     property-table support.
+//
+// Empty `fts5Query` AND empty tag lists ⇒ "match nothing" (an empty
+// CompiledPlan is the result of an empty query).
+struct CompiledPlan {
+    QString fts5Query;
+    QStringList requiredTags;
+    QStringList excludedTags;
+    QStringList unsupported;
+};
+
+CompiledPlan compile(const SearchNodePtr &root);
+
 // Parse an Obsidian-compatible global-search query.
 //
 // Grammar / behaviour reference: docs/search-dsl-spec.md.

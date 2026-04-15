@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include <QWidget>
-#include <QLineEdit>
-#include <QTreeView>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QTimer>
+#include <QToolButton>
+#include <QTreeView>
+#include <QWidget>
 
 namespace Corbomite {
 
@@ -28,8 +30,10 @@ private:
     void onSearchTextChanged(const QString &text);
     void executeSearch();
     void onResultClicked(const QModelIndex &index);
+    void showOperatorHelp();
 
     QLineEdit *m_searchInput;
+    QToolButton *m_helpButton;
     QTreeView *m_resultView;
     QLabel *m_statusLabel;
     QTimer m_debounceTimer;

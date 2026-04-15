@@ -51,6 +51,17 @@ public:
     // Full-text search
     QVector<SearchMatch> search(const QString &query, int maxResults = 100) const;
 
+    // Compiled DSL search — accepts an FTS5 fragment plus tag include/exclude
+    // lists from libs/search's SearchDSL::compile(). The FTS5 fragment runs
+    // over the same notes_fts(path,title,content) virtual table; the tag
+    // filters intersect/except via the note_tags side-table. An empty
+    // fts5Query with non-empty tag filters is also a valid plan (returns all
+    // notes matching the tag predicates).
+    QVector<SearchMatch> searchCompiled(const QString &fts5Query,
+                                        const QStringList &requiredTags,
+                                        const QStringList &excludedTags,
+                                        int maxResults = 100) const;
+
     // Link queries
     QVector<LinkInfo> backlinksFor(const QString &targetPath) const;
     QVector<LinkInfo> outlinksFor(const QString &sourcePath) const;

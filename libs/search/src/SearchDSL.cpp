@@ -413,4 +413,133 @@ const QStringList &supportedOperators()
     return ops;
 }
 
+namespace {
+
+// Quote a token for FTS5 MATCH so punctuation/spaces don't blow up the parser.
+// FTS5 doubles internal quotes; we keep this simple and just wrap in "".
+QString fts5Quote(const QString &term)
+{
+    QString escaped = term;
+    escaped.replace(QLatin1Char('"'), QStringLiteral("\"\""));
+    return QLatin1Char('"') + escaped + QLatin1Char('"');
+}
+
+// Walk the AST emitting an FTS5 MATCH fragment. Tag/regex/etc. side-effect
+// onto the CompiledPlan (tag lists, unsupported-list). Returns the FTS5 string
+// for this subtree, or empty if no FTS5-expressible portion exists.
+QString emitFts5(const SearchNodePtr &node, CompiledPlan &plan, bool negated);
+
+QString emitOpCall(const SearchNodePtr &node, CompiledPlan &plan, bool negated)
+{
+    const QString name = node->text;
+    const SearchNodePtr operand = node->children.value(0);
+    if (!operand) return {};
+
+    if (name == QLatin1String("path") || name == QLatin1String("content")) {
+        // Column-qualified FTS5 fragment over our (path, title, content) schema.
+        if (operand->kind == SearchNode::Kind::Text || operand->kind == SearchNode::Kind::Phrase) {
+            if (operand->text.isEmpty()) return {};
+            return name + QLatin1Char(':') + fts5Quote(operand->text);
+        }
+        plan.unsupported.append(name + QLatin1String(": (non-text operand)"));
+        return {};
+    }
+    if (name == QLatin1String("file")) {
+        // file: maps onto our `title` column.
+        if (operand->kind == SearchNode::Kind::Text || operand->kind == SearchNode::Kind::Phrase) {
+            if (operand->text.isEmpty()) return {};
+            return QStringLiteral("title:") + fts5Quote(operand->text);
+        }
+        plan.unsupported.append(QStringLiteral("file: (non-text operand)"));
+        return {};
+    }
+    if (name == QLatin1String("tag")) {
+        QString tag = operand->text;
+        if (tag.startsWith(QLatin1Char('#'))) tag.remove(0, 1);
+        if (tag.isEmpty()) return {};
+        if (negated) plan.excludedTags.append(tag);
+        else plan.requiredTags.append(tag);
+        return {};
+    }
+    if (name == QLatin1String("ignore-case")) {
+        return emitFts5(operand, plan, negated);
+    }
+    // match-case requires a case-sensitive matcher; FTS5 default tokenizer is
+    // case-folding so we fall back to case-insensitive and flag the divergence.
+    if (name == QLatin1String("match-case")) {
+        plan.unsupported.append(QStringLiteral("match-case: (FTS5 is case-insensitive)"));
+        return emitFts5(operand, plan, negated);
+    }
+    // line/block/section/task* — recognised by the parser but need
+    // markdown-AST post-filter (Phase 4c).
+    plan.unsupported.append(name);
+    return {};
+}
+
+QString emitFts5(const SearchNodePtr &node, CompiledPlan &plan, bool negated)
+{
+    if (!node) return {};
+    switch (node->kind) {
+    case SearchNode::Kind::Text:
+        return node->text.isEmpty() ? QString() : fts5Quote(node->text);
+    case SearchNode::Kind::Phrase:
+        return node->text.isEmpty() ? QString() : fts5Quote(node->text);
+    case SearchNode::Kind::Regex:
+        plan.unsupported.append(QStringLiteral("/regex/"));
+        return {};
+    case SearchNode::Kind::Group:
+        return emitFts5(node->children.value(0), plan, negated);
+    case SearchNode::Kind::Not: {
+        // FTS5 NOT is binary (X NOT Y); a top-level bare NOT can't be expressed
+        // in MATCH alone. We translate -X as NOT-suffix only when there's a
+        // sibling AND term to attach to (handled in And below). At the root,
+        // surface as unsupported.
+        QString inner = emitFts5(node->children.value(0), plan, !negated);
+        if (inner.isEmpty()) return {};
+        return QStringLiteral("NOT ") + inner;
+    }
+    case SearchNode::Kind::And: {
+        QStringList parts;
+        QStringList notParts;
+        for (const auto &child : node->children) {
+            if (child->kind == SearchNode::Kind::Not) {
+                QString inner = emitFts5(child->children.value(0), plan, !negated);
+                if (!inner.isEmpty()) notParts.append(inner);
+                continue;
+            }
+            QString s = emitFts5(child, plan, negated);
+            if (!s.isEmpty()) parts.append(s);
+        }
+        QString joined = parts.join(QStringLiteral(" AND "));
+        for (const QString &n : notParts) {
+            if (joined.isEmpty()) joined = n;  // no positive term — leave as bare
+            else joined += QStringLiteral(" NOT ") + n;
+        }
+        return joined;
+    }
+    case SearchNode::Kind::Or: {
+        QStringList parts;
+        for (const auto &child : node->children) {
+            QString s = emitFts5(child, plan, negated);
+            if (!s.isEmpty()) parts.append(s);
+        }
+        if (parts.isEmpty()) return {};
+        return QLatin1Char('(') + parts.join(QStringLiteral(" OR ")) + QLatin1Char(')');
+    }
+    case SearchNode::Kind::OpCall:
+        return emitOpCall(node, plan, negated);
+    }
+    return {};
+}
+
+} // namespace
+
+CompiledPlan compile(const SearchNodePtr &root)
+{
+    CompiledPlan plan;
+    if (!root) return plan;
+    plan.fts5Query = emitFts5(root, plan, /*negated=*/false);
+    return plan;
+}
+
 } // namespace Corbomite::SearchDSL

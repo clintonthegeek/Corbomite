@@ -255,6 +255,101 @@ private Q_SLOTS:
         QVERIFY(ops.contains(QStringLiteral("tag")));
         QVERIFY(ops.contains(QStringLiteral("match-case")));
     }
+
+    // --- compile() → CompiledPlan ---
+
+    void testCompileBareText()
+    {
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("hello")));
+        QCOMPARE(plan.fts5Query, QStringLiteral("\"hello\""));
+        QVERIFY(plan.requiredTags.isEmpty());
+        QVERIFY(plan.unsupported.isEmpty());
+    }
+
+    void testCompileAnd()
+    {
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("foo bar")));
+        QCOMPARE(plan.fts5Query, QStringLiteral("\"foo\" AND \"bar\""));
+    }
+
+    void testCompileOr()
+    {
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("foo OR bar")));
+        QCOMPARE(plan.fts5Query, QStringLiteral("(\"foo\" OR \"bar\")"));
+    }
+
+    void testCompilePathOperator()
+    {
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("path:Daily")));
+        QCOMPARE(plan.fts5Query, QStringLiteral("path:\"Daily\""));
+    }
+
+    void testCompileFileMapsToTitleColumn()
+    {
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("file:notes")));
+        QCOMPARE(plan.fts5Query, QStringLiteral("title:\"notes\""));
+    }
+
+    void testCompileTagToRequired()
+    {
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("tag:#work")));
+        QVERIFY(plan.fts5Query.isEmpty());
+        QCOMPARE(plan.requiredTags.size(), 1);
+        QCOMPARE(plan.requiredTags.at(0), QStringLiteral("work"));
+    }
+
+    void testCompileTagAndContent()
+    {
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("tag:#work foo")));
+        QCOMPARE(plan.requiredTags.size(), 1);
+        QCOMPARE(plan.fts5Query, QStringLiteral("\"foo\""));
+    }
+
+    void testCompileNotMaintainsBinaryNot()
+    {
+        // foo -bar  →  "foo" NOT "bar"  (FTS5 binary NOT)
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("foo -bar")));
+        QCOMPARE(plan.fts5Query, QStringLiteral("\"foo\" NOT \"bar\""));
+    }
+
+    void testCompileRegexFlaggedUnsupported()
+    {
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("/abc/")));
+        QVERIFY(plan.fts5Query.isEmpty());
+        QVERIFY(!plan.unsupported.isEmpty());
+        QVERIFY(plan.unsupported.first().contains(QStringLiteral("regex")));
+    }
+
+    void testCompileMatchCaseFlaggedAndUnwrapped()
+    {
+        // match-case currently can't be honoured by FTS5; we still compile the
+        // inner subtree and surface a note in `unsupported`.
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("match-case:foo")));
+        QCOMPARE(plan.fts5Query, QStringLiteral("\"foo\""));
+        QVERIFY(!plan.unsupported.isEmpty());
+    }
+
+    void testCompileIgnoreCaseTransparent()
+    {
+        // ignore-case is the FTS5 default — it should add nothing to unsupported.
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("ignore-case:foo")));
+        QCOMPARE(plan.fts5Query, QStringLiteral("\"foo\""));
+        QVERIFY(plan.unsupported.isEmpty());
+    }
+
+    void testCompileEmptyAst()
+    {
+        auto plan = SearchDSL::compile(nullptr);
+        QVERIFY(plan.fts5Query.isEmpty());
+        QVERIFY(plan.requiredTags.isEmpty());
+    }
+
+    void testCompileQuoteEscaping()
+    {
+        // Double-quote inside the term must be doubled per FTS5.
+        auto plan = SearchDSL::compile(parseOk(QStringLiteral("\"he said \\\"hi\\\"\"")));
+        QCOMPARE(plan.fts5Query, QStringLiteral("\"he said \"\"hi\"\"\""));
+    }
 };
 
 QTEST_APPLESS_MAIN(TestSearchDSL)

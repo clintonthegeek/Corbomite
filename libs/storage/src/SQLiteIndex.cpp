@@ -275,6 +275,63 @@ QVector<SearchMatch> SQLiteIndex::search(const QString &query, int maxResults) c
     return results;
 }
 
+QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
+                                                  const QStringList &requiredTags,
+                                                  const QStringList &excludedTags,
+                                                  int maxResults) const
+{
+    QVector<SearchMatch> results;
+    if (!m_isOpen) return results;
+    if (fts5Query.isEmpty() && requiredTags.isEmpty() && excludedTags.isEmpty()) {
+        return results;
+    }
+
+    QString sql;
+    QVariantList binds;
+
+    if (!fts5Query.isEmpty()) {
+        sql = QStringLiteral(
+            "SELECT path, snippet(notes_fts, 2, '<b>', '</b>', '...', 32), rank "
+            "FROM notes_fts WHERE notes_fts MATCH ?");
+        binds.append(fts5Query);
+    } else {
+        // Tag-only query — pull every note that survives the tag predicates,
+        // synthesizing a default rank/snippet so callers can still rank them.
+        sql = QStringLiteral(
+            "SELECT path, '' AS snippet, 0 AS rank FROM notes_fts WHERE 1=1");
+    }
+
+    for (const QString &tag : requiredTags) {
+        sql += QStringLiteral(
+            " AND path IN (SELECT note_path FROM note_tags WHERE tag = ?)");
+        binds.append(tag);
+    }
+    for (const QString &tag : excludedTags) {
+        sql += QStringLiteral(
+            " AND path NOT IN (SELECT note_path FROM note_tags WHERE tag = ?)");
+        binds.append(tag);
+    }
+
+    sql += fts5Query.isEmpty()
+        ? QStringLiteral(" ORDER BY path LIMIT ?")
+        : QStringLiteral(" ORDER BY rank LIMIT ?");
+    binds.append(maxResults);
+
+    QSqlQuery q(QSqlDatabase::database(m_connectionName));
+    q.prepare(sql);
+    for (const QVariant &v : binds) q.addBindValue(v);
+    if (!q.exec()) return results;
+
+    while (q.next()) {
+        SearchMatch match;
+        match.notePath = q.value(0).toString();
+        match.snippet = q.value(1).toString();
+        match.score = q.value(2).toDouble();
+        results.append(match);
+    }
+    return results;
+}
+
 // --- Link queries ---
 
 QVector<LinkInfo> SQLiteIndex::backlinksFor(const QString &targetPath) const
