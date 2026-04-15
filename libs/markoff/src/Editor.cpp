@@ -102,6 +102,7 @@ Editor::Editor(QWidget *parent)
     m_foldGutter->setCoordinator(m_coordinator);
     m_foldGutter->setColumns({ new FoldArrowColumn(m_foldingModel) });
     m_scene->addItem(m_foldGutter);
+    m_foldGutter->setZValue(1.0);  // render above text items
 
     connect(horizontalScrollBar(), &QScrollBar::valueChanged,
             this, &Editor::repositionFoldGutter);
