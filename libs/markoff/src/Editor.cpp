@@ -704,14 +704,23 @@ void Editor::increaseHeadingLevel()
     if (!ti) return;
     auto *tc = ti->textControl();
     QTextCursor cursor = tc->textCursor();
-    cursor.movePosition(QTextCursor::StartOfBlock);
-    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-    QString line = cursor.selectedText();
-    int level = 0;
-    while (level < line.size() && line.at(level) == QLatin1Char('#'))
-        ++level;
-    if (level < 6)
-        cursor.insertText(QStringLiteral("#") + (level == 0 ? QStringLiteral(" ") : QString()) + line);
+    int startBlock = cursor.document()->findBlock(cursor.selectionStart()).blockNumber();
+    int endBlock = cursor.document()->findBlock(cursor.selectionEnd()).blockNumber();
+
+    cursor.beginEditBlock();
+    for (int b = startBlock; b <= endBlock; ++b) {
+        QTextBlock block = cursor.document()->findBlockByNumber(b);
+        QTextCursor bc(block);
+        bc.movePosition(QTextCursor::StartOfBlock);
+        bc.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+        QString line = bc.selectedText();
+        int level = 0;
+        while (level < line.size() && line.at(level) == QLatin1Char('#'))
+            ++level;
+        if (level < 6)
+            bc.insertText(QStringLiteral("#") + (level == 0 ? QStringLiteral(" ") : QString()) + line);
+    }
+    cursor.endEditBlock();
 }
 
 void Editor::decreaseHeadingLevel()
@@ -720,11 +729,20 @@ void Editor::decreaseHeadingLevel()
     if (!ti) return;
     auto *tc = ti->textControl();
     QTextCursor cursor = tc->textCursor();
-    cursor.movePosition(QTextCursor::StartOfBlock);
-    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-    QString line = cursor.selectedText();
-    if (!line.startsWith(QLatin1Char('#'))) return;
-    cursor.insertText(line.mid(1));
+    int startBlock = cursor.document()->findBlock(cursor.selectionStart()).blockNumber();
+    int endBlock = cursor.document()->findBlock(cursor.selectionEnd()).blockNumber();
+
+    cursor.beginEditBlock();
+    for (int b = startBlock; b <= endBlock; ++b) {
+        QTextBlock block = cursor.document()->findBlockByNumber(b);
+        QTextCursor bc(block);
+        bc.movePosition(QTextCursor::StartOfBlock);
+        bc.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+        QString line = bc.selectedText();
+        if (line.startsWith(QLatin1Char('#')))
+            bc.insertText(line.mid(1));
+    }
+    cursor.endEditBlock();
 }
 
 void Editor::toggleCheckbox()
@@ -733,17 +751,26 @@ void Editor::toggleCheckbox()
     if (!ti) return;
     auto *tc = ti->textControl();
     QTextCursor cursor = tc->textCursor();
-    cursor.movePosition(QTextCursor::StartOfBlock);
-    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-    QString line = cursor.selectedText();
-    if (line.contains(QStringLiteral("- [ ]"))) {
-        cursor.insertText(line.replace(QStringLiteral("- [ ]"), QStringLiteral("- [x]")));
-    } else if (line.contains(QStringLiteral("- [x]")) || line.contains(QStringLiteral("- [X]"))) {
-        cursor.insertText(line.replace(QStringLiteral("- [x]"), QStringLiteral("- [ ]"))
-                             .replace(QStringLiteral("- [X]"), QStringLiteral("- [ ]")));
-    } else {
-        cursor.insertText(QStringLiteral("- [ ] ") + line);
+    int startBlock = cursor.document()->findBlock(cursor.selectionStart()).blockNumber();
+    int endBlock = cursor.document()->findBlock(cursor.selectionEnd()).blockNumber();
+
+    cursor.beginEditBlock();
+    for (int b = startBlock; b <= endBlock; ++b) {
+        QTextBlock block = cursor.document()->findBlockByNumber(b);
+        QTextCursor bc(block);
+        bc.movePosition(QTextCursor::StartOfBlock);
+        bc.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+        QString line = bc.selectedText();
+        if (line.contains(QStringLiteral("- [ ]"))) {
+            bc.insertText(line.replace(QStringLiteral("- [ ]"), QStringLiteral("- [x]")));
+        } else if (line.contains(QStringLiteral("- [x]")) || line.contains(QStringLiteral("- [X]"))) {
+            bc.insertText(line.replace(QStringLiteral("- [x]"), QStringLiteral("- [ ]"))
+                                 .replace(QStringLiteral("- [X]"), QStringLiteral("- [ ]")));
+        } else {
+            bc.insertText(QStringLiteral("- [ ] ") + line);
+        }
     }
+    cursor.endEditBlock();
 }
 
 // =========================================================================
