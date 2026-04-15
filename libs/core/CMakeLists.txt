@@ -56,6 +56,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/EmbedDepthGuard.h
     src/EmbedRegistry.cpp
     include/corbomite/core/EmbedRegistry.h
+    src/PostProcessorRegistry.cpp
+    include/corbomite/core/PostProcessorRegistry.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)

@@ -121,3 +121,8 @@ add_executable(tst_embedregistry tst_embedregistry.cpp)
 add_test(NAME tst_embedregistry COMMAND tst_embedregistry)
 target_link_libraries(tst_embedregistry PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_embedregistry PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_postprocessorregistry tst_postprocessorregistry.cpp)
+add_test(NAME tst_postprocessorregistry COMMAND tst_postprocessorregistry)
+target_link_libraries(tst_postprocessorregistry PRIVATE Qt6::Test Corbomite::Core)
+set_tests_properties(tst_postprocessorregistry PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
