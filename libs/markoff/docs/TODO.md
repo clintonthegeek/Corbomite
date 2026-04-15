@@ -84,6 +84,16 @@ implementation; the rest are implementation tasks.
 
 ## Recently fixed (for context)
 
+- Code-block folding (v2 sprint 1): fenced code blocks fold to
+  `` ```lang (N lines) `` summary rows. Path encoding
+  `["Section","code:N"]` reuses heading-path identity; Ctrl+Click
+  on a code arrow folds sibling code blocks in the same section;
+  auto-unfold on find match when the match's item is a folded code
+  block. FoldingModel refactored to a unified `FoldableRegion` list
+  (heading + code block) — lists and block quotes slot in without
+  further restructuring. Plan:
+  `docs/plans/2026-04-15-code-block-folding.md`. Spec:
+  `docs/specs/2026-04-15-code-block-folding-design.md`.
 - Heading folding (v1): `Editor::fold`, `unfold`, `toggleFold`,
   `toggleFoldAtCursor`, `foldAll`, `unfoldAll`, `foldAllAtLevel`,
   `foldLevel` and persistence hooks (`serializeFoldState` /
