@@ -26,7 +26,7 @@ Refresh this matrix at the start of every test enrichment cycle. The **blanks ar
 | VaultModel ↔ disk (vault scan) | ✓ tst_vaultscanner | | | n/a | | ~ tst_filesystemadapter | | |
 | MainWindow.loadVault — full wiring | | | | | ✓ tst_cross_session::vaultSwitchDoesNotLeakLinksFromPreviousVault + ~ tst_vault_switch (full UI) | | | |
 | EditorViewManager ↔ session.json | ✓ tst_workspacestate | | | | | | | |
-| Backlinks/OutgoingLinks panel ↔ SQLiteIndex (UI displays cache) | (none — Tier A scope) | | | | | | | |
+| Backlinks/OutgoingLinks panel ↔ SQLiteIndex (UI displays cache) | ✓ tst_panels_populated::hubNoteShowsOneOutgoingLink, ::spokeNoteShowsOneBacklink (Tier A — display required) | | | | | | | |
 
 ## Notes
 

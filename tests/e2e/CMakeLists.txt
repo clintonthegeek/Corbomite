@@ -35,5 +35,13 @@ target_link_libraries(tst_completion_popup PRIVATE
     CorbomiteApp
 )
 
+add_executable(tst_panels_populated tst_panels_populated.cpp)
+add_test(NAME tst_panels_populated COMMAND tst_panels_populated)
+target_link_libraries(tst_panels_populated PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+)
+
 # E2E tests need a real display — do NOT set QT_QPA_PLATFORM=offscreen
 # They will fail in headless CI but pass on a developer machine with Wayland/X11
