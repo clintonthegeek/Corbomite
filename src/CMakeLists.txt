@@ -28,6 +28,7 @@ add_library(CorbomiteApp STATIC
     reactors/FileWatchReactor.cpp
     dialogs/CreateVaultDialog.cpp
     dialogs/Notice.cpp
+    dialogs/MomentFormatPreview.cpp
     dialogs/SettingsDialog.cpp
     dialogs/QuickSwitcherModel.cpp
     dialogs/QuickSwitcherDelegate.cpp

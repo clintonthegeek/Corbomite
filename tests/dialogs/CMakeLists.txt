@@ -20,3 +20,8 @@ add_executable(tst_notice tst_notice.cpp)
 add_test(NAME tst_notice COMMAND tst_notice)
 target_link_libraries(tst_notice PRIVATE Qt6::Test CorbomiteApp)
 set_tests_properties(tst_notice PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_momentformatpreview tst_momentformatpreview.cpp)
+add_test(NAME tst_momentformatpreview COMMAND tst_momentformatpreview)
+target_link_libraries(tst_momentformatpreview PRIVATE Qt6::Test CorbomiteApp)
+set_tests_properties(tst_momentformatpreview PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

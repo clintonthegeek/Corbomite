@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SettingsDialog.h"
+#include "MomentFormatPreview.h"
 #include "corbomitesettings.h"
 #include <KLocalizedString>
 #include <QVBoxLayout>
@@ -132,6 +133,13 @@ void SettingsDialog::setupDailyNotesPage()
     dailyFormat->setText(settings->dailyNoteDateFormat());
     dailyFormat->setObjectName(QStringLiteral("dailyNoteDateFormat"));
     layout->addRow(i18n("Daily note date format:"), dailyFormat);
+
+    auto *dailyFormatPreview = new MomentFormatPreview(page);
+    dailyFormatPreview->setObjectName(QStringLiteral("dailyNoteDateFormatPreview"));
+    dailyFormatPreview->setFormatString(dailyFormat->text());
+    connect(dailyFormat, &QLineEdit::textChanged,
+            dailyFormatPreview, &MomentFormatPreview::setFormatString);
+    layout->addRow(i18n("Preview:"), dailyFormatPreview);
 
     auto *dailyTemplate = new QLineEdit;
     dailyTemplate->setText(settings->dailyNoteTemplate());
