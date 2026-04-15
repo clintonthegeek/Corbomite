@@ -7,6 +7,8 @@
 #include "SelectableItem.h"
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
+#include "FoldingModel.h"
+// FoldGutter include added in Task 11.
 
 #include <QResizeEvent>
 #include <QContextMenuEvent>
@@ -87,6 +89,12 @@ Editor::Editor(QWidget *parent)
         Q_UNUSED(count);
     });
     connect(m_searchBar, &SearchBar::closed, this, &Editor::hideSearchBar);
+
+    m_foldingModel = new FoldingModel(this);
+    connect(this, &Editor::headingsChanged,
+            m_foldingModel, &FoldingModel::reconcile);
+    connect(m_foldingModel, &FoldingModel::foldStateChanged,
+            this, &Editor::foldStateChanged);
 }
 
 Editor::~Editor() = default;
@@ -1223,6 +1231,102 @@ void Editor::updateMatchCount()
             ++index;
         }
     }
+}
+
+// =========================================================================
+// Folding public API
+// =========================================================================
+
+QList<QStringList> Editor::headingPaths() const
+{
+    return m_foldingModel->allPaths();
+}
+
+bool Editor::isFolded(const QStringList &path) const
+{
+    return m_foldingModel->isFolded(path);
+}
+
+QList<QStringList> Editor::foldedPaths() const
+{
+    return m_foldingModel->foldedPaths();
+}
+
+void Editor::fold(const QStringList &path)
+{
+    m_foldingModel->fold(path);
+}
+
+void Editor::unfold(const QStringList &path)
+{
+    m_foldingModel->unfold(path);
+}
+
+void Editor::toggleFold(const QStringList &path)
+{
+    m_foldingModel->toggle(path);
+}
+
+void Editor::toggleFoldAtCursor()
+{
+    // HeadingInfo::sourceOffset is a UTF-8 byte offset (same unit as used in
+    // scrollToHeading). Convert cursor line to a byte offset range check by
+    // finding the byte offset of the start of cursorLine(), then pick the
+    // last heading whose sourceOffset is <= that byte offset.
+    const int line = cursorLine(); // 1-based
+    const QByteArray utf8 = toPlainText().toUtf8();
+
+    // Compute the byte offset of the start of `line` (1-based).
+    int lineStart = 0;
+    int currentLine = 1;
+    for (int i = 0; i < utf8.size() && currentLine < line; ++i) {
+        if (utf8[i] == '\n') {
+            ++currentLine;
+            if (currentLine == line) {
+                lineStart = i + 1;
+                break;
+            }
+        }
+    }
+
+    const auto &hs = m_foldingModel->headings();
+    const FoldingModel::HeadingEntry *best = nullptr;
+    for (const auto &h : hs) {
+        if (h.info.sourceOffset <= lineStart)
+            best = &h;
+        else
+            break;
+    }
+    if (best)
+        m_foldingModel->toggle(best->path);
+}
+
+void Editor::foldAll()          { m_foldingModel->foldAll(); }
+void Editor::unfoldAll()        { m_foldingModel->unfoldAll(); }
+void Editor::foldAllAtLevel(int level)   { m_foldingModel->foldAllAtLevel(level); }
+void Editor::unfoldAllAtLevel(int level) { m_foldingModel->unfoldAllAtLevel(level); }
+void Editor::foldLevel(int n)   { m_foldingModel->foldLevel(n); }
+void Editor::unfoldLevel(int n) { m_foldingModel->unfoldLevel(n); }
+
+QJsonObject Editor::serializeFoldState() const
+{
+    return m_foldingModel->serialize();
+}
+
+void Editor::restoreFoldState(const QJsonObject &state)
+{
+    m_foldingModel->restore(state);
+}
+
+void Editor::setGutterVisible(bool visible)
+{
+    m_gutterVisible = visible;
+    // FoldGutter show/hide wired in Task 11.
+}
+
+bool Editor::isGutterVisible() const
+{
+    return m_gutterVisible;
 }
 
 } // namespace Markoff

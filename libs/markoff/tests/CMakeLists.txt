@@ -49,6 +49,11 @@ add_test(NAME tst_markoff_search_bar COMMAND tst_markoff_search_bar)
 target_link_libraries(tst_markoff_search_bar PRIVATE Qt6::Test Qt6::Widgets markoff)
 set_tests_properties(tst_markoff_search_bar PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_markoff_completion_triggers tst_completion_triggers.cpp)
+add_test(NAME tst_markoff_completion_triggers COMMAND tst_markoff_completion_triggers)
+target_link_libraries(tst_markoff_completion_triggers PRIVATE Qt6::Test Qt6::Widgets markoff)
+set_tests_properties(tst_markoff_completion_triggers PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_markoff_folding_model tst_folding_model.cpp)
 add_test(NAME tst_markoff_folding_model COMMAND tst_markoff_folding_model)
 target_link_libraries(tst_markoff_folding_model PRIVATE Qt6::Test markoff)
@@ -66,3 +71,9 @@ add_test(NAME tst_markoff_folding_reconcile COMMAND tst_markoff_folding_reconcil
 target_link_libraries(tst_markoff_folding_reconcile PRIVATE Qt6::Test markoff)
 target_include_directories(tst_markoff_folding_reconcile PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 set_tests_properties(tst_markoff_folding_reconcile PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_markoff_folding_integration tst_folding_integration.cpp)
+add_test(NAME tst_markoff_folding_integration COMMAND tst_markoff_folding_integration)
+target_link_libraries(tst_markoff_folding_integration PRIVATE Qt6::Test Qt6::Widgets markoff)
+target_include_directories(tst_markoff_folding_integration PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+set_tests_properties(tst_markoff_folding_integration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

@@ -99,6 +99,7 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
 
     repositionItems();
     m_scene->setSelectableItems(m_items);
+    emit reparsed();
 }
 
 QString SceneCoordinator::toMarkdown() const

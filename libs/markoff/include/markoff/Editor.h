@@ -3,6 +3,7 @@
 #define MARKOFF_EDITOR_H
 
 #include <QGraphicsView>
+#include <QJsonObject>
 #include <QTextDocument>
 #include <markoff/Theme.h>
 #include <markoff/EditorSettings.h>
@@ -17,6 +18,8 @@ class SceneCoordinator;
 class MarkdownTextItem;
 class ResourceProvider;
 class SearchBar;
+class FoldingModel;
+class FoldGutter;
 
 class Editor : public QGraphicsView {
     Q_OBJECT
@@ -102,6 +105,29 @@ public:
     /// Hide the search bar and clear highlights.
     void hideSearchBar();
 
+    // --- Folding ---
+    QList<QStringList> headingPaths() const;
+    bool isFolded(const QStringList &path) const;
+    QList<QStringList> foldedPaths() const;
+
+    void fold(const QStringList &path);
+    void unfold(const QStringList &path);
+    void toggleFold(const QStringList &path);
+    void toggleFoldAtCursor();
+
+    void foldAll();
+    void unfoldAll();
+    void foldAllAtLevel(int level);
+    void unfoldAllAtLevel(int level);
+    void foldLevel(int n);
+    void unfoldLevel(int n);
+
+    QJsonObject serializeFoldState() const;
+    void restoreFoldState(const QJsonObject &state);
+
+    void setGutterVisible(bool visible);
+    bool isGutterVisible() const;
+
 Q_SIGNALS:
     void textChanged();
     void cursorPositionChanged(int line, int column);
@@ -117,6 +143,8 @@ Q_SIGNALS:
     void linksChanged(const QList<Markoff::LinkInfo> &links);
     void tagsChanged(const QList<Markoff::TagInfo> &tags);
     void wordCountChanged(int count);
+    void foldStateChanged();
+    void foldsAutoExpanded(const QList<QStringList> &paths);
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
@@ -163,6 +191,10 @@ private:
     QString m_lastSearchText;
     int m_currentMatchIndex = -1;
     int m_totalMatchCount = 0;
+
+    FoldingModel *m_foldingModel = nullptr;
+    FoldGutter *m_foldGutter = nullptr;
+    bool m_gutterVisible = true;
 };
 
 } // namespace Markoff
