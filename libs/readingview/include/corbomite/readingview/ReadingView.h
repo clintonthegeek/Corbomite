@@ -4,6 +4,7 @@
 #include "corbomite/readingview/CodeBlockHighlighter.h"
 
 #include <QGraphicsView>
+#include <QMultiHash>
 #include <QString>
 #include <QVector>
 #include <memory>
@@ -13,6 +14,7 @@ class QTimer;
 
 namespace Corbomite::ReadingView {
 
+class ReadingParseWorker;
 class ReadingPipeline;
 class ReadingSection;
 class SectionLayout;
@@ -66,6 +68,9 @@ Q_SIGNALS:
     void scrollPositionVisualLineChanged(float visualLine);
     void wikiLinkActivated(const QString &target);
     void wikiLinkHovered(const QString &target);
+    /// Emitted when every section of the most recent parse has been mounted
+    /// into the scene. Fires at the end of the frame-budgeted mount loop.
+    void mountingFinished();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -74,6 +79,10 @@ protected:
 
 private:
     void rebuild();
+    void beginMount(QVector<std::shared_ptr<ReadingSection>> newSections);
+    void mountSectionsWithBudget(int startIdx);
+    void onParseFinished(quint64 requestId,
+                         QVector<std::shared_ptr<ReadingSection>> sections);
     qreal visualLineSpacing() const;
     QString wikiLinkTargetAt(const QPoint &viewportPos) const;
 
@@ -87,8 +96,24 @@ private:
     std::unique_ptr<SectionLayout> m_layout;
     std::unique_ptr<StyleManager> m_styles;
     std::unique_ptr<SectionRecyclePool> m_recyclePool;
+    std::unique_ptr<ReadingParseWorker> m_worker;
 
     QVector<std::shared_ptr<ReadingSection>> m_sections;
+
+    // Mount-loop state — lives across frame yields. A fresh mount run
+    // resets these in `beginMount`.
+    QVector<std::shared_ptr<ReadingSection>> m_pendingSections;
+    QVector<std::shared_ptr<ReadingSection>> m_mountedSoFar;
+    QMultiHash<QByteArray, std::shared_ptr<ReadingSection>> m_oldByShape;
+    qreal m_mountY = 0.0;
+    bool m_pendingFmChanged = false;
+    bool m_mountInProgress = false;
+
+    // Coalescing against stale parseFinished arrivals. Every setPlainText
+    // call bumps `m_requestIdCounter`; parseFinished handlers ignore any
+    // requestId older than `m_lastRequestIdHandled`.
+    quint64 m_requestIdCounter = 0;
+    quint64 m_lastRequestIdHandled = 0;
 
     QTimer *m_hoverTimer = nullptr;
     QString m_pendingHoverTarget;

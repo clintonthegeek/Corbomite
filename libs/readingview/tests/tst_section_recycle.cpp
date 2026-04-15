@@ -17,6 +17,7 @@
 
 #include <QGraphicsItem>
 #include <QGraphicsScene>
+#include <QSignalSpy>
 #include <QTest>
 
 using namespace Corbomite::ReadingView;
@@ -41,16 +42,29 @@ static QVector<QGraphicsItem *> ptrs(const ReadingView &rv)
     return out;
 }
 
+// Phase 5: setPlainText may yield mid-mount via the frame-budget scheduler.
+// Callers that want to observe the final mounted section list must wait for
+// `mountingFinished` first. This helper makes the per-test call-sites stay
+// one line each.
+static void setPlainTextAndWaitForMount(ReadingView &rv, const QString &md)
+{
+    QSignalSpy spy(&rv, &ReadingView::mountingFinished);
+    rv.setPlainText(md);
+    // 10 s ceiling — offscreen + cold caches can push small mounts past
+    // the 5 ms per-frame budget.
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 10000);
+}
+
 void TestSectionRecycle::idempotentReloadReusesEveryPointer()
 {
     ReadingView rv;
     const QString md =
         QStringLiteral("# A\n\npara-a\n\n# B\n\npara-b\n\n# C\n\npara-c\n");
-    rv.setPlainText(md);
+    setPlainTextAndWaitForMount(rv, md);
     const QVector<QGraphicsItem *> first = ptrs(rv);
     QVERIFY(!first.isEmpty());
 
-    rv.setPlainText(md);
+    setPlainTextAndWaitForMount(rv, md);
     const QVector<QGraphicsItem *> second = ptrs(rv);
 
     QCOMPARE(first.size(), second.size());
@@ -71,11 +85,11 @@ void TestSectionRecycle::singleParagraphEditOnlyRerendersOneSection()
     const QString md2b =
         QStringLiteral("# H1\n\npara1-CHANGED\n\n# H2\n\npara2\n");
 
-    rv.setPlainText(md1b);
+    setPlainTextAndWaitForMount(rv, md1b);
     const QVector<QGraphicsItem *> first = ptrs(rv);
     QCOMPARE(first.size(), 2);
 
-    rv.setPlainText(md2b);
+    setPlainTextAndWaitForMount(rv, md2b);
     const QVector<QGraphicsItem *> second = ptrs(rv);
     QCOMPARE(second.size(), 2);
 
@@ -93,7 +107,7 @@ void TestSectionRecycle::frontmatterChangeForcesUsesFrontMatterRebuild()
     const QString md2 = QStringLiteral(
         "---\ntitle: B\n---\n\n# H1 {{title}}\n\nbody1\n");
 
-    rv.setPlainText(md1);
+    setPlainTextAndWaitForMount(rv, md1);
     const QVector<QGraphicsItem *> first = ptrs(rv);
     // Expect: [frontmatter, H1-section]. The H1 section contains
     // `{{title}}` so usesFrontMatter=true.
@@ -106,7 +120,7 @@ void TestSectionRecycle::frontmatterChangeForcesUsesFrontMatterRebuild()
     }
     QVERIFY2(idxUFM >= 0, "Expected a section flagged usesFrontMatter=true");
 
-    rv.setPlainText(md2);
+    setPlainTextAndWaitForMount(rv, md2);
     const QVector<QGraphicsItem *> second = ptrs(rv);
     QCOMPARE(second.size(), first.size());
 
@@ -122,13 +136,13 @@ void TestSectionRecycle::poolReuseAcrossReparses()
     const QString md1 = QStringLiteral("# A\n\nbody-a\n\n# B\n\nbody-b\n");
     const QString md2 = QStringLiteral("# B\n\nbody-b\n\n# A\n\nbody-a\n");
 
-    rv.setPlainText(md1);
+    setPlainTextAndWaitForMount(rv, md1);
     const QVector<QGraphicsItem *> first = ptrs(rv);
     QCOMPARE(first.size(), 2);
     QGraphicsItem *aPtr = first.at(0);
     QGraphicsItem *bPtr = first.at(1);
 
-    rv.setPlainText(md2);
+    setPlainTextAndWaitForMount(rv, md2);
     const QVector<QGraphicsItem *> second = ptrs(rv);
     QCOMPARE(second.size(), 2);
     // After swap: section 0 is B, section 1 is A.
@@ -144,7 +158,7 @@ void TestSectionRecycle::poolSizeStaysBounded()
         for (int h = 0; h < 5; ++h) {
             md += QStringLiteral("# H-%1-%2\n\nbody-%1-%2\n\n").arg(i).arg(h);
         }
-        rv.setPlainText(md);
+        setPlainTextAndWaitForMount(rv, md);
     }
     // Smoke test: first-in-wins dedupes identical shapes; across 10
     // re-parses with 5 sections each, worst case is ~50 pooled items but
