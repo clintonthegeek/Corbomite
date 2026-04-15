@@ -45,6 +45,7 @@ add_subdirectory(libs/mmdr)
 add_subdirectory(libs/markoff-parser)
 add_subdirectory(libs/markoff)
 add_subdirectory(libs/qutepart-corbomite)
+add_subdirectory(libs/readingview)
 
 # Application
 add_subdirectory(src)
