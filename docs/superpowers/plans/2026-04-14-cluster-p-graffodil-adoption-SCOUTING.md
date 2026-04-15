@@ -118,19 +118,27 @@ Write a `docs/graffodil-feedback.md` in Graffodil itself documenting any rough e
 
 ## Recommendations to expand Graffodil (informed by Corbomite's use cases)
 
-Analogous to the way we identified gaps in Markoff during the Obsidian audit, Corbomite-specific needs that Graffodil doesn't yet fully cover:
+Full filtered analysis written as a feedback doc *to Graffodil*: **`~/dev/Graffodil/docs/corbomite-integration-feedback.md`**. The filtering discipline: upstream only what's *generally useful* to Graffodil's five named consumers (PERT, Gantt, sync topology, ForceGraph, Canvas); keep Corbomite-specific whiteboard/document-canvas features internal to avoid overloading Graffodil and violating its "core stays lightweight, don't dictate node appearance" non-goals.
 
-1. **Cached-content-rendering hook for text nodes.** `TextCardItem` renders markdown into a `QTextDocument` and caches it. In batch mode this cache is critical. Graffodil's `BatchRenderer` assumes simple ellipse nodes today; for variable-size rendered-content nodes, we need either (a) a `Graffodil::IRenderableCache` interface nodes implement, or (b) documented "nodes own their own cache, BatchRenderer asks via a pixmap accessor." Low-friction; probably 1 day upstream.
+**Upstream to Graffodil (3 items):**
 
-2. **Group / container nodes.** Canvas's `GroupItem` contains child cards that move with the group. Graffodil's `IGraphNode` is flat — no container semantics. Either (a) add `IGraphGroup` with child-list + move-propagation, or (b) document that containers are consumer-implemented above Graffodil. Our bet: (b) is correct (consumer concern), but Graffodil could offer a `GroupItem` base class as a useful utility.
+1. **`IRenderableCache` mixin.** Optional interface for rich-content nodes the `BatchRenderer` can cache. Drivers: Canvas `TextCardItem`, `FileCardItem`; ForceGraph `BatchNodeItem`. General need (PERT tasks with content, sync-topology device icons also benefit). ~1 day upstream work; backwards-compatible via `dynamic_cast`.
 
-3. **Resize handles for variable-size nodes.** Canvas cards have 8-point resize. Not Graffodil's job, but a `ResizableNodeDecorator` utility class would be broadly useful. Again: low-friction, if Graffodil wants it.
+2. **Undo-integration signal contract — doc + audit.** Document every mutation signal each provided tool emits; audit for gaps (edge redirect, anchor change, multi-select-drag aggregation, tool-activation). Possibly add per-user-action-boundary signals (`dragBegan`/`dragEnded`) alongside existing per-atomic-mutation signals. Driver: `CanvasCommands` migration needs complete coverage. Universal need.
 
-4. **Edge routing around obstacles (for canvas).** Canvas's bezier edges can overlap cards. Graffodil's `BezierPathStrategy` doesn't route around obstacles; adding an `ObstacleAwareBezierStrategy` (or Inkscape-style connector routing) would be a genuinely novel capability. Larger scope — consider post-adoption.
+3. **Alignment snap-guide extensibility — verify first.** Graffodil's `SelectMoveTool` claims "optional alignment snap guides"; confirm whether it matches Canvas's alignment-line-overlay UX and whether the consumer can customise alignment-target queries + guide rendering. If already flexible → docs only. If rigid → small extension-point addition.
 
-5. **Multi-select drag-rectangle with alignment snap guides.** Graffodil's `SelectMoveTool` claims "with optional alignment snap guides" (§Provided Tools). Verify whether this matches Corbomite's current Canvas alignment-guides UX. If not, either extend Graffodil or keep our guide overlay as a scene-level addition.
+Plus **long-term awareness** (not near-term): Qt Quick rendering fallback for ≥100k-node scenes. Flag to preserve API shape compatibility.
 
-6. **Undo integration contract documentation.** The design doc says tools emit signals and the consumer does undo. Confirm every mutation path emits — especially anchor-change, edge-redirect, and edge-deletion. Write explicit expectations before migrating Canvas's `CanvasCommands`.
+**Kept internal to Corbomite (3 items that would overload Graffodil):**
+
+1. **`GroupItem` / container nodes.** Only Canvas-shaped consumers have groups (PERT doesn't, Force doesn't, sync topology doesn't). Upstreaming `IGraphGroup` pollutes Core for one consumer class. Corbomite implements grouping above Graffodil: `GroupItem` is a Corbomite `QGraphicsItem` that implements `IGraphNode` (Graffodil sees it as a plain node), and `CanvasScene` intercepts move events to propagate to children.
+
+2. **Resizable-node decorator / 8-point resize handles.** Only whiteboard cards are user-resizable; other graph views have content-sized or fixed-size nodes. Corbomite implements resize handles directly in `TextCardItem`/`FileCardItem`, as today.
+
+3. **Obstacle-aware bezier routing.** Implement as a Corbomite-local `ObstacleAwareBezierStrategy : public Graffodil::EdgePathStrategy` — Graffodil's extension point already covers this. Reconsider upstreaming only if the implementation proves clean and another consumer asks.
+
+This filtering means Cluster P's upstream work is modest (~2–3 days of patches + docs) while still unblocking both migrations cleanly.
 
 ## Risks
 
