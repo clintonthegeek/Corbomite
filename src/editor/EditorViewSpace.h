@@ -17,6 +17,7 @@ class GraphViewTab;
 class CanvasViewTab;
 class SQLiteIndex;
 class VaultModel;
+class HoverPopover;
 
 class EditorViewSpace : public QWidget {
     Q_OBJECT
@@ -25,6 +26,10 @@ public:
     explicit EditorViewSpace(QWidget *parent = nullptr);
 
     void setCanvasEngine(MarkdownRenderEngine *engine);
+    // Cluster H Phase 2 — propagated to every NoteEditorWidget this space
+    // owns (current and future) so hover-link previews work regardless of
+    // when the tab opened.
+    void setHoverPopover(HoverPopover *popover);
     void openNote(NoteDocument *doc);
     void closeTab(int index);
     NoteEditorWidget *activeEditor() const;
@@ -63,6 +68,7 @@ private:
     TabModel m_tabModel;
     QHash<QString, NoteEditorWidget *> m_editors; // relativePath -> editor
     MarkdownRenderEngine *m_canvasEngine = nullptr;
+    HoverPopover *m_hoverPopover = nullptr;
 };
 
 } // namespace Corbomite

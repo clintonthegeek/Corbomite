@@ -39,9 +39,18 @@ EditorViewSpace *EditorViewManager::createViewSpace()
 {
     auto *space = new EditorViewSpace(this);
     space->setCanvasEngine(m_canvasEngine.get());
+    space->setHoverPopover(m_hoverPopover);
     connectViewSpace(space);
     m_viewSpaces.append(space);
     return space;
+}
+
+void EditorViewManager::setHoverPopover(HoverPopover *popover)
+{
+    m_hoverPopover = popover;
+    for (auto *space : std::as_const(m_viewSpaces)) {
+        space->setHoverPopover(popover);
+    }
 }
 
 void EditorViewManager::connectViewSpace(EditorViewSpace *space)

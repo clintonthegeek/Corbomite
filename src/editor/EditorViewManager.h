@@ -26,6 +26,9 @@ public:
 
     void openNote(NoteDocument *doc);
     void openCanvas(const QString &filePath);
+    // Cluster H Phase 2 — propagated to every EditorViewSpace and every
+    // NoteEditorWidget so hover-link previews work across all panes/tabs.
+    void setHoverPopover(HoverPopover *popover);
     NoteEditorWidget *activeEditor() const;
     EditorViewSpace *activeViewSpace() const;
 
@@ -79,6 +82,7 @@ private:
     EditorViewSpace *m_activeViewSpace = nullptr;
     QVector<EditorViewSpace *> m_viewSpaces;
     std::unique_ptr<MarkdownRenderEngine> m_canvasEngine;
+    HoverPopover *m_hoverPopover = nullptr;
 };
 
 } // namespace Corbomite

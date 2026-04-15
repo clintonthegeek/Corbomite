@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "EditorViewSpace.h"
+#include "HoverPopover.h"
 #include "NoteEditorWidget.h"
 #include "graph/GraphViewTab.h"
 #include "canvas/CanvasViewTab.h"
@@ -42,6 +43,14 @@ void EditorViewSpace::setCanvasEngine(MarkdownRenderEngine *engine)
     m_canvasEngine = engine;
 }
 
+void EditorViewSpace::setHoverPopover(HoverPopover *popover)
+{
+    m_hoverPopover = popover;
+    for (auto *editor : std::as_const(m_editors)) {
+        editor->setHoverPopover(popover);
+    }
+}
+
 void EditorViewSpace::openNote(NoteDocument *doc)
 {
     if (!doc) return;
@@ -59,6 +68,7 @@ void EditorViewSpace::openNote(NoteDocument *doc)
 
     auto *editor = new NoteEditorWidget(m_stack);
     editor->setNoteDocument(doc);
+    editor->setHoverPopover(m_hoverPopover);
     m_editors.insert(path, editor);
 
     int stackIdx = m_stack->addWidget(editor);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "NoteEditorWidget.h"
 #include "CompletionPopup.h"
+#include "HoverPopover.h"
 #include "VaultResourceProvider.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/models/VaultModel.h"
@@ -8,6 +9,7 @@
 
 #include <markoff/Editor.h>
 
+#include <QCursor>
 #include <QKeyEvent>
 #include <QVBoxLayout>
 #include <QStringListModel>
@@ -31,6 +33,19 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     connect(m_editor, &Markoff::Editor::linkClicked,
             this, [this](const QString &target) {
         Q_EMIT linkActivated(resolveTarget(target));
+    });
+    connect(m_editor, &Markoff::Editor::linkHovered,
+            this, [this](const QString &target) {
+        if (!m_hoverPopover) return;
+        if (target.isEmpty()) {
+            m_hoverPopover->cancel();
+        } else {
+            // Anchor near the cursor; Markoff doesn't expose hovered-link
+            // rect today (a Cluster H follow-up). The 20px y-offset keeps the
+            // popover from sitting under the cursor and triggering leaveEvent.
+            m_hoverPopover->scheduleShow(resolveTarget(target),
+                                          QCursor::pos() + QPoint(0, 20));
+        }
     });
     connect(m_editor, &Markoff::Editor::wikiLinkTrigger,
             this, &NoteEditorWidget::triggerWikiLinkCompletion);
@@ -57,6 +72,11 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
     } else {
         m_editor->clear();
     }
+}
+
+void NoteEditorWidget::setHoverPopover(HoverPopover *popover)
+{
+    m_hoverPopover = popover;
 }
 
 NoteDocument *NoteEditorWidget::noteDocument() const

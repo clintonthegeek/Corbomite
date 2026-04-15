@@ -13,6 +13,7 @@ class NoteDocument;
 class VaultModel;
 class VaultResourceProvider;
 class CompletionPopup;
+class HoverPopover;
 
 class NoteEditorWidget : public QWidget {
     Q_OBJECT
@@ -31,6 +32,10 @@ public:
     ViewMode viewMode() const;
 
     Markoff::Editor *editor() const;
+
+    // Optional — when set, hovers over wiki/markdown links schedule a 300ms
+    // preview popover (Cluster H Phase 2). Lifetime owned by the caller.
+    void setHoverPopover(HoverPopover *popover);
 
     int currentLine() const;
     int currentColumn() const;
@@ -69,6 +74,9 @@ private:
     VaultResourceProvider *m_resourceProvider = nullptr;
     bool m_updatingFromDoc = false;
     int m_cachedWordCount = 0;
+
+    // Hover preview (lifetime owned by MainWindow).
+    HoverPopover *m_hoverPopover = nullptr;
 
     // Completion state
     CompletionPopup *m_completionPopup = nullptr;

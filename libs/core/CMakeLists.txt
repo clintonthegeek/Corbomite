@@ -40,6 +40,9 @@ add_library(corbomite-core STATIC
     include/corbomite/core/MenuSectionHelper.h
     src/MenuEventEmitter.cpp
     include/corbomite/core/MenuEventEmitter.h
+    src/HoverLinkSourceRegistry.cpp
+    include/corbomite/core/HoverLinkSourceRegistry.h
+    include/corbomite/core/HoverLinkSource.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)

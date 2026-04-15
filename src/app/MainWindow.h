@@ -30,6 +30,8 @@ class DailyNoteService;
 class WelcomeScreen;
 class CommandRegistry;
 class MenuEventEmitter;
+class HoverLinkSourceRegistry;
+class HoverPopover;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -90,6 +92,8 @@ private:
     WelcomeScreen *m_welcomeScreen = nullptr;
     CommandRegistry *m_commandRegistry = nullptr;
     MenuEventEmitter *m_menuEvents = nullptr;
+    HoverLinkSourceRegistry *m_hoverSources = nullptr;
+    HoverPopover *m_hoverPopover = nullptr;
 };
 
 } // namespace Corbomite

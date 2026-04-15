@@ -26,7 +26,9 @@
 #include "SessionManager.h"
 
 #include "corbomite/core/Command.h"
+#include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
+#include "editor/HoverPopover.h"
 #include "dialogs/CreateVaultDialog.h"
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
@@ -85,6 +87,10 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
 
     m_commandRegistry = new CommandRegistry();
     m_menuEvents = new MenuEventEmitter(this);
+    m_hoverSources = new HoverLinkSourceRegistry(this);
+    m_hoverSources->registerBuiltins();
+    m_hoverPopover = new HoverPopover(this);
+    m_hoverPopover->setNoteService(m_vaultService->noteService());
 
     updateVaultActions();
     resize(1200, 800);
@@ -397,6 +403,7 @@ void MainWindow::setupEditor()
 
     // Index 1: Editor view manager
     m_editorManager = new EditorViewManager(m_centralStack);
+    m_editorManager->setHoverPopover(m_hoverPopover);
     m_centralStack->addWidget(m_editorManager);
 
     connect(m_editorManager, &EditorViewManager::cursorInfoChanged,
