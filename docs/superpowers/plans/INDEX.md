@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|
 | A | Link / frontmatter correctness | [2026-04-14-cluster-a-link-frontmatter-correctness.md](2026-04-14-cluster-a-link-frontmatter-correctness.md) | Full | Not started | none — keystone |
 | B | Vault I/O | [2026-04-14-cluster-b-vault-io.md](2026-04-14-cluster-b-vault-io.md) | Full | Not started | depends weakly on A |
-| C | Lifecycle / plugin primitives | [2026-04-14-cluster-c-lifecycle-plugin-primitives.md](2026-04-14-cluster-c-lifecycle-plugin-primitives.md) | Full | Blocked on B Phase 1–2 | resolves vault-switch crash |
+| C | Lifecycle / plugin primitives | [2026-04-14-cluster-c-lifecycle-plugin-primitives.md](2026-04-14-cluster-c-lifecycle-plugin-primitives.md) | Full | Done (primitives + hookup) | Phase 4b-d held for consumers (see PROJECT-STATE §Follow-ups) |
 | D | Search / suggester parity | [2026-04-14-cluster-d-search-suggester-parity.md](2026-04-14-cluster-d-search-suggester-parity.md) | Full | Not started | weakly blocks on A |
 | E | Markoff three-mode pivot | [2026-04-14-cluster-e-markoff-three-mode-pivot.md](2026-04-14-cluster-e-markoff-three-mode-pivot.md) | Full | Blocked on B Phase 3 + A Phase 1 | |
 | F | Templates / Daily Notes / Moment | [2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md](2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md) | Stub | Stub plan | expand after A + I land |

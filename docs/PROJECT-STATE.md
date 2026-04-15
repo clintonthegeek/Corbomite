@@ -2,13 +2,13 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines. Update at the end of every meaningful work session per the Ritual 2 / Ritual 3 checklists in `docs/CONTRIBUTING-OPS.md`. Older "Recent decisions" entries archive to `docs/decisions-archive.md` quarterly.
 
-**Last updated:** 2026-04-15 — **Cluster C Phases 1–3 (primitives) landed.** `Component` + `Events` + `Scope` + `ScopeManager` + `Command`/`CommandRegistry` + `Hotkey`/`HotkeyFile` + `PluginInstance` stub all shipped into `libs/core` with 66 unit tests (15 Component + 14 Events + 11 Scope + 8 ScopeManager + 13 Command + 13 Hotkey + 6 PluginInstance). Vault-switch crash verified resolved post-3b (not by Cluster C — pre-existing fix in `MainWindow::onVaultClosed`). Phase 4 (app-level integration: `SessionDestroyer` + `KCommandBar`-registry bridge + Scope push/pop on Modal/Menu paths) is the remaining work for full Cluster C landing.
+**Last updated:** 2026-04-15 — **Cluster C Phases 1–3 primitives + Phase 4a app-hookup landed.** `Component` + `Events` + `Scope` + `ScopeManager` + `Command`/`CommandRegistry` + `Hotkey`/`HotkeyFile` + `PluginInstance` stub all shipped into `libs/core` with 66 unit tests. `MainWindow` owns a `CommandRegistry` (merged into the `KCommandBar` palette); `main.cpp` installs `ScopeManager` on `QApplication`. Vault-switch crash verified resolved pre-Cluster-C. Remaining Phase 4 sub-items (SessionDestroyer, `.obsidian/hotkeys.json` I/O, Modal/Menu Scope push/pop) are held pending consumers — per YAGNI, building them speculatively with no downstream user today would be dead code.
 
 ---
 
 ## Current focus
 
-**Cluster C Phase 4 pending.** Libs-level primitives shipped; the rest is app-level rewiring. See "In-flight work items" below.
+**Cluster C landed (primitives + initial app wiring).** `libs/core` now has the full lifecycle + events + scope + command + hotkey substrate for plugins and contextual UI. Deferred Phase 4 sub-items are tracked under "Follow-ups" below, to land as consumers demand them. Recommended next: **Cluster D (Search / suggester parity)**, **Cluster H (Menus / hover / suggester UI)**, or **Cluster G full plan** (scouting doc now unblocked — C Phase 1 signatures are final).
 
 ---
 
@@ -20,7 +20,7 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 |---|---|---|---|---|
 | A | Link / frontmatter correctness | [full](superpowers/plans/2026-04-14-cluster-a-link-frontmatter-correctness.md) | Done | Unblocks D, F, I, J, K, L |
 | B | Vault I/O | [full](superpowers/plans/2026-04-14-cluster-b-vault-io.md) | Done | Unblocks C, E, G, H, N |
-| C | Lifecycle / plugin primitives | [full](superpowers/plans/2026-04-14-cluster-c-lifecycle-plugin-primitives.md) | In progress (phase 4) | Phases 1–3 (primitives in libs/core) landed 2026-04-15. Phase 4 = app integration (SessionDestroyer, KCommandBar bridge, Modal scope push/pop) |
+| C | Lifecycle / plugin primitives | [full](superpowers/plans/2026-04-14-cluster-c-lifecycle-plugin-primitives.md) | Done (primitives + hookup) | Phases 1–3 + 4a landed 2026-04-15. Unblocks G, H, N. Phase 4b-d (SessionDestroyer, hotkeys.json I/O, Modal Scope push/pop) deferred — build when consumers demand |
 | D | Search / suggester parity | [full](superpowers/plans/2026-04-14-cluster-d-search-suggester-parity.md) | Not started | Weakly blocked on A (LinkUtils for heading-match search) |
 | E | Markoff three-mode pivot | [full](superpowers/plans/2026-04-14-cluster-e-markoff-three-mode-pivot.md) | Not started | Blocked — waiting on B Phase 3 (WorkspaceState) and A Phase 1 (frontmatter parsing) |
 | F | Templates / Daily Notes / Moment | [stub](superpowers/plans/2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md) | Stub plan | Expand after A + I land |
@@ -39,13 +39,15 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 
 ## In-flight work items
 
-### Cluster C — Lifecycle / plugin primitives
-- **Phase:** 4 of 4
-- **Last completed step:** Phase 3 primitives landed 2026-04-15 (Component + Events + Scope/ScopeManager + Command/CommandRegistry + Hotkey + PluginInstance stub; 66 unit tests)
-- **Next expected step:** Phase 4 app integration — (a) bridge `CommandRegistry::listAvailable()` into `MainWindow::showCommandPalette`'s `KCommandBar`, (b) wire `ScopeManager::installOnApplication` in `main.cpp` + convert Modal/Menu paths to push/pop `Scope`, (c) implement `SessionDestroyer` using the Kate pattern (now a forward-looking refactor, not a bug fix — vault-switch crash already resolved pre-Cluster-C), (d) serialise/load `.obsidian/hotkeys.json` through the new `HotkeyFile` primitive
-- **Owner:** agent (Claude Opus 4.6)
-- **Date last touched:** 2026-04-15
-- **Open sub-questions:** Phase 4 touches `MainWindow.cpp` substantively (~150–300 LOC); keep current `KActionCollection` shortcuts or migrate to Scope+CommandRegistry? Recommended: keep menu-bar actions in KActionCollection (they're flat / don't need stacking), add Scope only for modal/palette/editor-context hotkeys.
+*(none — Cluster C complete 2026-04-15; Phase 4b-d moved to "Follow-ups" below)*
+
+## Cluster C follow-ups (deferred until a consumer needs them)
+
+These are *scoped but not built*: each requires downstream code that doesn't exist yet. Building them now would create dead code.
+
+1. **SessionDestroyer — Kate destroy-rebuild on vault switch.** Value: per-vault Component/PluginInstance lifecycle, per-vault KConfig isolation. Blocker for building now: no `Component` or `PluginInstance` is currently per-vault-scoped; vault switch works fine via the existing ad-hoc `closeAllDocuments` path (MainWindow.cpp:942). Build when the first per-vault plugin surface lands.
+2. **`.obsidian/hotkeys.json` load/save through `HotkeyFile`.** Primitive at `libs/core/Hotkey.h` is ready. Build when the first user-configurable hotkey-backed command registers.
+3. **Modal/Menu `Scope` push/pop.** Existing `QuickSwitcher`/`KCommandBar` paths handle their own Esc; rewriting them through `Scope` is churn. Build when the first *plugin-provided* Modal lands (Cluster N direction).
 
 When work begins, each in-flight cluster gets a row here:
 
