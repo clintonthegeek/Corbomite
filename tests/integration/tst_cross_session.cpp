@@ -325,6 +325,56 @@ private Q_SLOTS:
         cache.close();
     }
 
+    // L6: link to a file that gets deleted mid-session. SQLiteIndex's
+    // orphanLinks() should report the dangling target after the deletion
+    // event propagates. Critical for OutlinksPanel "(create)" markers.
+    void orphanLinkAppearsAfterTargetDeleted()
+    {
+        QTemporaryDir vaultDir;
+        QVERIFY(vaultDir.isValid());
+
+        const QString src = QStringLiteral("Source.md");
+        const QString tgt = QStringLiteral("Target.md");
+        writeFile(vaultDir.path() + QLatin1Char('/') + src,
+                  QByteArrayLiteral("# Source\n\nLink to [[Target]].\n"));
+        writeFile(vaultDir.path() + QLatin1Char('/') + tgt,
+                  QByteArrayLiteral("# Target\n"));
+
+        const QString cacheDb =
+            vaultDir.path() + QStringLiteral("/.corbomite/metadata-cache.db");
+        const QString indexDb =
+            vaultDir.path() + QStringLiteral("/.corbomite/index.sqlite");
+        QDir().mkpath(QFileInfo(cacheDb).absolutePath());
+
+        LinkResolver resolver;
+        resolver.setVaultPaths({src, tgt});
+        MetadataCache cache(resolver);
+        cache.open(cacheDb);
+        SQLiteIndex index;
+        QVERIFY(index.open(indexDb));
+        index.setVaultRoot(vaultDir.path());
+        index.setMetadataCache(&cache);
+
+        QSignalSpy doneSpy(&cache, &MetadataCache::indexFinished);
+        cache.rebuildVault(vaultDir.path(), {src, tgt});
+        QVERIFY(waitForSpy(doneSpy, 1));
+
+        // Sanity: no orphans yet.
+        QCOMPARE(index.orphanLinks().size(), 0);
+
+        // Mid-session delete of the target.
+        cache.onFileDeleted(tgt);
+        QTest::qWait(50);
+        QCoreApplication::processEvents();
+
+        const auto orphans = index.orphanLinks();
+        QCOMPARE(orphans.size(), 1);
+        QCOMPARE(orphans.first(), tgt);
+
+        cache.close();
+        index.close();
+    }
+
     // L5: simulating a vault switch — pointing the same SQLiteIndex +
     // MetadataCache pair at a new vault root. The new vault's queries must
     // not see any row from the old vault. (In real MainWindow.loadVault we
