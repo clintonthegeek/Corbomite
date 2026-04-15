@@ -2,6 +2,7 @@
 #pragma once
 
 #include "corbomite/readingview/CodeBlockHighlighter.h"
+#include "corbomite/readingview/VaultResourceProvider.h"
 
 #include <QGraphicsView>
 #include <QMultiHash>
@@ -20,7 +21,6 @@ class ReadingSection;
 class SectionLayout;
 class SectionRecyclePool;
 class StyleManager;
-class VaultResourceProvider;
 class VirtualScrollController;
 
 /// Obsidian-compatible Reading-mode widget. Phase 3b wires in eleven

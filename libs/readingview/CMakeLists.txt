@@ -66,6 +66,7 @@ target_link_libraries(readingview
         Qt6::Svg
         Qt6::SvgWidgets
         KF6::SyntaxHighlighting
+        Corbomite::Core
     PRIVATE
         MarkoffParser::MarkoffParser
         jkqtmathtext
