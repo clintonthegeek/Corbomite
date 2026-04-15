@@ -118,8 +118,12 @@ private:
     /// lazily when m_headingMapDirty is set (on reparsed() or
     /// setFoldingModel).
     mutable QHash<QPair<int,int>, int> m_blockToRegionIdx;
-    mutable bool m_headingMapDirty = true;
-    void ensureHeadingMap() const;
+    /// Parallel cache: region-index → heading-only index (count of
+    /// Heading-type regions at or before regionIdx). -1 if regionIdx
+    /// is not a Heading. Rebuilt alongside m_blockToRegionIdx.
+    mutable QList<int> m_regionToHeadingIdx;
+    mutable bool m_regionMapDirty = true;
+    void ensureRegionMap() const;
 
     /// Returns the region-index (into FoldingModel::regions()) for the given
     /// (itemIdx, blockNumber), or -1 if none.

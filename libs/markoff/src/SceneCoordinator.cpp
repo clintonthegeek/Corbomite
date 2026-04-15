@@ -118,7 +118,7 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
 
     repositionItems();
     m_scene->setSelectableItems(m_items);
-    m_headingMapDirty = true;
+    m_regionMapDirty = true;
     emit reparsed();
 }
 
@@ -456,11 +456,11 @@ void SceneCoordinator::setFoldingModel(FoldingModel *model)
     if (m_foldingModel)
         disconnect(m_foldingModel, nullptr, this, nullptr);
     m_foldingModel = model;
-    m_headingMapDirty = true;
+    m_regionMapDirty = true;
     if (m_foldingModel) {
         connect(m_foldingModel, &FoldingModel::foldStateChanged,
                 this, [this]() {
-                    m_headingMapDirty = true;
+                    m_regionMapDirty = true;
                     applyFoldVisibility();
                 });
     }
@@ -503,15 +503,27 @@ QList<FoldableRegion> SceneCoordinator::computeRegions() const
     return regions;
 }
 
-void SceneCoordinator::ensureHeadingMap() const
+void SceneCoordinator::ensureRegionMap() const
 {
-    if (!m_headingMapDirty) return;
+    if (!m_regionMapDirty) return;
     m_blockToRegionIdx.clear();
-    m_headingMapDirty = false;
+    m_regionToHeadingIdx.clear();
+    m_regionMapDirty = false;
     if (!m_foldingModel) return;
 
     const QList<FoldableRegion> regions = computeRegions();
     if (regions.isEmpty()) return;
+
+    // Build the regionIdx → headingIdx lookup once.
+    m_regionToHeadingIdx.resize(regions.size());
+    int headingIdx = 0;
+    for (int i = 0; i < regions.size(); ++i) {
+        if (regions[i].type == FoldableRegion::Heading) {
+            m_regionToHeadingIdx[i] = headingIdx++;
+        } else {
+            m_regionToHeadingIdx[i] = -1;
+        }
+    }
 
     const QByteArray utf8 = toMarkdown().toUtf8();
     QHash<int, int> lineToRegionIdx;
@@ -585,21 +597,17 @@ void SceneCoordinator::ensureHeadingMap() const
 
 int SceneCoordinator::regionAtBlock(int itemIdx, int blockNumber) const
 {
-    ensureHeadingMap();
+    ensureRegionMap();
     return m_blockToRegionIdx.value({itemIdx, blockNumber}, -1);
 }
 
 int SceneCoordinator::headingAtBlock(int itemIdx, int blockNumber) const
 {
     const int regionIdx = regionAtBlock(itemIdx, blockNumber);
-    if (regionIdx < 0 || !m_foldingModel) return -1;
-    const auto &regs = m_foldingModel->regions();
-    if (regionIdx >= regs.size()) return -1;
-    if (regs[regionIdx].type != FoldableRegion::Heading) return -1;
-    int headingIdx = 0;
-    for (int i = 0; i < regionIdx; ++i)
-        if (regs[i].type == FoldableRegion::Heading) ++headingIdx;
-    return headingIdx;
+    if (regionIdx < 0) return -1;
+    // O(1) cache lookup instead of O(regionIdx) predecessor count.
+    if (regionIdx >= m_regionToHeadingIdx.size()) return -1;
+    return m_regionToHeadingIdx[regionIdx];
 }
 
 int SceneCoordinator::itemIndexAt(qreal sceneY) const
