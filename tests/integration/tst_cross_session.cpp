@@ -208,6 +208,60 @@ private Q_SLOTS:
 
         cache.close();
     }
+
+    // L3: a file edited *outside* Corbomite between sessions must trigger
+    // re-parse on reopen, with cacheChanged carrying the new content's hash.
+    void externalEditBetweenSessionsTriggersReparse()
+    {
+        QTemporaryDir vaultDir;
+        QVERIFY(vaultDir.isValid());
+
+        const QString notePath = QStringLiteral("Edited.md");
+        const QString fullPath = vaultDir.path() + QLatin1Char('/') + notePath;
+        writeFile(fullPath, QByteArrayLiteral("# v1\n\nOriginal body.\n"));
+
+        const QString cacheDb =
+            vaultDir.path() + QStringLiteral("/.corbomite/metadata-cache.db");
+        QDir().mkpath(QFileInfo(cacheDb).absolutePath());
+
+        QString session1Hash;
+        {
+            LinkResolver resolver;
+            resolver.setVaultPaths({notePath});
+            MetadataCache cache(resolver);
+            cache.open(cacheDb);
+
+            QSignalSpy doneSpy(&cache, &MetadataCache::indexFinished);
+            cache.rebuildVault(vaultDir.path(), {notePath});
+            QVERIFY(waitForSpy(doneSpy, 1));
+            session1Hash = cache.getFileHash(notePath);
+            QVERIFY(!session1Hash.isEmpty());
+            cache.close();
+        }
+
+        // Edit outside Corbomite — change content + bump mtime.
+        // Sleep briefly to ensure mtime granularity advances.
+        QTest::qWait(1100);
+        writeFile(fullPath, QByteArrayLiteral("# v2\n\nDifferent body now.\n"));
+
+        // Session 2.
+        LinkResolver resolver;
+        resolver.setVaultPaths({notePath});
+        MetadataCache cache(resolver);
+        cache.open(cacheDb);
+
+        QSignalSpy changedSpy(&cache, &MetadataCache::cacheChanged);
+        QSignalSpy doneSpy(&cache, &MetadataCache::indexFinished);
+        cache.rebuildVault(vaultDir.path(), {notePath});
+        QVERIFY(waitForSpy(doneSpy, 1));
+
+        QCOMPARE(changedSpy.count(), 1);
+        const QString session2Hash = cache.getFileHash(notePath);
+        QVERIFY(!session2Hash.isEmpty());
+        QVERIFY(session2Hash != session1Hash);
+
+        cache.close();
+    }
 };
 
 QTEST_MAIN(TestCrossSession)
