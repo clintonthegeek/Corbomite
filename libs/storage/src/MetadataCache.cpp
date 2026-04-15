@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// MetadataCache — synchronous, signal-less core of the Obsidian-style
-// metadata cache. Two layers: path -> FileCacheEntry{mtime,size,hash} and
-// hash -> CachedMetadata, with a ref-count table that gates teardown of
-// hash entries shared by multiple paths (content dedup).
+// MetadataCache — Obsidian-compatible two-layer metadata cache.
 //
-// Phase 3 scope: data structures + onFileChanged / onFileDeleted /
-// onUnsupportedFile mutation + read API. No Qt signals, no threading, no
-// Events mixin. Phase 4 will layer signals on top of this via composition;
-// Phase 5 will move parsing to a worker thread.
+// Phase 3 introduced the data structures + synchronous mutation core.
+// Phase 4 (this file) adds:
+//   - Qt signals with strict Obsidian ordering (cacheChanged ->
+//     linksResolvedFor -> allLinksResolved -> indexFinished; cacheDeleted
+//     is independent of the resolver queue).
+//   - A link-resolver queue that drains one path per event-loop tick via
+//     QTimer::singleShot(0, ...).
+//   - A 10ms debounce on `indexFinished` (restarted when new work arrives).
+//   - A Corbomite::Events mixin with Obsidian-named events
+//     ("changed"/"deleted"/"resolve"/"resolved"/"finished") for plugin-
+//     facing subscribers.
+//
+// No worker thread yet — Phase 5 adds that. MetadataParser::parse still
+// runs synchronously on the calling thread.
 
 #include "corbomite/storage/MetadataCache.h"
 
@@ -16,6 +23,10 @@
 #include "corbomite/storage/MetadataParser.h"
 
 #include <QCryptographicHash>
+#include <QtCore/QLatin1Char>
+#include <QtCore/QMetaType>
+#include <QtCore/QTimer>
+#include <QtCore/QVariant>
 
 namespace Corbomite {
 
@@ -30,9 +41,16 @@ QString sha256Hex(const QByteArray &content)
 
 } // namespace
 
-MetadataCache::MetadataCache(const LinkResolver &resolver)
-    : m_resolver(resolver)
+MetadataCache::MetadataCache(const LinkResolver &resolver, QObject *parent)
+    : QObject(parent)
+    , m_resolver(resolver)
+    , m_indexFinishedTimer(new QTimer(this))
 {
+    qRegisterMetaType<Corbomite::CachedMetadata>("Corbomite::CachedMetadata");
+    m_indexFinishedTimer->setSingleShot(true);
+    m_indexFinishedTimer->setInterval(10);  // 10ms debounce per audit §4
+    connect(m_indexFinishedTimer, &QTimer::timeout,
+            this, &MetadataCache::onIndexFinishedTimeout);
 }
 
 MetadataCache::~MetadataCache() = default;
@@ -48,6 +66,8 @@ void MetadataCache::onFileChanged(const QString &path,
         // Existing entry. Try stat short-circuit first.
         if (it->mtimeMs == mtimeMs && it->size == newSize) {
             // Stat unchanged -> skip re-parse AND skip hash computation.
+            // Audit §4: "no content change, no event" — leave the debounce
+            // timer alone; do NOT touch the queue or counters.
             return;
         }
 
@@ -56,6 +76,8 @@ void MetadataCache::onFileChanged(const QString &path,
 
         if (it->hash == newHash) {
             // Content identical despite stat change. Update stat, no re-parse.
+            // Audit §4: hash-unchanged path is silent. No event, no queue, no
+            // timer disturbance.
             it->mtimeMs = mtimeMs;
             it->size = newSize;
             return;
@@ -67,23 +89,44 @@ void MetadataCache::onFileChanged(const QString &path,
         releaseHashRef(oldHash);
 
         insertParsed(path, content, mtimeMs, newSize, newHash);
+        emitCacheChanged(path, oldHash);
         return;
     }
 
     // New path. Compute hash and insert.
     const QString newHash = sha256Hex(content);
     insertParsed(path, content, mtimeMs, newSize, newHash);
+    emitCacheChanged(path, QString{});
 }
 
 void MetadataCache::onFileDeleted(const QString &path)
 {
     auto it = m_pathToFileEntry.find(path);
     if (it == m_pathToFileEntry.end()) {
-        return;  // Unknown path -> no-op.
+        // Unknown path -> no-op. Do NOT emit cacheDeleted; Obsidian is silent
+        // on this path too.
+        return;
     }
+
+    // Capture prevCache BEFORE teardown so the signal consumer sees the
+    // final state. For tracked-unsupported paths, prevCache is an empty
+    // struct — consistent with getFileCache() returning CachedMetadata{}
+    // for that state.
+    CachedMetadata prevCache;
+    if (!it->hash.isEmpty()) {
+        auto cacheIt = m_hashToCache.constFind(it->hash);
+        if (cacheIt != m_hashToCache.constEnd()) {
+            prevCache = *cacheIt;
+        }
+    }
+
     const QString hash = it->hash;
     m_pathToFileEntry.erase(it);
     releaseHashRef(hash);
+
+    Q_EMIT cacheDeleted(path, prevCache);
+    m_events.trigger(QStringLiteral("deleted"),
+                     {path, QVariant::fromValue(prevCache)});
 }
 
 void MetadataCache::onUnsupportedFile(const QString &path,
@@ -103,6 +146,7 @@ void MetadataCache::onUnsupportedFile(const QString &path,
     }
     m_pathToFileEntry[path] = FileCacheEntry{mtimeMs, size, QString{}};
     // Note: no entry in m_hashToCache for unsupported files.
+    // No signal emission — audit §4 treats tracked-unsupported as silent.
 }
 
 std::optional<CachedMetadata> MetadataCache::getFileCache(const QString &path) const
@@ -175,6 +219,114 @@ void MetadataCache::releaseHashRef(const QString &hash)
         m_hashRefCount.erase(rcIt);
         m_hashToCache.remove(hash);
     }
+}
+
+void MetadataCache::emitCacheChanged(const QString &path, const QString &prevHash)
+{
+    // New work has arrived: if a debounce timer for indexFinished is pending,
+    // it's no longer valid — we'll rearm when the queue drains.
+    if (m_indexFinishedTimer->isActive()) {
+        m_indexFinishedTimer->stop();
+    }
+
+    // Look up the current cache for this path so we can emit it.
+    // The helper is only called on non-short-circuit paths, so the path is
+    // expected to be present with a non-empty hash.
+    CachedMetadata current;
+    auto pathIt = m_pathToFileEntry.constFind(path);
+    if (pathIt != m_pathToFileEntry.constEnd() && !pathIt->hash.isEmpty()) {
+        auto cacheIt = m_hashToCache.constFind(pathIt->hash);
+        if (cacheIt != m_hashToCache.constEnd()) {
+            current = *cacheIt;
+        }
+    }
+
+    Q_EMIT cacheChanged(path, prevHash, current);
+    m_events.trigger(QStringLiteral("changed"),
+                     {path, prevHash, QVariant::fromValue(current)});
+
+    m_linkResolverQueue.enqueue(path);
+
+    // Only post a drain continuation if no other drain is outstanding.
+    // A drain chains itself via singleShot(0, ...) on every non-empty pop,
+    // so one outstanding continuation is enough to fully drain the queue.
+    //
+    // Bump m_inProgressTaskCount iff we're starting a new drain cycle (i.e.
+    // queue was empty and is now non-empty). This pairs 1:1 with the
+    // `allLinksResolved` decrement at drain-end so burst coalescing works:
+    // N onFileChanged calls in the same sync burst => one bump, drain
+    // processes all N paths in one cycle, one `allLinksResolved`, one
+    // decrement back to zero, debounce timer arms.
+    if (m_linkResolverQueue.size() == 1) {
+        ++m_inProgressTaskCount;
+        QTimer::singleShot(0, this, &MetadataCache::drainOnePath);
+    }
+}
+
+void MetadataCache::drainOnePath()
+{
+    if (m_linkResolverQueue.isEmpty()) {
+        return;
+    }
+    const QString path = m_linkResolverQueue.dequeue();
+
+    // Re-resolve links in place. If the path's hash entry is gone (file was
+    // deleted between enqueue and drain), skip silently.
+    auto pathIt = m_pathToFileEntry.constFind(path);
+    if (pathIt != m_pathToFileEntry.constEnd() && !pathIt->hash.isEmpty()) {
+        auto cacheIt = m_hashToCache.find(pathIt->hash);
+        if (cacheIt != m_hashToCache.end() && cacheIt->links) {
+            for (LinkCache &link : *cacheIt->links) {
+                // The `link.link` field is the already-resolved
+                // "path#subpath" string; to re-resolve, treat the part
+                // before the first '#' as the raw target.
+                QString rawTarget = link.link;
+                QString subpath;
+                int hashIdx = rawTarget.indexOf(QLatin1Char('#'));
+                if (hashIdx >= 0) {
+                    subpath = rawTarget.mid(hashIdx);
+                    rawTarget = rawTarget.left(hashIdx);
+                }
+                ResolvedLink resolved = m_resolver.resolve(path, rawTarget);
+                if (resolved.resolved) {
+                    link.link = resolved.path + resolved.subpath;
+                }
+                // If not resolved, leave as-is (pass-through preserved).
+            }
+            // TODO: also re-resolve embeds + frontmatterLinks. For Phase 4
+            // the `links` vector is sufficient to exercise the ordering +
+            // debounce semantics; resolution fidelity for embeds and
+            // frontmatterLinks is a Phase 4.1 follow-up (or moves into
+            // Phase 5 when parsing goes onto a worker thread).
+        }
+    }
+
+    Q_EMIT linksResolvedFor(path);
+    m_events.trigger(QStringLiteral("resolve"), {path});
+
+    if (!m_linkResolverQueue.isEmpty()) {
+        // More paths to drain — chain one more per-tick continuation.
+        QTimer::singleShot(0, this, &MetadataCache::drainOnePath);
+    } else {
+        // Queue empty: emit the bulk "all done" + decrement the task count.
+        // Coalesce semantics: each onFileChanged bumps the count once, and
+        // the fully-drained queue decrements it once. Under sequential
+        // Phase-4 semantics a burst of N onFileChanged calls collapses to
+        // one allLinksResolved + one indexFinished (after debounce).
+        Q_EMIT allLinksResolved();
+        m_events.trigger(QStringLiteral("resolved"), QVariantList{});
+
+        if (--m_inProgressTaskCount <= 0) {
+            m_inProgressTaskCount = 0;
+            m_indexFinishedTimer->start();
+        }
+    }
+}
+
+void MetadataCache::onIndexFinishedTimeout()
+{
+    Q_EMIT indexFinished();
+    m_events.trigger(QStringLiteral("finished"), QVariantList{});
 }
 
 }  // namespace Corbomite
