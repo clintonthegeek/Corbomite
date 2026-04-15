@@ -111,3 +111,8 @@ add_executable(tst_markdownrenderchild tst_markdownrenderchild.cpp)
 add_test(NAME tst_markdownrenderchild COMMAND tst_markdownrenderchild)
 target_link_libraries(tst_markdownrenderchild PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_markdownrenderchild PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_embeddepthguard tst_embeddepthguard.cpp)
+add_test(NAME tst_embeddepthguard COMMAND tst_embeddepthguard)
+target_link_libraries(tst_embeddepthguard PRIVATE Qt6::Test Corbomite::Core)
+set_tests_properties(tst_embeddepthguard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

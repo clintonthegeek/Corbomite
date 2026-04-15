@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets)
+find_package(KF6I18n REQUIRED)
 
 add_library(corbomite-core STATIC
     src/NoteMeta.cpp
@@ -51,6 +52,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/VaultResourceProvider.h
     src/MarkdownRenderChild.cpp
     include/corbomite/core/MarkdownRenderChild.h
+    src/EmbedDepthGuard.cpp
+    include/corbomite/core/EmbedDepthGuard.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
@@ -58,4 +61,4 @@ add_library(Corbomite::Core ALIAS corbomite-core)
 target_include_directories(corbomite-core
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets KF6::SyntaxHighlighting jkqtmathtext mmdr markoff)
+target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets KF6::SyntaxHighlighting KF6::I18n jkqtmathtext mmdr markoff)
