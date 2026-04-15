@@ -2,13 +2,13 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines. Update at the end of every meaningful work session per the Ritual 2 / Ritual 3 checklists in `docs/CONTRIBUTING-OPS.md`. Older "Recent decisions" entries archive to `docs/decisions-archive.md` quarterly.
 
-**Last updated:** 2026-04-15 — **Cluster C Phases 1–3 primitives + Phase 4a app-hookup landed.** `Component` + `Events` + `Scope` + `ScopeManager` + `Command`/`CommandRegistry` + `Hotkey`/`HotkeyFile` + `PluginInstance` stub all shipped into `libs/core` with 66 unit tests. `MainWindow` owns a `CommandRegistry` (merged into the `KCommandBar` palette); `main.cpp` installs `ScopeManager` on `QApplication`. Vault-switch crash verified resolved pre-Cluster-C. Remaining Phase 4 sub-items (SessionDestroyer, `.obsidian/hotkeys.json` I/O, Modal/Menu Scope push/pop) are held pending consumers — per YAGNI, building them speculatively with no downstream user today would be dead code.
+**Last updated:** 2026-04-15 — **Cluster D landed (all 5 phases).** `libs/search/` is a new top-level library: `FuzzyMatcher` (two-pass Obsidian port, 20 tests), `ResultHighlighter` (paint helper consumed by QuickSwitcher + CompletionPopup delegates), `SearchDSL` (tokenizer + recursive-descent parser + AST + `compile()` to FTS5/tag plan, 29 tests). `SQLiteIndex::searchCompiled()` executes plans against `notes_fts` + `note_tags`. `SearchPanel` reparses queries on every keystroke and renders FTS5 highlight ranges into `SearchMatch.matches`. Three options for next cluster — see "Current focus".
 
 ---
 
 ## Current focus
 
-**Cluster C landed (primitives + initial app wiring).** `libs/core` now has the full lifecycle + events + scope + command + hotkey substrate for plugins and contextual UI. Deferred Phase 4 sub-items are tracked under "Follow-ups" below, to land as consumers demand them. Recommended next: **Cluster D (Search / suggester parity)**, **Cluster H (Menus / hover / suggester UI)**, or **Cluster G full plan** (scouting doc now unblocked — C Phase 1 signatures are final).
+**Cluster D landed (matcher + DSL + UI wiring).** Suggesters (QuickSwitcher / CompletionPopup) all share Obsidian's two-pass fuzzy ranking; SearchPanel parses Obsidian DSL (tag/path/file/content/match-case/ignore-case/AND/OR/NOT/quotes/regex-flagged) and surfaces unsupported operators in the status line. Highlight spans now populate `SearchMatch.matches` from FTS5 snippet markup. Recommended next: **Cluster H (Menus / hover / suggester UI)** which builds on the suggester substrate, **Cluster I (MetadataCache parity)** which stub-expands now that A+D are done, or **Cluster G full plan** (scouting doc unblocked — C Phase 1 signatures + D's matcher both stable).
 
 ---
 
@@ -21,7 +21,7 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 | A | Link / frontmatter correctness | [full](superpowers/plans/2026-04-14-cluster-a-link-frontmatter-correctness.md) | Done | Unblocks D, F, I, J, K, L |
 | B | Vault I/O | [full](superpowers/plans/2026-04-14-cluster-b-vault-io.md) | Done | Unblocks C, E, G, H, N |
 | C | Lifecycle / plugin primitives | [full](superpowers/plans/2026-04-14-cluster-c-lifecycle-plugin-primitives.md) | Done (primitives + hookup) | Phases 1–3 + 4a landed 2026-04-15. Unblocks G, H, N. Phase 4b-d (SessionDestroyer, hotkeys.json I/O, Modal Scope push/pop) deferred — build when consumers demand |
-| D | Search / suggester parity | [full](superpowers/plans/2026-04-14-cluster-d-search-suggester-parity.md) | Not started | Weakly blocked on A (LinkUtils for heading-match search) |
+| D | Search / suggester parity | [full](superpowers/plans/2026-04-14-cluster-d-search-suggester-parity.md) | Done | Landed 2026-04-15 across 5 commits (70f7d64, 39ac6e1, f939ba9, fd612e5, f3367f7). Unblocks H, I |
 | E | Markoff three-mode pivot | [full](superpowers/plans/2026-04-14-cluster-e-markoff-three-mode-pivot.md) | Not started | Blocked — waiting on B Phase 3 (WorkspaceState) and A Phase 1 (frontmatter parsing) |
 | F | Templates / Daily Notes / Moment | [stub](superpowers/plans/2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md) | Stub plan | Expand after A + I land |
 | G | Views hierarchy + TextFileView contract | [scouting](superpowers/plans/2026-04-14-cluster-g-views-hierarchy-SCOUTING.md) | Scouting doc | Expand to full plan when Cluster C Phase 1 lands |
@@ -39,7 +39,19 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 
 ## In-flight work items
 
-*(none — Cluster C complete 2026-04-15; Phase 4b-d moved to "Follow-ups" below)*
+*(none — Cluster D complete 2026-04-15; Cluster C Phase 4b-d still deferred)*
+
+## Cluster D follow-ups (deferred — consumer- or schema-gated)
+
+These are scoped but not built; each depends on something that doesn't exist yet, or whose value-effort ratio is best after a downstream cluster lands.
+
+1. **`line:`/`block:`/`section:`/`task*:` operators.** Recognised by the parser; rejected by `compile()` as `unsupported`. Need markdown-AST post-filter using the existing markoff-parser tree-sitter output. Build when first user complains, or piggyback on Cluster J (embed/rendering) which also needs heading/section walks.
+2. **`[key]` / `[key:val]` property-call.** Tokenizer skips the brackets; AST has no node yet. Needs a new `note_properties(note_path, key, value_text, value_num)` side-table — coordinate with Cluster I (MetadataCache parity), which builds the parallel cache. Land together.
+3. **Regex post-filter.** Parser builds `Regex` nodes; `compile()` flags as unsupported. Implementation is straightforward: pull all candidate paths for the surrounding clause, then `QRegularExpression::match` over each note body. Defer until a single user-facing demand surfaces.
+4. **True `match-case` semantics.** FTS5's default `porter unicode61` tokenizer is case-folding, so we silently degrade to case-insensitive and surface in `unsupported`. Real implementation needs candidate fetch + per-candidate `QString::contains(..., Qt::CaseSensitive)` recheck, same shape as the regex follow-up.
+5. **KCommandBar palette wiring through `CommandRegistry`.** KDE's built-in fuzzy in `KF6::WidgetsAddons` is currently serving it; a swap to `Corbomite::FuzzyMatcher` would require hooking into `KCommandBar` internals or replacing the widget. Cosmetic divergence only; defer until the divergence is user-visible.
+6. **Quick-Switcher Obsidian-style mode switching (`#`/`^`/`[[`).** Belongs to Cluster H's suggester-UI surface — the matcher infrastructure is ready; the UI prefix-routing is the work.
+7. **Snippet-text rich rendering in `SearchResultsModel`.** `SearchMatch.matches` is now populated, but the QTreeView default delegate prints plain text. Either (a) add a `SearchResultsDelegate` that calls `ResultHighlighter::drawHighlighted`, or (b) flip `Qt::DisplayRole` to rich-text-with-`<b>` and let Qt do it. (a) is consistent with QuickSwitcher/CompletionPopup; (b) is one line of code.
 
 ## Cluster C follow-ups (deferred until a consumer needs them)
 
@@ -69,6 +81,7 @@ Move the row to "Recent decisions" or a cluster retro on completion.
 
 Append-only. Most recent on top. Archive entries older than ~3 months to `docs/decisions-archive.md` (quarterly).
 
+- **2026-04-15 — Cluster D landed (all 5 phases).** New `libs/search/` library: `FuzzyMatcher` (Obsidian's `prepareQuery` + `fuzzySearch` two-pass — word-token then char-fuzzy; 5-term `xy` scoring formula; "prefer-boundary, fallback-to-first" reading of strict-mode that lets `mdf`→`getMarkdownFiles` match per the documented behaviour). `ResultHighlighter::drawHighlighted()` paint helper used by both QuickSwitcherDelegate and CompletionDelegate (UX choice 1a — bold + `QPalette::Link` accent colour). `SearchDSL::parse()` is a hand-written recursive-descent over the spec at `docs/search-dsl-spec.md` (reverse-engineered from `_internal.js:328579-328926` and `testvaults/obsidian-help/`); covers atoms, AND/OR/NOT/grouping, all 12 operators (path/file/content/tag/line/block/section/task/task-todo/task-done/match-case/ignore-case), exclusive-nesting checks with `section`'s allowSelf exception, tag-only-text rule, and Obsidian quirks (trailing-OR silent, trailing-colon → empty-text operand, unterminated quote/regex accepted, OR is case-sensitive). `SearchDSL::compile()` lowers the AST to a `CompiledPlan{fts5Query, requiredTags, excludedTags, unsupported}` triple — fits the existing `notes_fts(path,title,content)` + `note_tags` schema with no migrations. `SQLiteIndex::searchCompiled()` runs FTS5 + tag-side-table predicates; tag-only queries fall back to a synthetic-rank scan over all paths. `SearchPanel` adds a "?" tool button (UX choice 3c — single-line + helper popover) listing every supported operator. Phase 1 added the `matches: QVector<QPair<int,int>>` field to `SearchMatch`; Phase 5 closes the loop by parsing FTS5's `<b>...</b>` snippet markup into ranges over the cleaned text. Total: 64 new unit tests + 6 integration tests, all green. Deferred follow-ups (tracked below): KCommandBar palette wiring (KDE built-in serves it), Quick-Switcher Obsidian-style mode switching (#/^/[[ — Cluster H territory), `line:`/`block:`/`section:`/`task*:` markdown-AST post-filter, `[prop:val]` property-call (needs `note_properties` table — coordinate with Cluster I), regex post-filter, true `match-case` (FTS5 tokenizer is case-folding, needs candidate set + Qt-side recheck). How to apply: parse user search input through `Corbomite::SearchDSL::parse()`; on success `compile()` the AST and pass `fts5Query`/`requiredTags`/`excludedTags` to `SQLiteIndex::searchCompiled()`; surface `unsupported` to the user. For any new suggester, lift `Corbomite::FuzzyMatcher::prepareQuery + fuzzySearch + sortSearchResults` and feed the resulting `matches` ranges to `Corbomite::ResultHighlighter::drawHighlighted` from your `QStyledItemDelegate::paint`.
 - **2026-04-15 — Cluster C Phases 1–3 landed (primitives only).** Shipped seven libs/core/* source pairs with full unit coverage (66 new tests):
   - `Component` (lifecycle base, LIFO child unload, registerInterval + registerQObjectConnection auto-cleanup, intentional C++ divergence documented: self-onunload is sliced at destruction, children's fires fine)
   - `Events` (plain-base mixin, EventRef = weak_ptr-to-Node for O(1) idempotent offref, `tryTrigger` async rethrow via `QTimer::singleShot(0, rethrow)` — Qt::QueuedConnection rejected because it swallows exceptions silently)
