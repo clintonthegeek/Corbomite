@@ -1312,7 +1312,10 @@ void Editor::updateMatchCount()
 
 QList<QStringList> Editor::headingPaths() const
 {
-    return m_foldingModel->allPaths();
+    QList<QStringList> out;
+    for (const auto &h : m_foldingModel->headings())
+        out.append(h.path);
+    return out;
 }
 
 bool Editor::isFolded(const QStringList &path) const

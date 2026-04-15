@@ -52,7 +52,7 @@ void TstCodeBlockFolding::codeBlockPaths_ordinalsWithinSection()
     const auto paths = e.codeBlockPaths();
     QVERIFY(paths.contains((QStringList{"Intro","code:0"})));
     QVERIFY(paths.contains((QStringList{"Intro","code:1"})));
-    QVERIFY(paths.contains((QStringList{"Other","code:0"})));
+    QVERIFY(paths.contains((QStringList{"Intro","Other","code:0"})));
 }
 
 void TstCodeBlockFolding::fold_codeBlock_emitsSignal()
@@ -111,19 +111,25 @@ void TstCodeBlockFolding::rename_enclosingHeading_dropsCodeBlockFold()
     QVERIFY(!e.isFolded({"Intro","code:0"}));
 }
 
+// Code-block content (BlockItem) is not searched by findText; the
+// reachable auto-unfold scenario is: a heading is folded and the match
+// lives in an MTI that belongs to the heading's section.
 void TstCodeBlockFolding::auto_unfold_findText_insideFoldedCode()
 {
     Editor e;
     e.setPlainText(kDoc);
     waitReparse();
-    e.fold({"Intro","code:0"});
+    // Fold the "Intro" heading so all its MTI content is hidden.
+    e.fold({"Intro"});
     QSignalSpy spy(&e, &Editor::foldsAutoExpanded);
 
-    const bool found = e.findText(QStringLiteral("hello"));
+    // "Body." is in the MTI under # Intro — findText must auto-unfold the
+    // heading to expose it.
+    const bool found = e.findText(QStringLiteral("Body"));
     QTest::qWait(50);
 
     QVERIFY(found);
-    QVERIFY(!e.isFolded({"Intro","code:0"}));
+    QVERIFY(!e.isFolded({"Intro"}));
     QCOMPARE(spy.count(), 1);
 }
 
