@@ -14,8 +14,15 @@
 
 #include <QTimer>
 #include <QTextDocument>
+#include <QAbstractTextDocumentLayout>
 #include <QGuiApplication>
+#include <QDebug>
 #include <algorithm>
+
+static bool foldDebugEnabled() {
+    static const bool v = !qgetenv("MARKOFF_FOLD_DEBUG").isEmpty();
+    return v;
+}
 
 namespace Markoff {
 
@@ -710,7 +717,18 @@ void SceneCoordinator::applyFoldVisibility()
             auto *tbi = dynamic_cast<TableBlockItem *>(m_items[itemIdx]->asGraphicsItem());
             if (isCodeBlock && tbi) {
                 const bool selfFolded = m_foldingModel->isFolded(regs[rIdx].path);
+                if (foldDebugEnabled()) {
+                    qDebug() << "[applyFoldVisibility] code block itemIdx=" << itemIdx
+                             << "rIdx=" << rIdx
+                             << "path=" << regs[rIdx].path
+                             << "selfFolded=" << selfFolded
+                             << "hiddenByHeading=" << hiddenByHeading;
+                }
                 tbi->setFolded(selfFolded, regs[rIdx].language, regs[rIdx].lineCount);
+            } else if (foldDebugEnabled() && !mti) {
+                qDebug() << "[applyFoldVisibility] non-MTI itemIdx=" << itemIdx
+                         << "rIdx=" << rIdx << "isCodeBlock=" << isCodeBlock
+                         << "tbi=" << (void*)tbi << "hiddenByHeading=" << hiddenByHeading;
             }
             m_items[itemIdx]->asGraphicsItem()->setVisible(!hiddenByHeading);
             continue;
@@ -718,12 +736,24 @@ void SceneCoordinator::applyFoldVisibility()
 
         // Text item: walk its QTextBlocks.
         QTextDocument *doc = mti->document();
+        const QList<FoldableRegion> &regs = m_foldingModel->regions();
         QTextBlock block = doc->begin();
         bool anyBlockVisible = false;
+
+        // Track whether we are inside a folded code-block region.
+        // The opening-fence block (region-start) stays visible; the
+        // content lines + closing-fence block are hidden while this is true.
+        int codeBlockHideUntilBlock = -1; // inclusive; -1 = not in a folded code block
+
         while (block.isValid()) {
-            const int h = headingAtBlock(itemIdx, block.blockNumber());
+            const int blockNum = block.blockNumber();
+            const int h = headingAtBlock(itemIdx, blockNum);
             const bool isHeading = (h >= 0);
-            if (isHeading) hIdx = h;
+            if (isHeading) {
+                hIdx = h;
+                // A new heading ends any code-block fold scope.
+                codeBlockHideUntilBlock = -1;
+            }
 
             bool hidden = false;
             if (hIdx >= 0) {
@@ -740,7 +770,33 @@ void SceneCoordinator::applyFoldVisibility()
                 }
             }
 
-            mti->setBlockFolded(block.blockNumber(), hidden);
+            // Code-block self-fold (MTI path): if this block is the opening-
+            // fence of a code-block region, check whether that region is folded.
+            // If so, mark subsequent blocks (content + closing fence) as hidden.
+            if (!hidden && !isHeading) {
+                const int rIdx = regionAtBlock(itemIdx, blockNum);
+                if (rIdx >= 0 && rIdx < regs.size()
+                        && regs[rIdx].type == FoldableRegion::CodeBlock) {
+                    // This is the opening-fence block.
+                    // Reset any previous code-block scope.
+                    codeBlockHideUntilBlock = -1;
+                    const bool selfFolded = m_foldingModel->isFolded(regs[rIdx].path)
+                                         || m_foldingModel->isHiddenByFold(regs[rIdx].path);
+                    if (selfFolded) {
+                        // Hide lineCount content lines + 1 closing-fence line.
+                        codeBlockHideUntilBlock = blockNum + regs[rIdx].lineCount + 1;
+                    }
+                    // The opening-fence line itself stays visible (hidden stays false).
+                } else if (codeBlockHideUntilBlock >= 0 && blockNum <= codeBlockHideUntilBlock) {
+                    // We are inside a folded code-block region — hide this block.
+                    hidden = true;
+                } else if (codeBlockHideUntilBlock >= 0 && blockNum > codeBlockHideUntilBlock) {
+                    // Passed the end of the code-block fold scope.
+                    codeBlockHideUntilBlock = -1;
+                }
+            }
+
+            mti->setBlockFolded(blockNum, hidden);
             if (!hidden) anyBlockVisible = true;
             block = block.next();
         }

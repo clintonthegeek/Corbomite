@@ -7,6 +7,13 @@
 
 #include <QPainter>
 #include <QGraphicsSceneMouseEvent>
+#include <QProcessEnvironment>
+#include <QDebug>
+
+static bool foldDebugEnabled() {
+    static const bool v = !qgetenv("MARKOFF_FOLD_DEBUG").isEmpty();
+    return v;
+}
 
 namespace Markoff {
 
@@ -130,6 +137,12 @@ void FoldGutter::mousePressEvent(QGraphicsSceneMouseEvent *event)
     }
 
     int regionIdx = m_coordinator->regionIndexAtSceneY(event->scenePos().y());
+    if (foldDebugEnabled()) {
+        qDebug() << "[FoldGutter] click scenePos=" << event->scenePos()
+                 << "localPos=" << event->pos()
+                 << "regionIdx=" << regionIdx
+                 << "mods=" << event->modifiers();
+    }
     if (regionIdx < 0) {
         event->ignore();
         return;
