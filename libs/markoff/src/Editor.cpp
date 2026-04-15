@@ -58,8 +58,10 @@ Editor::Editor(QWidget *parent)
     connect(m_coordinator, &SceneCoordinator::reparsed,
             this, &Editor::onDocumentReparsed);
 
-    // SearchBar is a child of the viewport, positioned at the bottom
-    m_searchBar = new SearchBar(viewport());
+    // SearchBar is a child of the Editor (not the viewport), so it
+    // stays pinned to the bottom of the visible area rather than
+    // scrolling with the scene contents.
+    m_searchBar = new SearchBar(this);
     m_searchBar->hide();
 
     connect(m_searchBar, &SearchBar::searchTextChanged,
@@ -1074,8 +1076,11 @@ void Editor::repositionSearchBar()
 {
     if (!m_searchBar->isVisible()) return;
     QSize barSize = m_searchBar->sizeHint();
+    QPoint vpTopLeft = viewport()->mapTo(this, QPoint(0, 0));
     int vw = viewport()->width();
-    m_searchBar->setGeometry(0, viewport()->height() - barSize.height(),
+    int vh = viewport()->height();
+    m_searchBar->setGeometry(vpTopLeft.x(),
+                             vpTopLeft.y() + vh - barSize.height(),
                              vw, barSize.height());
     m_searchBar->raise();
 }
