@@ -31,6 +31,10 @@ QVector<NoteMeta> VaultScanner::scan(const QString &vaultRoot) const
             continue;
         }
 
+        if (m_ignore.patternCount() > 0 && m_ignore.matches(relPath)) {
+            continue;
+        }
+
         results.append(NoteMeta::fromFileInfo(fi, vaultRoot));
     }
 

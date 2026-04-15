@@ -30,3 +30,7 @@ target_link_libraries(tst_vaultconfig PRIVATE Qt6::Test Corbomite::Storage)
 add_executable(tst_workspacestate tst_workspacestate.cpp)
 add_test(NAME tst_workspacestate COMMAND tst_workspacestate)
 target_link_libraries(tst_workspacestate PRIVATE Qt6::Test Corbomite::Storage)
+
+add_executable(tst_probe_trash_ignore tst_probe_trash_ignore.cpp)
+add_test(NAME tst_probe_trash_ignore COMMAND tst_probe_trash_ignore)
+target_link_libraries(tst_probe_trash_ignore PRIVATE Qt6::Test Corbomite::Storage Corbomite::Core)

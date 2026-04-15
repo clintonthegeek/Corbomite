@@ -18,6 +18,12 @@ add_library(corbomite-storage STATIC
     include/corbomite/storage/VaultConfig.h
     src/WorkspaceState.cpp
     include/corbomite/storage/WorkspaceState.h
+    src/CaseSensitivityProbe.cpp
+    include/corbomite/storage/CaseSensitivityProbe.h
+    src/VaultTrash.cpp
+    include/corbomite/storage/VaultTrash.h
+    src/IgnoreFilter.cpp
+    include/corbomite/storage/IgnoreFilter.h
 )
 set_target_properties(corbomite-storage PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Storage ALIAS corbomite-storage)
