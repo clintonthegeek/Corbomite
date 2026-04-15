@@ -28,6 +28,10 @@ add_executable(tst_subpath tst_subpath.cpp)
 add_test(NAME tst_subpath COMMAND tst_subpath)
 target_link_libraries(tst_subpath PRIVATE Qt6::Test Corbomite::Core)
 
+add_executable(tst_linkutils tst_linkutils.cpp)
+add_test(NAME tst_linkutils COMMAND tst_linkutils)
+target_link_libraries(tst_linkutils PRIVATE Qt6::Test Corbomite::Core MarkoffParser::MarkoffParser)
+
 add_executable(tst_renderengine tst_renderengine.cpp)
 add_test(NAME tst_renderengine COMMAND tst_renderengine)
 target_link_libraries(tst_renderengine PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)

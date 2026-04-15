@@ -2,13 +2,13 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines. Update at the end of every meaningful work session per the Ritual 2 / Ritual 3 checklists in `docs/CONTRIBUTING-OPS.md`. Older "Recent decisions" entries archive to `docs/decisions-archive.md` quarterly.
 
-**Last updated:** 2026-04-14 — added Cluster H full plan; G/K scouting docs; O (post-parity query layer) scouting doc; P (Graffodil adoption, internal refactor) scouting doc.
+**Last updated:** 2026-04-14 — Cluster A Phase 1 in progress; markoff-parser ported to RapidYAML; libs/core/LinkUtils landed (19 tests green).
 
 ---
 
 ## Current focus
 
-**Idle.** Pass 3 audit synthesis complete; 5 full + 3 stub cluster plans written. No cluster in flight. See **Roadmap** below to choose next; recommended starting points are Cluster A (link/frontmatter correctness) and/or Cluster B (vault I/O) — both unblock the bulk of downstream work.
+**Cluster A — link/frontmatter correctness, Phase 1 (in progress).** markoff-parser ported from yaml-cpp → RapidYAML (ryml); new `YamlValue` + frontmatter API in `libs/markoff-parser/include/markoff-parser/{Document,YamlValue}.h`. `libs/core/LinkUtils` landed with `stripHeading` (AT regex), `stripHeadingForLink` (PT regex), and `resolveSubpath` dispatching on `^block` / `[^footnote]` / heading; 19 tests green. The original-plan `Corbomite::FrontMatter` wrapper was dropped as redundant — `Markoff::YamlValue` is the single YAML surface, used directly by downstream consumers. **Next:** Cluster A Phase 2 — `libs/storage/LinkResolver` (6-step shortest-path-wins) + `links` table migration to add `subpath` column.
 
 ---
 
@@ -18,7 +18,7 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 
 | Cluster | Title | Plan | Status | Blocks / Notes |
 |---|---|---|---|---|
-| A | Link / frontmatter correctness | [full](superpowers/plans/2026-04-14-cluster-a-link-frontmatter-correctness.md) | Not started | Keystone — blocks D, F, I, J, K, L |
+| A | Link / frontmatter correctness | [full](superpowers/plans/2026-04-14-cluster-a-link-frontmatter-correctness.md) | In progress (phase 1) | Keystone — blocks D, F, I, J, K, L |
 | B | Vault I/O | [full](superpowers/plans/2026-04-14-cluster-b-vault-io.md) | Not started | Blocks C, E, G, H, N |
 | C | Lifecycle / plugin primitives | [full](superpowers/plans/2026-04-14-cluster-c-lifecycle-plugin-primitives.md) | Not started | Blocked — waiting on B Phase 1–2 (DataAdapter + VaultConfig). Also resolves vault-switch crash |
 | D | Search / suggester parity | [full](superpowers/plans/2026-04-14-cluster-d-search-suggester-parity.md) | Not started | Weakly blocked on A (LinkUtils for heading-match search) |
@@ -39,7 +39,14 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 
 ## In-flight work items
 
-*(none — nothing currently in progress)*
+### Cluster A — Link / frontmatter correctness
+- **Phase:** 1 of 3
+- **Last completed step:** `libs/core/LinkUtils` (stripHeading, stripHeadingForLink, resolveSubpath) — 19 tests green (2026-04-14)
+- **Next expected step:** Phase 2 — `libs/storage/LinkResolver` (6-step shortest-path-wins) + `links` table migration (add `subpath TEXT NOT NULL DEFAULT ''`) + rewire the 2 callers in `SQLiteIndex::extractAndInsertLinks`
+- **Owner:** clinton (pair w/ Claude)
+- **Date last touched:** 2026-04-14
+- **Open sub-questions:**
+  - Schema version tracking — add `PRAGMA user_version` now or defer? (Currently idempotent `CREATE TABLE IF NOT EXISTS`; proposed `ALTER TABLE ADD COLUMN` is also idempotent with IF NOT EXISTS-style guard.)
 
 When work begins, each in-flight cluster gets a row here:
 
@@ -61,6 +68,7 @@ Move the row to "Recent decisions" or a cluster retro on completion.
 
 Append-only. Most recent on top. Archive entries older than ~3 months to `docs/decisions-archive.md` (quarterly).
 
+- **2026-04-14 — Cluster A Phase 1 scope revised: drop `libs/core/FrontMatter`, keep YAML in markoff-parser.** Original plan called for a `Corbomite::FrontMatter` wrapper around yaml-cpp in `libs/core`. During setup, markoff-parser was ported to RapidYAML (ryml, 10–70× faster than yaml-cpp) and grew a full frontmatter API: `Document::{frontmatterRaw, frontmatterSpan, frontmatterHasEofClose, parsedFrontmatter, withFrontmatter}` returning `Markoff::YamlValue` with Obsidian-compat options (null→"", lineWidth 0, YAML 1.2 strict, order-preserving). A second YAML wrapper in `libs/core` would just forward — dropped. Consumers (libs/storage, FrontMatterWriter) use `Markoff::YamlValue` directly. API contract for the port is captured at `libs/markoff-parser/docs/2026-04-14-yaml-api-contract-for-cluster-a.md`. Reason: avoid duplicate surface, keep YAML knowledge in one place, benefit from ryml perf for vault-scanning. How to apply: when future clusters need structured YAML, import `<markoff-parser/YamlValue.h>`, do not reach for yaml-cpp.
 - **2026-04-14 — Cluster P scouting doc added: port `libs/forcegraph/` + `libs/canvas/` onto Graffodil.** Graffodil (`~/dev/Graffodil/` v0.1.0, 40+ source files, 12/12 tests passing) is a QGraphicsView-based graph scene framework explicitly designed to subsume both of Corbomite's graph-rendering libraries (see `~/dev/Graffodil/docs/graffodil-design.md` §Boundary Map — our files named as planned consumers). It already contains transplanted versions of our `ForceLayout`/`MultilevelLayout`/`QuadTree`/batch code, plus new capabilities (Sugiyama layout, pluggable `EdgePathStrategy`/`TerminusStyle`, richer tool framework). Net benefit: ~3,500 LOC consolidated, cross-pollination with PlanStan at zero additional cost, material feature gains (Sugiyama, AnchorHighlight, circular layout). Prescribed migration order per the design doc: **Canvas first** (lighter, de-risks framework) → **ForceGraph second** (larger, validates Batch at 10k nodes). Risks: API is evolving (recent `Side`→`Anchor` refactor 2026-04-13) so expansion must wait for 2–3 weeks of API stability. Keeps `CanvasDocument`/`CanvasCommands`/`GraphDataBuilder`/card rendering in Corbomite (Corbomite-specific concerns). Explicit recommendations for expanding Graffodil documented in §Recommendations to expand Graffodil (cached-content hook, group/container nodes, obstacle-aware edge routing, undo-signal contract).
 - **2026-04-14 — Cluster O scouting doc added: advanced query layer as a post-parity goal.** Triggered by a Nov-2025 Substack polemic arguing "notes apps make bad AI-memory substrates, use databases." The polemic is right about AI-memory and wrong to generalise to all knowledge systems. Reason: plain-text markdown has won across 50 years for durable portability/longevity reasons. Corbomite's value is being an Obsidian-compatible notes app; swapping markdown for a DB vault would destroy it. BUT — Corbomite's native-C++ substrate genuinely exceeds Obsidian's JS-in-browser substrate for graph/DB workloads, and Obsidian plugins (Dataview, Datacore, Breadcrumbs, JuggL) reveal real unmet power-user demand. Scouting doc captures the "Option 2" path: an **additive, opt-in, never-authoritative** query layer (graph DB + PageRank-weighted FTS + optional vault-mutation transaction log for multi-agent safety) over the unchanged markdown vault. Markdown stays the source of truth; indexes live in `.obsidian/corbomite-indexes/`; a vault opened in Obsidian still works. Explicitly reject "Option 3" (vault-as-DB) as compat-destroying. An "AI-companion SQLite export" sub-feature can ship earlier (~2 wks after A+I) to gauge demand cheaply. Expansion trigger: A/B/I/K landed + user demand visible. KDE prior art: Baloo (`~/src/kde/src/baloo/`) is directly architecturally parallel.
 - **2026-04-14 — Cluster H full plan written; Clusters G and K get scouting docs.** H is parallelisable with A/B/D and its prior-art targets (KDevelop hover-tooltips, KDevelop completion popup, KMessageWidget) are ripe for exploration now. G and K defer to full plans because G depends on C Phase 1 signatures and K depends on the Bases DSL extraction. Scouting docs capture prior-art breadcrumbs + architectural questions + rough phasing so full-plan expansion is ~90–240 min instead of green-field. A new convention lands: `*-SCOUTING.md` filenames for "pre-plan notes not ready to dispatch."

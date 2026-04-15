@@ -14,6 +14,8 @@ add_library(corbomite-core STATIC
     src/MarkdownRenderEngine.cpp
     src/RegexRenderEngine.cpp
     src/MarkoffRenderEngine.cpp
+    src/LinkUtils.cpp
+    include/corbomite/core/LinkUtils.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
