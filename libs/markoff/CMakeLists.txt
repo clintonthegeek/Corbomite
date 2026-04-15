@@ -15,6 +15,7 @@ endif()
 # Markoff editor library
 add_library(markoff STATIC
     include/markoff/Editor.h
+    include/markoff/FoldingTypes.h
     include/markoff/SearchBar.h
     src/SelectableItem.h
     src/BlockItem.h
@@ -45,6 +46,7 @@ add_library(markoff STATIC
     src/SearchBar.cpp
     src/MarkdownHighlighter.cpp
     src/DecoratedRange.cpp
+    src/FoldingTypes.cpp
     src/ResourceProvider.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)
