@@ -19,7 +19,7 @@ Refresh this matrix at the start of every test enrichment cycle. The **blanks ar
 
 | Seam | L1 | L2 | L3 | L4 | L5 | L6 | L7 | L8 |
 |---|---|---|---|---|---|---|---|---|
-| MetadataCache ↔ CachedMetadataStore (persistence round-trip) | ✓ tst_cachedmetadatastore | ✓ tst_cross_session::reopenWithStatCleanIsSilent | ✓ tst_cross_session::externalEditBetweenSessionsTriggersReparse + BUG-20260415-001 ::externalDeleteBetweenSessionsObservedOnReopen | | | ✓ tst_metadatacache_events | | |
+| MetadataCache ↔ CachedMetadataStore (persistence round-trip) | ✓ tst_cachedmetadatastore | ✓ tst_cross_session::reopenWithStatCleanIsSilent | ✓ tst_cross_session::externalEditBetweenSessionsTriggersReparse + ::externalDeleteBetweenSessionsObservedOnReopen (BUG-20260415-001 fixed) | | | ✓ tst_metadatacache_events | | |
 | MetadataCache ↔ SQLiteIndex (cacheChanged → FTS/links/tags) | ✓ tst_sqliteindex | | | ✓ tst_cross_session::linksRepopulateAfterSchemaBumpOnStatCleanReopen (BUG-20260415-000 regression) | | ✓ tst_sqliteindex + ::orphanLinkAppearsAfterTargetDeleted | | |
 | SQLiteIndex schema migration ↔ persisted index.sqlite | | | | | | | | |
 | MetadataCache ↔ LinkResolver (resolver seeded before parse) | ✓ tst_metadatacache_worker_integration | | | | | | | |

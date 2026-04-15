@@ -315,11 +315,10 @@ private Q_SLOTS:
         QCoreApplication::processEvents();
 
         // Expectation: persisted entry for the missing file is reaped.
-        // If MetadataCache::rebuildVault doesn't currently do reconciliation
-        // against the passed-in path list, this fails — file BUG-NNN.
-        QEXPECT_FAIL("", "BUG-20260415-001: rebuildVault doesn't reap entries missing from path list", Continue);
+        // rebuildVault reconciles against the caller-supplied canonical
+        // list — anything tracked but missing from the list is treated
+        // as implicitly deleted and emits cacheDeleted.
         QCOMPARE(deletedSpy.count(), 1);
-        QEXPECT_FAIL("", "BUG-20260415-001: stale FileCacheEntry survives implicit deletion", Continue);
         QVERIFY(cache.getFileHash(notePath).isEmpty());
 
         cache.close();

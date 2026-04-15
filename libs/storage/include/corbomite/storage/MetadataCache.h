@@ -83,6 +83,13 @@ public:
     /// files and unreadable files are skipped silently (mirrors Obsidian's
     /// vault scan tolerating concurrent deletions). `indexFinished` fires
     /// once the worker drains through to the link-resolver queue's debounce.
+    ///
+    /// The passed path list is treated as the canonical set of notes in the
+    /// vault: any currently-tracked path NOT in `relativeNotePaths` is
+    /// implicitly deleted and triggers `onFileDeleted` (and thus
+    /// `cacheDeleted`). This makes cross-session reconciliation possible
+    /// when files are removed while the app is closed. Call with the full
+    /// vault scan result; calling with a subset will reap the complement.
     void rebuildVault(const QString &vaultRoot,
                       const QStringList &relativeNotePaths);
 

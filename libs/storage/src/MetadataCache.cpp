@@ -28,6 +28,7 @@
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
+#include <QtCore/QSet>
 #include <QtCore/QLatin1Char>
 #include <QtCore/QMetaType>
 #include <QtCore/QTimer>
@@ -130,6 +131,9 @@ void MetadataCache::rebuildVault(const QString &vaultRoot,
                                  const QStringList &relativeNotePaths)
 {
     const QDir root(vaultRoot);
+    const QSet<QString> expected(relativeNotePaths.cbegin(),
+                                 relativeNotePaths.cend());
+
     for (const QString &rel : relativeNotePaths) {
         const QFileInfo info(root.filePath(rel));
         if (!info.exists() || !info.isFile()) {
@@ -142,6 +146,22 @@ void MetadataCache::rebuildVault(const QString &vaultRoot,
         const QByteArray bytes = f.readAll();
         const qint64 mtimeMs = info.lastModified().toMSecsSinceEpoch();
         onFileChanged(rel, bytes, mtimeMs);
+    }
+
+    // Reconcile: anything currently tracked that isn't in the caller-
+    // supplied canonical list is implicitly deleted. Without this, a file
+    // removed while the app was closed leaves a stale FileCacheEntry (and
+    // its derived links in SQLiteIndex) after the next open.
+    // Snapshot keys first because onFileDeleted mutates m_pathToFileEntry.
+    QStringList stale;
+    for (auto it = m_pathToFileEntry.cbegin(), end = m_pathToFileEntry.cend();
+         it != end; ++it) {
+        if (!expected.contains(it.key())) {
+            stale.push_back(it.key());
+        }
+    }
+    for (const QString &path : std::as_const(stale)) {
+        onFileDeleted(path);
     }
 }
 
