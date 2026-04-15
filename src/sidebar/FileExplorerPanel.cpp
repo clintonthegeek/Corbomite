@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "FileExplorerPanel.h"
+#include "corbomite/core/MenuEventEmitter.h"
+#include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/models/NotesTreeModel.h"
 #include <QVBoxLayout>
 #include <QMenu>
@@ -33,6 +35,11 @@ FileExplorerPanel::FileExplorerPanel(QWidget *parent)
 void FileExplorerPanel::setModel(NotesTreeModel *model)
 {
     m_treeView->setModel(model);
+}
+
+void FileExplorerPanel::setMenuEventEmitter(MenuEventEmitter *emitter)
+{
+    m_menuEvents = emitter;
 }
 
 QStringList FileExplorerPanel::expandedFolders() const
@@ -95,41 +102,57 @@ void FileExplorerPanel::showContextMenu(const QPoint &pos)
 {
     auto index = m_treeView->indexAt(pos);
     QMenu menu(this);
+    MenuSectionHelper helper(&menu);
+    QString contextPath;
 
     if (index.isValid()) {
-        bool isDir = index.data(NotesTreeModel::IsDirectoryRole).toBool();
-        QString path = index.data(NotesTreeModel::PathRole).toString();
+        const bool isDir = index.data(NotesTreeModel::IsDirectoryRole).toBool();
+        contextPath = index.data(NotesTreeModel::PathRole).toString();
 
         if (isDir) {
-            auto *newNote = menu.addAction(QIcon::fromTheme(QStringLiteral("document-new")),
-                                           i18n("New Note Here"));
-            connect(newNote, &QAction::triggered, this, [this, path]() {
-                Q_EMIT newNoteRequested(path);
+            auto *newNote = new QAction(QIcon::fromTheme(QStringLiteral("document-new")),
+                                        i18n("New Note Here"), &menu);
+            connect(newNote, &QAction::triggered, this, [this, p = contextPath]() {
+                Q_EMIT newNoteRequested(p);
             });
+            helper.addToSection(newNote, QStringLiteral("action-primary"));
         } else {
-            auto *open = menu.addAction(i18n("Open"));
-            connect(open, &QAction::triggered, this, [this, path]() {
-                Q_EMIT noteActivated(path);
+            auto *open = new QAction(i18n("Open"), &menu);
+            connect(open, &QAction::triggered, this, [this, p = contextPath]() {
+                Q_EMIT noteActivated(p);
             });
-            menu.addSeparator();
-            auto *rename = menu.addAction(i18n("Rename"));
-            connect(rename, &QAction::triggered, this, [this, path]() {
-                Q_EMIT renameNoteRequested(path);
+            helper.addToSection(open, QStringLiteral("open"));
+
+            auto *rename = new QAction(i18n("Rename"), &menu);
+            connect(rename, &QAction::triggered, this, [this, p = contextPath]() {
+                Q_EMIT renameNoteRequested(p);
             });
-            auto *del = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-delete")),
-                                       i18n("Delete"));
-            connect(del, &QAction::triggered, this, [this, path]() {
-                Q_EMIT deleteNoteRequested(path);
+            helper.addToSection(rename, QStringLiteral("action"));
+
+            auto *del = new QAction(QIcon::fromTheme(QStringLiteral("edit-delete")),
+                                    i18n("Delete"), &menu);
+            connect(del, &QAction::triggered, this, [this, p = contextPath]() {
+                Q_EMIT deleteNoteRequested(p);
             });
+            helper.addToSection(del, QStringLiteral("danger"));
         }
     } else {
-        auto *newNote = menu.addAction(QIcon::fromTheme(QStringLiteral("document-new")),
-                                       i18n("New Note"));
+        auto *newNote = new QAction(QIcon::fromTheme(QStringLiteral("document-new")),
+                                    i18n("New Note"), &menu);
         connect(newNote, &QAction::triggered, this, [this]() {
             Q_EMIT newNoteRequested(QString());
         });
+        helper.addToSection(newNote, QStringLiteral("action-primary"));
     }
 
+    // Mid-construction emit per docs/obsidian-audit/domains/workspace.md §4.
+    // Plugins (when they exist — Cluster N) push items into named sections
+    // before we finalize.
+    if (m_menuEvents && !contextPath.isEmpty()) {
+        m_menuEvents->emitFileMenu(&menu, contextPath);
+    }
+
+    helper.finalize();
     menu.exec(m_treeView->viewport()->mapToGlobal(pos));
 }
 

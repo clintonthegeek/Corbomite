@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
+add_executable(tst_menusectionhelper tst_menusectionhelper.cpp)
+add_test(NAME tst_menusectionhelper COMMAND tst_menusectionhelper)
+target_link_libraries(tst_menusectionhelper PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_menusectionhelper PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_notemeta tst_notemeta.cpp)
 add_test(NAME tst_notemeta COMMAND tst_notemeta)
 target_link_libraries(tst_notemeta PRIVATE Qt6::Test Corbomite::Core)

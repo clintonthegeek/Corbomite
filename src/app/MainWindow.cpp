@@ -26,6 +26,7 @@
 #include "SessionManager.h"
 
 #include "corbomite/core/Command.h"
+#include "corbomite/core/MenuEventEmitter.h"
 #include "dialogs/CreateVaultDialog.h"
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
@@ -83,6 +84,7 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     connect(m_vaultService, &VaultService::vaultClosed, this, &MainWindow::onVaultClosed);
 
     m_commandRegistry = new CommandRegistry();
+    m_menuEvents = new MenuEventEmitter(this);
 
     updateVaultActions();
     resize(1200, 800);
@@ -417,6 +419,7 @@ void MainWindow::setupSidebars()
     );
 
     m_fileExplorer = new FileExplorerPanel(toolView);
+    m_fileExplorer->setMenuEventEmitter(m_menuEvents);
     // ToolView already has a QVBoxLayout from CorbomiteMDI — use it
     toolView->layout()->addWidget(m_fileExplorer);
 

@@ -36,6 +36,10 @@ add_library(corbomite-core STATIC
     include/corbomite/core/Hotkey.h
     src/PluginInstance.cpp
     include/corbomite/core/PluginInstance.h
+    src/MenuSectionHelper.cpp
+    include/corbomite/core/MenuSectionHelper.h
+    src/MenuEventEmitter.cpp
+    include/corbomite/core/MenuEventEmitter.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)

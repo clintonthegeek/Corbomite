@@ -29,6 +29,7 @@ class TemplateService;
 class DailyNoteService;
 class WelcomeScreen;
 class CommandRegistry;
+class MenuEventEmitter;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -88,6 +89,7 @@ private:
     QStackedWidget *m_centralStack = nullptr;
     WelcomeScreen *m_welcomeScreen = nullptr;
     CommandRegistry *m_commandRegistry = nullptr;
+    MenuEventEmitter *m_menuEvents = nullptr;
 };
 
 } // namespace Corbomite
