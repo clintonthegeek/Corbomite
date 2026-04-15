@@ -126,3 +126,8 @@ add_executable(tst_postprocessorregistry tst_postprocessorregistry.cpp)
 add_test(NAME tst_postprocessorregistry COMMAND tst_postprocessorregistry)
 target_link_libraries(tst_postprocessorregistry PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_postprocessorregistry PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_codeblockprocessorregistry tst_codeblockprocessorregistry.cpp)
+add_test(NAME tst_codeblockprocessorregistry COMMAND tst_codeblockprocessorregistry)
+target_link_libraries(tst_codeblockprocessorregistry PRIVATE Qt6::Test Corbomite::Core)
+set_tests_properties(tst_codeblockprocessorregistry PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

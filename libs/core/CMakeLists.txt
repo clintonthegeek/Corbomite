@@ -58,6 +58,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/EmbedRegistry.h
     src/PostProcessorRegistry.cpp
     include/corbomite/core/PostProcessorRegistry.h
+    src/CodeBlockProcessorRegistry.cpp
+    include/corbomite/core/CodeBlockProcessorRegistry.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
