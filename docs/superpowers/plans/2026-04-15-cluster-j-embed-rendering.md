@@ -362,11 +362,11 @@ widget subtrees; recycle-aware unload."
 - Create: `libs/core/src/EmbedDepthGuard.cpp`
 - Test: `libs/core/tests/tst_embeddepthguard.cpp`
 
-Uses the `JZ` cap integer from `docs/superpowers/research/2026-04-15-embed-depth-findings.md` (Phase 0 Task 0.2 output).
+Uses the confirmed `JZ` cap from Phase 0 Task 0.2 findings (`docs/superpowers/research/2026-04-15-embed-depth-findings.md`): integer = **5**, semantics = `allow(d) iff d < 5` when caller increments before the call. Placeholder is also *clickable* in Obsidian (tap to open the target in a new pane) — Task 1.3 adds a `testPlaceholderIsClickable` assertion.
 
-- [ ] **Step 1: Read Phase 0 findings for the cap**
+- [ ] **Step 1: Confirm Phase 0 findings**
 
-Read `docs/superpowers/research/2026-04-15-embed-depth-findings.md` and note the integer cap value and inclusive/exclusive semantics. Refer to as `JZ_CAP` in test + implementation.
+Read `docs/superpowers/research/2026-04-15-embed-depth-findings.md`. Confirm: cap = 5, semantics match `allow(d) = d < 5`, placeholder text is i18n-localised empty-note / empty-attachment string, placeholder is clickable.
 
 - [ ] **Step 2: Write failing test**
 
@@ -378,8 +378,8 @@ class TstEmbedDepthGuard : public QObject {
     Q_OBJECT
 private slots:
     void testCapConstantMatchesAudit() {
-        // Value from docs/superpowers/research/2026-04-15-embed-depth-findings.md
-        QCOMPARE(Corbomite::Core::EmbedDepthGuard::kMaxDepth, /*FILL FROM FINDINGS*/);
+        // Audit-confirmed: Obsidian _internal.js ~line 627926, e.depth <= 5
+        QCOMPARE(Corbomite::Core::EmbedDepthGuard::kMaxDepth, 5);
     }
     void testAllowsUpToMax() {
         Corbomite::Core::EmbedDepthGuard g;
@@ -395,6 +395,12 @@ private slots:
         auto p = Corbomite::Core::EmbedDepthGuard::placeholder("FooNote");
         QVERIFY(p.contains("FooNote"));
         QVERIFY(p.contains(QStringLiteral("embed depth")));
+    }
+    void testPlaceholderIsClickable() {
+        // Matches Obsidian's oJ class: placeholder must expose the target
+        // so the hosting widget can make it clickable (open in new pane).
+        auto p = Corbomite::Core::EmbedDepthGuard::placeholderTarget("FooNote");
+        QCOMPARE(p, QStringLiteral("FooNote"));
     }
 };
 
@@ -424,9 +430,13 @@ namespace Corbomite::Core {
 // explicit post-parity follow-up.
 class EmbedDepthGuard {
 public:
-    static constexpr int kMaxDepth = /*FILL FROM FINDINGS*/;
+    // Audit-confirmed at Obsidian _internal.js ~627926.
+    static constexpr int kMaxDepth = 5;
     bool allow(int currentDepth) const { return currentDepth < kMaxDepth; }
     static QString placeholder(const QString &targetLabel);
+    // Exposed for clickable-placeholder UX (Obsidian's oJ opens the target
+    // in a new pane on click); host widgets read this and wire onClick.
+    static QString placeholderTarget(const QString &targetLabel) { return targetLabel; }
 };
 
 } // namespace Corbomite::Core
@@ -960,7 +970,11 @@ git commit -m "docs(state): Cluster J Phase 2 landed; 3+4 next (parallel)"
 
 ## Phase 3 — `Markoff::LinkRenderer` (parallel-dispatchable with Phase 4)
 
-Consolidates all current ad-hoc link-emission paths in `libs/markoff/src/` into one `LinkRenderer` class. Honest per-caller `hover-link` source strings.
+> **Scope adjustment from Phase 0 findings** (`2026-04-15-markoff-link-emission-inventory.md`): there are only 6 emission points in `libs/markoff/` today and no `"bases"` hardcode exists anywhere. The phase scope shifts from "consolidate scattered emission paths" to **"build wikilink clickability + `TextControl → Editor` bridge + fire the currently-dormant `Editor::linkClicked` signal"**. Task 3.4 Step 2's "no `"bases"` hardcode" test becomes a day-zero regression-prevention gate rather than a cleanup gate; a *positive* integration test (Task 3.4 Step 2b) validates the new wikilink-clickability feature.
+>
+> The Phase 3 deliverables expand to: (a) add `Markoff::LinkRenderer` as a typed emission surface (Task 3.2 + 3.3), (b) subscribe `Editor` to each `MarkdownTextItem`'s `TextControl::linkActivated` / `linkHovered` signals and route them through `LinkRenderer` (new Task 3.4a), (c) extend `MarkdownHighlighter` to set `QTextCharFormat::anchorHref = "wikilink://target"` for `[[target]]` spans so `TextControl` recognises them as clickable (new Task 3.4b), (d) make `Editor::linkClicked` fire through the new chokepoint (new Task 3.4c), (e) add honest per-caller source strings to every emission (Task 3.4 Step 1).
+
+Consolidates and extends current link-emission paths in `libs/markoff/src/` through one `LinkRenderer` class. Honest per-caller `hover-link` source strings; wikilinks become clickable for the first time.
 
 ### Task 3.1: Read Phase 0 inventory
 
@@ -1064,35 +1078,49 @@ Append source to `libs/markoff/CMakeLists.txt`.
 Run: `cd build && cmake --build . --target markoff`
 Expected: PASS.
 
-### Task 3.4: Consolidate existing Markoff link-emission call-sites
+### Task 3.4: Bridge TextControl→Editor; make wikilinks clickable; fire Editor::linkClicked
 
-Per the inventory from Phase 0 Task 0.3, for each call-site listed:
+Per the inventory from Phase 0 Task 0.3, this task builds three new features. Files touched per the inventory doc.
 
-**Files:** Per the inventory doc.
+- [ ] **Step 1: Add `Markoff::LinkRenderer` member to `Editor`; subscribe to TextControl signals**
 
-- [ ] **Step 1: For each call-site, replace direct emission with `LinkRenderer::emit*`**
-
-Example (apply to each call-site): if the inventory names `libs/markoff/src/Editor.cpp:456` as emitting `emit linkHovered(...)` directly, replace:
+In `libs/markoff/src/Editor.cpp`, for each `MarkdownTextItem` in `SceneCoordinator`, wire:
 
 ```cpp
-// Before:
-emit linkHovered(target);
-
-// After:
-m_linkRenderer->emitFileLink({target, m_currentNotePath, "markoff:editor", mousePoint});
+// In Editor::onItemAdded(MarkdownTextItem *item):
+auto *tc = item->textControl();
+connect(tc, &TextControl::linkActivated, this, [this](const QString &href) {
+    if (href.startsWith("wikilink://")) {
+        const QString target = href.mid(strlen("wikilink://"));
+        m_linkRenderer->emitFileLink({target, m_currentNotePath, "markoff:editor", QCursor::pos()});
+        emit linkClicked(target);  // legacy signal, now actually fires
+    } else {
+        m_linkRenderer->emitExternalLink(QUrl(href), "markoff:editor");
+    }
+});
+connect(tc, &TextControl::linkHovered, this, [this](const QString &anchor) {
+    if (anchor.isEmpty()) return;  // leave event
+    const QString target = anchor.startsWith("wikilink://")
+        ? anchor.mid(strlen("wikilink://")) : anchor;
+    m_linkRenderer->emitFileLink({target, m_currentNotePath, "markoff:editor", QCursor::pos()});
+});
 ```
 
-For each call-site, the test assertion:
+- [ ] **Step 2: Extend `MarkdownHighlighter` to set `anchorHref` on wikilink spans**
+
+In `libs/markoff/src/MarkdownHighlighter.cpp`, in the highlighter pass that decorates `[[target]]` ranges:
 
 ```cpp
-// In the affected class's existing test, or add new integration test:
-QSignalSpy spy(&linkRenderer, &Markoff::LinkRenderer::linkHovered);
-// trigger the hover
-QVERIFY(spy.count() >= 1);
-QCOMPARE(spy.first()[1].toString(), QStringLiteral("markoff:editor"));  // honest source
+// In the wikilink-detection branch:
+QTextCharFormat fmt = currentFormat;
+fmt.setAnchor(true);
+fmt.setAnchorHref(QStringLiteral("wikilink://") + linkTarget);
+setFormat(startOffset, length, fmt);
 ```
 
-- [ ] **Step 2: Add integration test confirming no `"bases"` string remains in Markoff**
+This makes `TextControl` recognise the span as a clickable anchor; its existing QWidgetTextControl machinery fires `linkActivated` / `linkHovered` on hit.
+
+- [ ] **Step 3: Regression test — no `"bases"` hardcode anywhere in libs/markoff/**
 
 `libs/markoff/tests/tst_markoff_link_source_honesty.cpp`:
 
@@ -1124,21 +1152,56 @@ QTEST_APPLESS_MAIN(TstMarkoffLinkSourceHonesty)
 #include "tst_markoff_link_source_honesty.moc"
 ```
 
-- [ ] **Step 3: Run full Markoff test suite**
+- [ ] **Step 4: Positive integration test — wikilinks become clickable**
+
+`libs/markoff/tests/tst_markoff_wikilink_clickable.cpp`:
+
+```cpp
+#include <QTest>
+#include <QSignalSpy>
+#include <markoff/Editor.h>
+#include <markoff/LinkRenderer.h>
+
+class TstMarkoffWikilinkClickable : public QObject {
+    Q_OBJECT
+private slots:
+    void testWikilinkEmitsLinkClickedWithHonestSource() {
+        Markoff::Editor editor;
+        editor.setPlainText(QStringLiteral("See [[Target]]."));
+        QSignalSpy clickSpy(&editor, &Markoff::Editor::linkClicked);
+        // Simulate click on the [[Target]] span via the test-side activator hook.
+        editor.testActivateLink(QStringLiteral("wikilink://Target"));
+        QCOMPARE(clickSpy.count(), 1);
+        QCOMPARE(clickSpy.first()[0].toString(), QStringLiteral("Target"));
+        QSignalSpy hoverSpy(&editor.linkRenderer(), &Markoff::LinkRenderer::linkHovered);
+        editor.testHoverLink(QStringLiteral("wikilink://Target"));
+        QCOMPARE(hoverSpy.count(), 1);
+        QVERIFY(hoverSpy.first()[1].toString().startsWith(QStringLiteral("markoff:")));
+    }
+};
+
+QTEST_GUILESS_MAIN(TstMarkoffWikilinkClickable)
+#include "tst_markoff_wikilink_clickable.moc"
+```
+
+> `Editor::testActivateLink` / `testHoverLink` are small `#ifdef QT_TESTLIB_LIB`-guarded helpers that directly call the connected slots without requiring a live QWidget interaction. Add them alongside Step 1.
+
+- [ ] **Step 5: Run full Markoff test suite**
 
 Run: `cd build && cmake --build . && ctest -R markoff --output-on-failure`
-Expected: all pre-existing Markoff tests still pass + new honesty test passes.
+Expected: all pre-existing Markoff tests still pass; the 2 new tests (honesty regression + wikilink-clickable positive) pass.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add libs/markoff/
-git commit -m "refactor(markoff): consolidate link emission through LinkRenderer
+git commit -m "feat(markoff): wikilinks become clickable via LinkRenderer bridge
 
-Cluster J phase 3: LinkRenderer is the sole inline-link-emitter in
-libs/markoff/. Per-caller honest source strings ('markoff:editor',
-'markoff:livepreview', etc.). No 'bases' hardcode. Old ad-hoc paths
-removed."
+Cluster J phase 3: add Markoff::LinkRenderer as the typed emission surface;
+bridge TextControl::linkActivated/linkHovered through it; MarkdownHighlighter
+now sets anchorHref=wikilink://target for [[target]] spans. Editor::linkClicked
+(previously dormant) now fires through the new chokepoint. Honest per-caller
+'markoff:editor' / 'markoff:livepreview' source strings. No 'bases' hardcode."
 ```
 
 ### Task 3.5: Ritual 2 — Phase 3 complete

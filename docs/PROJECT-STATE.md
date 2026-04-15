@@ -39,7 +39,12 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 
 ## In-flight work items
 
-*(none — Cluster E complete 2026-04-15)*
+### Cluster J — Embed / rendering primitives
+- **Phase:** 1 of 6 (Phase 0 audit prep complete)
+- **Last completed step:** Phase 0 — 3 parallel Explore dispatches produced findings docs in `docs/superpowers/research/`; plan revised to reflect confirmed `JZ` cap (=5) and Phase 3 scope shift (2026-04-15)
+- **Next expected step:** Phase 1 — `libs/core/` interfaces (VaultResourceProvider promotion, MarkdownRenderChild, EmbedDepthGuard, EmbedRegistry) dispatched as a single subagent per the Cluster E/I pattern
+- **Owner:** agent session
+- **Date last touched:** 2026-04-15
 
 ## Parallel long-term internal refactors
 
