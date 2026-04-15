@@ -155,6 +155,20 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
     if (!hasAnyFormat)
         return;
 
+    // Cluster J phase 3: pre-compute the wikilink anchor href once per
+    // content span (not per-character) so the per-character loop can
+    // stamp it cheaply. A `wikilink://` scheme lets Editor's LinkRenderer
+    // bridge distinguish internal wikilinks from standard markdown URLs.
+    QString wikilinkHref;
+    if (span.isWikilink && !span.isDelimiter) {
+        const QString full = currentBlock().text().mid(
+            localStart, localEnd - localStart);
+        const int pipeIdx = full.indexOf(QLatin1Char('|'));
+        const QString target = (pipeIdx >= 0) ? full.left(pipeIdx) : full;
+        if (!target.isEmpty())
+            wikilinkHref = QStringLiteral("wikilink://") + target;
+    }
+
     for (int i = localStart; i < localEnd; ++i) {
         QTextCharFormat fmt = format(i);
 
@@ -185,8 +199,13 @@ void MarkdownHighlighter::applySpanFormat(const SourceSpan &span,
             fmt.setForeground(m_theme.formats.value(Element::Tag).foreground());
         if (span.isLink)
             fmt.merge(m_theme.formats.value(Element::Link));
-        if (span.isWikilink)
+        if (span.isWikilink) {
             fmt.merge(m_theme.formats.value(Element::WikiLink));
+            if (!wikilinkHref.isEmpty()) {
+                fmt.setAnchor(true);
+                fmt.setAnchorHref(wikilinkHref);
+            }
+        }
         if (span.isHorizontalRule) {
             // Make text transparent — decoration painter draws the line
             fmt.setForeground(Qt::transparent);

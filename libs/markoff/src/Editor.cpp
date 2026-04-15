@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "markoff/Editor.h"
+#include "markoff/LinkRenderer.h"
 #include "markoff/SearchBar.h"
 #include "SelectionScene.h"
 #include "SelectionManager.h"
@@ -10,6 +11,8 @@
 #include "FoldingModel.h"
 #include "FoldGutter.h"
 #include "GutterColumn.h"
+
+#include <QCursor>
 
 #include <QResizeEvent>
 #include <QContextMenuEvent>
@@ -62,6 +65,15 @@ Editor::Editor(QWidget *parent)
             this, &Editor::ensureFocusedCursorVisible);
     connect(m_coordinator, &SceneCoordinator::reparsed,
             this, &Editor::onDocumentReparsed);
+
+    // Cluster J phase 3 — typed link emission surface + TextControl bridge.
+    // After each reparse (which may recreate MarkdownTextItems when block
+    // structure changes), we re-subscribe to each item's linkActivated /
+    // linkHovered signals; `Qt::UniqueConnection` makes re-subscription
+    // idempotent when items are preserved across the reparse.
+    m_linkRenderer = new LinkRenderer(this);
+    connect(m_coordinator, &SceneCoordinator::reparsed,
+            this, &Editor::subscribeLinkSignalsForItems);
 
     // SearchBar is a child of the Editor (not the viewport), so it
     // stays pinned to the bottom of the visible area rather than
@@ -543,6 +555,9 @@ void Editor::rebuildScene()
             break;
         }
     }
+
+    // Cluster J phase 3 — wire link signals on the freshly-created items.
+    subscribeLinkSignalsForItems();
 }
 
 // =========================================================================
@@ -1504,5 +1519,106 @@ void Editor::setScrollPositionVisualLine(float visualLine)
                                         vbar->minimum(), vbar->maximum());
     vbar->setValue(clamped);
 }
+
+// =========================================================================
+// Link emission bridge (Cluster J phase 3)
+// =========================================================================
+
+LinkRenderer *Editor::linkRenderer() const
+{
+    return m_linkRenderer;
+}
+
+void Editor::setCurrentNotePath(const QString &path)
+{
+    m_currentNotePath = path;
+}
+
+QString Editor::currentNotePath() const
+{
+    return m_currentNotePath;
+}
+
+void Editor::subscribeLinkSignalsForItems()
+{
+    if (!m_linkRenderer) return;
+    for (auto *item : m_coordinator->items()) {
+        if (!item->isTextItem()) continue;
+        auto *textItem = static_cast<MarkdownTextItem *>(item->asGraphicsItem());
+        auto *tc = textItem->textControl();
+        if (!tc) continue;
+        // Qt::UniqueConnection is permitted only with pointer-to-member
+        // slots, not with lambdas. Connect to private member functions on
+        // Editor so re-subscription across reparses stays idempotent.
+        connect(tc, &TextControl::linkActivated,
+                this, &Editor::handleLinkActivated,
+                Qt::UniqueConnection);
+        connect(tc, &TextControl::linkHovered,
+                this, &Editor::handleLinkHovered,
+                Qt::UniqueConnection);
+    }
+}
+
+void Editor::handleLinkActivated(const QString &href)
+{
+    if (!m_linkRenderer) return;
+    static const QString kWikilinkPrefix = QStringLiteral("wikilink://");
+    if (href.startsWith(kWikilinkPrefix)) {
+        const QString target = href.mid(kWikilinkPrefix.length());
+        LinkRenderer::FileLinkRequest req;
+        req.linkText = target;
+        req.fromPath = m_currentNotePath;
+        req.sourceId = QStringLiteral("markoff:editor");
+        req.anchorHint = QCursor::pos();
+        m_linkRenderer->emitFileLinkActivated(req);
+        // Legacy public signal (was declared in Editor's public API but
+        // never emitted before Cluster J phase 3; now fires through the
+        // new chokepoint for backward compat with MainWindow consumers).
+        Q_EMIT linkClicked(target);
+    } else {
+        m_linkRenderer->emitExternalLinkActivated(QUrl(href),
+                                                   QStringLiteral("markoff:editor"));
+    }
+}
+
+void Editor::handleLinkHovered(const QString &href)
+{
+    if (!m_linkRenderer) return;
+    static const QString kWikilinkPrefix = QStringLiteral("wikilink://");
+    if (href.isEmpty()) {
+        // "leave" event — still emit so subscribers can clear popovers.
+        LinkRenderer::FileLinkRequest req;
+        req.sourceId = QStringLiteral("markoff:editor");
+        m_linkRenderer->emitFileLinkHovered(req);
+        Q_EMIT linkHovered(QString());
+        return;
+    }
+    if (href.startsWith(kWikilinkPrefix)) {
+        const QString target = href.mid(kWikilinkPrefix.length());
+        LinkRenderer::FileLinkRequest req;
+        req.linkText = target;
+        req.fromPath = m_currentNotePath;
+        req.sourceId = QStringLiteral("markoff:editor");
+        req.anchorHint = QCursor::pos();
+        m_linkRenderer->emitFileLinkHovered(req);
+        Q_EMIT linkHovered(target);
+    } else {
+        m_linkRenderer->emitExternalLinkHovered(QUrl(href),
+                                                 QStringLiteral("markoff:editor"));
+        Q_EMIT linkHovered(href);
+    }
+}
+
+#ifdef QT_TESTLIB_LIB
+void Editor::testActivateLink(const QString &href)
+{
+    handleLinkActivated(href);
+}
+
+void Editor::testHoverLink(const QString &href)
+{
+    handleLinkHovered(href);
+}
+#endif
 
 } // namespace Markoff

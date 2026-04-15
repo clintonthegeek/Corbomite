@@ -39,6 +39,8 @@ add_library(readingview STATIC
     include/corbomite/readingview/VaultResourceProvider.h
     include/corbomite/readingview/LinkRenderer.h
     src/LinkRenderer.cpp
+    include/corbomite/readingview/EmbedRenderer.h
+    src/EmbedRenderer.cpp
     src/SpanRenderer.h
     src/SpanRenderer.cpp
     src/ReadingMathObject.h
@@ -69,6 +71,7 @@ target_link_libraries(readingview
         Qt6::SvgWidgets
         KF6::SyntaxHighlighting
         Corbomite::Core
+        Corbomite::Storage
     PRIVATE
         MarkoffParser::MarkoffParser
         jkqtmathtext

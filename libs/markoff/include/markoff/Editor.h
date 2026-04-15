@@ -20,6 +20,7 @@ class ResourceProvider;
 class SearchBar;
 class FoldingModel;
 class FoldGutter;
+class LinkRenderer;
 
 class Editor : public QGraphicsView {
     Q_OBJECT
@@ -145,6 +146,29 @@ public:
     /// Test-only accessor. Do not use from host code.
     SceneCoordinator *coordinatorForTesting() const { return m_coordinator; }
 
+    // --- Link emission (Cluster J phase 3) ---
+    /// Typed emission surface for wikilink / external-link activation and
+    /// hover. Bridged internally from each `MarkdownTextItem`'s
+    /// `TextControl::linkActivated` / `linkHovered` signals.
+    LinkRenderer *linkRenderer() const;
+
+    /// Set the note path passed as `fromPath` on every emitted
+    /// FileLinkRequest. The host app typically updates this whenever the
+    /// current note changes.
+    void setCurrentNotePath(const QString &path);
+    QString currentNotePath() const;
+
+#ifdef QT_TESTLIB_LIB
+    /// Test-only — synthesize a link activation at the editor level,
+    /// bypassing QWidget click machinery. Accepts either a raw URL or a
+    /// `wikilink://target` synthetic href (as produced by
+    /// MarkdownHighlighter for `[[target]]` spans).
+    void testActivateLink(const QString &href);
+    /// Test-only — synthesize a link hover. Pass an empty href to
+    /// simulate "leave".
+    void testHoverLink(const QString &href);
+#endif
+
 Q_SIGNALS:
     void textChanged();
     void cursorPositionChanged(int line, int column);
@@ -218,6 +242,13 @@ private:
     FoldingModel *m_foldingModel = nullptr;
     FoldGutter *m_foldGutter = nullptr;
     bool m_gutterVisible = true;
+
+    // Cluster J phase 3 — typed link emission surface
+    LinkRenderer *m_linkRenderer = nullptr;
+    QString m_currentNotePath;
+    void handleLinkActivated(const QString &href);
+    void handleLinkHovered(const QString &href);
+    void subscribeLinkSignalsForItems();
 };
 
 } // namespace Markoff
