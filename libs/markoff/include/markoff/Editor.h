@@ -122,6 +122,10 @@ public:
     void foldLevel(int n);
     void unfoldLevel(int n);
 
+    QList<QStringList> codeBlockPaths() const;
+    void foldAllCodeBlocks();
+    void unfoldAllCodeBlocks();
+
     QJsonObject serializeFoldState() const;
     void restoreFoldState(const QJsonObject &state);
 

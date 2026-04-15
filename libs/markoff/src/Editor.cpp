@@ -1367,6 +1367,16 @@ void Editor::unfoldAllAtLevel(int level) { m_foldingModel->unfoldAllAtLevel(leve
 void Editor::foldLevel(int n)   { m_foldingModel->foldLevel(n); }
 void Editor::unfoldLevel(int n) { m_foldingModel->unfoldLevel(n); }
 
+QList<QStringList> Editor::codeBlockPaths() const {
+    QList<QStringList> out;
+    for (const auto &r : m_foldingModel->codeBlockRegions())
+        out.append(r.path);
+    return out;
+}
+
+void Editor::foldAllCodeBlocks()   { m_foldingModel->foldAllCodeBlocks(); }
+void Editor::unfoldAllCodeBlocks() { m_foldingModel->unfoldAllCodeBlocks(); }
+
 QJsonObject Editor::serializeFoldState() const
 {
     return m_foldingModel->serialize();
