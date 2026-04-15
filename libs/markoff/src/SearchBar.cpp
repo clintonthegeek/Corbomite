@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "markoff/SearchBar.h"
 
-#include <QHBoxLayout>
-#include <QVBoxLayout>
+#include <QGridLayout>
 #include <QLineEdit>
 #include <QToolButton>
 #include <QLabel>
@@ -31,14 +30,19 @@ SearchBar::SearchBar(QWidget *parent)
 
 void SearchBar::buildUi()
 {
-    auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(4, 4, 4, 4);
-    mainLayout->setSpacing(2);
+    // Grid layout so both rows share column widths:
+    //   col 0 = edit (stretch)
+    //   col 1 = prev / replace
+    //   col 2 = next / replace-all
+    //   col 3 = case / —
+    //   col 4 = count / —
+    //   col 5 = close / —
+    auto *grid = new QGridLayout(this);
+    grid->setContentsMargins(4, 4, 4, 4);
+    grid->setHorizontalSpacing(2);
+    grid->setVerticalSpacing(2);
 
-    // Find row
-    auto *findRow = new QHBoxLayout;
-    findRow->setSpacing(2);
-
+    // --- Row 0: find ---
     m_findEdit = new QLineEdit;
     m_findEdit->setPlaceholderText(tr("Find..."));
     m_findEdit->setClearButtonEnabled(true);
@@ -61,27 +65,21 @@ void SearchBar::buildUi()
 
     m_countLabel = new QLabel;
     m_countLabel->setMinimumWidth(60);
+    m_countLabel->setAlignment(Qt::AlignCenter);
 
     m_closeButton = new QToolButton;
     m_closeButton->setIcon(QIcon::fromTheme(QStringLiteral("window-close")));
     m_closeButton->setToolTip(tr("Close (Escape)"));
     m_closeButton->setAutoRaise(true);
 
-    findRow->addWidget(m_findEdit, 1);
-    findRow->addWidget(m_prevButton);
-    findRow->addWidget(m_nextButton);
-    findRow->addWidget(m_caseButton);
-    findRow->addWidget(m_countLabel);
-    findRow->addWidget(m_closeButton);
+    grid->addWidget(m_findEdit,    0, 0);
+    grid->addWidget(m_prevButton,  0, 1);
+    grid->addWidget(m_nextButton,  0, 2);
+    grid->addWidget(m_caseButton,  0, 3);
+    grid->addWidget(m_countLabel,  0, 4);
+    grid->addWidget(m_closeButton, 0, 5);
 
-    mainLayout->addLayout(findRow);
-
-    // Replace row
-    m_replaceRow = new QWidget;
-    auto *replaceLayout = new QHBoxLayout(m_replaceRow);
-    replaceLayout->setContentsMargins(0, 0, 0, 0);
-    replaceLayout->setSpacing(2);
-
+    // --- Row 1: replace (hidden by default) ---
     m_replaceEdit = new QLineEdit;
     m_replaceEdit->setPlaceholderText(tr("Replace..."));
     m_replaceEdit->setClearButtonEnabled(true);
@@ -96,17 +94,15 @@ void SearchBar::buildUi()
     m_replaceAllButton->setToolTip(tr("Replace All"));
     m_replaceAllButton->setAutoRaise(true);
 
-    replaceLayout->addWidget(m_replaceEdit, 1);
-    replaceLayout->addWidget(m_replaceButton);
-    replaceLayout->addWidget(m_replaceAllButton);
-    // Spacer to align with find row buttons
-    replaceLayout->addSpacing(m_caseButton->sizeHint().width()
-                              + m_countLabel->minimumWidth()
-                              + m_closeButton->sizeHint().width()
-                              + 6); // spacing
+    grid->addWidget(m_replaceEdit,      1, 0);
+    grid->addWidget(m_replaceButton,    1, 1);
+    grid->addWidget(m_replaceAllButton, 1, 2);
 
-    mainLayout->addWidget(m_replaceRow);
-    m_replaceRow->hide();
+    grid->setColumnStretch(0, 1);
+
+    m_replaceEdit->hide();
+    m_replaceButton->hide();
+    m_replaceAllButton->hide();
 
     // Connections
     connect(m_findEdit, &QLineEdit::textChanged,
@@ -158,7 +154,9 @@ void SearchBar::setMatchCount(int current, int total)
 
 void SearchBar::showFind()
 {
-    m_replaceRow->hide();
+    m_replaceEdit->hide();
+    m_replaceButton->hide();
+    m_replaceAllButton->hide();
     show();
     m_findEdit->setFocus();
     m_findEdit->selectAll();
@@ -166,7 +164,9 @@ void SearchBar::showFind()
 
 void SearchBar::showReplace()
 {
-    m_replaceRow->show();
+    m_replaceEdit->show();
+    m_replaceButton->show();
+    m_replaceAllButton->show();
     show();
     m_findEdit->setFocus();
     m_findEdit->selectAll();

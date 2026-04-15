@@ -51,8 +51,7 @@ private:
     QToolButton *m_closeButton = nullptr;
     QLabel *m_countLabel = nullptr;
 
-    // Replace row
-    QWidget *m_replaceRow = nullptr;
+    // Replace row widgets (shown/hidden together)
     QToolButton *m_replaceButton = nullptr;
     QToolButton *m_replaceAllButton = nullptr;
 };
