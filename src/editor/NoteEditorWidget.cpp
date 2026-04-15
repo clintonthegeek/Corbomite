@@ -13,6 +13,7 @@
 #include "dialogs/QuickSwitcherModel.h"
 
 #include <markoff/Editor.h>
+#include <corbomite/readingview/ReadingView.h>
 
 #include <QCursor>
 #include <QKeyEvent>
@@ -35,6 +36,13 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     // it into the ViewMode switch.
     m_sourceEditor = new SourceEditor(this);
     m_sourceEditor->hide();
+
+    // Phase 2 mount — construct ReadingView hidden. This gives
+    // save/restoreEphemeralState a real target for Reading mode (stub-level
+    // at the widget, but concrete at the API surface). Phase 7 wires it
+    // into the QStackedWidget and Phase 3 fills out the rendering pipeline.
+    m_readingView = new Corbomite::ReadingView::ReadingView(this);
+    m_readingView->hide();
 
     connect(m_editor, &Markoff::Editor::textChanged,
             this, &NoteEditorWidget::onTextChanged);
@@ -168,18 +176,17 @@ EphemeralState NoteEditorWidget::saveEphemeralState() const
         }
         break;
     case ViewMode::LivePreview:
-        // TODO(Cluster E Phase 2): Markoff lacks a visual-line float scroll
-        // accessor today. Using 0.0 as a placeholder; cursor line/column
-        // are available through the existing accessors.
-        s.scroll = 0.0f;
+        s.scroll = m_editor->scrollPositionVisualLine();
         s.cursor.line = m_editor->cursorLine();
         s.cursor.column = m_editor->cursorColumn();
         break;
     case ViewMode::Reading:
-        // Reading today is still `setReadOnly(true)` on Markoff (per the plan's
-        // "Reality reconciliation"). No scroll/fold accessor; the Phase 3
-        // ReadingView widget will fill these.
-        s.scroll = 0.0f;
+        // Phase 2: Markoff-as-Reading has a real visual-line accessor, but
+        // the long-term Reading target is `m_readingView` (ReadingView is
+        // a stub in Phase 2, live in Phase 3). Route through the
+        // ReadingView surface so NoteEditorWidget's wiring stabilises
+        // before Phase 3 swaps the underlying implementation.
+        s.scroll = m_readingView ? m_readingView->scrollPositionVisualLine() : 0.0f;
         break;
     }
 
@@ -201,13 +208,14 @@ void NoteEditorWidget::restoreEphemeralState(const EphemeralState &state)
         }
         break;
     case ViewMode::LivePreview:
-        // TODO(Cluster E Phase 2): no visual-line float scroll on Markoff
-        // yet. Cursor restore is similarly deferred — Markoff's
-        // setCursorPosition lands alongside ScrollPosition.
+        m_editor->setScrollPositionVisualLine(state.scroll);
+        // Cursor restore for Markoff is deferred — Markoff's public
+        // setCursorPosition lands alongside the richer live-preview
+        // persistence work (cluster E Phase 7).
         break;
     case ViewMode::Reading:
-        // Reading widget is the stub `setReadOnly(true)` Markoff for now;
-        // Phase 3 builds the real ReadingView, Phase 7 wires restore.
+        if (m_readingView)
+            m_readingView->setScrollPositionVisualLine(state.scroll);
         break;
     }
 }

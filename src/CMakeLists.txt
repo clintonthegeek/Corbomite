@@ -64,6 +64,7 @@ target_link_libraries(CorbomiteApp
         Corbomite::Storage
         Corbomite::Models
         Markoff::Markoff
+        Corbomite::ReadingView
         Corbomite::QutepartSource
         forcegraph
         canvas

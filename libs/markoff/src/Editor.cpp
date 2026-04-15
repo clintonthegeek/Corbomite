@@ -13,7 +13,9 @@
 
 #include <QResizeEvent>
 #include <QContextMenuEvent>
+#include <QFontMetricsF>
 #include <QScrollBar>
+#include <cmath>
 #include <QTextBlock>
 #include <QTextDocument>
 #include <QTextEdit>
@@ -108,6 +110,14 @@ Editor::Editor(QWidget *parent)
             this, &Editor::repositionFoldGutter);
     connect(verticalScrollBar(), &QScrollBar::valueChanged,
             this, &Editor::repositionFoldGutter);
+
+    // Cluster E Phase 2 — bridge the pixel-granular scrollbar signal to the
+    // visual-line float contract. Reading scrollPositionVisualLine() at the
+    // moment of emission means consumers always see a consistent value.
+    connect(verticalScrollBar(), &QScrollBar::valueChanged,
+            this, [this](int) {
+        Q_EMIT scrollPositionVisualLineChanged(scrollPositionVisualLine());
+    });
 }
 
 Editor::~Editor() = default;
@@ -1392,6 +1402,107 @@ void Editor::setGutterVisible(bool visible)
 bool Editor::isGutterVisible() const
 {
     return m_gutterVisible;
+}
+
+// ============================================================================
+// Visual-line float scroll (Cluster E Phase 2)
+// ============================================================================
+//
+// Markoff is a QGraphicsView-backed editor where each block (paragraph, table,
+// image, code block, ...) is one QGraphicsItem in a vertically-stacked scene.
+// A "visual line" here is one wrapped display line's worth of vertical space.
+// For a block item we approximate its visual-line span as
+// `ceil(boundingRect().height() / lineHeight)`, where `lineHeight` is the
+// theme's base textFont line spacing. This is uniform across all block types
+// (no per-class virtual method) because every block already publishes its
+// height through `boundingRect()` — approximation is intentional: the
+// ±0.5-visual-line contract tolerates the difference between a 1.5-line-high
+// heading and a 2-line slot, and avoiding a virtual-method plumbing pass
+// keeps the Phase 2 change surgical per the plan.
+//
+// The scene-Y ⇄ visual-line mapping is computed on-call by walking the
+// coordinator's items list in display order. Input sizes are modest
+// (hundreds of blocks), so a linear walk is cheaper than maintaining a
+// persistent cumsum across every reparse.
+
+namespace {
+
+qreal editorLineHeight(const Markoff::Theme &theme)
+{
+    QFontMetricsF fm(theme.textFont);
+    const qreal h = fm.lineSpacing();
+    return h > 1.0 ? h : 16.0;
+}
+
+} // namespace
+
+float Editor::scrollPositionVisualLine() const
+{
+    if (!m_coordinator)
+        return 0.0f;
+    const auto &items = m_coordinator->items();
+    if (items.isEmpty())
+        return 0.0f;
+
+    const qreal lineH = editorLineHeight(m_theme);
+    const qreal y = verticalScrollBar()->value();
+
+    qreal linesSoFar = 0.0;
+    for (auto *item : items) {
+        QGraphicsItem *gi = item->asGraphicsItem();
+        if (!gi || !gi->isVisible())
+            continue;
+        const QRectF r = gi->sceneBoundingRect();
+        const qreal blockLines = std::max<qreal>(1.0, std::ceil(r.height() / lineH));
+        if (y < r.bottom()) {
+            // `y` is inside or above this block; compute fractional position.
+            const qreal offset = std::max<qreal>(0.0, y - r.top());
+            const qreal frac = std::min<qreal>(blockLines, offset / lineH);
+            return static_cast<float>(linesSoFar + frac);
+        }
+        linesSoFar += blockLines;
+    }
+    return static_cast<float>(linesSoFar);
+}
+
+void Editor::setScrollPositionVisualLine(float visualLine)
+{
+    if (!m_coordinator)
+        return;
+    const auto &items = m_coordinator->items();
+    if (items.isEmpty())
+        return;
+
+    const qreal lineH = editorLineHeight(m_theme);
+    const qreal target = std::max<qreal>(0.0, visualLine);
+
+    qreal linesSoFar = 0.0;
+    qreal pixelY = 0.0;
+    bool placed = false;
+    for (auto *item : items) {
+        QGraphicsItem *gi = item->asGraphicsItem();
+        if (!gi || !gi->isVisible())
+            continue;
+        const QRectF r = gi->sceneBoundingRect();
+        const qreal blockLines = std::max<qreal>(1.0, std::ceil(r.height() / lineH));
+        if (target <= linesSoFar + blockLines) {
+            const qreal insideLines = target - linesSoFar;
+            pixelY = r.top() + insideLines * lineH;
+            placed = true;
+            break;
+        }
+        linesSoFar += blockLines;
+        pixelY = r.bottom();
+    }
+    if (!placed) {
+        // Past the end: clamp to the last block's bottom.
+        pixelY = std::max<qreal>(0.0, pixelY);
+    }
+
+    QScrollBar *vbar = verticalScrollBar();
+    const int clamped = std::clamp<int>(static_cast<int>(std::round(pixelY)),
+                                        vbar->minimum(), vbar->maximum());
+    vbar->setValue(clamped);
 }
 
 } // namespace Markoff

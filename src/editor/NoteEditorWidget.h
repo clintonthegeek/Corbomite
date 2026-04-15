@@ -7,6 +7,10 @@ namespace Markoff {
 class Editor;
 }
 
+namespace Corbomite::ReadingView {
+class ReadingView;
+}
+
 namespace Corbomite {
 
 struct EphemeralState;
@@ -91,6 +95,11 @@ private:
     // user-visible behaviour. Cluster E Phase 7 will promote this into the
     // ViewMode switch (Editing / Reading / Source).
     SourceEditor *m_sourceEditor = nullptr;
+    // Phase 2 mount of `Corbomite::ReadingView::ReadingView` — constructed
+    // hidden alongside SourceEditor so ephemeral-state save/restore has a
+    // real target for Reading mode. Phase 3 fills the widget out; Phase 7
+    // swaps it into a QStackedWidget.
+    Corbomite::ReadingView::ReadingView *m_readingView = nullptr;
     ViewMode m_viewMode = ViewMode::LivePreview;
 
     NoteDocument *m_doc = nullptr;

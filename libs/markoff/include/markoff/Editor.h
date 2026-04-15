@@ -91,6 +91,20 @@ public:
     // --- Font size (kept for test-app use) ---
     void setFontSize(int pointSize);
 
+    // --- Scroll position (visual-line float) ---
+    /// Current scroll position as a floating-point count of visual lines from
+    /// the top of the scene. A "visual line" corresponds to a wrapped display
+    /// line within a block item; block items that render as non-text shapes
+    /// (tables, images, code blocks) contribute (height / lineSpacing)
+    /// wrapped-line equivalents. Precision ±0.5 visual lines per the Cluster
+    /// E Phase 2 contract — matches `Qutepart::scrollPositionVisualLine`'s
+    /// surface so `NoteEditorWidget` has a single API across widgets.
+    float scrollPositionVisualLine() const;
+    /// Set the scroll position in visual-line float units. The viewport is
+    /// positioned so the `floor(visualLine)`-th visual line of the scene
+    /// lands at the viewport top, plus `frac(visualLine) * lineHeight`.
+    void setScrollPositionVisualLine(float visualLine);
+
     // --- Search ---
     bool findText(const QString &text, QTextDocument::FindFlags flags = {});
     bool replaceText(const QString &find, const QString &replace,
@@ -148,6 +162,11 @@ Q_SIGNALS:
     void wordCountChanged(int count);
     void foldStateChanged();
     void foldsAutoExpanded(const QList<QStringList> &paths);
+    /// Fired when the scroll position changes by at least a fractional
+    /// visual line. Connected to `verticalScrollBar::valueChanged` internally
+    /// with a tiny dead-band so micro-pixel jitter from viewport updates
+    /// doesn't spam the signal.
+    void scrollPositionVisualLineChanged(float visualLine);
 
 protected:
     void resizeEvent(QResizeEvent *e) override;

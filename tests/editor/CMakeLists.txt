@@ -47,3 +47,24 @@ add_test(NAME tst_view_mode_serializer COMMAND tst_view_mode_serializer)
 set_tests_properties(tst_view_mode_serializer PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+# Cluster E Phase 2 — NoteEditorWidget saveEphemeralState / restoreEphemeralState
+# round-trips through Source / LivePreview / Reading targets. Links against
+# CorbomiteApp (for NoteEditorWidget) plus Markoff (for the LivePreview editor
+# accessor) — the Source + Reading widgets are reached via the widget itself.
+add_executable(tst_note_editor_widget_ephemeral
+    tst_note_editor_widget_ephemeral.cpp
+)
+target_include_directories(tst_note_editor_widget_ephemeral PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_note_editor_widget_ephemeral PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    Markoff::Markoff
+)
+add_test(NAME tst_note_editor_widget_ephemeral COMMAND tst_note_editor_widget_ephemeral)
+set_tests_properties(tst_note_editor_widget_ephemeral PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
