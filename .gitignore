@@ -29,3 +29,19 @@ qrc_*.cpp
 .DS_Store
 Thumbs.db
 .worktrees/
+
+# Upstream Obsidian reference vaults cloned as nested git repos.
+# Only testvaults/starter-vault/ is an actual fixture we own.
+testvaults/jsoncanvas/
+testvaults/obsidian-api/
+testvaults/obsidian-canvas-candy/
+testvaults/obsidian-developer-docs/
+testvaults/obsidian-help/
+testvaults/obsidian-hub-main/
+testvaults/obsidian-hub-main.zip
+testvaults/obsidian-skills/
+testvaults/sweet-setup-obsidian-starter-vault.zip
+
+# Local scratch
+Testing/
+docs/HandbookGraphDrawing.txt
