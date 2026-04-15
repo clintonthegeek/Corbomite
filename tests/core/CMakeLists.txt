@@ -97,3 +97,7 @@ add_executable(tst_renderengine tst_renderengine.cpp)
 add_test(NAME tst_renderengine COMMAND tst_renderengine)
 target_link_libraries(tst_renderengine PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_renderengine PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_momentformatter tst_momentformatter.cpp)
+add_test(NAME tst_momentformatter COMMAND tst_momentformatter)
+target_link_libraries(tst_momentformatter PRIVATE Qt6::Test Corbomite::Core)

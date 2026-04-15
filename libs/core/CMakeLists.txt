@@ -46,6 +46,8 @@ add_library(corbomite-core STATIC
     src/EditorSuggestManager.cpp
     include/corbomite/core/EditorSuggestManager.h
     include/corbomite/core/EditorSuggest.h
+    src/MomentFormatter.cpp
+    include/corbomite/core/MomentFormatter.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
