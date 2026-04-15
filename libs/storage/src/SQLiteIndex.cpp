@@ -131,43 +131,6 @@ void SQLiteIndex::createTables()
         "CREATE INDEX IF NOT EXISTS idx_tags_tag ON note_tags(tag)"));
 }
 
-// --- Deprecated write stubs (Phase 8 removes) ---
-
-void SQLiteIndex::rebuildIndex(const QString &vaultRoot)
-{
-    Q_UNUSED(vaultRoot);
-    qWarning("SQLiteIndex::rebuildIndex is deprecated and will be removed in Phase 8 — "
-             "wire MetadataCache + setMetadataCache() + setVaultRoot() instead.");
-}
-
-void SQLiteIndex::rebuildIndexAsync(const QString &vaultRoot)
-{
-    Q_UNUSED(vaultRoot);
-    qWarning("SQLiteIndex::rebuildIndexAsync is deprecated and will be removed in Phase 8 — "
-             "wire MetadataCache + setMetadataCache() + setVaultRoot() instead.");
-}
-
-bool SQLiteIndex::isRebuilding() const
-{
-    return false;
-}
-
-void SQLiteIndex::indexNote(const QString &relativePath, const QString &title, const QString &content)
-{
-    Q_UNUSED(relativePath);
-    Q_UNUSED(title);
-    Q_UNUSED(content);
-    qWarning("SQLiteIndex::indexNote is deprecated and will be removed in Phase 8 — "
-             "route through MetadataCache::onFileChanged() instead.");
-}
-
-void SQLiteIndex::removeNote(const QString &relativePath)
-{
-    Q_UNUSED(relativePath);
-    qWarning("SQLiteIndex::removeNote is deprecated and will be removed in Phase 8 — "
-             "route through MetadataCache::onFileDeleted() instead.");
-}
-
 // --- MetadataCache subscription slots ---
 
 void SQLiteIndex::onMetadataCacheChanged(const QString &path,

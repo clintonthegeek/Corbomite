@@ -10,9 +10,9 @@
 //     QTRY_COMPARE(indexFinishedSpy.count(), 1);
 //     // now read-API assertions hold
 //
-// The deprecated write methods (rebuildIndex*, indexNote, removeNote) are
-// exercised only by testDeprecatedStubsAreNoOps, which confirms they don't
-// crash and don't mutate state.
+// Phase 8: the former write methods (rebuildIndex*, indexNote, removeNote,
+// isRebuilding, indexReady) have been deleted. All mutations flow through
+// MetadataCache.
 
 #include <QDir>
 #include <QFile>
@@ -710,39 +710,6 @@ private Q_SLOTS:
             QStringLiteral("other.md"),
             vault);
         QCOMPARE(modified, 0);
-    }
-
-    // --- Deprecated stubs (Phase 8 removes) ---
-
-    void testDeprecatedStubsAreNoOps()
-    {
-        QTemporaryDir tmp;
-        const QString vault = tmp.path() + "/vault";
-        QDir().mkpath(vault);
-        writeNote(vault, "note.md", "Content");
-
-        SQLiteIndex index;
-        QVERIFY(index.open(tmp.path() + "/index.sqlite"));
-
-        // isRebuilding must return false unconditionally.
-        QVERIFY(!index.isRebuilding());
-
-        // All stubs log a qWarning but must not crash. State stays empty
-        // since they don't mutate the DB.
-        index.rebuildIndex(vault);
-        index.rebuildIndexAsync(vault);
-        QVERIFY(!index.isRebuilding());
-        index.indexNote(QStringLiteral("x.md"), QStringLiteral("X"), QStringLiteral("body"));
-        index.removeNote(QStringLiteral("x.md"));
-
-        // Confirm nothing was indexed — the stubs are genuinely no-op.
-        QCOMPARE(index.search(QStringLiteral("body")).size(), 0);
-
-        // indexReady signal must not fire (never emitted in Phase 7).
-        QSignalSpy spy(&index, &SQLiteIndex::indexReady);
-        index.rebuildIndexAsync(vault);
-        QTest::qWait(100);
-        QCOMPARE(spy.count(), 0);
     }
 
     // --- searchCompiled (DSL executor) ---

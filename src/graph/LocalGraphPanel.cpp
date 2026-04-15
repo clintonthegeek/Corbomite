@@ -2,6 +2,7 @@
 #include "LocalGraphPanel.h"
 #include "GraphDataBuilder.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/storage/MetadataCache.h"
 
 #include <forcegraph/ForceLayoutEngine.h>
 #include <forcegraph/ForceGraphView.h>
@@ -31,6 +32,22 @@ void LocalGraphPanel::setIndex(SQLiteIndex *index)
 {
     m_index = index;
     refresh();
+}
+
+void LocalGraphPanel::setMetadataCache(MetadataCache *cache)
+{
+    if (m_cache) {
+        disconnect(m_cache, nullptr, this, nullptr);
+    }
+    m_cache = cache;
+    if (m_cache) {
+        // Local neighborhood can change when any note's links resolve; rebuild
+        // on the drained `allLinksResolved` pulse rather than per-file.
+        connect(m_cache, &MetadataCache::allLinksResolved,
+                this, [this]() { refresh(); });
+        connect(m_cache, &MetadataCache::cacheDeleted,
+                this, [this](const QString &, const CachedMetadata &) { refresh(); });
+    }
 }
 
 void LocalGraphPanel::setVaultModel(VaultModel *vault)

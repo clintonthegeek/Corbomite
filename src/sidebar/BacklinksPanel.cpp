@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "BacklinksPanel.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
 
 #include <KLocalizedString>
@@ -41,6 +42,22 @@ void BacklinksPanel::setIndex(SQLiteIndex *index)
 {
     m_index = index;
     refresh();
+}
+
+void BacklinksPanel::setMetadataCache(MetadataCache *cache)
+{
+    if (m_cache) {
+        disconnect(m_cache, nullptr, this, nullptr);
+    }
+    m_cache = cache;
+    if (m_cache) {
+        // Any note's links resolving may change our backlinks, so refresh
+        // conservatively — backlink sources are whoever links to m_currentDoc.
+        connect(m_cache, &MetadataCache::linksResolvedFor,
+                this, [this](const QString &) { refresh(); });
+        connect(m_cache, &MetadataCache::cacheDeleted,
+                this, [this](const QString &, const CachedMetadata &) { refresh(); });
+    }
 }
 
 void BacklinksPanel::setCurrentNote(NoteDocument *doc)

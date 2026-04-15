@@ -4,6 +4,7 @@
 #include "GraphDataBuilder.h"
 
 #include <corbomite/models/VaultModel.h>
+#include <corbomite/storage/MetadataCache.h>
 #include <forcegraph/ForceLayoutEngine.h>
 #include <forcegraph/ForceGraphView.h>
 #include <forcegraph/MultilevelLayout.h>
@@ -117,6 +118,27 @@ void GraphViewTab::setControlsPanel(GraphControlsPanel *panel)
     m_controlsPanel = panel;
     if (m_controlsPanel) {
         wireControlsPanel();
+    }
+}
+
+void GraphViewTab::setMetadataCache(MetadataCache *cache)
+{
+    if (m_cache) {
+        disconnect(m_cache, nullptr, this, nullptr);
+    }
+    m_cache = cache;
+    if (m_cache) {
+        // Full rebuild when initial indexing completes or any single note
+        // changes. The global graph is cheap enough to recompute on each
+        // mutation — Phase 8 can add incremental updates later if needed.
+        connect(m_cache, &MetadataCache::indexFinished,
+                this, [this]() { buildGraph(); });
+        connect(m_cache, &MetadataCache::cacheChanged,
+                this, [this](const QString &, const QString &, const CachedMetadata &) {
+            buildGraph();
+        });
+        connect(m_cache, &MetadataCache::cacheDeleted,
+                this, [this](const QString &, const CachedMetadata &) { buildGraph(); });
     }
 }
 

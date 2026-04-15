@@ -79,7 +79,14 @@ QStringList VaultModel::allTags() const
 {
     // Prefer indexed tags (fast) over filesystem scan (slow)
     if (m_searchIndex) {
-        return m_searchIndex->allTags();
+        // Phase 8: CachedMetadata stores tags with their leading '#' (Obsidian
+        // shape), and SQLiteIndex surfaces them verbatim. Strip the '#' here
+        // so existing consumers that expect bare tag names continue to work.
+        QStringList tags = m_searchIndex->allTags();
+        for (QString &tag : tags) {
+            if (tag.startsWith(QLatin1Char('#'))) tag.remove(0, 1);
+        }
+        return tags;
     }
 
     if (!m_tagCacheDirty) {

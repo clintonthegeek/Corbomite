@@ -10,6 +10,7 @@ namespace Corbomite {
 
 class NoteDocument;
 class SQLiteIndex;
+class MetadataCache;
 
 class BacklinksPanel : public QWidget {
     Q_OBJECT
@@ -18,6 +19,7 @@ public:
     explicit BacklinksPanel(QWidget *parent = nullptr);
 
     void setIndex(SQLiteIndex *index);
+    void setMetadataCache(MetadataCache *cache);
     void setCurrentNote(NoteDocument *doc);
 
 Q_SIGNALS:
@@ -32,6 +34,7 @@ private:
     QLabel *m_emptyLabel;
 
     SQLiteIndex *m_index = nullptr;
+    QPointer<MetadataCache> m_cache;
     QPointer<NoteDocument> m_currentDoc;
 };
 

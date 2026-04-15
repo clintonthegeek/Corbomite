@@ -97,13 +97,16 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SQLiteIndex *index, 
         }
     }
 
-    // Build tag → notes reverse map for tooltips
+    // Build tag → notes reverse map for tooltips. Phase 8: CachedMetadata
+    // stores tags with the leading '#' (Obsidian shape); strip it for display.
     QHash<QString, QStringList> noteTags; // path → [tag1, tag2, ...]
     const auto tags = index->allTags();
     for (const auto &tag : tags) {
         const auto paths = index->notesWithTag(tag);
+        QString displayTag = tag;
+        if (displayTag.startsWith(QLatin1Char('#'))) displayTag.remove(0, 1);
         for (const auto &p : paths) {
-            noteTags[p].append(tag);
+            noteTags[p].append(displayTag);
         }
     }
 

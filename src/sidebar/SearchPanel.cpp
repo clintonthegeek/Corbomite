@@ -2,6 +2,7 @@
 #include "SearchPanel.h"
 #include "corbomite/models/SearchResultsModel.h"
 #include "corbomite/search/SearchDSL.h"
+#include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
 
 #include <KLocalizedString>
@@ -62,6 +63,23 @@ SearchPanel::SearchPanel(QWidget *parent)
 void SearchPanel::setIndex(SQLiteIndex *index)
 {
     m_index = index;
+}
+
+void SearchPanel::setMetadataCache(MetadataCache *cache)
+{
+    if (m_cache) {
+        disconnect(m_cache, nullptr, this, nullptr);
+    }
+    m_cache = cache;
+    if (m_cache) {
+        // When the index settles, re-run the current query so the results
+        // reflect the latest state of the vault.
+        connect(m_cache, &MetadataCache::indexFinished, this, [this]() {
+            if (!m_searchInput->text().trimmed().isEmpty()) {
+                executeSearch();
+            }
+        });
+    }
 }
 
 void SearchPanel::focusSearchInput()

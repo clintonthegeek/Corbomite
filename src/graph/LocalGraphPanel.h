@@ -14,6 +14,7 @@ namespace Corbomite {
 class NoteDocument;
 class SQLiteIndex;
 class VaultModel;
+class MetadataCache;
 
 class LocalGraphPanel : public QWidget {
     Q_OBJECT
@@ -22,6 +23,7 @@ public:
     explicit LocalGraphPanel(QWidget *parent = nullptr);
 
     void setIndex(SQLiteIndex *index);
+    void setMetadataCache(MetadataCache *cache);
     void setVaultModel(VaultModel *vault);
     void setCurrentNote(NoteDocument *doc);
 
@@ -34,6 +36,7 @@ private:
     ForceGraph::ForceGraphView *m_graphView;
     ForceGraph::ForceLayoutEngine *m_engine;
     SQLiteIndex *m_index = nullptr;
+    QPointer<MetadataCache> m_cache;
     VaultModel *m_vault = nullptr;
     QPointer<NoteDocument> m_currentDoc;
 };

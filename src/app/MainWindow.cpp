@@ -16,6 +16,8 @@
 #include "graph/GraphViewTab.h"
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
+#include "corbomite/storage/LinkResolver.h"
+#include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NoteService.h"
@@ -50,7 +52,10 @@
 #include <KSharedConfig>
 #include <KConfigGroup>
 #include <QApplication>
+#include <QDir>
+#include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QLabel>
 #include <QStatusBar>
 #include <QInputDialog>
@@ -123,6 +128,19 @@ MainWindow::~MainWindow()
 
     delete m_sessionManager;
     m_sessionManager = nullptr;
+
+    // Close MetadataCache cleanly (flushes persistence) before destroying
+    // dependent objects. SQLiteIndex subscribes to its signals, so close
+    // the cache first.
+    if (m_metadataCache) {
+        m_metadataCache->close();
+    }
+    delete m_searchIndex;
+    m_searchIndex = nullptr;
+    delete m_metadataCache;
+    m_metadataCache = nullptr;
+    delete m_linkResolver;
+    m_linkResolver = nullptr;
 
     delete m_treeModel;
     m_treeModel = nullptr;
@@ -826,28 +844,65 @@ void MainWindow::onVaultOpened()
             m_cursorPosLabel->setText(i18n("Reading"));
     });
 
-    // Create search index
+    // Create LinkResolver — shared by MetadataCache (for link resolution in
+    // parsed CachedMetadata) and seeded with the vault's note paths.
+    delete m_linkResolver;
+    m_linkResolver = new LinkResolver();
+    {
+        QStringList allPaths;
+        const auto allNotes = vault->allNotes();
+        allPaths.reserve(allNotes.size());
+        for (const auto &meta : allNotes) {
+            allPaths.append(meta.relativePath);
+        }
+        m_linkResolver->setVaultPaths(allPaths);
+    }
+
+    // Create MetadataCache (owns the five-signal API + worker thread) and
+    // SQLiteIndex (derives FTS / links / tags from cache events).
+    delete m_metadataCache;
+    m_metadataCache = new MetadataCache(*m_linkResolver, this);
+
     delete m_searchIndex;
     m_searchIndex = new SQLiteIndex(this);
     m_searchIndex->open(vault->configPath() + QStringLiteral("/index.sqlite"));
+    m_searchIndex->setVaultRoot(vault->path());
+    m_searchIndex->setMetadataCache(m_metadataCache);
 
-    // Index vault in background thread (UI stays responsive)
+    // Ensure .corbomite/ exists, then open the MetadataCache's persistent store.
+    QDir().mkpath(vault->configPath());
+    m_metadataCache->open(vault->configPath() + QStringLiteral("/metadata-cache.db"));
+
+    // Kick off the initial vault scan via MetadataCache.
     statusBar()->showMessage(i18n("Indexing vault..."));
-    connect(m_searchIndex, &SQLiteIndex::indexReady, this, [this]() {
+    connect(m_metadataCache, &MetadataCache::indexFinished, this, [this]() {
         statusBar()->showMessage(i18n("Indexing complete"), 3000);
     });
-    m_searchIndex->rebuildIndexAsync(vault->path());
+
+    {
+        QStringList notePaths;
+        const auto allNotes = vault->allNotes();
+        notePaths.reserve(allNotes.size());
+        for (const auto &meta : allNotes) {
+            notePaths.append(meta.relativePath);
+        }
+        m_metadataCache->rebuildVault(vault->path(), notePaths);
+    }
 
     m_searchPanel->setIndex(m_searchIndex);
+    m_searchPanel->setMetadataCache(m_metadataCache);
     m_vaultService->noteService()->setSearchIndex(m_searchIndex);
     m_vaultService->vault()->setSearchIndex(m_searchIndex);
 
-    // Set index on sidebar panels
+    // Set index + metadata cache on sidebar panels
     m_backlinksPanel->setIndex(m_searchIndex);
+    m_backlinksPanel->setMetadataCache(m_metadataCache);
     m_outlinksPanel->setIndex(m_searchIndex);
     m_outlinksPanel->setVaultModel(vault);
+    m_outlinksPanel->setMetadataCache(m_metadataCache);
     m_localGraphPanel->setIndex(m_searchIndex);
     m_localGraphPanel->setVaultModel(vault);
+    m_localGraphPanel->setMetadataCache(m_metadataCache);
 
     // Update sidebar panels when active note changes
     connect(m_editorManager, &EditorViewManager::activeEditorChanged,
@@ -881,14 +936,37 @@ void MainWindow::onVaultOpened()
         }
     });
 
-    // Update index on note saves
+    // Update MetadataCache on note saves — feeds cacheChanged → SQLiteIndex.
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
-        if (!m_searchIndex || !m_vaultService->vault()) return;
+        if (!m_metadataCache || !m_vaultService->vault()) return;
         auto *doc = m_vaultService->vault()->cachedDocument(relPath);
-        if (doc) {
-            m_searchIndex->indexNote(relPath, doc->name(), doc->markdown());
-        }
+        if (!doc) return;
+        const QByteArray bytes = doc->markdown().toUtf8();
+        const QString absPath =
+            m_vaultService->vault()->path() + QLatin1Char('/') + relPath;
+        const qint64 mtimeMs = QFileInfo(absPath).lastModified().toMSecsSinceEpoch();
+        m_metadataCache->onFileChanged(relPath, bytes, mtimeMs);
     });
+
+    // Propagate external file-watcher deletions to MetadataCache.
+    if (m_fileWatch) {
+        connect(m_fileWatch, &FileWatchReactor::fileDeletedExternally,
+                this, [this](const QString &relPath) {
+            if (m_metadataCache) m_metadataCache->onFileDeleted(relPath);
+        });
+        connect(m_fileWatch, &FileWatchReactor::fileCreatedExternally,
+                this, [this](const QString &relPath) {
+            if (!m_metadataCache || !m_vaultService->vault()) return;
+            const QString absPath =
+                m_vaultService->vault()->path() + QLatin1Char('/') + relPath;
+            QFile f(absPath);
+            if (!f.open(QIODevice::ReadOnly)) return;
+            const QByteArray bytes = f.readAll();
+            const qint64 mtimeMs =
+                QFileInfo(absPath).lastModified().toMSecsSinceEpoch();
+            m_metadataCache->onFileChanged(relPath, bytes, mtimeMs);
+        });
+    }
 
     // Connect internal link navigation from preview widgets
     connect(m_editorManager->activeViewSpace(), &EditorViewSpace::internalLinkClicked,
@@ -1009,18 +1087,32 @@ void MainWindow::onVaultClosed()
     m_vaultService->noteService()->setSearchIndex(nullptr);
 
     m_backlinksPanel->setIndex(nullptr);
+    m_backlinksPanel->setMetadataCache(nullptr);
     m_backlinksPanel->setCurrentNote(nullptr);
     m_outlinksPanel->setIndex(nullptr);
+    m_outlinksPanel->setMetadataCache(nullptr);
     m_outlinksPanel->setVaultModel(nullptr);
     m_outlinksPanel->setCurrentNote(nullptr);
     m_outlinePanel->setCurrentNote(nullptr);
     m_localGraphPanel->setIndex(nullptr);
+    m_localGraphPanel->setMetadataCache(nullptr);
     m_localGraphPanel->setVaultModel(nullptr);
     m_localGraphPanel->setCurrentNote(nullptr);
 
+    // Close MetadataCache (flushes persistent store) BEFORE deleting the
+    // SQLiteIndex — the index subscribes to cache signals and must not
+    // receive a post-mortem emission.
+    if (m_metadataCache) {
+        m_metadataCache->close();
+    }
     delete m_searchIndex;
     m_searchIndex = nullptr;
+    delete m_metadataCache;
+    m_metadataCache = nullptr;
+    delete m_linkResolver;
+    m_linkResolver = nullptr;
     m_searchPanel->setIndex(nullptr);
+    m_searchPanel->setMetadataCache(nullptr);
 
     delete m_treeModel;
     m_treeModel = nullptr;
@@ -1040,16 +1132,16 @@ void MainWindow::openGraphView()
     if (!m_vaultService->isOpen() || !m_searchIndex) return;
     m_editorManager->openGraphView(m_searchIndex, m_vaultService->vault());
 
-    // Wire the sidebar graph controls panel to the newly opened graph tab
-    if (m_graphControlsPanel) {
-        auto *space = m_editorManager->activeViewSpace();
-        if (space) {
-            // Find the GraphViewTab in the active space
-            for (int i = 0; i < space->findChildren<GraphViewTab *>().size(); ++i) {
-                auto *graphTab = space->findChildren<GraphViewTab *>().at(i);
+    // Wire the sidebar graph controls panel + MetadataCache to the newly
+    // opened graph tab.
+    if (auto *space = m_editorManager->activeViewSpace()) {
+        const auto graphTabs = space->findChildren<GraphViewTab *>();
+        if (!graphTabs.isEmpty()) {
+            auto *graphTab = graphTabs.first();
+            if (m_graphControlsPanel) {
                 graphTab->setControlsPanel(m_graphControlsPanel);
-                break;
             }
+            graphTab->setMetadataCache(m_metadataCache);
         }
     }
 }

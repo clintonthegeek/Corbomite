@@ -36,7 +36,7 @@ struct LinkInfo {
 
 /// SQLite-backed FTS5 + links + tags index.
 ///
-/// Cluster I phase 7: this class no longer parses markdown. Instead it
+/// Cluster I phase 7+8: this class no longer parses markdown. Instead it
 /// subscribes to `MetadataCache::cacheChanged` / `cacheDeleted` and
 /// derives its FTS / links / tags rows from the already-parsed
 /// `CachedMetadata`. Wire it up with:
@@ -45,9 +45,11 @@ struct LinkInfo {
 ///     index.setVaultRoot(vaultRoot);
 ///     index.setMetadataCache(cache);
 ///
-/// Phase 8 will migrate `MainWindow` + the panels onto this wiring and
-/// remove the deprecated write stubs (`rebuildIndex`, `rebuildIndexAsync`,
-/// `indexNote`, `removeNote`, `isRebuilding`, `indexReady`).
+/// All writes are driven by `MetadataCache` events. Consumers that need to
+/// trigger a rebuild call `MetadataCache::rebuildVault(...)`, not any method
+/// on this class. The former write API (`rebuildIndex`, `rebuildIndexAsync`,
+/// `indexNote`, `removeNote`, `isRebuilding`) and the legacy `indexReady`
+/// signal were removed in Phase 8.
 class SQLiteIndex : public QObject {
     Q_OBJECT
 
@@ -67,16 +69,6 @@ public:
     /// and `cacheDeleted`. Replaces any previous subscription. Passing
     /// `nullptr` disconnects.
     void setMetadataCache(MetadataCache *cache);
-
-    // --- DEPRECATED write API (Phase 8 removes) ---
-    // These are kept as no-op stubs so the pre-migration callers in
-    // MainWindow + panels keep compiling. Each stub emits a qWarning.
-
-    void rebuildIndex(const QString &vaultRoot);
-    void rebuildIndexAsync(const QString &vaultRoot);
-    bool isRebuilding() const;
-    void indexNote(const QString &relativePath, const QString &title, const QString &content);
-    void removeNote(const QString &relativePath);
 
     // --- Read API (UNCHANGED — consumers rely on these) ---
 
@@ -107,11 +99,6 @@ public:
     // Link repair
     int repairLinks(const QString &oldTargetPath, const QString &newTargetPath,
                     const QString &vaultRoot);
-
-Q_SIGNALS:
-    /// DEPRECATED — Phase 8 removes this signal. Never fires in Phase 7.
-    /// New consumers must listen to `MetadataCache::indexFinished` instead.
-    void indexReady();
 
 private Q_SLOTS:
     void onMetadataCacheChanged(const QString &path,

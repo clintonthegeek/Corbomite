@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "OutlinksPanel.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/models/VaultModel.h"
 
@@ -42,6 +43,30 @@ void OutlinksPanel::setIndex(SQLiteIndex *index)
 {
     m_index = index;
     refresh();
+}
+
+void OutlinksPanel::setMetadataCache(MetadataCache *cache)
+{
+    if (m_cache) {
+        disconnect(m_cache, nullptr, this, nullptr);
+    }
+    m_cache = cache;
+    if (m_cache) {
+        // Refresh when the current note's own links resolve, or when it's
+        // mutated/deleted — its outlinks may have changed.
+        connect(m_cache, &MetadataCache::linksResolvedFor,
+                this, [this](const QString &path) {
+            if (m_currentDoc && path == m_currentDoc->relativePath()) refresh();
+        });
+        connect(m_cache, &MetadataCache::cacheChanged,
+                this, [this](const QString &path, const QString &, const CachedMetadata &) {
+            if (m_currentDoc && path == m_currentDoc->relativePath()) refresh();
+        });
+        connect(m_cache, &MetadataCache::cacheDeleted,
+                this, [this](const QString &path, const CachedMetadata &) {
+            if (m_currentDoc && path == m_currentDoc->relativePath()) refresh();
+        });
+    }
 }
 
 void OutlinksPanel::setVaultModel(VaultModel *vault)

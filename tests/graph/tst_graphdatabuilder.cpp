@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include <QTest>
+//
+// Phase 8 rewrite: drives the index via MetadataCache (the deprecated
+// SQLiteIndex::rebuildIndex was deleted in Phase 8). Each test writes notes
+// under a QTemporaryDir, then calls `MetadataCache::rebuildVault(...)` and
+// waits for `indexFinished` before invoking GraphDataBuilder.
+
+#include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QTest>
 #include "graph/GraphDataBuilder.h"
-#include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/models/VaultModel.h"
+#include "corbomite/storage/LinkResolver.h"
+#include "corbomite/storage/MetadataCache.h"
+#include "corbomite/storage/SQLiteIndex.h"
 
 class TestGraphDataBuilder : public QObject {
     Q_OBJECT
@@ -15,6 +24,32 @@ class TestGraphDataBuilder : public QObject {
         f.open(QIODevice::WriteOnly);
         f.write(content.toUtf8());
         f.close();
+    }
+
+    // Drive a MetadataCache rebuild of `vault` through `index` and wait for
+    // indexFinished. Callers own the heap objects (stored on the stack frame).
+    void indexVault(const QString &vault,
+                    Corbomite::VaultModel &vaultModel,
+                    Corbomite::LinkResolver &resolver,
+                    Corbomite::MetadataCache &cache,
+                    Corbomite::SQLiteIndex &index,
+                    const QString &dbPath)
+    {
+        QStringList paths;
+        for (const auto &meta : vaultModel.allNotes()) {
+            paths.append(meta.relativePath);
+        }
+        resolver.setVaultPaths(paths);
+
+        QVERIFY(index.open(dbPath));
+        index.setVaultRoot(vault);
+        index.setMetadataCache(&cache);
+
+        QSignalSpy finishedSpy(&cache, &Corbomite::MetadataCache::indexFinished);
+        cache.rebuildVault(vault, paths);
+        if (!paths.isEmpty()) {
+            QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 10000);
+        }
     }
 
 private Q_SLOTS:
@@ -29,9 +64,10 @@ private Q_SLOTS:
         Corbomite::VaultModel vaultModel;
         vaultModel.open(vault);
 
+        Corbomite::LinkResolver resolver;
+        Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        index.open(tmp.path() + "/index.sqlite");
-        index.rebuildIndex(vault);
+        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
 
         auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
 
@@ -48,9 +84,10 @@ private Q_SLOTS:
         Corbomite::VaultModel vaultModel;
         vaultModel.open(vault);
 
+        Corbomite::LinkResolver resolver;
+        Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        index.open(tmp.path() + "/index.sqlite");
-        index.rebuildIndex(vault);
+        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
 
         auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
 
@@ -58,12 +95,14 @@ private Q_SLOTS:
         QCOMPARE(result.nodes.size(), 2);
         QCOMPARE(result.edges.size(), 1);
 
-        // Find the unresolved node
+        // Find the unresolved node. Phase 8: unresolved targets come back
+        // bare (LinkResolver returns empty path), so the stored target is
+        // the raw linktext without a ".md" suffix.
         bool foundUnresolved = false;
         for (const auto &node : result.nodes) {
-            if (node.id == QStringLiteral("NonExistent.md")) {
-                QCOMPARE(node.type, ForceGraph::NodeType::Unresolved);
+            if (node.type == ForceGraph::NodeType::Unresolved) {
                 foundUnresolved = true;
+                QVERIFY(node.id.contains(QStringLiteral("NonExistent")));
             }
         }
         QVERIFY(foundUnresolved);
@@ -80,9 +119,10 @@ private Q_SLOTS:
         Corbomite::VaultModel vaultModel;
         vaultModel.open(vault);
 
+        Corbomite::LinkResolver resolver;
+        Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        index.open(tmp.path() + "/index.sqlite");
-        index.rebuildIndex(vault);
+        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
 
         auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
 
@@ -111,9 +151,10 @@ private Q_SLOTS:
         Corbomite::VaultModel vaultModel;
         vaultModel.open(vault);
 
+        Corbomite::LinkResolver resolver;
+        Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        index.open(tmp.path() + "/index.sqlite");
-        index.rebuildIndex(vault);
+        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
 
         auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
 
@@ -138,9 +179,10 @@ private Q_SLOTS:
         Corbomite::VaultModel vaultModel;
         vaultModel.open(vault);
 
+        Corbomite::LinkResolver resolver;
+        Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        index.open(tmp.path() + "/index.sqlite");
-        index.rebuildIndex(vault);
+        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
 
         // Depth 1: only center + direct neighbors
         auto result1 = Corbomite::GraphDataBuilder::buildLocalGraph(
@@ -171,9 +213,10 @@ private Q_SLOTS:
         Corbomite::VaultModel vaultModel;
         vaultModel.open(vault);
 
+        Corbomite::LinkResolver resolver;
+        Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        index.open(tmp.path() + "/index.sqlite");
-        index.rebuildIndex(vault);
+        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
 
         auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
         QCOMPARE(result.nodes.size(), 0);

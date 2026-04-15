@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QPointer>
 #include <QWidget>
 #include <forcegraph/GraphTypes.h>
 
@@ -14,6 +15,7 @@ namespace Corbomite {
 class GraphControlsPanel;
 class SQLiteIndex;
 class VaultModel;
+class MetadataCache;
 
 class GraphViewTab : public QWidget {
     Q_OBJECT
@@ -24,6 +26,7 @@ public:
 
     void buildGraph();
     void setControlsPanel(GraphControlsPanel *panel);
+    void setMetadataCache(MetadataCache *cache);
 
 Q_SIGNALS:
     void noteActivated(const QString &relativePath);
@@ -42,6 +45,7 @@ private:
     VaultModel *m_vault;
 
     GraphControlsPanel *m_controlsPanel = nullptr;
+    QPointer<MetadataCache> m_cache;
 
     // Cached full graph data (before filtering)
     QVector<ForceGraph::GraphNode> m_allNodes;

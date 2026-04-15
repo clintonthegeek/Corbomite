@@ -20,6 +20,8 @@ class AutosaveReactor;
 class FileWatchReactor;
 class SessionManager;
 class SQLiteIndex;
+class MetadataCache;
+class LinkResolver;
 class BacklinksPanel;
 class OutlinksPanel;
 class OutlinePanel;
@@ -83,6 +85,8 @@ private:
     SessionManager *m_sessionManager = nullptr;
     SearchPanel *m_searchPanel = nullptr;
     SQLiteIndex *m_searchIndex = nullptr;
+    MetadataCache *m_metadataCache = nullptr;
+    LinkResolver *m_linkResolver = nullptr;
     BacklinksPanel *m_backlinksPanel = nullptr;
     OutlinksPanel *m_outlinksPanel = nullptr;
     OutlinePanel *m_outlinePanel = nullptr;
