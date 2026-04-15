@@ -79,6 +79,11 @@ public:
     /// reparse and re-substitution so span offsets line up.
     int stripInlineSubstitutions();
 
+    /// Set a QTextBlock visible or hidden by folding. Hidden blocks are
+    /// rendered with zero height so they take no space in the layout.
+    /// Exposed for SceneCoordinator's applyFoldVisibility.
+    void setBlockFolded(int blockNumber, bool folded);
+
 Q_SIGNALS:
     void textChanged();
     /// Emitted when arrow key can't move further.

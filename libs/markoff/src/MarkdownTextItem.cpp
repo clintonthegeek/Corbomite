@@ -217,6 +217,48 @@ QString MarkdownTextItem::toMarkdown() const
     return allMarkdown();
 }
 
+void MarkdownTextItem::setBlockFolded(int blockNumber, bool folded)
+{
+    QTextBlock block = m_document->findBlockByNumber(blockNumber);
+    if (!block.isValid()) return;
+
+    QTextBlockFormat fmt = block.blockFormat();
+    const auto currentHeight = fmt.lineHeight();
+    const auto currentType = static_cast<QTextBlockFormat::LineHeightTypes>(
+        fmt.lineHeightType());
+
+    // Skip if already in the desired state to avoid spurious edits.
+    if (folded) {
+        if (currentType == QTextBlockFormat::FixedHeight && qFuzzyIsNull(currentHeight))
+            return;
+    } else {
+        // "Unfolded" state: anything that is NOT FixedHeight(0).
+        if (currentType != QTextBlockFormat::FixedHeight || !qFuzzyIsNull(currentHeight))
+            return;
+    }
+
+    // Block document signals so the format change does not trigger the
+    // text-change → reparse timer loop.
+    const bool blocked = m_document->blockSignals(true);
+
+    prepareGeometryChange();
+    QTextCursor cursor(m_document);
+    cursor.setPosition(block.position());
+    if (folded) {
+        // Collapse to zero height so the block occupies no vertical space.
+        fmt.setLineHeight(0.0, QTextBlockFormat::FixedHeight);
+    } else {
+        // Restore to 100% proportional (equals normal single-line height
+        // but uses a non-zero type value so the early-exit above works).
+        fmt.setLineHeight(100.0, QTextBlockFormat::ProportionalHeight);
+    }
+    cursor.setBlockFormat(fmt);
+
+    m_document->blockSignals(blocked);
+    // Trigger a repaint without going through the reparse pipeline.
+    update();
+}
+
 int MarkdownTextItem::stripInlineSubstitutions()
 {
     if (m_inSubstitution) return 0;

@@ -17,6 +17,7 @@ class MarkdownTextItem;
 class MarkdownHighlighter;
 class TreeSitterParser;
 class ResourceProvider;
+class FoldingModel;
 
 /// Manages the ordered list of scene items, their vertical positioning,
 /// splitting/merging on reparse, and serialization back to markdown.
@@ -53,6 +54,23 @@ public:
     /// Transfer focus to an adjacent item. Returns true if successful.
     bool moveFocusTo(MarkdownTextItem *from, Qt::Edge edge);
 
+    /// Subscribe to fold-state changes and apply item visibility.
+    void setFoldingModel(FoldingModel *model);
+
+    /// Return the index of the item whose scene bounding rect contains sceneY.
+    /// Returns -1 if none.
+    int itemIndexAt(qreal sceneY) const;
+
+    /// Return the heading path enclosing itemIndex (i.e. the most-recent
+    /// heading at or before itemIndex). Returns empty list for items before
+    /// the first heading. PUBLIC — used by Editor (Task 8) for auto-unfold.
+    QStringList enclosingHeadingPath(int itemIndex) const;
+
+    /// Return the heading index in FoldingModel::headings() if itemIndex
+    /// itself is a heading item, otherwise -1. Used by Task 10 gutter click
+    /// dispatch.
+    int headingIndexForItem(int itemIndex) const;
+
 Q_SIGNALS:
     void textChanged();
     void reparsed();
@@ -64,6 +82,9 @@ private:
     void repositionItems();
     void onItemTextChanged();
     void reparse();
+
+    FoldingModel *m_foldingModel = nullptr;
+    void applyFoldVisibility();
 
     SelectionScene *m_scene = nullptr;
     QList<SelectableItem *> m_items;

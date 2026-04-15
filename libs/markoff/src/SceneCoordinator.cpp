@@ -6,6 +6,7 @@
 #include "TextControl.h"
 #include "TableBlockItem.h"
 #include "ImageBlockItem.h"
+#include "FoldingModel.h"
 #include <markoff-parser/MarkdownSplitter.h>
 #include "MarkdownHighlighter.h"
 #include <markoff-parser/TreeSitterParser.h>
@@ -428,6 +429,140 @@ void SceneCoordinator::reparse()
         m_inReparse = false;
     });
     emit reparsed();
+}
+
+void SceneCoordinator::setFoldingModel(FoldingModel *model)
+{
+    if (m_foldingModel)
+        disconnect(m_foldingModel, nullptr, this, nullptr);
+    m_foldingModel = model;
+    if (m_foldingModel) {
+        connect(m_foldingModel, &FoldingModel::foldStateChanged,
+                this, &SceneCoordinator::applyFoldVisibility);
+    }
+}
+
+int SceneCoordinator::itemIndexAt(qreal sceneY) const
+{
+    for (int i = 0; i < m_items.size(); ++i) {
+        QGraphicsItem *gi = m_items[i]->asGraphicsItem();
+        if (!gi) continue;
+        const QRectF r = gi->sceneBoundingRect();
+        if (sceneY >= r.top() && sceneY <= r.bottom())
+            return i;
+    }
+    return -1;
+}
+
+QStringList SceneCoordinator::enclosingHeadingPath(int itemIndex) const
+{
+    if (!m_foldingModel) return {};
+    const auto &hs = m_foldingModel->headings();
+    if (hs.isEmpty()) return {};
+
+    // Walk items[0..itemIndex], counting heading-type items. A heading item
+    // is a MarkdownTextItem whose allMarkdown() trimmed starts with '#'.
+    // The last heading at or before itemIndex is the enclosing heading.
+    // hIdx tracks the index into hs[] for the most-recent heading seen.
+    int hIdx = -1;
+    int seen = 0;
+    for (int i = 0; i <= itemIndex && i < m_items.size(); ++i) {
+        auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[i]);
+        if (!mti) continue;
+        if (mti->allMarkdown().trimmed().startsWith(QLatin1Char('#'))) {
+            if (seen < hs.size())
+                hIdx = seen;
+            ++seen;
+        }
+    }
+    return hIdx >= 0 ? hs[hIdx].path : QStringList{};
+}
+
+int SceneCoordinator::headingIndexForItem(int itemIndex) const
+{
+    if (!m_foldingModel) return -1;
+    if (itemIndex < 0 || itemIndex >= m_items.size()) return -1;
+    auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIndex]);
+    if (!mti) return -1;
+    if (!mti->allMarkdown().trimmed().startsWith(QLatin1Char('#')))
+        return -1;
+
+    // Count heading items before this one to find its index in headings().
+    const auto &hs = m_foldingModel->headings();
+    int seen = 0;
+    for (int i = 0; i < itemIndex; ++i) {
+        auto *prev = dynamic_cast<MarkdownTextItem *>(m_items[i]);
+        if (prev && prev->allMarkdown().trimmed().startsWith(QLatin1Char('#')))
+            ++seen;
+    }
+    return (seen < hs.size()) ? seen : -1;
+}
+
+void SceneCoordinator::applyFoldVisibility()
+{
+    if (!m_foldingModel) return;
+    const auto &hs = m_foldingModel->headings();
+
+    // Walk all items. For text items, operate at QTextBlock granularity so
+    // that individual paragraphs and headings within a single MarkdownTextItem
+    // can be shown/hidden independently (MarkdownSplitter does not split at
+    // heading boundaries — a whole section may live in one item).
+    //
+    // For non-text items (tables/images), operate at the item level.
+    int hIdx = -1;  // index of current enclosing heading in hs[]
+    int hSeen = 0;  // total heading-type blocks seen so far
+
+    for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
+        auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
+        if (!mti) {
+            // Non-text item: hide/show based on enclosing heading.
+            const QStringList path = (hIdx >= 0) ? hs[hIdx].path : QStringList{};
+            bool hidden = !path.isEmpty()
+                && (m_foldingModel->isFolded(path)
+                    || m_foldingModel->isHiddenByFold(path));
+            m_items[itemIdx]->asGraphicsItem()->setVisible(!hidden);
+            continue;
+        }
+
+        // Text item: walk its QTextBlocks.
+        QTextDocument *doc = mti->document();
+        QTextBlock block = doc->begin();
+        bool anyBlockVisible = false;
+        while (block.isValid()) {
+            const QString blockText = block.text().trimmed();
+            const bool isHeading = blockText.startsWith(QLatin1Char('#'));
+
+            if (isHeading && hSeen < hs.size()) {
+                // Advance enclosing heading to this heading's entry.
+                hIdx = hSeen;
+                ++hSeen;
+            }
+
+            bool hidden = false;
+            if (hIdx >= 0) {
+                const QStringList &path = hs[hIdx].path;
+                if (isHeading) {
+                    // The heading line itself stays visible unless an ANCESTOR
+                    // heading is folded (isHiddenByFold checks strict prefixes).
+                    hidden = m_foldingModel->isHiddenByFold(path);
+                } else {
+                    // Body block: hidden if the enclosing heading is folded
+                    // OR any ancestor heading is folded.
+                    hidden = m_foldingModel->isFolded(path)
+                          || m_foldingModel->isHiddenByFold(path);
+                }
+            }
+
+            mti->setBlockFolded(block.blockNumber(), hidden);
+            if (!hidden) anyBlockVisible = true;
+            block = block.next();
+        }
+
+        // The item stays in the scene (we never remove it); its QGraphicsItem
+        // visibility tracks whether it has ANY visible content.
+        m_items[itemIdx]->asGraphicsItem()->setVisible(anyBlockVisible);
+    }
+    repositionItems();
 }
 
 } // namespace Markoff

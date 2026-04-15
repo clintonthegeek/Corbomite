@@ -95,6 +95,7 @@ Editor::Editor(QWidget *parent)
             m_foldingModel, &FoldingModel::reconcile);
     connect(m_foldingModel, &FoldingModel::foldStateChanged,
             this, &Editor::foldStateChanged);
+    m_coordinator->setFoldingModel(m_foldingModel);
 }
 
 Editor::~Editor() = default;

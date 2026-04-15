@@ -128,6 +128,9 @@ public:
     void setGutterVisible(bool visible);
     bool isGutterVisible() const;
 
+    /// Test-only accessor. Do not use from host code.
+    SceneCoordinator *coordinatorForTesting() const { return m_coordinator; }
+
 Q_SIGNALS:
     void textChanged();
     void cursorPositionChanged(int line, int column);
