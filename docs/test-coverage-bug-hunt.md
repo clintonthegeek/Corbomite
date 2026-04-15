@@ -12,7 +12,7 @@
 
 | ID | Title | Discovered | Cycle | Failing test | Severity | Status | Notes |
 |----|-------|------------|-------|--------------|----------|--------|-------|
-| BUG-20260415-000 | SQLiteIndex links stay empty after schema migration on stat-unchanged vault | 2026-04-15 | (pre-cycle) | n/a — fixed pre-test | High | Fixed | Root cause + fix in commit landing this plan; codified by Task 5 below as regression test. |
+| BUG-20260415-000 | SQLiteIndex links stay empty after schema migration on stat-unchanged vault | 2026-04-15 | (pre-cycle) | n/a — fixed pre-test | High | Fixed | Root cause + fix in commit landing this plan; codified by Task 4 as regression test. |
 
 ## Cycle log
 
