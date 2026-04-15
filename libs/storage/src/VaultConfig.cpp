@@ -173,6 +173,26 @@ bool VaultConfig::writeHotkeys(const QJsonObject &obj) const
     return writeJson(QStringLiteral("hotkeys.json"), obj);
 }
 
+std::optional<QJsonObject> VaultConfig::readDailyNotesJson() const
+{
+    return readJson(QStringLiteral("daily-notes.json"));
+}
+
+bool VaultConfig::writeDailyNotesJson(const QJsonObject &obj) const
+{
+    return writeJson(QStringLiteral("daily-notes.json"), obj);
+}
+
+std::optional<QJsonObject> VaultConfig::readTemplatesJson() const
+{
+    return readJson(QStringLiteral("templates.json"));
+}
+
+bool VaultConfig::writeTemplatesJson(const QJsonObject &obj) const
+{
+    return writeJson(QStringLiteral("templates.json"), obj);
+}
+
 std::optional<VaultConfig::CorePlugins> VaultConfig::readCorePlugins() const
 {
     if (!m_fs) return std::nullopt;

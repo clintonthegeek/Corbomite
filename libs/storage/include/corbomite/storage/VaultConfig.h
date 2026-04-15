@@ -66,6 +66,16 @@ public:
     std::optional<QJsonObject> readHotkeys() const;
     bool writeHotkeys(const QJsonObject &obj) const;
 
+    /// `.obsidian/daily-notes.json`. See
+    /// `addenda/2026-04-15-daily-notes-templates-schemas.md` for the schema.
+    std::optional<QJsonObject> readDailyNotesJson() const;
+    bool writeDailyNotesJson(const QJsonObject &obj) const;
+
+    /// `.obsidian/templates.json`. See
+    /// `addenda/2026-04-15-daily-notes-templates-schemas.md` for the schema.
+    std::optional<QJsonObject> readTemplatesJson() const;
+    bool writeTemplatesJson(const QJsonObject &obj) const;
+
     // --- Core plugins (with legacy array→object migration) ---
 
     struct CorePlugins {

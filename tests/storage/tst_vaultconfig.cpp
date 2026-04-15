@@ -262,6 +262,81 @@ private Q_SLOTS:
         QVERIFY(cfg.userIgnoreFilters().isEmpty());
     }
 
+    // --- daily-notes.json + templates.json typed accessors ---
+
+    void testReadDailyNotesJsonMissingFileReturnsNullopt()
+    {
+        QTemporaryDir tmp;
+        FileSystemAdapter fs;
+        VaultConfig cfg(&fs, tmp.path());
+        QVERIFY(!cfg.readDailyNotesJson().has_value());
+    }
+
+    void testRoundTripDailyNotesJsonPreservesUnknownKeys()
+    {
+        QTemporaryDir tmp;
+        FileSystemAdapter fs;
+        VaultConfig cfg(&fs, tmp.path());
+        cfg.ensureConfigDir();
+
+        QJsonObject obj;
+        obj.insert(QStringLiteral("format"), QStringLiteral("YYYY-MM-DD"));
+        obj.insert(QStringLiteral("folder"), QStringLiteral("Daily"));
+        obj.insert(QStringLiteral("unknown_future_key"),
+                   QStringLiteral("should_survive"));
+        QVERIFY(cfg.writeDailyNotesJson(obj));
+
+        auto loaded = cfg.readDailyNotesJson();
+        QVERIFY(loaded.has_value());
+        QVERIFY(loaded->contains(QStringLiteral("format")));
+        QVERIFY(loaded->contains(QStringLiteral("folder")));
+        QVERIFY(loaded->contains(QStringLiteral("unknown_future_key")));
+        QCOMPARE(loaded->value(QStringLiteral("format")).toString(),
+                 QStringLiteral("YYYY-MM-DD"));
+        QCOMPARE(loaded->value(QStringLiteral("folder")).toString(),
+                 QStringLiteral("Daily"));
+        QCOMPARE(loaded->value(QStringLiteral("unknown_future_key")).toString(),
+                 QStringLiteral("should_survive"));
+    }
+
+    void testReadTemplatesJsonMissingFileReturnsNullopt()
+    {
+        QTemporaryDir tmp;
+        FileSystemAdapter fs;
+        VaultConfig cfg(&fs, tmp.path());
+        QVERIFY(!cfg.readTemplatesJson().has_value());
+    }
+
+    void testRoundTripTemplatesJsonPreservesUnknownKeys()
+    {
+        QTemporaryDir tmp;
+        FileSystemAdapter fs;
+        VaultConfig cfg(&fs, tmp.path());
+        cfg.ensureConfigDir();
+
+        QJsonObject obj;
+        obj.insert(QStringLiteral("folder"), QStringLiteral("templates"));
+        obj.insert(QStringLiteral("date_format"), QStringLiteral("YYYY-MM-DD"));
+        obj.insert(QStringLiteral("time_format"), QStringLiteral("HH:mm"));
+        obj.insert(QStringLiteral("_experimental_flag"), true);
+        QVERIFY(cfg.writeTemplatesJson(obj));
+
+        auto loaded = cfg.readTemplatesJson();
+        QVERIFY(loaded.has_value());
+        QVERIFY(loaded->contains(QStringLiteral("folder")));
+        QVERIFY(loaded->contains(QStringLiteral("date_format")));
+        QVERIFY(loaded->contains(QStringLiteral("time_format")));
+        QVERIFY(loaded->contains(QStringLiteral("_experimental_flag")));
+        QCOMPARE(loaded->value(QStringLiteral("folder")).toString(),
+                 QStringLiteral("templates"));
+        QCOMPARE(loaded->value(QStringLiteral("date_format")).toString(),
+                 QStringLiteral("YYYY-MM-DD"));
+        QCOMPARE(loaded->value(QStringLiteral("time_format")).toString(),
+                 QStringLiteral("HH:mm"));
+        QCOMPARE(loaded->value(QStringLiteral("_experimental_flag")).toBool(),
+                 true);
+    }
+
     // --- Malformed input handling ---
 
     void malformedJsonReturnsNullopt()
