@@ -28,6 +28,7 @@ class GraphControlsPanel;
 class TemplateService;
 class DailyNoteService;
 class WelcomeScreen;
+class CommandRegistry;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -86,6 +87,7 @@ private:
     DailyNoteService *m_dailyNoteService = nullptr;
     QStackedWidget *m_centralStack = nullptr;
     WelcomeScreen *m_welcomeScreen = nullptr;
+    CommandRegistry *m_commandRegistry = nullptr;
 };
 
 } // namespace Corbomite

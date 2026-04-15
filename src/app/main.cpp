@@ -6,6 +6,7 @@
 #include <QIcon>
 #include "MainWindow.h"
 #include "VaultService.h"
+#include "corbomite/core/ScopeManager.h"
 
 int main(int argc, char *argv[])
 {
@@ -31,6 +32,10 @@ int main(int argc, char *argv[])
     app.setWindowIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
 
     KDBusService service(KDBusService::Unique);
+
+    // Install the app-wide key-binding dispatcher (Cluster C).
+    // Any Modal/Menu that owns a Scope will push/pop onto this.
+    Corbomite::ScopeManager::instance()->installOnApplication();
 
     Corbomite::VaultService vaultService;
     auto *mainWindow = new Corbomite::MainWindow(&vaultService);

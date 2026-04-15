@@ -24,6 +24,8 @@
 #include "reactors/AutosaveReactor.h"
 #include "reactors/FileWatchReactor.h"
 #include "SessionManager.h"
+
+#include "corbomite/core/Command.h"
 #include "dialogs/CreateVaultDialog.h"
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
@@ -80,6 +82,8 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     connect(m_vaultService, &VaultService::vaultOpened, this, &MainWindow::onVaultOpened);
     connect(m_vaultService, &VaultService::vaultClosed, this, &MainWindow::onVaultClosed);
 
+    m_commandRegistry = new CommandRegistry();
+
     updateVaultActions();
     resize(1200, 800);
 }
@@ -102,6 +106,9 @@ MainWindow::~MainWindow()
 
     delete m_treeModel;
     m_treeModel = nullptr;
+
+    delete m_commandRegistry;
+    m_commandRegistry = nullptr;
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -649,6 +656,24 @@ void MainWindow::showCommandPalette()
         groups.append({i18n("View"), viewActions});
     if (!editActions.isEmpty())
         groups.append({i18n("Other"), editActions});
+
+    // Merge CommandRegistry entries into the palette. Each Command is
+    // wrapped in a throwaway QAction parented to the KCommandBar; the
+    // QAction's triggered signal dispatches back through the registry.
+    if (m_commandRegistry) {
+        QList<QAction *> commandActions;
+        for (auto *cmd : m_commandRegistry->listAvailable()) {
+            auto *action = new QAction(cmd->name.isEmpty() ? cmd->id : cmd->name, bar);
+            if (!cmd->icon.isEmpty()) action->setIcon(QIcon::fromTheme(cmd->icon));
+            const QString id = cmd->id;
+            connect(action, &QAction::triggered, this, [this, id]() {
+                if (m_commandRegistry) m_commandRegistry->executeById(id);
+            });
+            commandActions.append(action);
+        }
+        if (!commandActions.isEmpty())
+            groups.append({i18n("Commands"), commandActions});
+    }
 
     bar->setActions(groups);
     bar->show();
