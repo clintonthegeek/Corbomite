@@ -27,6 +27,8 @@ public:
 
     QString replaceText() const;
 
+    void setMatchCount(int current, int total);
+
 Q_SIGNALS:
     void searchTextChanged(const QString &text);
     void findNext();

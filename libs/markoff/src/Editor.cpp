@@ -13,6 +13,7 @@
 #include <QScrollBar>
 #include <QTextBlock>
 #include <QTextDocument>
+#include <QTextEdit>
 #include <QTimer>
 #include <QMenu>
 #include <QAction>
@@ -1072,9 +1073,136 @@ void Editor::repositionSearchBar()
     m_searchBar->raise();
 }
 
-// Stubs — replaced with real implementations in Task 3
-void Editor::highlightAllMatches(const QString &text) { Q_UNUSED(text); }
-void Editor::clearSearchHighlights() {}
-void Editor::updateMatchCount() {}
+void Editor::highlightAllMatches(const QString &text)
+{
+    clearSearchHighlights();
+    m_lastSearchText = text;
+    m_totalMatchCount = 0;
+    m_currentMatchIndex = -1;
+
+    if (text.isEmpty() || !m_coordinator) {
+        m_searchBar->setMatchCount(0, 0);
+        return;
+    }
+
+    QTextDocument::FindFlags flags = searchFlags();
+
+    // Highlight formats
+    QTextCharFormat matchFmt;
+    matchFmt.setBackground(QColor(255, 255, 0, 120)); // yellow
+
+    QTextCharFormat currentFmt;
+    currentFmt.setBackground(QColor(255, 150, 50, 180)); // orange
+
+    // Find the focused item and cursor position for current-match tracking
+    auto *focusedItem = focusedTextItem();
+    int focusedCursorPos = -1;
+    if (focusedItem)
+        focusedCursorPos = focusedItem->textControl()->textCursor().position();
+
+    int globalIndex = 0;
+    int closestIndex = -1;
+    int closestDistance = std::numeric_limits<int>::max();
+    MarkdownTextItem *closestItem = nullptr;
+    QTextCursor closestCursor;
+
+    for (auto *item : m_coordinator->items()) {
+        if (!item->isTextItem()) continue;
+        auto *ti = static_cast<MarkdownTextItem *>(item);
+        auto *doc = ti->document();
+        QList<QTextEdit::ExtraSelection> selections;
+
+        QTextCursor search(doc);
+        while (!(search = doc->find(text, search, flags)).isNull()) {
+            if (m_totalMatchCount >= 65536) break;
+
+            QTextEdit::ExtraSelection sel;
+            sel.cursor = search;
+            sel.format = matchFmt;
+            selections.append(sel);
+
+            // Track closest match to cursor for current-match index
+            if (ti == focusedItem && focusedCursorPos >= 0) {
+                int dist = search.selectionStart() - focusedCursorPos;
+                if (dist >= 0 && dist < closestDistance) {
+                    closestDistance = dist;
+                    closestIndex = globalIndex;
+                    closestItem = ti;
+                    closestCursor = search;
+                }
+            }
+
+            ++globalIndex;
+            ++m_totalMatchCount;
+        }
+
+        ti->textControl()->setExtraSelections(selections);
+    }
+
+    // If no match found at/after cursor, use the first match
+    if (closestIndex < 0 && m_totalMatchCount > 0)
+        closestIndex = 0;
+
+    m_currentMatchIndex = closestIndex;
+
+    // Highlight current match in orange
+    if (closestItem && closestCursor.hasSelection()) {
+        auto rawSelections = closestItem->textControl()->extraSelections();
+        for (int i = 0; i < rawSelections.size(); ++i) {
+            if (rawSelections[i].cursor.selectionStart() == closestCursor.selectionStart()
+                && rawSelections[i].cursor.selectionEnd() == closestCursor.selectionEnd()) {
+                rawSelections[i].format = currentFmt;
+            }
+        }
+        closestItem->textControl()->setExtraSelections(rawSelections);
+    }
+
+    m_searchBar->setMatchCount(
+        m_totalMatchCount > 0 ? m_currentMatchIndex + 1 : 0,
+        m_totalMatchCount);
+}
+
+void Editor::clearSearchHighlights()
+{
+    if (!m_coordinator) return;
+    const QList<QTextEdit::ExtraSelection> empty;
+    for (auto *item : m_coordinator->items()) {
+        if (!item->isTextItem()) continue;
+        auto *ti = static_cast<MarkdownTextItem *>(item);
+        ti->textControl()->setExtraSelections(empty);
+    }
+    m_totalMatchCount = 0;
+    m_currentMatchIndex = -1;
+}
+
+void Editor::updateMatchCount()
+{
+    if (m_lastSearchText.isEmpty() || m_totalMatchCount == 0) return;
+
+    // Recompute current index based on cursor position
+    auto *focusedItem = focusedTextItem();
+    if (!focusedItem) return;
+    int cursorPos = focusedItem->textControl()->textCursor().selectionStart();
+
+    int index = 0;
+    QTextDocument::FindFlags flags = searchFlags();
+    for (auto *item : m_coordinator->items()) {
+        if (!item->isTextItem()) continue;
+        auto *ti = static_cast<MarkdownTextItem *>(item);
+        auto *doc = ti->document();
+        QTextCursor search(doc);
+        while (!(search = doc->find(m_lastSearchText, search, flags)).isNull()) {
+            if (ti == focusedItem && search.selectionStart() == cursorPos) {
+                m_currentMatchIndex = index;
+                m_searchBar->setMatchCount(index + 1, m_totalMatchCount);
+
+                // Update orange highlight
+                highlightAllMatches(m_lastSearchText);
+                return;
+            }
+            ++index;
+        }
+    }
+}
 
 } // namespace Markoff

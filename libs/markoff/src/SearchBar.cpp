@@ -134,6 +134,17 @@ QString SearchBar::replaceText() const
     return m_replaceEdit->text();
 }
 
+void SearchBar::setMatchCount(int current, int total)
+{
+    if (total == 0) {
+        m_countLabel->setText(tr("No results"));
+    } else if (total > 65536) {
+        m_countLabel->setText(tr("65536+ matches"));
+    } else {
+        m_countLabel->setText(tr("%1 of %2").arg(current).arg(total));
+    }
+}
+
 void SearchBar::showFind()
 {
     m_replaceRow->hide();
