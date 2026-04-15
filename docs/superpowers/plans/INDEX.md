@@ -2,7 +2,7 @@
 
 > **Living document.** Table of contents over `docs/superpowers/plans/cluster-*.md`. One row per cluster plan. Status mirrors `docs/PROJECT-STATE.md` Roadmap — when those diverge, **PROJECT-STATE is authoritative.** Update the Status column here per Ritual 3 (cluster done) or Ritual 2 (mid-cluster status change).
 
-**Last updated:** 2026-04-14 — added Cluster H full plan, Clusters G/K scouting docs, Cluster O (post-parity query layer), and Cluster P (Graffodil adoption — internal refactor, parallelisable with parity). Both O and P sit outside the Obsidian-parity roadmap: O is a native-C++-advantage *exceeding* Obsidian after parity; P is an *internal restructuring* that shares Corbomite's graph/canvas code with PlanStan via the Graffodil library.
+**Last updated:** 2026-04-15 — Cluster I landed (all 8 phases, 10 commits). Cluster F stub expansion trigger fired (A + I now both done); ready to dispatch.
 
 ## Plans
 
@@ -16,7 +16,7 @@
 | F | Templates / Daily Notes / Moment | [2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md](2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md) | Stub | Stub plan | expand after A + I land |
 | G | Views hierarchy + TextFileView contract | [2026-04-14-cluster-g-views-hierarchy-SCOUTING.md](2026-04-14-cluster-g-views-hierarchy-SCOUTING.md) | Scouting | Scouting doc | expand when C Phase 1 lands |
 | H | Menus / hover / suggester UI | [2026-04-14-cluster-h-menus-hover-suggester-ui.md](2026-04-14-cluster-h-menus-hover-suggester-ui.md) | Full | Done | landed 2026-04-15 (5 commits) |
-| I | MetadataCache parity | [2026-04-14-cluster-i-metadatacache-parity-STUB.md](2026-04-14-cluster-i-metadatacache-parity-STUB.md) | Stub | Stub plan | expand after A + C in flight |
+| I | MetadataCache parity | [2026-04-15-cluster-i-metadatacache-parity.md](2026-04-15-cluster-i-metadatacache-parity.md) | Full | Done | landed 2026-04-15 (10 commits, 8 phases) |
 | J | Embed / rendering primitives | [2026-04-14-cluster-j-embed-rendering-primitives-STUB.md](2026-04-14-cluster-j-embed-rendering-primitives-STUB.md) | Stub | Stub plan | expand after E + I in flight |
 | K | Bases | [2026-04-14-cluster-k-bases-SCOUTING.md](2026-04-14-cluster-k-bases-SCOUTING.md) | Scouting | Scouting doc (blocked) | expand when Bases DSL extraction addendum lands |
 | L | Properties panel | — | — | Deferred | normal task after A/B/I/C |
