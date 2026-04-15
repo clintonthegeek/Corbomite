@@ -1022,8 +1022,22 @@ bool Editor::findText(const QString &text, QTextDocument::FindFlags flags)
             }
             if (itemIdx >= 0) {
                 const int blockNum = found.block().blockNumber();
-                const QStringList path =
-                    m_coordinator->enclosingHeadingPathAtBlock(itemIdx, blockNum);
+                // If the matched item IS a code-block region (non-MTI), use its
+                // own path as the unfold target. Otherwise fall back to
+                // enclosing-heading lookup.
+                QStringList path;
+                const int regionIdx =
+                    m_coordinator->regionAtBlock(itemIdx, blockNum);
+                if (regionIdx >= 0) {
+                    const auto &regs = m_foldingModel->regions();
+                    if (regionIdx < regs.size()
+                        && regs[regionIdx].type == FoldableRegion::CodeBlock) {
+                        path = regs[regionIdx].path;
+                    }
+                }
+                if (path.isEmpty())
+                    path = m_coordinator->enclosingHeadingPathAtBlock(
+                        itemIdx, blockNum);
                 if (!path.isEmpty()) {
                     const auto unfolded = m_foldingModel->unfoldAncestors(path);
                     if (!unfolded.isEmpty())

@@ -99,6 +99,11 @@ public:
     /// PUBLIC — used by Editor (Task 6) to feed FoldingModel::reconcile().
     QList<FoldableRegion> computeRegions() const;
 
+    /// Returns the region-index (into FoldingModel::regions()) for the given
+    /// (itemIdx, blockNumber), or -1 if none.
+    /// PUBLIC — used by Editor (Task 12) for code-block auto-unfold on find.
+    int regionAtBlock(int itemIdx, int blockNumber) const;
+
 Q_SIGNALS:
     void textChanged();
     void reparsed();
@@ -126,10 +131,6 @@ private:
     mutable QList<int> m_regionToHeadingIdx;
     mutable bool m_regionMapDirty = true;
     void ensureRegionMap() const;
-
-    /// Returns the region-index (into FoldingModel::regions()) for the given
-    /// (itemIdx, blockNumber), or -1 if none.
-    int regionAtBlock(int itemIdx, int blockNumber) const;
 
     /// V1-compat: returns the heading-index (into FoldingModel::headings())
     /// for the given (itemIdx, blockNumber), or -1 if not a heading block.
