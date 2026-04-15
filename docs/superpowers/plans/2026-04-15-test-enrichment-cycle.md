@@ -221,6 +221,7 @@ The cross-session test target is where Cycle 1's Tier B scenarios live. We regis
 #include <QTest>
 #include <QTemporaryDir>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QSignalSpy>
