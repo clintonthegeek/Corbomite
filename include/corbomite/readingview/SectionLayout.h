@@ -5,6 +5,7 @@
 #define CORBOMITE_READINGVIEW_SECTIONLAYOUT_H
 
 #include "corbomite/readingview/CodeBlockHighlighter.h"
+#include "corbomite/readingview/VaultResourceProvider.h"
 
 #include <QList>
 #include <QObject>
@@ -17,7 +18,6 @@ namespace Corbomite::ReadingView {
 class ReadingSection;
 class StyleManager;
 class CodeBlockHighlighter;
-class VaultResourceProvider;
 
 /// Lay out a single `ReadingSection` into a mounted QGraphicsItem subtree.
 /// Phase 3b: synchronous, simple-stacking. Eleven content types — headings,
