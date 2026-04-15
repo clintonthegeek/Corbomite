@@ -473,31 +473,29 @@ void SceneCoordinator::ensureHeadingMap() const
     const auto &hs = m_foldingModel->headings();
     if (hs.isEmpty()) return;
 
-    // Heading sourceOffsets are byte offsets into the POST-frontmatter
-    // source that tree-sitter sees. Document::fromMarkdown strips the
-    // YAML frontmatter (--- ... ---) before parsing, so when our items
-    // include the frontmatter we have to add its byte length back to
-    // each heading's offset before converting to a line in the full
-    // toMarkdown() output.
-    const QString full = toMarkdown();
-    const QByteArray utf8 = full.toUtf8();
-    int frontmatterBytes = 0;
-    if (full.startsWith(QStringLiteral("---\n")) ||
-        full.startsWith(QStringLiteral("---\r\n"))) {
-        const int endPos = full.indexOf(QStringLiteral("\n---"), 3);
-        if (endPos >= 0) {
-            int after = endPos + 4; // past "\n---"
-            if (after < full.size() && full[after] == QLatin1Char('\r')) ++after;
-            if (after < full.size() && full[after] == QLatin1Char('\n')) ++after;
-            frontmatterBytes = full.left(after).toUtf8().size();
-        }
-    }
+
+    // Use sourceOffsets from a fresh parse of the raw toMarkdown() output.
+    // Document::fromMarkdown (which populates FoldingModel's headings)
+    // strips frontmatter AND footnote definitions before parsing, so its
+    // offsets don't align with toMarkdown()'s byte space.
+    // SceneCoordinator's m_parser is per-item (its last parse was the
+    // last segment's text, not the whole document), so we run a one-shot
+    // parse here. We match to FoldingModel headings by document-order
+    // index — both parses use the same tree-sitter grammar so they agree
+    // on heading count and order.
+    const QString md = toMarkdown();
+    const QByteArray utf8 = md.toUtf8();
+    TreeSitterParser rawParser;
+    rawParser.parse(md);
+    const QList<HeadingInfo> rawHeadings =
+        rawParser.buildDocumentQueries().headings;
+    if (rawHeadings.size() != hs.size()) return;
 
     QHash<int, int> lineToHeadingIdx;
-    lineToHeadingIdx.reserve(hs.size());
-    for (int i = 0; i < hs.size(); ++i) {
-        const int absOffset = hs[i].info.sourceOffset + frontmatterBytes;
-        lineToHeadingIdx.insert(sourceLineAt(utf8, absOffset), i);
+    lineToHeadingIdx.reserve(rawHeadings.size());
+    for (int i = 0; i < rawHeadings.size(); ++i) {
+        const int line = sourceLineAt(utf8, rawHeadings[i].sourceOffset);
+        lineToHeadingIdx.insert(line, i);
     }
 
     // Walk items in order, tracking the running source-line offset.
