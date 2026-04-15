@@ -37,6 +37,8 @@ add_library(readingview STATIC
     include/corbomite/readingview/VirtualScrollController.h
     src/VirtualScrollController.cpp
     include/corbomite/readingview/VaultResourceProvider.h
+    include/corbomite/readingview/LinkRenderer.h
+    src/LinkRenderer.cpp
     src/SpanRenderer.h
     src/SpanRenderer.cpp
     src/ReadingMathObject.h
