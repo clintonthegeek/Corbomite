@@ -14,6 +14,10 @@ add_library(corbomite-search STATIC
     include/corbomite/search/FuzzyMatcher.h
     src/ResultHighlighter.cpp
     include/corbomite/search/ResultHighlighter.h
+    src/SearchAst.cpp
+    include/corbomite/search/SearchAst.h
+    src/SearchDSL.cpp
+    include/corbomite/search/SearchDSL.h
 )
 set_target_properties(corbomite-search PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Search ALIAS corbomite-search)

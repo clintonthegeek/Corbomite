@@ -9,3 +9,7 @@ set(CMAKE_AUTOMOC ON)
 add_executable(tst_fuzzymatcher tst_fuzzymatcher.cpp)
 add_test(NAME tst_fuzzymatcher COMMAND tst_fuzzymatcher)
 target_link_libraries(tst_fuzzymatcher PRIVATE Qt6::Test Corbomite::Search)
+
+add_executable(tst_searchdsl tst_searchdsl.cpp)
+add_test(NAME tst_searchdsl COMMAND tst_searchdsl)
+target_link_libraries(tst_searchdsl PRIVATE Qt6::Test Corbomite::Search)
