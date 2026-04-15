@@ -881,7 +881,8 @@ void Editor::scrollToHeading(const HeadingInfo &heading)
         const auto &hs = m_foldingModel->headings();
         for (const auto &entry : hs) {
             if (entry.info.level == heading.level
-                && entry.info.text == heading.text) {
+                && entry.info.text == heading.text
+                && entry.info.sourceOffset == heading.sourceOffset) {
                 const auto unfolded = m_foldingModel->unfoldAncestors(entry.path);
                 if (!unfolded.isEmpty())
                     Q_EMIT foldsAutoExpanded(unfolded);
