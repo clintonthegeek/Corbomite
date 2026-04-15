@@ -48,6 +48,7 @@ add_library(markoff STATIC
     src/DecoratedRange.cpp
     src/FoldingTypes.cpp
     src/FoldingModel.cpp
+    src/FoldArrowColumn.cpp
     src/ResourceProvider.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)

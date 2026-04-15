@@ -72,3 +72,9 @@ add_test(NAME tst_markoff_folding_integration COMMAND tst_markoff_folding_integr
 target_link_libraries(tst_markoff_folding_integration PRIVATE Qt6::Test Qt6::Widgets markoff)
 target_include_directories(tst_markoff_folding_integration PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 set_tests_properties(tst_markoff_folding_integration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_markoff_fold_gutter tst_fold_gutter.cpp)
+add_test(NAME tst_markoff_fold_gutter COMMAND tst_markoff_fold_gutter)
+target_link_libraries(tst_markoff_fold_gutter PRIVATE Qt6::Test Qt6::Widgets markoff)
+target_include_directories(tst_markoff_fold_gutter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+set_tests_properties(tst_markoff_fold_gutter PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
