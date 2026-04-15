@@ -8,6 +8,7 @@
 #include "corbomite/readingview/ReadingView.h"
 
 #include <QGraphicsScene>
+#include <QSignalSpy>
 #include <QTest>
 
 using namespace Corbomite::ReadingView;
@@ -59,7 +60,13 @@ void TestReadingViewEndToEnd::fiveHundredLineNote()
     // Guard: the fixture should comfortably exceed 500 lines.
     QVERIFY(md.count(QLatin1Char('\n')) >= 500);
 
+    // Phase 5: fixture is well over the 10240-byte threshold so parse runs
+    // on the worker thread. Wait for mounting to finish before asserting
+    // scene geometry.
+    QSignalSpy spy(&rv, &ReadingView::mountingFinished);
     rv.setPlainText(md);
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 30000);
+
     auto *s = rv.scene();
     QVERIFY(s != nullptr);
 
@@ -76,7 +83,9 @@ void TestReadingViewEndToEnd::fiveHundredLineNote()
 void TestReadingViewEndToEnd::scrollApiIsNotIdentity()
 {
     ReadingView rv;
+    QSignalSpy spy(&rv, &ReadingView::mountingFinished);
     rv.setPlainText(buildFixture());
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 30000);
     rv.resize(800, 600);
     // Ensure the scrollbars know their range.
     rv.show();
@@ -99,7 +108,9 @@ void TestReadingViewEndToEnd::reparseWithOneParagraphEditMostlyReuses()
     // the re-parse.
     ReadingView rv;
     const QString md1 = buildFixture();
+    QSignalSpy spy(&rv, &ReadingView::mountingFinished);
     rv.setPlainText(md1);
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 30000);
 
     QVector<QGraphicsItem *> first;
     for (const auto &sec : rv.sections())
@@ -116,7 +127,9 @@ void TestReadingViewEndToEnd::reparseWithOneParagraphEditMostlyReuses()
     QVERIFY(md2.contains(target));
     md2.replace(target, replacement);
 
+    const int priorCount = spy.count();
     rv.setPlainText(md2);
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() > priorCount, 30000);
 
     QVector<QGraphicsItem *> second;
     for (const auto &sec : rv.sections())

@@ -27,6 +27,9 @@ add_library(readingview STATIC
     src/ReadingSection.cpp
     include/corbomite/readingview/ReadingPipeline.h
     src/ReadingPipeline.cpp
+    include/corbomite/readingview/ReadingParseWorker.h
+    src/ReadingParseWorker.cpp
+    include/corbomite/readingview/ReadingViewConstants.h
     include/corbomite/readingview/SectionLayout.h
     src/SectionLayout.cpp
     include/corbomite/readingview/SectionRecyclePool.h
