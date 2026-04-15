@@ -32,6 +32,8 @@ find_package(KF6SyntaxHighlighting REQUIRED)
 
 
 # Libraries
+set(RYML_DEFAULT_CALLBACK_USES_EXCEPTIONS ON CACHE BOOL "" FORCE)
+add_subdirectory(libs/rapidyaml)
 add_subdirectory(libs/jkqtmathtext)
 add_subdirectory(libs/core)
 add_subdirectory(libs/storage)

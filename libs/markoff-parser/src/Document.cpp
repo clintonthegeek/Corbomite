@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <markoff-parser/Document.h>
+#include <markoff-parser/YamlValue.h>
 #include <markoff-parser/TreeSitterParser.h>
 
 #include <QStringList>
 #include <QRegularExpression>
-#include <yaml-cpp/yaml.h>
 
 namespace Markoff {
 
@@ -16,9 +16,17 @@ struct Footnote {
 
 struct Document::Private {
     QString source;
-    QString frontmatter;    // YAML frontmatter content (without --- delimiters)
+    QString frontmatter;        // YAML frontmatter content (without --- delimiters)
+    int frontmatterBlockStart = -1;   // byte offset of first char of opening ---
+    int frontmatterBlockEnd = -1;     // byte offset past closing --- line (or EOF)
+    bool eofClose = false;            // closing --- is at EOF with no trailing newline
     TreeSitterParser parser;
     QList<Footnote> footnotes;
+
+    // Lazy-parsed
+    mutable YamlValue cachedParsed;
+    mutable QString cachedParseError;
+    mutable bool parsedOnce = false;
 };
 
 Document::Document()
@@ -33,18 +41,37 @@ std::unique_ptr<Document> Document::fromMarkdown(const QString &source)
     auto doc = std::unique_ptr<Document>(new Document());
     doc->d->source = source;
 
-    // Extract frontmatter before parsing
+    // Extract frontmatter before parsing — track byte spans per Cluster A contract
     QString markdown = source;
     if (source.startsWith(QStringLiteral("---\n")) || source.startsWith(QStringLiteral("---\r\n"))) {
         int endPos = source.indexOf(QStringLiteral("\n---"), 3);
         if (endPos >= 0) {
             int fmStart = source.indexOf(QLatin1Char('\n')) + 1;
             doc->d->frontmatter = source.mid(fmStart, endPos - fmStart);
-            // Skip past the closing ---\n
+            doc->d->frontmatterBlockStart = 0;
+
+            // Skip past the closing ---\n (or ---\r\n or ---<EOF>)
             int afterFm = endPos + 4; // "\n---"
+            if (afterFm < source.size() && source[afterFm] == QLatin1Char('\r'))
+                ++afterFm;
             if (afterFm < source.size() && source[afterFm] == QLatin1Char('\n'))
                 ++afterFm;
+
+            doc->d->eofClose = (afterFm >= source.size());
+            doc->d->frontmatterBlockEnd = afterFm;
             markdown = source.mid(afterFm);
+        } else {
+            // Opening --- but no closing --- found — check for EOF-close:
+            // entire rest of file after opening line is frontmatter
+            int fmStart = source.indexOf(QLatin1Char('\n')) + 1;
+            // Check if there's a closing --- at the very end without trailing newline
+            if (source.endsWith(QStringLiteral("\n---"))) {
+                doc->d->frontmatter = source.mid(fmStart, source.size() - fmStart - 4);
+                doc->d->frontmatterBlockStart = 0;
+                doc->d->frontmatterBlockEnd = source.size();
+                doc->d->eofClose = true;
+                markdown = QString();
+            }
         }
     }
 
@@ -130,6 +157,23 @@ bool Document::isEmpty() const
 QString Document::frontmatter() const
 {
     return d->frontmatter;
+}
+
+QString Document::frontmatterRaw() const
+{
+    return d->frontmatter;
+}
+
+std::optional<std::pair<int,int>> Document::frontmatterSpan() const
+{
+    if (d->frontmatterBlockStart < 0)
+        return std::nullopt;
+    return std::make_pair(d->frontmatterBlockStart, d->frontmatterBlockEnd);
+}
+
+bool Document::frontmatterHasEofClose() const
+{
+    return d->eofClose;
 }
 
 QString Document::markdownContent() const
@@ -329,40 +373,66 @@ QString Document::extractSubpath(const QString &subpath) const
     return result.join(QLatin1Char('\n'));
 }
 
-static QVariant yamlNodeToVariant(const YAML::Node &node)
+YamlValue Document::parsedFrontmatter() const
 {
-    if (!node.IsDefined() || node.IsNull())
+    if (d->parsedOnce)
+        return d->cachedParsed;
+
+    d->parsedOnce = true;
+    const QString raw = d->frontmatter;
+    if (raw.isEmpty())
         return {};
 
-    if (node.IsScalar()) {
-        const std::string s = node.Scalar();
-        if (s == "true" || s == "True" || s == "TRUE")
-            return true;
-        if (s == "false" || s == "False" || s == "FALSE")
-            return false;
-        bool ok = false;
-        int i = QString::fromStdString(s).toInt(&ok);
-        if (ok) return i;
-        double d = QString::fromStdString(s).toDouble(&ok);
-        if (ok && s.find('.') != std::string::npos) return d;
-        return QString::fromStdString(s);
+    d->cachedParsed = YamlValue::parse(raw, &d->cachedParseError);
+    return d->cachedParsed;
+}
+
+QString Document::frontmatterParseError() const
+{
+    // Trigger lazy parse if not done yet
+    parsedFrontmatter();
+    return d->cachedParseError;
+}
+
+QString Document::withFrontmatter(const YamlValue &value) const
+{
+    QString body = markdownContent();
+
+    if (value.isNull()) {
+        // Strip frontmatter entirely
+        return body;
     }
 
-    if (node.IsSequence()) {
-        QStringList list;
-        for (const auto &item : node)
-            list.append(yamlNodeToVariant(item).toString());
-        return list;
-    }
+    QString yamlBody = value.stringify();
+    QString newFm = QStringLiteral("---\n") + yamlBody + QStringLiteral("\n---\n");
+    return newFm + body;
+}
 
-    if (node.IsMap()) {
+// --- Legacy compatibility (deprecated) ---
+
+static QVariant yamlValueToVariant(const YamlValue &val)
+{
+    switch (val.kind()) {
+    case YamlValue::Kind::Null:
+        return {};
+    case YamlValue::Kind::Bool:
+        return val.asBool();
+    case YamlValue::Kind::Int:
+        return static_cast<int>(val.asInt());
+    case YamlValue::Kind::Double:
+        return val.asDouble();
+    case YamlValue::Kind::String:
+        return val.asString();
+    case YamlValue::Kind::Seq:
+        return val.asStringList();
+    case YamlValue::Kind::Map: {
         QVariantMap map;
-        for (const auto &pair : node)
-            map.insert(QString::fromStdString(pair.first.Scalar()),
-                       yamlNodeToVariant(pair.second));
+        val.forEach([&](const QString &k, const YamlValue &v) {
+            map.insert(k, yamlValueToVariant(v));
+        });
         return map;
     }
-
+    }
     return {};
 }
 
@@ -379,28 +449,19 @@ static QVariant normalizeListValue(const QString &key, const QVariant &value)
     return value;
 }
 
-QList<FrontmatterProperty> Document::parsedFrontmatter() const
+QList<FrontmatterProperty> Document::parsedFrontmatterLegacy() const
 {
-    const QString raw = d->frontmatter;
-    if (raw.isEmpty())
+    YamlValue fm = parsedFrontmatter();
+    if (!fm.isMap())
         return {};
 
     QList<FrontmatterProperty> result;
-    try {
-        YAML::Node root = YAML::Load(raw.toStdString());
-        if (!root.IsMap())
-            return {};
-
-        for (const auto &pair : root) {
-            FrontmatterProperty prop;
-            prop.key = QString::fromStdString(pair.first.Scalar());
-            prop.value = normalizeListValue(prop.key,
-                                            yamlNodeToVariant(pair.second));
-            result.append(prop);
-        }
-    } catch (const YAML::Exception &) {
-        return {};
-    }
+    fm.forEach([&](const QString &key, const YamlValue &val) {
+        FrontmatterProperty prop;
+        prop.key = key;
+        prop.value = normalizeListValue(key, yamlValueToVariant(val));
+        result.append(prop);
+    });
     return result;
 }
 

@@ -7,7 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets)
 find_package(PkgConfig REQUIRED)
-find_package(yaml-cpp REQUIRED)
+# yaml-cpp replaced by ryml (added at top-level CMakeLists.txt)
 
 pkg_check_modules(TREESITTER REQUIRED IMPORTED_TARGET tree-sitter)
 
@@ -37,6 +37,7 @@ add_library(markoff-parser STATIC
     src/TableHandler.cpp
     src/Document.cpp
     src/LinkTextParser.cpp
+    src/YamlValue.cpp
 )
 set_target_properties(markoff-parser PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(MarkoffParser::MarkoffParser ALIAS markoff-parser)
@@ -55,7 +56,7 @@ target_link_libraries(markoff-parser
         Qt6::Widgets
         PkgConfig::TREESITTER
         ts-markdown-parser
-        yaml-cpp::yaml-cpp
+        ryml::ryml
 )
 
 enable_testing()
