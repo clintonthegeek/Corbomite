@@ -6,8 +6,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Svg SvgWidgets)
 find_package(KF6SyntaxHighlighting REQUIRED)
+
+# jkqtmathtext: pulled in as a sibling add_subdirectory by the parent tree.
+# Defensively add it if we're being configured standalone.
+if(NOT TARGET jkqtmathtext)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../jkqtmathtext
+                     ${CMAKE_CURRENT_BINARY_DIR}/jkqtmathtext)
+endif()
 
 # ReadingView library (Obsidian-compatible Reading-mode widget).
 # Peer to libs/markoff — DOES NOT depend on Markoff.
@@ -22,6 +29,13 @@ add_library(readingview STATIC
     src/ReadingPipeline.cpp
     include/corbomite/readingview/SectionLayout.h
     src/SectionLayout.cpp
+    include/corbomite/readingview/VaultResourceProvider.h
+    src/SpanRenderer.h
+    src/SpanRenderer.cpp
+    src/ReadingMathObject.h
+    src/ReadingMathObject.cpp
+    src/MermaidRenderer.h
+    src/MermaidRenderer.cpp
     include/corbomite/readingview/styling/ParagraphStyle.h
     src/styling/ParagraphStyle.cpp
     include/corbomite/readingview/styling/CharacterStyle.h
@@ -42,24 +56,14 @@ target_link_libraries(readingview
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
+        Qt6::Svg
+        Qt6::SvgWidgets
         KF6::SyntaxHighlighting
     PRIVATE
         MarkoffParser::MarkoffParser
+        jkqtmathtext
+        mmdr
 )
-# NOTE: KF6::SyntaxHighlighting is PUBLIC (not PRIVATE) because
-# CodeBlockHighlighter.h currently exposes KSyntaxHighlighting types
-# (AbstractHighlighter base class, Repository member). If later phases
-# refactor the public header to hide these behind a pimpl / pure-virtual
-# interface, this link can be downgraded to PRIVATE.
-#
-# MarkoffParser::MarkoffParser is PRIVATE — it's only used inside
-# ReadingPipeline.cpp; no public header leaks Markoff types.
 
 enable_testing()
 add_subdirectory(tests)
-
-# TODO(Phase 3b+): wire in the remaining external deps as the transplant
-# progresses:
-#   - JKQTMathText                  (inline/block math)
-#   - mmdr                          (Mermaid rendering)
-#   - Corbomite::Core               (NoteMeta / NoteDocument shared types)

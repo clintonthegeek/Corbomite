@@ -173,9 +173,22 @@ ReadingPipeline::splitIntoSections(const QString &markdown)
         auto s = std::make_shared<ReadingSection>();
         s->setSourceRange({ cur.lineStart, endOffset });
         s->setHeadingLevel(cur.level);
-        // Phase 3a: usesFrontMatter stays false; Phase 3b will detect
-        // {{title}} / {{property}} references and flip this.
         sections.push_back(s);
+    }
+
+    // usesFrontMatter detection — scan each non-frontmatter section for
+    // Obsidian-style template tokens that read from frontmatter. Any of
+    // `{{title}}`, `{{date}}`, or `{{property:...}}` triggers the flag.
+    // Phase 4 uses this as the re-render trigger on frontmatter edits.
+    static const QRegularExpression tokenRe(
+        QStringLiteral(R"(\{\{(?:title|date|property:[^}]+)\}\})"));
+    for (auto &sec : sections) {
+        if (sec->isFrontMatterSection()) continue;
+        const auto r = sec->sourceRange();
+        if (r.to <= r.from) continue;
+        const QString slice = markdown.mid(r.from, r.to - r.from);
+        if (tokenRe.match(slice).hasMatch())
+            sec->setUsesFrontMatter(true);
     }
 
     return sections;

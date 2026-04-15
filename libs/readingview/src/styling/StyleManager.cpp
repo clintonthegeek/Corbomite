@@ -214,6 +214,38 @@ void StyleManager::populateObsidianDefaults(Theme theme)
     link.setForeground(QColor(70, 130, 200));
     link.setFontUnderline(true);
     m_charStyles.insert(link.name(), link);
+
+    // WikiLink: underline + Obsidian-ish purple accent so it's visually
+    // distinct from standard links. SectionLayout stores the target in
+    // user data (see SpanRenderer::WikiLinkTargetProperty).
+    CharacterStyle wikiLink(QStringLiteral("WikiLink"));
+    wikiLink.setForeground((theme == Theme::Dark) ? QColor(167, 139, 250)
+                                                  : QColor(123, 108, 217));
+    wikiLink.setFontUnderline(true);
+    m_charStyles.insert(wikiLink.name(), wikiLink);
+
+    // Strikethrough: ~~text~~
+    CharacterStyle strike(QStringLiteral("Strikethrough"));
+    strike.setFontStrikeOut(true);
+    m_charStyles.insert(strike.name(), strike);
+
+    // Highlight: ==text==
+    CharacterStyle highlight(QStringLiteral("Highlight"));
+    highlight.setBackground((theme == Theme::Dark) ? QColor(100, 90, 40)
+                                                   : QColor(255, 243, 176));
+    m_charStyles.insert(highlight.name(), highlight);
+
+    // ImageCaption: used for fallback text when an image fails to resolve.
+    CharacterStyle imageCaption(QStringLiteral("ImageCaption"));
+    imageCaption.setFontItalic(true);
+    imageCaption.setForeground(muted);
+    m_charStyles.insert(imageCaption.name(), imageCaption);
+
+    // MathInline: reserved style entry for inline-math rendered regions
+    // (font-sizing + spacing cues, not used to colour the pixmap itself).
+    CharacterStyle mathInline(QStringLiteral("MathInline"));
+    mathInline.setFontFamily(QStringLiteral("JetBrains Mono"));
+    m_charStyles.insert(mathInline.name(), mathInline);
 }
 
 StyleManager *StyleManager::makeObsidianDefault(Theme theme, QObject *parent)
