@@ -1,8 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QtTest/QtTest>
+#include <markoff/FoldingTypes.h>
 #include "FoldingModel.h"
 
 using namespace Markoff;
+
+static QList<FoldableRegion> headingsToRegions(const QList<HeadingInfo> &hs)
+{
+    const QList<FoldRegionKey> paths = computeHeadingPaths(hs);
+    QList<FoldableRegion> regions;
+    for (int i = 0; i < hs.size(); ++i) {
+        FoldableRegion r;
+        r.type = FoldableRegion::Heading;
+        r.path = paths[i];
+        r.level = hs[i].level;
+        r.sourceOffset = hs[i].sourceOffset;
+        r.info = hs[i];
+        regions.append(r);
+    }
+    return regions;
+}
 
 class TstFoldingReconcile : public QObject {
     Q_OBJECT
@@ -24,48 +41,48 @@ static HeadingInfo h(int lvl, QString text) { return {lvl, std::move(text), 0}; 
 void TstFoldingReconcile::reconcile_empty_clearsStaleFolds() {
     FoldingModel m;
     m.fold({"Old"});
-    m.reconcile({});
+    m.reconcile(headingsToRegions({}));
     QVERIFY(m.foldedPaths().isEmpty());
 }
 
 void TstFoldingReconcile::reconcile_renameHeading_dropsFold() {
     FoldingModel m;
-    m.reconcile({ h(1, "Intro"), h(2, "Goals") });
+    m.reconcile(headingsToRegions({ h(1, "Intro"), h(2, "Goals") }));
     m.fold({"Intro","Goals"});
-    m.reconcile({ h(1, "Intro"), h(2, "Objectives") }); // renamed
+    m.reconcile(headingsToRegions({ h(1, "Intro"), h(2, "Objectives") })); // renamed
     QVERIFY(!m.isFolded({"Intro","Goals"}));
     QVERIFY(!m.isFolded({"Intro","Objectives"}));
 }
 
 void TstFoldingReconcile::reconcile_promoteH2ToH1_dropsFold() {
     FoldingModel m;
-    m.reconcile({ h(1, "Intro"), h(2, "Goals") });
+    m.reconcile(headingsToRegions({ h(1, "Intro"), h(2, "Goals") }));
     m.fold({"Intro","Goals"});
-    m.reconcile({ h(1, "Intro"), h(1, "Goals") }); // promoted -> path changes
+    m.reconcile(headingsToRegions({ h(1, "Intro"), h(1, "Goals") })); // promoted -> path changes
     QVERIFY(!m.isFolded({"Intro","Goals"}));
 }
 
 void TstFoldingReconcile::reconcile_insertUnrelatedHeading_preservesFold() {
     FoldingModel m;
-    m.reconcile({ h(1, "A"), h(1, "B") });
+    m.reconcile(headingsToRegions({ h(1, "A"), h(1, "B") }));
     m.fold({"A"});
-    m.reconcile({ h(1, "A"), h(1, "C"), h(1, "B") });
+    m.reconcile(headingsToRegions({ h(1, "A"), h(1, "C"), h(1, "B") }));
     QVERIFY(m.isFolded({"A"}));
 }
 
 void TstFoldingReconcile::reconcile_editBodyTextOnly_preservesFold() {
     FoldingModel m;
     const QList<HeadingInfo> hs = { h(1, "A"), h(2, "B") };
-    m.reconcile(hs); m.fold({"A","B"});
-    m.reconcile(hs); // identical reparse
+    m.reconcile(headingsToRegions(hs)); m.fold({"A","B"});
+    m.reconcile(headingsToRegions(hs)); // identical reparse
     QVERIFY(m.isFolded({"A","B"}));
 }
 
 void TstFoldingReconcile::reconcile_newDuplicateSibling_existingFoldPreserved() {
     FoldingModel m;
-    m.reconcile({ h(1, "A"), h(2, "Goals") });
+    m.reconcile(headingsToRegions({ h(1, "A"), h(2, "Goals") }));
     m.fold({"A","Goals"});
-    m.reconcile({ h(1, "A"), h(2, "Goals"), h(2, "Goals") });
+    m.reconcile(headingsToRegions({ h(1, "A"), h(2, "Goals"), h(2, "Goals") }));
     QVERIFY(m.isFolded({"A","Goals"}));    // first sibling unchanged
     QVERIFY(!m.isFolded({"A","Goals#2"})); // new one not folded
 }
@@ -73,29 +90,29 @@ void TstFoldingReconcile::reconcile_newDuplicateSibling_existingFoldPreserved() 
 void TstFoldingReconcile::reconcile_stableHeadings_noSignal() {
     FoldingModel m;
     const QList<HeadingInfo> hs = { h(1, "A"), h(2, "B") };
-    m.reconcile(hs); m.fold({"A","B"});
+    m.reconcile(headingsToRegions(hs)); m.fold({"A","B"});
     QSignalSpy spy(&m, &FoldingModel::foldStateChanged);
-    m.reconcile(hs);
+    m.reconcile(headingsToRegions(hs));
     QCOMPARE(spy.count(), 0);
 }
 
 void TstFoldingReconcile::reconcile_populatesHeadingsCache() {
     FoldingModel m;
-    m.reconcile({ h(1, "A"), h(2, "B") });
+    m.reconcile(headingsToRegions({ h(1, "A"), h(2, "B") }));
     QCOMPARE(m.headings().size(), 2);
     QCOMPARE(m.headings()[1].path, (QStringList{"A","B"}));
 }
 
 void TstFoldingReconcile::unfoldAncestors_noFoldedAncestors_returnsEmpty() {
     FoldingModel m;
-    m.reconcile({ h(1, "A"), h(2, "B") });
+    m.reconcile(headingsToRegions({ h(1, "A"), h(2, "B") }));
     auto r = m.unfoldAncestors({"A","B"});
     QVERIFY(r.isEmpty());
 }
 
 void TstFoldingReconcile::unfoldAncestors_twoFoldedAncestors_unfoldsBoth() {
     FoldingModel m;
-    m.reconcile({ h(1, "A"), h(2, "B"), h(3, "C") });
+    m.reconcile(headingsToRegions({ h(1, "A"), h(2, "B"), h(3, "C") }));
     m.fold({"A"}); m.fold({"A","B"});
     auto r = m.unfoldAncestors({"A","B","C"});
     QCOMPARE(r.size(), 2);
