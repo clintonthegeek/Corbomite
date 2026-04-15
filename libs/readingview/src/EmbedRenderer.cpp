@@ -3,6 +3,7 @@
 
 #include "corbomite/readingview/EmbedRenderer.h"
 
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QWidget>
@@ -322,6 +323,27 @@ Corbomite::Core::EmbedFactory imageWikilinkShim()
     };
 }
 
+/// Media-stub placeholder factory. The rendered text carries a
+/// translator-friendly "<kind> preview not yet available — <filename>"
+/// hint so hosts that route it through a text widget see a clear,
+/// distinct card per media kind. `kind` is one of the translated
+/// strings ("PDF", "Audio", "Video") — distinct prefixes are the
+/// only distinguishing signal, so translators must keep them distinct
+/// within a locale.
+Corbomite::Core::EmbedFactory mediaPlaceholderFactory(const QString &kind)
+{
+    return [kind](const Corbomite::Core::EmbedRequest &req)
+        -> std::unique_ptr<Corbomite::Core::MarkdownRenderChild> {
+        auto child = std::make_unique<Corbomite::Core::MarkdownRenderChild>();
+        child->setRenderedText(
+            QCoreApplication::translate(
+                "Corbomite::ReadingView",
+                "%1 preview not yet available — %2")
+                .arg(kind, req.targetPath));
+        return child;
+    };
+}
+
 } // namespace
 
 void registerBuiltinEmbedFactories(Corbomite::Core::EmbedRegistry &reg,
@@ -347,7 +369,28 @@ void registerBuiltinEmbedFactories(Corbomite::Core::EmbedRegistry &reg,
         reg.registerExtension(ext, imgFactory);
     }
 
-    // Media-stub factories land in task 5.6.
+    // Media stubs — per-media-kind placeholder factories with distinct
+    // prefixes so different media types produce distinct rendered text.
+    // Real preview widgets land in a future cluster; these are the
+    // Obsidian-parity "preview not yet available" placeholders.
+    const QString pdfKind = QCoreApplication::translate(
+        "Corbomite::ReadingView", "PDF");
+    reg.registerExtension(QStringLiteral("pdf"),
+                          mediaPlaceholderFactory(pdfKind));
+
+    const QString audioKind = QCoreApplication::translate(
+        "Corbomite::ReadingView", "Audio");
+    reg.registerExtension(QStringLiteral("mp3"),
+                          mediaPlaceholderFactory(audioKind));
+    reg.registerExtension(QStringLiteral("wav"),
+                          mediaPlaceholderFactory(audioKind));
+
+    const QString videoKind = QCoreApplication::translate(
+        "Corbomite::ReadingView", "Video");
+    reg.registerExtension(QStringLiteral("mp4"),
+                          mediaPlaceholderFactory(videoKind));
+    reg.registerExtension(QStringLiteral("webm"),
+                          mediaPlaceholderFactory(videoKind));
 }
 
 } // namespace Corbomite::ReadingView
