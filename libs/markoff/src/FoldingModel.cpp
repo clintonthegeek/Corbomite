@@ -139,7 +139,38 @@ void FoldingModel::restore(const QJsonObject &obj) {
 
     if (prev != m_folded) emit foldStateChanged();
 }
-void FoldingModel::reconcile(const QList<HeadingInfo> &) {}
-QList<FoldRegionKey> FoldingModel::unfoldAncestors(const FoldRegionKey &) { return {}; }
+void FoldingModel::reconcile(const QList<HeadingInfo> &newHeadings) {
+    // 1. Rebuild heading cache with paths.
+    const auto paths = computeHeadingPaths(newHeadings);
+    m_headings.clear();
+    m_headings.reserve(newHeadings.size());
+    QSet<FoldRegionKey> newPathSet;
+    for (int i = 0; i < newHeadings.size(); ++i) {
+        m_headings.append({ paths[i], newHeadings[i] });
+        newPathSet.insert(paths[i]);
+    }
+
+    // 2. Intersect folded set with newPathSet.
+    const auto prev = m_folded;
+    auto it = m_folded.begin();
+    while (it != m_folded.end()) {
+        if (!newPathSet.contains(*it)) it = m_folded.erase(it);
+        else ++it;
+    }
+    if (prev != m_folded) emit foldStateChanged();
+}
+
+QList<FoldRegionKey> FoldingModel::unfoldAncestors(const FoldRegionKey &path) {
+    QList<FoldRegionKey> unfolded;
+    for (int i = 1; i <= path.size(); ++i) {
+        FoldRegionKey prefix = path.mid(0, i);
+        if (m_folded.contains(prefix)) {
+            m_folded.remove(prefix);
+            unfolded.append(prefix);
+        }
+    }
+    if (!unfolded.isEmpty()) emit foldStateChanged();
+    return unfolded;
+}
 
 } // namespace Markoff
