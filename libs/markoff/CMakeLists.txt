@@ -15,6 +15,7 @@ endif()
 # Markoff editor library
 add_library(markoff STATIC
     include/markoff/Editor.h
+    include/markoff/SearchBar.h
     src/SelectableItem.h
     src/BlockItem.h
     src/BlockItem.cpp
@@ -41,6 +42,7 @@ add_library(markoff STATIC
     src/Theme.cpp
     src/TextControl.cpp
     src/Editor.cpp
+    src/SearchBar.cpp
     src/MarkdownHighlighter.cpp
     src/DecoratedRange.cpp
     src/ResourceProvider.cpp
