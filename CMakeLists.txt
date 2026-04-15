@@ -44,6 +44,7 @@ add_subdirectory(libs/canvas)
 add_subdirectory(libs/mmdr)
 add_subdirectory(libs/markoff-parser)
 add_subdirectory(libs/markoff)
+add_subdirectory(libs/qutepart-corbomite)
 
 # Application
 add_subdirectory(src)

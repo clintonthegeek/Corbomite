@@ -6,7 +6,9 @@
 
 **Operational rituals (how to start a session, mark phase done, mark cluster done):** [`docs/CONTRIBUTING-OPS.md`](docs/CONTRIBUTING-OPS.md). Three checklists. Follow them — they are not advice.
 
-**Cluster plans (one per work cluster A–N):** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). 5 full plans + 3 stubs as of 2026-04-14.
+**Cluster plans (one per work cluster A–P) + parallel long-term internal refactors:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). 5 full plans + 3 stubs + 3 scouting docs + the qutepart-corbomite-fork plan as of 2026-04-15.
+
+**Parallel internal refactors** (not cluster-numbered, run alongside parity work): the **Qutepart-Corbomite fork** at [`docs/superpowers/plans/2026-04-15-qutepart-corbomite-fork.md`](docs/superpowers/plans/2026-04-15-qutepart-corbomite-fork.md) (8-phase shaping of vendored `qutepart-cpp` into our permanent Source-mode widget at `libs/qutepart-corbomite/`; Phase 1 unblocks Cluster E). See PROJECT-STATE §"Parallel long-term internal refactors" for status.
 
 **Reverse-engineered Obsidian audit (canonical reference, read-only except via addenda):** [`docs/obsidian-audit/`](docs/obsidian-audit/). Pass 1 taxonomy + 15 Pass 2 domain docs + 5 Pass 3 synthesis docs (`FEATURE-MATRIX.md`, `VAULT-FORMAT.md`, `GAP-ANALYSIS.md`, `PLUGIN-API-SKETCH.md`, `SHARED-SYMBOLS.md`). ~94k words of distilled spec. New facts discovered during implementation go in `docs/obsidian-audit/addenda/`, never as edits to the audit docs.
 
