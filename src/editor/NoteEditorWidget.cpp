@@ -17,32 +17,27 @@
 
 #include <QCursor>
 #include <QKeyEvent>
-#include <QVBoxLayout>
+#include <QStackedWidget>
 #include <QStringListModel>
+#include <QVBoxLayout>
 
 namespace Corbomite {
 
 NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     : QWidget(parent)
+    , m_stack(new QStackedWidget(this))
     , m_editor(new Markoff::Editor(this))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_editor);
+    layout->addWidget(m_stack);
 
-    // Phase 2 mount — construct Corbomite::SourceEditor as a child and hide
-    // it. This proves the build link + widget instantiation without
-    // changing any user-visible behaviour. Cluster E Phase 7 will promote
-    // it into the ViewMode switch.
-    m_sourceEditor = new SourceEditor(this);
-    m_sourceEditor->hide();
-
-    // Phase 2 mount — construct ReadingView hidden. This gives
-    // save/restoreEphemeralState a real target for Reading mode (stub-level
-    // at the widget, but concrete at the API surface). Phase 7 wires it
-    // into the QStackedWidget and Phase 3 fills out the rendering pipeline.
-    m_readingView = new Corbomite::ReadingView::ReadingView(this);
-    m_readingView->hide();
+    // Markoff (LivePreview) is the default mode for most users so construct
+    // it eagerly + mount it as the first stack page. Source and Reading
+    // widgets are constructed lazily on first `setViewMode(...)` and cached
+    // in the stack thereafter (see `ensureWidgetConstructed`).
+    m_livePreviewIndex = m_stack->addWidget(m_editor);
+    m_stack->setCurrentIndex(m_livePreviewIndex);
 
     connect(m_editor, &Markoff::Editor::textChanged,
             this, &NoteEditorWidget::onTextChanged);
@@ -121,18 +116,192 @@ void NoteEditorWidget::setVaultModel(VaultModel *vault)
     }
 }
 
-void NoteEditorWidget::setViewMode(ViewMode mode)
+// =========================================================================
+// Phase 7 — stacked-widget mode transition
+// =========================================================================
+
+int NoteEditorWidget::stackIndexFor(ViewMode mode) const
 {
-    if (m_viewMode == mode) return;
-    m_viewMode = mode;
+    switch (mode) {
+    case ViewMode::Source:      return m_sourceIndex;
+    case ViewMode::LivePreview: return m_livePreviewIndex;
+    case ViewMode::Reading:     return m_readingIndex;
+    }
+    return m_livePreviewIndex;
+}
 
-    // Phase 1 keeps the old visible behaviour: Reading toggles the Markoff
-    // editor read-only, everything else is editable. Source mode is not yet
-    // reachable through the UI — Phase 7 promotes `m_sourceEditor` into a
-    // stacked-widget swap.
-    m_editor->setReadOnly(mode == ViewMode::Reading);
+void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
+{
+    switch (mode) {
+    case ViewMode::Source:
+        if (!m_sourceEditor) {
+            m_sourceEditor = new SourceEditor(this);
+            m_sourceIndex = m_stack->addWidget(m_sourceEditor);
+        }
+        break;
+    case ViewMode::LivePreview:
+        // Always constructed eagerly in the ctor.
+        break;
+    case ViewMode::Reading:
+        if (!m_readingView) {
+            m_readingView = new Corbomite::ReadingView::ReadingView(this);
+            m_readingIndex = m_stack->addWidget(m_readingView);
+        }
+        break;
+    }
+}
 
-    Q_EMIT viewModeChanged(mode);
+void NoteEditorWidget::saveSourceTextToDocument()
+{
+    if (!m_sourceEditor || !m_doc) return;
+    const QString text = m_sourceEditor->toPlainText();
+    // Only write through if the Source buffer has diverged from the document
+    // — avoids needless `setModified(true)` during a mode flip that hasn't
+    // actually edited anything.
+    if (text != m_doc->markdown()) {
+        m_doc->setMarkdown(text);
+    }
+}
+
+void NoteEditorWidget::saveLivePreviewTextToDocument()
+{
+    if (!m_editor || !m_doc) return;
+    const QString text = m_editor->toPlainText();
+    if (text != m_doc->markdown()) {
+        m_doc->setMarkdown(text);
+    }
+}
+
+EphemeralState NoteEditorWidget::captureEphemeralStateFor(ViewMode mode) const
+{
+    EphemeralState s;
+    const auto compound = ViewModeSerializer::toCompound(mode);
+    s.modeRaw = compound.mode;
+    s.sourceFlag = compound.source;
+
+    switch (mode) {
+    case ViewMode::Source:
+        if (m_sourceEditor) {
+            s.scroll = m_sourceEditor->scrollPosition();
+            const auto cursor = m_sourceEditor->cursorPosition();
+            s.cursor.line = cursor.line;
+            s.cursor.column = cursor.column;
+            s.foldedHeadings = m_sourceEditor->foldedHeadings();
+        }
+        break;
+    case ViewMode::LivePreview:
+        s.scroll = m_editor->scrollPositionVisualLine();
+        // Markoff exposes 1-based line/column; EphemeralState stores
+        // 0-based so Source and LivePreview share a common cursor coord
+        // system across transitions. Subtract 1 on save, add on restore.
+        s.cursor.line = std::max(0, m_editor->cursorLine() - 1);
+        s.cursor.column = std::max(0, m_editor->cursorColumn() - 1);
+        break;
+    case ViewMode::Reading:
+        if (m_readingView) {
+            s.scroll = m_readingView->scrollPositionVisualLine();
+            s.foldedHeadings = m_readingView->foldedHeadings();
+        }
+        break;
+    }
+
+    return s;
+}
+
+void NoteEditorWidget::restoreEphemeralStateFor(ViewMode mode,
+                                                 const EphemeralState &s)
+{
+    switch (mode) {
+    case ViewMode::Source:
+        if (m_sourceEditor) {
+            m_sourceEditor->setCursorPosition({s.cursor.line, s.cursor.column});
+            m_sourceEditor->setScrollPosition(s.scroll);
+            m_sourceEditor->setFoldedHeadings(s.foldedHeadings);
+        }
+        break;
+    case ViewMode::LivePreview:
+        // Cursor — Markoff's public API has `goToLine` but no column setter.
+        // Column preservation is best-effort: we land on the correct line;
+        // the cursor-reveal-source behaviour handles the rest. Line is
+        // 1-based on the wire, 0-based in EphemeralState.
+        if (s.cursor.line > 0 || s.cursor.column > 0) {
+            m_editor->goToLine(s.cursor.line + 1);
+        }
+        m_editor->setScrollPositionVisualLine(s.scroll);
+        break;
+    case ViewMode::Reading:
+        if (m_readingView) {
+            m_readingView->setScrollPositionVisualLine(s.scroll);
+            m_readingView->setFoldedHeadings(s.foldedHeadings);
+        }
+        break;
+    }
+}
+
+void NoteEditorWidget::loadContentInto(ViewMode mode)
+{
+    if (!m_doc) return;
+    const QString markdown = m_doc->markdown();
+
+    // Guard the doc-write-back path when we setPlainText on Markoff — it
+    // emits textChanged which would otherwise re-enter `onTextChanged`.
+    const bool wasUpdating = m_updatingFromDoc;
+    m_updatingFromDoc = true;
+
+    switch (mode) {
+    case ViewMode::Source:
+        if (m_sourceEditor && m_sourceEditor->toPlainText() != markdown) {
+            m_sourceEditor->setPlainText(markdown);
+        }
+        break;
+    case ViewMode::LivePreview:
+        if (m_editor->toPlainText() != markdown) {
+            m_editor->setPlainText(markdown);
+        }
+        break;
+    case ViewMode::Reading:
+        if (m_readingView) {
+            m_readingView->setPlainText(markdown);
+        }
+        break;
+    }
+
+    m_updatingFromDoc = wasUpdating;
+}
+
+void NoteEditorWidget::setViewMode(ViewMode newMode)
+{
+    if (m_viewMode == newMode) return;
+
+    // 1. Flush outgoing widget's text to the shared NoteDocument.
+    //    Reading mode has no unflushed text so skip.
+    if (m_viewMode == ViewMode::Source) {
+        saveSourceTextToDocument();
+    } else if (m_viewMode == ViewMode::LivePreview) {
+        saveLivePreviewTextToDocument();
+    }
+
+    // 2. Capture the outgoing widget's ephemeral state.
+    const EphemeralState outgoing = captureEphemeralStateFor(m_viewMode);
+
+    // 3 + 4. Swap the active widget. Lazy-construct if needed.
+    ensureWidgetConstructed(newMode);
+    m_viewMode = newMode;
+    const int idx = stackIndexFor(newMode);
+    if (idx >= 0) m_stack->setCurrentIndex(idx);
+
+    // 5. Load content into the incoming widget if not already in sync.
+    loadContentInto(newMode);
+
+    // 6. Restore scroll + fold + cursor (mode-appropriate).
+    restoreEphemeralStateFor(newMode, outgoing);
+
+    // Mirror legacy behaviour: Reading mode makes Markoff read-only
+    // (cosmetic, since Reading is a different widget now, but tests &
+    // consumers might still inspect `m_editor->isReadOnly()`).
+    m_editor->setReadOnly(newMode == ViewMode::Reading);
+
+    Q_EMIT viewModeChanged(newMode);
 }
 
 NoteEditorWidget::ViewMode NoteEditorWidget::viewMode() const
@@ -145,6 +314,16 @@ Markoff::Editor *NoteEditorWidget::editor() const
     return m_editor;
 }
 
+SourceEditor *NoteEditorWidget::sourceEditor() const
+{
+    return m_sourceEditor;
+}
+
+Corbomite::ReadingView::ReadingView *NoteEditorWidget::readingView() const
+{
+    return m_readingView;
+}
+
 int NoteEditorWidget::currentLine() const
 {
     return m_editor->cursorLine();
@@ -155,82 +334,26 @@ int NoteEditorWidget::currentColumn() const
     return m_editor->cursorColumn();
 }
 
-// Cluster E Phase 1 — ephemeral state round-trip. Not yet called from the
-// session-save path; that wiring is Phase 7. Keeping the capture/restore
-// logic here now gives Phase 7 a stable surface to connect.
+// Cluster E Phase 1 — ephemeral state round-trip. Now called from
+// EditorViewManager's buildPaneLayout / applyPaneLayout so each per-leaf
+// eState round-trips to workspace.json.
 EphemeralState NoteEditorWidget::saveEphemeralState() const
 {
-    EphemeralState s;
-    const auto compound = ViewModeSerializer::toCompound(m_viewMode);
-    s.modeRaw = compound.mode;
-    s.sourceFlag = compound.source;
-
-    switch (m_viewMode) {
-    case ViewMode::Source:
-        if (m_sourceEditor) {
-            s.scroll = m_sourceEditor->scrollPosition();
-            const auto cursor = m_sourceEditor->cursorPosition();
-            s.cursor.line = cursor.line;
-            s.cursor.column = cursor.column;
-            s.foldedHeadings = m_sourceEditor->foldedHeadings();
-        }
-        break;
-    case ViewMode::LivePreview:
-        s.scroll = m_editor->scrollPositionVisualLine();
-        s.cursor.line = m_editor->cursorLine();
-        s.cursor.column = m_editor->cursorColumn();
-        break;
-    case ViewMode::Reading:
-        // Phase 2: Markoff-as-Reading has a real visual-line accessor, but
-        // the long-term Reading target is `m_readingView` (ReadingView is
-        // a stub in Phase 2, live in Phase 3). Route through the
-        // ReadingView surface so NoteEditorWidget's wiring stabilises
-        // before Phase 3 swaps the underlying implementation.
-        //
-        // Phase 6: heading-fold state is ReadingView-native — capture the
-        // source-line indices of collapsed headings so workspace.json
-        // round-trip preserves Reading-mode fold state across sessions.
-        if (m_readingView) {
-            s.scroll = m_readingView->scrollPositionVisualLine();
-            s.foldedHeadings = m_readingView->foldedHeadings();
-        }
-        break;
-    }
-
-    return s;
+    return captureEphemeralStateFor(m_viewMode);
 }
 
 void NoteEditorWidget::restoreEphemeralState(const EphemeralState &state)
 {
     const auto mode = ViewModeSerializer::fromCompound(state.modeRaw,
                                                        std::optional<bool>{state.sourceFlag});
-    setViewMode(mode);
-
-    switch (mode) {
-    case ViewMode::Source:
-        if (m_sourceEditor) {
-            m_sourceEditor->setCursorPosition({state.cursor.line, state.cursor.column});
-            m_sourceEditor->setScrollPosition(state.scroll);
-            m_sourceEditor->setFoldedHeadings(state.foldedHeadings);
-        }
-        break;
-    case ViewMode::LivePreview:
-        m_editor->setScrollPositionVisualLine(state.scroll);
-        // Cursor restore for Markoff is deferred — Markoff's public
-        // setCursorPosition lands alongside the richer live-preview
-        // persistence work (cluster E Phase 7).
-        break;
-    case ViewMode::Reading:
-        if (m_readingView) {
-            m_readingView->setScrollPositionVisualLine(state.scroll);
-            // Phase 6: restore heading-fold state. Caller may have staged
-            // content into ReadingView via setPlainText before invoking
-            // restoreEphemeralState; ReadingView maps line-indices back to
-            // sections on the current parse.
-            m_readingView->setFoldedHeadings(state.foldedHeadings);
-        }
-        break;
+    // Drive the full transition through setViewMode so the ensure/load/restore
+    // sequencing stays consistent. If the mode is the same, still push state
+    // through `restoreEphemeralStateFor` directly.
+    if (mode != m_viewMode) {
+        setViewMode(mode);
     }
+    ensureWidgetConstructed(mode);
+    restoreEphemeralStateFor(mode, state);
 }
 
 bool NoteEditorWidget::eventFilter(QObject *obj, QEvent *event)
@@ -285,12 +408,20 @@ void NoteEditorWidget::syncFromDocument()
     if (!m_doc) return;
     m_updatingFromDoc = true;
     const QString markdown = m_doc->markdown();
-    m_editor->setPlainText(markdown);
-    // Phase 3a: feed the hidden ReadingView the same source so that when
-    // Phase 7 promotes it into a stacked-widget swap, it already has
-    // content. Visibility is still controlled by setViewMode().
-    if (m_readingView)
-        m_readingView->setPlainText(markdown);
+    // Seed the currently-visible mode's widget. Offscreen widgets get their
+    // content lazily via `loadContentInto` on mode switch — avoids
+    // instantiating Source/Reading just to populate them.
+    switch (m_viewMode) {
+    case ViewMode::Source:
+        if (m_sourceEditor) m_sourceEditor->setPlainText(markdown);
+        break;
+    case ViewMode::LivePreview:
+        m_editor->setPlainText(markdown);
+        break;
+    case ViewMode::Reading:
+        if (m_readingView) m_readingView->setPlainText(markdown);
+        break;
+    }
     m_doc->setModified(false);
     m_updatingFromDoc = false;
 }

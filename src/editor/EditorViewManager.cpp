@@ -7,6 +7,7 @@
 #include "corbomite/core/RegexRenderEngine.h"
 #include "corbomite/core/RenderProfile.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/storage/EphemeralState.h"
 #include <QVBoxLayout>
 #include <QScrollBar>
 #include <QTabBar>
@@ -389,6 +390,14 @@ QList<PaneLeaf> leavesForSpace(EditorViewSpace *space, bool isActiveSpace)
                         : QStringLiteral("source");
                 inner.insert(QStringLiteral("mode"), modeStr);
                 leaf.mode = modeStr;
+
+                // Cluster E Phase 7 — persist full EphemeralState per leaf.
+                // `eState` lives at the leaf-object level (sibling of
+                // `state`), matching Obsidian's workspace.json shape. We
+                // stash it via `leaf.unknown` which is PaneLayout's catch-
+                // all for leaf-level unknown keys.
+                leaf.unknown.insert(QStringLiteral("eState"),
+                                    editor->saveEphemeralState().toJson());
             }
             leaf.unknown.insert(QStringLiteral("_corbomiteActive"), true);
         }
@@ -468,13 +477,24 @@ void EditorViewManager::applyPaneLayout(
     // the layout's leaves.
     auto applyLeafState = [](EditorViewSpace *space, const PaneLeaf &leaf) {
         if (leaf.viewType != QStringLiteral("markdown")) return;
+
+        auto *editor = space->activeEditor();
+        if (!editor) return;
+
+        // Cluster E Phase 7 — prefer full eState round-trip when present.
+        // Falls back to the legacy cursorLine/scrollPosition shape for
+        // workspaces written before Phase 7 landed.
+        const QJsonObject eState = leaf.unknown.value(QStringLiteral("eState")).toObject();
+        if (!eState.isEmpty()) {
+            editor->restoreEphemeralState(EphemeralState::fromJson(eState));
+            return;
+        }
+
         if (leaf.mode == QStringLiteral("preview")) {
             space->setViewMode(NoteEditorWidget::ViewMode::Reading);
         } else if (leaf.mode == QStringLiteral("source")) {
             space->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
         }
-        auto *editor = space->activeEditor();
-        if (!editor) return;
         const auto inner = leaf.viewState.value(QStringLiteral("state")).toObject();
         const int line = inner.value(QStringLiteral("cursorLine")).toInt(1);
         const int scroll = inner.value(QStringLiteral("scrollPosition")).toInt(0);

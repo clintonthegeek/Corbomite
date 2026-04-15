@@ -43,5 +43,19 @@ target_link_libraries(tst_panels_populated PRIVATE
     CorbomiteApp
 )
 
+# Cluster E Phase 7 — headless workspace.json + EphemeralState round-trip.
+# Runs under QT_QPA_PLATFORM=offscreen since it doesn't instantiate any
+# widgets; unlike the sibling GUI e2e tests this one is CI-safe.
+add_executable(tst_workspace_roundtrip_mode tst_workspace_roundtrip_mode.cpp)
+add_test(NAME tst_workspace_roundtrip_mode COMMAND tst_workspace_roundtrip_mode)
+target_link_libraries(tst_workspace_roundtrip_mode PRIVATE
+    Qt6::Test
+    Corbomite::Core
+    Corbomite::Storage
+)
+set_tests_properties(tst_workspace_roundtrip_mode PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 # E2E tests need a real display — do NOT set QT_QPA_PLATFORM=offscreen
 # They will fail in headless CI but pass on a developer machine with Wayland/X11

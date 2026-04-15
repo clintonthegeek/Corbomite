@@ -3,6 +3,8 @@
 
 #include <QWidget>
 
+class QStackedWidget;
+
 namespace Markoff {
 class Editor;
 }
@@ -29,9 +31,9 @@ class NoteEditorWidget : public QWidget {
 public:
     // Three-mode encoding per Cluster E plan. `LivePreview` is Markoff's
     // cursor-in-block-reveals-source widget; `Source` is the plain-text
-    // qutepart-corbomite widget; `Reading` is the (still-stub) read-only
-    // view. On the wire these map through `ViewModeSerializer` to Obsidian's
-    // compound `{mode, source}` shape — we do not persist the enum integer.
+    // qutepart-corbomite widget; `Reading` is the ReadingView widget. On the
+    // wire these map through `ViewModeSerializer` to Obsidian's compound
+    // `{mode, source}` shape — we do not persist the enum integer.
     enum class ViewMode { Source, LivePreview, Reading };
     Q_ENUM(ViewMode)
 
@@ -41,10 +43,18 @@ public:
     NoteDocument *noteDocument() const;
     void setVaultModel(VaultModel *vault);
 
+    /// Phase-7 transition: (1) flush outgoing widget's text to NoteDocument,
+    /// (2) capture outgoing ephemeral state, (3) swap QStackedWidget index
+    /// (lazy-constructing the incoming widget if first visit), (4) load
+    /// content into the incoming widget, (5) restore scroll + fold + cursor
+    /// (cursor only across Source↔LivePreview). Emits `viewModeChanged` on
+    /// every real change.
     void setViewMode(ViewMode mode);
     ViewMode viewMode() const;
 
     Markoff::Editor *editor() const;
+    SourceEditor *sourceEditor() const;
+    Corbomite::ReadingView::ReadingView *readingView() const;
 
     // Optional — when set, hovers over wiki/markdown links schedule a 300ms
     // preview popover (Cluster H Phase 2). Lifetime owned by the caller.
@@ -58,10 +68,10 @@ public:
     int currentLine() const;
     int currentColumn() const;
 
-    // Cluster E Phase 1 — ephemeral-state round-trip. Captures / restores
+    // Cluster E Phase 1/7 — ephemeral-state round-trip. Captures / restores
     // scroll, cursor, mode, and fold through `Corbomite::EphemeralState`.
-    // Not yet wired into production save/load paths (that is Phase 7); the
-    // shape exists so tests + future wiring have a stable surface.
+    // Phase 7 wires these through `EditorViewManager::{build,apply}PaneLayout`
+    // so workspace.json round-trips per-leaf eState.
     EphemeralState saveEphemeralState() const;
     void restoreEphemeralState(const EphemeralState &state);
 
@@ -89,18 +99,31 @@ private:
     // Link resolution
     QString resolveTarget(const QString &target) const;
 
+    // --- Phase 7 mode-transition helpers ---
+    int stackIndexFor(ViewMode mode) const;
+    void ensureWidgetConstructed(ViewMode mode);
+    EphemeralState captureEphemeralStateFor(ViewMode mode) const;
+    void restoreEphemeralStateFor(ViewMode mode, const EphemeralState &s);
+    void loadContentInto(ViewMode mode);
+    void saveSourceTextToDocument();
+    void saveLivePreviewTextToDocument();
+
+    QStackedWidget *m_stack = nullptr;
+
     Markoff::Editor *m_editor = nullptr;
-    // Phase 2 mount of `Corbomite::SourceEditor` — constructed hidden so the
-    // widget instantiation + library link is proven without changing any
-    // user-visible behaviour. Cluster E Phase 7 will promote this into the
-    // ViewMode switch (Editing / Reading / Source).
+    // Source mode widget — lazy. Constructed on first `setViewMode(Source)`
+    // and cached in the stack thereafter. Accessor returns nullptr until
+    // first construction. See `ensureWidgetConstructed`.
     SourceEditor *m_sourceEditor = nullptr;
-    // Phase 2 mount of `Corbomite::ReadingView::ReadingView` — constructed
-    // hidden alongside SourceEditor so ephemeral-state save/restore has a
-    // real target for Reading mode. Phase 3 fills the widget out; Phase 7
-    // swaps it into a QStackedWidget.
+    // Reading mode widget — lazy. Same pattern as `m_sourceEditor`.
     Corbomite::ReadingView::ReadingView *m_readingView = nullptr;
     ViewMode m_viewMode = ViewMode::LivePreview;
+
+    // Indices populated as widgets are constructed. -1 means "not mounted
+    // in the stack yet".
+    int m_sourceIndex = -1;
+    int m_livePreviewIndex = -1;
+    int m_readingIndex = -1;
 
     NoteDocument *m_doc = nullptr;
     VaultModel *m_vault = nullptr;

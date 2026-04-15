@@ -319,12 +319,23 @@ void MainWindow::setupActions()
     dailyNote->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
     connect(dailyNote, &QAction::triggered, this, &MainWindow::openDailyNote);
 
+    // Cluster E Phase 7 — three-mode selector. "Editing" is Obsidian's live-
+    // preview (what most users think of as the default Obsidian editor);
+    // "Source" is plain-text markdown; "Reading" is rendered-only.
     auto *editingMode = ac->addAction(QStringLiteral("view_editing_mode"));
-    editingMode->setText(i18n("Editing"));
+    editingMode->setText(i18n("Live Preview"));
     editingMode->setIcon(QIcon::fromTheme(QStringLiteral("text-x-markdown")));
     connect(editingMode, &QAction::triggered, this, [this]() {
         if (auto *editor = m_editorManager->activeEditor())
             editor->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
+    });
+
+    auto *sourceMode = ac->addAction(QStringLiteral("view_source_mode"));
+    sourceMode->setText(i18n("Source"));
+    sourceMode->setIcon(QIcon::fromTheme(QStringLiteral("text-plain")));
+    connect(sourceMode, &QAction::triggered, this, [this]() {
+        if (auto *editor = m_editorManager->activeEditor())
+            editor->setViewMode(NoteEditorWidget::ViewMode::Source);
     });
 
     auto *readingMode = ac->addAction(QStringLiteral("view_reading_mode"));
