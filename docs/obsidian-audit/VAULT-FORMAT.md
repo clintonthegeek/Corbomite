@@ -777,6 +777,15 @@ interface Position { start: Pos; end: Pos; }
 
 Corbomite's plugin-compat shim (once Corbomite gains a plugin API) must expose this shape byte-for-byte — plugins read these objects directly. See GAP-ANALYSIS §P3 "`CachedMetadata` exposure".
 
+## Implementation additions — 2026-04
+
+Following Corbomite-side implementation, the following two `.obsidian/` config files were added to the living set that Corbomite reads/writes. Full schemas in `addenda/2026-04-15-daily-notes-templates-schemas.md`:
+
+- **`.obsidian/daily-notes.json`** — Daily Notes internal-plugin config. Keys: `format` (Moment date-format), `folder` (vault-relative), `template` (vault-relative path, optional), `autorun` (bool). Round-trip via `Corbomite::VaultConfig::readDailyNotesJson` / `writeDailyNotesJson`. Unknown keys preserved.
+- **`.obsidian/templates.json`** — Templates internal-plugin config. Keys: `folder` (vault-relative), `date_format` / `time_format` (Moment formats). Round-trip via `Corbomite::VaultConfig::readTemplatesJson` / `writeTemplatesJson`. Unknown keys preserved.
+
+Both surfaced during Cluster F. Corbomite now produces Obsidian-parity `{{date:FMT}}` / `{{time:FMT}}` template substitution via `Corbomite::MomentFormatter` (hand-translator covering YYYY, MMM, MMMM, Do, dddd, ww, h, HH, a, A, [literal], etc.).
+
 ## 11. Open format questions / follow-ups
 
 Consolidated from per-domain §13 Open Questions. These are blockers for specific narrow features but not blockers for the primary vault read/write path.
