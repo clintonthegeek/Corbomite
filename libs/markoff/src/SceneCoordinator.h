@@ -71,6 +71,16 @@ public:
     /// dispatch.
     int headingIndexForItem(int itemIndex) const;
 
+    /// Returns the heading-index (into FoldingModel::headings()) at the given
+    /// scene Y, or -1 if no heading block's Y range contains sceneY.
+    /// Walks all items in document order counting heading-blocks per-block,
+    /// mirroring applyFoldVisibility's hSeen counting.
+    int headingIndexAtSceneY(qreal sceneY) const;
+
+    /// Returns the scene Y of the top of the heading block at headingIndex
+    /// in FoldingModel::headings(), or -1 if not found / not laid out.
+    qreal headingSceneY(int headingIndex) const;
+
     /// Resolve the enclosing heading path for a specific QTextBlock within
     /// the given item. Walks all items[0..itemIndex] tallying heading-blocks
     /// (block.text().trimmed().startsWith('#')); within itemIndex, only counts

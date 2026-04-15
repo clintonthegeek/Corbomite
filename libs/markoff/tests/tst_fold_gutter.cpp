@@ -4,6 +4,7 @@
 #include <QPainter>
 #include "GutterColumn.h"
 #include "FoldingModel.h"
+#include "FoldGutter.h"
 
 using namespace Markoff;
 
@@ -99,5 +100,109 @@ void TstFoldArrowColumn::handleClick_ctrlModifier_foldsAllAtThatLevel() {
     QVERIFY(!m.isFolded({"A"}));
 }
 
-QTEST_MAIN(TstFoldArrowColumn)
+// ---------------------------------------------------------------------------
+// TstFoldGutter — Task 10
+// ---------------------------------------------------------------------------
+
+class TstFoldGutter : public QObject {
+    Q_OBJECT
+private slots:
+    void width_sumsColumnsPlusSeparator();
+    void click_onArrowRow_togglesFold();
+    void click_onNonHeadingRow_isNoop();
+    void setColumns_replacesExisting();
+};
+
+void TstFoldGutter::width_sumsColumnsPlusSeparator()
+{
+    FoldingModel model;
+    FoldGutter gutter(&model);
+
+    // No columns → width 0
+    QCOMPARE(gutter.width(), 0);
+
+    // One column (FoldArrowColumn, width=16): no separator when only 1 column
+    auto *col1 = new FoldArrowColumn(&model);
+    gutter.setColumns({col1});
+    // With one column: sum(16) + 2px separator = 18
+    QCOMPARE(gutter.width(), 18);
+
+    // Two columns: 16 + 16 + 2 = 34
+    auto *col2 = new FoldArrowColumn(&model);
+    auto *col3 = new FoldArrowColumn(&model);
+    gutter.setColumns({col2, col3});
+    QCOMPARE(gutter.width(), 34);
+}
+
+void TstFoldGutter::click_onArrowRow_togglesFold()
+{
+    FoldingModel model;
+    model.setHeadingsForTesting({
+        {{"Intro"}, HeadingInfo{1, "Intro", 0}},
+        {{"Intro","Goals"}, HeadingInfo{2, "Goals", 0}}
+    });
+
+    FoldGutter gutter(&model);
+    auto *col = new FoldArrowColumn(&model);
+    gutter.setColumns({col});
+
+    // Click at heading index 0 in column 0 (x=0, localPos doesn't matter for testing API)
+    bool handled = gutter.handleMouseClickForTesting(QPoint(5, 0), 0, Qt::NoModifier);
+    QVERIFY(handled);
+    QVERIFY(model.isFolded({"Intro"}));
+}
+
+void TstFoldGutter::click_onNonHeadingRow_isNoop()
+{
+    FoldingModel model;
+    model.setHeadingsForTesting({
+        {{"Intro"}, HeadingInfo{1, "Intro", 0}}
+    });
+
+    FoldGutter gutter(&model);
+    auto *col = new FoldArrowColumn(&model);
+    gutter.setColumns({col});
+
+    // headingIndex -1 means no heading at that Y → should return false
+    bool handled = gutter.handleMouseClickForTesting(QPoint(5, 0), -1, Qt::NoModifier);
+    QVERIFY(!handled);
+    QVERIFY(!model.isFolded({"Intro"}));
+}
+
+void TstFoldGutter::setColumns_replacesExisting()
+{
+    FoldingModel model;
+    FoldGutter gutter(&model);
+
+    auto *col1 = new FoldArrowColumn(&model);
+    gutter.setColumns({col1});
+    QCOMPARE(gutter.width(), 18); // 16 + 2 separator
+
+    // Replace with two columns — col1 must be deleted (no crash = ownership correct)
+    auto *col2 = new FoldArrowColumn(&model);
+    auto *col3 = new FoldArrowColumn(&model);
+    gutter.setColumns({col2, col3});
+    QCOMPARE(gutter.width(), 34); // 16+16+2
+
+    // Replace with empty list
+    gutter.setColumns({});
+    QCOMPARE(gutter.width(), 0);
+}
+
+// ---------------------------------------------------------------------------
+
+int main(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    int result = 0;
+
+    TstFoldArrowColumn t1;
+    result |= QTest::qExec(&t1, argc, argv);
+
+    TstFoldGutter t2;
+    result |= QTest::qExec(&t2, argc, argv);
+
+    return result;
+}
+
 #include "tst_fold_gutter.moc"

@@ -601,4 +601,83 @@ void SceneCoordinator::applyFoldVisibility()
     repositionItems();
 }
 
+int SceneCoordinator::headingIndexAtSceneY(qreal sceneY) const
+{
+    // Walk all items in document order. For each MarkdownTextItem, iterate
+    // its QTextBlocks. Count heading-type blocks into hSeen (mirroring
+    // applyFoldVisibility). For each heading block, compute its scene-Y
+    // range and test whether sceneY falls within it. Returns hSeen-1 on a
+    // match, or -1 if no heading is found.
+
+    int hSeen = 0;
+
+    for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
+        auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
+        if (!mti) continue;
+
+        QGraphicsItem *gi = mti->asGraphicsItem();
+        if (!gi) continue;
+        const qreal itemSceneY = gi->scenePos().y();
+
+        QTextDocument *doc = mti->document();
+        QTextBlock block = doc->begin();
+        while (block.isValid()) {
+            const bool isHeading = block.text().trimmed().startsWith(QLatin1Char('#'));
+            if (isHeading) {
+                // Compute the scene-Y range for this block.
+                QTextLayout *layout = block.layout();
+                qreal blockTop = itemSceneY;
+                qreal blockHeight = 0.0;
+                if (layout) {
+                    blockTop = itemSceneY + layout->position().y();
+                    if (layout->lineCount() > 0)
+                        blockHeight = layout->boundingRect().height();
+                    else
+                        blockHeight = 16.0; // fallback
+                }
+
+                if (sceneY >= blockTop && sceneY < blockTop + blockHeight)
+                    return hSeen; // found
+
+                ++hSeen;
+            }
+            block = block.next();
+        }
+    }
+    return -1;
+}
+
+qreal SceneCoordinator::headingSceneY(int headingIndex) const
+{
+    if (headingIndex < 0) return -1.0;
+
+    int hSeen = 0;
+
+    for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
+        auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
+        if (!mti) continue;
+
+        QGraphicsItem *gi = mti->asGraphicsItem();
+        if (!gi) continue;
+        const qreal itemSceneY = gi->scenePos().y();
+
+        QTextDocument *doc = mti->document();
+        QTextBlock block = doc->begin();
+        while (block.isValid()) {
+            const bool isHeading = block.text().trimmed().startsWith(QLatin1Char('#'));
+            if (isHeading) {
+                if (hSeen == headingIndex) {
+                    QTextLayout *layout = block.layout();
+                    if (layout)
+                        return itemSceneY + layout->position().y();
+                    return itemSceneY;
+                }
+                ++hSeen;
+            }
+            block = block.next();
+        }
+    }
+    return -1.0;
+}
+
 } // namespace Markoff
