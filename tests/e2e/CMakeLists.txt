@@ -19,5 +19,13 @@ target_compile_definitions(tst_e2e_gui PRIVATE
     CORBOMITE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 
+add_executable(tst_vault_switch tst_vault_switch.cpp)
+add_test(NAME tst_vault_switch COMMAND tst_vault_switch)
+target_link_libraries(tst_vault_switch PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+)
+
 # E2E tests need a real display — do NOT set QT_QPA_PLATFORM=offscreen
 # They will fail in headless CI but pass on a developer machine with Wayland/X11
