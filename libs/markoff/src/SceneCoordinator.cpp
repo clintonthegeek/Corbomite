@@ -7,6 +7,7 @@
 #include "TableBlockItem.h"
 #include "ImageBlockItem.h"
 #include "FoldingModel.h"
+#include "MathTextObject.h"
 #include <markoff-parser/MarkdownSplitter.h>
 #include "MarkdownHighlighter.h"
 #include <markoff-parser/TreeSitterParser.h>
@@ -500,8 +501,12 @@ void SceneCoordinator::ensureHeadingMap() const
     }
 
     // Walk items in order, tracking the running source-line offset.
-    // Mirror toMarkdown()'s separator rules so line counts align with
-    // what tree-sitter saw.
+    // A single QTextBlock can expand to MULTIPLE source lines when it
+    // holds an ObjectReplacementCharacter whose RawProperty is a
+    // multi-line string (e.g. display math `$$\n...\n$$`). So we can't
+    // use block.blockNumber() as the line offset within an item; we
+    // must accumulate per-block newline counts that match
+    // allMarkdown()'s expansion.
     int srcLine = 0;
     for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
         if (itemIdx > 0) {
@@ -510,20 +515,44 @@ void SceneCoordinator::ensureHeadingMap() const
             srcLine += (prevBlock || currBlock) ? 2 : 1;
         }
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
-        const QString itemSrc = m_items[itemIdx]->toMarkdown();
         if (mti) {
-            // For each block, compute its source-line and check the lookup.
-            QTextDocument *doc = mti->document();
-            QTextBlock block = doc->begin();
-            while (block.isValid()) {
-                const int blockLine = srcLine + block.blockNumber();
+            int blockLine = srcLine;
+            for (QTextBlock block = mti->document()->begin();
+                 block.isValid(); block = block.next()) {
                 auto it = lineToHeadingIdx.constFind(blockLine);
                 if (it != lineToHeadingIdx.constEnd())
                     m_blockToHeadingIdx.insert({itemIdx, block.blockNumber()}, *it);
-                block = block.next();
+
+                // Compute this block's own newline count, expanding any
+                // ORC fragments to their RawProperty source (same rule
+                // allMarkdown() uses to reconstruct the markdown).
+                int blockNewlines = 0;
+                const QString blockText = block.text();
+                if (!blockText.contains(QChar::ObjectReplacementCharacter)) {
+                    blockNewlines = int(blockText.count(QLatin1Char('\n')));
+                } else {
+                    for (auto fragIt = block.begin(); !fragIt.atEnd(); ++fragIt) {
+                        const QTextFragment frag = fragIt.fragment();
+                        if (!frag.isValid()) continue;
+                        const QString raw = frag.charFormat()
+                            .property(MathTextObject::RawProperty).toString();
+                        const QString t = frag.text();
+                        if (!raw.isEmpty() && t.size() == 1
+                            && t.at(0) == QChar::ObjectReplacementCharacter) {
+                            blockNewlines += int(raw.count(QLatin1Char('\n')));
+                        } else {
+                            for (QChar c : t)
+                                if (c == QLatin1Char('\n')) ++blockNewlines;
+                        }
+                    }
+                }
+                blockLine += blockNewlines;
+                if (block.next().isValid()) blockLine += 1; // separator
             }
+            srcLine = blockLine;
+        } else {
+            srcLine += int(m_items[itemIdx]->toMarkdown().count(QLatin1Char('\n')));
         }
-        srcLine += int(itemSrc.count(QLatin1Char('\n')));
     }
 }
 
