@@ -75,6 +75,11 @@ add_test(NAME tst_hotkey COMMAND tst_hotkey)
 target_link_libraries(tst_hotkey PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_hotkey PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_plugininstance tst_plugininstance.cpp)
+add_test(NAME tst_plugininstance COMMAND tst_plugininstance)
+target_link_libraries(tst_plugininstance PRIVATE Qt6::Test Corbomite::Core)
+set_tests_properties(tst_plugininstance PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_renderengine tst_renderengine.cpp)
 add_test(NAME tst_renderengine COMMAND tst_renderengine)
 target_link_libraries(tst_renderengine PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
