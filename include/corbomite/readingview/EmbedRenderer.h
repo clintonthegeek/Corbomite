@@ -77,6 +77,29 @@ private:
     Corbomite::Core::VaultResourceProvider *m_resources;
 };
 
+/// Cluster J phase 5 — populate `reg` with the built-in EmbedRegistry
+/// factories ReadingView ships with:
+///
+/// - `.md` → delegates to `renderer.renderMarkdown(req)` (recursive embed
+///   expansion with depth-guard).
+/// - `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp` → wikilink-shim
+///   factory. Converts the wikilink `EmbedRequest` into an equivalent
+///   `![](path)` markdown snippet and sets it as the rendered text; the
+///   SpanRenderer image path consumes the snippet when the host routes
+///   it back through the section-layout pipeline.
+/// - `.pdf`, `.mp3`, `.wav`, `.mp4`, `.webm` → placeholder factory. The
+///   MarkdownRenderChild's rendered text carries a "preview not yet
+///   available — <filename>" hint scoped by media kind (PDF / Audio /
+///   Video). Strings are translation-ready via `tr()`.
+///
+/// Callers retain ownership of `reg` + `renderer`. The factory lambdas
+/// capture `&renderer` by reference — callers must keep the renderer
+/// alive for as long as the registry is used. Returning unique handles
+/// is out of scope; callers who need de-registration should use
+/// `EmbedRegistry::registerExtension` directly.
+void registerBuiltinEmbedFactories(Corbomite::Core::EmbedRegistry &reg,
+                                   EmbedRenderer &renderer);
+
 } // namespace Corbomite::ReadingView
 
 #endif // CORBOMITE_READINGVIEW_EMBEDRENDERER_H
