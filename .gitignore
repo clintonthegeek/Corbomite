@@ -16,6 +16,11 @@ moc_*.cpp
 ui_*.h
 qrc_*.cpp
 *.autosave
+*.o
+
+# Claude Code per-project state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Corbomite runtime
 .corbomite/
