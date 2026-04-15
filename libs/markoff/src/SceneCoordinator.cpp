@@ -17,6 +17,21 @@
 
 namespace Markoff {
 
+namespace {
+/// CommonMark ATX heading: 1–6 leading `#`s followed by a space or EOL.
+/// Rejects C-preprocessor lines like `#include` because they have no
+/// space after the hash.
+bool isAtxHeadingLine(const QString &trimmed)
+{
+    int i = 0;
+    while (i < trimmed.size() && i < 6 && trimmed[i] == QLatin1Char('#'))
+        ++i;
+    if (i == 0) return false;
+    return i == trimmed.size() || trimmed[i] == QLatin1Char(' ');
+}
+} // namespace
+
+
 SceneCoordinator::SceneCoordinator(SelectionScene *scene, QObject *parent)
     : QObject(parent)
     , m_scene(scene)
@@ -469,7 +484,7 @@ QStringList SceneCoordinator::enclosingHeadingPath(int itemIndex) const
     for (int i = 0; i <= itemIndex && i < m_items.size(); ++i) {
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[i]);
         if (!mti) continue;
-        if (mti->allMarkdown().trimmed().startsWith(QLatin1Char('#'))) {
+        if (isAtxHeadingLine(mti->allMarkdown().trimmed())) {
             if (seen < hs.size())
                 hIdx = seen;
             ++seen;
@@ -502,7 +517,7 @@ QStringList SceneCoordinator::enclosingHeadingPathAtBlock(int itemIndex, int blo
             if (i == itemIndex && block.blockNumber() > blockNumber)
                 break;
 
-            const bool isHeading = block.text().trimmed().startsWith(QLatin1Char('#'));
+            const bool isHeading = isAtxHeadingLine(block.text().trimmed());
             if (isHeading && hSeen < hs.size()) {
                 hIdx = hSeen;
                 ++hSeen;
@@ -520,7 +535,7 @@ int SceneCoordinator::headingIndexForItem(int itemIndex) const
     if (itemIndex < 0 || itemIndex >= m_items.size()) return -1;
     auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIndex]);
     if (!mti) return -1;
-    if (!mti->allMarkdown().trimmed().startsWith(QLatin1Char('#')))
+    if (!isAtxHeadingLine(mti->allMarkdown().trimmed()))
         return -1;
 
     // Count heading items before this one to find its index in headings().
@@ -528,7 +543,7 @@ int SceneCoordinator::headingIndexForItem(int itemIndex) const
     int seen = 0;
     for (int i = 0; i < itemIndex; ++i) {
         auto *prev = dynamic_cast<MarkdownTextItem *>(m_items[i]);
-        if (prev && prev->allMarkdown().trimmed().startsWith(QLatin1Char('#')))
+        if (prev && isAtxHeadingLine(prev->allMarkdown().trimmed()))
             ++seen;
     }
     return (seen < hs.size()) ? seen : -1;
@@ -566,7 +581,7 @@ void SceneCoordinator::applyFoldVisibility()
         bool anyBlockVisible = false;
         while (block.isValid()) {
             const QString blockText = block.text().trimmed();
-            const bool isHeading = blockText.startsWith(QLatin1Char('#'));
+            const bool isHeading = isAtxHeadingLine(blockText);
 
             if (isHeading && hSeen < hs.size()) {
                 // Advance enclosing heading to this heading's entry.
@@ -622,7 +637,7 @@ int SceneCoordinator::headingIndexAtSceneY(qreal sceneY) const
         QTextDocument *doc = mti->document();
         QTextBlock block = doc->begin();
         while (block.isValid()) {
-            const bool isHeading = block.text().trimmed().startsWith(QLatin1Char('#'));
+            const bool isHeading = isAtxHeadingLine(block.text().trimmed());
             if (isHeading) {
                 // Compute the scene-Y range for this block.
                 QTextLayout *layout = block.layout();
@@ -664,7 +679,7 @@ qreal SceneCoordinator::headingSceneY(int headingIndex) const
         QTextDocument *doc = mti->document();
         QTextBlock block = doc->begin();
         while (block.isValid()) {
-            const bool isHeading = block.text().trimmed().startsWith(QLatin1Char('#'));
+            const bool isHeading = isAtxHeadingLine(block.text().trimmed());
             if (isHeading) {
                 if (hSeen == headingIndex) {
                     QTextLayout *layout = block.layout();
