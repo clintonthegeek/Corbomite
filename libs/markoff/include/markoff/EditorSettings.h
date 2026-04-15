@@ -11,6 +11,7 @@ struct EditorSettings {
     bool lineWrap = true;
     bool highlightCurrentLine = true;
     bool highlightingEnabled = true;
+    bool tripleClickSelectsLine = true; // false = Qt default (paragraph)
 };
 
 } // namespace Markoff
