@@ -166,6 +166,16 @@ EmbedRenderer::EmbedRenderer(Corbomite::Core::EmbedRegistry *registry,
 {
 }
 
+void EmbedRenderer::setMetadataCache(Corbomite::MetadataCache *cache)
+{
+    m_cache = cache;
+}
+
+void EmbedRenderer::setResources(Corbomite::Core::VaultResourceProvider *resources)
+{
+    m_resources = resources;
+}
+
 std::unique_ptr<Corbomite::Core::MarkdownRenderChild>
 EmbedRenderer::render(const Corbomite::Core::EmbedRequest &req)
 {
