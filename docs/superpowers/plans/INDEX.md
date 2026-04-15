@@ -2,7 +2,7 @@
 
 > **Living document.** Table of contents over `docs/superpowers/plans/cluster-*.md`. One row per cluster plan. Status mirrors `docs/PROJECT-STATE.md` Roadmap — when those diverge, **PROJECT-STATE is authoritative.** Update the Status column here per Ritual 3 (cluster done) or Ritual 2 (mid-cluster status change).
 
-**Last updated:** 2026-04-14 — added Cluster H full plan, Clusters G/K scouting docs, and Cluster O scouting doc (post-parity query layer). Cluster O sits outside the Obsidian-parity roadmap; it's a native-C++-advantage capability Corbomite could exceed Obsidian on once parity is achieved.
+**Last updated:** 2026-04-14 — added Cluster H full plan, Clusters G/K scouting docs, Cluster O (post-parity query layer), and Cluster P (Graffodil adoption — internal refactor, parallelisable with parity). Both O and P sit outside the Obsidian-parity roadmap: O is a native-C++-advantage *exceeding* Obsidian after parity; P is an *internal restructuring* that shares Corbomite's graph/canvas code with PlanStan via the Graffodil library.
 
 ## Plans
 
@@ -23,6 +23,7 @@
 | M | Internal-plugin feature audits (Graph, Canvas) | — | — | Deferred | two normal tasks |
 | N | Plugin-ready surfaces | — | — | Deferred | builds incrementally on B + C |
 | O | Advanced query layer (post-parity) | [2026-04-14-cluster-o-query-layer-SCOUTING.md](2026-04-14-cluster-o-query-layer-SCOUTING.md) | Scouting | Scouting doc | additive graph+FTS over markdown vault; **post-parity** |
+| P | Graffodil adoption (internal refactor) | [2026-04-14-cluster-p-graffodil-adoption-SCOUTING.md](2026-04-14-cluster-p-graffodil-adoption-SCOUTING.md) | Scouting | Scouting doc | port libs/forcegraph + libs/canvas onto Graffodil; **parallelisable with parity** |
 
 ## Conventions
 

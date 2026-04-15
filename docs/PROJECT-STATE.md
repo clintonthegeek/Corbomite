@@ -2,7 +2,7 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines. Update at the end of every meaningful work session per the Ritual 2 / Ritual 3 checklists in `docs/CONTRIBUTING-OPS.md`. Older "Recent decisions" entries archive to `docs/decisions-archive.md` quarterly.
 
-**Last updated:** 2026-04-14 — added Cluster H full plan, G/K scouting docs, and O (post-parity query layer) scouting doc.
+**Last updated:** 2026-04-14 — added Cluster H full plan; G/K scouting docs; O (post-parity query layer) scouting doc; P (Graffodil adoption, internal refactor) scouting doc.
 
 ---
 
@@ -12,7 +12,7 @@
 
 ---
 
-## Roadmap (15 clusters — 14 parity + 1 post-parity)
+## Roadmap (16 clusters — 14 parity + 1 post-parity + 1 internal refactor)
 
 Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub plan` (sketch exists, expand before dispatch) · `In progress (phase N)` · `Blocked — waiting on X` · `Done` · `Deferred`.
 
@@ -33,6 +33,7 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 | M | Internal-plugin feature audits (Graph, Canvas) | — | Deferred | Treat as two normal tasks; no cluster plan needed |
 | N | Plugin-ready surfaces | — | Deferred | Builds incrementally on top of B + C; no upfront plan |
 | O | Advanced query layer (graph + enriched FTS) | [scouting](superpowers/plans/2026-04-14-cluster-o-query-layer-SCOUTING.md) | Scouting doc | Post-parity. Expand only after A/B/I/K land and demand signals materialise |
+| P | Graffodil adoption (libs/forcegraph + libs/canvas) | [scouting](superpowers/plans/2026-04-14-cluster-p-graffodil-adoption-SCOUTING.md) | Scouting doc | Internal refactor. Parallelisable with parity roadmap. Expand after Graffodil API stabilises (2–3 wk observation) + Cluster A lands |
 
 ---
 
@@ -60,6 +61,7 @@ Move the row to "Recent decisions" or a cluster retro on completion.
 
 Append-only. Most recent on top. Archive entries older than ~3 months to `docs/decisions-archive.md` (quarterly).
 
+- **2026-04-14 — Cluster P scouting doc added: port `libs/forcegraph/` + `libs/canvas/` onto Graffodil.** Graffodil (`~/dev/Graffodil/` v0.1.0, 40+ source files, 12/12 tests passing) is a QGraphicsView-based graph scene framework explicitly designed to subsume both of Corbomite's graph-rendering libraries (see `~/dev/Graffodil/docs/graffodil-design.md` §Boundary Map — our files named as planned consumers). It already contains transplanted versions of our `ForceLayout`/`MultilevelLayout`/`QuadTree`/batch code, plus new capabilities (Sugiyama layout, pluggable `EdgePathStrategy`/`TerminusStyle`, richer tool framework). Net benefit: ~3,500 LOC consolidated, cross-pollination with PlanStan at zero additional cost, material feature gains (Sugiyama, AnchorHighlight, circular layout). Prescribed migration order per the design doc: **Canvas first** (lighter, de-risks framework) → **ForceGraph second** (larger, validates Batch at 10k nodes). Risks: API is evolving (recent `Side`→`Anchor` refactor 2026-04-13) so expansion must wait for 2–3 weeks of API stability. Keeps `CanvasDocument`/`CanvasCommands`/`GraphDataBuilder`/card rendering in Corbomite (Corbomite-specific concerns). Explicit recommendations for expanding Graffodil documented in §Recommendations to expand Graffodil (cached-content hook, group/container nodes, obstacle-aware edge routing, undo-signal contract).
 - **2026-04-14 — Cluster O scouting doc added: advanced query layer as a post-parity goal.** Triggered by a Nov-2025 Substack polemic arguing "notes apps make bad AI-memory substrates, use databases." The polemic is right about AI-memory and wrong to generalise to all knowledge systems. Reason: plain-text markdown has won across 50 years for durable portability/longevity reasons. Corbomite's value is being an Obsidian-compatible notes app; swapping markdown for a DB vault would destroy it. BUT — Corbomite's native-C++ substrate genuinely exceeds Obsidian's JS-in-browser substrate for graph/DB workloads, and Obsidian plugins (Dataview, Datacore, Breadcrumbs, JuggL) reveal real unmet power-user demand. Scouting doc captures the "Option 2" path: an **additive, opt-in, never-authoritative** query layer (graph DB + PageRank-weighted FTS + optional vault-mutation transaction log for multi-agent safety) over the unchanged markdown vault. Markdown stays the source of truth; indexes live in `.obsidian/corbomite-indexes/`; a vault opened in Obsidian still works. Explicitly reject "Option 3" (vault-as-DB) as compat-destroying. An "AI-companion SQLite export" sub-feature can ship earlier (~2 wks after A+I) to gauge demand cheaply. Expansion trigger: A/B/I/K landed + user demand visible. KDE prior art: Baloo (`~/src/kde/src/baloo/`) is directly architecturally parallel.
 - **2026-04-14 — Cluster H full plan written; Clusters G and K get scouting docs.** H is parallelisable with A/B/D and its prior-art targets (KDevelop hover-tooltips, KDevelop completion popup, KMessageWidget) are ripe for exploration now. G and K defer to full plans because G depends on C Phase 1 signatures and K depends on the Bases DSL extraction. Scouting docs capture prior-art breadcrumbs + architectural questions + rough phasing so full-plan expansion is ~90–240 min instead of green-field. A new convention lands: `*-SCOUTING.md` filenames for "pre-plan notes not ready to dispatch."
 - **2026-04-14 — Long-term-state machine adopted.** Standing up `PROJECT-STATE.md` + `CONTRIBUTING-OPS.md` + `plans/INDEX.md` + `obsidian-audit/addenda/` as the four-file persistence system. Reason: audit produced ~94k words of reference; we need a stable cursor to navigate it across sessions. CLAUDE.md is the single entry point. See `docs/CONTRIBUTING-OPS.md` for rituals.
