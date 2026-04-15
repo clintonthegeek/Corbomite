@@ -35,6 +35,7 @@ add_library(markoff-parser STATIC
     src/MarkdownSplitter.cpp
     src/TableHandler.cpp
     src/Document.cpp
+    src/LinkTextParser.cpp
 )
 set_target_properties(markoff-parser PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(MarkoffParser::MarkoffParser ALIAS markoff-parser)

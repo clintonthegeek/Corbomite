@@ -28,3 +28,8 @@ add_executable(tst_markoff_parser_table tst_table.cpp)
 add_test(NAME tst_markoff_parser_table COMMAND tst_markoff_parser_table)
 target_link_libraries(tst_markoff_parser_table PRIVATE Qt6::Test Qt6::Gui Qt6::Widgets markoff-parser)
 set_tests_properties(tst_markoff_parser_table PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_markoff_parser_linktext tst_linktext.cpp)
+add_test(NAME tst_markoff_parser_linktext COMMAND tst_markoff_parser_linktext)
+target_link_libraries(tst_markoff_parser_linktext PRIVATE Qt6::Test markoff-parser)
+set_tests_properties(tst_markoff_parser_linktext PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
