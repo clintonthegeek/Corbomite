@@ -55,6 +55,16 @@ add_test(NAME tst_events COMMAND tst_events)
 target_link_libraries(tst_events PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_events PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_scope tst_scope.cpp)
+add_test(NAME tst_scope COMMAND tst_scope)
+target_link_libraries(tst_scope PRIVATE Qt6::Test Qt6::Gui Corbomite::Core)
+set_tests_properties(tst_scope PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_scopemanager tst_scopemanager.cpp)
+add_test(NAME tst_scopemanager COMMAND tst_scopemanager)
+target_link_libraries(tst_scopemanager PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_scopemanager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_renderengine tst_renderengine.cpp)
 add_test(NAME tst_renderengine COMMAND tst_renderengine)
 target_link_libraries(tst_renderengine PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)

@@ -26,6 +26,10 @@ add_library(corbomite-core STATIC
     include/corbomite/core/Component.h
     src/Events.cpp
     include/corbomite/core/Events.h
+    src/Scope.cpp
+    include/corbomite/core/Scope.h
+    src/ScopeManager.cpp
+    include/corbomite/core/ScopeManager.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
