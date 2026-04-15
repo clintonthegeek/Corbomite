@@ -54,6 +54,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/MarkdownRenderChild.h
     src/EmbedDepthGuard.cpp
     include/corbomite/core/EmbedDepthGuard.h
+    src/EmbedRegistry.cpp
+    include/corbomite/core/EmbedRegistry.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)

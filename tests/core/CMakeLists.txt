@@ -116,3 +116,8 @@ add_executable(tst_embeddepthguard tst_embeddepthguard.cpp)
 add_test(NAME tst_embeddepthguard COMMAND tst_embeddepthguard)
 target_link_libraries(tst_embeddepthguard PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_embeddepthguard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_embedregistry tst_embedregistry.cpp)
+add_test(NAME tst_embedregistry COMMAND tst_embedregistry)
+target_link_libraries(tst_embedregistry PRIVATE Qt6::Test Corbomite::Core)
+set_tests_properties(tst_embedregistry PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
