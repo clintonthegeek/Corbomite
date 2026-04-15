@@ -107,6 +107,36 @@ bool ReadingPipeline::detectFrontmatterChange(const QString &oldMarkdown,
     return a.contents != b.contents;
 }
 
+namespace {
+
+// Return a cumulative-newline-count table: `lineOffsets[k]` is the number
+// of '\n' chars in `markdown[0 .. k)`. Built in one linear pass so
+// per-section `sourceLine` lookup is O(1). Used by Phase 6 so the
+// post-split loop that stamps `ReadingSection::sourceLine` remains O(n)
+// overall (a naive per-section newline count is O(n²)).
+QVector<int> buildLineOffsetTable(const QString &markdown)
+{
+    const int n = markdown.size();
+    QVector<int> table;
+    table.resize(n + 1);
+    int count = 0;
+    for (int j = 0; j < n; ++j) {
+        table[j] = count;
+        if (markdown.at(j) == QLatin1Char('\n')) ++count;
+    }
+    table[n] = count;
+    return table;
+}
+
+int lineOfOffset(const QVector<int> &table, int offset)
+{
+    if (offset <= 0) return 0;
+    const int clamped = qMin(offset, static_cast<int>(table.size() - 1));
+    return table.at(clamped);
+}
+
+} // namespace
+
 QVector<std::shared_ptr<ReadingSection>>
 ReadingPipeline::splitIntoSections(const QString &markdown)
 {
@@ -259,6 +289,29 @@ ReadingPipeline::splitIntoSections(const QString &markdown)
             static_cast<char>('0' + (sec->headingLevel() & 0xF)) };
         h.addData(QByteArray(tag, 2));
         sec->setRenderedShape(h.result());
+    }
+
+    // Phase 6: populate `sourceLine` + `estimatedHeight`. Estimated
+    // height is a crude line-count heuristic — `lines * 1.4 * lineSpacing`
+    // with a nominal 20 px line spacing. Suffices for initial scene-rect
+    // sizing; actual heights overwrite post-layout.
+    //
+    // Build a cumulative-newline lookup table once so per-section queries
+    // are O(1) — with 1000+ sections a per-section linear scan is O(n²)
+    // and dominates large-note open time.
+    const QVector<int> lineTable = buildLineOffsetTable(markdown);
+    for (auto &sec : sections) {
+        const auto r = sec->sourceRange();
+        sec->setSourceLine(lineOfOffset(lineTable, r.from));
+        int lineCount = 0;
+        if (r.to > r.from) {
+            const int fromLine = lineOfOffset(lineTable, r.from);
+            const int toLine = lineOfOffset(lineTable, r.to);
+            lineCount = toLine - fromLine;
+            if (lineCount == 0) lineCount = 1; // no newline: still one line
+        }
+        const qreal estimate = qMax<qreal>(lineCount * 1.4 * 20.0, 24.0);
+        sec->setEstimatedHeight(estimate);
     }
 
     // usesFrontMatter detection — scan each non-frontmatter section for

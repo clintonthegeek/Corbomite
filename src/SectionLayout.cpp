@@ -18,6 +18,7 @@
 #include "ReadingMathObject.h"
 #include "SpanRenderer.h"
 #include "corbomite/readingview/ReadingSection.h"
+#include "corbomite/readingview/ReadingViewConstants.h"
 #include "corbomite/readingview/VaultResourceProvider.h"
 #include "corbomite/readingview/styling/StyleManager.h"
 
@@ -36,7 +37,9 @@
 #include <QGraphicsTextItem>
 #include <QImage>
 #include <QPen>
+#include <QGraphicsPolygonItem>
 #include <QPixmap>
+#include <QPolygonF>
 #include <QRegularExpression>
 #include <QStringList>
 #include <QSvgRenderer>
@@ -964,6 +967,38 @@ QGraphicsItemGroup *SectionLayout::layoutSection(ReadingSection &section,
             QCryptographicHash::hash(shapeSrc, QCryptographicHash::Sha256);
         section.setRenderedShape(digest);
     }
+
+    // Phase 6: heading sections get a clickable gutter arrow (▶ / ▼). The
+    // arrow is a small triangle QGraphicsPolygonItem tagged with the
+    // section index under `kFoldArrowSectionIdxProperty` so click-hit
+    // testing in ReadingView::mousePressEvent can look up the owning
+    // section without needing back-pointers from items to sections.
+    if (ctx.headingCollapsedIndicator && section.headingLevel() > 0
+        && ctx.sectionIndex >= 0) {
+        QPolygonF poly;
+        const qreal w = 8.0;
+        const qreal h = 10.0;
+        if (section.headingCollapsed()) {
+            // ▶ pointing right.
+            poly << QPointF(0, 0) << QPointF(w, h / 2.0)
+                 << QPointF(0, h);
+        } else {
+            // ▼ pointing down.
+            poly << QPointF(0, 0) << QPointF(w, 0)
+                 << QPointF(w / 2.0, h);
+        }
+        auto *arrow = new QGraphicsPolygonItem(poly);
+        arrow->setBrush(QColor(120, 120, 120));
+        arrow->setPen(Qt::NoPen);
+        // Position in the left gutter, vertically aligned to the first
+        // heading block (y = 0 relative to the group; the heading is the
+        // first block laid out). A -16 px x offset places the arrow off
+        // the left of the content area.
+        arrow->setPos(-16.0, 8.0);
+        arrow->setData(kFoldArrowSectionIdxProperty, ctx.sectionIndex);
+        group->addToGroup(arrow);
+    }
+
     section.setGraphicsItem(group);
     return group;
 }

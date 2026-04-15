@@ -23,6 +23,12 @@ constexpr int kFrameBudgetMs = 5;
 /// frame, even if the wall-time budget is not yet spent.
 constexpr int kFrameBudgetSections = 10;
 
+/// `QGraphicsItem::setData()` key under which Phase 6's heading-fold gutter
+/// arrow carries its owning section index. Shared between `SectionLayout`
+/// (which stamps) and `ReadingView` (which hit-tests). The value is the
+/// hex literal for ASCII "FOLD".
+constexpr int kFoldArrowSectionIdxProperty = 0x464F4C44;
+
 } // namespace Corbomite::ReadingView
 
 #endif // CORBOMITE_READINGVIEW_READINGVIEWCONSTANTS_H
