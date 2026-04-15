@@ -35,6 +35,8 @@ add_library(corbomite-storage STATIC
     src/MetadataWorker.cpp
     src/MetadataWorkerLoop_p.h
     include/corbomite/storage/MetadataWorker.h
+    src/CachedMetadataStore.cpp
+    include/corbomite/storage/CachedMetadataStore.h
 )
 set_target_properties(corbomite-storage PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Storage ALIAS corbomite-storage)

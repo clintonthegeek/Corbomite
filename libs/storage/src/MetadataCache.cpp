@@ -19,6 +19,7 @@
 
 #include "corbomite/storage/MetadataCache.h"
 
+#include "corbomite/storage/CachedMetadataStore.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataParser.h"
 #include "corbomite/storage/MetadataWorker.h"
@@ -50,12 +51,21 @@ MetadataCache::MetadataCache(const LinkResolver &resolver, QObject *parent)
     , m_resolver(resolver)
     , m_indexFinishedTimer(new QTimer(this))
     , m_worker(new MetadataWorker(resolver, this))
+    , m_persistTimer(new QTimer(this))
 {
     qRegisterMetaType<Corbomite::CachedMetadata>("Corbomite::CachedMetadata");
     m_indexFinishedTimer->setSingleShot(true);
     m_indexFinishedTimer->setInterval(10);  // 10ms debounce per audit §4
     connect(m_indexFinishedTimer, &QTimer::timeout,
             this, &MetadataCache::onIndexFinishedTimeout);
+
+    // 30s debounced auto-persist during active indexing. Restarts on every
+    // mutation; fires once the cache has been quiescent for 30s. Also
+    // flushed immediately on indexFinished and on close().
+    m_persistTimer->setSingleShot(true);
+    m_persistTimer->setInterval(30000);
+    connect(m_persistTimer, &QTimer::timeout,
+            this, &MetadataCache::onPersistTimerTimeout);
 
     // Worker parses run on the worker thread; results arrive here via a
     // Qt::QueuedConnection that the worker wires internally. We just attach
@@ -64,7 +74,15 @@ MetadataCache::MetadataCache(const LinkResolver &resolver, QObject *parent)
             this, &MetadataCache::onWorkerParsed);
 }
 
-MetadataCache::~MetadataCache() = default;
+MetadataCache::~MetadataCache()
+{
+    // Ensure any open store flushes + closes on destruction. Defensive:
+    // callers should invoke close() explicitly, but we guard here so a
+    // dropped MetadataCache doesn't leave a stale SQLite connection.
+    if (m_store) {
+        close();
+    }
+}
 
 void MetadataCache::onFileChanged(const QString &path,
                                   const QByteArray &content,
@@ -155,6 +173,7 @@ void MetadataCache::onFileDeleted(const QString &path)
     Q_EMIT cacheDeleted(path, prevCache);
     m_events.trigger(QStringLiteral("deleted"),
                      {path, QVariant::fromValue(prevCache)});
+    scheduleDebouncedPersist();
 }
 
 void MetadataCache::onUnsupportedFile(const QString &path,
@@ -256,6 +275,7 @@ void MetadataCache::onWorkerParsed(const QString &path,
 
     insertWorkerResult(path, mtimeMs, size, hash, cache);
     emitCacheChanged(path, prevHash);
+    scheduleDebouncedPersist();
 }
 
 void MetadataCache::releaseHashRef(const QString &hash)
@@ -379,6 +399,97 @@ void MetadataCache::onIndexFinishedTimeout()
 {
     Q_EMIT indexFinished();
     m_events.trigger(QStringLiteral("finished"), QVariantList{});
+
+    // Flush the cache state to disk immediately on index completion. This
+    // makes the post-bulk-rebuild state durable without waiting the 30s
+    // debounce window — survives a crash after bulk rebuild.
+    persistNow();
+}
+
+void MetadataCache::onPersistTimerTimeout()
+{
+    persistNow();
+}
+
+void MetadataCache::persistNow()
+{
+    if (m_persistTimer && m_persistTimer->isActive()) {
+        m_persistTimer->stop();
+    }
+    if (!m_store || !m_store->isOpen()) {
+        return;
+    }
+    m_store->persistFrom(*this);
+}
+
+void MetadataCache::scheduleDebouncedPersist()
+{
+    if (!m_store || !m_store->isOpen()) {
+        return;
+    }
+    // setSingleShot(true) + start() restarts the timer on each call, so a
+    // burst of mutations coalesces into one persist 30s after the last one.
+    m_persistTimer->start();
+}
+
+bool MetadataCache::open(const QString &dbPath)
+{
+    if (m_store) {
+        close();
+    }
+    m_store = std::make_unique<CachedMetadataStore>();
+    if (!m_store->open(dbPath)) {
+        m_store.reset();
+        return false;
+    }
+    // Load any existing state. If the DB is fresh, this leaves the cache
+    // untouched. Note: loaded stats may be stale vs on-disk files; callers
+    // that want a post-load reconcile should feed onFileChanged() for each
+    // current file -- stat short-circuit handles the no-change path.
+    m_store->loadInto(*this);
+    return true;
+}
+
+void MetadataCache::close()
+{
+    if (!m_store) {
+        return;
+    }
+    if (m_store->isOpen()) {
+        m_store->persistFrom(*this);
+        m_store->close();
+    }
+    m_store.reset();
+    if (m_persistTimer && m_persistTimer->isActive()) {
+        m_persistTimer->stop();
+    }
+}
+
+QHash<QString, FileCacheEntry> MetadataCache::pathToFileEntrySnapshot() const
+{
+    return m_pathToFileEntry;
+}
+
+QHash<QString, CachedMetadata> MetadataCache::hashToCacheSnapshot() const
+{
+    return m_hashToCache;
+}
+
+QHash<QString, int> MetadataCache::hashRefCountSnapshot() const
+{
+    return m_hashRefCount;
+}
+
+void MetadataCache::installPersistedState(
+    const QHash<QString, FileCacheEntry> &pathEntries,
+    const QHash<QString, CachedMetadata> &hashMap,
+    const QHash<QString, int> &hashRefCounts)
+{
+    // Replace whatever was there. No signals, no parse, no queue touch --
+    // this is a bulk reinstall of a previously-persisted snapshot.
+    m_pathToFileEntry = pathEntries;
+    m_hashToCache = hashMap;
+    m_hashRefCount = hashRefCounts;
 }
 
 }  // namespace Corbomite

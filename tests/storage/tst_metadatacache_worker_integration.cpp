@@ -10,9 +10,12 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QString>
 #include <QStringList>
 #include <QTemporaryDir>
+#include <QUuid>
 
 #include "corbomite/storage/CachedMetadata.h"
 #include "corbomite/storage/LinkResolver.h"
@@ -120,6 +123,57 @@ private Q_SLOTS:
 
         QCOMPARE(cache.fileCount(), 10);
         QCOMPARE(cache.uniqueHashCount(), 1);
+    }
+
+    // 3. Persistence flushes immediately on indexFinished. Populate a vault
+    //    of 5 files via rebuildVault against a MetadataCache with an open
+    //    store; assert both tables have 5 rows right after indexFinished
+    //    fires (no 30s wait for the debounce timer).
+    void testPersistOnIndexFinished()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        const QStringList rel = writeDistinctFiles(dir.path(), 5);
+        QCOMPARE(rel.size(), 5);
+
+        const QString dbPath =
+            QDir(dir.path()).filePath(QStringLiteral("metadata-cache.db"));
+
+        LinkResolver resolver;
+        resolver.setVaultPaths(rel);
+
+        MetadataCache cache(resolver);
+        QVERIFY(cache.open(dbPath));
+
+        QSignalSpy finishedSpy(&cache, &MetadataCache::indexFinished);
+        cache.rebuildVault(dir.path(), rel);
+        QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 10000);
+
+        // Inspect the DB directly -- must contain 5 rows in each table
+        // *now*, not 30s from now.
+        const QString probe = QStringLiteral("probe.pif.") +
+            QUuid::createUuid().toString();
+        {
+            QSqlDatabase db =
+                QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), probe);
+            db.setDatabaseName(dbPath);
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+
+            QVERIFY(q.exec(QStringLiteral("SELECT COUNT(*) FROM file_cache")));
+            QVERIFY(q.next());
+            QCOMPARE(q.value(0).toInt(), 5);
+
+            QVERIFY(q.exec(QStringLiteral("SELECT COUNT(*) FROM metadata_cache")));
+            QVERIFY(q.next());
+            QCOMPARE(q.value(0).toInt(), 5);
+
+            db.close();
+        }
+        QSqlDatabase::removeDatabase(probe);
+
+        cache.close();
     }
 };
 

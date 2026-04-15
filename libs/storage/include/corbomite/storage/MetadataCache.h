@@ -14,10 +14,12 @@
 #include <QtCore/QStringList>
 #include <QtCore/QTimer>
 
+#include <memory>
 #include <optional>
 
 namespace Corbomite {
 
+class CachedMetadataStore;
 class LinkResolver;
 
 struct FileCacheEntry {
@@ -106,6 +108,30 @@ public:
     int fileCount() const;
     int uniqueHashCount() const;
 
+    /// Opens a SQLite-backed persistence store at `dbPath`. On success, loads
+    /// any existing cache state from disk via CachedMetadataStore::loadInto.
+    /// Subsequent mutations schedule a debounced 30s auto-persist; the final
+    /// state flushes on close() or on indexFinished (whichever comes first).
+    /// Returns true on success.
+    bool open(const QString &dbPath);
+
+    /// Flushes the current cache state to the store and closes the DB
+    /// connection. Safe to call on never-opened instance (no-op).
+    void close();
+
+    /// Snapshot APIs for persistence. Main-thread-only.
+    QHash<QString, FileCacheEntry> pathToFileEntrySnapshot() const;
+    QHash<QString, CachedMetadata> hashToCacheSnapshot() const;
+    QHash<QString, int> hashRefCountSnapshot() const;
+
+    /// Bulk-install already-persisted cache state. Used by
+    /// CachedMetadataStore::loadInto. No signals fire. No parse runs. Callers
+    /// that expect observable insert semantics should use onFileChanged()
+    /// instead.
+    void installPersistedState(const QHash<QString, FileCacheEntry> &pathEntries,
+                               const QHash<QString, CachedMetadata> &hashMap,
+                               const QHash<QString, int> &hashRefCounts);
+
     /// Plugin-facing event bus — Obsidian-named events:
     ///   "changed"  (path, prevHash, CachedMetadata)
     ///   "deleted"  (path, CachedMetadata prevCache)
@@ -128,6 +154,7 @@ Q_SIGNALS:
 private Q_SLOTS:
     void drainOnePath();
     void onIndexFinishedTimeout();
+    void onPersistTimerTimeout();
 
     /// Receives a freshly-parsed result from the worker thread via
     /// Qt::QueuedConnection. Runs on the main thread. Performs the
@@ -151,6 +178,9 @@ private:
     int m_inProgressTaskCount = 0;
     MetadataWorker *m_worker;  // owned via parent (this)
 
+    std::unique_ptr<CachedMetadataStore> m_store;
+    QTimer *m_persistTimer;  // owned via parent (this)
+
     /// Helper: insert a pre-parsed entry for `path` using the worker's
     /// result. Bumps the hash ref-count and dedups against `m_hashToCache`
     /// (skipping reinsertion of identical content). Returns nothing; the
@@ -171,6 +201,15 @@ private:
     /// already posted, i.e. queue size is 1 post-enqueue). Also stops the
     /// `indexFinished` debounce timer since new work arrived.
     void emitCacheChanged(const QString &path, const QString &prevHash);
+
+    /// Flushes the in-memory cache state to the store unconditionally. No-op
+    /// if `m_store` is null (persistence not enabled). Also stops the 30s
+    /// debounce timer.
+    void persistNow();
+
+    /// Bump the 30s debounce timer if persistence is enabled. Called on every
+    /// mutation during active indexing.
+    void scheduleDebouncedPersist();
 };
 
 }  // namespace Corbomite

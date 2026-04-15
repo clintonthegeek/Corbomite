@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(Corbomite_StorageTests LANGUAGES CXX)
 enable_testing()
-find_package(Qt6 REQUIRED COMPONENTS Test Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Test Concurrent Sql)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -67,5 +67,10 @@ set_tests_properties(tst_metadataworker PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=
 
 add_executable(tst_metadatacache_worker_integration tst_metadatacache_worker_integration.cpp)
 add_test(NAME tst_metadatacache_worker_integration COMMAND tst_metadatacache_worker_integration)
-target_link_libraries(tst_metadatacache_worker_integration PRIVATE Qt6::Test Qt6::Core Corbomite::Storage Corbomite::Core)
+target_link_libraries(tst_metadatacache_worker_integration PRIVATE Qt6::Test Qt6::Core Qt6::Sql Corbomite::Storage Corbomite::Core)
 set_tests_properties(tst_metadatacache_worker_integration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_cachedmetadatastore tst_cachedmetadatastore.cpp)
+add_test(NAME tst_cachedmetadatastore COMMAND tst_cachedmetadatastore)
+target_link_libraries(tst_cachedmetadatastore PRIVATE Qt6::Test Qt6::Core Qt6::Sql Corbomite::Storage Corbomite::Core)
+set_tests_properties(tst_cachedmetadatastore PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
