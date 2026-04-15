@@ -2,7 +2,7 @@
 
 > **Living document.** Table of contents over `docs/superpowers/plans/cluster-*.md`. One row per cluster plan. Status mirrors `docs/PROJECT-STATE.md` Roadmap — when those diverge, **PROJECT-STATE is authoritative.** Update the Status column here per Ritual 3 (cluster done) or Ritual 2 (mid-cluster status change).
 
-**Last updated:** 2026-04-14 — added Cluster H full plan; added Clusters G and K as scouting docs. A new plan type (`SCOUTING`) joins `FULL` and `STUB` for pre-plan notes with breadcrumbs but no dispatchable phases.
+**Last updated:** 2026-04-14 — added Cluster H full plan, Clusters G/K scouting docs, and Cluster O scouting doc (post-parity query layer). Cluster O sits outside the Obsidian-parity roadmap; it's a native-C++-advantage capability Corbomite could exceed Obsidian on once parity is achieved.
 
 ## Plans
 
@@ -22,6 +22,7 @@
 | L | Properties panel | — | — | Deferred | normal task after A/B/I/C |
 | M | Internal-plugin feature audits (Graph, Canvas) | — | — | Deferred | two normal tasks |
 | N | Plugin-ready surfaces | — | — | Deferred | builds incrementally on B + C |
+| O | Advanced query layer (post-parity) | [2026-04-14-cluster-o-query-layer-SCOUTING.md](2026-04-14-cluster-o-query-layer-SCOUTING.md) | Scouting | Scouting doc | additive graph+FTS over markdown vault; **post-parity** |
 
 ## Conventions
 
