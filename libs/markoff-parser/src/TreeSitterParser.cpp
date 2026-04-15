@@ -9,6 +9,7 @@
 
 #include <QStringList>
 #include <QPair>
+#include <QRegularExpression>
 #include <vector>
 #include <algorithm>
 
@@ -774,6 +775,46 @@ void collectHeadingsForQuery(TSNode node, const QByteArray &utf8,
         collectHeadingsForQuery(ts_node_child(node, i), utf8, headings);
 }
 
+/// Recursively walk block tree for fenced_code_block nodes
+void collectCodeBlocksForQuery(TSNode node, const QByteArray &utf8,
+                                QList<CodeBlockInfo> &codeBlocks)
+{
+    const char *nodeType = ts_node_type(node);
+    if (strcmp(nodeType, "fenced_code_block") == 0) {
+        CodeBlockInfo info;
+        info.sourceOffset = static_cast<int>(ts_node_start_byte(node));
+        info.lineCount = 0;
+
+        // Find child nodes: info_string (optional), code_fence_content.
+        const uint32_t childCount = ts_node_child_count(node);
+        for (uint32_t i = 0; i < childCount; ++i) {
+            TSNode child = ts_node_child(node, i);
+            const char *ct = ts_node_type(child);
+            if (strcmp(ct, "info_string") == 0) {
+                const int s = static_cast<int>(ts_node_start_byte(child));
+                const int e = static_cast<int>(ts_node_end_byte(child));
+                const QString text = QString::fromUtf8(utf8.constData() + s, e - s).trimmed();
+                // First whitespace-delimited word is the language.
+                const int sp = text.indexOf(QRegularExpression(QStringLiteral(R"(\s)")));
+                info.language = (sp < 0) ? text : text.left(sp);
+            } else if (strcmp(ct, "code_fence_content") == 0) {
+                const int s = static_cast<int>(ts_node_start_byte(child));
+                const int e = static_cast<int>(ts_node_end_byte(child));
+                const QByteArray slice = utf8.mid(s, e - s);
+                info.lineCount = static_cast<int>(slice.count('\n'));
+                // Trailing newline of the last content line is counted;
+                // if the content ends right before the closing fence, the
+                // count is exactly the number of content lines.
+            }
+        }
+        codeBlocks.append(info);
+        return; // Do not recurse into fenced_code_block children; we've handled them.
+    }
+    const uint32_t n = ts_node_child_count(node);
+    for (uint32_t i = 0; i < n; ++i)
+        collectCodeBlocksForQuery(ts_node_child(node, i), utf8, codeBlocks);
+}
+
 /// Recursively walk an inline tree for links, wikilinks, images, and tags
 void collectInlineQueries(TSNode node, const QByteArray &utf8,
                           QList<LinkInfo> &links, QList<TagInfo> &tags)
@@ -900,9 +941,10 @@ DocumentQueryResult TreeSitterParser::buildDocumentQueries() const
     if (!m_blockTree)
         return result;
 
-    // Walk block tree for headings
+    // Walk block tree for headings and code blocks
     TSNode blockRoot = ts_tree_root_node(m_blockTree);
     collectHeadingsForQuery(blockRoot, m_utf8, result.headings);
+    collectCodeBlocksForQuery(blockRoot, m_utf8, result.codeBlocks);
 
     // Walk inline trees for links and tags
     for (TSTree *tree : m_inlineTrees) {

@@ -16,11 +16,13 @@ namespace Markoff {
 struct HeadingInfo;
 struct LinkInfo;
 struct TagInfo;
+struct CodeBlockInfo;
 
 struct DocumentQueryResult {
     QList<HeadingInfo> headings;
     QList<LinkInfo> links;
     QList<TagInfo> tags;
+    QList<CodeBlockInfo> codeBlocks;
 };
 
 struct SourceSpan;

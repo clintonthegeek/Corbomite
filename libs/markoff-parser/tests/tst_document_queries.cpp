@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
 #include <markoff-parser/Document.h>
+#include <markoff-parser/TreeSitterParser.h>
 
 class TestDocumentQueries : public QObject
 {
@@ -16,6 +17,9 @@ private Q_SLOTS:
     void testWordCount();
     void testCharacterCount();
     void testFootnotes();
+    void documentQueries_fencedCodeBlock_populatedWithLanguageAndLineCount();
+    void documentQueries_fencedCodeBlock_emptyLanguage();
+    void documentQueries_fencedCodeBlock_multipleBlocks();
 };
 
 void TestDocumentQueries::testHeadings()
@@ -98,6 +102,55 @@ void TestDocumentQueries::testFootnotes()
     QCOMPARE(footnotes[0].number, 1);
     QCOMPARE(footnotes[0].label, QStringLiteral("1"));
     QVERIFY(footnotes[0].content.contains(QStringLiteral("footnote content")));
+}
+
+void TestDocumentQueries::documentQueries_fencedCodeBlock_populatedWithLanguageAndLineCount()
+{
+    Markoff::TreeSitterParser parser;
+    const QString src = QStringLiteral(
+        "# A\n\n"
+        "```cpp\n"
+        "int main() { return 0; }\n"
+        "puts(\"hi\");\n"
+        "```\n");
+    QVERIFY(parser.parse(src));
+    const auto q = parser.buildDocumentQueries();
+    QCOMPARE(q.codeBlocks.size(), 1);
+    QCOMPARE(q.codeBlocks[0].language, QStringLiteral("cpp"));
+    QCOMPARE(q.codeBlocks[0].lineCount, 2);
+    QVERIFY(q.codeBlocks[0].sourceOffset > 0);
+}
+
+void TestDocumentQueries::documentQueries_fencedCodeBlock_emptyLanguage()
+{
+    Markoff::TreeSitterParser parser;
+    QVERIFY(parser.parse(QStringLiteral("```\nfoo\n```\n")));
+    const auto q = parser.buildDocumentQueries();
+    QCOMPARE(q.codeBlocks.size(), 1);
+    QCOMPARE(q.codeBlocks[0].language, QString());
+    QCOMPARE(q.codeBlocks[0].lineCount, 1);
+}
+
+void TestDocumentQueries::documentQueries_fencedCodeBlock_multipleBlocks()
+{
+    Markoff::TreeSitterParser parser;
+    const QString src = QStringLiteral(
+        "```py\n"
+        "x = 1\n"
+        "```\n\n"
+        "text\n\n"
+        "```rust\n"
+        "fn main() {}\n"
+        "fn other() {}\n"
+        "```\n");
+    QVERIFY(parser.parse(src));
+    const auto q = parser.buildDocumentQueries();
+    QCOMPARE(q.codeBlocks.size(), 2);
+    QCOMPARE(q.codeBlocks[0].language, QStringLiteral("py"));
+    QCOMPARE(q.codeBlocks[0].lineCount, 1);
+    QCOMPARE(q.codeBlocks[1].language, QStringLiteral("rust"));
+    QCOMPARE(q.codeBlocks[1].lineCount, 2);
+    QVERIFY(q.codeBlocks[1].sourceOffset > q.codeBlocks[0].sourceOffset);
 }
 
 QTEST_MAIN(TestDocumentQueries)

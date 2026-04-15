@@ -31,6 +31,12 @@ struct TagInfo {
     int sourceOffset;
 };
 
+struct CodeBlockInfo {
+    int sourceOffset;    ///< UTF-8 byte offset of opening fence in parsed source.
+    QString language;    ///< Info-string language tag ("" if none). Trimmed, first word only.
+    int lineCount;       ///< Lines strictly inside the fences (excludes opening + closing).
+};
+
 struct FootnoteInfo {
     int number;
     QString label;
