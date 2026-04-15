@@ -1018,10 +1018,17 @@ int Editor::replaceAll(const QString &find, const QString &replace,
         auto *ti = static_cast<MarkdownTextItem *>(item);
         auto *doc = ti->document();
         QTextCursor cursor(doc);
-        while (!(cursor = doc->find(find, cursor, flags)).isNull()) {
+        QTextCursor first = doc->find(find, cursor, flags);
+        if (first.isNull()) continue;
+
+        cursor = first;
+        cursor.beginEditBlock();
+        do {
             cursor.insertText(replace);
             ++count;
-        }
+            cursor = doc->find(find, cursor, flags);
+        } while (!cursor.isNull());
+        first.endEditBlock();
     }
     return count;
 }
