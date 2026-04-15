@@ -324,6 +324,79 @@ private Q_SLOTS:
 
         cache.close();
     }
+
+    // L5: simulating a vault switch — pointing the same SQLiteIndex +
+    // MetadataCache pair at a new vault root. The new vault's queries must
+    // not see any row from the old vault. (In real MainWindow.loadVault we
+    // delete and recreate both objects, but the contract is worth proving:
+    // changing setVaultRoot mid-flight + rewiring should not leak.)
+    void vaultSwitchDoesNotLeakLinksFromPreviousVault()
+    {
+        QTemporaryDir dirA;
+        QTemporaryDir dirB;
+        QVERIFY(dirA.isValid() && dirB.isValid());
+
+        const QString aNote = QStringLiteral("In A.md");
+        const QString aTarget = QStringLiteral("Target A.md");
+        writeFile(dirA.path() + QLatin1Char('/') + aNote,
+                  QByteArrayLiteral("# A\n\n[[Target A]]\n"));
+        writeFile(dirA.path() + QLatin1Char('/') + aTarget,
+                  QByteArrayLiteral("# Target A\n"));
+
+        const QString bNote = QStringLiteral("In B.md");
+        writeFile(dirB.path() + QLatin1Char('/') + bNote,
+                  QByteArrayLiteral("# B\n\nNo links.\n"));
+
+        const QString aCacheDb =
+            dirA.path() + QStringLiteral("/.corbomite/metadata-cache.db");
+        const QString aIndexDb =
+            dirA.path() + QStringLiteral("/.corbomite/index.sqlite");
+        const QString bCacheDb =
+            dirB.path() + QStringLiteral("/.corbomite/metadata-cache.db");
+        const QString bIndexDb =
+            dirB.path() + QStringLiteral("/.corbomite/index.sqlite");
+        QDir().mkpath(QFileInfo(aCacheDb).absolutePath());
+        QDir().mkpath(QFileInfo(bCacheDb).absolutePath());
+
+        // Vault A.
+        {
+            LinkResolver resolver;
+            resolver.setVaultPaths({aNote, aTarget});
+            MetadataCache cache(resolver);
+            cache.open(aCacheDb);
+            SQLiteIndex index;
+            QVERIFY(index.open(aIndexDb));
+            index.setVaultRoot(dirA.path());
+            index.setMetadataCache(&cache);
+            QSignalSpy doneSpy(&cache, &MetadataCache::indexFinished);
+            cache.rebuildVault(dirA.path(), {aNote, aTarget});
+            QVERIFY(waitForSpy(doneSpy, 1));
+            QCOMPARE(index.outlinksFor(aNote).size(), 1);
+            cache.close();
+            index.close();
+        }
+
+        // Vault B — fresh objects per real loadVault behaviour.
+        LinkResolver resolverB;
+        resolverB.setVaultPaths({bNote});
+        MetadataCache cacheB(resolverB);
+        cacheB.open(bCacheDb);
+        SQLiteIndex indexB;
+        QVERIFY(indexB.open(bIndexDb));
+        indexB.setVaultRoot(dirB.path());
+        indexB.setMetadataCache(&cacheB);
+        QSignalSpy doneSpyB(&cacheB, &MetadataCache::indexFinished);
+        cacheB.rebuildVault(dirB.path(), {bNote});
+        QVERIFY(waitForSpy(doneSpyB, 1));
+
+        // Vault B should know about its own note and nothing else.
+        QVERIFY(indexB.outlinksFor(aNote).isEmpty());        // A's note absent.
+        QVERIFY(indexB.backlinksFor(aTarget).isEmpty());     // A's target absent.
+        QCOMPARE(indexB.outlinksFor(bNote).size(), 0);       // B has no links.
+
+        cacheB.close();
+        indexB.close();
+    }
 };
 
 QTEST_MAIN(TestCrossSession)
