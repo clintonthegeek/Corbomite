@@ -86,6 +86,30 @@ Execute every applicable step.
 
 ---
 
+## Ritual 4 — Test enrichment cycle (recurring)
+
+Goal: after a cluster lands or after a multi-session push of code, hunt for the bugs that per-class unit tests miss — cross-component, cross-session, and UI-observable behaviour.
+
+**When to run:** after Ritual 3 (cluster done), or any time a multi-day implementation push has merged ≥10 commits without a coverage check, or on a fixed cadence (e.g. "every other cluster"). The human triggers the cycle; the agent executes it.
+
+Execute every step in order.
+
+1. **Open the matrix.** `docs/test-coverage-matrix.md`. Skim the seams and lifecycle columns. Add any new seam introduced by recent work as a new row (blank cells); add any new lifecycle as a new column.
+2. **Refresh the test inventory.** Walk the existing tests in `tests/`, `libs/*/tests/` — for each test, identify which seam × lifecycle cell(s) it covers. Update the matrix cells (`✓ tst_<name>`).
+3. **Pick the cycle's targets.** Choose N highest-risk blank cells (default `N=6`). "Highest-risk" = recently-touched code, persistence-heavy, or known to interact with multiple subsystems. Document the picks in a new "Cycle M" section in `docs/test-coverage-bug-hunt.md` under "Cycle log".
+4. **For each target cell, write a failing scenario test.** Use Tier B (cross-session, in `tests/integration/`) by default. Use Tier A (`tests/e2e/`) only when the bug is UI-display-only. Each test:
+   - Sets up state representing the lifecycle (e.g. for L4 "schema bump": pre-populate persisted DBs at version N, simulate version-N+1 open).
+   - Asserts the expected behaviour.
+   - If it passes: the cell wasn't a gap after all — update the matrix to `✓` and move on.
+   - If it fails: this is a bug. Mint a `BUG-YYYYMMDD-NNN` ID, wrap the asserts with `QEXPECT_FAIL("", "BUG-xxx: <short reason>", Continue)`, append a row to the inventory table, update the matrix cell to the BUG-ID.
+5. **Do NOT fix bugs in the same cycle.** The cycle is for hunting. Filing the bug = the deliverable. Fixes are scheduled separately by the human.
+6. **Cycle close-out.** In `docs/test-coverage-bug-hunt.md`, update the cycle log entry with: cells targeted, bugs filed (by ID), tests landed (by name).
+7. **Update PROJECT-STATE.** Add a "Recent decisions" bullet noting the cycle ran, link to the cycle's log entry.
+
+**Do NOT** mark a cell `✓` based on any test that doesn't actually exercise the lifecycle dimension. "Tested in isolation" ≠ "tested in this lifecycle." When in doubt, leave the cell blank and add a partial-coverage `~` only if a test definitively covers part of the cell.
+
+---
+
 ## Conventions
 
 ### Files that are **canonical** (treat as read-only):
