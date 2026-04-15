@@ -4,6 +4,8 @@
 #include "corbomite/readingview/CodeBlockHighlighter.h"
 #include "corbomite/readingview/VaultResourceProvider.h"
 
+#include "corbomite/core/CodeBlockProcessorRegistry.h"
+
 #include <QGraphicsView>
 #include <QMultiHash>
 #include <QString>
@@ -80,6 +82,17 @@ public:
     /// virtual-scroll controller. Exposed for tests.
     int mountedCount() const;
 
+    /// Cluster J phase 5 — built-in code-block processor registry. Built-ins
+    /// (mermaid, math, default syntax-highlighting fallback) are registered
+    /// at construction by `registerBuiltinCodeBlockProcessors()`. The
+    /// current `SectionLayout` path still owns graphics-item emission;
+    /// the registry's role here is to expose plugin-reachable dispatch
+    /// (matches Obsidian `MarkdownCodeBlockProcessor` contract). Returns
+    /// a pointer owned by `this`.
+    Corbomite::Core::CodeBlockProcessorRegistry *codeBlockProcessorRegistry();
+    const Corbomite::Core::CodeBlockProcessorRegistry *
+    codeBlockProcessorRegistry() const;
+
 Q_SIGNALS:
     void scrollPositionVisualLineChanged(float visualLine);
     void wikiLinkActivated(const QString &target);
@@ -101,6 +114,14 @@ protected:
 
 private:
     void rebuild();
+    /// Cluster J phase 5 — register built-in code-block processors onto
+    /// `m_codeBlockRegistry` at construction. Current built-ins: `mermaid`
+    /// (delegates to `MermaidRenderer::renderSvg`), `math` (delegates to
+    /// JKQTMathText for syntax validation), and a fallback default handler
+    /// that exercises the KF6::SyntaxHighlighting bridge. The processors
+    /// return `true` on successful bridge invocation — they do not yet
+    /// own scenegraph emission; that continues in `SectionLayout`.
+    void registerBuiltinCodeBlockProcessors();
     void beginMount(QVector<std::shared_ptr<ReadingSection>> newSections);
     void mountInitialWindowWithBudget(int startIdx);
     void onParseFinished(quint64 requestId,
@@ -128,6 +149,8 @@ private:
     std::unique_ptr<SectionRecyclePool> m_recyclePool;
     std::unique_ptr<ReadingParseWorker> m_worker;
     std::unique_ptr<VirtualScrollController> m_controller;
+    std::unique_ptr<Corbomite::Core::CodeBlockProcessorRegistry>
+        m_codeBlockRegistry;
 
     QVector<std::shared_ptr<ReadingSection>> m_sections;
 
