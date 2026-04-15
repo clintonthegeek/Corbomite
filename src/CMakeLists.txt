@@ -7,6 +7,7 @@ add_library(CorbomiteApp STATIC
     app/MainWindow.cpp
     app/VaultService.cpp
     app/SessionManager.cpp
+    app/RibbonSlot.cpp
     app/WelcomeScreen.cpp
     mdi/CorbomiteMDI.cpp
     sidebar/FileExplorerPanel.cpp
@@ -26,6 +27,7 @@ add_library(CorbomiteApp STATIC
     reactors/AutosaveReactor.cpp
     reactors/FileWatchReactor.cpp
     dialogs/CreateVaultDialog.cpp
+    dialogs/Notice.cpp
     dialogs/SettingsDialog.cpp
     dialogs/QuickSwitcherModel.cpp
     dialogs/QuickSwitcherDelegate.cpp

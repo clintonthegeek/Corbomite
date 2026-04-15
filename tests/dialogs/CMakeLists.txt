@@ -10,3 +10,13 @@ add_executable(tst_quickswitchermodel tst_quickswitchermodel.cpp)
 add_test(NAME tst_quickswitchermodel COMMAND tst_quickswitchermodel)
 target_link_libraries(tst_quickswitchermodel PRIVATE Qt6::Test CorbomiteApp)
 set_tests_properties(tst_quickswitchermodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_ribbonslot tst_ribbonslot.cpp)
+add_test(NAME tst_ribbonslot COMMAND tst_ribbonslot)
+target_link_libraries(tst_ribbonslot PRIVATE Qt6::Test CorbomiteApp)
+set_tests_properties(tst_ribbonslot PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_notice tst_notice.cpp)
+add_test(NAME tst_notice COMMAND tst_notice)
+target_link_libraries(tst_notice PRIVATE Qt6::Test CorbomiteApp)
+set_tests_properties(tst_notice PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
