@@ -71,8 +71,34 @@ void TableBlockItem::computeLayout()
     m_totalHeight = totalRows * m_rowHeight;
 }
 
+void TableBlockItem::setFolded(bool folded, const QString &language, int lineCount)
+{
+    if (m_folded == folded
+        && m_foldedLanguage == language
+        && m_foldedLineCount == lineCount) return;
+    prepareGeometryChange();
+    m_folded = folded;
+    m_foldedLanguage = language;
+    m_foldedLineCount = lineCount;
+    update();
+}
+
+QString TableBlockItem::summaryForTesting() const
+{
+    const QString countPart = m_foldedLineCount == 1
+        ? QStringLiteral("(1 line)")
+        : QStringLiteral("(%1 lines)").arg(m_foldedLineCount);
+    if (m_foldedLanguage.isEmpty())
+        return QStringLiteral("``` %1").arg(countPart);
+    return QStringLiteral("```%1 %2").arg(m_foldedLanguage, countPart);
+}
+
 QRectF TableBlockItem::boundingRect() const
 {
+    if (m_folded) {
+        const qreal h = QFontMetrics(m_font).lineSpacing() + 6;
+        return QRectF(0, 0, m_maxWidth, h);
+    }
     return {0, 0, m_totalWidth, m_totalHeight};
 }
 
@@ -80,6 +106,18 @@ void TableBlockItem::paint(QPainter *painter,
                            const QStyleOptionGraphicsItem * /*option*/,
                            QWidget * /*widget*/)
 {
+    if (m_folded) {
+        painter->save();
+        painter->fillRect(boundingRect(), QColor(245, 245, 245));  // match code bg
+        painter->setPen(Qt::darkGray);
+        painter->setFont(m_font);
+        const QString text = summaryForTesting();
+        painter->drawText(boundingRect().adjusted(8, 0, -4, 0),
+                          Qt::AlignVCenter | Qt::AlignLeft, text);
+        painter->restore();
+        return;
+    }
+
     if (m_headers.isEmpty()) return;
 
     painter->save();

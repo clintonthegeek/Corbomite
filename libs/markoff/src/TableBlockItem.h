@@ -33,6 +33,10 @@ public:
 
     void setFont(const QFont &font);
 
+    void setFolded(bool folded, const QString &language = QString(), int lineCount = 0);
+    bool isFolded() const { return m_folded; }
+    QString summaryForTesting() const;
+
 private:
     void parseMarkdown();
     void computeLayout();
@@ -48,6 +52,9 @@ private:
     qreal m_totalHeight = 0;
     qreal m_cellPadding = 8.0;
     QFont m_font;
+    bool m_folded = false;
+    QString m_foldedLanguage;
+    int m_foldedLineCount = 0;
 };
 
 } // namespace Markoff
