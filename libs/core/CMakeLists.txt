@@ -22,6 +22,10 @@ add_library(corbomite-core STATIC
     include/corbomite/core/PaneLayout.h
     src/PaneLayoutBridge.cpp
     include/corbomite/core/PaneLayoutBridge.h
+    src/Component.cpp
+    include/corbomite/core/Component.h
+    src/Events.cpp
+    include/corbomite/core/Events.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)

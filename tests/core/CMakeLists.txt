@@ -45,6 +45,16 @@ add_test(NAME tst_panelayoutbridge COMMAND tst_panelayoutbridge)
 target_link_libraries(tst_panelayoutbridge PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_panelayoutbridge PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_component tst_component.cpp)
+add_test(NAME tst_component COMMAND tst_component)
+target_link_libraries(tst_component PRIVATE Qt6::Test Corbomite::Core)
+set_tests_properties(tst_component PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_events tst_events.cpp)
+add_test(NAME tst_events COMMAND tst_events)
+target_link_libraries(tst_events PRIVATE Qt6::Test Corbomite::Core)
+set_tests_properties(tst_events PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_renderengine tst_renderengine.cpp)
 add_test(NAME tst_renderengine COMMAND tst_renderengine)
 target_link_libraries(tst_renderengine PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
