@@ -42,3 +42,7 @@ target_link_libraries(tst_vaultprocess PRIVATE Qt6::Test Qt6::Concurrent Corbomi
 add_executable(tst_obsidian_vault_roundtrip tst_obsidian_vault_roundtrip.cpp)
 add_test(NAME tst_obsidian_vault_roundtrip COMMAND tst_obsidian_vault_roundtrip)
 target_link_libraries(tst_obsidian_vault_roundtrip PRIVATE Qt6::Test Corbomite::Storage)
+
+add_executable(tst_cachedmetadata tst_cachedmetadata.cpp)
+add_test(NAME tst_cachedmetadata COMMAND tst_cachedmetadata)
+target_link_libraries(tst_cachedmetadata PRIVATE Qt6::Test Corbomite::Storage)

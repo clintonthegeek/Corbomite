@@ -26,6 +26,8 @@ add_library(corbomite-storage STATIC
     include/corbomite/storage/IgnoreFilter.h
     src/VaultProcess.cpp
     include/corbomite/storage/VaultProcess.h
+    src/CachedMetadata.cpp
+    include/corbomite/storage/CachedMetadata.h
 )
 set_target_properties(corbomite-storage PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Storage ALIAS corbomite-storage)
