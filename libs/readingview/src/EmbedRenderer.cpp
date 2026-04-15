@@ -302,4 +302,20 @@ bool EmbedRenderer::renderInto(QWidget *parent,
     return true;
 }
 
+void registerBuiltinEmbedFactories(Corbomite::Core::EmbedRegistry &reg,
+                                   EmbedRenderer &renderer)
+{
+    // .md — delegate to the recursive markdown renderer. The lambda
+    // captures &renderer; callers must keep the renderer alive for the
+    // lifetime of the registry (documented in EmbedRenderer.h).
+    reg.registerExtension(
+        QStringLiteral("md"),
+        [&renderer](const Corbomite::Core::EmbedRequest &req)
+            -> std::unique_ptr<Corbomite::Core::MarkdownRenderChild> {
+            return renderer.renderMarkdown(req);
+        });
+    // Image built-ins (wikilink-shim) land in task 5.5; media-stub
+    // factories land in task 5.6.
+}
+
 } // namespace Corbomite::ReadingView
