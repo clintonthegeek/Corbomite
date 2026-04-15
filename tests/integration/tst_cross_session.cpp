@@ -156,6 +156,58 @@ private Q_SLOTS:
             index.close();
         }
     }
+
+    // L2 baseline: reopening a vault whose disk hasn't changed must not
+    // emit any cacheChanged or cacheDeleted signals. The audit's
+    // "no content change, no event" rule. If this fails, the stat
+    // short-circuit is broken and downstream FTS/index work will spuriously
+    // reindex on every startup.
+    void reopenWithStatCleanIsSilent()
+    {
+        QTemporaryDir vaultDir;
+        QVERIFY(vaultDir.isValid());
+
+        const QString notePath = QStringLiteral("Quiet.md");
+        writeFile(vaultDir.path() + QLatin1Char('/') + notePath,
+                  QByteArrayLiteral("# Quiet\n\nNo links here.\n"));
+
+        const QString cacheDb =
+            vaultDir.path() + QStringLiteral("/.corbomite/metadata-cache.db");
+        QDir().mkpath(QFileInfo(cacheDb).absolutePath());
+
+        // Session 1.
+        {
+            LinkResolver resolver;
+            resolver.setVaultPaths({notePath});
+            MetadataCache cache(resolver);
+            cache.open(cacheDb);
+
+            QSignalSpy doneSpy(&cache, &MetadataCache::indexFinished);
+            cache.rebuildVault(vaultDir.path(), {notePath});
+            QVERIFY(waitForSpy(doneSpy, 1));
+
+            cache.close();
+        }
+
+        // Session 2 — stat unchanged.
+        LinkResolver resolver;
+        resolver.setVaultPaths({notePath});
+        MetadataCache cache(resolver);
+        cache.open(cacheDb);  // Silent.
+
+        QSignalSpy changedSpy(&cache, &MetadataCache::cacheChanged);
+        QSignalSpy deletedSpy(&cache, &MetadataCache::cacheDeleted);
+
+        cache.rebuildVault(vaultDir.path(), {notePath});
+        // Process pending events to drain any potential async work.
+        QTest::qWait(50);
+        QCoreApplication::processEvents();
+
+        QCOMPARE(changedSpy.count(), 0);
+        QCOMPARE(deletedSpy.count(), 0);
+
+        cache.close();
+    }
 };
 
 QTEST_MAIN(TestCrossSession)
