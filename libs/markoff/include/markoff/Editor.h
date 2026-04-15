@@ -199,4 +199,6 @@ private:
 
 } // namespace Markoff
 
+Q_DECLARE_METATYPE(QList<QStringList>)
+
 #endif // MARKOFF_EDITOR_H
