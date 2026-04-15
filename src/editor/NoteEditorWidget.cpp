@@ -271,7 +271,13 @@ void NoteEditorWidget::syncFromDocument()
 {
     if (!m_doc) return;
     m_updatingFromDoc = true;
-    m_editor->setPlainText(m_doc->markdown());
+    const QString markdown = m_doc->markdown();
+    m_editor->setPlainText(markdown);
+    // Phase 3a: feed the hidden ReadingView the same source so that when
+    // Phase 7 promotes it into a stacked-widget swap, it already has
+    // content. Visibility is still controlled by setViewMode().
+    if (m_readingView)
+        m_readingView->setPlainText(markdown);
     m_doc->setModified(false);
     m_updatingFromDoc = false;
 }
