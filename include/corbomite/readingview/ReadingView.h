@@ -16,6 +16,7 @@ namespace Corbomite::ReadingView {
 class ReadingPipeline;
 class ReadingSection;
 class SectionLayout;
+class SectionRecyclePool;
 class StyleManager;
 class VaultResourceProvider;
 
@@ -56,6 +57,11 @@ public:
         return m_sections;
     }
 
+    /// Pool size — exposed for tests and diagnostics. Phase 4 adds no
+    /// eviction policy beyond "first-in wins"; size grows with unique
+    /// discarded shapes until `clear()` or dtor.
+    int recyclePoolSize() const;
+
 Q_SIGNALS:
     void scrollPositionVisualLineChanged(float visualLine);
     void wikiLinkActivated(const QString &target);
@@ -72,6 +78,7 @@ private:
     QString wikiLinkTargetAt(const QPoint &viewportPos) const;
 
     QString m_markdown;
+    QString m_lastMarkdown;
     qreal m_contentWidth = 800.0;
     Theme m_theme = Theme::Light;
     VaultResourceProvider *m_vaultProvider = nullptr;
@@ -79,6 +86,7 @@ private:
     std::unique_ptr<ReadingPipeline> m_pipeline;
     std::unique_ptr<SectionLayout> m_layout;
     std::unique_ptr<StyleManager> m_styles;
+    std::unique_ptr<SectionRecyclePool> m_recyclePool;
 
     QVector<std::shared_ptr<ReadingSection>> m_sections;
 

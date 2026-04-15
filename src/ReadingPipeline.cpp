@@ -6,6 +6,7 @@
 #include <markoff-parser/Document.h>
 
 #include <QByteArray>
+#include <QCryptographicHash>
 #include <QRegularExpression>
 
 namespace Corbomite::ReadingView {
@@ -44,6 +45,66 @@ FenceInfo detectFence(const QString &text, int lineStart, int lineEnd)
 ReadingPipeline::ReadingPipeline(QObject *parent)
     : QObject(parent)
 {
+}
+
+namespace {
+
+// Return the byte-slice of the frontmatter *contents* (between the two
+// `---` fences, excluding them) if present, or a sentinel indicating
+// absence via the `present` flag. Rules:
+//   - the document must start with `---\n` (we do not accept a leading BOM
+//     or blank lines, matching markoff-parser's frontmatterSpan).
+//   - a closing line of exactly `---` (optionally with trailing whitespace)
+//     terminates the block.
+//   - if no closing fence is found, frontmatter is considered absent.
+struct FrontmatterSlice {
+    bool present = false;
+    QStringView contents;
+};
+
+FrontmatterSlice extractFrontmatter(const QString &md)
+{
+    FrontmatterSlice out;
+    if (!md.startsWith(QStringLiteral("---\n"))) return out;
+    const int contentStart = 4; // past "---\n"
+    const int n = md.size();
+    int i = contentStart;
+    while (i < n) {
+        int lineStart = i;
+        int lineEnd = md.indexOf(QLatin1Char('\n'), lineStart);
+        if (lineEnd < 0) lineEnd = n;
+        // Close fence: line is exactly "---" (trailing whitespace allowed).
+        int p = lineStart;
+        int dashes = 0;
+        while (p < lineEnd && md.at(p) == QLatin1Char('-')) { ++p; ++dashes; }
+        if (dashes == 3) {
+            // allow trailing whitespace before newline
+            bool rest_ws = true;
+            for (int q = p; q < lineEnd; ++q) {
+                if (!md.at(q).isSpace()) { rest_ws = false; break; }
+            }
+            if (rest_ws) {
+                out.present = true;
+                out.contents = QStringView(md).sliced(
+                    contentStart, lineStart - contentStart);
+                return out;
+            }
+        }
+        i = (lineEnd < n) ? lineEnd + 1 : lineEnd;
+    }
+    return out; // unterminated → treat as absent
+}
+
+} // namespace
+
+bool ReadingPipeline::detectFrontmatterChange(const QString &oldMarkdown,
+                                              const QString &newMarkdown)
+{
+    const FrontmatterSlice a = extractFrontmatter(oldMarkdown);
+    const FrontmatterSlice b = extractFrontmatter(newMarkdown);
+    if (a.present != b.present) return true;
+    if (!a.present && !b.present) return false;
+    return a.contents != b.contents;
 }
 
 QVector<std::shared_ptr<ReadingSection>>
@@ -174,6 +235,30 @@ ReadingPipeline::splitIntoSections(const QString &markdown)
         s->setSourceRange({ cur.lineStart, endOffset });
         s->setHeadingLevel(cur.level);
         sections.push_back(s);
+    }
+
+    // Pre-layout recycle key: SHA-256 of a *normalized* form of the
+    // section's source bytes plus a discriminator for section type
+    // (heading level / frontmatter). The normalization trims trailing
+    // whitespace-only lines so a section keeps the same key when the
+    // blank padding between it and the next heading varies (e.g. from
+    // reordering headings). SectionLayout leaves this alone post-layout.
+    for (auto &sec : sections) {
+        const auto r = sec->sourceRange();
+        QString slice = markdown.mid(r.from, r.to - r.from);
+        // Trim trailing whitespace (including newlines) — the visual
+        // shape of a section is independent of blank-line padding after
+        // its last non-whitespace byte.
+        int end = slice.size();
+        while (end > 0 && slice.at(end - 1).isSpace()) --end;
+        const QByteArray normalized = slice.left(end).toUtf8();
+        QCryptographicHash h(QCryptographicHash::Sha256);
+        h.addData(normalized);
+        const char tag[2] = {
+            static_cast<char>(sec->isFrontMatterSection() ? 'F' : 'S'),
+            static_cast<char>('0' + (sec->headingLevel() & 0xF)) };
+        h.addData(QByteArray(tag, 2));
+        sec->setRenderedShape(h.result());
     }
 
     // usesFrontMatter detection — scan each non-frontmatter section for

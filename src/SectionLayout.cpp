@@ -952,9 +952,18 @@ QGraphicsItemGroup *SectionLayout::layoutSection(ReadingSection &section,
         }
     }
 
-    const QByteArray digest =
-        QCryptographicHash::hash(shapeSrc, QCryptographicHash::Sha256);
-    section.setRenderedShape(digest);
+    // Phase 4: the recycle key (section.renderedShape()) is now populated
+    // pre-layout by ReadingPipeline from the source-byte slice. We retain
+    // `shapeSrc` local state here so the post-layout digest can be
+    // recomputed for diagnostics, but we only *write* it if the pipeline
+    // left the section with an empty shape — callers that instantiate a
+    // section directly (existing tests) rely on `renderedShape()` being
+    // non-empty after layout.
+    if (section.renderedShape().isEmpty()) {
+        const QByteArray digest =
+            QCryptographicHash::hash(shapeSrc, QCryptographicHash::Sha256);
+        section.setRenderedShape(digest);
+    }
     section.setGraphicsItem(group);
     return group;
 }

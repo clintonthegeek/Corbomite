@@ -29,6 +29,8 @@ add_library(readingview STATIC
     src/ReadingPipeline.cpp
     include/corbomite/readingview/SectionLayout.h
     src/SectionLayout.cpp
+    include/corbomite/readingview/SectionRecyclePool.h
+    src/SectionRecyclePool.cpp
     include/corbomite/readingview/VaultResourceProvider.h
     src/SpanRenderer.h
     src/SpanRenderer.cpp
