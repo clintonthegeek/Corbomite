@@ -17,4 +17,4 @@
 
 ## Cycle log
 
-- **Cycle 1 (2026-04-15 — in progress):** First execution. See `docs/superpowers/plans/2026-04-15-test-enrichment-cycle.md`.
+- **Cycle 1 (2026-04-15):** First execution of Ritual 4. Targeted 6 cells across `MetadataCache ↔ CachedMetadataStore`, `MetadataCache ↔ SQLiteIndex`, `MainWindow.loadVault`, and `Backlinks/OutgoingLinks panel ↔ SQLiteIndex`. Lifecycles covered: L2, L3 (edit + delete arms), L4, L5, L6. Tests landed: `tst_cross_session::{linksRepopulateAfterSchemaBumpOnStatCleanReopen, reopenWithStatCleanIsSilent, externalEditBetweenSessionsTriggersReparse, externalDeleteBetweenSessionsObservedOnReopen, vaultSwitchDoesNotLeakLinksFromPreviousVault, orphanLinkAppearsAfterTargetDeleted}` + `tst_panels_populated::{hubNoteShowsOneOutgoingLink, spokeNoteShowsOneBacklink}`. Bugs filed: BUG-20260415-001. All 6 cycle-scope tests pass (BUG-20260415-001's assertions are wrapped with `QEXPECT_FAIL`). See `docs/superpowers/plans/2026-04-15-test-enrichment-cycle.md`.
