@@ -59,3 +59,13 @@ add_executable(tst_metadatacache_events tst_metadatacache_events.cpp)
 add_test(NAME tst_metadatacache_events COMMAND tst_metadatacache_events)
 target_link_libraries(tst_metadatacache_events PRIVATE Qt6::Test Qt6::Core Corbomite::Storage Corbomite::Core)
 set_tests_properties(tst_metadatacache_events PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_metadataworker tst_metadataworker.cpp)
+add_test(NAME tst_metadataworker COMMAND tst_metadataworker)
+target_link_libraries(tst_metadataworker PRIVATE Qt6::Test Qt6::Core Corbomite::Storage)
+set_tests_properties(tst_metadataworker PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_metadatacache_worker_integration tst_metadatacache_worker_integration.cpp)
+add_test(NAME tst_metadatacache_worker_integration COMMAND tst_metadatacache_worker_integration)
+target_link_libraries(tst_metadatacache_worker_integration PRIVATE Qt6::Test Qt6::Core Corbomite::Storage Corbomite::Core)
+set_tests_properties(tst_metadatacache_worker_integration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

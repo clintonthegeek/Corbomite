@@ -2,6 +2,7 @@
 #include <QTest>
 
 #include <QByteArray>
+#include <QCoreApplication>
 #include <QString>
 #include <QStringList>
 
@@ -18,6 +19,15 @@ LinkResolver makeResolver(const QStringList &paths)
     LinkResolver r;
     r.setVaultPaths(paths);
     return r;
+}
+
+// Phase 5: parsing is async via a worker thread, so tests have to pump the
+// event loop and wait for the queued parsed() signal to bump fileCount().
+// This helper blocks for up to `timeoutMs` waiting for fileCount to reach
+// `expected`.
+void waitForFileCount(MetadataCache &cache, int expected, int timeoutMs = 2000)
+{
+    QTRY_COMPARE_WITH_TIMEOUT(cache.fileCount(), expected, timeoutMs);
 }
 
 } // namespace
@@ -37,6 +47,7 @@ private Q_SLOTS:
 
         cache.onFileChanged(QStringLiteral("note.md"),
                             QByteArray("# Hi\n"), 100);
+        waitForFileCount(cache, 1);
 
         QCOMPARE(cache.fileCount(), 1);
         QCOMPARE(cache.uniqueHashCount(), 1);
@@ -62,6 +73,7 @@ private Q_SLOTS:
         QCOMPARE(bytesA.size(), bytesB.size());
 
         cache.onFileChanged(QStringLiteral("a.md"), bytesA, 100);
+        waitForFileCount(cache, 1);
 
         auto gotA = cache.getFileCache(QStringLiteral("a.md"));
         QVERIFY(gotA.has_value());
@@ -69,6 +81,9 @@ private Q_SLOTS:
 
         // Same mtime + same size but different bytes. Short-circuit should win.
         cache.onFileChanged(QStringLiteral("a.md"), bytesB, 100);
+        // Short-circuit is synchronous -- no wait needed. Pump briefly anyway
+        // to make sure no stray worker result lands.
+        QTest::qWait(50);
 
         auto gotAfter = cache.getFileCache(QStringLiteral("a.md"));
         QVERIFY(gotAfter.has_value());
@@ -88,11 +103,14 @@ private Q_SLOTS:
 
         QByteArray bytes("# Same\n");
         cache.onFileChanged(QStringLiteral("a.md"), bytes, 100);
+        waitForFileCount(cache, 1);
         const QString hashBefore = cache.getFileHash(QStringLiteral("a.md"));
         QCOMPARE(cache.uniqueHashCount(), 1);
 
-        // Same bytes, new mtime.
+        // Same bytes, new mtime -> stat differs, hash unchanged. Synchronous
+        // short-circuit updates stat without touching the worker.
         cache.onFileChanged(QStringLiteral("a.md"), bytes, 200);
+        QTest::qWait(50);
 
         QCOMPARE(cache.fileCount(), 1);
         QCOMPARE(cache.uniqueHashCount(), 1);
@@ -108,10 +126,13 @@ private Q_SLOTS:
         QByteArray bytesA("# AAAA\n");
         QByteArray bytesB("# BBBBBB\n");  // different size -> stat differs
         cache.onFileChanged(QStringLiteral("a.md"), bytesA, 100);
+        waitForFileCount(cache, 1);
         const QString hashA = cache.getFileHash(QStringLiteral("a.md"));
         QVERIFY(!hashA.isEmpty());
 
         cache.onFileChanged(QStringLiteral("a.md"), bytesB, 200);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            cache.getFileHash(QStringLiteral("a.md")) != hashA, 2000);
 
         QCOMPARE(cache.fileCount(), 1);
         QCOMPARE(cache.uniqueHashCount(), 1);  // old released, new inserted
@@ -135,6 +156,7 @@ private Q_SLOTS:
         QByteArray bytes("# Shared\n");
         cache.onFileChanged(QStringLiteral("a.md"), bytes, 100);
         cache.onFileChanged(QStringLiteral("b.md"), bytes, 200);
+        waitForFileCount(cache, 2);
 
         QCOMPARE(cache.fileCount(), 2);
         QCOMPARE(cache.uniqueHashCount(), 1);
@@ -153,6 +175,7 @@ private Q_SLOTS:
         QByteArray bytes("# Shared\n");
         cache.onFileChanged(QStringLiteral("a.md"), bytes, 100);
         cache.onFileChanged(QStringLiteral("b.md"), bytes, 200);
+        waitForFileCount(cache, 2);
         QCOMPARE(cache.fileCount(), 2);
         QCOMPARE(cache.uniqueHashCount(), 1);
 
@@ -227,8 +250,8 @@ private Q_SLOTS:
 
         cache.onFileChanged(QStringLiteral("note"),
                             QByteArray("# Body\n"), 200);
+        QTRY_COMPARE_WITH_TIMEOUT(cache.uniqueHashCount(), 1, 2000);
         QCOMPARE(cache.fileCount(), 1);
-        QCOMPARE(cache.uniqueHashCount(), 1);
 
         auto got = cache.getFileCache(QStringLiteral("note"));
         QVERIFY(got.has_value());
@@ -244,6 +267,7 @@ private Q_SLOTS:
 
         cache.onFileChanged(QStringLiteral("note.md"),
                             QByteArray("# Body\n"), 100);
+        waitForFileCount(cache, 1);
         QCOMPARE(cache.fileCount(), 1);
         QCOMPARE(cache.uniqueHashCount(), 1);
 
@@ -279,6 +303,7 @@ private Q_SLOTS:
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("a"), 1);
         cache.onFileChanged(QStringLiteral("b.md"), QByteArray("b"), 2);
         cache.onFileChanged(QStringLiteral("c.md"), QByteArray("c"), 3);
+        waitForFileCount(cache, 3);
 
         QStringList paths = cache.allPaths();
         QCOMPARE(paths.size(), 3);
@@ -296,6 +321,7 @@ private Q_SLOTS:
         MetadataCache cache(resolver);
 
         cache.onFileChanged(QStringLiteral("empty.md"), QByteArray{}, 100);
+        waitForFileCount(cache, 1);
 
         QCOMPARE(cache.fileCount(), 1);
         QCOMPARE(cache.uniqueHashCount(), 1);
@@ -306,5 +332,5 @@ private Q_SLOTS:
     }
 };
 
-QTEST_APPLESS_MAIN(TestMetadataCacheCore)
+QTEST_GUILESS_MAIN(TestMetadataCacheCore)
 #include "tst_metadatacache_core.moc"

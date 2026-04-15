@@ -3,6 +3,7 @@
 
 #include "corbomite/core/Events.h"
 #include "corbomite/storage/CachedMetadata.h"
+#include "corbomite/storage/MetadataWorker.h"
 
 #include <QtCore/QByteArray>
 #include <QtCore/QHash>
@@ -75,6 +76,14 @@ public:
     /// (new path OR hash-change). Enqueues `path` for link-resolve drain.
     void onFileChanged(const QString &path, const QByteArray &content, qint64 mtimeMs);
 
+    /// Bulk vault rebuild -- reads each listed note's bytes + mtime from
+    /// disk on the main thread and enqueues a parse into the worker. Missing
+    /// files and unreadable files are skipped silently (mirrors Obsidian's
+    /// vault scan tolerating concurrent deletions). `indexFinished` fires
+    /// once the worker drains through to the link-resolver queue's debounce.
+    void rebuildVault(const QString &vaultRoot,
+                      const QStringList &relativeNotePaths);
+
     /// Mutation — file deleted.
     /// Captures prevCache BEFORE removing the path entry; emits
     /// `cacheDeleted(path, prevCache)` synchronously. Does NOT touch the
@@ -120,6 +129,16 @@ private Q_SLOTS:
     void drainOnePath();
     void onIndexFinishedTimeout();
 
+    /// Receives a freshly-parsed result from the worker thread via
+    /// Qt::QueuedConnection. Runs on the main thread. Performs the
+    /// path-entry / hash-ref-count / dedup bookkeeping, then emits
+    /// `cacheChanged` + enqueues the link-resolver continuation.
+    void onWorkerParsed(const QString &path,
+                        qint64 mtimeMs,
+                        qint64 size,
+                        const Corbomite::CachedMetadata &cache,
+                        const QString &hash);
+
 private:
     const LinkResolver &m_resolver;
     QHash<QString /* relative path */, FileCacheEntry> m_pathToFileEntry;
@@ -130,16 +149,17 @@ private:
     QQueue<QString> m_linkResolverQueue;
     QTimer *m_indexFinishedTimer;  // owned via parent (this)
     int m_inProgressTaskCount = 0;
+    MetadataWorker *m_worker;  // owned via parent (this)
 
-    /// Helper: insert a parsed (or deduped) entry for `path`. If the hash is
-    /// already present in `m_hashToCache`, skips the parse and just bumps the
-    /// ref-count. Otherwise calls `MetadataParser::parse` and stores the
-    /// result.
-    void insertParsed(const QString &path,
-                      const QByteArray &content,
-                      qint64 mtimeMs,
-                      qint64 size,
-                      const QString &hash);
+    /// Helper: insert a pre-parsed entry for `path` using the worker's
+    /// result. Bumps the hash ref-count and dedups against `m_hashToCache`
+    /// (skipping reinsertion of identical content). Returns nothing; the
+    /// caller owns emitting `cacheChanged`.
+    void insertWorkerResult(const QString &path,
+                            qint64 mtimeMs,
+                            qint64 size,
+                            const QString &hash,
+                            const CachedMetadata &cache);
 
     /// Helper: decrement the ref-count for `hash`; erase m_hashToCache entry if
     /// count drops to 0. No-op if hash is empty or not found.

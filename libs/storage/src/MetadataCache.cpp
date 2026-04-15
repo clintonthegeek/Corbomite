@@ -21,8 +21,12 @@
 
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataParser.h"
+#include "corbomite/storage/MetadataWorker.h"
 
 #include <QCryptographicHash>
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QLatin1Char>
 #include <QtCore/QMetaType>
 #include <QtCore/QTimer>
@@ -45,12 +49,19 @@ MetadataCache::MetadataCache(const LinkResolver &resolver, QObject *parent)
     : QObject(parent)
     , m_resolver(resolver)
     , m_indexFinishedTimer(new QTimer(this))
+    , m_worker(new MetadataWorker(resolver, this))
 {
     qRegisterMetaType<Corbomite::CachedMetadata>("Corbomite::CachedMetadata");
     m_indexFinishedTimer->setSingleShot(true);
     m_indexFinishedTimer->setInterval(10);  // 10ms debounce per audit §4
     connect(m_indexFinishedTimer, &QTimer::timeout,
             this, &MetadataCache::onIndexFinishedTimeout);
+
+    // Worker parses run on the worker thread; results arrive here via a
+    // Qt::QueuedConnection that the worker wires internally. We just attach
+    // to its main-thread `parsed` signal.
+    connect(m_worker, &MetadataWorker::parsed,
+            this, &MetadataCache::onWorkerParsed);
 }
 
 MetadataCache::~MetadataCache() = default;
@@ -71,7 +82,9 @@ void MetadataCache::onFileChanged(const QString &path,
             return;
         }
 
-        // Stat changed. Compute the new hash.
+        // Stat changed. Compute the new hash on the main thread (cheap,
+        // and must be synchronous to avoid re-enqueuing on identical
+        // content).
         const QString newHash = sha256Hex(content);
 
         if (it->hash == newHash) {
@@ -83,20 +96,35 @@ void MetadataCache::onFileChanged(const QString &path,
             return;
         }
 
-        // Hash changed. Release old hash, re-insert with new hash.
-        const QString oldHash = it->hash;
-        m_pathToFileEntry.erase(it);
-        releaseHashRef(oldHash);
-
-        insertParsed(path, content, mtimeMs, newSize, newHash);
-        emitCacheChanged(path, oldHash);
+        // Hash changed. Route the parse through the worker. The old hash /
+        // path-entry stays in place until `onWorkerParsed` replaces it, so
+        // short-circuit comparisons for any interleaving `onFileChanged`
+        // with the old content still work.
+        m_worker->enqueueParse(path, content, mtimeMs, newSize);
         return;
     }
 
-    // New path. Compute hash and insert.
-    const QString newHash = sha256Hex(content);
-    insertParsed(path, content, mtimeMs, newSize, newHash);
-    emitCacheChanged(path, QString{});
+    // New path. Compute hash and enqueue parse.
+    m_worker->enqueueParse(path, content, mtimeMs, newSize);
+}
+
+void MetadataCache::rebuildVault(const QString &vaultRoot,
+                                 const QStringList &relativeNotePaths)
+{
+    const QDir root(vaultRoot);
+    for (const QString &rel : relativeNotePaths) {
+        const QFileInfo info(root.filePath(rel));
+        if (!info.exists() || !info.isFile()) {
+            continue;
+        }
+        QFile f(info.absoluteFilePath());
+        if (!f.open(QIODevice::ReadOnly)) {
+            continue;
+        }
+        const QByteArray bytes = f.readAll();
+        const qint64 mtimeMs = info.lastModified().toMSecsSinceEpoch();
+        onFileChanged(rel, bytes, mtimeMs);
+    }
 }
 
 void MetadataCache::onFileDeleted(const QString &path)
@@ -191,19 +219,43 @@ int MetadataCache::uniqueHashCount() const
     return m_hashToCache.size();
 }
 
-void MetadataCache::insertParsed(const QString &path,
-                                 const QByteArray &content,
-                                 qint64 mtimeMs,
-                                 qint64 size,
-                                 const QString &hash)
+void MetadataCache::insertWorkerResult(const QString &path,
+                                       qint64 mtimeMs,
+                                       qint64 size,
+                                       const QString &hash,
+                                       const CachedMetadata &cache)
 {
     if (!m_hashToCache.contains(hash)) {
-        // Parse the content and store the result.
-        ParsedNote parsed = MetadataParser::parse(content, path, m_resolver);
-        m_hashToCache.insert(hash, std::move(parsed.cache));
+        // First time we've seen this content -- store the parsed metadata.
+        // Subsequent paths with the same hash dedup onto this entry.
+        m_hashToCache.insert(hash, cache);
     }
     m_pathToFileEntry[path] = FileCacheEntry{mtimeMs, size, hash};
     ++m_hashRefCount[hash];
+}
+
+void MetadataCache::onWorkerParsed(const QString &path,
+                                   qint64 mtimeMs,
+                                   qint64 size,
+                                   const CachedMetadata &cache,
+                                   const QString &hash)
+{
+    // Stat/hash may have moved since enqueue -- if the path currently holds
+    // the same hash we just computed, the parse result was for already-known
+    // content; still refresh stat and emit cacheChanged so consumers see the
+    // mtime update even though dedup kept the same hash entry.
+    QString prevHash;
+    auto it = m_pathToFileEntry.find(path);
+    if (it != m_pathToFileEntry.end()) {
+        prevHash = it->hash;
+        // Release the old hash's ref before we overwrite the entry.
+        const QString oldHash = it->hash;
+        m_pathToFileEntry.erase(it);
+        releaseHashRef(oldHash);
+    }
+
+    insertWorkerResult(path, mtimeMs, size, hash, cache);
+    emitCacheChanged(path, prevHash);
 }
 
 void MetadataCache::releaseHashRef(const QString &hash)

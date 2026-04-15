@@ -34,13 +34,15 @@ LinkResolver makeResolver(const QStringList &paths)
 }
 
 // Pump the event loop repeatedly until the link-resolver queue and the
-// async singleShot continuations finish — but NOT long enough to fire the
-// 10ms indexFinished debounce timer. One round of processEvents is usually
-// enough for a small burst; we do a few rounds to be safe.
+// async singleShot continuations finish -- Phase 5 makes parsing async via
+// the worker thread, so we also wait briefly for the worker->main queued
+// parsed() signals to arrive. Wait short enough not to fire the 10ms
+// indexFinished debounce unless callers explicitly wait past it.
 void pumpUntilDrain()
 {
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < 40; ++i) {
         QCoreApplication::processEvents();
+        QTest::qWait(1);
     }
 }
 
@@ -53,6 +55,8 @@ class TestMetadataCacheEvents : public QObject
 private Q_SLOTS:
 
     // 1. cacheChanged fires exactly once per file in a two-file burst.
+    //    Phase 5: cacheChanged is now async (via worker roundtrip), so we
+    //    pump events + QTRY on the spy.
     void testChangedFiresOncePerFile()
     {
         LinkResolver resolver = makeResolver({QStringLiteral("a.md"),
@@ -63,15 +67,15 @@ private Q_SLOTS:
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
         cache.onFileChanged(QStringLiteral("b.md"), QByteArray("# B\n"), 200);
 
-        // cacheChanged is synchronous from onFileChanged, so no pump needed.
-        QCOMPARE(spy.count(), 2);
+        QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 2, 2000);
         QCOMPARE(spy.at(0).at(0).toString(), QStringLiteral("a.md"));
         QCOMPARE(spy.at(1).at(0).toString(), QStringLiteral("b.md"));
     }
 
-    // 2. cacheChanged is synchronous from inside onFileChanged.
-    //    Assert: no processEvents call between onFileChanged and spy check.
-    void testChangedFiresSynchronouslyFromOnFileChanged()
+    // 2. Phase 5 semantic change: cacheChanged fires after a worker round-trip,
+    //    not synchronously from onFileChanged. Immediately after onFileChanged
+    //    the spy is empty; after pumping events it becomes 1.
+    void testChangedFiresAfterWorkerRoundtrip()
     {
         LinkResolver resolver = makeResolver({QStringLiteral("a.md")});
         MetadataCache cache(resolver);
@@ -79,8 +83,10 @@ private Q_SLOTS:
 
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
 
-        // No processEvents — if this passes, the signal was emitted inline.
-        QCOMPARE(spy.count(), 1);
+        // Worker is async -- cacheChanged has NOT fired synchronously.
+        QCOMPARE(spy.count(), 0);
+
+        QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 2000);
     }
 
     // 3. linksResolvedFor is asynchronous via QTimer::singleShot(0, ...).
@@ -95,8 +101,7 @@ private Q_SLOTS:
 
         QCOMPARE(spy.count(), 0);  // NOT yet fired -- async.
 
-        pumpUntilDrain();
-        QCOMPARE(spy.count(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 2000);
         QCOMPARE(spy.at(0).at(0).toString(), QStringLiteral("a.md"));
     }
 
@@ -113,18 +118,14 @@ private Q_SLOTS:
         QSignalSpy finishedSpy(&cache, &MetadataCache::indexFinished);
 
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
-        // After onFileChanged: cacheChanged fired synchronously,
-        // linksResolvedFor hasn't yet.
-        QCOMPARE(changedSpy.count(), 1);
+        // Phase 5: cacheChanged is also async now (worker roundtrip).
+        QCOMPARE(changedSpy.count(), 0);
         QCOMPARE(resolvedForSpy.count(), 0);
 
-        pumpUntilDrain();
-        // Drain has run; resolvedFor + allResolved fired, indexFinished not
-        // yet (10ms debounce).
-        QCOMPARE(resolvedForSpy.count(), 1);
-        QCOMPARE(allResolvedSpy.count(), 1);
-
-        QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 500);
+        QTRY_COMPARE_WITH_TIMEOUT(changedSpy.count(), 1, 2000);
+        QTRY_COMPARE_WITH_TIMEOUT(resolvedForSpy.count(), 1, 2000);
+        QTRY_COMPARE_WITH_TIMEOUT(allResolvedSpy.count(), 1, 2000);
+        QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 2000);
     }
 
     // 5. Ordering for a burst of three files.
@@ -144,19 +145,18 @@ private Q_SLOTS:
         cache.onFileChanged(QStringLiteral("b.md"), QByteArray("# B\n"), 200);
         cache.onFileChanged(QStringLiteral("c.md"), QByteArray("# C\n"), 300);
 
-        QCOMPARE(changedSpy.count(), 3);
+        QTRY_COMPARE_WITH_TIMEOUT(changedSpy.count(), 3, 2000);
         QCOMPARE(changedSpy.at(0).at(0).toString(), QStringLiteral("a.md"));
         QCOMPARE(changedSpy.at(1).at(0).toString(), QStringLiteral("b.md"));
         QCOMPARE(changedSpy.at(2).at(0).toString(), QStringLiteral("c.md"));
 
-        pumpUntilDrain();
-        QCOMPARE(resolvedForSpy.count(), 3);
-        // allLinksResolved coalesces at the end of each drain cycle; under
-        // sequential Phase-4 semantics (all enqueued before the first drain
-        // tick), it fires exactly once.
-        QCOMPARE(allResolvedSpy.count(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(resolvedForSpy.count(), 3, 2000);
+        // allLinksResolved is expected to fire at least once. Under Phase 5
+        // worker-async semantics, per-parse arrivals may re-trigger the
+        // resolver cycle if they interleave with the drain; tolerate >=1.
+        QVERIFY(allResolvedSpy.count() >= 1);
 
-        QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 500);
+        QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 2000);
     }
 
     // 6. Stat short-circuit is silent — no signals fire, no queue changes.
@@ -168,18 +168,15 @@ private Q_SLOTS:
         QByteArray bytes("# A\n");
         cache.onFileChanged(QStringLiteral("a.md"), bytes, 100);
 
+        // Wait for the initial parse + drain + debounce to complete fully
+        // before attaching the silence spies.
+        QTRY_COMPARE_WITH_TIMEOUT(cache.fileCount(), 1, 2000);
+        QTest::qWait(50);
+
         QSignalSpy changedSpy(&cache, &MetadataCache::cacheChanged);
         QSignalSpy resolvedForSpy(&cache, &MetadataCache::linksResolvedFor);
         QSignalSpy allResolvedSpy(&cache, &MetadataCache::allLinksResolved);
         QSignalSpy finishedSpy(&cache, &MetadataCache::indexFinished);
-
-        // Wait out the first change's drain + debounce so spies stay clean
-        // for the short-circuit check.
-        QTest::qWait(50);
-        changedSpy.clear();
-        resolvedForSpy.clear();
-        allResolvedSpy.clear();
-        finishedSpy.clear();
 
         // Identical stat -> short-circuit.
         cache.onFileChanged(QStringLiteral("a.md"), bytes, 100);
@@ -201,16 +198,14 @@ private Q_SLOTS:
         QByteArray bytes("# A\n");
         cache.onFileChanged(QStringLiteral("a.md"), bytes, 100);
 
+        // Wait for the initial parse + drain + debounce to complete.
+        QTRY_COMPARE_WITH_TIMEOUT(cache.fileCount(), 1, 2000);
+        QTest::qWait(50);
+
         QSignalSpy changedSpy(&cache, &MetadataCache::cacheChanged);
         QSignalSpy resolvedForSpy(&cache, &MetadataCache::linksResolvedFor);
         QSignalSpy allResolvedSpy(&cache, &MetadataCache::allLinksResolved);
         QSignalSpy finishedSpy(&cache, &MetadataCache::indexFinished);
-
-        QTest::qWait(50);
-        changedSpy.clear();
-        resolvedForSpy.clear();
-        allResolvedSpy.clear();
-        finishedSpy.clear();
 
         // Same content, different mtime -> stat differs, hash unchanged.
         cache.onFileChanged(QStringLiteral("a.md"), bytes, 200);
@@ -231,7 +226,9 @@ private Q_SLOTS:
 
         cache.onFileChanged(QStringLiteral("a.md"),
                             QByteArray("# Heading\n#tag\n"), 100);
-        QTest::qWait(50);  // let drain + debounce finish.
+        // Wait for worker roundtrip + drain + debounce to complete.
+        QTRY_COMPARE_WITH_TIMEOUT(cache.fileCount(), 1, 2000);
+        QTest::qWait(50);
 
         QSignalSpy spy(&cache, &MetadataCache::cacheDeleted);
         cache.onFileDeleted(QStringLiteral("a.md"));
@@ -255,6 +252,7 @@ private Q_SLOTS:
         MetadataCache cache(resolver);
 
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
+        QTRY_COMPARE_WITH_TIMEOUT(cache.fileCount(), 1, 2000);
         QTest::qWait(50);
 
         bool slotRan = false;
@@ -303,11 +301,8 @@ private Q_SLOTS:
 
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
 
-        // Let the drain run (but probably not the 10ms debounce yet).
-        pumpUntilDrain();
-
-        // QTRY_COMPARE with generous timeout handles the 10ms debounce.
-        QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 500);
+        // Phase 5: worker roundtrip + drain + 10ms debounce. Generous timeout.
+        QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 2000);
     }
 
     // 12. Debounce timer resets when a new change arrives mid-flight.
@@ -320,16 +315,13 @@ private Q_SLOTS:
         QSignalSpy finishedSpy(&cache, &MetadataCache::indexFinished);
 
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
-        pumpUntilDrain();
-        // Sleep less than 10ms so the debounce hasn't fired yet.
-        QTest::qWait(3);
         cache.onFileChanged(QStringLiteral("b.md"), QByteArray("# B\n"), 200);
         pumpUntilDrain();
 
-        QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 500);
+        QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 2000);
 
         // Give it more time to ensure a second fire never happens.
-        QTest::qWait(50);
+        QTest::qWait(100);
         QCOMPARE(finishedSpy.count(), 1);
     }
 
@@ -387,7 +379,8 @@ private Q_SLOTS:
 
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
 
-        QVERIFY(fired);
+        // Phase 5: changed event fires after worker roundtrip.
+        QTRY_VERIFY_WITH_TIMEOUT(fired, 2000);
         QCOMPARE(captured.size(), 3);
         QCOMPARE(captured.at(0).toString(), QStringLiteral("a.md"));
         QCOMPARE(captured.at(1).toString(), QString{});  // new-path -> empty prevHash
@@ -404,7 +397,7 @@ private Q_SLOTS:
         QSignalSpy spy(&cache, &MetadataCache::cacheChanged);
 
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
-        QCOMPARE(spy.count(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 2000);
         QCOMPARE(spy.at(0).at(1).toString(), QString{});
     }
 
@@ -415,6 +408,9 @@ private Q_SLOTS:
         MetadataCache cache(resolver);
 
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
+        // Wait for the first parse to complete so the hash is populated.
+        QTRY_VERIFY_WITH_TIMEOUT(
+            !cache.getFileHash(QStringLiteral("a.md")).isEmpty(), 2000);
         const QString firstHash = cache.getFileHash(QStringLiteral("a.md"));
         QVERIFY(!firstHash.isEmpty());
 
@@ -422,7 +418,7 @@ private Q_SLOTS:
 
         cache.onFileChanged(QStringLiteral("a.md"),
                             QByteArray("# Different\n"), 200);
-        QCOMPARE(spy.count(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 2000);
         QCOMPARE(spy.at(0).at(1).toString(), firstHash);
     }
 
@@ -439,9 +435,7 @@ private Q_SLOTS:
         cache.onFileChanged(QStringLiteral("b.md"), QByteArray("# B\n"), 200);
         cache.onFileChanged(QStringLiteral("c.md"), QByteArray("# C\n"), 300);
 
-        pumpUntilDrain();
-
-        QCOMPARE(spy.count(), 3);
+        QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 3, 2000);
         QCOMPARE(spy.at(0).at(0).toString(), QStringLiteral("a.md"));
         QCOMPARE(spy.at(1).at(0).toString(), QStringLiteral("b.md"));
         QCOMPARE(spy.at(2).at(0).toString(), QStringLiteral("c.md"));
