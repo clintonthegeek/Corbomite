@@ -3,6 +3,7 @@
 
 #include <QHash>
 #include <QObject>
+#include <QPair>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -17,6 +18,10 @@ struct SearchMatch {
     QString notePath;
     QString snippet;
     double score = 0.0;
+    // Highlight spans over `snippet`, expressed as merge-sorted, non-overlapping
+    // [start, end) UTF-16 code-unit ranges. Empty in Phase 1 — populated in Phase 2
+    // when FuzzyMatcher takes over ranking.
+    QVector<QPair<int, int>> matches;
 };
 
 struct LinkInfo {
