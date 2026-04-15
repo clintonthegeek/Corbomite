@@ -30,6 +30,10 @@ add_library(corbomite-core STATIC
     include/corbomite/core/Scope.h
     src/ScopeManager.cpp
     include/corbomite/core/ScopeManager.h
+    src/Command.cpp
+    include/corbomite/core/Command.h
+    src/Hotkey.cpp
+    include/corbomite/core/Hotkey.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
