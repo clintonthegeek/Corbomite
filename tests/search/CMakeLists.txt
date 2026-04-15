@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.19)
+project(Corbomite_SearchTests LANGUAGES CXX)
+enable_testing()
+find_package(Qt6 REQUIRED COMPONENTS Test)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+
+add_executable(tst_fuzzymatcher tst_fuzzymatcher.cpp)
+add_test(NAME tst_fuzzymatcher COMMAND tst_fuzzymatcher)
+target_link_libraries(tst_fuzzymatcher PRIVATE Qt6::Test Corbomite::Search)

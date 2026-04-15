@@ -7,13 +7,24 @@
 namespace Corbomite {
 
 // Mirrors Obsidian's PreparedQuery shape (search.md §2).
-// Built via FuzzyMatcher::prepareQuery().
+//
+// `query`  : original user input, case preserved (so renderers can echo it).
+// `tokens` : lowercase whitespace-split words PLUS 1-char punctuation/CJK
+//            singletons, in source order. NOT a word count — "foo-bar" yields
+//            ["foo","-","bar"].
+// `fuzzy`  : lowercase full string, spaces removed. The per-character
+//            fallback alphabet for the second-pass matcher.
+// `simple` : true when produced by prepareSimpleSearch — disables char-fuzzy
+//            fallback and CJK codepoint split.
+//
+// Build via FuzzyMatcher::prepareQuery() / prepareSimpleSearch().
 struct PreparedQuery {
-    QString query;        // original, lower-cased
-    QStringList tokens;   // whitespace/punctuation split, CJK codepoints split per char
-    bool fuzzy = true;    // false for prepareSimpleSearch (literal substring)
+    QString query;
+    QStringList tokens;
+    QString fuzzy;
+    bool simple = false;
 
-    bool isEmpty() const { return tokens.isEmpty(); }
+    bool isEmpty() const { return query.isEmpty(); }
 };
 
 } // namespace Corbomite
