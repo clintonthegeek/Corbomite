@@ -21,6 +21,7 @@ private slots:
     void noHeadingsSingleSection();
     void emptyInput();
     void skipsHeadingsInsideFencedCodeBlock();
+    void usesFrontMatterDetected();
 };
 
 void TestReadingPipelineSectionSplit::splitsThreeH1Sections()
@@ -94,6 +95,29 @@ void TestReadingPipelineSectionSplit::skipsHeadingsInsideFencedCodeBlock()
     QCOMPARE(sections.size(), 2);
     QCOMPARE(sections.at(0)->headingLevel(), 1);
     QCOMPARE(sections.at(1)->headingLevel(), 1);
+}
+
+void TestReadingPipelineSectionSplit::usesFrontMatterDetected()
+{
+    ReadingPipeline pipeline;
+    const QString md = QStringLiteral(
+        "---\ntitle: Hi\n---\n"
+        "# Intro\n\nHello {{title}} world.\n\n"
+        "# Plain\n\nNo tokens here.\n");
+    const auto sections = pipeline.splitIntoSections(md);
+    QVERIFY(sections.size() >= 3);
+
+    // section[0] is frontmatter (source — stays false).
+    QVERIFY(sections.at(0)->isFrontMatterSection());
+    QVERIFY(!sections.at(0)->usesFrontMatter());
+
+    // section[1] is "# Intro" — contains {{title}}.
+    QCOMPARE(sections.at(1)->headingLevel(), 1);
+    QVERIFY(sections.at(1)->usesFrontMatter());
+
+    // section[2] is "# Plain" — no template token.
+    QCOMPARE(sections.at(2)->headingLevel(), 1);
+    QVERIFY(!sections.at(2)->usesFrontMatter());
 }
 
 QTEST_MAIN(TestReadingPipelineSectionSplit)

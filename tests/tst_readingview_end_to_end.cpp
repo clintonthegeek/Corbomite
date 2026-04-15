@@ -29,7 +29,8 @@ static QString buildFixture()
         md += QStringLiteral("\n# Heading %1\n\n").arg(i);
         md += QStringLiteral(
             "This is **bold** and *italic* and `code` in a paragraph.\n");
-        md += QStringLiteral("A second line with a [link](http://x).\n\n");
+        md += QStringLiteral("A second line with a [link](http://x) and a "
+                              "[[WikiNote]] reference.\n\n");
         md += QStringLiteral("## Subheading %1\n\n").arg(i);
         md += QStringLiteral("- item one\n- item two\n- item three\n\n");
         md += QStringLiteral("1. first\n2. second\n\n");
@@ -39,6 +40,13 @@ static QString buildFixture()
                              "def f(x):\n"
                              "    return x * 2\n"
                              "```\n\n");
+        // New Phase 3b content types.
+        md += QStringLiteral("| L | C | R |\n|:-|:-:|-:|\n"
+                              "| a | b | c |\n| d | e | f |\n\n");
+        md += QStringLiteral("Some math: $x=1$ in a sentence.\n\n");
+        md += QStringLiteral("$$\ny = 2\n$$\n\n");
+        md += QStringLiteral("![alt-%1](missing-%1.png)\n\n").arg(i);
+        md += QStringLiteral("```mermaid\ngraph TD;\nA-->B;\n```\n\n");
     }
     return md;
 }
