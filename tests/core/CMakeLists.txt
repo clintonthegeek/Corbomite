@@ -106,3 +106,8 @@ add_executable(tst_vaultresourceprovider tst_vaultresourceprovider.cpp)
 add_test(NAME tst_vaultresourceprovider COMMAND tst_vaultresourceprovider)
 target_link_libraries(tst_vaultresourceprovider PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_vaultresourceprovider PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_markdownrenderchild tst_markdownrenderchild.cpp)
+add_test(NAME tst_markdownrenderchild COMMAND tst_markdownrenderchild)
+target_link_libraries(tst_markdownrenderchild PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_markdownrenderchild PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

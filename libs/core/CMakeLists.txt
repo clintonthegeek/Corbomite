@@ -49,6 +49,8 @@ add_library(corbomite-core STATIC
     src/MomentFormatter.cpp
     include/corbomite/core/MomentFormatter.h
     include/corbomite/core/VaultResourceProvider.h
+    src/MarkdownRenderChild.cpp
+    include/corbomite/core/MarkdownRenderChild.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
