@@ -14,6 +14,8 @@ find_package(KF6SyntaxHighlighting REQUIRED)
 add_library(readingview STATIC
     include/corbomite/readingview/CodeBlockHighlighter.h
     src/CodeBlockHighlighter.cpp
+    include/corbomite/readingview/ReadingView.h
+    src/ReadingView.cpp
 )
 set_target_properties(readingview PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::ReadingView ALIAS readingview)
