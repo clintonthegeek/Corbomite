@@ -262,6 +262,68 @@ private Q_SLOTS:
 
         cache.close();
     }
+
+    // L3 deletion arm: a file removed from disk between sessions. On reopen,
+    // rebuildVault should observe its absence and *eventually* the cache
+    // should drop the entry (or at least not crash and not re-parse stale
+    // content). This test documents the expected behaviour; if Corbomite
+    // doesn't currently trigger cacheDeleted on a missing file passed via
+    // the persisted file_cache, that's a bug worth filing.
+    void externalDeleteBetweenSessionsObservedOnReopen()
+    {
+        QTemporaryDir vaultDir;
+        QVERIFY(vaultDir.isValid());
+
+        const QString notePath = QStringLiteral("Doomed.md");
+        const QString fullPath = vaultDir.path() + QLatin1Char('/') + notePath;
+        writeFile(fullPath, QByteArrayLiteral("# Doomed\n"));
+
+        const QString cacheDb =
+            vaultDir.path() + QStringLiteral("/.corbomite/metadata-cache.db");
+        QDir().mkpath(QFileInfo(cacheDb).absolutePath());
+
+        // Session 1: index it.
+        {
+            LinkResolver resolver;
+            resolver.setVaultPaths({notePath});
+            MetadataCache cache(resolver);
+            cache.open(cacheDb);
+            QSignalSpy doneSpy(&cache, &MetadataCache::indexFinished);
+            cache.rebuildVault(vaultDir.path(), {notePath});
+            QVERIFY(waitForSpy(doneSpy, 1));
+            QVERIFY(!cache.getFileHash(notePath).isEmpty());
+            cache.close();
+        }
+
+        // Delete the file outside Corbomite.
+        QVERIFY(QFile::remove(fullPath));
+
+        // Session 2: rebuildVault is told *only* about files that exist;
+        // VaultModel::allNotes() in real loadVault would NOT include the
+        // deleted path. So reconcile must come from comparing persisted
+        // cache state against the path list passed in.
+        LinkResolver resolver;
+        resolver.setVaultPaths({});  // No notes left in vault.
+        MetadataCache cache(resolver);
+        cache.open(cacheDb);  // Loads persisted hash for `Doomed.md`.
+
+        QSignalSpy deletedSpy(&cache, &MetadataCache::cacheDeleted);
+
+        // Pass empty list — vault scan found nothing.
+        cache.rebuildVault(vaultDir.path(), {});
+        QTest::qWait(100);
+        QCoreApplication::processEvents();
+
+        // Expectation: persisted entry for the missing file is reaped.
+        // If MetadataCache::rebuildVault doesn't currently do reconciliation
+        // against the passed-in path list, this fails — file BUG-NNN.
+        QEXPECT_FAIL("", "BUG-20260415-001: rebuildVault doesn't reap entries missing from path list", Continue);
+        QCOMPARE(deletedSpy.count(), 1);
+        QEXPECT_FAIL("", "BUG-20260415-001: stale FileCacheEntry survives implicit deletion", Continue);
+        QVERIFY(cache.getFileHash(notePath).isEmpty());
+
+        cache.close();
+    }
 };
 
 QTEST_MAIN(TestCrossSession)
