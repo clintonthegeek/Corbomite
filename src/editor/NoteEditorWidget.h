@@ -47,11 +47,16 @@ private:
     void onCursorPositionChanged(int line, int column);
     void syncFromDocument();
 
-    // Completion
-    void triggerWikiLinkCompletion();
-    void triggerTagCompletion();
+    // Completion. `pos` is the document position right after the
+    // trigger sequence (the start of the filter range).
+    void triggerWikiLinkCompletion(int pos);
+    void triggerTagCompletion(int pos);
     void dismissCompletion();
     void onCompletionAccepted(const QString &text, const QString &data);
+    void positionCompletionPopup();
+    void updateCompletionFilter();
+    QString currentTriggerText() const;
+    int absoluteCursorPos() const;
 
     // Link resolution
     QString resolveTarget(const QString &target) const;

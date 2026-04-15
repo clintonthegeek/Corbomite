@@ -33,15 +33,9 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
         Q_EMIT linkActivated(resolveTarget(target));
     });
     connect(m_editor, &Markoff::Editor::wikiLinkTrigger,
-            this, [this](int pos) {
-        m_completionTriggerPos = pos;
-        triggerWikiLinkCompletion();
-    });
+            this, &NoteEditorWidget::triggerWikiLinkCompletion);
     connect(m_editor, &Markoff::Editor::tagTrigger,
-            this, [this](int pos) {
-        m_completionTriggerPos = pos;
-        triggerTagCompletion();
-    });
+            this, &NoteEditorWidget::triggerTagCompletion);
     connect(m_editor, &Markoff::Editor::completionDismissHint,
             this, &NoteEditorWidget::dismissCompletion);
 
@@ -113,7 +107,15 @@ int NoteEditorWidget::currentColumn() const
 
 bool NoteEditorWidget::eventFilter(QObject *obj, QEvent *event)
 {
-    if (obj == m_editor && event->type() == QEvent::KeyPress && m_completionPopup) {
+    if (obj != m_editor) return QWidget::eventFilter(obj, event);
+
+    // Editor focus-out while a popup is up → dismiss.
+    if (event->type() == QEvent::FocusOut && m_completionPopup) {
+        dismissCompletion();
+        return false;
+    }
+
+    if (event->type() == QEvent::KeyPress && m_completionPopup) {
         auto *keyEvent = static_cast<QKeyEvent *>(event);
         switch (keyEvent->key()) {
         case Qt::Key_Down:
@@ -125,11 +127,7 @@ bool NoteEditorWidget::eventFilter(QObject *obj, QEvent *event)
         case Qt::Key_Return:
         case Qt::Key_Enter:
         case Qt::Key_Tab:
-            if (m_completionPopup->hasSelection()) {
-                onCompletionAccepted(m_completionPopup->selectedText(),
-                                     m_completionPopup->selectedData());
-                return true;
-            }
+            if (m_completionPopup->acceptCurrent()) return true;
             break;
         case Qt::Key_Escape:
             dismissCompletion();
@@ -145,6 +143,7 @@ void NoteEditorWidget::onTextChanged()
 {
     if (m_updatingFromDoc || !m_doc) return;
     m_doc->setMarkdown(m_editor->toPlainText());
+    if (m_completionPopup) updateCompletionFilter();
 }
 
 void NoteEditorWidget::onCursorPositionChanged(int line, int column)
@@ -164,58 +163,120 @@ void NoteEditorWidget::syncFromDocument()
 
 // --- Completion ---
 
-void NoteEditorWidget::triggerWikiLinkCompletion()
+void NoteEditorWidget::triggerWikiLinkCompletion(int pos)
 {
     if (!m_vault) return;
     dismissCompletion();
+    m_completionTriggerPos = pos;
 
     m_completionMode = CompletionMode::WikiLink;
 
     auto *model = new QuickSwitcherModel(this);
     model->setNotes(m_vault->allNotes());
 
-    m_completionPopup = new CompletionPopup(model, this);
+    // Parent the popup on the editor's viewport so it's a regular
+    // child widget — NOT a top-level Qt::Popup. That keeps keystrokes
+    // flowing into the editor.
+    m_completionPopup = new CompletionPopup(model, m_editor->viewport());
+    model->setParent(m_completionPopup);
     connect(m_completionPopup, &CompletionPopup::itemSelected,
             this, &NoteEditorWidget::onCompletionAccepted);
     connect(m_completionPopup, &CompletionPopup::dismissed,
             this, [this]() {
         m_completionPopup = nullptr;
         m_completionMode = CompletionMode::None;
+        m_completionTriggerPos = -1;
     });
 
-    QRect cr = m_editor->cursorScreenRect();
-    m_completionPopup->move(cr.bottomLeft() + QPoint(0, 2));
+    positionCompletionPopup();
     m_completionPopup->show();
 }
 
-void NoteEditorWidget::triggerTagCompletion()
+void NoteEditorWidget::triggerTagCompletion(int pos)
 {
     if (!m_vault) return;
     dismissCompletion();
+    m_completionTriggerPos = pos;
 
     m_completionMode = CompletionMode::Tag;
 
     auto *model = new QStringListModel(m_vault->allTags(), this);
 
-    m_completionPopup = new CompletionPopup(model, this);
+    m_completionPopup = new CompletionPopup(model, m_editor->viewport());
+    model->setParent(m_completionPopup);
     connect(m_completionPopup, &CompletionPopup::itemSelected,
             this, &NoteEditorWidget::onCompletionAccepted);
     connect(m_completionPopup, &CompletionPopup::dismissed,
             this, [this]() {
         m_completionPopup = nullptr;
         m_completionMode = CompletionMode::None;
+        m_completionTriggerPos = -1;
     });
 
-    QRect cr = m_editor->cursorScreenRect();
-    m_completionPopup->move(cr.bottomLeft() + QPoint(0, 2));
+    positionCompletionPopup();
     m_completionPopup->show();
+}
+
+void NoteEditorWidget::positionCompletionPopup()
+{
+    if (!m_completionPopup) return;
+    // cursorScreenRect is global; convert to viewport-local since
+    // that's the popup's parent.
+    QRect cr = m_editor->cursorScreenRect();
+    QPoint local = m_editor->viewport()->mapFromGlobal(cr.bottomLeft());
+    m_completionPopup->move(local + QPoint(0, 2));
+}
+
+int NoteEditorWidget::absoluteCursorPos() const
+{
+    int line = m_editor->cursorLine();
+    int col = m_editor->cursorColumn();
+    if (line < 1 || col < 1) return -1;
+    QString src = m_editor->toPlainText();
+    int currentLine = 1;
+    for (int i = 0; i < src.size(); ++i) {
+        if (currentLine == line) return i + col - 1;
+        if (src[i] == QLatin1Char('\n')) ++currentLine;
+    }
+    return src.size();
+}
+
+QString NoteEditorWidget::currentTriggerText() const
+{
+    if (m_completionTriggerPos < 0) return {};
+    int absPos = absoluteCursorPos();
+    QString src = m_editor->toPlainText();
+    if (absPos < m_completionTriggerPos || absPos > src.size()) return {};
+    return src.mid(m_completionTriggerPos, absPos - m_completionTriggerPos);
+}
+
+void NoteEditorWidget::updateCompletionFilter()
+{
+    if (!m_completionPopup) return;
+    int absPos = absoluteCursorPos();
+    if (absPos < 0 || absPos < m_completionTriggerPos) {
+        dismissCompletion();
+        return;
+    }
+    QString filter = currentTriggerText();
+    // Bail if the user's typing crossed a newline or hit a closing
+    // bracket — that means the trigger context is gone.
+    if (filter.contains(QLatin1Char('\n'))
+        || filter.contains(QLatin1Char(']'))) {
+        dismissCompletion();
+        return;
+    }
+    m_completionPopup->setFilterText(filter);
+    positionCompletionPopup();
 }
 
 void NoteEditorWidget::dismissCompletion()
 {
     if (m_completionPopup) {
-        m_completionPopup->close();
+        auto *p = m_completionPopup;
         m_completionPopup = nullptr;
+        p->hide();
+        p->deleteLater();
     }
     m_completionMode = CompletionMode::None;
     m_completionTriggerPos = -1;

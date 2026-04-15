@@ -3,9 +3,10 @@
 #include "CompletionDelegate.h"
 
 #include <KFuzzyMatcher>
-#include <QVBoxLayout>
-#include <QGraphicsDropShadowEffect>
+#include <QAbstractItemView>
 #include <QApplication>
+#include <QGraphicsDropShadowEffect>
+#include <QVBoxLayout>
 
 namespace Corbomite {
 
@@ -50,12 +51,21 @@ private:
 };
 
 CompletionPopup::CompletionPopup(QAbstractItemModel *sourceModel, QWidget *parent)
-    : QFrame(parent, Qt::Popup | Qt::FramelessWindowHint)
+    : QFrame(parent)
 {
-    setAttribute(Qt::WA_DeleteOnClose);
+    Q_ASSERT_X(parent, "CompletionPopup",
+               "Popup requires a real parent widget; it is intentionally "
+               "NOT a top-level Qt::Popup window.");
+
+    // Non-focus-stealing: keystrokes stay with the editor; the popup
+    // is driven externally via selectNext/selectPrevious/acceptCurrent.
+    setFocusPolicy(Qt::NoFocus);
+    setAttribute(Qt::WA_ShowWithoutActivating);
+
     setFixedWidth(300);
     setMaximumHeight(200);
     setFrameShape(QFrame::StyledPanel);
+    raise();
 
     auto *shadow = new QGraphicsDropShadowEffect(this);
     shadow->setBlurRadius(12);
@@ -70,6 +80,8 @@ CompletionPopup::CompletionPopup(QAbstractItemModel *sourceModel, QWidget *paren
     m_listView->setFrameShape(QFrame::NoFrame);
     m_listView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_listView->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_listView->setFocusPolicy(Qt::NoFocus);
+    m_listView->viewport()->setFocusPolicy(Qt::NoFocus);
     layout->addWidget(m_listView);
 
     m_proxyModel = new CompletionFilterProxy(this);
@@ -80,7 +92,8 @@ CompletionPopup::CompletionPopup(QAbstractItemModel *sourceModel, QWidget *paren
     m_delegate = new CompletionDelegate(this);
     m_listView->setItemDelegate(m_delegate);
 
-    connect(m_listView, &QListView::activated, this, &CompletionPopup::onActivated);
+    // Mouse click → accept (editor never gets focus from this).
+    connect(m_listView, &QListView::clicked, this, &CompletionPopup::onActivated);
 }
 
 void CompletionPopup::setFilterText(const QString &text)
@@ -94,11 +107,11 @@ void CompletionPopup::setFilterText(const QString &text)
     }
 
     m_listView->viewport()->update();
+}
 
-    // Auto-dismiss if no matches
-    if (m_proxyModel->rowCount() == 0 && !text.isEmpty()) {
-        // Keep open — user might still be typing
-    }
+int CompletionPopup::visibleRowCount() const
+{
+    return m_proxyModel->rowCount();
 }
 
 void CompletionPopup::selectNext()
@@ -117,6 +130,14 @@ void CompletionPopup::selectPrevious()
     if (prev >= 0) {
         m_listView->setCurrentIndex(m_proxyModel->index(prev, 0));
     }
+}
+
+bool CompletionPopup::acceptCurrent()
+{
+    auto current = m_listView->currentIndex();
+    if (!current.isValid()) return false;
+    onActivated(current);
+    return true;
 }
 
 QString CompletionPopup::selectedText() const
@@ -141,6 +162,7 @@ bool CompletionPopup::hasSelection() const
 void CompletionPopup::showEvent(QShowEvent *event)
 {
     QFrame::showEvent(event);
+    raise();
     if (m_proxyModel->rowCount() > 0) {
         m_listView->setCurrentIndex(m_proxyModel->index(0, 0));
     }
@@ -157,7 +179,7 @@ void CompletionPopup::onActivated(const QModelIndex &index)
     if (!index.isValid()) return;
     Q_EMIT itemSelected(index.data(Qt::DisplayRole).toString(),
                         index.data(Qt::UserRole + 1).toString());
-    close();
+    hide();
 }
 
 } // namespace Corbomite
