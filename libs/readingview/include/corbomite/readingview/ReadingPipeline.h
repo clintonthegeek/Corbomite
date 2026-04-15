@@ -26,6 +26,14 @@ public:
     /// byte-offset `SourceRange`s relative to `markdown`.
     QVector<std::shared_ptr<ReadingSection>>
     splitIntoSections(const QString &markdown);
+
+    /// Stateless: compare the frontmatter bytes between the leading
+    /// `---\n…\n---\n` fences of `oldMarkdown` and `newMarkdown`. If
+    /// exactly one document has frontmatter, or the bytes differ, the
+    /// frontmatter is considered changed. Phase 4 uses this as a forcing
+    /// trigger for sections with `usesFrontMatter=true`.
+    static bool detectFrontmatterChange(const QString &oldMarkdown,
+                                        const QString &newMarkdown);
 };
 
 } // namespace Corbomite::ReadingView

@@ -19,6 +19,7 @@ class TestReadingViewEndToEnd : public QObject
 private slots:
     void fiveHundredLineNote();
     void scrollApiIsNotIdentity();
+    void reparseWithOneParagraphEditMostlyReuses();
 };
 
 static QString buildFixture()
@@ -88,6 +89,53 @@ void TestReadingViewEndToEnd::scrollApiIsNotIdentity()
     // The API should actually move; we don't require exact equality
     // because pixel rounding + viewport clipping alter the reached value.
     QVERIFY(after > initial);
+}
+
+void TestReadingViewEndToEnd::reparseWithOneParagraphEditMostlyReuses()
+{
+    // Phase 4 end-to-end: start from the 30-iteration fixture, mutate a
+    // single paragraph in the middle, and verify the diff-driven
+    // recycling path keeps ≥80% of section pointers identical across
+    // the re-parse.
+    ReadingView rv;
+    const QString md1 = buildFixture();
+    rv.setPlainText(md1);
+
+    QVector<QGraphicsItem *> first;
+    for (const auto &sec : rv.sections())
+        first.push_back(sec->graphicsItem());
+    QVERIFY(first.size() >= 30);
+
+    // Mutate one paragraph in iteration 15. Keep the structure
+    // byte-identical everywhere else.
+    QString md2 = md1;
+    const QString target = QStringLiteral("# Heading 15\n\n"
+        "This is **bold** and *italic* and `code` in a paragraph.\n");
+    const QString replacement = QStringLiteral("# Heading 15\n\n"
+        "This is **bold** and *italic* and `code` in a paragraph-EDITED.\n");
+    QVERIFY(md2.contains(target));
+    md2.replace(target, replacement);
+
+    rv.setPlainText(md2);
+
+    QVector<QGraphicsItem *> second;
+    for (const auto &sec : rv.sections())
+        second.push_back(sec->graphicsItem());
+
+    // Count pointer-identity matches at each index (sections are
+    // positionally ordered for this fixture; no reordering is happening).
+    const int n = qMin(first.size(), second.size());
+    int reused = 0;
+    for (int i = 0; i < n; ++i) {
+        if (first.at(i) == second.at(i))
+            ++reused;
+    }
+    const double ratio = static_cast<double>(reused) / n;
+    QVERIFY2(ratio >= 0.80,
+             qPrintable(QStringLiteral("reuse ratio = %1 (%2/%3)")
+                            .arg(ratio, 0, 'f', 3)
+                            .arg(reused)
+                            .arg(n)));
 }
 
 QTEST_MAIN(TestReadingViewEndToEnd)
