@@ -695,12 +695,24 @@ void SceneCoordinator::applyFoldVisibility()
     for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
         if (!mti) {
-            // Non-text item: hide/show based on enclosing heading.
-            const QStringList path = (hIdx >= 0) ? hs[hIdx].path : QStringList{};
-            bool hidden = !path.isEmpty()
-                && (m_foldingModel->isFolded(path)
-                    || m_foldingModel->isHiddenByFold(path));
-            m_items[itemIdx]->asGraphicsItem()->setVisible(!hidden);
+            // Is this item itself a region (code block via TableBlockItem)?
+            const int rIdx = m_blockToRegionIdx.value({itemIdx, 0}, -1);
+            const QList<FoldableRegion> &regs = m_foldingModel->regions();
+            const bool isCodeBlock = rIdx >= 0 && rIdx < regs.size()
+                && regs[rIdx].type == FoldableRegion::CodeBlock;
+
+            // Ancestor-heading fold hides the whole item regardless of its own fold.
+            const QStringList encPath = (hIdx >= 0) ? hs[hIdx].path : QStringList{};
+            const bool hiddenByHeading = !encPath.isEmpty()
+                && (m_foldingModel->isFolded(encPath)
+                    || m_foldingModel->isHiddenByFold(encPath));
+
+            auto *tbi = dynamic_cast<TableBlockItem *>(m_items[itemIdx]->asGraphicsItem());
+            if (isCodeBlock && tbi) {
+                const bool selfFolded = m_foldingModel->isFolded(regs[rIdx].path);
+                tbi->setFolded(selfFolded, regs[rIdx].language, regs[rIdx].lineCount);
+            }
+            m_items[itemIdx]->asGraphicsItem()->setVisible(!hiddenByHeading);
             continue;
         }
 
