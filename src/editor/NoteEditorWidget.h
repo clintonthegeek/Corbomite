@@ -14,6 +14,8 @@ class VaultModel;
 class VaultResourceProvider;
 class CompletionPopup;
 class HoverPopover;
+class EditorSuggestManager;
+class EditorSuggest;
 
 class NoteEditorWidget : public QWidget {
     Q_OBJECT
@@ -37,6 +39,11 @@ public:
     // preview popover (Cluster H Phase 2). Lifetime owned by the caller.
     void setHoverPopover(HoverPopover *popover);
 
+    // Cluster H Phase 3 — when set, cursor changes are dispatched to the
+    // manager's registered EditorSuggest list (insertion-order first-wins).
+    // Lifetime owned by the caller (typically MainWindow).
+    void setEditorSuggestManager(EditorSuggestManager *manager);
+
     int currentLine() const;
     int currentColumn() const;
 
@@ -52,16 +59,14 @@ private:
     void onCursorPositionChanged(int line, int column);
     void syncFromDocument();
 
-    // Completion. `pos` is the document position right after the
-    // trigger sequence (the start of the filter range).
-    void triggerWikiLinkCompletion(int pos);
-    void triggerTagCompletion(int pos);
+    // Completion via EditorSuggestManager (Cluster H Phase 3).
+    void maybeActivateSuggester();
     void dismissCompletion();
     void onCompletionAccepted(const QString &text, const QString &data);
     void positionCompletionPopup();
     void updateCompletionFilter();
-    QString currentTriggerText() const;
     int absoluteCursorPos() const;
+    QString currentLineText() const;
 
     // Link resolution
     QString resolveTarget(const QString &target) const;
@@ -80,9 +85,9 @@ private:
 
     // Completion state
     CompletionPopup *m_completionPopup = nullptr;
+    EditorSuggestManager *m_suggestManager = nullptr;
+    EditorSuggest *m_activeSuggester = nullptr;
     int m_completionTriggerPos = -1;
-    enum class CompletionMode { None, WikiLink, Tag };
-    CompletionMode m_completionMode = CompletionMode::None;
 };
 
 } // namespace Corbomite

@@ -43,6 +43,9 @@ add_library(corbomite-core STATIC
     src/HoverLinkSourceRegistry.cpp
     include/corbomite/core/HoverLinkSourceRegistry.h
     include/corbomite/core/HoverLinkSource.h
+    src/EditorSuggestManager.cpp
+    include/corbomite/core/EditorSuggestManager.h
+    include/corbomite/core/EditorSuggest.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)

@@ -29,6 +29,9 @@ public:
     // Cluster H Phase 2 — propagated to every EditorViewSpace and every
     // NoteEditorWidget so hover-link previews work across all panes/tabs.
     void setHoverPopover(HoverPopover *popover);
+    // Cluster H Phase 3 — propagated to every EditorViewSpace + every
+    // NoteEditorWidget so suggester dispatch is consistent across panes/tabs.
+    void setEditorSuggestManager(EditorSuggestManager *manager);
     NoteEditorWidget *activeEditor() const;
     EditorViewSpace *activeViewSpace() const;
 
@@ -83,6 +86,7 @@ private:
     QVector<EditorViewSpace *> m_viewSpaces;
     std::unique_ptr<MarkdownRenderEngine> m_canvasEngine;
     HoverPopover *m_hoverPopover = nullptr;
+    EditorSuggestManager *m_suggestManager = nullptr;
 };
 
 } // namespace Corbomite

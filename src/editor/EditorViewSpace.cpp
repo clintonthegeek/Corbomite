@@ -51,6 +51,14 @@ void EditorViewSpace::setHoverPopover(HoverPopover *popover)
     }
 }
 
+void EditorViewSpace::setEditorSuggestManager(EditorSuggestManager *manager)
+{
+    m_suggestManager = manager;
+    for (auto *editor : std::as_const(m_editors)) {
+        editor->setEditorSuggestManager(manager);
+    }
+}
+
 void EditorViewSpace::openNote(NoteDocument *doc)
 {
     if (!doc) return;
@@ -69,6 +77,7 @@ void EditorViewSpace::openNote(NoteDocument *doc)
     auto *editor = new NoteEditorWidget(m_stack);
     editor->setNoteDocument(doc);
     editor->setHoverPopover(m_hoverPopover);
+    editor->setEditorSuggestManager(m_suggestManager);
     m_editors.insert(path, editor);
 
     int stackIdx = m_stack->addWidget(editor);

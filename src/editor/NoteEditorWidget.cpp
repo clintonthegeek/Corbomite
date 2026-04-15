@@ -3,6 +3,8 @@
 #include "CompletionPopup.h"
 #include "HoverPopover.h"
 #include "VaultResourceProvider.h"
+#include "corbomite/core/EditorSuggest.h"
+#include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/models/VaultModel.h"
 #include "dialogs/QuickSwitcherModel.h"
@@ -47,12 +49,13 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
                                           QCursor::pos() + QPoint(0, 20));
         }
     });
-    connect(m_editor, &Markoff::Editor::wikiLinkTrigger,
-            this, &NoteEditorWidget::triggerWikiLinkCompletion);
-    connect(m_editor, &Markoff::Editor::tagTrigger,
-            this, &NoteEditorWidget::triggerTagCompletion);
     connect(m_editor, &Markoff::Editor::completionDismissHint,
             this, &NoteEditorWidget::dismissCompletion);
+    // Cluster H Phase 3 — trigger detection moved into each EditorSuggest;
+    // the editor merely fires cursor changes which the manager dispatches
+    // to its registered suggester list (insertion-order first-wins).
+    connect(m_editor, &Markoff::Editor::cursorPositionChanged,
+            this, [this](int, int) { maybeActivateSuggester(); });
 
     m_editor->installEventFilter(this);
 }
@@ -77,6 +80,11 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
 void NoteEditorWidget::setHoverPopover(HoverPopover *popover)
 {
     m_hoverPopover = popover;
+}
+
+void NoteEditorWidget::setEditorSuggestManager(EditorSuggestManager *manager)
+{
+    m_suggestManager = manager;
 }
 
 NoteDocument *NoteEditorWidget::noteDocument() const
@@ -183,20 +191,38 @@ void NoteEditorWidget::syncFromDocument()
 
 // --- Completion ---
 
-void NoteEditorWidget::triggerWikiLinkCompletion(int pos)
+void NoteEditorWidget::maybeActivateSuggester()
 {
-    if (!m_vault) return;
+    if (!m_suggestManager || !m_doc) return;
+
+    const int absPos = absoluteCursorPos();
+    if (absPos < 0) {
+        if (m_completionPopup) dismissCompletion();
+        return;
+    }
+    const QString line = currentLineText();
+    const int lineStart = absPos - m_editor->cursorColumn() + 1;
+    const int colInLine = absPos - lineStart;
+
+    auto result = m_suggestManager->dispatch(colInLine, line, m_doc);
+    if (!result) {
+        if (m_completionPopup) dismissCompletion();
+        return;
+    }
+
+    // If a popup is already up for the same suggester + same trigger start,
+    // just refilter; otherwise rebuild.
+    const int absStart = lineStart + result->info.start;
+    if (m_completionPopup && m_activeSuggester == result->suggester
+        && m_completionTriggerPos == absStart) {
+        updateCompletionFilter();
+        return;
+    }
     dismissCompletion();
-    m_completionTriggerPos = pos;
+    m_activeSuggester = result->suggester;
+    m_completionTriggerPos = absStart;
 
-    m_completionMode = CompletionMode::WikiLink;
-
-    auto *model = new QuickSwitcherModel(this);
-    model->setNotes(m_vault->allNotes());
-
-    // Parent the popup on the editor's viewport so it's a regular
-    // child widget — NOT a top-level Qt::Popup. That keeps keystrokes
-    // flowing into the editor.
+    auto *model = new QStringListModel(result->suggester->getSuggestions(result->info), this);
     m_completionPopup = new CompletionPopup(model, m_editor->viewport());
     model->setParent(m_completionPopup);
     connect(m_completionPopup, &CompletionPopup::itemSelected,
@@ -204,35 +230,10 @@ void NoteEditorWidget::triggerWikiLinkCompletion(int pos)
     connect(m_completionPopup, &CompletionPopup::dismissed,
             this, [this]() {
         m_completionPopup = nullptr;
-        m_completionMode = CompletionMode::None;
+        m_activeSuggester = nullptr;
         m_completionTriggerPos = -1;
     });
-
-    positionCompletionPopup();
-    m_completionPopup->show();
-}
-
-void NoteEditorWidget::triggerTagCompletion(int pos)
-{
-    if (!m_vault) return;
-    dismissCompletion();
-    m_completionTriggerPos = pos;
-
-    m_completionMode = CompletionMode::Tag;
-
-    auto *model = new QStringListModel(m_vault->allTags(), this);
-
-    m_completionPopup = new CompletionPopup(model, m_editor->viewport());
-    model->setParent(m_completionPopup);
-    connect(m_completionPopup, &CompletionPopup::itemSelected,
-            this, &NoteEditorWidget::onCompletionAccepted);
-    connect(m_completionPopup, &CompletionPopup::dismissed,
-            this, [this]() {
-        m_completionPopup = nullptr;
-        m_completionMode = CompletionMode::None;
-        m_completionTriggerPos = -1;
-    });
-
+    m_completionPopup->setFilterText(result->info.query);
     positionCompletionPopup();
     m_completionPopup->show();
 }
@@ -261,26 +262,29 @@ int NoteEditorWidget::absoluteCursorPos() const
     return src.size();
 }
 
-QString NoteEditorWidget::currentTriggerText() const
+QString NoteEditorWidget::currentLineText() const
 {
-    if (m_completionTriggerPos < 0) return {};
-    int absPos = absoluteCursorPos();
-    QString src = m_editor->toPlainText();
-    if (absPos < m_completionTriggerPos || absPos > src.size()) return {};
-    return src.mid(m_completionTriggerPos, absPos - m_completionTriggerPos);
+    const int absPos = absoluteCursorPos();
+    if (absPos < 0) return {};
+    const QString src = m_editor->toPlainText();
+    int start = absPos;
+    while (start > 0 && src.at(start - 1) != QLatin1Char('\n')) --start;
+    int end = absPos;
+    while (end < src.size() && src.at(end) != QLatin1Char('\n')) ++end;
+    return src.mid(start, end - start);
 }
 
 void NoteEditorWidget::updateCompletionFilter()
 {
     if (!m_completionPopup) return;
-    int absPos = absoluteCursorPos();
+    const int absPos = absoluteCursorPos();
     if (absPos < 0 || absPos < m_completionTriggerPos) {
         dismissCompletion();
         return;
     }
-    QString filter = currentTriggerText();
-    // Bail if the user's typing crossed a newline or hit a closing
-    // bracket — that means the trigger context is gone.
+    const QString src = m_editor->toPlainText();
+    QString filter = src.mid(m_completionTriggerPos,
+                              absPos - m_completionTriggerPos);
     if (filter.contains(QLatin1Char('\n'))
         || filter.contains(QLatin1Char(']'))) {
         dismissCompletion();
@@ -298,7 +302,7 @@ void NoteEditorWidget::dismissCompletion()
         p->hide();
         p->deleteLater();
     }
-    m_completionMode = CompletionMode::None;
+    m_activeSuggester = nullptr;
     m_completionTriggerPos = -1;
 }
 
@@ -306,41 +310,23 @@ void NoteEditorWidget::onCompletionAccepted(const QString &text, const QString &
 {
     Q_UNUSED(data)
 
-    QString source = m_editor->toPlainText();
-    int triggerPos = m_completionTriggerPos;
-    if (triggerPos < 0 || triggerPos > source.size()) {
+    const QString source = m_editor->toPlainText();
+    const int triggerPos = m_completionTriggerPos;
+    const int absPos = absoluteCursorPos();
+    if (triggerPos < 0 || triggerPos > source.size() || absPos < 0
+        || !m_activeSuggester) {
         dismissCompletion();
         return;
     }
 
-    int line = m_editor->cursorLine();
-    int col = m_editor->cursorColumn();
-    if (line < 1 || col < 1) {
-        dismissCompletion();
-        return;
-    }
-    int absPos = 0;
-    int currentLine = 1;
-    bool found = false;
-    for (int i = 0; i < source.size(); ++i) {
-        if (currentLine == line) {
-            absPos = i + col - 1;
-            found = true;
-            break;
-        }
-        if (source[i] == QLatin1Char('\n'))
-            ++currentLine;
-    }
-    if (!found) {
-        dismissCompletion();
-        return;
-    }
+    EditorSuggestTriggerInfo ctx;
+    ctx.start = triggerPos;
+    ctx.end = absPos;
+    ctx.query = source.mid(triggerPos, absPos - triggerPos);
+    const QString insertion = m_activeSuggester->selectSuggestion(text, ctx);
 
-    QString before = source.left(triggerPos);
-    QString after = source.mid(absPos);
-    QString insertion = (m_completionMode == CompletionMode::WikiLink)
-        ? text + QStringLiteral("]]")
-        : text;
+    const QString before = source.left(triggerPos);
+    const QString after = source.mid(absPos);
 
     m_updatingFromDoc = true;
     m_editor->setPlainText(before + insertion + after);

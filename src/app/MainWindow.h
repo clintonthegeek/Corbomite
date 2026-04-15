@@ -32,6 +32,9 @@ class CommandRegistry;
 class MenuEventEmitter;
 class HoverLinkSourceRegistry;
 class HoverPopover;
+class EditorSuggestManager;
+class WikiLinkSuggest;
+class TagSuggest;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -94,6 +97,9 @@ private:
     MenuEventEmitter *m_menuEvents = nullptr;
     HoverLinkSourceRegistry *m_hoverSources = nullptr;
     HoverPopover *m_hoverPopover = nullptr;
+    EditorSuggestManager *m_suggestManager = nullptr;
+    WikiLinkSuggest *m_wikiSuggest = nullptr;
+    TagSuggest *m_tagSuggest = nullptr;
 };
 
 } // namespace Corbomite

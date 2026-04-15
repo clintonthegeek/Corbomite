@@ -26,9 +26,12 @@
 #include "SessionManager.h"
 
 #include "corbomite/core/Command.h"
+#include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
 #include "editor/HoverPopover.h"
+#include "editor/TagSuggest.h"
+#include "editor/WikiLinkSuggest.h"
 #include "dialogs/CreateVaultDialog.h"
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
@@ -91,6 +94,15 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     m_hoverSources->registerBuiltins();
     m_hoverPopover = new HoverPopover(this);
     m_hoverPopover->setNoteService(m_vaultService->noteService());
+
+    // Cluster H Phase 3 — built-in EditorSuggesters. Insertion order matters
+    // (first-non-null-onTrigger-wins per audit); built-ins go first so they
+    // shadow any future plugin overrides of `[[` / `#`.
+    m_suggestManager = new EditorSuggestManager(this);
+    m_wikiSuggest = new WikiLinkSuggest(m_vaultService->vault());
+    m_tagSuggest = new TagSuggest(m_vaultService->vault());
+    m_suggestManager->registerSuggest(m_wikiSuggest);
+    m_suggestManager->registerSuggest(m_tagSuggest);
 
     updateVaultActions();
     resize(1200, 800);
@@ -404,6 +416,7 @@ void MainWindow::setupEditor()
     // Index 1: Editor view manager
     m_editorManager = new EditorViewManager(m_centralStack);
     m_editorManager->setHoverPopover(m_hoverPopover);
+    m_editorManager->setEditorSuggestManager(m_suggestManager);
     m_centralStack->addWidget(m_editorManager);
 
     connect(m_editorManager, &EditorViewManager::cursorInfoChanged,

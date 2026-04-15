@@ -18,6 +18,7 @@ class CanvasViewTab;
 class SQLiteIndex;
 class VaultModel;
 class HoverPopover;
+class EditorSuggestManager;
 
 class EditorViewSpace : public QWidget {
     Q_OBJECT
@@ -30,6 +31,9 @@ public:
     // owns (current and future) so hover-link previews work regardless of
     // when the tab opened.
     void setHoverPopover(HoverPopover *popover);
+    // Cluster H Phase 3 — passed to every NoteEditorWidget (current + future)
+    // for shared in-editor suggester dispatch.
+    void setEditorSuggestManager(EditorSuggestManager *manager);
     void openNote(NoteDocument *doc);
     void closeTab(int index);
     NoteEditorWidget *activeEditor() const;
@@ -69,6 +73,7 @@ private:
     QHash<QString, NoteEditorWidget *> m_editors; // relativePath -> editor
     MarkdownRenderEngine *m_canvasEngine = nullptr;
     HoverPopover *m_hoverPopover = nullptr;
+    EditorSuggestManager *m_suggestManager = nullptr;
 };
 
 } // namespace Corbomite

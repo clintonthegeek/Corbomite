@@ -15,6 +15,10 @@ add_executable(tst_hoverlinksources tst_hoverlinksources.cpp)
 add_test(NAME tst_hoverlinksources COMMAND tst_hoverlinksources)
 target_link_libraries(tst_hoverlinksources PRIVATE Qt6::Test Corbomite::Core)
 
+add_executable(tst_editorsuggest tst_editorsuggest.cpp)
+add_test(NAME tst_editorsuggest COMMAND tst_editorsuggest)
+target_link_libraries(tst_editorsuggest PRIVATE Qt6::Test Corbomite::Core)
+
 add_executable(tst_notemeta tst_notemeta.cpp)
 add_test(NAME tst_notemeta COMMAND tst_notemeta)
 target_link_libraries(tst_notemeta PRIVATE Qt6::Test Corbomite::Core)
