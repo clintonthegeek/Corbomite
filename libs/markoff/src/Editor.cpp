@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "markoff/Editor.h"
+#include "markoff/SearchBar.h"
 #include "SelectionScene.h"
 #include "SelectionManager.h"
 #include "SceneCoordinator.h"
@@ -55,6 +56,34 @@ Editor::Editor(QWidget *parent)
             this, &Editor::ensureFocusedCursorVisible);
     connect(m_coordinator, &SceneCoordinator::reparsed,
             this, &Editor::onDocumentReparsed);
+
+    // SearchBar is a child of the viewport, positioned at the bottom
+    m_searchBar = new SearchBar(viewport());
+    m_searchBar->hide();
+
+    connect(m_searchBar, &SearchBar::searchTextChanged,
+            this, &Editor::highlightAllMatches);
+    connect(m_searchBar, &SearchBar::findNext, this, [this]() {
+        findText(m_searchBar->searchText(), searchFlags());
+        updateMatchCount();
+    });
+    connect(m_searchBar, &SearchBar::findPrevious, this, [this]() {
+        findText(m_searchBar->searchText(),
+                 searchFlags() | QTextDocument::FindBackward);
+        updateMatchCount();
+    });
+    connect(m_searchBar, &SearchBar::replaceRequested, this, [this]() {
+        replaceText(m_searchBar->searchText(), m_searchBar->replaceText(),
+                    searchFlags());
+        highlightAllMatches(m_searchBar->searchText());
+    });
+    connect(m_searchBar, &SearchBar::replaceAllRequested, this, [this]() {
+        int count = replaceAll(m_searchBar->searchText(),
+                               m_searchBar->replaceText(), searchFlags());
+        highlightAllMatches(m_searchBar->searchText());
+        Q_UNUSED(count);
+    });
+    connect(m_searchBar, &SearchBar::closed, this, &Editor::hideSearchBar);
 }
 
 Editor::~Editor() = default;
@@ -94,6 +123,7 @@ void Editor::resizeEvent(QResizeEvent *e)
     qreal width = viewport()->width() - 32;
     if (width > 100)
         m_coordinator->setItemWidth(width);
+    repositionSearchBar();
 }
 
 // =========================================================================
@@ -227,10 +257,25 @@ void Editor::keyPressEvent(QKeyEvent *e)
         if (e->key() == Qt::Key_C) { copy(); return; }
         if (e->key() == Qt::Key_X) { cut();  return; }
         if (e->key() == Qt::Key_V) { paste(); return; }
+        if (e->key() == Qt::Key_F) { showSearchBar(); return; }
+        if (e->key() == Qt::Key_H) { showReplaceBar(); return; }
     }
 
     bool shift = e->modifiers() & Qt::ShiftModifier;
     bool ctrl = e->modifiers() & Qt::ControlModifier;
+
+    // F3 / Shift+F3: find next/previous (works even with bar closed)
+    if (e->key() == Qt::Key_F3) {
+        if (m_searchBar && !m_searchBar->searchText().isEmpty()) {
+            if (shift)
+                findText(m_searchBar->searchText(),
+                         searchFlags() | QTextDocument::FindBackward);
+            else
+                findText(m_searchBar->searchText(), searchFlags());
+            updateMatchCount();
+        }
+        return;
+    }
 
     // Ctrl+Home / Ctrl+Shift+Home: jump/select to document start
     if (e->key() == Qt::Key_Home && ctrl) {
@@ -979,5 +1024,57 @@ int Editor::replaceAll(const QString &find, const QString &replace,
     }
     return count;
 }
+
+QTextDocument::FindFlags Editor::searchFlags() const
+{
+    QTextDocument::FindFlags flags;
+    if (m_searchBar && m_searchBar->matchCase())
+        flags |= QTextDocument::FindCaseSensitively;
+    return flags;
+}
+
+void Editor::showSearchBar()
+{
+    if (auto *ti = focusedTextItem()) {
+        QString sel = ti->textControl()->textCursor().selectedText();
+        if (!sel.isEmpty() && !sel.contains(QChar::ParagraphSeparator))
+            m_searchBar->setSearchText(sel);
+    }
+    m_searchBar->showFind();
+    repositionSearchBar();
+}
+
+void Editor::showReplaceBar()
+{
+    if (auto *ti = focusedTextItem()) {
+        QString sel = ti->textControl()->textCursor().selectedText();
+        if (!sel.isEmpty() && !sel.contains(QChar::ParagraphSeparator))
+            m_searchBar->setSearchText(sel);
+    }
+    m_searchBar->showReplace();
+    repositionSearchBar();
+}
+
+void Editor::hideSearchBar()
+{
+    m_searchBar->hide();
+    clearSearchHighlights();
+    setFocus();
+}
+
+void Editor::repositionSearchBar()
+{
+    if (!m_searchBar->isVisible()) return;
+    QSize barSize = m_searchBar->sizeHint();
+    int vw = viewport()->width();
+    m_searchBar->setGeometry(0, viewport()->height() - barSize.height(),
+                             vw, barSize.height());
+    m_searchBar->raise();
+}
+
+// Stubs — replaced with real implementations in Task 3
+void Editor::highlightAllMatches(const QString &text) { Q_UNUSED(text); }
+void Editor::clearSearchHighlights() {}
+void Editor::updateMatchCount() {}
 
 } // namespace Markoff

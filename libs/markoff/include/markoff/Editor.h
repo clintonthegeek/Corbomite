@@ -16,6 +16,7 @@ class SelectionScene;
 class SceneCoordinator;
 class MarkdownTextItem;
 class ResourceProvider;
+class SearchBar;
 
 class Editor : public QGraphicsView {
     Q_OBJECT
@@ -94,6 +95,13 @@ public:
     int replaceAll(const QString &find, const QString &replace,
                    QTextDocument::FindFlags flags = {});
 
+    /// Show the embedded find bar (Ctrl+F).
+    void showSearchBar();
+    /// Show the embedded find+replace bar (Ctrl+H).
+    void showReplaceBar();
+    /// Hide the search bar and clear highlights.
+    void hideSearchBar();
+
 Q_SIGNALS:
     void textChanged();
     void cursorPositionChanged(int line, int column);
@@ -131,6 +139,11 @@ private:
     void detectCompletionTriggers(const QString &insertedText);
     void wrapSelection(const QString &before, const QString &after);
     void insertAtCursor(const QString &text);
+    void highlightAllMatches(const QString &text);
+    void clearSearchHighlights();
+    void updateMatchCount();
+    void repositionSearchBar();
+    QTextDocument::FindFlags searchFlags() const;
 
     SelectionScene *m_scene = nullptr;
     SceneCoordinator *m_coordinator = nullptr;
@@ -145,6 +158,11 @@ private:
     EditorSettings m_editorSettings;
     ResourceProvider *m_resourceProvider = nullptr;
     std::unique_ptr<Document> m_document;
+
+    SearchBar *m_searchBar = nullptr;
+    QString m_lastSearchText;
+    int m_currentMatchIndex = -1;
+    int m_totalMatchCount = 0;
 };
 
 } // namespace Markoff
