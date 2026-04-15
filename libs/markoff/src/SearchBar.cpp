@@ -14,6 +14,17 @@ namespace Markoff {
 SearchBar::SearchBar(QWidget *parent)
     : QWidget(parent)
 {
+    // Opaque background + a top border so the bar reads as a distinct
+    // docked strip rather than a transparent overlay on the document.
+    setAutoFillBackground(true);
+    setBackgroundRole(QPalette::Window);
+    setAttribute(Qt::WA_StyledBackground, true);
+    setStyleSheet(QStringLiteral(
+        "Markoff--SearchBar { "
+        "  background: palette(window); "
+        "  border-top: 1px solid palette(mid); "
+        "}"));
+
     buildUi();
     hide();
 }

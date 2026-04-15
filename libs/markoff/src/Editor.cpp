@@ -1068,20 +1068,28 @@ void Editor::showReplaceBar()
 void Editor::hideSearchBar()
 {
     m_searchBar->hide();
+    setViewportMargins(0, 0, 0, 0);
     clearSearchHighlights();
     setFocus();
 }
 
 void Editor::repositionSearchBar()
 {
-    if (!m_searchBar->isVisible()) return;
-    QSize barSize = m_searchBar->sizeHint();
+    if (!m_searchBar->isVisible()) {
+        setViewportMargins(0, 0, 0, 0);
+        return;
+    }
+    int barHeight = m_searchBar->sizeHint().height();
+    // Reserve space at the bottom of the viewport so scene content
+    // cannot scroll under the bar.
+    setViewportMargins(0, 0, 0, barHeight);
+    // Position the bar in the reserved strip, spanning the viewport's
+    // horizontal extent (so it doesn't cover the vertical scrollbar).
     QPoint vpTopLeft = viewport()->mapTo(this, QPoint(0, 0));
     int vw = viewport()->width();
     int vh = viewport()->height();
-    m_searchBar->setGeometry(vpTopLeft.x(),
-                             vpTopLeft.y() + vh - barSize.height(),
-                             vw, barSize.height());
+    m_searchBar->setGeometry(vpTopLeft.x(), vpTopLeft.y() + vh,
+                             vw, barHeight);
     m_searchBar->raise();
 }
 
