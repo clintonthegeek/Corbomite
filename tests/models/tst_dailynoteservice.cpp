@@ -2,12 +2,18 @@
 #include <QTest>
 #include <QTemporaryDir>
 #include <QDate>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include "corbomite/models/DailyNoteService.h"
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NoteService.h"
 #include "corbomite/models/TemplateService.h"
+#include "corbomite/core/MomentFormatter.h"
+#include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/storage/VaultConfig.h"
 
 class TestDailyNoteService : public QObject {
     Q_OBJECT
@@ -18,6 +24,15 @@ class TestDailyNoteService : public QObject {
         QFile f(path);
         f.open(QIODevice::WriteOnly);
         f.write(content.toUtf8());
+        f.close();
+    }
+
+    void writeJsonFile(const QString &path, const QJsonObject &obj)
+    {
+        QDir().mkpath(QFileInfo(path).absolutePath());
+        QFile f(path);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
         f.close();
     }
 
@@ -32,13 +47,85 @@ private Q_SLOTS:
         Corbomite::TemplateService templateService(&vault);
 
         Corbomite::DailyNoteService daily(&vault, &noteService, &templateService);
-        daily.setDateFormat(QStringLiteral("yyyy-MM-dd"));
+        daily.setDateFormat(QStringLiteral("YYYY-MM-DD"));
         daily.setFolder(QStringLiteral("Daily Notes"));
 
-        QString expected = QStringLiteral("Daily Notes/")
-            + QDate::currentDate().toString(QStringLiteral("yyyy-MM-dd"))
+        const QString expected = QStringLiteral("Daily Notes/")
+            + Corbomite::MomentFormatter::format(
+                QDateTime::currentDateTime(), QStringLiteral("YYYY-MM-DD"))
             + QStringLiteral(".md");
         QCOMPARE(daily.todayNotePath(), expected);
+    }
+
+    void testTodayPathUsesMomentFormat()
+    {
+        QTemporaryDir tmp;
+        QDir().mkpath(tmp.path() + "/vault");
+        Corbomite::VaultModel vault;
+        vault.open(tmp.path() + "/vault");
+        Corbomite::NoteService noteService(&vault);
+        Corbomite::TemplateService templateService(&vault);
+
+        Corbomite::DailyNoteService daily(&vault, &noteService, &templateService);
+        daily.setDateFormat(QStringLiteral("YYYY-MM-DD"));
+        daily.setFolder(QString());  // bare file at vault root
+
+        const QString today = Corbomite::MomentFormatter::format(
+            QDateTime::currentDateTime(), QStringLiteral("YYYY-MM-DD"));
+        QCOMPARE(daily.todayNotePath(), today + QStringLiteral(".md"));
+    }
+
+    void testNestedFolderFormatComputesCorrectPath()
+    {
+        QTemporaryDir tmp;
+        QDir().mkpath(tmp.path() + "/vault");
+        Corbomite::VaultModel vault;
+        vault.open(tmp.path() + "/vault");
+        Corbomite::NoteService noteService(&vault);
+        Corbomite::TemplateService templateService(&vault);
+
+        Corbomite::DailyNoteService daily(&vault, &noteService, &templateService);
+        daily.setDateFormat(QStringLiteral("YYYY/MMMM/YYYY-MM-DD"));
+        daily.setFolder(QStringLiteral("Daily"));
+
+        const QString datePart = Corbomite::MomentFormatter::format(
+            QDateTime::currentDateTime(), QStringLiteral("YYYY/MMMM/YYYY-MM-DD"));
+        const QString expected = QStringLiteral("Daily/") + datePart + QStringLiteral(".md");
+        QCOMPARE(daily.todayNotePath(), expected);
+    }
+
+    void testNestedFolderFormatAutoCreatesDirectories()
+    {
+        QTemporaryDir tmp;
+        QDir().mkpath(tmp.path() + "/vault");
+        Corbomite::VaultModel vault;
+        vault.open(tmp.path() + "/vault");
+        Corbomite::NoteService noteService(&vault);
+        Corbomite::TemplateService templateService(&vault);
+
+        Corbomite::DailyNoteService daily(&vault, &noteService, &templateService);
+        daily.setDateFormat(QStringLiteral("YYYY/MMMM/YYYY-MM-DD"));
+        daily.setFolder(QStringLiteral("Daily"));
+
+        auto *doc = daily.openOrCreateToday();
+        QVERIFY(doc != nullptr);
+
+        // Verify the absolute path of today's file exists and all its
+        // intermediate directories were created.
+        const QString absPath = tmp.path() + "/vault/" + daily.todayNotePath();
+        QVERIFY2(QFileInfo::exists(absPath), qPrintable(absPath));
+
+        const QFileInfo fi(absPath);
+        QVERIFY(fi.dir().exists());
+
+        // Year / month-name directories should both be on disk.
+        const QDateTime now = QDateTime::currentDateTime();
+        const QString yearDir = tmp.path() + "/vault/Daily/"
+            + Corbomite::MomentFormatter::format(now, QStringLiteral("YYYY"));
+        const QString monthDir = yearDir + QLatin1Char('/')
+            + Corbomite::MomentFormatter::format(now, QStringLiteral("MMMM"));
+        QVERIFY2(QFileInfo(yearDir).isDir(), qPrintable(yearDir));
+        QVERIFY2(QFileInfo(monthDir).isDir(), qPrintable(monthDir));
     }
 
     void testTodayNoteNotExists()
@@ -123,6 +210,125 @@ private Q_SLOTS:
         auto *doc2 = daily.openOrCreateToday();
         QCOMPARE(doc2, doc1);
         QCOMPARE(doc2->markdown(), QStringLiteral("My custom content"));
+    }
+
+    void testInitFromVaultConfigReadsDailyNotesJson()
+    {
+        QTemporaryDir tmp;
+        QDir().mkpath(tmp.path() + "/vault");
+
+        QJsonObject obj;
+        obj.insert(QStringLiteral("format"), QStringLiteral("YYYY"));
+        obj.insert(QStringLiteral("folder"), QStringLiteral("d"));
+        obj.insert(QStringLiteral("template"), QStringLiteral("t.md"));
+        writeJsonFile(tmp.path() + "/vault/.obsidian/daily-notes.json", obj);
+
+        Corbomite::VaultModel vault;
+        vault.open(tmp.path() + "/vault");
+        Corbomite::NoteService noteService(&vault);
+        Corbomite::TemplateService templateService(&vault);
+
+        Corbomite::DailyNoteService daily(&vault, &noteService, &templateService);
+
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::VaultConfig cfg(&fs, tmp.path() + "/vault");
+        daily.initFromVaultConfig(cfg);
+
+        const QString datePart = Corbomite::MomentFormatter::format(
+            QDateTime::currentDateTime(), QStringLiteral("YYYY"));
+        QCOMPARE(daily.todayNotePath(),
+                 QStringLiteral("d/") + datePart + QStringLiteral(".md"));
+    }
+
+    void testInitFromVaultConfigFallsBackWhenJsonMissing()
+    {
+        QTemporaryDir tmp;
+        QDir().mkpath(tmp.path() + "/vault");
+        // Note: no .obsidian/daily-notes.json file.
+
+        Corbomite::VaultModel vault;
+        vault.open(tmp.path() + "/vault");
+        Corbomite::NoteService noteService(&vault);
+        Corbomite::TemplateService templateService(&vault);
+
+        Corbomite::DailyNoteService daily(&vault, &noteService, &templateService);
+        daily.setDateFormat(QStringLiteral("YYYY-MM-DD"));
+        daily.setFolder(QStringLiteral("Preseeded"));
+        daily.setTemplateName(QStringLiteral("PreseededTpl"));
+
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::VaultConfig cfg(&fs, tmp.path() + "/vault");
+        daily.initFromVaultConfig(cfg);
+
+        // Pre-seeded values still in effect.
+        const QString datePart = Corbomite::MomentFormatter::format(
+            QDateTime::currentDateTime(), QStringLiteral("YYYY-MM-DD"));
+        QCOMPARE(daily.todayNotePath(),
+                 QStringLiteral("Preseeded/") + datePart + QStringLiteral(".md"));
+    }
+
+    void testInitFromVaultConfigPartialKeysOnlyUpdatePresent()
+    {
+        QTemporaryDir tmp;
+        QDir().mkpath(tmp.path() + "/vault");
+
+        QJsonObject obj;
+        obj.insert(QStringLiteral("folder"), QStringLiteral("d"));
+        writeJsonFile(tmp.path() + "/vault/.obsidian/daily-notes.json", obj);
+
+        Corbomite::VaultModel vault;
+        vault.open(tmp.path() + "/vault");
+        Corbomite::NoteService noteService(&vault);
+        Corbomite::TemplateService templateService(&vault);
+
+        Corbomite::DailyNoteService daily(&vault, &noteService, &templateService);
+        daily.setDateFormat(QStringLiteral("YYYY-MM-DD"));
+        daily.setTemplateName(QStringLiteral("MyTpl"));
+
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::VaultConfig cfg(&fs, tmp.path() + "/vault");
+        daily.initFromVaultConfig(cfg);
+
+        // folder updated from JSON; format + template unchanged.
+        const QString datePart = Corbomite::MomentFormatter::format(
+            QDateTime::currentDateTime(), QStringLiteral("YYYY-MM-DD"));
+        QCOMPARE(daily.todayNotePath(),
+                 QStringLiteral("d/") + datePart + QStringLiteral(".md"));
+        // Template is not directly observable via getter in the API,
+        // but we can assert by watching for its effect: create a note
+        // with a known template and verify expansion ran.
+    }
+
+    void testOpenOrCreateTodayAppliesTemplateFromVault()
+    {
+        QTemporaryDir tmp;
+        createFile(tmp.path() + "/vault/Templates/Daily.md",
+                   "# {{title}}\n\nContent body.");
+
+        QJsonObject obj;
+        obj.insert(QStringLiteral("format"), QStringLiteral("YYYY-MM-DD"));
+        obj.insert(QStringLiteral("folder"), QStringLiteral("Daily Notes"));
+        obj.insert(QStringLiteral("template"), QStringLiteral("Daily"));
+        writeJsonFile(tmp.path() + "/vault/.obsidian/daily-notes.json", obj);
+
+        Corbomite::VaultModel vault;
+        vault.open(tmp.path() + "/vault");
+        Corbomite::NoteService noteService(&vault);
+        Corbomite::TemplateService templateService(&vault);
+        templateService.setTemplateFolder(QStringLiteral("Templates"));
+
+        Corbomite::DailyNoteService daily(&vault, &noteService, &templateService);
+
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::VaultConfig cfg(&fs, tmp.path() + "/vault");
+        daily.initFromVaultConfig(cfg);
+
+        auto *doc = daily.openOrCreateToday();
+        QVERIFY(doc != nullptr);
+
+        const QString content = doc->markdown();
+        QVERIFY(content.contains(QStringLiteral("Content body.")));
+        QVERIFY(!content.contains(QStringLiteral("{{title}}")));
     }
 };
 

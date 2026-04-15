@@ -68,8 +68,8 @@
   </group>
   <group name="DailyNotes">
     <entry name="DailyNoteDateFormat" type="String">
-      <label>Date format for daily note filenames</label>
-      <default>yyyy-MM-dd</default>
+      <label>Date format for daily note filenames (Moment.js tokens)</label>
+      <default>YYYY-MM-DD</default>
     </entry>
     <entry name="DailyNoteFolder" type="String">
       <label>Folder for daily notes</label>

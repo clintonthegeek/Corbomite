@@ -16,9 +16,11 @@
 #include "graph/GraphViewTab.h"
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
+#include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
+#include "corbomite/storage/VaultConfig.h"
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NoteService.h"
 #include "corbomite/models/NotesTreeModel.h"
@@ -1034,12 +1036,30 @@ void MainWindow::onVaultOpened()
     m_templateService->setDefaultDateFormat(settings->defaultDateFormat());
     m_templateService->setDefaultTimeFormat(settings->defaultTimeFormat());
 
+    // Vault-local override: `.obsidian/templates.json` wins over KConfig
+    // defaults for any keys it specifies. Missing file / missing keys
+    // leave the KConfig-seeded defaults intact.
+    {
+        FileSystemAdapter fs;
+        VaultConfig vaultConfig(&fs, vault->path());
+        m_templateService->initFromVaultConfig(vaultConfig);
+    }
+
     delete m_dailyNoteService;
     m_dailyNoteService = new DailyNoteService(vault, m_vaultService->noteService(),
                                                 m_templateService, this);
     m_dailyNoteService->setDateFormat(settings->dailyNoteDateFormat());
     m_dailyNoteService->setFolder(settings->dailyNoteFolder());
     m_dailyNoteService->setTemplateName(settings->dailyNoteTemplate());
+
+    // Vault-local override: `.obsidian/daily-notes.json` wins over KConfig
+    // defaults. Missing file / missing keys leave the KConfig-seeded
+    // values intact.
+    {
+        FileSystemAdapter fs;
+        VaultConfig vaultConfig(&fs, vault->path());
+        m_dailyNoteService->initFromVaultConfig(vaultConfig);
+    }
 
     updateVaultActions();
 }
@@ -1179,12 +1199,32 @@ void MainWindow::insertTemplate()
     QString expanded = m_templateService->loadAndExpand(name, editor->noteDocument()->name());
     if (expanded.isEmpty()) return;
 
-    // If note is empty, replace content; otherwise append at end
-    if (editor->noteDocument()->markdown().trimmed().isEmpty()) {
-        editor->noteDocument()->setMarkdown(expanded);
-    } else {
-        QString combined = editor->noteDocument()->markdown() + expanded;
-        editor->noteDocument()->setMarkdown(combined);
+    // If note is empty, replace content; otherwise append at end.
+    // Compute final body and the absolute offset of the {{cursor}} marker
+    // within that body (if any), then strip the marker before setting the
+    // note document so the editor never sees the placeholder.
+    const QString marker = TemplateService::cursorMarker();
+    const bool wasEmpty = editor->noteDocument()->markdown().trimmed().isEmpty();
+    QString finalBody = wasEmpty
+        ? expanded
+        : editor->noteDocument()->markdown() + expanded;
+
+    const int cursorIdx = finalBody.indexOf(marker);
+    if (cursorIdx >= 0) {
+        finalBody.remove(cursorIdx, marker.size());
+    }
+    editor->noteDocument()->setMarkdown(finalBody);
+
+    // Position the editor cursor at the former marker location. Markoff's
+    // Editor only exposes goToLine(int) from the outside; compute the
+    // 0-based line index of the stripped-marker offset. Column-level
+    // positioning would need a new Editor API — acceptable limitation for
+    // Phase 3; the cursor lands on the right line.
+    if (cursorIdx >= 0) {
+        const int line = finalBody.left(cursorIdx).count(QLatin1Char('\n'));
+        if (auto *mk = editor->editor()) {
+            mk->goToLine(line);
+        }
     }
 }
 
