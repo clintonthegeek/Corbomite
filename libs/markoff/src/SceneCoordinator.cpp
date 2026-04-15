@@ -18,17 +18,16 @@
 namespace Markoff {
 
 namespace {
-/// Count newlines in `utf8` up to and including byte offset `byteOffset`.
-/// The returned line index is 0-based: byteOffset 0 → line 0, byteOffset
-/// at the first byte after the first '\n' → line 1, etc.
-int sourceLineAt(const QByteArray &utf8, int byteOffset)
+/// CommonMark ATX heading: 1–6 leading `#`s followed by a space or EOL.
+/// Rejects C-preprocessor lines like `#include` because they have no
+/// space after the hash.
+bool isAtxHeadingLine(const QString &trimmed)
 {
-    const int end = qBound(0, byteOffset, int(utf8.size()));
-    int lines = 0;
-    for (int i = 0; i < end; ++i) {
-        if (utf8[i] == '\n') ++lines;
-    }
-    return lines;
+    int i = 0;
+    while (i < trimmed.size() && i < 6 && trimmed[i] == QLatin1Char('#'))
+        ++i;
+    if (i == 0) return false;
+    return i == trimmed.size() || trimmed[i] == QLatin1Char(' ');
 }
 } // namespace
 
@@ -116,7 +115,6 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
 
     repositionItems();
     m_scene->setSelectableItems(m_items);
-    m_headingMapDirty = true;
     emit reparsed();
 }
 
@@ -453,66 +451,10 @@ void SceneCoordinator::setFoldingModel(FoldingModel *model)
     if (m_foldingModel)
         disconnect(m_foldingModel, nullptr, this, nullptr);
     m_foldingModel = model;
-    m_headingMapDirty = true;
     if (m_foldingModel) {
         connect(m_foldingModel, &FoldingModel::foldStateChanged,
-                this, [this]() {
-                    m_headingMapDirty = true;
-                    applyFoldVisibility();
-                });
+                this, &SceneCoordinator::applyFoldVisibility);
     }
-}
-
-void SceneCoordinator::ensureHeadingMap() const
-{
-    if (!m_headingMapDirty) return;
-    m_blockToHeadingIdx.clear();
-    m_headingMapDirty = false;
-    if (!m_foldingModel) return;
-    const auto &hs = m_foldingModel->headings();
-    if (hs.isEmpty()) return;
-
-    // Heading sourceOffsets are byte offsets into toMarkdown()'s output
-    // (that's the source tree-sitter parses). Convert each to a 0-based
-    // source-line for line-based comparison against item blocks.
-    const QByteArray utf8 = toMarkdown().toUtf8();
-    QHash<int, int> lineToHeadingIdx;
-    lineToHeadingIdx.reserve(hs.size());
-    for (int i = 0; i < hs.size(); ++i)
-        lineToHeadingIdx.insert(sourceLineAt(utf8, hs[i].info.sourceOffset), i);
-
-    // Walk items in order, tracking the running source-line offset.
-    // Mirror toMarkdown()'s separator rules so line counts align with
-    // what tree-sitter saw.
-    int srcLine = 0;
-    for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
-        if (itemIdx > 0) {
-            const bool prevBlock = !m_items[itemIdx - 1]->isTextItem();
-            const bool currBlock = !m_items[itemIdx]->isTextItem();
-            srcLine += (prevBlock || currBlock) ? 2 : 1;
-        }
-        auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
-        const QString itemSrc = m_items[itemIdx]->toMarkdown();
-        if (mti) {
-            // For each block, compute its source-line and check the lookup.
-            QTextDocument *doc = mti->document();
-            QTextBlock block = doc->begin();
-            while (block.isValid()) {
-                const int blockLine = srcLine + block.blockNumber();
-                auto it = lineToHeadingIdx.constFind(blockLine);
-                if (it != lineToHeadingIdx.constEnd())
-                    m_blockToHeadingIdx.insert({itemIdx, block.blockNumber()}, *it);
-                block = block.next();
-            }
-        }
-        srcLine += int(itemSrc.count(QLatin1Char('\n')));
-    }
-}
-
-int SceneCoordinator::headingAtBlock(int itemIdx, int blockNumber) const
-{
-    ensureHeadingMap();
-    return m_blockToHeadingIdx.value({itemIdx, blockNumber}, -1);
 }
 
 int SceneCoordinator::itemIndexAt(qreal sceneY) const
@@ -533,17 +475,19 @@ QStringList SceneCoordinator::enclosingHeadingPath(int itemIndex) const
     const auto &hs = m_foldingModel->headings();
     if (hs.isEmpty()) return {};
 
-    // The most-recent heading at or before itemIndex (across all blocks).
-    // Use the AST-derived map; ties broken by document order.
+    // Walk items[0..itemIndex], counting heading-type items. A heading item
+    // is a MarkdownTextItem whose allMarkdown() trimmed starts with '#'.
+    // The last heading at or before itemIndex is the enclosing heading.
+    // hIdx tracks the index into hs[] for the most-recent heading seen.
     int hIdx = -1;
+    int seen = 0;
     for (int i = 0; i <= itemIndex && i < m_items.size(); ++i) {
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[i]);
         if (!mti) continue;
-        QTextBlock block = mti->document()->begin();
-        while (block.isValid()) {
-            const int h = headingAtBlock(i, block.blockNumber());
-            if (h >= 0) hIdx = h;
-            block = block.next();
+        if (isAtxHeadingLine(mti->allMarkdown().trimmed())) {
+            if (seen < hs.size())
+                hIdx = seen;
+            ++seen;
         }
     }
     return hIdx >= 0 ? hs[hIdx].path : QStringList{};
@@ -555,18 +499,29 @@ QStringList SceneCoordinator::enclosingHeadingPathAtBlock(int itemIndex, int blo
     const auto &hs = m_foldingModel->headings();
     if (hs.isEmpty()) return {};
 
-    // Use the AST-derived map. Within the target item, stop after blockNumber
-    // so headings later in the same item don't supersede the match position.
+    // Walk items[0..itemIndex], counting heading-type blocks in document order.
+    // Within the target itemIndex, stop after we have accounted for blocks at
+    // or before blockNumber (so we don't credit headings that come after the
+    // match position within the same item).
     int hIdx = -1;
+    int hSeen = 0;
+
     for (int i = 0; i <= itemIndex && i < m_items.size(); ++i) {
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[i]);
         if (!mti) continue;
 
-        QTextBlock block = mti->document()->begin();
+        QTextDocument *doc = mti->document();
+        QTextBlock block = doc->begin();
         while (block.isValid()) {
-            if (i == itemIndex && block.blockNumber() > blockNumber) break;
-            const int h = headingAtBlock(i, block.blockNumber());
-            if (h >= 0) hIdx = h;
+            // For the target item, only consider blocks up to blockNumber.
+            if (i == itemIndex && block.blockNumber() > blockNumber)
+                break;
+
+            const bool isHeading = isAtxHeadingLine(block.text().trimmed());
+            if (isHeading && hSeen < hs.size()) {
+                hIdx = hSeen;
+                ++hSeen;
+            }
             block = block.next();
         }
     }
@@ -580,8 +535,18 @@ int SceneCoordinator::headingIndexForItem(int itemIndex) const
     if (itemIndex < 0 || itemIndex >= m_items.size()) return -1;
     auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIndex]);
     if (!mti) return -1;
-    // The item is a "heading item" iff its first block is a heading.
-    return headingAtBlock(itemIndex, 0);
+    if (!isAtxHeadingLine(mti->allMarkdown().trimmed()))
+        return -1;
+
+    // Count heading items before this one to find its index in headings().
+    const auto &hs = m_foldingModel->headings();
+    int seen = 0;
+    for (int i = 0; i < itemIndex; ++i) {
+        auto *prev = dynamic_cast<MarkdownTextItem *>(m_items[i]);
+        if (prev && isAtxHeadingLine(prev->allMarkdown().trimmed()))
+            ++seen;
+    }
+    return (seen < hs.size()) ? seen : -1;
 }
 
 void SceneCoordinator::applyFoldVisibility()
@@ -596,6 +561,7 @@ void SceneCoordinator::applyFoldVisibility()
     //
     // For non-text items (tables/images), operate at the item level.
     int hIdx = -1;  // index of current enclosing heading in hs[]
+    int hSeen = 0;  // total heading-type blocks seen so far
 
     for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
@@ -614,9 +580,14 @@ void SceneCoordinator::applyFoldVisibility()
         QTextBlock block = doc->begin();
         bool anyBlockVisible = false;
         while (block.isValid()) {
-            const int h = headingAtBlock(itemIdx, block.blockNumber());
-            const bool isHeading = (h >= 0);
-            if (isHeading) hIdx = h;
+            const QString blockText = block.text().trimmed();
+            const bool isHeading = isAtxHeadingLine(blockText);
+
+            if (isHeading && hSeen < hs.size()) {
+                // Advance enclosing heading to this heading's entry.
+                hIdx = hSeen;
+                ++hSeen;
+            }
 
             bool hidden = false;
             if (hIdx >= 0) {
@@ -647,6 +618,14 @@ void SceneCoordinator::applyFoldVisibility()
 
 int SceneCoordinator::headingIndexAtSceneY(qreal sceneY) const
 {
+    // Walk all items in document order. For each MarkdownTextItem, iterate
+    // its QTextBlocks. Count heading-type blocks into hSeen (mirroring
+    // applyFoldVisibility). For each heading block, compute its scene-Y
+    // range and test whether sceneY falls within it. Returns hSeen-1 on a
+    // match, or -1 if no heading is found.
+
+    int hSeen = 0;
+
     for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
         if (!mti) continue;
@@ -655,20 +634,27 @@ int SceneCoordinator::headingIndexAtSceneY(qreal sceneY) const
         if (!gi) continue;
         const qreal itemSceneY = gi->scenePos().y();
 
-        QTextBlock block = mti->document()->begin();
+        QTextDocument *doc = mti->document();
+        QTextBlock block = doc->begin();
         while (block.isValid()) {
-            const int h = headingAtBlock(itemIdx, block.blockNumber());
-            if (h >= 0) {
+            const bool isHeading = isAtxHeadingLine(block.text().trimmed());
+            if (isHeading) {
+                // Compute the scene-Y range for this block.
                 QTextLayout *layout = block.layout();
                 qreal blockTop = itemSceneY;
-                qreal blockHeight = 16.0;
+                qreal blockHeight = 0.0;
                 if (layout) {
                     blockTop = itemSceneY + layout->position().y();
                     if (layout->lineCount() > 0)
                         blockHeight = layout->boundingRect().height();
+                    else
+                        blockHeight = 16.0; // fallback
                 }
+
                 if (sceneY >= blockTop && sceneY < blockTop + blockHeight)
-                    return h;
+                    return hSeen; // found
+
+                ++hSeen;
             }
             block = block.next();
         }
@@ -680,6 +666,8 @@ qreal SceneCoordinator::headingSceneY(int headingIndex) const
 {
     if (headingIndex < 0) return -1.0;
 
+    int hSeen = 0;
+
     for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
         if (!mti) continue;
@@ -688,11 +676,18 @@ qreal SceneCoordinator::headingSceneY(int headingIndex) const
         if (!gi) continue;
         const qreal itemSceneY = gi->scenePos().y();
 
-        QTextBlock block = mti->document()->begin();
+        QTextDocument *doc = mti->document();
+        QTextBlock block = doc->begin();
         while (block.isValid()) {
-            if (headingAtBlock(itemIdx, block.blockNumber()) == headingIndex) {
-                QTextLayout *layout = block.layout();
-                return layout ? itemSceneY + layout->position().y() : itemSceneY;
+            const bool isHeading = isAtxHeadingLine(block.text().trimmed());
+            if (isHeading) {
+                if (hSeen == headingIndex) {
+                    QTextLayout *layout = block.layout();
+                    if (layout)
+                        return itemSceneY + layout->position().y();
+                    return itemSceneY;
+                }
+                ++hSeen;
             }
             block = block.next();
         }
