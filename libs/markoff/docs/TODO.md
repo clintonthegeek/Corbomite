@@ -74,6 +74,19 @@ implementation; the rest are implementation tasks.
 
 ## Editor API gaps
 
+- [ ] **Links are not clickable/followable.** `Editor::linkClicked(QString)` is
+  declared in `include/markoff/Editor.h:140` but never emitted from
+  `Editor.cpp`. `TextControl::linkActivated` (harvested from QWidgetTextControl,
+  `TextControl.cpp:2311`) fires internally but is not bridged to the Editor
+  signal. Additionally, wiki links (`[[Target]]`) never set
+  `QTextCharFormat::anchorHref` during highlight, so even the TextControl path
+  wouldn't recognize them as anchors. Need: (a) highlighter annotates wiki +
+  markdown link spans with `anchorHref`; (b) `Editor` subscribes to
+  `TextControl::linkActivated` and re-emits as `linkClicked`; (c) decide
+  click-vs-modifier-click policy (Obsidian: plain click in reading mode,
+  Ctrl/Cmd-click in edit mode). Consumer `NoteEditorWidget` already listens
+  for `Editor::linkClicked` and forwards to the vault — the wiring just
+  dead-ends inside markoff.
 - [ ] Cross-item find/replace wraparound now works for both single-item
   and multi-item documents, but doesn't surface "wrapped" feedback to the
   caller. UI can't show "End of file reached, search wrapped".
