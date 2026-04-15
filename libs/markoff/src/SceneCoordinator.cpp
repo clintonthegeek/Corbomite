@@ -354,11 +354,21 @@ void SceneCoordinator::clearItems()
 void SceneCoordinator::repositionItems()
 {
     qreal y = m_topMargin;
-    for (auto *item : m_items) {
+    for (int i = 0; i < m_items.size(); ++i) {
+        auto *item = m_items[i];
         QGraphicsItem *gi = item->asGraphicsItem();
-        gi->setPos(m_leftMargin, y);
-        if (gi->isVisible())
+        if (gi->isVisible()) {
+            gi->setPos(m_leftMargin, y);
+            if (foldDebugEnabled()) {
+                qDebug() << "[repositionItems] item" << i
+                         << "setPos(y=" << y << ")"
+                         << "boundH=" << gi->boundingRect().height();
+            }
             y += gi->boundingRect().height() + m_spacing;
+        }
+        // Invisible items are not repositioned here; they retain their previous
+        // position until they become visible again (next applyFoldVisibility call
+        // will run repositionItems after re-showing them).
     }
     m_scene->setSceneRect(0, 0, m_leftMargin + m_itemWidth + m_leftMargin, y + m_topMargin);
 }
