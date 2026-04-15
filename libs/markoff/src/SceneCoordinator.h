@@ -3,6 +3,7 @@
 #define MARKOFF_SCENECOORDINATOR_H
 
 #include <markoff/Theme.h>
+#include <markoff/FoldingTypes.h>
 #include <QObject>
 #include <QList>
 #include <QFont>
@@ -91,6 +92,11 @@ public:
     /// PUBLIC — used by Editor (Task 8) for find auto-unfold.
     QStringList enclosingHeadingPathAtBlock(int itemIndex, int blockNumber) const;
 
+    /// Compute a sorted list of all foldable regions (headings + code blocks)
+    /// from the current document contents. Regions are sorted by sourceOffset.
+    /// PUBLIC — used by Editor (Task 6) to feed FoldingModel::reconcile().
+    QList<FoldableRegion> computeRegions() const;
+
 Q_SIGNALS:
     void textChanged();
     void reparsed();
@@ -107,13 +113,20 @@ private:
     void applyFoldVisibility();
 
     /// Authoritative map from (itemIdx, blockNumber) → index into
-    /// FoldingModel::headings(). Built from heading sourceOffsets so it
+    /// FoldingModel::regions(). Built from region sourceOffsets so it
     /// can't be confused by code-block content like "#include". Rebuilt
     /// lazily when m_headingMapDirty is set (on reparsed() or
     /// setFoldingModel).
-    mutable QHash<QPair<int,int>, int> m_blockToHeadingIdx;
+    mutable QHash<QPair<int,int>, int> m_blockToRegionIdx;
     mutable bool m_headingMapDirty = true;
     void ensureHeadingMap() const;
+
+    /// Returns the region-index (into FoldingModel::regions()) for the given
+    /// (itemIdx, blockNumber), or -1 if none.
+    int regionAtBlock(int itemIdx, int blockNumber) const;
+
+    /// V1-compat: returns the heading-index (into FoldingModel::headings())
+    /// for the given (itemIdx, blockNumber), or -1 if not a heading block.
     int headingAtBlock(int itemIdx, int blockNumber) const;
 
     SelectionScene *m_scene = nullptr;

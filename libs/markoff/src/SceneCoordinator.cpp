@@ -15,6 +15,7 @@
 #include <QTimer>
 #include <QTextDocument>
 #include <QGuiApplication>
+#include <algorithm>
 
 namespace Markoff {
 
@@ -465,38 +466,59 @@ void SceneCoordinator::setFoldingModel(FoldingModel *model)
     }
 }
 
+QList<FoldableRegion> SceneCoordinator::computeRegions() const
+{
+    const QString md = toMarkdown();
+    TreeSitterParser rawParser;
+    rawParser.parse(md);
+    const auto q = rawParser.buildDocumentQueries();
+
+    const auto headingPaths = computeHeadingPaths(q.headings);
+    QList<FoldableRegion> regions;
+    regions.reserve(q.headings.size() + q.codeBlocks.size());
+    for (int i = 0; i < q.headings.size(); ++i) {
+        FoldableRegion r;
+        r.type = FoldableRegion::Heading;
+        r.path = headingPaths[i];
+        r.level = q.headings[i].level;
+        r.sourceOffset = q.headings[i].sourceOffset;
+        r.info = q.headings[i];
+        regions.append(r);
+    }
+    for (const auto &cb : q.codeBlocks) {
+        FoldableRegion r;
+        r.type = FoldableRegion::CodeBlock;
+        r.path = {};
+        r.level = 0;
+        r.sourceOffset = cb.sourceOffset;
+        r.language = cb.language;
+        r.lineCount = cb.lineCount;
+        regions.append(r);
+    }
+    std::sort(regions.begin(), regions.end(),
+              [](const FoldableRegion &a, const FoldableRegion &b) {
+                  return a.sourceOffset < b.sourceOffset;
+              });
+    assignCodeBlockOrdinals(regions);
+    return regions;
+}
+
 void SceneCoordinator::ensureHeadingMap() const
 {
     if (!m_headingMapDirty) return;
-    m_blockToHeadingIdx.clear();
+    m_blockToRegionIdx.clear();
     m_headingMapDirty = false;
     if (!m_foldingModel) return;
-    const auto &hs = m_foldingModel->headings();
-    if (hs.isEmpty()) return;
 
+    const QList<FoldableRegion> regions = computeRegions();
+    if (regions.isEmpty()) return;
 
-    // Use sourceOffsets from a fresh parse of the raw toMarkdown() output.
-    // Document::fromMarkdown (which populates FoldingModel's headings)
-    // strips frontmatter AND footnote definitions before parsing, so its
-    // offsets don't align with toMarkdown()'s byte space.
-    // SceneCoordinator's m_parser is per-item (its last parse was the
-    // last segment's text, not the whole document), so we run a one-shot
-    // parse here. We match to FoldingModel headings by document-order
-    // index — both parses use the same tree-sitter grammar so they agree
-    // on heading count and order.
-    const QString md = toMarkdown();
-    const QByteArray utf8 = md.toUtf8();
-    TreeSitterParser rawParser;
-    rawParser.parse(md);
-    const QList<HeadingInfo> rawHeadings =
-        rawParser.buildDocumentQueries().headings;
-    if (rawHeadings.size() != hs.size()) return;
-
-    QHash<int, int> lineToHeadingIdx;
-    lineToHeadingIdx.reserve(rawHeadings.size());
-    for (int i = 0; i < rawHeadings.size(); ++i) {
-        const int line = sourceLineAt(utf8, rawHeadings[i].sourceOffset);
-        lineToHeadingIdx.insert(line, i);
+    const QByteArray utf8 = toMarkdown().toUtf8();
+    QHash<int, int> lineToRegionIdx;
+    lineToRegionIdx.reserve(regions.size());
+    for (int i = 0; i < regions.size(); ++i) {
+        const int line = sourceLineAt(utf8, regions[i].sourceOffset);
+        lineToRegionIdx.insert(line, i);
     }
 
     // Walk items in order, tracking the running source-line offset.
@@ -518,9 +540,9 @@ void SceneCoordinator::ensureHeadingMap() const
             int blockLine = srcLine;
             for (QTextBlock block = mti->document()->begin();
                  block.isValid(); block = block.next()) {
-                auto it = lineToHeadingIdx.constFind(blockLine);
-                if (it != lineToHeadingIdx.constEnd())
-                    m_blockToHeadingIdx.insert({itemIdx, block.blockNumber()}, *it);
+                auto it = lineToRegionIdx.constFind(blockLine);
+                if (it != lineToRegionIdx.constEnd())
+                    m_blockToRegionIdx.insert({itemIdx, block.blockNumber()}, *it);
 
                 // Compute this block's own newline count, expanding any
                 // ORC fragments to their RawProperty source (same rule
@@ -550,15 +572,34 @@ void SceneCoordinator::ensureHeadingMap() const
             }
             srcLine = blockLine;
         } else {
+            // Non-MTI items may themselves be regions (code blocks via
+            // TableBlockItem). If a region's line equals srcLine, map
+            // the ITEM-level key (itemIdx, 0).
+            auto it = lineToRegionIdx.constFind(srcLine);
+            if (it != lineToRegionIdx.constEnd())
+                m_blockToRegionIdx.insert({itemIdx, 0}, *it);
             srcLine += int(m_items[itemIdx]->toMarkdown().count(QLatin1Char('\n')));
         }
     }
 }
 
-int SceneCoordinator::headingAtBlock(int itemIdx, int blockNumber) const
+int SceneCoordinator::regionAtBlock(int itemIdx, int blockNumber) const
 {
     ensureHeadingMap();
-    return m_blockToHeadingIdx.value({itemIdx, blockNumber}, -1);
+    return m_blockToRegionIdx.value({itemIdx, blockNumber}, -1);
+}
+
+int SceneCoordinator::headingAtBlock(int itemIdx, int blockNumber) const
+{
+    const int regionIdx = regionAtBlock(itemIdx, blockNumber);
+    if (regionIdx < 0 || !m_foldingModel) return -1;
+    const auto &regs = m_foldingModel->regions();
+    if (regionIdx >= regs.size()) return -1;
+    if (regs[regionIdx].type != FoldableRegion::Heading) return -1;
+    int headingIdx = 0;
+    for (int i = 0; i < regionIdx; ++i)
+        if (regs[i].type == FoldableRegion::Heading) ++headingIdx;
+    return headingIdx;
 }
 
 int SceneCoordinator::itemIndexAt(qreal sceneY) const
