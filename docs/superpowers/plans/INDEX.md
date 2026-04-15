@@ -15,7 +15,7 @@
 | E | Markoff three-mode pivot | [2026-04-14-cluster-e-markoff-three-mode-pivot.md](2026-04-14-cluster-e-markoff-three-mode-pivot.md) | Full | Blocked on B Phase 3 + A Phase 1 | |
 | F | Templates / Daily Notes / Moment | [2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md](2026-04-14-cluster-f-templates-daily-notes-moment-STUB.md) | Stub | Stub plan | expand after A + I land |
 | G | Views hierarchy + TextFileView contract | [2026-04-14-cluster-g-views-hierarchy-SCOUTING.md](2026-04-14-cluster-g-views-hierarchy-SCOUTING.md) | Scouting | Scouting doc | expand when C Phase 1 lands |
-| H | Menus / hover / suggester UI | [2026-04-14-cluster-h-menus-hover-suggester-ui.md](2026-04-14-cluster-h-menus-hover-suggester-ui.md) | Full | Not started | parallelisable with A/B/D; soft-blocked on C Phase 1 |
+| H | Menus / hover / suggester UI | [2026-04-14-cluster-h-menus-hover-suggester-ui.md](2026-04-14-cluster-h-menus-hover-suggester-ui.md) | Full | Done | landed 2026-04-15 (5 commits) |
 | I | MetadataCache parity | [2026-04-14-cluster-i-metadatacache-parity-STUB.md](2026-04-14-cluster-i-metadatacache-parity-STUB.md) | Stub | Stub plan | expand after A + C in flight |
 | J | Embed / rendering primitives | [2026-04-14-cluster-j-embed-rendering-primitives-STUB.md](2026-04-14-cluster-j-embed-rendering-primitives-STUB.md) | Stub | Stub plan | expand after E + I in flight |
 | K | Bases | [2026-04-14-cluster-k-bases-SCOUTING.md](2026-04-14-cluster-k-bases-SCOUTING.md) | Scouting | Scouting doc (blocked) | expand when Bases DSL extraction addendum lands |
