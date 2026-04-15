@@ -38,3 +38,7 @@ target_link_libraries(tst_probe_trash_ignore PRIVATE Qt6::Test Corbomite::Storag
 add_executable(tst_vaultprocess tst_vaultprocess.cpp)
 add_test(NAME tst_vaultprocess COMMAND tst_vaultprocess)
 target_link_libraries(tst_vaultprocess PRIVATE Qt6::Test Qt6::Concurrent Corbomite::Storage)
+
+add_executable(tst_obsidian_vault_roundtrip tst_obsidian_vault_roundtrip.cpp)
+add_test(NAME tst_obsidian_vault_roundtrip COMMAND tst_obsidian_vault_roundtrip)
+target_link_libraries(tst_obsidian_vault_roundtrip PRIVATE Qt6::Test Corbomite::Storage)
