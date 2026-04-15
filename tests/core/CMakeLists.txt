@@ -36,6 +36,10 @@ add_executable(tst_frontmatterwriter tst_frontmatterwriter.cpp)
 add_test(NAME tst_frontmatterwriter COMMAND tst_frontmatterwriter)
 target_link_libraries(tst_frontmatterwriter PRIVATE Qt6::Test Corbomite::Core MarkoffParser::MarkoffParser)
 
+add_executable(tst_panelayout tst_panelayout.cpp)
+add_test(NAME tst_panelayout COMMAND tst_panelayout)
+target_link_libraries(tst_panelayout PRIVATE Qt6::Test Corbomite::Core)
+
 add_executable(tst_renderengine tst_renderengine.cpp)
 add_test(NAME tst_renderengine COMMAND tst_renderengine)
 target_link_libraries(tst_renderengine PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
