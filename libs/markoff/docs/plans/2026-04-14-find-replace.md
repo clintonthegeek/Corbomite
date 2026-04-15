@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++20, Qt6
 
-**Spec:** `libs/markoff/docs/specs/2026-04-14-find-replace-design.md`
+**Spec:** `../specs/2026-04-14-find-replace-design.md`
 
 ---
 

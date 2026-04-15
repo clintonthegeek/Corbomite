@@ -19,7 +19,7 @@
 - Create: `libs/markoff/tests/tst_cjk_autocorrect.cpp`
 - Modify: `libs/markoff/tests/CMakeLists.txt`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `libs/markoff/tests/tst_cjk_autocorrect.cpp`:
 
@@ -116,7 +116,7 @@ QTEST_MAIN(TestCjkAutocorrect)
 #include "tst_cjk_autocorrect.moc"
 ```
 
-- [ ] **Step 2: Register the test in CMakeLists.txt**
+- [x] **Step 2: Register the test in CMakeLists.txt**
 
 Add to `libs/markoff/tests/CMakeLists.txt`:
 
@@ -128,7 +128,7 @@ target_include_directories(tst_markoff_cjk_autocorrect PRIVATE ${CMAKE_CURRENT_S
 set_tests_properties(tst_markoff_cjk_autocorrect PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 ```
 
-- [ ] **Step 3: Build and verify tests fail**
+- [x] **Step 3: Build and verify tests fail**
 
 Run:
 ```bash
@@ -137,7 +137,7 @@ cd build && ./bin/tst_markoff_cjk_autocorrect
 ```
 Expected: Tests fail (no autocorrect implemented yet, full-width chars remain).
 
-- [ ] **Step 4: Implement CJK autocorrect in keyPressEvent**
+- [x] **Step 4: Implement CJK autocorrect in keyPressEvent**
 
 In `libs/markoff/src/MarkdownTextItem.cpp`, modify `keyPressEvent()` to add the autocorrect after `m_control->processEvent(event)`:
 
@@ -198,7 +198,7 @@ void MarkdownTextItem::keyPressEvent(QKeyEvent *event)
 }
 ```
 
-- [ ] **Step 5: Build and verify tests pass**
+- [x] **Step 5: Build and verify tests pass**
 
 Run:
 ```bash
@@ -207,7 +207,7 @@ cd build && ./bin/tst_markoff_cjk_autocorrect
 ```
 Expected: All 5 tests PASS.
 
-- [ ] **Step 6: Run full markoff test suite**
+- [x] **Step 6: Run full markoff test suite**
 
 Run:
 ```bash
@@ -215,7 +215,7 @@ cd /home/clinton/dev/Corbomite/build && find . -name "tst_markoff*" -type f -exe
 ```
 Expected: All existing tests still pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd /home/clinton/dev/Corbomite && git add libs/markoff/src/MarkdownTextItem.cpp libs/markoff/tests/tst_cjk_autocorrect.cpp libs/markoff/tests/CMakeLists.txt
@@ -236,7 +236,7 @@ Longest-match-first, grouped as single undo unit."
 - Create: `libs/markoff-parser/tests/tst_linktext.cpp`
 - Modify: `libs/markoff-parser/tests/CMakeLists.txt`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `libs/markoff-parser/tests/tst_linktext.cpp`:
 
@@ -321,7 +321,7 @@ QTEST_APPLESS_MAIN(TestLinktext)
 #include "tst_linktext.moc"
 ```
 
-- [ ] **Step 2: Create the header**
+- [x] **Step 2: Create the header**
 
 Create `libs/markoff-parser/include/markoff-parser/LinkTextParser.h`:
 
@@ -348,7 +348,7 @@ LinkTarget parseLinktext(const QString &linktext);
 #endif // MARKOFF_LINKTEXTPARSER_H
 ```
 
-- [ ] **Step 3: Register test and source in CMakeLists**
+- [x] **Step 3: Register test and source in CMakeLists**
 
 Add to `libs/markoff-parser/CMakeLists.txt` source list:
 
@@ -365,7 +365,7 @@ target_link_libraries(tst_markoff_parser_linktext PRIVATE Qt6::Test markoff-pars
 set_tests_properties(tst_markoff_parser_linktext PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 ```
 
-- [ ] **Step 4: Create stub implementation (tests should fail)**
+- [x] **Step 4: Create stub implementation (tests should fail)**
 
 Create `libs/markoff-parser/src/LinkTextParser.cpp`:
 
@@ -391,7 +391,7 @@ cd build && ./bin/tst_markoff_parser_linktext
 ```
 Expected: Most tests FAIL (stub returns empty for everything).
 
-- [ ] **Step 5: Implement parseLinktext**
+- [x] **Step 5: Implement parseLinktext**
 
 Replace the stub in `libs/markoff-parser/src/LinkTextParser.cpp`:
 
@@ -416,7 +416,7 @@ LinkTarget parseLinktext(const QString &linktext)
 } // namespace Markoff
 ```
 
-- [ ] **Step 6: Build and verify all tests pass**
+- [x] **Step 6: Build and verify all tests pass**
 
 ```bash
 cd /home/clinton/dev/Corbomite && cmake --build build --target tst_markoff_parser_linktext
@@ -424,14 +424,14 @@ cd build && ./bin/tst_markoff_parser_linktext
 ```
 Expected: All 8 tests PASS.
 
-- [ ] **Step 7: Run full parser test suite**
+- [x] **Step 7: Run full parser test suite**
 
 ```bash
 cd /home/clinton/dev/Corbomite/build && find . -name "tst_markoff_parser*" -type f -executable | while read t; do "$t" 2>&1 | grep -E "^(Totals|FAIL)"; done
 ```
 Expected: All existing parser tests still pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd /home/clinton/dev/Corbomite && git add libs/markoff-parser/include/markoff-parser/LinkTextParser.h libs/markoff-parser/src/LinkTextParser.cpp libs/markoff-parser/CMakeLists.txt libs/markoff-parser/tests/tst_linktext.cpp libs/markoff-parser/tests/CMakeLists.txt
@@ -450,7 +450,7 @@ Enables scroll-to-heading on link click."
 - Modify: `libs/markoff/src/TextControl.cpp` (~lines 1746-1756)
 - Modify: `libs/markoff/src/TextControl_p.h` (add state flag)
 
-- [ ] **Step 1: Investigate current behavior**
+- [x] **Step 1: Investigate current behavior**
 
 Launch the test app and triple-click on a line, then drag downward:
 ```bash
@@ -464,7 +464,7 @@ Test manually:
 
 Record the result. If selection extends by whole lines already, skip to Step 7 (document and commit). If it extends by characters, continue to Step 2.
 
-- [ ] **Step 2: Add `tripleClickSelectsLine` to EditorSettings**
+- [x] **Step 2: Add `tripleClickSelectsLine` to EditorSettings**
 
 In `libs/markoff/include/markoff/EditorSettings.h`, add the new field:
 
@@ -479,7 +479,7 @@ struct EditorSettings {
 };
 ```
 
-- [ ] **Step 3: Add triple-click state tracking to TextControl**
+- [x] **Step 3: Add triple-click state tracking to TextControl**
 
 In `libs/markoff/src/TextControl_p.h`, add a flag to the private data (alongside the existing `selectedBlockOnTrippleClick` member):
 
@@ -487,7 +487,7 @@ In `libs/markoff/src/TextControl_p.h`, add a flag to the private data (alongside
 bool tripleClickDragActive = false;
 ```
 
-- [ ] **Step 4: Modify mouseMoveEvent for line-granularity drag after triple-click**
+- [x] **Step 4: Modify mouseMoveEvent for line-granularity drag after triple-click**
 
 In `libs/markoff/src/TextControl.cpp`, find the `mouseMoveEvent` handler. When `tripleClickDragActive` is true, snap the selection to line boundaries:
 
@@ -497,7 +497,7 @@ In the mouseMoveEvent drag handler, when `tripleClickDragActive` is true, extend
 
 The exact implementation depends on what Step 1 reveals. If Qt already handles this (the `selectedBlockOnTrippleClick` cursor is used for drag extension), this step may be unnecessary.
 
-- [ ] **Step 5: Build and test manually**
+- [x] **Step 5: Build and test manually**
 
 ```bash
 cd /home/clinton/dev/Corbomite && cmake --build build --target markoff-testapp
@@ -505,14 +505,14 @@ cd /home/clinton/dev/Corbomite && cmake --build build --target markoff-testapp
 
 Repeat the manual test from Step 1. Verify line-extend behavior.
 
-- [ ] **Step 6: Run full test suite**
+- [x] **Step 6: Run full test suite**
 
 ```bash
 cd /home/clinton/dev/Corbomite/build && find . -name "tst_markoff*" -type f -executable | while read t; do "$t" 2>&1 | grep -E "^(Totals|FAIL)"; done
 ```
 Expected: All existing tests still pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd /home/clinton/dev/Corbomite && git add libs/markoff/include/markoff/EditorSettings.h libs/markoff/src/TextControl.cpp libs/markoff/src/TextControl_p.h
@@ -531,7 +531,7 @@ When enabled, drag after triple-click extends by whole lines."
 - Create: `libs/markoff/tests/tst_undo_grouping.cpp`
 - Modify: `libs/markoff/tests/CMakeLists.txt`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `libs/markoff/tests/tst_undo_grouping.cpp`:
 
@@ -576,7 +576,7 @@ QTEST_MAIN(TestUndoGrouping)
 #include "tst_undo_grouping.moc"
 ```
 
-- [ ] **Step 2: Register the test**
+- [x] **Step 2: Register the test**
 
 Add to `libs/markoff/tests/CMakeLists.txt`:
 
@@ -587,7 +587,7 @@ target_link_libraries(tst_markoff_undo_grouping PRIVATE Qt6::Test Qt6::Widgets m
 set_tests_properties(tst_markoff_undo_grouping PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 ```
 
-- [ ] **Step 3: Build and verify test fails**
+- [x] **Step 3: Build and verify test fails**
 
 ```bash
 cd /home/clinton/dev/Corbomite && cmake --build build --target tst_markoff_undo_grouping
@@ -595,7 +595,7 @@ cd build && ./bin/tst_markoff_undo_grouping
 ```
 Expected: FAIL — undo only restores one line instead of all three.
 
-- [ ] **Step 4: Audit and fix Editor.cpp toggle methods**
+- [x] **Step 4: Audit and fix Editor.cpp toggle methods**
 
 In `libs/markoff/src/Editor.cpp`, read each toggle method. For any method that modifies the document across multiple lines without `beginEditBlock`/`endEditBlock`, wrap the multi-line operation. The key methods to check and fix:
 
@@ -621,7 +621,7 @@ void Editor::increaseHeadingLevel()
 
 Read each method's body to confirm it iterates lines. Wrap only those that do multi-line work.
 
-- [ ] **Step 5: Build and verify test passes**
+- [x] **Step 5: Build and verify test passes**
 
 ```bash
 cd /home/clinton/dev/Corbomite && cmake --build build --target tst_markoff_undo_grouping
@@ -629,14 +629,14 @@ cd build && ./bin/tst_markoff_undo_grouping
 ```
 Expected: PASS — single undo restores all three lines.
 
-- [ ] **Step 6: Run full test suite**
+- [x] **Step 6: Run full test suite**
 
 ```bash
 cd /home/clinton/dev/Corbomite/build && find . -name "tst_markoff*" -type f -executable | while read t; do "$t" 2>&1 | grep -E "^(Totals|FAIL)"; done
 ```
 Expected: All tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd /home/clinton/dev/Corbomite && git add libs/markoff/src/Editor.cpp libs/markoff/tests/tst_undo_grouping.cpp libs/markoff/tests/CMakeLists.txt
@@ -658,7 +658,7 @@ so Ctrl+Z undoes the entire multi-line operation atomically."
 - Create: `libs/markoff-parser/tests/tst_frontmatter.cpp`
 - Modify: `libs/markoff-parser/tests/CMakeLists.txt`
 
-- [ ] **Step 1: Verify yaml-cpp is installed**
+- [x] **Step 1: Verify yaml-cpp is installed**
 
 ```bash
 pkg-config --modversion yaml-cpp || pacman -Qi yaml-cpp
@@ -668,7 +668,7 @@ Expected: Version printed (e.g. `0.8.0`). If not installed:
 sudo pacman -S yaml-cpp
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `libs/markoff-parser/tests/tst_frontmatter.cpp`:
 
@@ -772,7 +772,7 @@ QTEST_APPLESS_MAIN(TestFrontmatter)
 #include "tst_frontmatter.moc"
 ```
 
-- [ ] **Step 3: Add FrontmatterProperty and parsedFrontmatter() to Document.h**
+- [x] **Step 3: Add FrontmatterProperty and parsedFrontmatter() to Document.h**
 
 In `libs/markoff-parser/include/markoff-parser/Document.h`, add the struct and method:
 
@@ -789,7 +789,7 @@ struct FrontmatterProperty {
 QList<FrontmatterProperty> parsedFrontmatter() const;
 ```
 
-- [ ] **Step 4: Add yaml-cpp to CMakeLists.txt**
+- [x] **Step 4: Add yaml-cpp to CMakeLists.txt**
 
 In `libs/markoff-parser/CMakeLists.txt`:
 
@@ -813,7 +813,7 @@ target_link_libraries(tst_markoff_parser_frontmatter PRIVATE Qt6::Test markoff-p
 set_tests_properties(tst_markoff_parser_frontmatter PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 ```
 
-- [ ] **Step 5: Implement parsedFrontmatter() with stub**
+- [x] **Step 5: Implement parsedFrontmatter() with stub**
 
 In `libs/markoff-parser/src/Document.cpp`, add a stub:
 
@@ -831,7 +831,7 @@ cd build && ./bin/tst_markoff_parser_frontmatter
 ```
 Expected: Most tests FAIL (stub returns empty).
 
-- [ ] **Step 6: Implement parsedFrontmatter() with yaml-cpp**
+- [x] **Step 6: Implement parsedFrontmatter() with yaml-cpp**
 
 Replace the stub in `libs/markoff-parser/src/Document.cpp`:
 
@@ -920,7 +920,7 @@ QList<FrontmatterProperty> Document::parsedFrontmatter() const
 }
 ```
 
-- [ ] **Step 7: Build and verify all tests pass**
+- [x] **Step 7: Build and verify all tests pass**
 
 ```bash
 cd /home/clinton/dev/Corbomite && cmake --build build --target tst_markoff_parser_frontmatter
@@ -928,14 +928,14 @@ cd build && ./bin/tst_markoff_parser_frontmatter
 ```
 Expected: All 8 tests PASS.
 
-- [ ] **Step 8: Run full parser and markoff test suite**
+- [x] **Step 8: Run full parser and markoff test suite**
 
 ```bash
 cd /home/clinton/dev/Corbomite/build && find . -name "tst_markoff*" -type f -executable | while read t; do "$t" 2>&1 | grep -E "^(Totals|FAIL)"; done
 ```
 Expected: All existing tests still pass.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 cd /home/clinton/dev/Corbomite && git add libs/markoff-parser/CMakeLists.txt libs/markoff-parser/include/markoff-parser/Document.h libs/markoff-parser/src/Document.cpp libs/markoff-parser/tests/tst_frontmatter.cpp libs/markoff-parser/tests/CMakeLists.txt
