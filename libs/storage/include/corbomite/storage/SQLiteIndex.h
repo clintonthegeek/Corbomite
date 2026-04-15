@@ -67,8 +67,21 @@ public:
 
     /// Wire this index to a MetadataCache. Subscribes to `cacheChanged`
     /// and `cacheDeleted`. Replaces any previous subscription. Passing
-    /// `nullptr` disconnects.
+    /// `nullptr` disconnects. Also reconciles: for any path the cache
+    /// already knows about but whose rows are missing from this index
+    /// (e.g., after a schema migration that dropped `links`/`note_tags`),
+    /// rewrites the rows from the cached `CachedMetadata`. This keeps the
+    /// two stores consistent without requiring `MetadataCache` to re-emit
+    /// `cacheChanged` for stat-unchanged files.
     void setMetadataCache(MetadataCache *cache);
+
+    /// Rewrite `notes_fts` / `links` / `note_tags` rows for every path the
+    /// cache currently knows about. Idempotent — each path's existing rows
+    /// are deleted first. Safe to call repeatedly; O(N * file-size) on disk
+    /// I/O because `writeRowsFromCache` re-reads the file body for the FTS
+    /// `content` column. Intended for schema-migration recovery and for the
+    /// initial `setMetadataCache` bootstrap; not called per-mutation.
+    void reconcileWithCache();
 
     // --- Read API (UNCHANGED — consumers rely on these) ---
 

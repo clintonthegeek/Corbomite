@@ -887,6 +887,12 @@ void MainWindow::onVaultOpened()
     QDir().mkpath(vault->configPath());
     m_metadataCache->open(vault->configPath() + QStringLiteral("/metadata-cache.db"));
 
+    // MetadataCache::open() loads persisted state silently (no cacheChanged
+    // emissions), so SQLiteIndex's link/FTS/tag rows would otherwise stay
+    // empty for any path whose stat matches disk after rebuildVault's
+    // short-circuit. Reconcile explicitly against the freshly-loaded cache.
+    m_searchIndex->reconcileWithCache();
+
     // Kick off the initial vault scan via MetadataCache.
     statusBar()->showMessage(i18n("Indexing vault..."));
     connect(m_metadataCache, &MetadataCache::indexFinished, this, [this]() {

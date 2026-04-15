@@ -76,6 +76,29 @@ void SQLiteIndex::setMetadataCache(MetadataCache *cache)
                 this, &SQLiteIndex::onMetadataCacheChanged);
         connect(m_cache, &MetadataCache::cacheDeleted,
                 this, &SQLiteIndex::onMetadataCacheDeleted);
+
+        // Reconcile now: MetadataCache may already hold persisted entries
+        // loaded silently via installPersistedState (no cacheChanged fires
+        // for those). Without this, any index row lost to a schema
+        // migration stays lost until the file is edited.
+        reconcileWithCache();
+    }
+}
+
+void SQLiteIndex::reconcileWithCache()
+{
+    if (!m_isOpen || !m_cache) return;
+
+    const QStringList paths = m_cache->allPaths();
+    for (const QString &path : paths) {
+        // Empty hash => tracked-unsupported (non-.md). No FTS/link rows to
+        // write for those; MetadataCache never emits cacheChanged for them
+        // either, so skipping here matches the event-driven path.
+        if (m_cache->getFileHash(path).isEmpty()) continue;
+        const std::optional<CachedMetadata> cache = m_cache->getFileCache(path);
+        if (!cache) continue;
+        m_resolver.addVaultPath(path);
+        writeRowsFromCache(path, *cache);
     }
 }
 
