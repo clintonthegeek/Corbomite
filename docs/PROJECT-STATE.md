@@ -40,9 +40,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster J — Embed / rendering primitives
-- **Phase:** 2 of 6
-- **Last completed step:** Phase 1 — `libs/core/` interfaces landed: `VaultResourceProvider` promoted from `libs/readingview/` (forwarding typedef retained); `MarkdownRenderChild` (Component-derived, includes Phase 4's retroactively-needed `setRenderedText`/`renderedText`/`mountInto`/`hostWidget` accessors); `EmbedDepthGuard` with audit-confirmed `kMaxDepth = 5` and `placeholderTarget()` for clickable-placeholder UX; `EmbedRegistry` extension-to-factory dispatch with case-insensitive keys and Handle-based unregister. 4 new test executables (tst_vaultresourceprovider, tst_markdownrenderchild, tst_embeddepthguard, tst_embedregistry) with 20 test cases total. `libs/core/` now links `KF6::I18n` for `i18n()`. Readingview forward decls replaced with includes so the typedef resolves. Full suite green outside the 4 pre-existing known-flaky tests. (2026-04-15)
-- **Next expected step:** Phase 2 — `libs/core/` internal registries (`PostProcessorRegistry`, `CodeBlockProcessorRegistry`)
+- **Phase:** 3/4 of 6 (parallel-dispatchable)
+- **Last completed step:** Phase 2 — `libs/core/` internal registries landed: `PostProcessorRegistry` with stable-priority sort (ties broken by insertion order, `std::stable_sort` at dispatch time gated on a dirty bit) and `CodeBlockProcessorRegistry` with case-insensitive per-language dispatch and boolean handled-vs-fallthrough return. Both carry the documented `// WHY:` block describing the sync-placeholder-plus-async-update pattern (to be revisited after real use). 2 new test executables (tst_postprocessorregistry, tst_codeblockprocessorregistry) with 10 test cases total covering ordering, ties, unregister, case-insensitivity, context propagation, and fallthrough. Full suite green outside the 4 pre-existing known-flaky tests. (2026-04-15)
+- **Next expected step:** Phase 3 (`Markoff::LinkRenderer`) + Phase 4 (`ReadingView::LinkRenderer` + `EmbedRenderer`) dispatched in parallel
 - **Owner:** agent session
 - **Date last touched:** 2026-04-15
 
