@@ -114,7 +114,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         if (m_sessionManager) {
             m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
             m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
-            m_sessionManager->saveEditorState(m_editorManager->buildSessionState());
+            m_sessionManager->setPaneLayout(m_editorManager->buildPaneLayout());
             if (m_fileExplorer) {
                 m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
             }
@@ -853,70 +853,47 @@ void MainWindow::onVaultOpened()
     // Create session manager and restore session
     delete m_sessionManager;
     m_sessionManager = new SessionManager(this);
-    m_sessionManager->setSessionPath(vault->configPath() + QStringLiteral("/session.json"));
-
-    auto session = m_sessionManager->load();
+    m_sessionManager->setSessionPath(vault->path() + QStringLiteral("/.obsidian/workspace.json"));
+    m_sessionManager->load();
 
     // Restore window geometry if available
-    if (session.contains(QStringLiteral("windowGeometry"))) {
-        QByteArray geometry = QByteArray::fromBase64(
-            session[QStringLiteral("windowGeometry")].toString().toLatin1());
-        if (!geometry.isEmpty()) {
-            restoreGeometry(geometry);
-        }
-    }
-    if (session.contains(QStringLiteral("windowState"))) {
-        QByteArray state = QByteArray::fromBase64(
-            session[QStringLiteral("windowState")].toString().toLatin1());
-        if (!state.isEmpty()) {
-            restoreState(state);
-        }
-    }
+    const auto geometry = m_sessionManager->windowGeometry();
+    if (!geometry.isEmpty()) restoreGeometry(geometry);
+    const auto windowStateBytes = m_sessionManager->windowState();
+    if (!windowStateBytes.isEmpty()) restoreState(windowStateBytes);
 
     // Restore sidebar state
-    if (session.contains(QStringLiteral("sidebar"))) {
-        auto sidebar = session[QStringLiteral("sidebar")].toObject();
-        bool leftVisible = sidebar[QStringLiteral("leftVisible")].toBool(true);
+    const auto sidebar = m_sessionManager->sidebarState();
+    if (!sidebar.isEmpty()) {
+        const bool leftVisible = sidebar.value(QStringLiteral("leftVisible")).toBool(true);
         setSidebarsVisibleInternal(leftVisible, true);
     }
 
     // Block saving during restore to avoid partial session writes
     m_sessionManager->blockSaving();
 
-    // Try new full editor state format first, then fall back to old flat tabs format
-    auto editorState = session[QStringLiteral("editor")].toObject();
-    if (editorState.contains(QStringLiteral("panes"))) {
-        m_editorManager->restoreFromSession(editorState,
-            [this](const QString &path, EditorViewSpace *space) {
-                if (path.endsWith(QStringLiteral(".canvas"))) {
-                    QString absPath = m_vaultService->vault()->path() + QLatin1Char('/') + path;
+    if (m_sessionManager->hasLoadedSession()) {
+        m_editorManager->applyPaneLayout(
+            m_sessionManager->paneLayout(),
+            [this](EditorViewSpace *space, const PaneLeaf &leaf) {
+                const QString path = leaf.filePath;
+                if (path.isEmpty()) return;
+                if (leaf.viewType == QStringLiteral("canvas")
+                        || path.endsWith(QStringLiteral(".canvas"))) {
+                    const QString absPath =
+                        m_vaultService->vault()->path()
+                        + QLatin1Char('/') + path;
                     space->openCanvas(absPath);
                 } else {
                     auto *doc = m_vaultService->noteService()->openNote(path);
-                    if (doc) {
-                        space->openNote(doc);
-                    }
+                    if (doc) space->openNote(doc);
                 }
             });
-    } else if (session.contains(QStringLiteral("tabs"))) {
-        // Backward compat: old flat tabs array
-        auto tabs = session[QStringLiteral("tabs")].toArray();
-        for (const auto &tabVal : tabs) {
-            auto tab = tabVal.toObject();
-            QString path = tab[QStringLiteral("path")].toString();
-            if (!path.isEmpty()) {
-                onNoteActivated(path);
-            }
-        }
     }
 
     // Restore expanded folders
-    if (session.contains(QStringLiteral("expandedFolders"))) {
-        QStringList folders;
-        auto arr = session[QStringLiteral("expandedFolders")].toArray();
-        for (const auto &v : arr) {
-            folders.append(v.toString());
-        }
+    const auto folders = m_sessionManager->expandedFolders();
+    if (!folders.isEmpty() && m_fileExplorer) {
         m_fileExplorer->restoreExpandedFolders(folders);
     }
 
@@ -947,7 +924,7 @@ void MainWindow::onVaultClosed()
     if (m_sessionManager) {
         m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
         m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
-        m_sessionManager->saveEditorState(m_editorManager->buildSessionState());
+        m_sessionManager->setPaneLayout(m_editorManager->buildPaneLayout());
         if (m_fileExplorer) {
             m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
         }

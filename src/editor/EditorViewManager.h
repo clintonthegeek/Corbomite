@@ -4,10 +4,10 @@
 #include <QWidget>
 #include <QSplitter>
 #include <QVector>
-#include <QJsonObject>
 #include <memory>
 #include <functional>
 #include "NoteEditorWidget.h"
+#include "corbomite/core/PaneLayout.h"
 
 namespace Corbomite {
 
@@ -44,10 +44,20 @@ public:
     bool queryClose();
     void closeAllDocuments();
 
-    // Session save/restore
-    QJsonObject buildSessionState() const;
-    void restoreFromSession(const QJsonObject &editorState,
-                            std::function<void(const QString &path, EditorViewSpace *space)> openTabCallback);
+    // --- PaneLayout (Obsidian workspace.json shape) ---
+
+    /// Build a PaneLayout from the current splitter + tab state.
+    /// `activeLeafId` in the result reflects the currently-focused tab.
+    PaneLayout buildPaneLayout() const;
+
+    /// Rebuild the splitter + pane widgets from a PaneLayout. `openTab`
+    /// is called for each PaneLeaf with the owning EditorViewSpace and
+    /// leaf data (file-path, view-type, mode, …). Caller realises the
+    /// file-open inside that space.
+    void applyPaneLayout(
+        const PaneLayout &layout,
+        std::function<void(EditorViewSpace *space, const PaneLeaf &leaf)> openTab);
+
     QVector<EditorViewSpace *> viewSpaces() const;
     QSplitter *rootSplitter() const;
 
@@ -64,8 +74,6 @@ private:
     void removeViewSpace(EditorViewSpace *space);
     void cleanupEmptySplitters(QSplitter *splitter);
     void resetToSingleViewSpace();
-    void rebuildSplitLayout(const QJsonValue &node, QSplitter *parent);
-    void restoreTabState(const QJsonObject &paneJson, EditorViewSpace *space);
 
     QSplitter *m_rootSplitter;
     EditorViewSpace *m_activeViewSpace = nullptr;

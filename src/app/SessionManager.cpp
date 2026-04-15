@@ -1,13 +1,32 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SessionManager.h"
-#include "editor/EditorViewSpace.h"
-#include <QFile>
-#include <QJsonDocument>
-#include <QJsonArray>
+
 #include <QDir>
-#include <QSplitter>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QSaveFile>
 
 namespace Corbomite {
+
+namespace {
+
+constexpr auto kMain = "main";
+constexpr auto kActive = "active";
+constexpr auto kCorbomite = "_corbomite";
+
+constexpr auto kWindowGeometry = "windowGeometry";
+constexpr auto kWindowState = "windowState";
+constexpr auto kSidebar = "sidebar";
+constexpr auto kSidebarLeftVisible = "leftVisible";
+constexpr auto kSidebarLeftWidth = "leftWidth";
+constexpr auto kSidebarRightVisible = "rightVisible";
+constexpr auto kSidebarRightWidth = "rightWidth";
+constexpr auto kSidebarActivePanel = "activePanel";
+constexpr auto kExpandedFolders = "expandedFolders";
+
+} // namespace
 
 SessionManager::SessionManager(QObject *parent)
     : QObject(parent)
@@ -17,49 +36,55 @@ SessionManager::SessionManager(QObject *parent)
     connect(&m_saveTimer, &QTimer::timeout, this, &SessionManager::doSave);
 }
 
+SessionManager::~SessionManager() = default;
+
 void SessionManager::setSessionPath(const QString &path)
 {
     m_sessionPath = path;
 }
 
-void SessionManager::saveWindowGeometry(const QByteArray &geometry, const QByteArray &state)
+bool SessionManager::load()
 {
-    m_data[QStringLiteral("windowGeometry")] = QString::fromLatin1(geometry.toBase64());
-    m_data[QStringLiteral("windowState")] = QString::fromLatin1(state.toBase64());
-    scheduleSave();
-}
+    m_loaded = false;
+    m_corbomiteTail = {};
+    m_unknownRoot = {};
+    m_paneLayout = PaneLayout{};
+    m_activeLeafId.clear();
 
-void SessionManager::saveSidebarState(bool leftVisible, int leftWidth, bool rightVisible, int rightWidth,
-                                       const QString &activePanel)
-{
-    QJsonObject sidebar;
-    sidebar[QStringLiteral("leftVisible")] = leftVisible;
-    sidebar[QStringLiteral("leftWidth")] = leftWidth;
-    sidebar[QStringLiteral("rightVisible")] = rightVisible;
-    sidebar[QStringLiteral("rightWidth")] = rightWidth;
-    if (!activePanel.isEmpty()) {
-        sidebar[QStringLiteral("activePanel")] = activePanel;
+    if (m_sessionPath.isEmpty()) return false;
+
+    QFile f(m_sessionPath);
+    if (!f.open(QIODevice::ReadOnly)) return false;
+    const auto doc = QJsonDocument::fromJson(f.readAll());
+    if (!doc.isObject()) return false;
+
+    const QJsonObject root = doc.object();
+
+    // Extract the main SplitNode into PaneLayout.
+    if (root.contains(QLatin1String(kMain))
+            && root.value(QLatin1String(kMain)).isObject()) {
+        m_paneLayout = PaneLayout::fromJson(
+            root.value(QLatin1String(kMain)).toObject());
     }
-    m_data[QStringLiteral("sidebar")] = sidebar;
-    scheduleSave();
-}
 
-void SessionManager::saveExpandedFolders(const QStringList &folders)
-{
-    m_data[QStringLiteral("expandedFolders")] = QJsonArray::fromStringList(folders);
-    scheduleSave();
-}
+    m_activeLeafId = root.value(QLatin1String(kActive)).toString();
 
-void SessionManager::saveEditorState(const QJsonObject &editorState)
-{
-    m_data[QStringLiteral("editor")] = editorState;
-    scheduleSave();
-}
+    // Corbomite-specific tail.
+    if (root.contains(QLatin1String(kCorbomite))) {
+        m_corbomiteTail = root.value(QLatin1String(kCorbomite)).toObject();
+    }
 
-void SessionManager::scheduleSave()
-{
-    if (m_saveBlockCount > 0) return;
-    m_saveTimer.start();
+    // Everything else (Obsidian's left/right/floating/lastOpenFiles/ribbon/
+    // etc.) goes into m_unknownRoot to round-trip unchanged on save.
+    for (auto it = root.begin(); it != root.end(); ++it) {
+        if (it.key() == QLatin1String(kMain)
+                || it.key() == QLatin1String(kActive)
+                || it.key() == QLatin1String(kCorbomite)) continue;
+        m_unknownRoot.insert(it.key(), it.value());
+    }
+
+    m_loaded = true;
+    return true;
 }
 
 void SessionManager::saveNow()
@@ -68,46 +93,10 @@ void SessionManager::saveNow()
     doSave();
 }
 
-QJsonObject SessionManager::load() const
+void SessionManager::scheduleSave()
 {
-    QFile file(m_sessionPath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        return {};
-    }
-    auto doc = QJsonDocument::fromJson(file.readAll());
-    return doc.isObject() ? doc.object() : QJsonObject();
-}
-
-QJsonObject SessionManager::editorState() const
-{
-    return m_data[QStringLiteral("editor")].toObject();
-}
-
-QJsonObject SessionManager::sidebarState() const
-{
-    return m_data[QStringLiteral("sidebar")].toObject();
-}
-
-QStringList SessionManager::expandedFolders() const
-{
-    QStringList result;
-    auto arr = m_data[QStringLiteral("expandedFolders")].toArray();
-    for (const auto &v : arr) {
-        result.append(v.toString());
-    }
-    return result;
-}
-
-QByteArray SessionManager::windowGeometry() const
-{
-    return QByteArray::fromBase64(
-        m_data[QStringLiteral("windowGeometry")].toString().toLatin1());
-}
-
-QByteArray SessionManager::windowState() const
-{
-    return QByteArray::fromBase64(
-        m_data[QStringLiteral("windowState")].toString().toLatin1());
+    if (m_saveBlockCount > 0) return;
+    m_saveTimer.start();
 }
 
 void SessionManager::blockSaving()
@@ -118,68 +107,106 @@ void SessionManager::blockSaving()
 
 void SessionManager::unblockSaving()
 {
-    if (m_saveBlockCount > 0) {
-        --m_saveBlockCount;
-    }
+    if (m_saveBlockCount > 0) --m_saveBlockCount;
 }
 
-QJsonObject SessionManager::buildSplitLayoutJson(QSplitter *splitter, const QVector<EditorViewSpace *> &viewSpaces)
+// --- Granular setters ---
+
+void SessionManager::saveWindowGeometry(const QByteArray &geometry,
+                                        const QByteArray &state)
 {
-    QJsonObject result;
-    result[QStringLiteral("splitLayout")] = encodeSplitterNode(splitter, viewSpaces);
-    return result;
+    m_corbomiteTail.insert(QLatin1String(kWindowGeometry),
+                           QString::fromLatin1(geometry.toBase64()));
+    m_corbomiteTail.insert(QLatin1String(kWindowState),
+                           QString::fromLatin1(state.toBase64()));
+    scheduleSave();
 }
 
-QJsonValue SessionManager::encodeSplitterNode(QSplitter *splitter, const QVector<EditorViewSpace *> &viewSpaces)
+void SessionManager::saveSidebarState(bool leftVisible, int leftWidth,
+                                      bool rightVisible, int rightWidth,
+                                      const QString &activePanel)
 {
-    if (!splitter) return QJsonValue();
-
-    if (splitter->count() == 1) {
-        if (auto *space = qobject_cast<EditorViewSpace *>(splitter->widget(0))) {
-            int idx = viewSpaces.indexOf(space);
-            return QStringLiteral("pane:%1").arg(idx);
-        }
-        if (auto *childSplitter = qobject_cast<QSplitter *>(splitter->widget(0))) {
-            return encodeSplitterNode(childSplitter, viewSpaces);
-        }
+    QJsonObject sidebar;
+    sidebar.insert(QLatin1String(kSidebarLeftVisible), leftVisible);
+    sidebar.insert(QLatin1String(kSidebarLeftWidth), leftWidth);
+    sidebar.insert(QLatin1String(kSidebarRightVisible), rightVisible);
+    sidebar.insert(QLatin1String(kSidebarRightWidth), rightWidth);
+    if (!activePanel.isEmpty()) {
+        sidebar.insert(QLatin1String(kSidebarActivePanel), activePanel);
     }
-
-    QJsonObject node;
-    node[QStringLiteral("orientation")] =
-        splitter->orientation() == Qt::Horizontal
-            ? QStringLiteral("horizontal")
-            : QStringLiteral("vertical");
-
-    QJsonArray sizes;
-    for (int s : splitter->sizes()) {
-        sizes.append(s);
-    }
-    node[QStringLiteral("sizes")] = sizes;
-
-    QJsonArray children;
-    for (int i = 0; i < splitter->count(); ++i) {
-        QWidget *child = splitter->widget(i);
-        if (auto *space = qobject_cast<EditorViewSpace *>(child)) {
-            int idx = viewSpaces.indexOf(space);
-            children.append(QStringLiteral("pane:%1").arg(idx));
-        } else if (auto *childSplitter = qobject_cast<QSplitter *>(child)) {
-            children.append(encodeSplitterNode(childSplitter, viewSpaces));
-        }
-    }
-    node[QStringLiteral("children")] = children;
-
-    return node;
+    m_corbomiteTail.insert(QLatin1String(kSidebar), sidebar);
+    scheduleSave();
 }
+
+void SessionManager::saveExpandedFolders(const QStringList &folders)
+{
+    QJsonArray arr;
+    for (const auto &f : folders) arr.append(f);
+    m_corbomiteTail.insert(QLatin1String(kExpandedFolders), arr);
+    scheduleSave();
+}
+
+void SessionManager::setPaneLayout(const PaneLayout &layout,
+                                   const QString &activeLeafId)
+{
+    // PaneLayout is move-only; clone via JSON round-trip (cheap for sane sizes).
+    m_paneLayout = PaneLayout::fromJson(layout.toJson());
+    m_activeLeafId = activeLeafId;
+    scheduleSave();
+}
+
+// --- Accessors ---
+
+QByteArray SessionManager::windowGeometry() const
+{
+    return QByteArray::fromBase64(
+        m_corbomiteTail.value(QLatin1String(kWindowGeometry)).toString().toLatin1());
+}
+
+QByteArray SessionManager::windowState() const
+{
+    return QByteArray::fromBase64(
+        m_corbomiteTail.value(QLatin1String(kWindowState)).toString().toLatin1());
+}
+
+QJsonObject SessionManager::sidebarState() const
+{
+    return m_corbomiteTail.value(QLatin1String(kSidebar)).toObject();
+}
+
+QStringList SessionManager::expandedFolders() const
+{
+    QStringList out;
+    const auto arr = m_corbomiteTail.value(QLatin1String(kExpandedFolders)).toArray();
+    for (const auto &v : arr) if (v.isString()) out.append(v.toString());
+    return out;
+}
+
+const PaneLayout &SessionManager::paneLayout() const { return m_paneLayout; }
+QString SessionManager::activeLeafId() const { return m_activeLeafId; }
+
+// --- Save ---
 
 void SessionManager::doSave()
 {
     if (m_sessionPath.isEmpty()) return;
 
-    QDir().mkpath(QFileInfo(m_sessionPath).absolutePath());
-    QFile file(m_sessionPath);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(QJsonDocument(m_data).toJson(QJsonDocument::Indented));
+    // Compose: unknownRoot (Obsidian keys we pass through) + main + active
+    // + _corbomite (our namespaced state).
+    QJsonObject root = m_unknownRoot;
+    root.insert(QLatin1String(kMain), m_paneLayout.toJson());
+    if (!m_activeLeafId.isEmpty()) {
+        root.insert(QLatin1String(kActive), m_activeLeafId);
     }
+    if (!m_corbomiteTail.isEmpty()) {
+        root.insert(QLatin1String(kCorbomite), m_corbomiteTail);
+    }
+
+    QDir().mkpath(QFileInfo(m_sessionPath).absolutePath());
+    QSaveFile file(m_sessionPath);
+    if (!file.open(QIODevice::WriteOnly)) return;
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    file.commit();
 }
 
 } // namespace Corbomite

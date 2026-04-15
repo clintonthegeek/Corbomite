@@ -3,13 +3,11 @@
 #include "EditorViewSpace.h"
 #include "NoteEditorWidget.h"
 #include <markoff/Editor.h>
-#include "SessionManager.h"
+#include "corbomite/core/PaneLayoutBridge.h"
 #include "corbomite/core/RegexRenderEngine.h"
 #include "corbomite/core/RenderProfile.h"
 #include "corbomite/core/NoteDocument.h"
 #include <QVBoxLayout>
-#include <QJsonObject>
-#include <QJsonArray>
 #include <QScrollBar>
 #include <QTabBar>
 #include <KLocalizedString>
@@ -321,218 +319,172 @@ QSplitter *EditorViewManager::rootSplitter() const
     return m_rootSplitter;
 }
 
-QJsonObject EditorViewManager::buildSessionState() const
+namespace {
+
+/// Build a list of PaneLeaves representing the tabs in a single
+/// EditorViewSpace. Captures file path, view type (note/canvas/graph),
+/// mode (reading/source), and cursor/scroll state for the *active* tab
+/// in the space (we only re-open the active document fully hydrated;
+/// other tabs' cursor state is best-effort and captured on focus).
+QList<PaneLeaf> leavesForSpace(EditorViewSpace *space, bool isActiveSpace)
 {
-    QJsonObject state;
+    QList<PaneLeaf> leaves;
+    auto *tabBar = space->findChild<QTabBar *>();
+    if (!tabBar) return leaves;
 
-    // Build per-pane tab data
-    QJsonArray panes;
-    for (auto *space : std::as_const(m_viewSpaces)) {
-        QJsonObject paneJson;
-        QJsonArray tabs;
+    for (int i = 0; i < tabBar->count(); ++i) {
+        const QString path = tabBar->tabData(i).toString();
+        PaneLeaf leaf;
+        leaf.filePath = path;
 
-        auto *tabBar = space->findChild<QTabBar *>();
-        if (tabBar) {
-            for (int i = 0; i < tabBar->count(); ++i) {
-                QJsonObject tabObj;
-                QString path = tabBar->tabData(i).toString();
-                tabObj[QStringLiteral("path")] = path;
+        QString viewType;
+        if (path == QStringLiteral("__graph__")) {
+            viewType = QStringLiteral("graph");
+        } else if (path.endsWith(QStringLiteral(".canvas"))) {
+            viewType = QStringLiteral("canvas");
+        } else {
+            viewType = QStringLiteral("markdown");
+        }
+        leaf.viewType = viewType;
 
-                // Determine tab type
-                if (path == QStringLiteral("__graph__")) {
-                    tabObj[QStringLiteral("type")] = QStringLiteral("graph");
-                } else if (path.endsWith(QStringLiteral(".canvas"))) {
-                    tabObj[QStringLiteral("type")] = QStringLiteral("canvas");
-                } else {
-                    tabObj[QStringLiteral("type")] = QStringLiteral("note");
+        QJsonObject viewState;
+        viewState.insert(QStringLiteral("type"), viewType);
+        QJsonObject inner;
+        if (!path.isEmpty()) inner.insert(QStringLiteral("file"), path);
 
-                    // Save cursor position for note tabs
-                    auto *editor = space->activeEditor();
-                    if (editor && editor->noteDocument()
-                        && editor->noteDocument()->relativePath() == path) {
-                        tabObj[QStringLiteral("cursorLine")] = editor->currentLine();
-                        tabObj[QStringLiteral("cursorColumn")] = editor->currentColumn();
-                        tabObj[QStringLiteral("scrollPosition")] = editor->editor()->verticalScrollBar()
-                            ? editor->editor()->verticalScrollBar()->value() : 0;
-                    }
-
-                    // Save view mode for the active tab
-                    if (tabBar->currentIndex() == i) {
-                        auto *ed = space->activeEditor();
-                        if (ed) {
-                            auto vm = ed->viewMode();
-                            if (vm == NoteEditorWidget::ViewMode::Reading)
-                                tabObj[QStringLiteral("viewMode")] = QStringLiteral("reading");
-                        }
-                    }
+        // Only capture cursor/mode for the active tab of the active space —
+        // matches the old behaviour and avoids polling every hidden editor.
+        if (tabBar->currentIndex() == i) {
+            auto *editor = space->activeEditor();
+            if (editor && editor->noteDocument()
+                    && editor->noteDocument()->relativePath() == path) {
+                inner.insert(QStringLiteral("cursorLine"), editor->currentLine());
+                inner.insert(QStringLiteral("cursorColumn"), editor->currentColumn());
+                if (editor->editor()->verticalScrollBar()) {
+                    inner.insert(QStringLiteral("scrollPosition"),
+                                 editor->editor()->verticalScrollBar()->value());
                 }
-
-                tabs.append(tabObj);
+                const auto vm = editor->viewMode();
+                const QString modeStr =
+                    (vm == NoteEditorWidget::ViewMode::Reading)
+                        ? QStringLiteral("preview")
+                        : QStringLiteral("source");
+                inner.insert(QStringLiteral("mode"), modeStr);
+                leaf.mode = modeStr;
             }
-            paneJson[QStringLiteral("activeTab")] = tabBar->currentIndex();
+            leaf.unknown.insert(QStringLiteral("_corbomiteActive"), true);
         }
 
-        paneJson[QStringLiteral("tabs")] = tabs;
-        paneJson[QStringLiteral("isActive")] = (space == m_activeViewSpace);
-        panes.append(paneJson);
+        viewState.insert(QStringLiteral("state"), inner);
+        leaf.viewState = viewState;
+        leaves.append(leaf);
     }
-    state[QStringLiteral("panes")] = panes;
 
-    // Build split layout tree
-    QJsonValue layoutTree = SessionManager::encodeSplitterNode(m_rootSplitter, m_viewSpaces);
-    state[QStringLiteral("splitLayout")] = layoutTree;
+    // For the *active* space, ensure the currently-focused tab is first
+    // so PaneLayoutBridge picks it up as the activeLeafId.
+    if (isActiveSpace && tabBar->currentIndex() > 0
+            && tabBar->currentIndex() < leaves.size()) {
+        leaves.move(tabBar->currentIndex(), 0);
+    }
 
-    return state;
+    return leaves;
 }
 
-void EditorViewManager::restoreFromSession(
-    const QJsonObject &editorState,
-    std::function<void(const QString &path, EditorViewSpace *space)> openTabCallback)
-{
-    auto panesArray = editorState[QStringLiteral("panes")].toArray();
-    if (panesArray.isEmpty()) return;
+} // namespace
 
-    // Close all existing state first
+PaneLayout EditorViewManager::buildPaneLayout() const
+{
+    return PaneLayoutBridge::serializeFromSplitter(
+        m_rootSplitter,
+        [this](QWidget *w) -> QList<PaneLeaf> {
+            auto *space = qobject_cast<EditorViewSpace *>(w);
+            if (!space) return {};
+            return leavesForSpace(space, space == m_activeViewSpace);
+        },
+        m_activeViewSpace);
+}
+
+void EditorViewManager::applyPaneLayout(
+    const PaneLayout &layout,
+    std::function<void(EditorViewSpace *space, const PaneLeaf &leaf)> openTab)
+{
+    // Tear down current state — drop all tabs + view spaces.
     closeAllDocuments();
 
-    // If there is a split layout, rebuild it; otherwise just use the single pane
-    auto splitLayout = editorState[QStringLiteral("splitLayout")];
+    // After closeAllDocuments the manager holds exactly one empty view space
+    // in the root splitter. We need to strip that baseline so the bridge can
+    // populate the root cleanly.
+    for (auto *space : std::as_const(m_viewSpaces)) {
+        space->deleteLater();
+    }
+    m_viewSpaces.clear();
+    m_activeViewSpace = nullptr;
 
-    if (panesArray.size() > 1 && !splitLayout.isUndefined()) {
-        // Remove the default single view space from the root splitter
-        auto *defaultSpace = m_viewSpaces.first();
-        m_viewSpaces.clear();
-
-        // Rebuild the split layout tree, which creates new view spaces
-        rebuildSplitLayout(splitLayout, m_rootSplitter);
-
-        // Delete the old default space now that new ones are in place
-        defaultSpace->deleteLater();
+    // Clear any remaining children of the root splitter (intermediate
+    // QSplitter nodes from prior layouts).
+    while (m_rootSplitter->count() > 0) {
+        QWidget *w = m_rootSplitter->widget(0);
+        w->setParent(nullptr);
+        w->deleteLater();
     }
 
-    // Open tabs in each pane
-    int activePaneIdx = -1;
-    for (int paneIdx = 0; paneIdx < panesArray.size() && paneIdx < m_viewSpaces.size(); ++paneIdx) {
-        auto paneJson = panesArray[paneIdx].toObject();
-        auto *space = m_viewSpaces[paneIdx];
-        auto tabsArray = paneJson[QStringLiteral("tabs")].toArray();
+    QList<QWidget *> created = PaneLayoutBridge::deserializeIntoSplitter(
+        layout,
+        m_rootSplitter,
+        [this]() -> QWidget * { return createViewSpace(); },
+        [&openTab](QWidget *w, const PaneLeaf &leaf) {
+            auto *space = qobject_cast<EditorViewSpace *>(w);
+            if (!space) return;
+            if (leaf.viewType == QStringLiteral("graph")) return; // skip
+            openTab(space, leaf);
+        });
 
-        for (const auto &tabVal : tabsArray) {
-            auto tabObj = tabVal.toObject();
-            QString path = tabObj[QStringLiteral("path")].toString();
-            QString type = tabObj[QStringLiteral("type")].toString();
-            if (path.isEmpty()) continue;
-
-            // Skip graph tabs — they require live index/vault references
-            if (type == QStringLiteral("graph")) continue;
-
-            openTabCallback(path, space);
-        }
-
-        // Restore active tab index
-        int activeTab = paneJson[QStringLiteral("activeTab")].toInt(0);
-        auto *tabBar = space->findChild<QTabBar *>();
-        if (tabBar && activeTab >= 0 && activeTab < tabBar->count()) {
-            tabBar->setCurrentIndex(activeTab);
-        }
-
-        // Restore reading mode and cursor for the active tab
-        restoreTabState(paneJson, space);
-
-        if (paneJson[QStringLiteral("isActive")].toBool()) {
-            activePaneIdx = paneIdx;
-        }
-    }
-
-    // Set the active view space
-    if (activePaneIdx >= 0 && activePaneIdx < m_viewSpaces.size()) {
-        setActiveViewSpace(m_viewSpaces[activePaneIdx]);
-        Q_EMIT activeEditorChanged(m_viewSpaces[activePaneIdx]->activeEditor());
-    } else if (!m_viewSpaces.isEmpty()) {
+    // Activate the first-created view space by default. A caller wanting
+    // a specific tab/space active can re-activate after openTab runs.
+    if (!m_viewSpaces.isEmpty()) {
         setActiveViewSpace(m_viewSpaces.first());
         Q_EMIT activeEditorChanged(m_viewSpaces.first()->activeEditor());
     }
-}
 
-void EditorViewManager::rebuildSplitLayout(const QJsonValue &node, QSplitter *parent)
-{
-    if (node.isString()) {
-        // Leaf: "pane:N" — create a new view space
-        auto *space = createViewSpace();
-        parent->addWidget(space);
-        return;
-    }
-
-    if (!node.isObject()) return;
-
-    auto obj = node.toObject();
-    QString orientation = obj[QStringLiteral("orientation")].toString();
-    auto children = obj[QStringLiteral("children")].toArray();
-    auto sizesArray = obj[QStringLiteral("sizes")].toArray();
-
-    // Create a sub-splitter for this node
-    Qt::Orientation orient = (orientation == QStringLiteral("vertical"))
-        ? Qt::Vertical : Qt::Horizontal;
-
-    // If parent has the same orientation and is empty, reuse it
-    QSplitter *splitter;
-    if (parent->count() == 0 && parent->orientation() == orient) {
-        splitter = parent;
-    } else {
-        splitter = new QSplitter(orient, this);
-        parent->addWidget(splitter);
-    }
-
-    for (const auto &child : children) {
-        rebuildSplitLayout(child, splitter);
-    }
-
-    // Restore sizes
-    if (!sizesArray.isEmpty()) {
-        QList<int> sizes;
-        for (const auto &s : sizesArray) {
-            sizes.append(s.toInt());
+    // Restore the active-tab index and per-leaf state (cursor / mode) from
+    // the layout's leaves.
+    auto applyLeafState = [](EditorViewSpace *space, const PaneLeaf &leaf) {
+        if (leaf.viewType != QStringLiteral("markdown")) return;
+        if (leaf.mode == QStringLiteral("preview")) {
+            space->setViewMode(NoteEditorWidget::ViewMode::Reading);
+        } else if (leaf.mode == QStringLiteral("source")) {
+            space->setViewMode(NoteEditorWidget::ViewMode::Editing);
         }
-        if (sizes.size() == splitter->count()) {
-            splitter->setSizes(sizes);
-        }
-    }
-}
-
-void EditorViewManager::restoreTabState(const QJsonObject &paneJson, EditorViewSpace *space)
-{
-    auto tabsArray = paneJson[QStringLiteral("tabs")].toArray();
-    int activeTab = paneJson[QStringLiteral("activeTab")].toInt(0);
-
-    if (activeTab < 0 || activeTab >= tabsArray.size()) return;
-
-    auto tabObj = tabsArray[activeTab].toObject();
-    QString type = tabObj[QStringLiteral("type")].toString();
-
-    if (type != QStringLiteral("note")) return;
-
-    // Restore view mode (backwards compatible with old readingMode key)
-    QString savedMode = tabObj[QStringLiteral("viewMode")].toString();
-    if (savedMode == QStringLiteral("livePreview")) {
-        space->setViewMode(NoteEditorWidget::ViewMode::Editing);
-    } else if (savedMode == QStringLiteral("reading")
-               || tabObj[QStringLiteral("readingMode")].toBool()) {
-        space->setViewMode(NoteEditorWidget::ViewMode::Reading);
-    }
-
-    // Restore cursor position
-    auto *editor = space->activeEditor();
-    if (editor) {
-        int line = tabObj[QStringLiteral("cursorLine")].toInt(1);
-        int column = tabObj[QStringLiteral("cursorColumn")].toInt(1);
-        int scroll = tabObj[QStringLiteral("scrollPosition")].toInt(0);
-
+        auto *editor = space->activeEditor();
+        if (!editor) return;
+        const auto inner = leaf.viewState.value(QStringLiteral("state")).toObject();
+        const int line = inner.value(QStringLiteral("cursorLine")).toInt(1);
+        const int scroll = inner.value(QStringLiteral("scrollPosition")).toInt(0);
         editor->editor()->goToLine(line);
-
         if (editor->editor()->verticalScrollBar() && scroll > 0) {
             editor->editor()->verticalScrollBar()->setValue(scroll);
         }
-    }
+    };
+
+    // Walk the layout tree in the same order as the bridge materialised
+    // widgets; pair each leaf-index with the next view-space in `created`.
+    int spaceIdx = 0;
+    layout.root()->walk([&](const PaneLayoutIndex *node) {
+        if (node->isSplit()) return true;
+        if (spaceIdx >= created.size()) return false;
+        auto *space = qobject_cast<EditorViewSpace *>(created[spaceIdx++]);
+        if (!space) return true;
+
+        auto *tabBar = space->findChild<QTabBar *>();
+        // Apply the active leaf's cursor/mode.
+        if (node->viewCount() > 0 && tabBar) {
+            const int tabIdx = (node->currentTab() < tabBar->count())
+                ? node->currentTab() : 0;
+            tabBar->setCurrentIndex(tabIdx);
+            applyLeafState(space, *node->viewAt(tabIdx));
+        }
+        return true;
+    });
 }
 
 } // namespace Corbomite
