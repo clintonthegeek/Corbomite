@@ -221,41 +221,18 @@ void MarkdownTextItem::setBlockFolded(int blockNumber, bool folded)
 {
     QTextBlock block = m_document->findBlockByNumber(blockNumber);
     if (!block.isValid()) return;
+    if (block.isVisible() == !folded) return;  // already in desired state
 
-    QTextBlockFormat fmt = block.blockFormat();
-    const auto currentHeight = fmt.lineHeight();
-    const auto currentType = static_cast<QTextBlockFormat::LineHeightTypes>(
-        fmt.lineHeightType());
-
-    // Skip if already in the desired state to avoid spurious edits.
-    if (folded) {
-        if (currentType == QTextBlockFormat::FixedHeight && qFuzzyIsNull(currentHeight))
-            return;
-    } else {
-        // "Unfolded" state: anything that is NOT FixedHeight(0).
-        if (currentType != QTextBlockFormat::FixedHeight || !qFuzzyIsNull(currentHeight))
-            return;
-    }
-
-    // Block document signals so the format change does not trigger the
-    // text-change → reparse timer loop.
-    const bool blocked = m_document->blockSignals(true);
-
+    // QTextBlock::setVisible is the proper Qt primitive: it tells the
+    // document layout to skip the block entirely (no glyph painting, no
+    // height contribution). Setting line-height to 0 only collapses
+    // spacing — glyphs still draw, causing pile-up when sibling blocks
+    // share the same Y coordinate. setVisible avoids that.
     prepareGeometryChange();
-    QTextCursor cursor(m_document);
-    cursor.setPosition(block.position());
-    if (folded) {
-        // Collapse to zero height so the block occupies no vertical space.
-        fmt.setLineHeight(0.0, QTextBlockFormat::FixedHeight);
-    } else {
-        // Restore to 100% proportional (equals normal single-line height
-        // but uses a non-zero type value so the early-exit above works).
-        fmt.setLineHeight(100.0, QTextBlockFormat::ProportionalHeight);
-    }
-    cursor.setBlockFormat(fmt);
-
-    m_document->blockSignals(blocked);
-    // Trigger a repaint without going through the reparse pipeline.
+    block.setVisible(!folded);
+    // Force the document layout to re-measure from this block onward so
+    // subsequent block Y-positions reflect the visibility change.
+    m_document->markContentsDirty(block.position(), block.length());
     update();
 }
 
