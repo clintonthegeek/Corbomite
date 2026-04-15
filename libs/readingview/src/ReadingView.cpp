@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/readingview/ReadingView.h"
 
+#include "MermaidRenderer.h"
 #include "SpanRenderer.h"
+#include "corbomite/readingview/CodeBlockHighlighter.h"
 #include "corbomite/readingview/ReadingParseWorker.h"
 #include "corbomite/readingview/ReadingPipeline.h"
 #include "corbomite/readingview/ReadingSection.h"
@@ -11,6 +13,8 @@
 #include "corbomite/readingview/VaultResourceProvider.h"
 #include "corbomite/readingview/VirtualScrollController.h"
 #include "corbomite/readingview/styling/StyleManager.h"
+
+#include <jkqtmathtext/jkqtmathtext.h>
 
 #include <QAbstractTextDocumentLayout>
 #include <QElapsedTimer>
@@ -44,7 +48,16 @@ ReadingView::ReadingView(QWidget *parent)
     , m_recyclePool(std::make_unique<SectionRecyclePool>())
     , m_worker(std::make_unique<ReadingParseWorker>())
     , m_controller(std::make_unique<VirtualScrollController>(this))
+    , m_codeBlockRegistry(
+          std::make_unique<Corbomite::Core::CodeBlockProcessorRegistry>())
 {
+    // Cluster J phase 5 — seed the plugin-reachable code-block dispatch
+    // surface. Built-in processors land at construction so host code
+    // (tests + later plugin layer) sees a populated registry from the
+    // moment the widget exists. SectionLayout continues to own the
+    // graphics-item emission for the mermaid/math/syntax paths; this
+    // registry is a parallel contract, not a replacement.
+    registerBuiltinCodeBlockProcessors();
     // Worker's parseFinished emits from its own thread; Qt::QueuedConnection
     // hops to ours so the UI mount loop stays on the main thread.
     connect(m_worker.get(), &ReadingParseWorker::parseFinished,
@@ -88,6 +101,74 @@ ReadingView::ReadingView(QWidget *parent)
 }
 
 ReadingView::~ReadingView() = default;
+
+Corbomite::Core::CodeBlockProcessorRegistry *
+ReadingView::codeBlockProcessorRegistry()
+{
+    return m_codeBlockRegistry.get();
+}
+
+const Corbomite::Core::CodeBlockProcessorRegistry *
+ReadingView::codeBlockProcessorRegistry() const
+{
+    return m_codeBlockRegistry.get();
+}
+
+void ReadingView::registerBuiltinCodeBlockProcessors()
+{
+    if (!m_codeBlockRegistry) return;
+
+    // Mermaid: delegate to the existing Rust-FFI bridge in MermaidRenderer.
+    // `renderSvg` returning non-empty is our signal that the bridge
+    // handled the source. Graphics-item emission still lives in
+    // SectionLayout's BlockKind::Mermaid branch (same `renderSvg` call);
+    // routing through the registry here gives plugin authors and
+    // downstream hosts a stable hook.
+    m_codeBlockRegistry->registerLanguage(
+        QStringLiteral("mermaid"),
+        [](const QString &source,
+           void * /*node*/,
+           const Corbomite::Core::CodeBlockContext & /*ctx*/) -> bool {
+            const QByteArray svg = MermaidRenderer::renderSvg(source);
+            return !svg.isEmpty();
+        });
+
+    // Math: delegate to JKQTMathText. We only ask the parser to consume
+    // the LaTeX source and report success. SectionLayout's display-math
+    // branch runs the full render. Registering both `math` and `latex`
+    // gives plugin-style language keys the same handler.
+    auto mathProcessor =
+        [](const QString &source,
+           void * /*node*/,
+           const Corbomite::Core::CodeBlockContext & /*ctx*/) -> bool {
+            JKQTMathText mt;
+            mt.parse(source);
+            return !source.trimmed().isEmpty();
+        };
+    m_codeBlockRegistry->registerLanguage(QStringLiteral("math"),
+                                          mathProcessor);
+    m_codeBlockRegistry->registerLanguage(QStringLiteral("latex"),
+                                          mathProcessor);
+
+    // Default syntax-highlighting fallback: Obsidian-style "no per-language
+    // processor matched" path. The registry currently dispatches by exact
+    // language key — the `default` entry gives plugin callers a shorthand
+    // that exercises the KF6::SyntaxHighlighting repository. (Wildcard
+    // fallthrough at the registry layer is not in this phase's scope.)
+    m_codeBlockRegistry->registerLanguage(
+        QStringLiteral("default"),
+        [](const QString & /*source*/,
+           void * /*node*/,
+           const Corbomite::Core::CodeBlockContext & /*ctx*/) -> bool {
+            // Theme resolution happens in SectionLayout; here we only
+            // exercise the bridge by constructing a highlighter and
+            // asking it to adopt the light theme. Construction touches
+            // the KSyntaxHighlighting repository singleton.
+            CodeBlockHighlighter hl(Theme::Light);
+            Q_UNUSED(hl);
+            return true;
+        });
+}
 
 void ReadingView::setPlainText(const QString &markdown)
 {
