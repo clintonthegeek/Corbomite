@@ -62,8 +62,8 @@ void FoldGutter::paint(QPainter *painter,
     if (m_columns.isEmpty() || !m_model)
         return;
 
-    const auto &headings = m_model->headings();
-    if (headings.isEmpty())
+    const auto &regions = m_model->regions();
+    if (regions.isEmpty())
         return;
 
     if (!m_coordinator) {
@@ -71,9 +71,9 @@ void FoldGutter::paint(QPainter *painter,
         return;
     }
 
-    // For each heading, resolve its scene-Y and paint each column cell.
-    for (int hIdx = 0; hIdx < headings.size(); ++hIdx) {
-        qreal sceneY = m_coordinator->headingSceneY(hIdx);
+    // For each region (heading or code block), resolve its scene-Y and paint each column cell.
+    for (int rIdx = 0; rIdx < regions.size(); ++rIdx) {
+        qreal sceneY = m_coordinator->regionSceneY(rIdx);
         if (sceneY < 0.0)
             continue; // heading not found / hidden
 
@@ -88,7 +88,7 @@ void FoldGutter::paint(QPainter *painter,
         int colX = 0;
         for (auto *col : m_columns) {
             QRect cellRect(colX, static_cast<int>(localY), col->width(), cellH);
-            col->paintCell(painter, cellRect, hIdx);
+            col->paintCell(painter, cellRect, rIdx);
             colX += col->width();
         }
     }
@@ -129,14 +129,14 @@ void FoldGutter::mousePressEvent(QGraphicsSceneMouseEvent *event)
         return;
     }
 
-    int hIdx = m_coordinator->headingIndexAtSceneY(event->scenePos().y());
-    if (hIdx < 0) {
+    int regionIdx = m_coordinator->regionIndexAtSceneY(event->scenePos().y());
+    if (regionIdx < 0) {
         event->ignore();
         return;
     }
 
     QPoint colLocal(colLocalX, static_cast<int>(event->pos().y()));
-    bool handled = m_columns[colIdx]->handleClick(colLocal, hIdx, event->modifiers());
+    bool handled = m_columns[colIdx]->handleClick(colLocal, regionIdx, event->modifiers());
     if (handled)
         event->accept();
     else

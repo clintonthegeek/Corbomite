@@ -14,9 +14,9 @@ class SceneCoordinator;
 class GutterColumn;
 
 /// Viewport-pinned QGraphicsObject that owns a list of GutterColumns and
-/// paints fold decorations for each visible heading. Dispatches mouse
+/// paints fold decorations for each visible region (headings + code blocks). Dispatches mouse
 /// press events to the appropriate column based on X position, resolving
-/// the heading index via SceneCoordinator::headingIndexAtSceneY.
+/// the region index via SceneCoordinator::regionIndexAtSceneY.
 class FoldGutter : public QGraphicsObject {
     Q_OBJECT
 public:

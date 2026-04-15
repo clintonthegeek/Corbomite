@@ -752,56 +752,74 @@ void SceneCoordinator::applyFoldVisibility()
     repositionItems();
 }
 
-int SceneCoordinator::headingIndexAtSceneY(qreal sceneY) const
+int SceneCoordinator::regionIndexAtSceneY(qreal sceneY) const
 {
     for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
-        if (!mti) continue;
+        if (mti) {
+            QGraphicsItem *gi = mti->asGraphicsItem();
+            if (!gi) continue;
+            const qreal itemSceneY = gi->scenePos().y();
 
-        QGraphicsItem *gi = mti->asGraphicsItem();
-        if (!gi) continue;
-        const qreal itemSceneY = gi->scenePos().y();
-
-        QTextBlock block = mti->document()->begin();
-        while (block.isValid()) {
-            const int h = headingAtBlock(itemIdx, block.blockNumber());
-            if (h >= 0) {
-                QTextLayout *layout = block.layout();
-                qreal blockTop = itemSceneY;
-                qreal blockHeight = 16.0;
-                if (layout) {
-                    blockTop = itemSceneY + layout->position().y();
-                    if (layout->lineCount() > 0)
-                        blockHeight = layout->boundingRect().height();
+            QTextBlock block = mti->document()->begin();
+            while (block.isValid()) {
+                const int regionIdx = regionAtBlock(itemIdx, block.blockNumber());
+                if (regionIdx >= 0) {
+                    QTextLayout *layout = block.layout();
+                    qreal blockTop = itemSceneY;
+                    qreal blockHeight = 16.0;
+                    if (layout) {
+                        blockTop = itemSceneY + layout->position().y();
+                        if (layout->lineCount() > 0)
+                            blockHeight = layout->boundingRect().height();
+                    }
+                    if (sceneY >= blockTop && sceneY < blockTop + blockHeight)
+                        return regionIdx;
                 }
-                if (sceneY >= blockTop && sceneY < blockTop + blockHeight)
-                    return h;
+                block = block.next();
             }
-            block = block.next();
+        } else {
+            // Non-MTI item (e.g. code block via TableBlockItem): match by bounding rect.
+            const int regionIdx = regionAtBlock(itemIdx, 0);
+            if (regionIdx >= 0) {
+                QGraphicsItem *gi = m_items[itemIdx]->asGraphicsItem();
+                if (gi) {
+                    const QRectF r = gi->sceneBoundingRect();
+                    if (sceneY >= r.top() && sceneY < r.bottom())
+                        return regionIdx;
+                }
+            }
         }
     }
     return -1;
 }
 
-qreal SceneCoordinator::headingSceneY(int headingIndex) const
+qreal SceneCoordinator::regionSceneY(int regionIndex) const
 {
-    if (headingIndex < 0) return -1.0;
+    if (regionIndex < 0) return -1.0;
 
     for (int itemIdx = 0; itemIdx < m_items.size(); ++itemIdx) {
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
-        if (!mti) continue;
+        if (mti) {
+            QGraphicsItem *gi = mti->asGraphicsItem();
+            if (!gi) continue;
+            const qreal itemSceneY = gi->scenePos().y();
 
-        QGraphicsItem *gi = mti->asGraphicsItem();
-        if (!gi) continue;
-        const qreal itemSceneY = gi->scenePos().y();
-
-        QTextBlock block = mti->document()->begin();
-        while (block.isValid()) {
-            if (headingAtBlock(itemIdx, block.blockNumber()) == headingIndex) {
-                QTextLayout *layout = block.layout();
-                return layout ? itemSceneY + layout->position().y() : itemSceneY;
+            QTextBlock block = mti->document()->begin();
+            while (block.isValid()) {
+                if (regionAtBlock(itemIdx, block.blockNumber()) == regionIndex) {
+                    QTextLayout *layout = block.layout();
+                    return layout ? itemSceneY + layout->position().y() : itemSceneY;
+                }
+                block = block.next();
             }
-            block = block.next();
+        } else {
+            // Non-MTI item: check if its item-level key maps to regionIndex.
+            if (regionAtBlock(itemIdx, 0) == regionIndex) {
+                QGraphicsItem *gi = m_items[itemIdx]->asGraphicsItem();
+                if (gi)
+                    return gi->scenePos().y();
+            }
         }
     }
     return -1.0;
