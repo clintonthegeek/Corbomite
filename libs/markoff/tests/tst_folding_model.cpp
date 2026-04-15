@@ -128,6 +128,67 @@ void TstFoldingModelState::foldStateChanged_firesOnlyOnActualChange() {
     QCOMPARE(spy.count(), 0);
 }
 
+class TstFoldingModelBulk : public QObject {
+    Q_OBJECT
+private slots:
+    void foldAll_foldsEveryHeading();
+    void unfoldAll_clears();
+    void foldAllAtLevel_foldsOnlySpecifiedLevel();
+    void foldLevel_foldsAtLevelAndDeeper();
+    void unfoldLevel_unfoldsAtLevelAndDeeper();
+private:
+    void seedHeadings(FoldingModel &m);
+};
+
+void TstFoldingModelBulk::seedHeadings(FoldingModel &m) {
+    m.setHeadingsForTesting({
+        { {"A"},           {1, "A", 0} },
+        { {"A","B"},       {2, "B", 10} },
+        { {"A","C"},       {2, "C", 20} },
+        { {"D"},           {1, "D", 30} },
+        { {"D","","E"},    {3, "E", 40} },  // skipped H2
+    });
+}
+
+void TstFoldingModelBulk::foldAll_foldsEveryHeading() {
+    FoldingModel m; seedHeadings(m);
+    m.foldAll();
+    QCOMPARE(m.foldedPaths().size(), 5);
+}
+
+void TstFoldingModelBulk::unfoldAll_clears() {
+    FoldingModel m; seedHeadings(m);
+    m.foldAll(); m.unfoldAll();
+    QVERIFY(m.foldedPaths().isEmpty());
+}
+
+void TstFoldingModelBulk::foldAllAtLevel_foldsOnlySpecifiedLevel() {
+    FoldingModel m; seedHeadings(m);
+    m.foldAllAtLevel(2);
+    QCOMPARE(m.foldedPaths().size(), 2);
+    QVERIFY(m.isFolded({"A","B"}));
+    QVERIFY(m.isFolded({"A","C"}));
+    QVERIFY(!m.isFolded({"A"}));
+}
+
+void TstFoldingModelBulk::foldLevel_foldsAtLevelAndDeeper() {
+    FoldingModel m; seedHeadings(m);
+    m.foldLevel(2);  // H2 and H3
+    QCOMPARE(m.foldedPaths().size(), 3);
+    QVERIFY(m.isFolded({"A","B"}));
+    QVERIFY(m.isFolded({"A","C"}));
+    QVERIFY(m.isFolded({"D","","E"}));
+}
+
+void TstFoldingModelBulk::unfoldLevel_unfoldsAtLevelAndDeeper() {
+    FoldingModel m; seedHeadings(m);
+    m.foldAll();
+    m.unfoldLevel(2);
+    QVERIFY(m.isFolded({"A"}));
+    QVERIFY(m.isFolded({"D"}));
+    QVERIFY(!m.isFolded({"A","B"}));
+}
+
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
     int status = 0;
@@ -137,6 +198,10 @@ int main(int argc, char *argv[]) {
     }
     {
         TstFoldingModelState t;
+        status |= QTest::qExec(&t, argc, argv);
+    }
+    {
+        TstFoldingModelBulk t;
         status |= QTest::qExec(&t, argc, argv);
     }
     return status;

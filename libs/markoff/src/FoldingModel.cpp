@@ -49,13 +49,63 @@ void FoldingModel::toggle(const FoldRegionKey &path) {
     else fold(path);
 }
 
-// --- stubs for later tasks ---
-void FoldingModel::foldAll() {}
-void FoldingModel::unfoldAll() {}
-void FoldingModel::foldAllAtLevel(int) {}
-void FoldingModel::unfoldAllAtLevel(int) {}
-void FoldingModel::foldLevel(int) {}
-void FoldingModel::unfoldLevel(int) {}
+void FoldingModel::foldAll() {
+    bool changed = false;
+    for (const auto &h : m_headings) {
+        if (!m_folded.contains(h.path)) { m_folded.insert(h.path); changed = true; }
+    }
+    if (changed) emit foldStateChanged();
+}
+
+void FoldingModel::unfoldAll() {
+    if (m_folded.isEmpty()) return;
+    m_folded.clear();
+    emit foldStateChanged();
+}
+
+void FoldingModel::foldAllAtLevel(int level) {
+    bool changed = false;
+    for (const auto &h : m_headings) {
+        if (h.info.level == level && !m_folded.contains(h.path)) {
+            m_folded.insert(h.path);
+            changed = true;
+        }
+    }
+    if (changed) emit foldStateChanged();
+}
+
+void FoldingModel::unfoldAllAtLevel(int level) {
+    bool changed = false;
+    for (const auto &h : m_headings) {
+        if (h.info.level == level && m_folded.contains(h.path)) {
+            m_folded.remove(h.path);
+            changed = true;
+        }
+    }
+    if (changed) emit foldStateChanged();
+}
+
+void FoldingModel::foldLevel(int n) {
+    bool changed = false;
+    for (const auto &h : m_headings) {
+        if (h.info.level >= n && !m_folded.contains(h.path)) {
+            m_folded.insert(h.path);
+            changed = true;
+        }
+    }
+    if (changed) emit foldStateChanged();
+}
+
+void FoldingModel::unfoldLevel(int n) {
+    bool changed = false;
+    for (const auto &h : m_headings) {
+        if (h.info.level >= n && m_folded.contains(h.path)) {
+            m_folded.remove(h.path);
+            changed = true;
+        }
+    }
+    if (changed) emit foldStateChanged();
+}
 QJsonObject FoldingModel::serialize() const { return {}; }
 void FoldingModel::restore(const QJsonObject &) {}
 void FoldingModel::reconcile(const QList<HeadingInfo> &) {}

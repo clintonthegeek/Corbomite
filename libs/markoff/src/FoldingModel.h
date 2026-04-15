@@ -54,6 +54,9 @@ public:
     // --- Reparse reconcile (Task 5) ---
     void reconcile(const QList<HeadingInfo> &newHeadings);
 
+    /// Test-only: seed the heading cache without going through reconcile.
+    void setHeadingsForTesting(QList<HeadingEntry> h) { m_headings = std::move(h); }
+
     /// Walk `path` from root and unfold any folded prefix. Returns the
     /// prefixes actually unfolded (empty if none were folded). Used by
     /// auto-unfold on navigation and find.
