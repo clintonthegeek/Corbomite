@@ -19,7 +19,7 @@
 | I | MetadataCache parity | [2026-04-15-cluster-i-metadatacache-parity.md](2026-04-15-cluster-i-metadatacache-parity.md) | Full | Done | landed 2026-04-15 (10 commits, 8 phases) |
 | J | Embed / rendering primitives | [2026-04-14-cluster-j-embed-rendering-primitives-STUB.md](2026-04-14-cluster-j-embed-rendering-primitives-STUB.md) | Stub | Stub plan | expand after E + I in flight |
 | K | Bases | [2026-04-14-cluster-k-bases-SCOUTING.md](2026-04-14-cluster-k-bases-SCOUTING.md) | Scouting | Scouting doc (blocked) | expand when Bases DSL extraction addendum lands |
-| L | Properties panel | — | — | Deferred | normal task after A/B/I/C |
+| L | Properties panel | — | — | Done | landed 2026-04-15 (commit 89b1df4) as single-phase normal task |
 | M | Internal-plugin feature audits (Graph, Canvas) | — | — | Deferred | two normal tasks |
 | N | Plugin-ready surfaces | — | — | Deferred | builds incrementally on B + C |
 | O | Advanced query layer (post-parity) | [2026-04-14-cluster-o-query-layer-SCOUTING.md](2026-04-14-cluster-o-query-layer-SCOUTING.md) | Scouting | Scouting doc | additive graph+FTS over markdown vault; **post-parity** |
