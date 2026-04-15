@@ -302,6 +302,28 @@ bool EmbedRenderer::renderInto(QWidget *parent,
     return true;
 }
 
+namespace {
+
+/// Wikilink-shim image factory. Rewrites an `![[foo.png]]` request into
+/// the equivalent `![](foo.png)` markdown snippet so hosts that route
+/// the rendered text through the SpanRenderer image path get the same
+/// output as for native `![](...)` sources. Alias / subpath are
+/// intentionally ignored — Obsidian's image-embed syntax does not use
+/// subpath the same way markdown-embed does; the target path becomes
+/// the img src directly.
+Corbomite::Core::EmbedFactory imageWikilinkShim()
+{
+    return [](const Corbomite::Core::EmbedRequest &req)
+        -> std::unique_ptr<Corbomite::Core::MarkdownRenderChild> {
+        auto child = std::make_unique<Corbomite::Core::MarkdownRenderChild>();
+        child->setRenderedText(QStringLiteral("![](") + req.targetPath
+                               + QStringLiteral(")"));
+        return child;
+    };
+}
+
+} // namespace
+
 void registerBuiltinEmbedFactories(Corbomite::Core::EmbedRegistry &reg,
                                    EmbedRenderer &renderer)
 {
@@ -314,8 +336,18 @@ void registerBuiltinEmbedFactories(Corbomite::Core::EmbedRegistry &reg,
             -> std::unique_ptr<Corbomite::Core::MarkdownRenderChild> {
             return renderer.renderMarkdown(req);
         });
-    // Image built-ins (wikilink-shim) land in task 5.5; media-stub
-    // factories land in task 5.6.
+
+    // Images — wikilink-shim to `![](path)`. Registers the common
+    // Obsidian-supported raster + vector + webp extensions under one
+    // shared factory.
+    const auto imgFactory = imageWikilinkShim();
+    for (const QString &ext : {QStringLiteral("png"), QStringLiteral("jpg"),
+                               QStringLiteral("jpeg"), QStringLiteral("gif"),
+                               QStringLiteral("svg"), QStringLiteral("webp")}) {
+        reg.registerExtension(ext, imgFactory);
+    }
+
+    // Media-stub factories land in task 5.6.
 }
 
 } // namespace Corbomite::ReadingView
