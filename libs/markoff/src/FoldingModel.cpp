@@ -106,8 +106,39 @@ void FoldingModel::unfoldLevel(int n) {
     }
     if (changed) emit foldStateChanged();
 }
-QJsonObject FoldingModel::serialize() const { return {}; }
-void FoldingModel::restore(const QJsonObject &) {}
+QJsonObject FoldingModel::serialize() const {
+    QJsonArray folds;
+    for (const auto &p : m_folded) {
+        QJsonArray arr;
+        for (const auto &seg : p) arr.append(seg);
+        folds.append(arr);
+    }
+    QJsonObject root;
+    root["version"] = 1;
+    root["folds"] = folds;
+    return root;
+}
+
+void FoldingModel::restore(const QJsonObject &obj) {
+    const auto prev = m_folded;
+    m_folded.clear();
+
+    const QJsonValue foldsVal = obj.value("folds");
+    if (foldsVal.isArray()) {
+        for (const auto &entry : foldsVal.toArray()) {
+            if (!entry.isArray()) continue;
+            QStringList path;
+            for (const auto &seg : entry.toArray()) {
+                if (seg.isString()) path << seg.toString();
+            }
+            if (!path.isEmpty()) m_folded.insert(path);
+        }
+    } else if (!foldsVal.isUndefined() && !foldsVal.isNull()) {
+        qCWarning(lcFolding) << "restore: 'folds' must be an array, got" << foldsVal.type();
+    }
+
+    if (prev != m_folded) emit foldStateChanged();
+}
 void FoldingModel::reconcile(const QList<HeadingInfo> &) {}
 QList<FoldRegionKey> FoldingModel::unfoldAncestors(const FoldRegionKey &) { return {}; }
 
