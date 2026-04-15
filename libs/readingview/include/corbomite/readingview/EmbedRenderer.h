@@ -45,6 +45,15 @@ public:
                   Corbomite::MetadataCache *cache,
                   Corbomite::Core::VaultResourceProvider *resources);
 
+    /// Cluster J Phase 6 — late-bind the per-vault metadata cache and
+    /// resource provider after construction. Hosts (e.g., HoverPopover)
+    /// build the renderer eagerly at app start so registry-factory
+    /// lambdas can capture `&renderer` once, then re-point the resource
+    /// adapter on every vault open / close. Caller retains ownership;
+    /// pass `nullptr` to clear.
+    void setMetadataCache(Corbomite::MetadataCache *cache);
+    void setResources(Corbomite::Core::VaultResourceProvider *resources);
+
     /// Resolve and render an embed request. Returns a non-null
     /// `MarkdownRenderChild` in all paths: on depth-cap-rejection the
     /// child carries the `EmbedDepthGuard::placeholder(...)` string; on

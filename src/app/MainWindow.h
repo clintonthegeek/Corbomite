@@ -6,7 +6,18 @@
 #include <QCloseEvent>
 #include <QStackedWidget>
 
+#include <memory>
+
 class KRecentFilesAction;
+
+namespace Corbomite::Core {
+class EmbedRegistry;
+class VaultResourceProvider;
+}
+
+namespace Corbomite::ReadingView {
+class EmbedRenderer;
+}
 
 namespace Corbomite {
 
@@ -105,6 +116,13 @@ private:
     MenuEventEmitter *m_menuEvents = nullptr;
     HoverLinkSourceRegistry *m_hoverSources = nullptr;
     HoverPopover *m_hoverPopover = nullptr;
+    // Cluster J Phase 6 — EmbedRegistry + EmbedRenderer feed HoverPopover
+    // (and any future preview surfaces). Built once at MainWindow construction;
+    // the per-vault resource adapter is rebuilt on each `onVaultOpened` and
+    // released on `onVaultClosed`.
+    std::unique_ptr<Corbomite::Core::EmbedRegistry> m_embedRegistry;
+    std::unique_ptr<Corbomite::ReadingView::EmbedRenderer> m_embedRenderer;
+    std::unique_ptr<Corbomite::Core::VaultResourceProvider> m_popoverResources;
     EditorSuggestManager *m_suggestManager = nullptr;
     WikiLinkSuggest *m_wikiSuggest = nullptr;
     TagSuggest *m_tagSuggest = nullptr;

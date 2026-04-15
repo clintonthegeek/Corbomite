@@ -32,8 +32,11 @@
 
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditorSuggestManager.h"
+#include "corbomite/core/EmbedRegistry.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
+#include "corbomite/core/VaultResourceProvider.h"
+#include "corbomite/readingview/EmbedRenderer.h"
 #include "editor/HoverPopover.h"
 #include "editor/TagSuggest.h"
 #include "editor/WikiLinkSuggest.h"
@@ -71,6 +74,91 @@
 
 namespace Corbomite {
 
+namespace {
+
+/// Cluster J Phase 6 — vault-scoped `Core::VaultResourceProvider` adapter.
+/// HoverPopover doesn't have an "active note" context, so this adapter
+/// resolves wikilinks against the vault root only (no per-note relative
+/// directory). Image bytes are loaded lazily from disk under the vault path.
+class VaultScopedResources : public Corbomite::Core::VaultResourceProvider
+{
+public:
+    explicit VaultScopedResources(VaultModel *vault) : m_vault(vault) {}
+
+    QUrl resolveImage(const QString &name) const override
+    {
+        if (!m_vault) return {};
+        const QString path = m_vault->path() + QLatin1Char('/') + name;
+        if (QFileInfo::exists(path)) return QUrl::fromLocalFile(path);
+        return {};
+    }
+
+    QByteArray loadImageBytes(const QString &name) const override
+    {
+        if (!m_vault) return {};
+        const QString path = m_vault->path() + QLatin1Char('/') + name;
+        QFile f(path);
+        if (!f.open(QIODevice::ReadOnly)) return {};
+        return f.readAll();
+    }
+
+    std::optional<QString> resolveEmbed(const QString &name) const override
+    {
+        if (!m_vault) return std::nullopt;
+        QString rel = name;
+        if (!rel.endsWith(QStringLiteral(".md"))
+            && !rel.endsWith(QStringLiteral(".canvas"))
+            && !rel.contains(QLatin1Char('.'))) {
+            rel += QStringLiteral(".md");
+        }
+        // Prefer cached document text (picks up unsaved edits in the editor).
+        if (auto *doc = m_vault->cachedDocument(rel)) {
+            return doc->markdown();
+        }
+        // Fall back to disk read against vault root.
+        const QString abs = m_vault->path() + QLatin1Char('/') + rel;
+        QFile f(abs);
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return QString::fromUtf8(f.readAll());
+        }
+        // Shortest-path resolution when the bare name doesn't match the
+        // root layout — mirrors `VaultResourceProvider::resolveTarget`.
+        const QString filename =
+            rel.mid(rel.lastIndexOf(QLatin1Char('/')) + 1);
+        const auto allNotes = m_vault->allNotes();
+        for (const auto &meta : allNotes) {
+            if (meta.relativePath == filename
+                || meta.relativePath.endsWith(QLatin1Char('/') + filename)) {
+                if (auto *doc = m_vault->cachedDocument(meta.relativePath)) {
+                    return doc->markdown();
+                }
+                QFile alt(m_vault->path() + QLatin1Char('/')
+                          + meta.relativePath);
+                if (alt.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                    return QString::fromUtf8(alt.readAll());
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
+    QUrl resolveWikiLink(const QString &target) const override
+    {
+        if (!m_vault) return {};
+        return QUrl::fromLocalFile(m_vault->path() + QLatin1Char('/') + target);
+    }
+
+    bool wikiLinkExists(const QString &target) const override
+    {
+        return m_vault ? m_vault->noteExists(target) : false;
+    }
+
+private:
+    VaultModel *m_vault;
+};
+
+} // namespace
+
 MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     : CorbomiteMDI::MainWindow(parent)
     , m_vaultService(vaultService)
@@ -105,6 +193,17 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     m_hoverPopover = new HoverPopover(this);
     m_hoverPopover->setNoteService(m_vaultService->noteService());
 
+    // Cluster J Phase 6 — construct the embed registry + renderer eagerly
+    // so HoverPopover can swap to the rich-render path. Resources are
+    // null until a vault opens; built-in factories register up-front
+    // because the registry's lifetime spans every vault open/close cycle.
+    m_embedRegistry = std::make_unique<Corbomite::Core::EmbedRegistry>();
+    m_embedRenderer = std::make_unique<Corbomite::ReadingView::EmbedRenderer>(
+        m_embedRegistry.get(), /*cache=*/nullptr, /*resources=*/nullptr);
+    Corbomite::ReadingView::registerBuiltinEmbedFactories(*m_embedRegistry,
+                                                          *m_embedRenderer);
+    m_hoverPopover->setEmbedRenderer(m_embedRenderer.get());
+
     // Cluster H Phase 3 — built-in EditorSuggesters. Insertion order matters
     // (first-non-null-onTrigger-wins per audit); built-ins go first so they
     // shadow any future plugin overrides of `[[` / `#`.
@@ -134,6 +233,19 @@ MainWindow::~MainWindow()
     delete m_sessionManager;
     m_sessionManager = nullptr;
 
+    // Cluster J Phase 6 — clear renderer back-pointers before tearing down
+    // the cache + popover resources. EmbedRenderer holds raw pointers to
+    // both; HoverPopover (owned by `this`) holds a raw pointer to the
+    // renderer, so the renderer must outlive the popover. unique_ptr
+    // destruction order in the member list runs in reverse declaration
+    // order, but tear them down explicitly here to be safe.
+    if (m_embedRenderer) {
+        m_embedRenderer->setMetadataCache(nullptr);
+        m_embedRenderer->setResources(nullptr);
+    }
+    if (m_hoverPopover) m_hoverPopover->setEmbedRenderer(nullptr);
+    m_popoverResources.reset();
+
     // Close MetadataCache cleanly (flushes persistence) before destroying
     // dependent objects. SQLiteIndex subscribes to its signals, so close
     // the cache first.
@@ -152,6 +264,11 @@ MainWindow::~MainWindow()
 
     delete m_commandRegistry;
     m_commandRegistry = nullptr;
+
+    // Cluster J Phase 6 — embed renderer + registry destroyed last so the
+    // earlier popover/registry-cleared-pointer dance can't dangle.
+    m_embedRenderer.reset();
+    m_embedRegistry.reset();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -906,6 +1023,16 @@ void MainWindow::onVaultOpened()
     delete m_metadataCache;
     m_metadataCache = new MetadataCache(*m_linkResolver, this);
 
+    // Cluster J Phase 6 — point the embed renderer at the now-open vault.
+    // The HoverPopover already holds the renderer pointer; updating cache
+    // + resources here means subsequent hover-link previews resolve
+    // against this vault.
+    m_popoverResources = std::make_unique<VaultScopedResources>(vault);
+    if (m_embedRenderer) {
+        m_embedRenderer->setMetadataCache(m_metadataCache);
+        m_embedRenderer->setResources(m_popoverResources.get());
+    }
+
     delete m_searchIndex;
     m_searchIndex = new SQLiteIndex(this);
     m_searchIndex->open(vault->configPath() + QStringLiteral("/index.sqlite"));
@@ -1170,6 +1297,15 @@ void MainWindow::onVaultClosed()
     m_localGraphPanel->setCurrentNote(nullptr);
     m_propertiesPanel->setCurrentNote(nullptr);
     m_propertiesPanel->setMetadataCache(nullptr);
+
+    // Cluster J Phase 6 — drop renderer pointers into the cache + resources
+    // BEFORE the cache + resources are torn down (the embed renderer holds
+    // raw pointers and will dereference them on the next preview).
+    if (m_embedRenderer) {
+        m_embedRenderer->setMetadataCache(nullptr);
+        m_embedRenderer->setResources(nullptr);
+    }
+    m_popoverResources.reset();
 
     // Close MetadataCache (flushes persistent store) BEFORE deleting the
     // SQLiteIndex — the index subscribes to cache signals and must not

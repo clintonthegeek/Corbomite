@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "HoverPopover.h"
 
+#include "corbomite/core/EmbedRegistry.h"
+#include "corbomite/core/MarkdownRenderChild.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/models/NoteService.h"
+#include "corbomite/readingview/EmbedRenderer.h"
+#include "corbomite/readingview/ReadingView.h"
 
 #include <QApplication>
 #include <QGraphicsDropShadowEffect>
 #include <QKeyEvent>
-#include <QTextBrowser>
 #include <QVBoxLayout>
 
 namespace Corbomite {
@@ -16,7 +19,24 @@ namespace {
 constexpr int kHoverDelayMs = 300;   // audit: ui-bundle.md §7
 constexpr int kPopoverWidth = 380;
 constexpr int kPopoverMaxHeight = 280;
+
+/// Split a hover-link target into `(path, subpath)`. The first `#`
+/// character separates the file path from the wikilink subpath; the
+/// `#` is preserved on the subpath portion so callers can detect
+/// `#^block` vs `#heading` discriminator. Mirrors the
+/// `splitWikiEmbed` shape inside `EmbedRenderer.cpp`.
+void splitTarget(const QString &raw, QString *path, QString *subpath)
+{
+    const int hash = raw.indexOf(QLatin1Char('#'));
+    if (hash >= 0) {
+        *path = raw.left(hash);
+        *subpath = raw.mid(hash);
+    } else {
+        *path = raw;
+        subpath->clear();
+    }
 }
+} // namespace
 
 HoverPopover::HoverPopover(QWidget *parent)
     : QFrame(parent, Qt::ToolTip | Qt::FramelessWindowHint)
@@ -37,20 +57,34 @@ HoverPopover::HoverPopover(QWidget *parent)
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(0);
 
-    m_browser = new QTextBrowser(this);
-    m_browser->setFrameShape(QFrame::NoFrame);
-    m_browser->setOpenLinks(false);
-    m_browser->setFocusPolicy(Qt::NoFocus);
-    layout->addWidget(m_browser);
+    // Cluster J Phase 6 — the preview is now a real ReadingView. Math,
+    // mermaid, syntax highlighting, wiki-links, and images all render
+    // in-place via the same pipeline used by Reading mode.
+    m_view = new Corbomite::ReadingView::ReadingView(this);
+    m_view->setFocusPolicy(Qt::NoFocus);
+    m_view->setFrameShape(QFrame::NoFrame);
+    layout->addWidget(m_view);
 
     m_delayTimer.setSingleShot(true);
     m_delayTimer.setInterval(kHoverDelayMs);
     connect(&m_delayTimer, &QTimer::timeout, this, &HoverPopover::showNow);
 }
 
+HoverPopover::~HoverPopover() = default;
+
 void HoverPopover::setNoteService(NoteService *service)
 {
     m_noteService = service;
+}
+
+void HoverPopover::setEmbedRenderer(Corbomite::ReadingView::EmbedRenderer *renderer)
+{
+    m_embedRenderer = renderer;
+}
+
+Corbomite::ReadingView::ReadingView *HoverPopover::readingViewForTest() const
+{
+    return m_view;
 }
 
 void HoverPopover::scheduleShow(const QString &target, const QPoint &anchor)
@@ -82,19 +116,41 @@ void HoverPopover::showNow()
 
 void HoverPopover::renderTarget(const QString &target)
 {
+    if (!m_view) return;
+
+    QString path;
+    QString subpath;
+    splitTarget(target, &path, &subpath);
+
+    // Cluster J Phase 6 — preferred path: route through EmbedRenderer.
+    // The renderer handles depth-guard, recursive `![[...]]` expansion,
+    // image-shim conversion (`![[foo.png]]` → `![](foo.png)`), and
+    // heading / `#^block` subpath slicing via MetadataCache. The
+    // expanded markdown is then fed to the embedded ReadingView, which
+    // owns math / mermaid / syntax-highlighting render via Phase 5's
+    // built-in CodeBlockProcessorRegistry registrations.
+    if (m_embedRenderer) {
+        Corbomite::Core::EmbedRequest req{path, subpath, nullptr, /*depth=*/1};
+        auto child = m_embedRenderer->render(req);
+        if (child) {
+            m_view->setPlainText(child->renderedText());
+            return;
+        }
+    }
+
+    // Legacy fallback — pre-Phase-6 path used when no EmbedRenderer is
+    // wired (defensive; happens only in test harnesses or before the
+    // first vault opens). Strips subpath; renders raw markdown only.
     if (!m_noteService) {
-        m_browser->setPlainText(target);
+        m_view->setPlainText(target);
         return;
     }
-    auto *doc = m_noteService->openNote(target);
+    auto *doc = m_noteService->openNote(path);
     if (!doc) {
-        m_browser->setPlainText(QStringLiteral("(unresolved: %1)").arg(target));
+        m_view->setPlainText(QStringLiteral("(unresolved: %1)").arg(target));
         return;
     }
-    // Qt's built-in markdown renderer is adequate for a small preview; the
-    // full Markoff::ReadingView replacement is spec'd in
-    // libs/markoff/docs/specs/2026-04-02-markoff-public-api-design.md.
-    m_browser->setMarkdown(doc->markdown());
+    m_view->setPlainText(doc->markdown());
 }
 
 void HoverPopover::leaveEvent(QEvent *event)

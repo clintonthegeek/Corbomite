@@ -91,3 +91,26 @@ add_test(NAME tst_note_editor_widget_mode_transition
 set_tests_properties(tst_note_editor_widget_mode_transition PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+# Cluster J Phase 6 — HoverPopover renders rich content via EmbedRenderer.
+# The popover is part of CorbomiteApp, but the test only exercises a small
+# rendering surface; it pulls the .cpp/.h directly to keep link surface
+# small (HoverPopover only depends on Core, ReadingView, and Models).
+add_executable(tst_hover_popover_render
+    tst_hover_popover_render.cpp
+    ${CMAKE_SOURCE_DIR}/src/editor/HoverPopover.cpp
+)
+target_include_directories(tst_hover_popover_render PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(tst_hover_popover_render PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Corbomite::Core
+    Corbomite::Models
+    Corbomite::ReadingView
+)
+add_test(NAME tst_hover_popover_render COMMAND tst_hover_popover_render)
+set_tests_properties(tst_hover_popover_render PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)

@@ -6,7 +6,10 @@
 #include <QString>
 #include <QTimer>
 
-class QTextBrowser;
+namespace Corbomite::ReadingView {
+class EmbedRenderer;
+class ReadingView;
+} // namespace Corbomite::ReadingView
 
 namespace Corbomite {
 
@@ -21,19 +24,29 @@ class NoteService;
 //   (2) the hover-link signal carries (sourceId, target, anchor),
 //   (3) HoverPopover (this widget) mounts at the cursor and renders content.
 //
-// Content is rendered into a QTextBrowser via Qt's built-in
-// QTextDocument::setMarkdown — adequate for a small preview. Future work
-// (Cluster J + the Markoff::ReadingView spec) replaces the text browser
-// with a full Markoff::ReadingView.
+// Cluster J Phase 6 (2026-04-15) — content is now rendered via
+// `Corbomite::ReadingView::EmbedRenderer` into an embedded
+// `Corbomite::ReadingView::ReadingView`. Math, mermaid, wiki-links, images,
+// and nested embeds all Just Work in previews. Anchoring is still
+// `QCursor::pos()`; rect-based anchoring (`hoveredLinkRect()`) is a named
+// Markoff-API follow-up outside Cluster J's scope.
 class HoverPopover : public QFrame {
     Q_OBJECT
 
 public:
     explicit HoverPopover(QWidget *parent = nullptr);
+    ~HoverPopover() override;
 
     // Set the NoteService used to look up target paths → markdown bodies.
-    // Required before showForLink() can render anything.
+    // Required for the legacy fallback path when no EmbedRenderer is wired.
     void setNoteService(NoteService *service);
+
+    // Cluster J Phase 6 — supply the per-vault `EmbedRenderer`. When set,
+    // `renderTarget` routes through `EmbedRenderer::render` so math /
+    // mermaid / wiki-links / images / nested embeds all render in the
+    // preview. Caller retains ownership; pass `nullptr` to clear (e.g.,
+    // on vault close).
+    void setEmbedRenderer(Corbomite::ReadingView::EmbedRenderer *renderer);
 
     // Schedule a popover for `target`. Cancels any pending show; if the
     // hover is still active 300ms later, the popover appears at `anchor`
@@ -45,6 +58,11 @@ public:
     // away from the popover.
     void cancel();
 
+    // Test hook — returns the embedded ReadingView so integration tests
+    // can assert the preview contains the expected sections / shapes.
+    // Returns nullptr until the widget is fully constructed.
+    Corbomite::ReadingView::ReadingView *readingViewForTest() const;
+
 protected:
     void leaveEvent(QEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
@@ -53,8 +71,9 @@ private:
     void showNow();
     void renderTarget(const QString &target);
 
-    QTextBrowser *m_browser = nullptr;
+    Corbomite::ReadingView::ReadingView *m_view = nullptr;
     NoteService *m_noteService = nullptr;
+    Corbomite::ReadingView::EmbedRenderer *m_embedRenderer = nullptr;
     QTimer m_delayTimer;
     QString m_pendingTarget;
     QPoint m_pendingAnchor;
