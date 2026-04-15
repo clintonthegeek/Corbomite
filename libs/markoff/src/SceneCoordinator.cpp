@@ -349,7 +349,8 @@ void SceneCoordinator::repositionItems()
     for (auto *item : m_items) {
         QGraphicsItem *gi = item->asGraphicsItem();
         gi->setPos(m_leftMargin, y);
-        y += gi->boundingRect().height() + m_spacing;
+        if (gi->isVisible())
+            y += gi->boundingRect().height() + m_spacing;
     }
     m_scene->setSceneRect(0, 0, m_leftMargin + m_itemWidth + m_leftMargin, y + m_topMargin);
 }
