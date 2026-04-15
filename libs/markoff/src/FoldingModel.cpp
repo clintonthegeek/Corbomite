@@ -19,9 +19,25 @@ QList<FoldRegionKey> FoldingModel::foldedPaths() const {
 
 QList<FoldRegionKey> FoldingModel::allPaths() const {
     QList<FoldRegionKey> r;
-    r.reserve(m_headings.size());
-    for (const auto &h : m_headings) r << h.path;
+    r.reserve(m_regions.size());
+    for (const auto &reg : m_regions) r << reg.path;
     return r;
+}
+
+QList<FoldingModel::HeadingEntry> FoldingModel::headings() const {
+    QList<HeadingEntry> out;
+    for (const auto &r : m_regions)
+        if (r.type == FoldableRegion::Heading)
+            out.append({ r.path, r.info });
+    return out;
+}
+
+QList<FoldableRegion> FoldingModel::codeBlockRegions() const {
+    QList<FoldableRegion> out;
+    for (const auto &r : m_regions)
+        if (r.type == FoldableRegion::CodeBlock)
+            out.append(r);
+    return out;
 }
 
 bool FoldingModel::isHiddenByFold(const FoldRegionKey &path) const {
@@ -51,8 +67,8 @@ void FoldingModel::toggle(const FoldRegionKey &path) {
 
 void FoldingModel::foldAll() {
     bool changed = false;
-    for (const auto &h : m_headings) {
-        if (!m_folded.contains(h.path)) { m_folded.insert(h.path); changed = true; }
+    for (const auto &r : m_regions) {
+        if (!m_folded.contains(r.path)) { m_folded.insert(r.path); changed = true; }
     }
     if (changed) emit foldStateChanged();
 }
@@ -65,10 +81,10 @@ void FoldingModel::unfoldAll() {
 
 void FoldingModel::foldAllAtLevel(int level) {
     bool changed = false;
-    for (const auto &h : m_headings) {
-        if (h.info.level == level && !m_folded.contains(h.path)) {
-            m_folded.insert(h.path);
-            changed = true;
+    for (const auto &r : m_regions) {
+        if (r.type == FoldableRegion::Heading && r.level == level
+            && !m_folded.contains(r.path)) {
+            m_folded.insert(r.path); changed = true;
         }
     }
     if (changed) emit foldStateChanged();
@@ -76,10 +92,10 @@ void FoldingModel::foldAllAtLevel(int level) {
 
 void FoldingModel::unfoldAllAtLevel(int level) {
     bool changed = false;
-    for (const auto &h : m_headings) {
-        if (h.info.level == level && m_folded.contains(h.path)) {
-            m_folded.remove(h.path);
-            changed = true;
+    for (const auto &r : m_regions) {
+        if (r.type == FoldableRegion::Heading && r.level == level
+            && m_folded.contains(r.path)) {
+            m_folded.remove(r.path); changed = true;
         }
     }
     if (changed) emit foldStateChanged();
@@ -87,10 +103,10 @@ void FoldingModel::unfoldAllAtLevel(int level) {
 
 void FoldingModel::foldLevel(int n) {
     bool changed = false;
-    for (const auto &h : m_headings) {
-        if (h.info.level >= n && !m_folded.contains(h.path)) {
-            m_folded.insert(h.path);
-            changed = true;
+    for (const auto &r : m_regions) {
+        if (r.type == FoldableRegion::Heading && r.level >= n
+            && !m_folded.contains(r.path)) {
+            m_folded.insert(r.path); changed = true;
         }
     }
     if (changed) emit foldStateChanged();
@@ -98,14 +114,63 @@ void FoldingModel::foldLevel(int n) {
 
 void FoldingModel::unfoldLevel(int n) {
     bool changed = false;
-    for (const auto &h : m_headings) {
-        if (h.info.level >= n && m_folded.contains(h.path)) {
-            m_folded.remove(h.path);
-            changed = true;
+    for (const auto &r : m_regions) {
+        if (r.type == FoldableRegion::Heading && r.level >= n
+            && m_folded.contains(r.path)) {
+            m_folded.remove(r.path); changed = true;
         }
     }
     if (changed) emit foldStateChanged();
 }
+
+void FoldingModel::foldAllCodeBlocks() {
+    bool changed = false;
+    for (const auto &r : m_regions) {
+        if (r.type == FoldableRegion::CodeBlock && !m_folded.contains(r.path)) {
+            m_folded.insert(r.path); changed = true;
+        }
+    }
+    if (changed) emit foldStateChanged();
+}
+
+void FoldingModel::unfoldAllCodeBlocks() {
+    bool changed = false;
+    for (const auto &r : m_regions) {
+        if (r.type == FoldableRegion::CodeBlock && m_folded.contains(r.path)) {
+            m_folded.remove(r.path); changed = true;
+        }
+    }
+    if (changed) emit foldStateChanged();
+}
+
+void FoldingModel::foldAllCodeBlocksInSection(const FoldRegionKey &sectionPath) {
+    bool changed = false;
+    for (const auto &r : m_regions) {
+        if (r.type != FoldableRegion::CodeBlock) continue;
+        // A code block is "in section" iff its path-prefix (all but the last
+        // segment) equals sectionPath.
+        if (r.path.size() <= 1) continue;
+        const QStringList prefix = r.path.mid(0, r.path.size() - 1);
+        if (prefix == sectionPath && !m_folded.contains(r.path)) {
+            m_folded.insert(r.path); changed = true;
+        }
+    }
+    if (changed) emit foldStateChanged();
+}
+
+void FoldingModel::unfoldAllCodeBlocksInSection(const FoldRegionKey &sectionPath) {
+    bool changed = false;
+    for (const auto &r : m_regions) {
+        if (r.type != FoldableRegion::CodeBlock) continue;
+        if (r.path.size() <= 1) continue;
+        const QStringList prefix = r.path.mid(0, r.path.size() - 1);
+        if (prefix == sectionPath && m_folded.contains(r.path)) {
+            m_folded.remove(r.path); changed = true;
+        }
+    }
+    if (changed) emit foldStateChanged();
+}
+
 QJsonObject FoldingModel::serialize() const {
     QJsonArray folds;
     for (const auto &p : m_folded) {
@@ -139,18 +204,12 @@ void FoldingModel::restore(const QJsonObject &obj) {
 
     if (prev != m_folded) emit foldStateChanged();
 }
-void FoldingModel::reconcile(const QList<HeadingInfo> &newHeadings) {
-    // 1. Rebuild heading cache with paths.
-    const auto paths = computeHeadingPaths(newHeadings);
-    m_headings.clear();
-    m_headings.reserve(newHeadings.size());
-    QSet<FoldRegionKey> newPathSet;
-    for (int i = 0; i < newHeadings.size(); ++i) {
-        m_headings.append({ paths[i], newHeadings[i] });
-        newPathSet.insert(paths[i]);
-    }
 
-    // 2. Intersect folded set with newPathSet.
+void FoldingModel::reconcile(const QList<FoldableRegion> &newRegions) {
+    m_regions = newRegions;
+    QSet<FoldRegionKey> newPathSet;
+    for (const auto &r : m_regions) newPathSet.insert(r.path);
+
     const auto prev = m_folded;
     auto it = m_folded.begin();
     while (it != m_folded.end()) {
@@ -158,6 +217,21 @@ void FoldingModel::reconcile(const QList<HeadingInfo> &newHeadings) {
         else ++it;
     }
     if (prev != m_folded) emit foldStateChanged();
+}
+
+void FoldingModel::setHeadingsForTesting(QList<HeadingEntry> h) {
+    QList<FoldableRegion> regions;
+    regions.reserve(h.size());
+    for (const auto &entry : h) {
+        FoldableRegion r;
+        r.type = FoldableRegion::Heading;
+        r.path = entry.path;
+        r.info = entry.info;
+        r.level = entry.info.level;
+        r.sourceOffset = entry.info.sourceOffset;
+        regions.append(r);
+    }
+    m_regions = std::move(regions);
 }
 
 QList<FoldRegionKey> FoldingModel::unfoldAncestors(const FoldRegionKey &path) {
