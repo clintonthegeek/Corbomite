@@ -7,9 +7,10 @@
 namespace Markoff {
 
 void FoldArrowColumn::paintCell(QPainter *p, const QRect &rect, int idx) {
-    if (idx < 0 || idx >= m_model->headings().size()) return;
-    const auto &entry = m_model->headings()[idx];
-    const bool folded = m_model->isFolded(entry.path);
+    const auto &regions = m_model->regions();
+    if (idx < 0 || idx >= regions.size()) return;
+    const auto &r = regions[idx];
+    const bool folded = m_model->isFolded(r.path);
 
     // 7px triangle centered in the 16px cell. Adapted from
     // ~/src/kde/src/ktexteditor/src/view/kateviewhelpers.cpp:2194.
@@ -37,22 +38,41 @@ void FoldArrowColumn::paintCell(QPainter *p, const QRect &rect, int idx) {
     p->restore();
 }
 
-bool FoldArrowColumn::handleClick(QPoint, int idx, Qt::KeyboardModifiers mods) {
-    if (idx < 0 || idx >= m_model->headings().size()) return false;
-    const auto &entry = m_model->headings()[idx];
+bool FoldArrowColumn::handleClick(QPoint, int idx, Qt::KeyboardModifiers mods)
+{
+    const auto &regions = m_model->regions();
+    if (idx < 0 || idx >= regions.size()) return false;
+    const auto &r = regions[idx];
+
     if (mods & Qt::ControlModifier) {
-        const int level = entry.info.level;
-        // Toggle: if all at this level already folded, unfold them; else fold.
-        bool allFolded = true;
-        for (const auto &h : m_model->headings()) {
-            if (h.info.level == level && !m_model->isFolded(h.path)) {
-                allFolded = false; break;
+        if (r.type == FoldableRegion::Heading) {
+            const int level = r.level;
+            bool allFolded = true;
+            for (const auto &h : regions) {
+                if (h.type == FoldableRegion::Heading && h.level == level
+                    && !m_model->isFolded(h.path)) { allFolded = false; break; }
+            }
+            if (allFolded) m_model->unfoldAllAtLevel(level);
+            else m_model->foldAllAtLevel(level);
+        } else { // CodeBlock
+            if (r.path.size() <= 1) {
+                // Preamble code block — fall back to individual toggle.
+                m_model->toggle(r.path);
+            } else {
+                const FoldRegionKey sectionPath = r.path.mid(0, r.path.size() - 1);
+                bool allFolded = true;
+                for (const auto &cb : regions) {
+                    if (cb.type != FoldableRegion::CodeBlock) continue;
+                    if (cb.path.size() <= 1) continue;
+                    if (cb.path.mid(0, cb.path.size() - 1) != sectionPath) continue;
+                    if (!m_model->isFolded(cb.path)) { allFolded = false; break; }
+                }
+                if (allFolded) m_model->unfoldAllCodeBlocksInSection(sectionPath);
+                else m_model->foldAllCodeBlocksInSection(sectionPath);
             }
         }
-        if (allFolded) m_model->unfoldAllAtLevel(level);
-        else m_model->foldAllAtLevel(level);
     } else {
-        m_model->toggle(entry.path);
+        m_model->toggle(r.path);
     }
     return true;
 }
