@@ -824,20 +824,27 @@ int SceneCoordinator::regionIndexAtSceneY(qreal sceneY) const
         auto *mti = dynamic_cast<MarkdownTextItem *>(m_items[itemIdx]);
         if (mti) {
             QGraphicsItem *gi = mti->asGraphicsItem();
-            if (!gi) continue;
+            if (!gi || !gi->isVisible()) continue;
             const qreal itemSceneY = gi->scenePos().y();
 
+            QAbstractTextDocumentLayout *docLayout = mti->document()->documentLayout();
             QTextBlock block = mti->document()->begin();
             while (block.isValid()) {
                 const int regionIdx = regionAtBlock(itemIdx, block.blockNumber());
-                if (regionIdx >= 0) {
-                    QTextLayout *layout = block.layout();
-                    qreal blockTop = itemSceneY;
-                    qreal blockHeight = 16.0;
-                    if (layout) {
-                        blockTop = itemSceneY + layout->position().y();
-                        if (layout->lineCount() > 0)
-                            blockHeight = layout->boundingRect().height();
+                if (regionIdx >= 0 && block.isVisible()) {
+                    // Use the document layout's blockBoundingRect for reliable
+                    // height (layout->boundingRect() can return undersized values
+                    // after block-visibility changes).
+                    const QRectF br = docLayout->blockBoundingRect(block);
+                    const qreal blockTop = itemSceneY + br.top();
+                    const qreal blockHeight = br.height() > 0 ? br.height() : 16.0;
+                    if (foldDebugEnabled()) {
+                        qDebug() << "[regionIndexAtSceneY] MTI itemIdx=" << itemIdx
+                                 << "block=" << block.blockNumber()
+                                 << "regionIdx=" << regionIdx
+                                 << "blockTop=" << blockTop
+                                 << "blockHeight=" << blockHeight
+                                 << "sceneY=" << sceneY;
                     }
                     if (sceneY >= blockTop && sceneY < blockTop + blockHeight)
                         return regionIdx;
@@ -845,12 +852,19 @@ int SceneCoordinator::regionIndexAtSceneY(qreal sceneY) const
                 block = block.next();
             }
         } else {
-            // Non-MTI item (e.g. code block via TableBlockItem): match by bounding rect.
+            // Non-MTI item (e.g. table or image via TableBlockItem/ImageBlockItem):
+            // match by bounding rect, but only if the item is visible.
             const int regionIdx = regionAtBlock(itemIdx, 0);
             if (regionIdx >= 0) {
                 QGraphicsItem *gi = m_items[itemIdx]->asGraphicsItem();
-                if (gi) {
+                if (gi && gi->isVisible()) {
                     const QRectF r = gi->sceneBoundingRect();
+                    if (foldDebugEnabled()) {
+                        qDebug() << "[regionIndexAtSceneY] non-MTI itemIdx=" << itemIdx
+                                 << "regionIdx=" << regionIdx
+                                 << "r.top=" << r.top() << "r.bottom=" << r.bottom()
+                                 << "sceneY=" << sceneY;
+                    }
                     if (sceneY >= r.top() && sceneY < r.bottom())
                         return regionIdx;
                 }
@@ -871,11 +885,13 @@ qreal SceneCoordinator::regionSceneY(int regionIndex) const
             if (!gi) continue;
             const qreal itemSceneY = gi->scenePos().y();
 
+            QAbstractTextDocumentLayout *docLayout = mti->document()->documentLayout();
             QTextBlock block = mti->document()->begin();
             while (block.isValid()) {
-                if (regionAtBlock(itemIdx, block.blockNumber()) == regionIndex) {
-                    QTextLayout *layout = block.layout();
-                    return layout ? itemSceneY + layout->position().y() : itemSceneY;
+                if (regionAtBlock(itemIdx, block.blockNumber()) == regionIndex
+                        && block.isVisible()) {
+                    const QRectF br = docLayout->blockBoundingRect(block);
+                    return itemSceneY + br.top();
                 }
                 block = block.next();
             }
