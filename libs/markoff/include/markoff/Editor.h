@@ -135,6 +135,14 @@ public:
     /// Test-only accessor. Do not use from host code.
     SceneCoordinator *coordinatorForTesting() const { return m_coordinator; }
 
+    /// Test-only: simulate a plain left-click on the fold gutter at scene-Y
+    /// coordinate sceneY, with the given keyboard modifiers.
+    /// Returns true if a region was found at that Y and a column handled the
+    /// click. Bypasses mouse event dispatch (no scene hit-test) but uses the
+    /// real regionIndexAtSceneY + column handleClick path.
+    bool gutterClickAtSceneY(qreal sceneY,
+                             Qt::KeyboardModifiers mods = Qt::NoModifier);
+
 Q_SIGNALS:
     void textChanged();
     void cursorPositionChanged(int line, int column);

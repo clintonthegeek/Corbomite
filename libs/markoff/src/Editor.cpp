@@ -1422,4 +1422,15 @@ bool Editor::isGutterVisible() const
     return m_gutterVisible;
 }
 
+bool Editor::gutterClickAtSceneY(qreal sceneY, Qt::KeyboardModifiers mods)
+{
+    if (!m_foldGutter || !m_coordinator) return false;
+    const int regionIdx = m_coordinator->regionIndexAtSceneY(sceneY);
+    if (regionIdx < 0) return false;
+    // Route through the gutter's handleMouseClickForTesting using column 0
+    // (the FoldArrowColumn). We use x=8 to land in the center of the 16px column.
+    return m_foldGutter->handleMouseClickForTesting(QPoint(8, static_cast<int>(sceneY)),
+                                                    regionIdx, mods);
+}
+
 } // namespace Markoff
