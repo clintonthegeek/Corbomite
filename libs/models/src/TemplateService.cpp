@@ -2,11 +2,13 @@
 #include "corbomite/models/TemplateService.h"
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/storage/VaultConfig.h"
+#include "corbomite/core/MomentFormatter.h"
 
-#include <QDate>
+#include <QDateTime>
 #include <QDir>
+#include <QJsonObject>
 #include <QRegularExpression>
-#include <QTime>
 
 namespace Corbomite {
 
@@ -31,9 +33,19 @@ void TemplateService::setDefaultDateFormat(const QString &format)
     m_dateFormat = format;
 }
 
+QString TemplateService::defaultDateFormat() const
+{
+    return m_dateFormat;
+}
+
 void TemplateService::setDefaultTimeFormat(const QString &format)
 {
     m_timeFormat = format;
+}
+
+QString TemplateService::defaultTimeFormat() const
+{
+    return m_timeFormat;
 }
 
 QStringList TemplateService::availableTemplates() const
@@ -53,38 +65,67 @@ QStringList TemplateService::availableTemplates() const
 }
 
 QString TemplateService::expandTemplate(const QString &templateContent,
-                                         const QString &noteTitle) const
+                                        const QString &noteTitle,
+                                        const QString &folder) const
 {
     QString result = templateContent;
-    QDate today = QDate::currentDate();
-    QTime now = QTime::currentTime();
 
-    // {{title}}
+    // {{title}} — note title passthrough
     result.replace(QStringLiteral("{{title}}"), noteTitle);
 
-    // {{date}} — default format
-    result.replace(QStringLiteral("{{date}}"), today.toString(m_dateFormat));
+    // {{folder}} — caller-provided folder context
+    result.replace(QStringLiteral("{{folder}}"), folder);
 
-    // {{time}} — default format
-    result.replace(QStringLiteral("{{time}}"), now.toString(m_timeFormat));
+    // Note: {{cursor}} is deliberately NOT substituted here. The marker is
+    // preserved verbatim; consumers (MainWindow::insertTemplate) locate it
+    // post-insertion and position the editor cursor there before stripping
+    // the marker from the note body.
 
-    // {{date:FORMAT}} — custom date format
-    static const QRegularExpression datePattern(QStringLiteral(R"(\{\{date:([^}]+)\}\})"));
-    auto dateIt = datePattern.globalMatch(result);
-    while (dateIt.hasNext()) {
-        auto match = dateIt.next();
-        result.replace(match.captured(0), today.toString(match.captured(1)));
+    const QDateTime now = QDateTime::currentDateTime();
+
+    // {{date:FORMAT}} — explicit Moment.js-token format
+    static const QRegularExpression dateWithFormat(
+        QStringLiteral(R"(\{\{date:([^}]+)\}\})"));
+    {
+        auto it = dateWithFormat.globalMatch(result);
+        QString tmp = result;
+        while (it.hasNext()) {
+            auto match = it.next();
+            const QString fmt = match.captured(1);
+            const QString formatted = Corbomite::MomentFormatter::format(now, fmt);
+            tmp.replace(match.captured(0), formatted);
+        }
+        result = tmp;
     }
 
-    // {{time:FORMAT}} — custom time format
-    static const QRegularExpression timePattern(QStringLiteral(R"(\{\{time:([^}]+)\}\})"));
-    auto timeIt = timePattern.globalMatch(result);
-    while (timeIt.hasNext()) {
-        auto match = timeIt.next();
-        result.replace(match.captured(0), now.toString(match.captured(1)));
+    // {{time:FORMAT}} — explicit Moment.js-token format
+    static const QRegularExpression timeWithFormat(
+        QStringLiteral(R"(\{\{time:([^}]+)\}\})"));
+    {
+        auto it = timeWithFormat.globalMatch(result);
+        QString tmp = result;
+        while (it.hasNext()) {
+            auto match = it.next();
+            const QString fmt = match.captured(1);
+            const QString formatted = Corbomite::MomentFormatter::format(now, fmt);
+            tmp.replace(match.captured(0), formatted);
+        }
+        result = tmp;
     }
+
+    // {{date}} and {{time}} with configured defaults
+    result.replace(QStringLiteral("{{date}}"),
+                   Corbomite::MomentFormatter::format(now, m_dateFormat));
+    result.replace(QStringLiteral("{{time}}"),
+                   Corbomite::MomentFormatter::format(now, m_timeFormat));
 
     return result;
+}
+
+QString TemplateService::expandTemplate(const QString &templateContent,
+                                        const QString &noteTitle) const
+{
+    return expandTemplate(templateContent, noteTitle, QString{});
 }
 
 QString TemplateService::loadAndExpand(const QString &templateName,
@@ -101,6 +142,25 @@ QString TemplateService::loadAndExpand(const QString &templateName,
     if (!content.has_value()) return {};
 
     return expandTemplate(content.value(), noteTitle);
+}
+
+void TemplateService::initFromVaultConfig(Corbomite::VaultConfig &config)
+{
+    const auto json = config.readTemplatesJson();
+    if (!json) {
+        // No vault override; caller's earlier setters / KConfig defaults stand.
+        return;
+    }
+    const QJsonObject &obj = *json;
+    if (obj.contains(QStringLiteral("folder"))) {
+        setTemplateFolder(obj.value(QStringLiteral("folder")).toString());
+    }
+    if (obj.contains(QStringLiteral("date_format"))) {
+        setDefaultDateFormat(obj.value(QStringLiteral("date_format")).toString());
+    }
+    if (obj.contains(QStringLiteral("time_format"))) {
+        setDefaultTimeFormat(obj.value(QStringLiteral("time_format")).toString());
+    }
 }
 
 } // namespace Corbomite

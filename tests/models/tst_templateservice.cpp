@@ -4,9 +4,15 @@
 #include <QDir>
 #include <QFile>
 #include <QDate>
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTime>
+#include "corbomite/core/MomentFormatter.h"
 #include "corbomite/models/TemplateService.h"
 #include "corbomite/models/VaultModel.h"
+#include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/storage/VaultConfig.h"
 
 class TestTemplateService : public QObject {
     Q_OBJECT
@@ -34,7 +40,10 @@ private Q_SLOTS:
         Corbomite::TemplateService service(nullptr);
         QString result = service.expandTemplate(
             QStringLiteral("Date: {{date}}"), QStringLiteral("Note"));
-        QString expected = QStringLiteral("Date: ") + QDate::currentDate().toString(QStringLiteral("yyyy-MM-dd"));
+        // Default date format is Moment tokens "YYYY-MM-DD".
+        QString expected = QStringLiteral("Date: ") +
+            Corbomite::MomentFormatter::format(QDateTime::currentDateTime(),
+                                               QStringLiteral("YYYY-MM-DD"));
         QCOMPARE(result, expected);
     }
 
@@ -52,8 +61,9 @@ private Q_SLOTS:
     {
         Corbomite::TemplateService service(nullptr);
         QString result = service.expandTemplate(
-            QStringLiteral("{{date:dd/MM/yyyy}}"), QStringLiteral("Note"));
-        QString expected = QDate::currentDate().toString(QStringLiteral("dd/MM/yyyy"));
+            QStringLiteral("{{date:DD/MM/YYYY}}"), QStringLiteral("Note"));
+        QString expected = Corbomite::MomentFormatter::format(
+            QDateTime::currentDateTime(), QStringLiteral("DD/MM/YYYY"));
         QCOMPARE(result, expected);
     }
 
@@ -132,6 +142,135 @@ private Q_SLOTS:
         QString result = service.loadAndExpand(QStringLiteral("Test"), QStringLiteral("My Note"));
         QVERIFY(result.startsWith(QStringLiteral("# My Note\n")));
         QVERIFY(!result.contains(QStringLiteral("{{")));
+    }
+
+    // --- Phase 3: Moment tokens, {{folder}}, {{cursor}}, vault config ---
+
+    void testDateFormatUsesMomentTokens()
+    {
+        Corbomite::TemplateService service(nullptr);
+        const QString result = service.expandTemplate(
+            QStringLiteral("{{date:YYYY-MM-DD}}"), QStringLiteral("t"));
+        // Compare to MomentFormatter directly to avoid race-around-midnight.
+        const QString expected = Corbomite::MomentFormatter::format(
+            QDateTime::currentDateTime(), QStringLiteral("YYYY-MM-DD"));
+        QCOMPARE(result, expected);
+    }
+
+    void testTimeFormatUsesMomentTokens()
+    {
+        Corbomite::TemplateService service(nullptr);
+        const QString result = service.expandTemplate(
+            QStringLiteral("{{time:HH:mm}}"), QStringLiteral("t"));
+        const QString expected = Corbomite::MomentFormatter::format(
+            QDateTime::currentDateTime(), QStringLiteral("HH:mm"));
+        QCOMPARE(result, expected);
+    }
+
+    void testFolderPlaceholder()
+    {
+        Corbomite::TemplateService service(nullptr);
+        const QString result = service.expandTemplate(
+            QStringLiteral("{{folder}}/X"),
+            QStringLiteral("note"),
+            QStringLiteral("Daily"));
+        QCOMPARE(result, QStringLiteral("Daily/X"));
+    }
+
+    void testFolderPlaceholderEmptyWithTwoArgOverload()
+    {
+        Corbomite::TemplateService service(nullptr);
+        const QString result = service.expandTemplate(
+            QStringLiteral("{{folder}}/X"), QStringLiteral("note"));
+        QCOMPARE(result, QStringLiteral("/X"));
+    }
+
+    void testCursorPlaceholderPreserved()
+    {
+        Corbomite::TemplateService service(nullptr);
+        const QString result = service.expandTemplate(
+            QStringLiteral("# H\n{{cursor}}\nBody"), QStringLiteral("t"));
+        QVERIFY(result.contains(QStringLiteral("{{cursor}}")));
+    }
+
+    void testInitFromVaultConfigReadsTemplatesJson()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        const QString vaultRoot = tmp.path();
+
+        // Write .obsidian/templates.json
+        QDir().mkpath(vaultRoot + QStringLiteral("/.obsidian"));
+        QJsonObject obj;
+        obj.insert(QStringLiteral("folder"), QStringLiteral("tpl"));
+        obj.insert(QStringLiteral("date_format"), QStringLiteral("YYYY"));
+        obj.insert(QStringLiteral("time_format"), QStringLiteral("HH"));
+        QFile f(vaultRoot + QStringLiteral("/.obsidian/templates.json"));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
+        f.close();
+
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::VaultConfig vc(&fs, vaultRoot);
+
+        Corbomite::TemplateService service(nullptr);
+        service.initFromVaultConfig(vc);
+
+        QCOMPARE(service.templateFolder(), QStringLiteral("tpl"));
+        QCOMPARE(service.defaultDateFormat(), QStringLiteral("YYYY"));
+        QCOMPARE(service.defaultTimeFormat(), QStringLiteral("HH"));
+    }
+
+    void testInitFromVaultConfigFallsBackWhenJsonMissing()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        const QString vaultRoot = tmp.path();
+        QDir().mkpath(vaultRoot + QStringLiteral("/.obsidian"));
+        // No templates.json file.
+
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::VaultConfig vc(&fs, vaultRoot);
+
+        Corbomite::TemplateService service(nullptr);
+        service.setTemplateFolder(QStringLiteral("KEEP_FOLDER"));
+        service.setDefaultDateFormat(QStringLiteral("KEEP_DATE"));
+        service.setDefaultTimeFormat(QStringLiteral("KEEP_TIME"));
+
+        service.initFromVaultConfig(vc);
+
+        QCOMPARE(service.templateFolder(), QStringLiteral("KEEP_FOLDER"));
+        QCOMPARE(service.defaultDateFormat(), QStringLiteral("KEEP_DATE"));
+        QCOMPARE(service.defaultTimeFormat(), QStringLiteral("KEEP_TIME"));
+    }
+
+    void testInitFromVaultConfigPartialKeysOnlyUpdatePresent()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        const QString vaultRoot = tmp.path();
+        QDir().mkpath(vaultRoot + QStringLiteral("/.obsidian"));
+
+        QJsonObject obj;
+        obj.insert(QStringLiteral("folder"), QStringLiteral("tpl"));
+        // No date_format, no time_format.
+        QFile f(vaultRoot + QStringLiteral("/.obsidian/templates.json"));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
+        f.close();
+
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::VaultConfig vc(&fs, vaultRoot);
+
+        Corbomite::TemplateService service(nullptr);
+        service.setDefaultDateFormat(QStringLiteral("OLD"));
+        service.setDefaultTimeFormat(QStringLiteral("OLD_T"));
+
+        service.initFromVaultConfig(vc);
+
+        QCOMPARE(service.templateFolder(), QStringLiteral("tpl"));
+        QCOMPARE(service.defaultDateFormat(), QStringLiteral("OLD"));
+        QCOMPARE(service.defaultTimeFormat(), QStringLiteral("OLD_T"));
     }
 };
 
