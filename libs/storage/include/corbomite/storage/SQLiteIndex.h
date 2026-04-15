@@ -4,15 +4,17 @@
 #include <QHash>
 #include <QObject>
 #include <QPair>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <QVector>
 
+#include "corbomite/storage/CachedMetadata.h"
 #include "corbomite/storage/LinkResolver.h"
 
-class QThread;
-
 namespace Corbomite {
+
+class MetadataCache;
 
 struct SearchMatch {
     QString notePath;
@@ -32,6 +34,20 @@ struct LinkInfo {
     QString subpath;        // "#heading" or "#^block", empty if none
 };
 
+/// SQLite-backed FTS5 + links + tags index.
+///
+/// Cluster I phase 7: this class no longer parses markdown. Instead it
+/// subscribes to `MetadataCache::cacheChanged` / `cacheDeleted` and
+/// derives its FTS / links / tags rows from the already-parsed
+/// `CachedMetadata`. Wire it up with:
+///
+///     index.open(dbPath);
+///     index.setVaultRoot(vaultRoot);
+///     index.setMetadataCache(cache);
+///
+/// Phase 8 will migrate `MainWindow` + the panels onto this wiring and
+/// remove the deprecated write stubs (`rebuildIndex`, `rebuildIndexAsync`,
+/// `indexNote`, `removeNote`, `isRebuilding`, `indexReady`).
 class SQLiteIndex : public QObject {
     Q_OBJECT
 
@@ -42,11 +58,27 @@ public:
     bool open(const QString &dbPath);
     void close();
 
+    /// Set the vault root used when the cache-changed slot reads raw file
+    /// body to populate the FTS `content` column. Must be set before
+    /// MetadataCache starts firing `cacheChanged`.
+    void setVaultRoot(const QString &vaultRoot);
+
+    /// Wire this index to a MetadataCache. Subscribes to `cacheChanged`
+    /// and `cacheDeleted`. Replaces any previous subscription. Passing
+    /// `nullptr` disconnects.
+    void setMetadataCache(MetadataCache *cache);
+
+    // --- DEPRECATED write API (Phase 8 removes) ---
+    // These are kept as no-op stubs so the pre-migration callers in
+    // MainWindow + panels keep compiling. Each stub emits a qWarning.
+
     void rebuildIndex(const QString &vaultRoot);
     void rebuildIndexAsync(const QString &vaultRoot);
     bool isRebuilding() const;
     void indexNote(const QString &relativePath, const QString &title, const QString &content);
     void removeNote(const QString &relativePath);
+
+    // --- Read API (UNCHANGED — consumers rely on these) ---
 
     // Full-text search
     QVector<SearchMatch> search(const QString &query, int maxResults = 100) const;
@@ -77,18 +109,36 @@ public:
                     const QString &vaultRoot);
 
 Q_SIGNALS:
+    /// DEPRECATED — Phase 8 removes this signal. Never fires in Phase 7.
+    /// New consumers must listen to `MetadataCache::indexFinished` instead.
     void indexReady();
+
+private Q_SLOTS:
+    void onMetadataCacheChanged(const QString &path,
+                                const QString &prevHash,
+                                const Corbomite::CachedMetadata &cache);
+    void onMetadataCacheDeleted(const QString &path,
+                                const Corbomite::CachedMetadata &prevCache);
 
 private:
     void createTables();
-    void extractAndInsertLinks(const QString &sourcePath, const QString &content);
-    void extractAndInsertTags(const QString &notePath, const QString &content);
+
+    /// Derive `notes_fts` / `links` / `note_tags` rows from a parsed
+    /// `CachedMetadata` and write them atomically. Deletes any previous
+    /// rows for `path` first (idempotent update).
+    void writeRowsFromCache(const QString &path, const Corbomite::CachedMetadata &cache);
+
+    /// Delete all SQLiteIndex-owned rows for `path`. Called from both
+    /// the cache-changed slot (idempotency on update) and the
+    /// cache-deleted slot.
+    void deleteRowsForPath(const QString &path);
 
     QString m_connectionName;
     QString m_dbPath;
+    QString m_vaultRoot;
     LinkResolver m_resolver;
     bool m_isOpen = false;
-    QThread *m_workerThread = nullptr;
+    QPointer<MetadataCache> m_cache;
 };
 
 } // namespace Corbomite

@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/storage/SQLiteIndex.h"
-#include "corbomite/storage/VaultScanner.h"
-#include "corbomite/storage/FileSystemAdapter.h"
-#include "corbomite/core/NoteMeta.h"
 
+#include "corbomite/storage/CachedMetadata.h"
+#include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/storage/MetadataCache.h"
+
+#include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QRegularExpression>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QUuid>
-#include <QThread>
-#include <QCoreApplication>
-#include <QFileInfo>
-#include <QRegularExpression>
 
 namespace Corbomite {
 
@@ -52,6 +54,29 @@ void SQLiteIndex::close()
         m_isOpen = false;
     }
     QSqlDatabase::removeDatabase(m_connectionName);
+    m_vaultRoot.clear();
+    if (m_cache) {
+        disconnect(m_cache, nullptr, this, nullptr);
+    }
+}
+
+void SQLiteIndex::setVaultRoot(const QString &vaultRoot)
+{
+    m_vaultRoot = vaultRoot;
+}
+
+void SQLiteIndex::setMetadataCache(MetadataCache *cache)
+{
+    if (m_cache) {
+        disconnect(m_cache, nullptr, this, nullptr);
+    }
+    m_cache = cache;
+    if (m_cache) {
+        connect(m_cache, &MetadataCache::cacheChanged,
+                this, &SQLiteIndex::onMetadataCacheChanged);
+        connect(m_cache, &MetadataCache::cacheDeleted,
+                this, &SQLiteIndex::onMetadataCacheDeleted);
+    }
 }
 
 void SQLiteIndex::createTables()
@@ -106,147 +131,196 @@ void SQLiteIndex::createTables()
         "CREATE INDEX IF NOT EXISTS idx_tags_tag ON note_tags(tag)"));
 }
 
+// --- Deprecated write stubs (Phase 8 removes) ---
+
 void SQLiteIndex::rebuildIndex(const QString &vaultRoot)
 {
-    QSqlQuery query(QSqlDatabase::database(m_connectionName));
-    query.exec(QStringLiteral("DELETE FROM notes_fts"));
-    query.exec(QStringLiteral("DELETE FROM links"));
-    query.exec(QStringLiteral("DELETE FROM note_tags"));
-
-    // Use a transaction for much faster bulk insertion
-    query.exec(QStringLiteral("BEGIN TRANSACTION"));
-
-    VaultScanner scanner;
-    FileSystemAdapter fs;
-    auto notes = scanner.scan(vaultRoot);
-
-    // Seed the 6-step resolver with the full vault.
-    QStringList allPaths;
-    allPaths.reserve(notes.size());
-    for (const auto &meta : notes) {
-        allPaths.append(meta.relativePath);
-    }
-    m_resolver.setVaultPaths(allPaths);
-
-    int count = 0;
-    for (const auto &meta : notes) {
-        auto content = fs.readFile(meta.absolutePath(vaultRoot));
-        if (!content.has_value()) continue;
-
-        QString title = meta.nameFromPath();
-        const QString &text = content.value();
-
-        // FTS5
-        query.prepare(QStringLiteral(
-            "INSERT INTO notes_fts(path, title, content) VALUES(?, ?, ?)"));
-        query.addBindValue(meta.relativePath);
-        query.addBindValue(title);
-        query.addBindValue(text);
-        query.exec();
-
-        // Links and tags
-        extractAndInsertLinks(meta.relativePath, text);
-        extractAndInsertTags(meta.relativePath, text);
-
-        // Keep UI responsive during large vault indexing
-        if (++count % 100 == 0) {
-            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-        }
-    }
-
-    query.exec(QStringLiteral("COMMIT"));
-
-    Q_EMIT indexReady();
+    Q_UNUSED(vaultRoot);
+    qWarning("SQLiteIndex::rebuildIndex is deprecated and will be removed in Phase 8 — "
+             "wire MetadataCache + setMetadataCache() + setVaultRoot() instead.");
 }
-
-// Background indexing creates a temporary SQLiteIndex in a QThread.
-// It opens its own connection, does the full rebuild, then signals completion.
-// WAL mode (set in open()) allows the main thread to read concurrently.
 
 void SQLiteIndex::rebuildIndexAsync(const QString &vaultRoot)
 {
-    if (m_workerThread) {
-        m_workerThread->wait();
-        delete m_workerThread;
-        m_workerThread = nullptr;
-    }
-
-    const QString dbPath = m_dbPath;
-
-    m_workerThread = QThread::create([dbPath, vaultRoot]() {
-        // Create a standalone SQLiteIndex in the worker thread — it manages
-        // its own connection and uses the proven synchronous rebuildIndex().
-        SQLiteIndex worker;
-        if (worker.open(dbPath)) {
-            worker.rebuildIndex(vaultRoot);
-            worker.close();
-        }
-    });
-
-    connect(m_workerThread, &QThread::finished, this, [this]() {
-        m_workerThread->deleteLater();
-        m_workerThread = nullptr;
-        Q_EMIT indexReady();
-    });
-
-    m_workerThread->start();
+    Q_UNUSED(vaultRoot);
+    qWarning("SQLiteIndex::rebuildIndexAsync is deprecated and will be removed in Phase 8 — "
+             "wire MetadataCache + setMetadataCache() + setVaultRoot() instead.");
 }
 
 bool SQLiteIndex::isRebuilding() const
 {
-    return m_workerThread != nullptr && m_workerThread->isRunning();
+    return false;
 }
 
 void SQLiteIndex::indexNote(const QString &relativePath, const QString &title, const QString &content)
 {
-    QSqlQuery query(QSqlDatabase::database(m_connectionName));
-
-    // Ensure the resolver knows about this path (no-op if already present).
-    m_resolver.addVaultPath(relativePath);
-
-    // Remove existing entries (upsert)
-    query.prepare(QStringLiteral("DELETE FROM notes_fts WHERE path = ?"));
-    query.addBindValue(relativePath);
-    query.exec();
-
-    query.prepare(QStringLiteral("DELETE FROM links WHERE source_path = ?"));
-    query.addBindValue(relativePath);
-    query.exec();
-
-    query.prepare(QStringLiteral("DELETE FROM note_tags WHERE note_path = ?"));
-    query.addBindValue(relativePath);
-    query.exec();
-
-    // Insert FTS5
-    query.prepare(QStringLiteral(
-        "INSERT INTO notes_fts(path, title, content) VALUES(?, ?, ?)"));
-    query.addBindValue(relativePath);
-    query.addBindValue(title);
-    query.addBindValue(content);
-    query.exec();
-
-    // Extract and insert links + tags
-    extractAndInsertLinks(relativePath, content);
-    extractAndInsertTags(relativePath, content);
+    Q_UNUSED(relativePath);
+    Q_UNUSED(title);
+    Q_UNUSED(content);
+    qWarning("SQLiteIndex::indexNote is deprecated and will be removed in Phase 8 — "
+             "route through MetadataCache::onFileChanged() instead.");
 }
 
 void SQLiteIndex::removeNote(const QString &relativePath)
 {
-    QSqlQuery query(QSqlDatabase::database(m_connectionName));
+    Q_UNUSED(relativePath);
+    qWarning("SQLiteIndex::removeNote is deprecated and will be removed in Phase 8 — "
+             "route through MetadataCache::onFileDeleted() instead.");
+}
 
-    m_resolver.removeVaultPath(relativePath);
+// --- MetadataCache subscription slots ---
+
+void SQLiteIndex::onMetadataCacheChanged(const QString &path,
+                                         const QString &prevHash,
+                                         const CachedMetadata &cache)
+{
+    Q_UNUSED(prevHash);
+    if (!m_isOpen) return;
+
+    // Ensure the resolver sees this path (no-op if already present). Only
+    // needed if legacy consumers call the read API that depends on it,
+    // but harmless.
+    m_resolver.addVaultPath(path);
+
+    writeRowsFromCache(path, cache);
+}
+
+void SQLiteIndex::onMetadataCacheDeleted(const QString &path,
+                                         const CachedMetadata &prevCache)
+{
+    Q_UNUSED(prevCache);
+    if (!m_isOpen) return;
+
+    m_resolver.removeVaultPath(path);
+    deleteRowsForPath(path);
+}
+
+void SQLiteIndex::deleteRowsForPath(const QString &path)
+{
+    QSqlDatabase db = QSqlDatabase::database(m_connectionName);
+    QSqlQuery query(db);
 
     query.prepare(QStringLiteral("DELETE FROM notes_fts WHERE path = ?"));
-    query.addBindValue(relativePath);
+    query.addBindValue(path);
     query.exec();
 
     query.prepare(QStringLiteral("DELETE FROM links WHERE source_path = ?"));
-    query.addBindValue(relativePath);
+    query.addBindValue(path);
     query.exec();
 
     query.prepare(QStringLiteral("DELETE FROM note_tags WHERE note_path = ?"));
-    query.addBindValue(relativePath);
+    query.addBindValue(path);
     query.exec();
+}
+
+void SQLiteIndex::writeRowsFromCache(const QString &path, const CachedMetadata &cache)
+{
+    QSqlDatabase db = QSqlDatabase::database(m_connectionName);
+
+    // Read body from disk. MetadataCache's `cacheChanged` doesn't carry
+    // the raw content to keep the signal lean; re-reading is cheap and
+    // keeps disk + FTS as the single source of truth.
+    QString content;
+    if (!m_vaultRoot.isEmpty()) {
+        const QString fullPath = QDir(m_vaultRoot).absoluteFilePath(path);
+        QFile f(fullPath);
+        if (f.open(QIODevice::ReadOnly)) {
+            content = QString::fromUtf8(f.readAll());
+        }
+    }
+
+    // Title: first heading if present; else basename.
+    QString title;
+    if (cache.headings && !cache.headings->isEmpty()) {
+        title = cache.headings->first().heading;
+    } else {
+        title = QFileInfo(path).completeBaseName();
+    }
+
+    db.transaction();
+
+    deleteRowsForPath(path);
+
+    QSqlQuery q(db);
+
+    // FTS row.
+    q.prepare(QStringLiteral(
+        "INSERT INTO notes_fts(path, title, content) VALUES(?, ?, ?)"));
+    q.addBindValue(path);
+    q.addBindValue(title);
+    q.addBindValue(content);
+    q.exec();
+
+    // Link rows. `LinkCache.link` is stored as "path#subpath" for resolved
+    // targets (or just the raw unresolved target). Split on the first '#'.
+    auto splitTarget = [](const QString &storedLink,
+                          QString &targetPath,
+                          QString &subpath) {
+        targetPath = storedLink;
+        // Use a non-null empty string so the bound value is "" not NULL
+        // (the `subpath` column is NOT NULL DEFAULT '').
+        subpath = QStringLiteral("");
+        const int hashIdx = targetPath.indexOf(QLatin1Char('#'));
+        if (hashIdx >= 0) {
+            subpath = targetPath.mid(hashIdx);
+            targetPath = targetPath.left(hashIdx);
+        }
+    };
+
+    if (cache.links) {
+        for (const LinkCache &link : *cache.links) {
+            QString targetPath;
+            QString subpath;
+            splitTarget(link.link, targetPath, subpath);
+            // CachedMetadata doesn't discriminate wiki vs standard markdown
+            // links — MetadataParser::(f) lumps both into `cache.links`.
+            // Default to "wiki" since that's the majority case and the
+            // current UI/search layer doesn't discriminate. Phase-8 follow-up
+            // may reinstate fine-grained typing if needed.
+            q.prepare(QStringLiteral(
+                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text, subpath) "
+                "VALUES(?, ?, 'wiki', ?, ?)"));
+            q.addBindValue(path);
+            q.addBindValue(targetPath);
+            q.addBindValue(link.displayText.has_value()
+                               ? link.displayText.value()
+                               : QVariant(QMetaType(QMetaType::QString)));
+            q.addBindValue(subpath);
+            q.exec();
+        }
+    }
+
+    if (cache.embeds) {
+        for (const LinkCache &link : *cache.embeds) {
+            QString targetPath;
+            QString subpath;
+            splitTarget(link.link, targetPath, subpath);
+            q.prepare(QStringLiteral(
+                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text, subpath) "
+                "VALUES(?, ?, 'embed', ?, ?)"));
+            q.addBindValue(path);
+            q.addBindValue(targetPath);
+            q.addBindValue(link.displayText.has_value()
+                               ? link.displayText.value()
+                               : QVariant(QMetaType(QMetaType::QString)));
+            q.addBindValue(subpath);
+            q.exec();
+        }
+    }
+
+    // Tag rows. CachedMetadata's TagCache.tag includes the leading `#`
+    // (mirrors Obsidian's shape). We store it verbatim.
+    if (cache.tags) {
+        for (const TagCache &tag : *cache.tags) {
+            q.prepare(QStringLiteral(
+                "INSERT OR IGNORE INTO note_tags(note_path, tag) VALUES(?, ?)"));
+            q.addBindValue(path);
+            q.addBindValue(tag.tag);
+            q.exec();
+        }
+    }
+
+    db.commit();
 }
 
 namespace {
@@ -553,11 +627,11 @@ int SQLiteIndex::repairLinks(const QString &oldTargetPath, const QString &newTar
 
         if (text != original) {
             fs.writeFile(absPath, text);
-
-            // Re-index the modified source note
-            QString title = nameFromPath(sourcePath);
-            indexNote(sourcePath, title, text);
             ++modifiedCount;
+            // Note: the re-index of the source note now happens via
+            // MetadataCache when the file-watcher picks up the write.
+            // Phase 7 keeps this synchronous update of the `links` table
+            // below as a best-effort until Phase 8 restructures the flow.
         }
     }
 
@@ -568,163 +642,6 @@ int SQLiteIndex::repairLinks(const QString &oldTargetPath, const QString &newTar
     q.exec();
 
     return modifiedCount;
-}
-
-// --- Private extraction methods ---
-
-// Normalise an unresolved wikilink target: strip subpath, append .md if no
-// extension. Preserves the legacy behaviour where unresolved links appeared
-// in the graph as "Name.md" nodes.
-static QString unresolvedTargetNormalized(const QString &raw)
-{
-    QString s = raw;
-    const int hashPos = s.indexOf(QLatin1Char('#'));
-    if (hashPos >= 0) s = s.left(hashPos);
-    s = s.trimmed();
-    if (!s.contains(QLatin1Char('.'))) s += QStringLiteral(".md");
-    return s;
-}
-
-void SQLiteIndex::extractAndInsertLinks(const QString &sourcePath, const QString &content)
-{
-    QSqlQuery query(QSqlDatabase::database(m_connectionName));
-
-    // Track code blocks to exclude links inside them
-    static const QRegularExpression codeFencePattern(QStringLiteral(R"(^```)"));
-    bool inCodeBlock = false;
-
-    // Patterns
-    static const QRegularExpression embedPattern(QStringLiteral(R"(!\[\[([^\]|]+)\]\])"));
-    static const QRegularExpression wikiAliasPattern(QStringLiteral(R"(\[\[([^\]|]+)\|([^\]]+)\]\])"));
-    static const QRegularExpression wikiPattern(QStringLiteral(R"(\[\[([^\]|]+)\]\])"));
-    static const QRegularExpression mdLinkPattern(QStringLiteral(R"(\[([^\]]+)\]\(([^)]+\.md)\))"));
-    static const QRegularExpression inlineCodePattern(QStringLiteral(R"(`[^`]+`)"));
-
-    const auto lines = content.split(QLatin1Char('\n'));
-    for (const auto &rawLine : lines) {
-        if (codeFencePattern.match(rawLine).hasMatch()) {
-            inCodeBlock = !inCodeBlock;
-            continue;
-        }
-        if (inCodeBlock) continue;
-
-        // Strip inline code spans so wikilinks inside `backticks` are ignored
-        QString line = rawLine;
-        line.replace(inlineCodePattern, QString());
-
-        // Embeds: ![[target]] — media filenames (images, PDFs) pass through
-        // verbatim; note-embeds (e.g. ![[Note#Section]]) route through the
-        // resolver so the subpath is captured.
-        auto it = embedPattern.globalMatch(line);
-        while (it.hasNext()) {
-            auto match = it.next();
-            const QString raw = match.captured(1);
-            QString target = raw;
-            QString subpath;
-            // If the raw target contains '#' or has no extension other than .md,
-            // treat as a note-embed and resolve.
-            const bool looksLikeNote = raw.contains(QLatin1Char('#'))
-                || !raw.contains(QLatin1Char('.'))
-                || raw.endsWith(QStringLiteral(".md"), Qt::CaseInsensitive);
-            if (looksLikeNote) {
-                const auto resolved = m_resolver.resolve(sourcePath, raw);
-                if (resolved.resolved) target = resolved.path;
-                subpath = resolved.subpath;
-            }
-            query.prepare(QStringLiteral(
-                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text, subpath) "
-                "VALUES(?, ?, 'embed', NULL, ?)"));
-            query.addBindValue(sourcePath);
-            query.addBindValue(target);
-            query.addBindValue(subpath.isNull() ? QStringLiteral("") : subpath);
-            query.exec();
-        }
-
-        // Wikilinks with alias: [[target|display]]
-        it = wikiAliasPattern.globalMatch(line);
-        while (it.hasNext()) {
-            auto match = it.next();
-            const auto resolved = m_resolver.resolve(sourcePath, match.captured(1));
-            QString target = resolved.resolved
-                ? resolved.path
-                : unresolvedTargetNormalized(match.captured(1));
-            QString display = match.captured(2);
-            query.prepare(QStringLiteral(
-                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text, subpath) "
-                "VALUES(?, ?, 'wiki', ?, ?)"));
-            query.addBindValue(sourcePath);
-            query.addBindValue(target);
-            query.addBindValue(display);
-            // QString() binds as NULL; ensure empty literal so NOT NULL holds.
-            query.addBindValue(resolved.subpath.isNull() ? QStringLiteral("") : resolved.subpath);
-            query.exec();
-        }
-
-        // Plain wikilinks: [[target]] (must exclude already-matched alias patterns)
-        // Use a copy of the line with alias patterns removed to avoid double-matching
-        QString lineWithoutAliases = line;
-        lineWithoutAliases.replace(wikiAliasPattern, QString());
-        // Also remove embeds to avoid double-matching
-        lineWithoutAliases.replace(embedPattern, QString());
-
-        it = wikiPattern.globalMatch(lineWithoutAliases);
-        while (it.hasNext()) {
-            auto match = it.next();
-            const auto resolved = m_resolver.resolve(sourcePath, match.captured(1));
-            QString target = resolved.resolved
-                ? resolved.path
-                : unresolvedTargetNormalized(match.captured(1));
-            query.prepare(QStringLiteral(
-                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text, subpath) "
-                "VALUES(?, ?, 'wiki', NULL, ?)"));
-            query.addBindValue(sourcePath);
-            query.addBindValue(target);
-            query.addBindValue(resolved.subpath.isNull() ? QStringLiteral("") : resolved.subpath);
-            query.exec();
-        }
-
-        // Markdown links: [text](path.md)
-        it = mdLinkPattern.globalMatch(line);
-        while (it.hasNext()) {
-            auto match = it.next();
-            QString target = match.captured(2);
-            query.prepare(QStringLiteral(
-                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text) "
-                "VALUES(?, ?, 'markdown', NULL)"));
-            query.addBindValue(sourcePath);
-            query.addBindValue(target);
-            query.exec();
-        }
-    }
-}
-
-void SQLiteIndex::extractAndInsertTags(const QString &notePath, const QString &content)
-{
-    QSqlQuery query(QSqlDatabase::database(m_connectionName));
-
-    static const QRegularExpression codeFencePattern(QStringLiteral(R"(^```)"));
-    static const QRegularExpression tagPattern(
-        QStringLiteral(R"((?<![&\w])#([a-zA-Z_][a-zA-Z0-9_/-]*))"));
-
-    bool inCodeBlock = false;
-    const auto lines = content.split(QLatin1Char('\n'));
-    for (const auto &line : lines) {
-        if (codeFencePattern.match(line).hasMatch()) {
-            inCodeBlock = !inCodeBlock;
-            continue;
-        }
-        if (inCodeBlock) continue;
-
-        auto it = tagPattern.globalMatch(line);
-        while (it.hasNext()) {
-            auto match = it.next();
-            query.prepare(QStringLiteral(
-                "INSERT OR IGNORE INTO note_tags(note_path, tag) VALUES(?, ?)"));
-            query.addBindValue(notePath);
-            query.addBindValue(match.captured(1));
-            query.exec();
-        }
-    }
 }
 
 } // namespace Corbomite
