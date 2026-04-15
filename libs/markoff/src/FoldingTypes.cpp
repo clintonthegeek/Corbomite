@@ -69,4 +69,22 @@ QList<FoldRegionKey> computeHeadingPaths(const QList<HeadingInfo> &headings) {
     return result;
 }
 
+void assignCodeBlockOrdinals(QList<FoldableRegion> &regions) {
+    int ordinal = 0;
+    QStringList currentHeadingPath;
+    for (int i = 0; i < regions.size(); ++i) {
+        FoldableRegion &r = regions[i];
+        if (r.type == FoldableRegion::Heading) {
+            currentHeadingPath = r.path;
+            ordinal = 0;
+            continue;
+        }
+        // Code block: append the ordinal segment.
+        QStringList path = currentHeadingPath;
+        path.append(QStringLiteral("code:%1").arg(ordinal));
+        r.path = path;
+        ++ordinal;
+    }
+}
+
 } // namespace Markoff

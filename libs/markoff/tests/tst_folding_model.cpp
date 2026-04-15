@@ -189,6 +189,73 @@ void TstFoldingModelBulk::unfoldLevel_unfoldsAtLevelAndDeeper() {
     QVERIFY(!m.isFolded({"A","B"}));
 }
 
+class TstCodeBlockOrdinals : public QObject {
+    Q_OBJECT
+private slots:
+    void assignOrdinals_singleBlockNoHeading_getsCodeZero();
+    void assignOrdinals_twoBlocksSameSection_incrementOrdinal();
+    void assignOrdinals_headingBetweenBlocks_resetsOrdinal();
+    void assignOrdinals_preambleBlocks_haveNoHeadingPrefix();
+};
+
+static FoldableRegion mkHeading(QStringList path, int level) {
+    FoldableRegion r;
+    r.type = FoldableRegion::Heading;
+    r.path = path;
+    r.level = level;
+    r.info = HeadingInfo{level, path.last(), 0};
+    return r;
+}
+
+static FoldableRegion mkCode(QStringList parentPath) {
+    FoldableRegion r;
+    r.type = FoldableRegion::CodeBlock;
+    r.path = parentPath; // assignCodeBlockOrdinals will append "code:N"
+    return r;
+}
+
+void TstCodeBlockOrdinals::assignOrdinals_singleBlockNoHeading_getsCodeZero() {
+    QList<FoldableRegion> regions{ mkCode({}) };
+    assignCodeBlockOrdinals(regions);
+    QCOMPARE(regions[0].path, (QStringList{"code:0"}));
+}
+
+void TstCodeBlockOrdinals::assignOrdinals_twoBlocksSameSection_incrementOrdinal() {
+    QList<FoldableRegion> regions{
+        mkHeading({"A"}, 1),
+        mkCode({"A"}),
+        mkCode({"A"}),
+    };
+    assignCodeBlockOrdinals(regions);
+    QCOMPARE(regions[1].path, (QStringList{"A","code:0"}));
+    QCOMPARE(regions[2].path, (QStringList{"A","code:1"}));
+}
+
+void TstCodeBlockOrdinals::assignOrdinals_headingBetweenBlocks_resetsOrdinal() {
+    QList<FoldableRegion> regions{
+        mkHeading({"A"}, 1),
+        mkCode({"A"}),
+        mkHeading({"A","B"}, 2),
+        mkCode({"A","B"}),
+    };
+    assignCodeBlockOrdinals(regions);
+    QCOMPARE(regions[1].path, (QStringList{"A","code:0"}));
+    QCOMPARE(regions[3].path, (QStringList{"A","B","code:0"}));
+}
+
+void TstCodeBlockOrdinals::assignOrdinals_preambleBlocks_haveNoHeadingPrefix() {
+    QList<FoldableRegion> regions{
+        mkCode({}),
+        mkCode({}),
+        mkHeading({"A"}, 1),
+        mkCode({"A"}),
+    };
+    assignCodeBlockOrdinals(regions);
+    QCOMPARE(regions[0].path, (QStringList{"code:0"}));
+    QCOMPARE(regions[1].path, (QStringList{"code:1"}));
+    QCOMPARE(regions[3].path, (QStringList{"A","code:0"}));
+}
+
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
     int status = 0;
@@ -202,6 +269,10 @@ int main(int argc, char *argv[]) {
     }
     {
         TstFoldingModelBulk t;
+        status |= QTest::qExec(&t, argc, argv);
+    }
+    {
+        TstCodeBlockOrdinals t;
         status |= QTest::qExec(&t, argc, argv);
     }
     return status;
