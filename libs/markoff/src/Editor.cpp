@@ -8,7 +8,8 @@
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
 #include "FoldingModel.h"
-// FoldGutter include added in Task 11.
+#include "FoldGutter.h"
+#include "GutterColumn.h"
 
 #include <QResizeEvent>
 #include <QContextMenuEvent>
@@ -96,6 +97,16 @@ Editor::Editor(QWidget *parent)
     connect(m_foldingModel, &FoldingModel::foldStateChanged,
             this, &Editor::foldStateChanged);
     m_coordinator->setFoldingModel(m_foldingModel);
+
+    m_foldGutter = new FoldGutter(m_foldingModel);
+    m_foldGutter->setCoordinator(m_coordinator);
+    m_foldGutter->setColumns({ new FoldArrowColumn(m_foldingModel) });
+    m_scene->addItem(m_foldGutter);
+
+    connect(horizontalScrollBar(), &QScrollBar::valueChanged,
+            this, &Editor::repositionFoldGutter);
+    connect(verticalScrollBar(), &QScrollBar::valueChanged,
+            this, &Editor::repositionFoldGutter);
 }
 
 Editor::~Editor() = default;
@@ -136,6 +147,7 @@ void Editor::resizeEvent(QResizeEvent *e)
     if (width > 100)
         m_coordinator->setItemWidth(width);
     repositionSearchBar();
+    repositionFoldGutter();
 }
 
 // =========================================================================
@@ -1363,10 +1375,17 @@ void Editor::restoreFoldState(const QJsonObject &state)
     m_foldingModel->restore(state);
 }
 
+void Editor::repositionFoldGutter()
+{
+    if (m_foldGutter)
+        m_foldGutter->setPos(mapToScene(viewport()->rect().topLeft()));
+}
+
 void Editor::setGutterVisible(bool visible)
 {
     m_gutterVisible = visible;
-    // FoldGutter show/hide wired in Task 11.
+    if (m_foldGutter)
+        m_foldGutter->setVisible(visible);
 }
 
 bool Editor::isGutterVisible() const

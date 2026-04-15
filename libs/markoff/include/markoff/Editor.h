@@ -174,6 +174,7 @@ private:
     void clearSearchHighlights();
     void updateMatchCount();
     void repositionSearchBar();
+    void repositionFoldGutter();
     QTextDocument::FindFlags searchFlags() const;
 
     SelectionScene *m_scene = nullptr;

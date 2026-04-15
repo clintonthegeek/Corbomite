@@ -109,6 +109,7 @@ private slots:
     void foldH1_hidesChildrenButKeepsHeading();
     void unfold_reshowsChildren();
     void nestedFold_independent();
+    void editor_setGutterVisible_false_hidesGutter();
 };
 
 void TstFoldingVisibility::foldH1_hidesChildrenButKeepsHeading() {
@@ -158,6 +159,15 @@ void TstFoldingVisibility::nestedFold_independent() {
     const qreal onlyGoalsFolded = totalVisibleHeight(coord->items());
     QVERIFY(onlyGoalsFolded > bothFolded); // Intro body re-shown
     QVERIFY(e.isFolded({"Intro","Goals"})); // unchanged
+}
+
+void TstFoldingVisibility::editor_setGutterVisible_false_hidesGutter() {
+    Editor e;
+    QVERIFY(e.isGutterVisible());
+    e.setGutterVisible(false);
+    QVERIFY(!e.isGutterVisible());
+    e.setGutterVisible(true);
+    QVERIFY(e.isGutterVisible());
 }
 
 // ---------------------------------------------------------------------------
