@@ -272,6 +272,17 @@ SceneCoordinator::itemAtGlobalLine(int globalLine) const
     return {nullptr, 0};
 }
 
+void SceneCoordinator::removeBlockItem(int index)
+{
+    if (index < 0 || index >= m_items.size()) return;
+    if (m_items[index]->isTextItem()) return;
+
+    m_scene->removeItem(m_items[index]->asGraphicsItem());
+    delete m_items[index]->asGraphicsItem();
+    m_items.removeAt(index);
+    m_headingMapDirty = true;
+}
+
 QString SceneCoordinator::toMarkdown() const
 {
     QString result;

@@ -45,6 +45,8 @@ public:
 
     ItemPosition itemAtGlobalLine(int globalLine) const;
 
+    void removeBlockItem(int index);
+
     /// Load markdown: split at block boundaries, apply live-preview formatting.
     void loadMarkdown(const QString &markdown);
 

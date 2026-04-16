@@ -667,22 +667,37 @@ void Editor::copy()
 
 void Editor::cut()
 {
-    // Copy first (handles both cross-boundary and within-item).
     copy();
-    // Then delete the selected content.
-    auto *mgr = m_scene->selectionManager();
-    if (mgr) {
-        // Delete across all items that have selections.
-        for (auto *item : m_coordinator->items()) {
-            if (item->isTextItem()) {
-                auto *ti = static_cast<MarkdownTextItem *>(item);
-                QTextCursor c = ti->textControl()->textCursor();
-                if (c.hasSelection())
-                    c.removeSelectedText();
-            }
+
+    // Remove selected text from text items.
+    for (auto *item : m_coordinator->items()) {
+        if (item->isTextItem()) {
+            auto *ti = static_cast<MarkdownTextItem *>(item);
+            QTextCursor c = ti->textControl()->textCursor();
+            if (c.hasSelection())
+                c.removeSelectedText();
         }
-        mgr->clearSelection();
     }
+
+    // Collect indices of fully-selected block items before clearing
+    // selection (clearSelection resets their isFullySelected state).
+    QList<int> toRemove;
+    const auto &items = m_coordinator->items();
+    for (int i = 0; i < items.size(); ++i) {
+        if (!items[i]->isTextItem() && items[i]->isFullySelected())
+            toRemove.prepend(i);  // reverse order for safe removal
+    }
+
+    // Clear selection first — this iterates all items, so they must
+    // still be alive.
+    m_scene->selectionManager()->clearSelection();
+
+    // Now remove the block items (indices are in descending order).
+    for (int idx : toRemove)
+        m_coordinator->removeBlockItem(idx);
+
+    if (!toRemove.isEmpty())
+        m_scene->setSelectableItems(m_coordinator->items());
 }
 
 void Editor::paste()     { if (auto *ti = focusedTextItem()) ti->textControl()->paste(); }
