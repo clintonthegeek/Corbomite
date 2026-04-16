@@ -17,6 +17,8 @@ add_library(CorbomiteApp STATIC
     sidebar/OutlinePanel.cpp
     sidebar/PropertiesPanel.cpp
     sidebar/PropertyEditorWidget.cpp
+    editor/MarkdownView.cpp
+    editor/MarkdownView.h
     editor/NoteEditorWidget.cpp
     editor/SourceEditor.cpp
     editor/ViewModeSerializer.cpp
