@@ -75,39 +75,19 @@ serialization format, not a user-facing representation.
 - Reparse debounce pipeline (150ms timer)
 - `MarkdownTextItem` public interface
 
-## Layout Engine Graft
+## Layout Engine
 
-### Harvest Targets
+**Key discovery:** `MarkdownTextItem` uses a plain `QTextDocument` with Qt's
+default `QTextDocumentLayout` (the rich-text layout engine) — not a forked
+`PlainTextDocumentLayout` as originally assumed. This means `QTextTable`
+layout, rendering, and hit-testing work out of the box with zero harvesting.
 
-Source: `/home/clinton/src/qtbase/src/gui/text/qtextdocumentlayout.cpp`
-
-| Qt Function | ~Lines | Purpose | Simplifications |
-|-------------|--------|---------|-----------------|
-| `QTextTableData` | 150 | Per-table layout cache: column widths, row heights, cell positions | Drop CSS border model, colspan/rowspan, page breaks |
-| `layoutTable()` | 170 | Column width computation, cell positioning | Drop percentage/fixed width constraints, border-collapse |
-| `layoutCell()` | 50 | Layout text within a single cell | Reuse existing line-based layout |
-| `drawTableCell()` | 100 | Paint cell content | Simplify to grid lines + plain content |
-| `drawTableCellBorder()` | 95 | Cell border rendering | Replace with simple grid line painting |
-
-Estimated harvest: ~565 lines → ~250-300 simplified lines.
-
-### Integration Points in PlainTextDocumentLayout
-
-1. **`blockBoundingRect(const QTextBlock &)`**: If the block belongs to a
-   `QTextTable` frame, delegate to `tableBoundingRect()` which returns the
-   table's cached geometry. This is the critical synchronous path — table
-   heights must be computed here, not lazily in paint.
-
-2. **`documentChanged(int, int, int)`**: When a change falls inside a table
-   region, mark that table's `QTextTableData` cache dirty and relayout
-   (recompute column widths, row heights, cell positions).
-
-3. **`draw(QPainter *, const PaintContext &)`**: When the current block is
-   inside a table frame, delegate to `drawTable()` which iterates cells and
-   paints content + grid lines.
-
-4. **Block iteration**: Everywhere that iterates `doc->begin()` to
-   `doc->end()`, add frame-aware iteration that descends into table frames.
+No layout engine modifications are needed. The work reduces to:
+1. Stop splitting tables out of text segments (`MarkdownSplitter`)
+2. Convert pipe text → `QTextTable` after load (`TableConverter`)
+3. Serialize `QTextTable` → pipe text on save (`TableSerializer`)
+4. Fix `allMarkdown()` block iteration to handle table frames
+5. Navigation tweaks and public API
 
 ### Grid Rendering
 
@@ -358,24 +338,22 @@ table pattern if they truly want to undo the conversion.
 
 | File | Purpose | ~Lines |
 |------|---------|--------|
-| `src/TableLayoutData.h` | Simplified `QTextTableData` — column widths, row heights, cell rects | 80 |
-| `src/TableLayoutData.cpp` | Layout computation (harvested + simplified from `layoutTable()`) | 200 |
-| `src/TablePainter.h` | `drawTable()` and `drawTableCell()` — grid + content rendering | 40 |
-| `src/TablePainter.cpp` | Painting implementation (harvested + simplified) | 150 |
 | `src/TableConverter.h` | Pipe text ↔ `QTextTable` conversion + reparse reconciliation | 40 |
 | `src/TableConverter.cpp` | Conversion logic + `TableRecord` management | 200 |
 | `src/TableSerializer.h` | `QTextTable` → auto-formatted pipe markdown | 20 |
 | `src/TableSerializer.cpp` | Serialization with column-width-aware padding | 120 |
 | `src/TableStyle.h` | Visual constants struct (colors, padding, line widths) | 30 |
 
-**Estimated total new code:** ~880 lines
-**Estimated harvested + simplified code:** ~250 lines (subset of new code above)
+**Estimated total new code:** ~410 lines
+
+NOTE: Layout engine harvesting (`TableLayoutData`, `TablePainter`) is NOT
+needed. `QTextDocument` already uses Qt's full `QTextDocumentLayout` which
+handles `QTextTable` layout and rendering natively.
 
 ## Modified Files
 
 | File | Changes |
 |------|---------|
-| `src/PlainTextDocumentLayout.h/.cpp` | Add table-aware branches in `blockBoundingRect()`, `documentChanged()`, `draw()` |
 | `src/TextControl.cpp` | Revise Enter behavior (insert row only at last row), add up/down cross-cell navigation, smart column memory |
 | `src/MarkdownTextItem.cpp` | `toMarkdown()` delegates to `TableSerializer` for table frames |
 | `src/SceneCoordinator.cpp` | Stop creating `TableBlockItem`; run `TableConverter` post-load |
