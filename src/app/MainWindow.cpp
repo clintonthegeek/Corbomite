@@ -37,7 +37,7 @@
 #include "corbomite/core/TextFileView.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "editor/MarkdownView.h"
-#include "canvas/CanvasView.h"
+#include "canvas/CanvasFileView.h"
 #include "graph/GraphView.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
@@ -582,7 +582,7 @@ void MainWindow::setupEditor()
         &MarkdownView::factory);
     m_viewRegistry->registerViewWithExtensions(
         {QStringLiteral("canvas")}, QStringLiteral("canvas"),
-        &CanvasView::factory);
+        &CanvasFileView::factory);
     m_viewRegistry->registerView(QStringLiteral("graph"), &GraphView::factory);
     m_editorManager->setViewRegistry(m_viewRegistry);
 

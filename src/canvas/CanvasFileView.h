@@ -1,4 +1,4 @@
-// src/canvas/CanvasView.h
+// src/canvas/CanvasFileView.h
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
@@ -9,11 +9,11 @@ namespace Corbomite {
 class CanvasViewTab;
 class MarkdownRenderEngine;
 
-class CanvasView : public FileView
+class CanvasFileView : public FileView
 {
     Q_OBJECT
 public:
-    explicit CanvasView(WorkspaceLeaf *leaf, QWidget *parent = nullptr);
+    explicit CanvasFileView(WorkspaceLeaf *leaf, QWidget *parent = nullptr);
     static View *factory(WorkspaceLeaf *leaf);
 
     QString getViewType() const override;

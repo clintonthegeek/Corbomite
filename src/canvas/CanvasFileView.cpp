@@ -1,6 +1,7 @@
-// src/canvas/CanvasView.cpp
+// src/canvas/CanvasFileView.cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "CanvasView.h"
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "CanvasFileView.h"
 #include "CanvasViewTab.h"
 #include "corbomite/core/NoteDocument.h"
 
@@ -8,34 +9,34 @@
 
 namespace Corbomite {
 
-CanvasView::CanvasView(WorkspaceLeaf *leaf, QWidget *parent)
+CanvasFileView::CanvasFileView(WorkspaceLeaf *leaf, QWidget *parent)
     : FileView(leaf, parent)
 {
 }
 
-View *CanvasView::factory(WorkspaceLeaf *leaf)
+View *CanvasFileView::factory(WorkspaceLeaf *leaf)
 {
-    return new CanvasView(leaf);
+    return new CanvasFileView(leaf);
 }
 
-QString CanvasView::getViewType() const { return QStringLiteral("canvas"); }
-QString CanvasView::getIcon() const { return QStringLiteral("palette"); }
+QString CanvasFileView::getViewType() const { return QStringLiteral("canvas"); }
+QString CanvasFileView::getIcon() const { return QStringLiteral("palette"); }
 
-bool CanvasView::canAcceptExtension(const QString &ext) const
+bool CanvasFileView::canAcceptExtension(const QString &ext) const
 {
     return ext.compare(QStringLiteral("canvas"), Qt::CaseInsensitive) == 0;
 }
 
-void CanvasView::setRenderEngine(MarkdownRenderEngine *engine)
+void CanvasFileView::setRenderEngine(MarkdownRenderEngine *engine)
 {
     m_renderEngine = engine;
     if (m_canvasWidget)
         m_canvasWidget->setRenderEngine(engine);
 }
 
-CanvasViewTab *CanvasView::canvasWidget() const { return m_canvasWidget; }
+CanvasViewTab *CanvasFileView::canvasWidget() const { return m_canvasWidget; }
 
-void CanvasView::onLoadFile(NoteDocument *file)
+void CanvasFileView::onLoadFile(NoteDocument *file)
 {
     FileView::onLoadFile(file);
     if (!m_canvasWidget && file) {
@@ -48,7 +49,7 @@ void CanvasView::onLoadFile(NoteDocument *file)
     }
 }
 
-void CanvasView::onUnloadFile(NoteDocument *file)
+void CanvasFileView::onUnloadFile(NoteDocument *file)
 {
     if (m_canvasWidget && m_canvasWidget->isModified())
         m_canvasWidget->save();
