@@ -67,6 +67,11 @@ public:
     /// Disconnect `conn` on unload. Safe to call with a null connection.
     void registerQObjectConnection(const QMetaObject::Connection &conn);
 
+    /// Run `fn` once on unload. Cleanups fire LIFO (reverse registration
+    /// order) — matches Obsidian's `Component.register(cb)` semantics
+    /// (domains/ui-bundle.md §1).
+    void registerCleanup(std::function<void()> fn);
+
 protected:
     virtual void onload() {}
     virtual void onunload() {}
@@ -87,6 +92,7 @@ private:
     QVector<Component *> m_children;
     QVector<Interval> m_intervals;
     QVector<QMetaObject::Connection> m_connections;
+    QVector<std::function<void()>> m_cleanups;
     TimerHost *m_timerHost = nullptr;
 };
 

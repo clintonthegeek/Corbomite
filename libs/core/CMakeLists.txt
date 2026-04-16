@@ -3,8 +3,10 @@ project(corbomite-core VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets Network)
 find_package(KF6I18n REQUIRED)
+find_package(KF6CoreAddons REQUIRED)
+find_package(KF6Config REQUIRED)
 
 add_library(corbomite-core STATIC
     src/NoteMeta.cpp
@@ -86,6 +88,30 @@ add_library(corbomite-core STATIC
     include/corbomite/core/Workspace.h
     src/WorkspaceWindow.cpp
     include/corbomite/core/WorkspaceWindow.h
+    src/PluginMetaData.cpp
+    include/corbomite/core/PluginMetaData.h
+    src/Plugin.cpp
+    include/corbomite/core/Plugin.h
+    src/PluginContext.cpp
+    include/corbomite/core/PluginContext.h
+    src/proxies/VaultReader.cpp
+    include/corbomite/core/proxies/VaultReader.h
+    src/proxies/VaultWriter.cpp
+    include/corbomite/core/proxies/VaultWriter.h
+    src/proxies/MetadataCacheReader.cpp
+    include/corbomite/core/proxies/MetadataCacheReader.h
+    src/proxies/WorkspaceController.cpp
+    include/corbomite/core/proxies/WorkspaceController.h
+    src/proxies/CommandRegistrar.cpp
+    include/corbomite/core/proxies/CommandRegistrar.h
+    src/proxies/ViewRegistrar.cpp
+    include/corbomite/core/proxies/ViewRegistrar.h
+    src/proxies/MenuInjector.cpp
+    include/corbomite/core/proxies/MenuInjector.h
+    src/proxies/SecretStorage.cpp
+    include/corbomite/core/proxies/SecretStorage.h
+    src/proxies/ProcessSpawner.cpp
+    include/corbomite/core/proxies/ProcessSpawner.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
@@ -94,4 +120,4 @@ target_include_directories(corbomite-core
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../storage/include
 )
-target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets KF6::SyntaxHighlighting KF6::I18n jkqtmathtext mmdr markoff)
+target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets Qt6::Network KF6::SyntaxHighlighting KF6::I18n KF6::CoreAddons KF6::ConfigCore jkqtmathtext mmdr markoff)

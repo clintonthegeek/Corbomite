@@ -210,3 +210,17 @@ add_executable(tst_fileview_setState tst_fileview_setState.cpp)
 add_test(NAME tst_fileview_setState COMMAND tst_fileview_setState)
 target_link_libraries(tst_fileview_setState PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_fileview_setState PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_plugin_metadata tst_plugin_metadata.cpp)
+add_test(NAME tst_plugin_metadata COMMAND tst_plugin_metadata)
+target_link_libraries(tst_plugin_metadata PRIVATE Qt6::Test Corbomite::Core KF6::CoreAddons)
+
+add_executable(tst_plugin tst_plugin.cpp)
+add_test(NAME tst_plugin COMMAND tst_plugin)
+target_link_libraries(tst_plugin PRIVATE Qt6::Test Corbomite::Core KF6::CoreAddons)
+set_tests_properties(tst_plugin PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_plugin_context tst_plugin_context.cpp)
+add_test(NAME tst_plugin_context COMMAND tst_plugin_context)
+target_link_libraries(tst_plugin_context PRIVATE Qt6::Test Corbomite::Core KF6::CoreAddons)
+set_tests_properties(tst_plugin_context PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

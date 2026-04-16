@@ -78,6 +78,12 @@ void Component::unload()
     }
     m_connections.clear();
 
+    // Cleanups fire LIFO — last-registered runs first.
+    for (int i = m_cleanups.size() - 1; i >= 0; --i) {
+        if (m_cleanups[i]) m_cleanups[i]();
+    }
+    m_cleanups.clear();
+
     m_loaded = false;
     onunload();
 }
@@ -113,6 +119,11 @@ int Component::registerInterval(int ms, std::function<void()> fn)
 void Component::registerQObjectConnection(const QMetaObject::Connection &conn)
 {
     m_connections.append(conn);
+}
+
+void Component::registerCleanup(std::function<void()> fn)
+{
+    m_cleanups.append(std::move(fn));
 }
 
 } // namespace Corbomite
