@@ -5,8 +5,12 @@
 #include <QTabBar>
 #include <QStackedWidget>
 #include <QHash>
+#include <QVector>
 #include "NoteEditorWidget.h"
 #include "corbomite/models/TabModel.h"
+#include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomite/core/ViewRegistry.h"
+#include "corbomite/core/FileView.h"
 
 namespace Corbomite {
 
@@ -46,6 +50,14 @@ public:
     void openGraphView(SQLiteIndex *index, VaultModel *vault);
     bool hasGraphView() const;
 
+    // --- ViewRegistry-based API (Task 10) ---
+    void setViewRegistry(ViewRegistry *registry);
+    WorkspaceLeaf *openFile(const QString &relativePath);
+    WorkspaceLeaf *openView(const QString &type, const QJsonObject &state = {});
+    WorkspaceLeaf *activeLeaf() const;
+    WorkspaceLeaf *leafForPath(const QString &relativePath) const;
+    QVector<WorkspaceLeaf *> leaves() const;
+
     void closeAllTabs();
     bool hasModifiedDocuments() const;
     QStringList modifiedDocumentPaths() const;
@@ -74,6 +86,10 @@ private:
     MarkdownRenderEngine *m_canvasEngine = nullptr;
     HoverPopover *m_hoverPopover = nullptr;
     EditorSuggestManager *m_suggestManager = nullptr;
+
+    // ViewRegistry-based state (Task 10)
+    ViewRegistry *m_viewRegistry = nullptr;
+    QVector<WorkspaceLeaf *> m_leaves;
 };
 
 } // namespace Corbomite

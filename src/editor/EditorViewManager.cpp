@@ -2,6 +2,7 @@
 #include "EditorViewManager.h"
 #include "EditorViewSpace.h"
 #include "NoteEditorWidget.h"
+#include "corbomite/core/ViewRegistry.h"
 #include <markoff/Editor.h>
 #include "corbomite/core/PaneLayoutBridge.h"
 #include "corbomite/core/RegexRenderEngine.h"
@@ -42,9 +43,17 @@ EditorViewSpace *EditorViewManager::createViewSpace()
     space->setCanvasEngine(m_canvasEngine.get());
     space->setHoverPopover(m_hoverPopover);
     space->setEditorSuggestManager(m_suggestManager);
+    space->setViewRegistry(m_viewRegistry);
     connectViewSpace(space);
     m_viewSpaces.append(space);
     return space;
+}
+
+void EditorViewManager::setViewRegistry(ViewRegistry *registry)
+{
+    m_viewRegistry = registry;
+    for (auto *space : std::as_const(m_viewSpaces))
+        space->setViewRegistry(registry);
 }
 
 void EditorViewManager::setHoverPopover(HoverPopover *popover)

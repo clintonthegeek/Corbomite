@@ -16,6 +16,7 @@ class NoteDocument;
 class EditorViewSpace;
 class SQLiteIndex;
 class VaultModel;
+class ViewRegistry;
 
 class EditorViewManager : public QWidget {
     Q_OBJECT
@@ -23,6 +24,8 @@ class EditorViewManager : public QWidget {
 public:
     explicit EditorViewManager(QWidget *parent = nullptr);
     ~EditorViewManager() override;
+
+    void setViewRegistry(ViewRegistry *registry);
 
     void openNote(NoteDocument *doc);
     void openCanvas(const QString &filePath);
@@ -87,6 +90,7 @@ private:
     std::unique_ptr<MarkdownRenderEngine> m_canvasEngine;
     HoverPopover *m_hoverPopover = nullptr;
     EditorSuggestManager *m_suggestManager = nullptr;
+    ViewRegistry *m_viewRegistry = nullptr;
 };
 
 } // namespace Corbomite

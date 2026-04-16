@@ -5,11 +5,17 @@
 #include "graph/GraphViewTab.h"
 #include "canvas/CanvasViewTab.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomite/core/ViewRegistry.h"
+#include "corbomite/core/FileView.h"
+#include "corbomite/core/View.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include <QVBoxLayout>
 #include <QIcon>
 #include <QMouseEvent>
 #include <QMenu>
+#include <QFileInfo>
+#include <QJsonObject>
 #include <KLocalizedString>
 
 namespace Corbomite {
@@ -57,6 +63,90 @@ void EditorViewSpace::setEditorSuggestManager(EditorSuggestManager *manager)
     for (auto *editor : std::as_const(m_editors)) {
         editor->setEditorSuggestManager(manager);
     }
+}
+
+void EditorViewSpace::setViewRegistry(ViewRegistry *registry)
+{
+    m_viewRegistry = registry;
+}
+
+WorkspaceLeaf *EditorViewSpace::openFile(const QString &relativePath)
+{
+    // Check for existing leaf with this file
+    for (auto *leaf : std::as_const(m_leaves)) {
+        if (auto *fv = qobject_cast<FileView *>(leaf->view())) {
+            if (fv->file() && fv->file()->relativePath() == relativePath) {
+                // Find tab index for this leaf and switch to it
+                int leafIdx = m_leaves.indexOf(leaf);
+                // Leaves are appended to tabs after any legacy tabs, so the
+                // tab index is offset by the number of non-leaf tabs.
+                int offset = m_tabBar->count() - m_leaves.size();
+                int tabIdx = leafIdx + offset;
+                if (tabIdx >= 0 && tabIdx < m_tabBar->count())
+                    m_tabBar->setCurrentIndex(tabIdx);
+                return leaf;
+            }
+        }
+    }
+
+    // Determine type from extension
+    if (!m_viewRegistry) return nullptr;
+    QString ext = QFileInfo(relativePath).suffix().toLower();
+    QString type = m_viewRegistry->getTypeByExtension(ext);
+    if (type.isEmpty()) return nullptr;
+
+    QJsonObject state;
+    state[QStringLiteral("file")] = relativePath;
+    return openView(type, state);
+}
+
+WorkspaceLeaf *EditorViewSpace::openView(const QString &type, const QJsonObject &state)
+{
+    if (!m_viewRegistry) return nullptr;
+    auto factory = m_viewRegistry->getViewCreatorByType(type);
+    if (!factory) return nullptr;
+
+    auto *leaf = new WorkspaceLeaf(m_viewRegistry, m_stack);
+    auto *view = factory(leaf);
+    leaf->open(view);
+
+    if (!state.isEmpty())
+        view->setState(state);
+
+    m_leaves.append(leaf);
+    m_stack->addWidget(leaf);
+
+    QString title = view->getDisplayText();
+    int tabIdx = m_tabBar->addTab(title);
+    m_tabBar->setCurrentIndex(tabIdx);
+
+    return leaf;
+}
+
+WorkspaceLeaf *EditorViewSpace::activeLeaf() const
+{
+    auto *current = m_stack->currentWidget();
+    for (auto *leaf : m_leaves) {
+        if (leaf == current)
+            return leaf;
+    }
+    return nullptr;
+}
+
+WorkspaceLeaf *EditorViewSpace::leafForPath(const QString &relativePath) const
+{
+    for (auto *leaf : m_leaves) {
+        if (auto *fv = qobject_cast<FileView *>(leaf->view())) {
+            if (fv->file() && fv->file()->relativePath() == relativePath)
+                return leaf;
+        }
+    }
+    return nullptr;
+}
+
+QVector<WorkspaceLeaf *> EditorViewSpace::leaves() const
+{
+    return m_leaves;
 }
 
 void EditorViewSpace::openNote(NoteDocument *doc)
@@ -122,6 +212,24 @@ void EditorViewSpace::closeTab(int index)
     if (index < 0 || index >= m_tabBar->count()) return;
 
     QString path = m_tabBar->tabData(index).toString();
+
+    // Check if the widget at this stack index is a WorkspaceLeaf.
+    // Leaf-based tabs don't set tabData, so path will be empty for them.
+    // We also check by matching the stack widget directly.
+    // Leaf tabs are appended after legacy tabs, so the leaf index is
+    // offset from the tab index.
+    int legacyCount = m_tabBar->count() - m_leaves.size();
+    if (index >= legacyCount && !m_leaves.isEmpty()) {
+        int leafIdx = index - legacyCount;
+        if (leafIdx >= 0 && leafIdx < m_leaves.size()) {
+            auto *leaf = m_leaves.takeAt(leafIdx);
+            m_tabBar->removeTab(index);
+            m_stack->removeWidget(leaf);
+            leaf->deleteLater();
+            return;
+        }
+    }
+
     m_tabBar->removeTab(index);
 
     if (path == QStringLiteral("__graph__")) {
@@ -176,6 +284,17 @@ void EditorViewSpace::onTabChanged(int index)
     if (index < 0 || index >= m_tabBar->count()) {
         Q_EMIT activeEditorChanged(nullptr);
         return;
+    }
+
+    // Check if this is a leaf-based tab
+    int legacyCount = m_tabBar->count() - m_leaves.size();
+    if (index >= legacyCount && !m_leaves.isEmpty()) {
+        int leafIdx = index - legacyCount;
+        if (leafIdx >= 0 && leafIdx < m_leaves.size()) {
+            m_stack->setCurrentWidget(m_leaves[leafIdx]);
+            Q_EMIT activeEditorChanged(nullptr);
+            return;
+        }
     }
 
     QString path = m_tabBar->tabData(index).toString();
@@ -348,6 +467,14 @@ void EditorViewSpace::showTabContextMenu(const QPoint &pos)
 
 void EditorViewSpace::closeAllTabs()
 {
+    // Clean up leaf-based tabs
+    for (auto *leaf : std::as_const(m_leaves)) {
+        m_stack->removeWidget(leaf);
+        leaf->deleteLater();
+    }
+    m_leaves.clear();
+
+    // Clean up legacy tabs
     while (m_tabBar->count() > 0) {
         closeTab(0);
     }
