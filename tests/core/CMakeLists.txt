@@ -164,3 +164,8 @@ set_tests_properties(tst_workspaceleaf PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=o
 add_executable(tst_leaf_history tst_leaf_history.cpp)
 add_test(NAME tst_leaf_history COMMAND tst_leaf_history)
 target_link_libraries(tst_leaf_history PRIVATE Qt6::Test Corbomite::Core)
+
+add_executable(tst_workspace_tree tst_workspace_tree.cpp)
+add_test(NAME tst_workspace_tree COMMAND tst_workspace_tree)
+target_link_libraries(tst_workspace_tree PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_workspace_tree PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
