@@ -175,6 +175,12 @@ void WorkspaceTabs::onTabBarCurrentChanged(int index)
     m_currentTab = index;
     m_stack->setCurrentIndex(index);
     Q_EMIT currentTabChanged(index);
+
+    // Load a deferred leaf the first time the user switches to it.
+    if (auto *leaf = leafAt(index)) {
+        if (leaf->isDeferred())
+            leaf->loadIfDeferred();
+    }
 }
 
 void WorkspaceTabs::onTabBarCloseRequested(int index)

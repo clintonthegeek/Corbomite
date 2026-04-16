@@ -55,6 +55,9 @@ WorkspaceLeaf *Workspace::createLeafInTabs(WorkspaceTabs *parent)
 {
     auto *leaf = new WorkspaceLeaf(m_registry);
     parent->addChild(leaf);
+    connect(leaf, &WorkspaceLeaf::pinnedChanged, this, [this, leaf](bool) {
+        propagatePinToGroup(leaf);
+    });
     Q_EMIT layoutChanged();
     return leaf;
 }
@@ -236,6 +239,39 @@ QVector<WorkspaceLeaf *> Workspace::allLeaves() const
     return result;
 }
 
+QVector<WorkspaceLeaf *> Workspace::groupMembers(const QString &groupId) const
+{
+    QVector<WorkspaceLeaf *> result;
+    if (groupId.isEmpty())
+        return result;
+    for (auto *leaf : allLeaves()) {
+        if (leaf->group() == groupId)
+            result.append(leaf);
+    }
+    return result;
+}
+
+void Workspace::propagatePinToGroup(WorkspaceLeaf *leaf)
+{
+    if (!leaf || leaf->group().isEmpty())
+        return;
+    bool pinned = leaf->pinned();
+    for (auto *member : groupMembers(leaf->group())) {
+        if (member != leaf)
+            member->setPinned(pinned);
+    }
+}
+
+WorkspaceLeaf *Workspace::findOrCreateUnpinnedLeaf(WorkspaceTabs *tabs)
+{
+    for (int i = 0; i < tabs->childCount(); ++i) {
+        auto *leaf = tabs->leafAt(i);
+        if (leaf && !leaf->pinned())
+            return leaf;
+    }
+    return createLeafInTabs(tabs);
+}
+
 QJsonObject Workspace::serialize() const
 {
     QJsonObject json;
@@ -285,6 +321,25 @@ void Workspace::deserialize(const QJsonObject &json)
     m_lastOpenFiles.clear();
     for (const auto &v : json[QStringLiteral("lastOpenFiles")].toArray())
         m_lastOpenFiles.append(v.toString());
+
+    // Mark all non-active leaves as deferred so they don't construct a View
+    // until the user focuses them. The active leaf is loaded eagerly.
+    for (auto *leaf : allLeaves()) {
+        if (leaf == m_activeLeaf)
+            continue;
+        auto state = leaf->getViewState();
+        QString icon = state[QStringLiteral("icon")].toString();
+        QString title = state[QStringLiteral("title")].toString();
+        if (icon.isEmpty())
+            icon = QStringLiteral("document");
+        if (title.isEmpty())
+            title = QStringLiteral("Untitled");
+        leaf->setDeferred(true, icon, title);
+    }
+
+    // Ensure the active leaf is not stuck in deferred state.
+    if (m_activeLeaf && m_activeLeaf->isDeferred())
+        m_activeLeaf->loadIfDeferred();
 }
 
 void Workspace::readWorkspaceJson(const QString &vaultPath)

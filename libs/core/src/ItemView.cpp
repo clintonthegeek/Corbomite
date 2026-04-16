@@ -1,6 +1,7 @@
 // libs/core/src/ItemView.cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/ItemView.h"
+#include "corbomite/core/WorkspaceLeaf.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -32,6 +33,18 @@ void ItemView::buildHeader()
     headerLayout->setContentsMargins(4, 2, 4, 2);
     headerLayout->setSpacing(4);
 
+    m_backButton = new QToolButton(m_headerWidget);
+    m_backButton->setIcon(QIcon::fromTheme(QStringLiteral("go-previous")));
+    m_backButton->setToolTip(i18n("Navigate Back"));
+    m_backButton->setAutoRaise(true);
+    m_backButton->setEnabled(false);
+
+    m_forwardButton = new QToolButton(m_headerWidget);
+    m_forwardButton->setIcon(QIcon::fromTheme(QStringLiteral("go-next")));
+    m_forwardButton->setToolTip(i18n("Navigate Forward"));
+    m_forwardButton->setAutoRaise(true);
+    m_forwardButton->setEnabled(false);
+
     m_iconLabel = new QLabel(m_headerWidget);
     m_titleLabel = new QLabel(m_headerWidget);
     m_titleLabel->setObjectName(QStringLiteral("view-header-title"));
@@ -45,6 +58,8 @@ void ItemView::buildHeader()
     moreBtn->setAutoRaise(true);
     connect(moreBtn, &QToolButton::clicked, this, &ItemView::showMoreOptionsMenu);
 
+    headerLayout->addWidget(m_backButton);
+    headerLayout->addWidget(m_forwardButton);
     headerLayout->addWidget(m_iconLabel);
     headerLayout->addWidget(m_titleLabel, 1);
     headerLayout->addLayout(m_actionsLayout);
@@ -75,6 +90,29 @@ void ItemView::onOpen()
     View::onOpen();
     m_titleLabel->setText(getDisplayText());
     m_iconLabel->setPixmap(QIcon::fromTheme(getIcon()).pixmap(16, 16));
+
+    if (m_leaf) {
+        connect(m_backButton, &QToolButton::clicked,
+                m_leaf, &WorkspaceLeaf::goBack);
+        connect(m_forwardButton, &QToolButton::clicked,
+                m_leaf, &WorkspaceLeaf::goForward);
+        // Refresh button state whenever the leaf switches to a new view
+        connect(m_leaf, &WorkspaceLeaf::viewChanged,
+                this, &ItemView::updateNavigationButtons);
+    }
+
+    updateNavigationButtons();
+}
+
+void ItemView::updateNavigationButtons()
+{
+    if (!m_leaf) {
+        m_backButton->setEnabled(false);
+        m_forwardButton->setEnabled(false);
+        return;
+    }
+    m_backButton->setEnabled(m_leaf->history().canGoBack());
+    m_forwardButton->setEnabled(m_leaf->history().canGoForward());
 }
 
 void ItemView::onMoreOptionsMenu(QMenu *) {}

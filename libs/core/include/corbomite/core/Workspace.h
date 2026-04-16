@@ -67,6 +67,11 @@ public:
     WorkspaceTabs *findTabsById(const QString &id) const;
     QVector<WorkspaceLeaf *> allLeaves() const;
 
+    // Linked-pane group propagation
+    void propagatePinToGroup(WorkspaceLeaf *leaf);
+    QVector<WorkspaceLeaf *> groupMembers(const QString &groupId) const;
+    WorkspaceLeaf *findOrCreateUnpinnedLeaf(WorkspaceTabs *tabs);
+
     // Persistence
     QJsonObject serialize() const;
     void deserialize(const QJsonObject &json);

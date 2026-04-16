@@ -32,12 +32,15 @@ protected:
 private:
     void buildHeader();
     void showMoreOptionsMenu();
+    void updateNavigationButtons();
 
     QWidget *m_headerWidget = nullptr;
     QWidget *m_contentWidget = nullptr;
     QHBoxLayout *m_actionsLayout = nullptr;
     QLabel *m_titleLabel = nullptr;
     QLabel *m_iconLabel = nullptr;
+    QToolButton *m_backButton = nullptr;
+    QToolButton *m_forwardButton = nullptr;
 };
 
 } // namespace Corbomite
