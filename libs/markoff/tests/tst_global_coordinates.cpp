@@ -26,6 +26,7 @@ private Q_SLOTS:
     void goToLinePastEnd();
     void cursorLineFirstItem();
     void cursorLineSecondItem();
+    void endToEndAllFixes();
 };
 
 void TstGlobalCoordinates::singleItemLineMapping()
@@ -388,6 +389,53 @@ void TstGlobalCoordinates::cursorLineSecondItem()
     editor.goToLine(gpDD.line);
     QApplication::processEvents();
     QCOMPARE(editor.cursorLine(), gpDD.line);
+}
+
+void TstGlobalCoordinates::endToEndAllFixes()
+{
+    Editor editor;
+    editor.resize(800, 600);
+    editor.setPlainText(QStringLiteral(
+        "# Title\n\nParagraph one.\n\n| Col |\n|-----|\n| Val |\n\nParagraph two.\nLine ten."));
+    editor.show();
+    QApplication::processEvents();
+
+    // Fix 4: cursorLine starts at 1 after navigating there.
+    editor.goToLine(1);
+    QApplication::processEvents();
+    QCOMPARE(editor.cursorLine(), 1);
+
+    // Fix 3: goToLine to last line in second text item.
+    auto *coord = editor.coordinatorForTesting();
+    MarkdownTextItem *lastText = nullptr;
+    for (auto *item : coord->items()) {
+        if (item->isTextItem())
+            lastText = static_cast<MarkdownTextItem *>(item);
+    }
+    QVERIFY(lastText);
+    auto gpLast = coord->globalPositionOf(lastText,
+        lastText->document()->blockCount() - 1, 0);
+
+    editor.goToLine(gpLast.line);
+    QApplication::processEvents();
+    QCOMPARE(editor.cursorLine(), gpLast.line);
+
+    // Fix 1: selectAll selects across all items.
+    editor.selectAll();
+    QApplication::processEvents();
+    editor.copy();
+    QString clipboard = QApplication::clipboard()->text();
+    QVERIFY(clipboard.contains(QStringLiteral("Title")));
+    QVERIFY(clipboard.contains(QStringLiteral("Line ten.")));
+
+    // Fix 2: cut removes everything including the table.
+    editor.selectAll();
+    QApplication::processEvents();
+    editor.cut();
+    QApplication::processEvents();
+    QString remaining = editor.toPlainText().trimmed();
+    QVERIFY(!remaining.contains(QStringLiteral("| Col |")));
+    QVERIFY(!remaining.contains(QStringLiteral("Title")));
 }
 
 QTEST_MAIN(TstGlobalCoordinates)
