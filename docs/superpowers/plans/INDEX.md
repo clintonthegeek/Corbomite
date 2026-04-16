@@ -2,7 +2,7 @@
 
 > **Living document.** Table of contents over `docs/superpowers/plans/cluster-*.md`. One row per cluster plan. Status mirrors `docs/PROJECT-STATE.md` Roadmap — when those diverge, **PROJECT-STATE is authoritative.** Update the Status column here per Ritual 3 (cluster done) or Ritual 2 (mid-cluster status change).
 
-**Last updated:** 2026-04-15 — Cluster G Part 2 infrastructure landed (11 commits): workspace tree (WorkspaceSplit, WorkspaceTabs, WorkspaceWindow), Workspace coordinator, workspace.json serialization, leaf undo, deferred-load, per-leaf history, popout, stacked tabs, pinning + group propagation. Tasks 9-10 (MainWindow migration) deferred. Prior: Part 1 (15 commits). Prior same-session: Clusters I + F + L + E + J.
+**Last updated:** 2026-04-16 — Cluster G fully closed (Tasks 9-10 landed). 3 new commits (`9cdcdf0`, `c248ebf`, `4c63219`) on top of pre-existing delete `e3143f1`: MainWindow migrated onto `Workspace`; legacy `EditorViewManager`/`EditorViewSpace`/`PaneLayoutBridge`/`PaneLayout` deleted. Spec + code-quality review caught a persistence double-nest bug + `_mw_connected` property collision; both fixed. Retro at `cluster-retros/cluster-g.md`. Unblocks M, N. Prior same-day (2026-04-15): Part 1 (15 commits) + Part 2 infra (11 commits). Prior (also 2026-04-15): Clusters I + F + L + E + J.
 
 ## Plans
 
@@ -14,7 +14,7 @@
 | D | Search / suggester parity | [2026-04-14-cluster-d-search-suggester-parity.md](2026-04-14-cluster-d-search-suggester-parity.md) | Full | Done | landed 2026-04-15 (5 commits) |
 | E | Three-mode pivot (Source/LivePreview/Reading) | [2026-04-14-cluster-e-markoff-three-mode-pivot.md](2026-04-14-cluster-e-markoff-three-mode-pivot.md) | Full | Done | landed 2026-04-15 (18 commits); see `cluster-retros/cluster-e.md` |
 | F | Templates / Daily Notes / Moment | [2026-04-15-cluster-f-templates-daily-notes-moment.md](2026-04-15-cluster-f-templates-daily-notes-moment.md) | Full | Done | landed 2026-04-15 (5 phases + doc closeout) |
-| G | Views hierarchy + TextFileView contract | [Part 1](2026-04-15-cluster-g-views-hierarchy.md), [Part 2](2026-04-15-cluster-g-part2-workspace.md) | Full | Part 2 infra done | Part 1 (15 commits) + Part 2 infra (11 commits) landed 2026-04-15; specs at `../specs/2026-04-15-cluster-g-views-hierarchy-design.md` + `../specs/2026-04-15-cluster-g-part2-workspace-design.md`; Tasks 9-10 (MainWindow migration, delete old classes) deferred |
+| G | Views hierarchy + TextFileView contract | [Part 1](2026-04-15-cluster-g-views-hierarchy.md), [Part 2](2026-04-15-cluster-g-part2-workspace.md) | Full | Done | Full cluster closed 2026-04-16. Part 1 (15 commits) + Part 2 infra (11 commits) 2026-04-15; Tasks 9-10 (3 commits on top of pre-existing `e3143f1` delete) 2026-04-16. See `cluster-retros/cluster-g.md`. Unblocks M, N. |
 | H | Menus / hover / suggester UI | [2026-04-14-cluster-h-menus-hover-suggester-ui.md](2026-04-14-cluster-h-menus-hover-suggester-ui.md) | Full | Done | landed 2026-04-15 (5 commits) |
 | I | MetadataCache parity | [2026-04-15-cluster-i-metadatacache-parity.md](2026-04-15-cluster-i-metadatacache-parity.md) | Full | Done | landed 2026-04-15 (10 commits, 8 phases) |
 | J | Embed / rendering primitives | [2026-04-15-cluster-j-embed-rendering.md](2026-04-15-cluster-j-embed-rendering.md) | Full | Done | landed 2026-04-15 (18 commits, 6 phases); see `cluster-retros/cluster-j.md`; spec at `../specs/2026-04-15-cluster-j-embed-rendering-design.md` |
@@ -24,6 +24,7 @@
 | N | Plugin-ready surfaces | — | — | Deferred | builds incrementally on B + C |
 | O | Advanced query layer (post-parity) | [2026-04-14-cluster-o-query-layer-SCOUTING.md](2026-04-14-cluster-o-query-layer-SCOUTING.md) | Scouting | Scouting doc | additive graph+FTS over markdown vault; **post-parity** |
 | P | Graffodil adoption (internal refactor) | [2026-04-14-cluster-p-graffodil-adoption-SCOUTING.md](2026-04-14-cluster-p-graffodil-adoption-SCOUTING.md) | Scouting | Scouting doc | port libs/forcegraph + libs/canvas onto Graffodil; **parallelisable with parity** |
+| Q | Internal-plugin wrapping + permissions | — | — | Plan-needed (brainstorm pending) | `InternalPlugin` `Component` wrapper around built-in features + `core-plugins.json` + Settings toggle + plugin-permissions system; design input at `memory/project_cluster_q_permissions.md` |
 
 ## Parallel long-term internal refactors (not cluster-numbered)
 
