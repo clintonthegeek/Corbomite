@@ -96,6 +96,8 @@ Q_SIGNALS:
     void reparsed();
 
 private:
+    static int interItemNewlines(bool prevIsText, bool currIsText);
+
     MarkdownTextItem *createTextItem(const QString &text);
     void handleBoundary(MarkdownTextItem *from, Qt::Edge edge);
     void clearItems();

@@ -121,17 +121,20 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
     emit reparsed();
 }
 
+int SceneCoordinator::interItemNewlines(bool prevIsText, bool currIsText)
+{
+    return (prevIsText && currIsText) ? 1 : 2;
+}
+
 QString SceneCoordinator::toMarkdown() const
 {
     QString result;
     for (int i = 0; i < m_items.size(); ++i) {
         if (i > 0) {
-            // Block items (images, tables) need a blank line separator
-            // to preserve the original markdown structure.
-            bool prevIsBlock = !m_items[i - 1]->isTextItem();
-            bool currIsBlock = !m_items[i]->isTextItem();
-            result += (prevIsBlock || currIsBlock)
-                ? QStringLiteral("\n\n") : QStringLiteral("\n");
+            int nlCount = interItemNewlines(m_items[i - 1]->isTextItem(),
+                                            m_items[i]->isTextItem());
+            for (int n = 0; n < nlCount; ++n)
+                result += QLatin1Char('\n');
         }
         result += m_items[i]->toMarkdown();
     }
