@@ -4,11 +4,12 @@
 #include "SelectableItem.h"
 #include "MarkdownTextItem.h"
 #include "TextControl.h"
-#include "TableBlockItem.h"
 #include "ImageBlockItem.h"
 #include "FoldingModel.h"
 #include "MathTextObject.h"
+#include "TableSerializer.h"
 #include <markoff-parser/MarkdownSplitter.h>
+#include <markoff-parser/TableHandler.h>
 #include "MarkdownHighlighter.h"
 #include <markoff-parser/TreeSitterParser.h>
 
@@ -95,24 +96,72 @@ MarkdownTextItem *SceneCoordinator::createTextItem(const QString &text)
     return item;
 }
 
+QList<TableConverter::TableRegion>
+SceneCoordinator::detectTableRegions(const QString &markdown) const
+{
+    QList<TableConverter::TableRegion> regions;
+    // m_parser already parsed during the split — use findBlockBoundaries
+    auto boundaries = m_parser->findBlockBoundaries();
+    for (const auto &b : boundaries) {
+        if (b.type != TreeSitterParser::BlockBoundary::Table)
+            continue;
+
+        QString tableText = markdown.mid(b.startChar, b.endChar - b.startChar);
+        if (tableText.endsWith(QLatin1Char('\n')))
+            tableText.chop(1);
+
+        QStringList lines = tableText.split(QLatin1Char('\n'));
+        if (lines.size() < 2)
+            continue;
+
+        TableConverter::TableRegion region;
+        region.startPos = b.startChar;
+        region.endPos = b.endChar;
+        region.headers = TableHandler::parseRow(lines[0]);
+        region.cols = region.headers.size();
+        if (region.cols == 0) continue;
+
+        // Line 1 is separator — parse alignments
+        region.alignments = TableSerializer::parseAlignments(lines[1]);
+
+        // Lines 2+ are data rows
+        for (int i = 2; i < lines.size(); ++i) {
+            QStringList row = TableHandler::parseRow(lines[i]);
+            while (row.size() < region.cols) row.append(QString());
+            while (row.size() > region.cols) row.removeLast();
+            region.dataRows.append(row);
+        }
+        region.rows = 1 + region.dataRows.size();
+        regions.append(region);
+    }
+    return regions;
+}
+
 void SceneCoordinator::loadMarkdown(const QString &markdown)
 {
     clearItems();
+    m_tableConverters.clear();
 
     auto segments = MarkdownSplitter::split(markdown, *m_parser);
 
     for (const auto &seg : segments) {
         if (seg.type == MarkdownSegment::Text) {
-            createTextItem(seg.text);
+            auto *item = createTextItem(seg.text);
+
+            // Detect and convert any pipe tables within this text item
+            if (m_parser->parse(seg.text)) {
+                auto regions = detectTableRegions(seg.text);
+                if (!regions.isEmpty()) {
+                    TableConverter &converter = m_tableConverters[item];
+                    converter.convert(item->document(), regions);
+                }
+            }
         } else if (seg.type == MarkdownSegment::Image) {
             auto *item = new ImageBlockItem(seg.text, m_itemWidth, m_resourceProvider);
             m_scene->addItem(item);
             m_items.append(item);
-        } else {
-            auto *item = new TableBlockItem(seg.text, m_itemWidth);
-            m_scene->addItem(item);
-            m_items.append(item);
         }
+        // No more TableBlockItem creation — tables now live inside text items
     }
 
     repositionItems();
@@ -339,8 +388,6 @@ void SceneCoordinator::setFont(const QFont &font)
         if (item->isTextItem()) {
             auto *textItem = static_cast<MarkdownTextItem *>(item);
             textItem->document()->setDefaultFont(font);
-        } else if (auto *table = dynamic_cast<TableBlockItem *>(item->asGraphicsItem())) {
-            table->setFont(font);
         }
     }
     repositionItems();
@@ -501,6 +548,7 @@ void SceneCoordinator::clearItems()
         delete item->asGraphicsItem();
     }
     m_items.clear();
+    m_tableConverters.clear();
 }
 
 void SceneCoordinator::repositionItems()
@@ -550,18 +598,25 @@ void SceneCoordinator::reparse()
 
     if (structureChanged) {
         clearItems();
+        m_tableConverters.clear();
         for (const auto &seg : newSegments) {
             if (seg.type == MarkdownSegment::Text) {
-                createTextItem(seg.text);
+                auto *item = createTextItem(seg.text);
+
+                // Detect and convert any pipe tables within this text item
+                if (m_parser->parse(seg.text)) {
+                    auto regions = detectTableRegions(seg.text);
+                    if (!regions.isEmpty()) {
+                        TableConverter &converter = m_tableConverters[item];
+                        converter.convert(item->document(), regions);
+                    }
+                }
             } else if (seg.type == MarkdownSegment::Image) {
                 auto *item = new ImageBlockItem(seg.text, m_itemWidth, m_resourceProvider);
                 m_scene->addItem(item);
                 m_items.append(item);
-            } else {
-                auto *item = new TableBlockItem(seg.text, m_itemWidth);
-                m_scene->addItem(item);
-                m_items.append(item);
             }
+            // No more TableBlockItem creation — tables live inside text items
         }
         repositionItems();
         m_scene->setSelectableItems(m_items);
@@ -593,6 +648,12 @@ void SceneCoordinator::reparse()
                         doc->findChild<QSyntaxHighlighter *>());
                     if (highlighter)
                         highlighter->setSpanMap(m_parser->buildSpanMap());
+
+                    // Reconcile table regions — handles newly typed tables
+                    // and tables that were removed by editing.
+                    auto regions = detectTableRegions(src);
+                    TableConverter &converter = m_tableConverters[textItem];
+                    converter.reconcile(doc, regions);
                 }
                 textItem->refreshBlockFormatting();
                 textItem->refreshInlineSubstitutions();

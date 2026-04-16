@@ -3,6 +3,7 @@
 #define MARKOFF_SCENECOORDINATOR_H
 
 #include <markoff/Theme.h>
+#include "TableConverter.h"
 #include <QObject>
 #include <QList>
 #include <QFont>
@@ -137,9 +138,12 @@ private:
     void ensureHeadingMap() const;
     int headingAtBlock(int itemIdx, int blockNumber) const;
 
+    QList<TableConverter::TableRegion> detectTableRegions(const QString &markdown) const;
+
     SelectionScene *m_scene = nullptr;
     QList<SelectableItem *> m_items;
     TreeSitterParser *m_parser = nullptr;
+    QHash<MarkdownTextItem *, TableConverter> m_tableConverters;
     QTimer *m_reparseTimer = nullptr;
     ResourceProvider *m_resourceProvider = nullptr;
     qreal m_itemWidth = 600.0;
