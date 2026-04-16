@@ -82,6 +82,16 @@ public:
     void toggleCheckbox();
     void insertCallout(const QString &type);
 
+    // --- Table operations (no-op if cursor not in a table) ---
+    void tableInsertRowAbove();
+    void tableInsertRowBelow();
+    void tableInsertColumnLeft();
+    void tableInsertColumnRight();
+    void tableDeleteRow();
+    void tableDeleteColumn();
+    void tableSelectRow();
+    void tableSelectColumn();
+
     // --- Cursor & navigation ---
     int cursorLine() const;
     int cursorColumn() const;
@@ -187,6 +197,9 @@ Q_SIGNALS:
     void wordCountChanged(int count);
     void foldStateChanged();
     void foldsAutoExpanded(const QList<QStringList> &paths);
+    void tableEntered(int rows, int cols);
+    void tableExited();
+    void tableCursorMoved(int row, int col);
     /// Fired when the scroll position changes by at least a fractional
     /// visual line. Connected to `verticalScrollBar::valueChanged` internally
     /// with a tiny dead-band so micro-pixel jitter from viewport updates
@@ -229,6 +242,7 @@ private:
     int m_autoScrollDelta = 0;
     bool m_autoScrollActive = false;
     bool m_readOnly = false;
+    bool m_inTable = false;
 
     Theme m_theme;
     EditorSettings m_editorSettings;

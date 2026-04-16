@@ -22,6 +22,7 @@
 #include <QTextBlock>
 #include <QTextDocument>
 #include <QTextEdit>
+#include <QTextTable>
 #include <QTimer>
 #include <QMenu>
 #include <QAction>
@@ -304,6 +305,7 @@ void Editor::keyPressEvent(QKeyEvent *e)
         if (e->key() == Qt::Key_C) { copy(); return; }
         if (e->key() == Qt::Key_X) { cut();  return; }
         if (e->key() == Qt::Key_V) { paste(); return; }
+        if (e->key() == Qt::Key_A) { selectAll(); return; }
         if (e->key() == Qt::Key_F) { showSearchBar(); return; }
         if (e->key() == Qt::Key_H) { showReplaceBar(); return; }
     }
@@ -1649,6 +1651,136 @@ void Editor::testActivateLink(const QString &href)
 void Editor::testHoverLink(const QString &href)
 {
     handleLinkHovered(href);
+}
+
+// =========================================================================
+// Table operations
+// =========================================================================
+
+/// Return the QTextTable under the focused text item's cursor, or nullptr.
+static QTextTable *currentTableInEditor(Editor *editor)
+{
+    // focusedTextItem() is private; use the scene's focusItem() directly.
+    auto *item = editor->scene()->focusItem();
+    if (!item) return nullptr;
+    auto *ti = dynamic_cast<MarkdownTextItem *>(item);
+    if (!ti) return nullptr;
+    QTextCursor cursor = ti->textControl()->textCursor();
+    return cursor.currentTable();
+}
+
+void Editor::tableInsertRowAbove()
+{
+    if (m_readOnly) return;
+    QTextTable *table = currentTableInEditor(this);
+    if (!table) return;
+    auto *ti = focusedTextItem();
+    QTextCursor cursor = ti->textControl()->textCursor();
+    QTextTableCell cell = table->cellAt(cursor);
+    cursor.beginEditBlock();
+    table->insertRows(cell.row(), 1);
+    cursor.endEditBlock();
+}
+
+void Editor::tableInsertRowBelow()
+{
+    if (m_readOnly) return;
+    QTextTable *table = currentTableInEditor(this);
+    if (!table) return;
+    auto *ti = focusedTextItem();
+    QTextCursor cursor = ti->textControl()->textCursor();
+    QTextTableCell cell = table->cellAt(cursor);
+    cursor.beginEditBlock();
+    table->insertRows(cell.row() + 1, 1);
+    cursor.endEditBlock();
+}
+
+void Editor::tableInsertColumnLeft()
+{
+    if (m_readOnly) return;
+    QTextTable *table = currentTableInEditor(this);
+    if (!table) return;
+    auto *ti = focusedTextItem();
+    QTextCursor cursor = ti->textControl()->textCursor();
+    QTextTableCell cell = table->cellAt(cursor);
+    cursor.beginEditBlock();
+    table->insertColumns(cell.column(), 1);
+    cursor.endEditBlock();
+}
+
+void Editor::tableInsertColumnRight()
+{
+    if (m_readOnly) return;
+    QTextTable *table = currentTableInEditor(this);
+    if (!table) return;
+    auto *ti = focusedTextItem();
+    QTextCursor cursor = ti->textControl()->textCursor();
+    QTextTableCell cell = table->cellAt(cursor);
+    cursor.beginEditBlock();
+    table->insertColumns(cell.column() + 1, 1);
+    cursor.endEditBlock();
+}
+
+void Editor::tableDeleteRow()
+{
+    if (m_readOnly) return;
+    QTextTable *table = currentTableInEditor(this);
+    if (!table) return;
+    if (table->rows() <= 1) return;
+    auto *ti = focusedTextItem();
+    QTextCursor cursor = ti->textControl()->textCursor();
+    QTextTableCell cell = table->cellAt(cursor);
+    cursor.beginEditBlock();
+    table->removeRows(cell.row(), 1);
+    cursor.endEditBlock();
+}
+
+void Editor::tableDeleteColumn()
+{
+    if (m_readOnly) return;
+    QTextTable *table = currentTableInEditor(this);
+    if (!table) return;
+    if (table->columns() <= 1) return;
+    auto *ti = focusedTextItem();
+    QTextCursor cursor = ti->textControl()->textCursor();
+    QTextTableCell cell = table->cellAt(cursor);
+    cursor.beginEditBlock();
+    table->removeColumns(cell.column(), 1);
+    cursor.endEditBlock();
+}
+
+void Editor::tableSelectRow()
+{
+    QTextTable *table = currentTableInEditor(this);
+    if (!table) return;
+    auto *ti = focusedTextItem();
+    auto *tc = ti->textControl();
+    QTextCursor cursor = tc->textCursor();
+    QTextTableCell cell = table->cellAt(cursor);
+    int row = cell.row();
+    int cols = table->columns();
+
+    QTextCursor first = table->cellAt(row, 0).firstCursorPosition();
+    QTextCursor last = table->cellAt(row, cols - 1).lastCursorPosition();
+    first.setPosition(last.position(), QTextCursor::KeepAnchor);
+    tc->setTextCursor(first);
+}
+
+void Editor::tableSelectColumn()
+{
+    QTextTable *table = currentTableInEditor(this);
+    if (!table) return;
+    auto *ti = focusedTextItem();
+    auto *tc = ti->textControl();
+    QTextCursor cursor = tc->textCursor();
+    QTextTableCell cell = table->cellAt(cursor);
+    int col = cell.column();
+    int rows = table->rows();
+
+    QTextCursor first = table->cellAt(0, col).firstCursorPosition();
+    QTextCursor last = table->cellAt(rows - 1, col).lastCursorPosition();
+    first.setPosition(last.position(), QTextCursor::KeepAnchor);
+    tc->setTextCursor(first);
 }
 
 } // namespace Markoff
