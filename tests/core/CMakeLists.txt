@@ -184,3 +184,13 @@ add_executable(tst_leaf_undo tst_leaf_undo.cpp)
 add_test(NAME tst_leaf_undo COMMAND tst_leaf_undo)
 target_link_libraries(tst_leaf_undo PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_leaf_undo PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_workspace_deferred tst_workspace_deferred.cpp)
+add_test(NAME tst_workspace_deferred COMMAND tst_workspace_deferred)
+target_link_libraries(tst_workspace_deferred PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_workspace_deferred PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_workspace_window tst_workspace_window.cpp)
+add_test(NAME tst_workspace_window COMMAND tst_workspace_window)
+target_link_libraries(tst_workspace_window PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_workspace_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
