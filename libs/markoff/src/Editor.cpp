@@ -244,6 +244,37 @@ void Editor::doAutoScroll()
 
 void Editor::contextMenuEvent(QContextMenuEvent *e)
 {
+    if (m_readOnly) {
+        e->ignore();
+        return;
+    }
+
+    // Check if click is inside a table
+    auto *item = focusedTextItem();
+    if (item) {
+        QTextCursor cursor = item->textControl()->textCursor();
+        QTextTable *table = cursor.currentTable();
+        if (table) {
+            QMenu menu(this);
+            menu.addAction(tr("Insert Row Above"), this, &Editor::tableInsertRowAbove);
+            menu.addAction(tr("Insert Row Below"), this, &Editor::tableInsertRowBelow);
+            menu.addSeparator();
+            menu.addAction(tr("Insert Column Left"), this, &Editor::tableInsertColumnLeft);
+            menu.addAction(tr("Insert Column Right"), this, &Editor::tableInsertColumnRight);
+            menu.addSeparator();
+            auto *delRow = menu.addAction(tr("Delete Row"), this, &Editor::tableDeleteRow);
+            delRow->setEnabled(table->rows() > 1);
+            auto *delCol = menu.addAction(tr("Delete Column"), this, &Editor::tableDeleteColumn);
+            delCol->setEnabled(table->columns() > 1);
+            menu.addSeparator();
+            menu.addAction(tr("Select Row"), this, &Editor::tableSelectRow);
+            menu.addAction(tr("Select Column"), this, &Editor::tableSelectColumn);
+            menu.exec(e->globalPos());
+            e->accept();
+            return;
+        }
+    }
+
     QMenu menu(this);
     auto *mgr = m_scene->selectionManager();
 
