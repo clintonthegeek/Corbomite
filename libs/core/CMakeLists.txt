@@ -76,6 +76,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/ViewRegistry.h
     src/WorkspaceLeaf.cpp
     include/corbomite/core/WorkspaceLeaf.h
+    src/LeafHistory.cpp
+    include/corbomite/core/LeafHistory.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
