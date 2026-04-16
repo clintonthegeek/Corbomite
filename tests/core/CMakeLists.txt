@@ -131,3 +131,7 @@ add_executable(tst_codeblockprocessorregistry tst_codeblockprocessorregistry.cpp
 add_test(NAME tst_codeblockprocessorregistry COMMAND tst_codeblockprocessorregistry)
 target_link_libraries(tst_codeblockprocessorregistry PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_codeblockprocessorregistry PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_diffmatchpatch tst_diffmatchpatch.cpp)
+add_test(NAME tst_diffmatchpatch COMMAND tst_diffmatchpatch)
+target_link_libraries(tst_diffmatchpatch PRIVATE Qt6::Test Corbomite::Core)
