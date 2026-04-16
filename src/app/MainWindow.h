@@ -100,6 +100,7 @@ private:
 
     VaultService *m_vaultService;
     Workspace *m_workspace = nullptr;
+    QWidget *m_workspaceContainer = nullptr;
     ViewRegistry *m_viewRegistry = nullptr;
     FileExplorerPanel *m_fileExplorer = nullptr;
     NotesTreeModel *m_treeModel = nullptr;

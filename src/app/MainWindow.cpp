@@ -322,6 +322,7 @@ void MainWindow::openFileInWorkspace(const QString &relativePath)
     };
     leaf->setViewState(viewState);
     m_workspace->setActiveLeaf(leaf);
+    m_workspace->pushLastOpenFile(relativePath);
 }
 
 bool MainWindow::confirmCloseUnsaved()
@@ -381,6 +382,7 @@ bool MainWindow::confirmCloseUnsaved()
 void MainWindow::saveSessionState()
 {
     if (!m_sessionManager) return;
+    m_sessionManager->blockSaving();
     m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
     m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
     if (m_workspace) {
@@ -392,25 +394,43 @@ void MainWindow::saveSessionState()
     if (m_fileExplorer) {
         m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
     }
+    m_sessionManager->unblockSaving();
     m_sessionManager->saveNow();
 }
 
 void MainWindow::propagateServicesToView(View *view)
 {
     if (!view) return;
-    auto *mv = qobject_cast<MarkdownView *>(view);
-    if (!mv) return;
-    if (m_vaultService->isOpen())
-        mv->setVaultModel(m_vaultService->vault());
-    mv->setHoverPopover(m_hoverPopover);
-    mv->setEditorSuggestManager(m_suggestManager);
 
-    auto *editor = mv->editorWidget();
-    if (editor) {
-        connect(editor, &NoteEditorWidget::linkActivated,
-                this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
-        connect(editor, &NoteEditorWidget::cursorInfoChanged,
-                this, &MainWindow::onCursorInfoChanged, Qt::UniqueConnection);
+    if (auto *mv = qobject_cast<MarkdownView *>(view)) {
+        if (m_vaultService->isOpen())
+            mv->setVaultModel(m_vaultService->vault());
+        mv->setHoverPopover(m_hoverPopover);
+        mv->setEditorSuggestManager(m_suggestManager);
+
+        auto *editor = mv->editorWidget();
+        if (editor) {
+            connect(editor, &NoteEditorWidget::linkActivated,
+                    this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
+            connect(editor, &NoteEditorWidget::cursorInfoChanged,
+                    this, &MainWindow::onCursorInfoChanged, Qt::UniqueConnection);
+            // Guard with property — Qt::UniqueConnection doesn't work for lambdas.
+            if (!editor->property("_mw_viewmode").toBool()) {
+                editor->setProperty("_mw_viewmode", true);
+                connect(editor, &NoteEditorWidget::viewModeChanged,
+                        this, [this](NoteEditorWidget::ViewMode mode) {
+                    if (mode == NoteEditorWidget::ViewMode::Reading)
+                        m_cursorPosLabel->setText(i18n("Reading"));
+                });
+            }
+        }
+        return;
+    }
+
+    if (auto *graphTab = view->findChild<GraphViewTab *>()) {
+        if (m_graphControlsPanel)
+            graphTab->setControlsPanel(m_graphControlsPanel);
+        graphTab->setMetadataCache(m_metadataCache);
     }
 }
 
@@ -691,7 +711,48 @@ void MainWindow::setupEditor()
 
     // Index 1: Workspace (replaces EditorViewManager)
     m_workspace = new Workspace(m_viewRegistry, this);
-    m_centralStack->addWidget(m_workspace->mainRoot()->widget());
+    m_workspaceContainer = new QWidget(m_centralStack);
+    auto *wsLayout = new QVBoxLayout(m_workspaceContainer);
+    wsLayout->setContentsMargins(0, 0, 0, 0);
+    wsLayout->addWidget(m_workspace->mainRoot()->widget());
+    m_centralStack->addWidget(m_workspaceContainer);
+
+    // Keep the container, tab signals, and service propagation in sync.
+    connect(m_workspace, &Workspace::layoutChanged, this, [this]() {
+        auto *rootWidget = m_workspace->mainRoot()->widget();
+        if (rootWidget->parentWidget() != m_workspaceContainer) {
+            m_workspaceContainer->layout()->addWidget(rootWidget);
+        }
+
+        for (auto *leaf : m_workspace->allLeaves()) {
+            // Wire tab container signals (once per container)
+            auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
+            if (tabs && !tabs->property("_mw_connected").toBool()) {
+                tabs->setProperty("_mw_connected", true);
+                connect(tabs, &WorkspaceTabs::currentTabChanged, this,
+                        [this, tabs](int index) {
+                    if (auto *l = tabs->leafAt(index))
+                        m_workspace->setActiveLeaf(l);
+                });
+                connect(tabs, &WorkspaceTabs::tabCloseRequested, this,
+                        [this, tabs](int index) {
+                    if (auto *l = tabs->leafAt(index))
+                        m_workspace->closeLeaf(l);
+                });
+            }
+
+            // Wire deferred-load service propagation (once per leaf)
+            if (!leaf->property("_mw_connected").toBool()) {
+                leaf->setProperty("_mw_connected", true);
+                connect(leaf, &WorkspaceLeaf::viewChanged, this,
+                        [this](View *v) { propagateServicesToView(v); });
+            }
+
+            // Propagate services to any view that exists now
+            if (leaf->view())
+                propagateServicesToView(leaf->view());
+        }
+    });
 
     // When the active leaf changes, propagate services and update UI
     connect(m_workspace, &Workspace::activeLeafChanged,
@@ -729,13 +790,6 @@ void MainWindow::setupEditor()
         }
     });
 
-    // When a new view is created (including deferred load), propagate services
-    connect(m_workspace, &Workspace::layoutChanged, this, [this]() {
-        for (auto *leaf : m_workspace->allLeaves()) {
-            if (leaf->view())
-                propagateServicesToView(leaf->view());
-        }
-    });
 
     // Start on welcome screen
     m_centralStack->setCurrentIndex(0);
@@ -969,15 +1023,17 @@ void MainWindow::saveCurrentNote()
     auto *leaf = m_workspace->activeLeaf();
     if (!leaf || !leaf->view()) return;
 
-    if (auto *tfv = qobject_cast<TextFileView *>(leaf->view())) {
-        tfv->saveImmediately();
-        return;
-    }
-
+    // For MarkdownView the NoteDocument is the source of truth for
+    // modification state. Save through NoteService which clears
+    // NoteDocument::isModified() and notifies AutosaveReactor.
     auto *editor = activeEditor();
     if (editor && editor->noteDocument()) {
         m_vaultService->noteService()->saveNote(editor->noteDocument());
+        return;
     }
+
+    if (auto *tfv = qobject_cast<TextFileView *>(leaf->view()))
+        tfv->saveImmediately();
 }
 
 void MainWindow::showCommandPalette()
@@ -1292,13 +1348,10 @@ void MainWindow::onVaultClosed()
 {
     saveSessionState();
 
-    // Reset workspace to default layout
-    if (m_workspace) {
-        // Close all leaves
-        auto leaves = m_workspace->allLeaves();
-        for (auto *leaf : leaves)
-            m_workspace->closeLeaf(leaf);
-    }
+    // Reset workspace to empty default layout. destroyTree() safely
+    // releases all views before the vault destroys NoteDocuments.
+    if (m_workspace)
+        m_workspace->resetToDefaultLayout();
 
     // Clear file resolver
     if (m_viewRegistry)
