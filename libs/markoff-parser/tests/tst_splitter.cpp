@@ -39,11 +39,12 @@ void TestSplitter::testNoBlocks()
 
 void TestSplitter::testSingleTable()
 {
+    // Tables stay in text segments (converted to QTextTable by the editor)
     TreeSitterParser parser;
     auto segments = MarkdownSplitter::split(
         QStringLiteral("| A | B |\n|---|---|\n| 1 | 2 |"), parser);
     QCOMPARE(segments.size(), 1);
-    QCOMPARE(segments[0].type, MarkdownSegment::Table);
+    QCOMPARE(segments[0].type, MarkdownSegment::Text);
     QVERIFY(segments[0].text.contains(QStringLiteral("| A | B |")));
 }
 
@@ -61,23 +62,23 @@ void TestSplitter::testSingleCodeBlock()
 
 void TestSplitter::testTableBetweenText()
 {
+    // Tables stay in text — the whole document is a single Text segment
     TreeSitterParser parser;
     QString md = QStringLiteral(
         "# Title\n\nBefore table.\n\n"
         "| A | B |\n|---|---|\n| 1 | 2 |\n\n"
         "After table.");
     auto segments = MarkdownSplitter::split(md, parser);
-    QCOMPARE(segments.size(), 3);
+    QCOMPARE(segments.size(), 1);
     QCOMPARE(segments[0].type, MarkdownSegment::Text);
     QVERIFY(segments[0].text.contains(QStringLiteral("Title")));
-    QCOMPARE(segments[1].type, MarkdownSegment::Table);
-    QVERIFY(segments[1].text.contains(QStringLiteral("| A | B |")));
-    QCOMPARE(segments[2].type, MarkdownSegment::Text);
-    QVERIFY(segments[2].text.contains(QStringLiteral("After table")));
+    QVERIFY(segments[0].text.contains(QStringLiteral("| A | B |")));
+    QVERIFY(segments[0].text.contains(QStringLiteral("After table")));
 }
 
 void TestSplitter::testMultipleBlocks()
 {
+    // Both code blocks and tables stay in text segments
     TreeSitterParser parser;
     QString md = QStringLiteral(
         "Intro\n\n"
@@ -86,13 +87,12 @@ void TestSplitter::testMultipleBlocks()
         "```js\nconsole.log('x')\n```\n\n"
         "End");
     auto segments = MarkdownSplitter::split(md, parser);
-    // Code blocks stay as text; only tables are split out
-    QCOMPARE(segments.size(), 3);
+    QCOMPARE(segments.size(), 1);
     QCOMPARE(segments[0].type, MarkdownSegment::Text);
-    QCOMPARE(segments[1].type, MarkdownSegment::Table);
-    QCOMPARE(segments[2].type, MarkdownSegment::Text);
-    // The code block should be in the last text segment
-    QVERIFY(segments[2].text.contains(QStringLiteral("console.log")));
+    QVERIFY(segments[0].text.contains(QStringLiteral("Intro")));
+    QVERIFY(segments[0].text.contains(QStringLiteral("| A |")));
+    QVERIFY(segments[0].text.contains(QStringLiteral("console.log")));
+    QVERIFY(segments[0].text.contains(QStringLiteral("End")));
 }
 
 void TestSplitter::testEmptyDocument()
@@ -105,24 +105,26 @@ void TestSplitter::testEmptyDocument()
 
 void TestSplitter::testBlockAtStart()
 {
+    // Table at start stays in text — single segment
     TreeSitterParser parser;
     QString md = QStringLiteral("| A |\n|---|\n| 1 |\n\nText after.");
     auto segments = MarkdownSplitter::split(md, parser);
-    QVERIFY(segments.size() >= 2);
-    QCOMPARE(segments[0].type, MarkdownSegment::Table);
-    QCOMPARE(segments.last().type, MarkdownSegment::Text);
-    QVERIFY(segments.last().text.contains(QStringLiteral("Text after")));
+    QCOMPARE(segments.size(), 1);
+    QCOMPARE(segments[0].type, MarkdownSegment::Text);
+    QVERIFY(segments[0].text.contains(QStringLiteral("| A |")));
+    QVERIFY(segments[0].text.contains(QStringLiteral("Text after")));
 }
 
 void TestSplitter::testBlockAtEnd()
 {
+    // Table at end stays in text — single segment
     TreeSitterParser parser;
     QString md = QStringLiteral("Text before.\n\n| A |\n|---|\n| 1 |");
     auto segments = MarkdownSplitter::split(md, parser);
-    QVERIFY(segments.size() >= 2);
+    QCOMPARE(segments.size(), 1);
     QCOMPARE(segments[0].type, MarkdownSegment::Text);
     QVERIFY(segments[0].text.contains(QStringLiteral("Text before")));
-    QCOMPARE(segments.last().type, MarkdownSegment::Table);
+    QVERIFY(segments[0].text.contains(QStringLiteral("| A |")));
 }
 
 void TestSplitter::testShowcaseFile()
@@ -133,20 +135,24 @@ void TestSplitter::testShowcaseFile()
     QString md = QTextStream(&f).readAll();
     auto segments = MarkdownSplitter::split(md, parser);
 
-    // showcase.md has 3 code blocks, 2 tables, and text between them
-    // So we expect at least 8 segments
+    // showcase.md has code blocks, tables, and 1 image.
+    // Tables and code blocks stay in text; only images are split out.
+    // So we expect: text, image, text (3 segments).
     for (int i = 0; i < segments.size(); ++i) {
         QString typeName = segments[i].type == MarkdownSegment::Text ? QStringLiteral("Text")
-            : segments[i].type == MarkdownSegment::Table ? QStringLiteral("Table")
-            : QStringLiteral("CodeBlock");
+            : segments[i].type == MarkdownSegment::Image ? QStringLiteral("Image")
+            : QStringLiteral("Other");
         QString preview = segments[i].text.left(50).replace(QLatin1Char('\n'), QStringLiteral("\\n"));
         qDebug() << i << typeName << "len:" << segments[i].text.size() << preview;
     }
-    // Only tables are split out (code blocks stay as text).
-    // showcase.md has 2 tables, so expect 5 segments: text, table, table, text
-    // (or text, table, text, table, text depending on spacing)
     QVERIFY2(segments.size() >= 3,
              qPrintable(QStringLiteral("Expected >=3 segments, got %1").arg(segments.size())));
+
+    // Tables should be embedded in text segments, not split out
+    for (const auto &seg : segments) {
+        QVERIFY2(seg.type != MarkdownSegment::Table,
+                 "Tables should stay in text segments, not be split out");
+    }
 
     // Last segment should contain "Frontmatter" (near end of file)
     QVERIFY(segments.last().text.contains(QStringLiteral("Frontmatter")));

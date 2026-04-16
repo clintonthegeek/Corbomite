@@ -46,6 +46,11 @@ QList<MarkdownSegment> MarkdownSplitter::split(const QString &markdown,
     int pos = 0; // current char position in markdown
 
     for (const auto &boundary : boundaries) {
+        // Tables stay in text segments — they'll be converted to
+        // QTextTable by TableConverter in the editor.
+        if (boundary.type == TreeSitterParser::BlockBoundary::Table)
+            continue;
+
         // Text before this block
         if (boundary.startChar > pos) {
             MarkdownSegment textSeg;
@@ -64,7 +69,7 @@ QList<MarkdownSegment> MarkdownSplitter::split(const QString &markdown,
         MarkdownSegment blockSeg;
         switch (boundary.type) {
         case TreeSitterParser::BlockBoundary::Table:
-            blockSeg.type = MarkdownSegment::Table;
+            Q_UNREACHABLE(); // Tables are skipped above
             break;
         case TreeSitterParser::BlockBoundary::FencedCodeBlock:
             blockSeg.type = MarkdownSegment::FencedCodeBlock;
