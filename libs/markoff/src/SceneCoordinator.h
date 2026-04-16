@@ -97,6 +97,7 @@ Q_SIGNALS:
 
 private:
     static int interItemNewlines(bool prevIsText, bool currIsText);
+    static int sourceLineCount(const MarkdownTextItem *item);
 
     MarkdownTextItem *createTextItem(const QString &text);
     void handleBoundary(MarkdownTextItem *from, Qt::Edge edge);

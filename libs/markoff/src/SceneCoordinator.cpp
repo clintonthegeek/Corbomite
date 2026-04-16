@@ -126,6 +126,36 @@ int SceneCoordinator::interItemNewlines(bool prevIsText, bool currIsText)
     return (prevIsText && currIsText) ? 1 : 2;
 }
 
+int SceneCoordinator::sourceLineCount(const MarkdownTextItem *item)
+{
+    QTextDocument *doc = item->document();
+    int lines = 0;
+    for (QTextBlock block = doc->begin(); block.isValid(); block = block.next()) {
+        const QString blockText = block.text();
+        if (!blockText.contains(QChar::ObjectReplacementCharacter)) {
+            lines += 1 + blockText.count(QLatin1Char('\n'));
+        } else {
+            int blockNewlines = 0;
+            for (auto it = block.begin(); !it.atEnd(); ++it) {
+                const QTextFragment frag = it.fragment();
+                if (!frag.isValid()) continue;
+                const QString raw = frag.charFormat()
+                    .property(MathTextObject::RawProperty).toString();
+                const QString t = frag.text();
+                if (!raw.isEmpty() && t.size() == 1
+                    && t.at(0) == QChar::ObjectReplacementCharacter) {
+                    blockNewlines += raw.count(QLatin1Char('\n'));
+                } else {
+                    for (QChar c : t)
+                        if (c == QLatin1Char('\n')) ++blockNewlines;
+                }
+            }
+            lines += 1 + blockNewlines;
+        }
+    }
+    return lines;
+}
+
 QString SceneCoordinator::toMarkdown() const
 {
     QString result;
