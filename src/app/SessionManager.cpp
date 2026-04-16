@@ -48,7 +48,7 @@ bool SessionManager::load()
     m_loaded = false;
     m_corbomiteTail = {};
     m_unknownRoot = {};
-    m_paneLayout = PaneLayout{};
+    m_mainJson = {};
     m_activeLeafId.clear();
 
     if (m_sessionPath.isEmpty()) return false;
@@ -60,11 +60,9 @@ bool SessionManager::load()
 
     const QJsonObject root = doc.object();
 
-    // Extract the main SplitNode into PaneLayout.
     if (root.contains(QLatin1String(kMain))
             && root.value(QLatin1String(kMain)).isObject()) {
-        m_paneLayout = PaneLayout::fromJson(
-            root.value(QLatin1String(kMain)).toObject());
+        m_mainJson = root.value(QLatin1String(kMain)).toObject();
     }
 
     m_activeLeafId = root.value(QLatin1String(kActive)).toString();
@@ -146,11 +144,10 @@ void SessionManager::saveExpandedFolders(const QStringList &folders)
     scheduleSave();
 }
 
-void SessionManager::setPaneLayout(const PaneLayout &layout,
-                                   const QString &activeLeafId)
+void SessionManager::setWorkspaceLayout(const QJsonObject &mainJson,
+                                        const QString &activeLeafId)
 {
-    // PaneLayout is move-only; clone via JSON round-trip (cheap for sane sizes).
-    m_paneLayout = PaneLayout::fromJson(layout.toJson());
+    m_mainJson = mainJson;
     m_activeLeafId = activeLeafId;
     scheduleSave();
 }
@@ -182,7 +179,7 @@ QStringList SessionManager::expandedFolders() const
     return out;
 }
 
-const PaneLayout &SessionManager::paneLayout() const { return m_paneLayout; }
+QJsonObject SessionManager::workspaceLayout() const { return m_mainJson; }
 QString SessionManager::activeLeafId() const { return m_activeLeafId; }
 
 // --- Save ---
@@ -194,7 +191,7 @@ void SessionManager::doSave()
     // Compose: unknownRoot (Obsidian keys we pass through) + main + active
     // + _corbomite (our namespaced state).
     QJsonObject root = m_unknownRoot;
-    root.insert(QLatin1String(kMain), m_paneLayout.toJson());
+    root.insert(QLatin1String(kMain), m_mainJson);
     if (!m_activeLeafId.isEmpty()) {
         root.insert(QLatin1String(kActive), m_activeLeafId);
     }

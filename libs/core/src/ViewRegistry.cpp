@@ -68,4 +68,16 @@ bool ViewRegistry::isExtensionRegistered(const QString &ext) const
     return m_typeByExtension.contains(ext);
 }
 
+void ViewRegistry::setFileResolver(FileResolver resolver)
+{
+    m_fileResolver = std::move(resolver);
+}
+
+NoteDocument *ViewRegistry::resolveFile(const QString &relativePath) const
+{
+    if (m_fileResolver)
+        return m_fileResolver(relativePath);
+    return nullptr;
+}
+
 } // namespace Corbomite

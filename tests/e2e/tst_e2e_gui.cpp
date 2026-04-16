@@ -24,9 +24,10 @@
 
 #include "app/MainWindow.h"
 #include "app/VaultService.h"
-#include "editor/EditorViewManager.h"
-#include "editor/EditorViewSpace.h"
 #include "editor/NoteEditorWidget.h"
+#include "editor/MarkdownView.h"
+#include "corbomite/core/Workspace.h"
+#include "corbomite/core/WorkspaceLeaf.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
 #include "corbomite/models/VaultModel.h"
@@ -199,7 +200,12 @@ private Q_SLOTS:
         settle(200);
 
         // Re-find the active editor (may have changed after tab switch)
-        editor = m_mainWindow->findChild<EditorViewManager *>()->activeEditor();
+        editor = [this]() -> NoteEditorWidget * {
+            auto *ws = m_mainWindow->findChild<Workspace *>();
+            if (!ws || !ws->activeLeaf()) return nullptr;
+            auto *mv = qobject_cast<MarkdownView *>(ws->activeLeaf()->view());
+            return mv ? mv->editorWidget() : nullptr;
+        }();
         QVERIFY(editor);
         QVERIFY(editor->noteDocument());
 
@@ -382,9 +388,11 @@ private Q_SLOTS:
         m_mainWindow->onNoteActivated(QStringLiteral("Using Templates in Obsidian.md"));
         settle(300);
 
-        auto *mgr = m_mainWindow->findChild<EditorViewManager *>();
-        QVERIFY(mgr);
-        auto *editor = mgr->activeEditor();
+        auto *ws = m_mainWindow->findChild<Workspace *>();
+        QVERIFY(ws);
+        auto *mv = ws->activeLeaf() ? qobject_cast<MarkdownView *>(ws->activeLeaf()->view()) : nullptr;
+        QVERIFY(mv);
+        auto *editor = mv->editorWidget();
         QVERIFY(editor);
         QVERIFY(editor->noteDocument());
 
@@ -480,9 +488,11 @@ private Q_SLOTS:
             QStringLiteral("Connecting Notes & Bidirectional Linking.md"));
         settle(300);
 
-        auto *mgr = m_mainWindow->findChild<EditorViewManager *>();
-        QVERIFY(mgr);
-        auto *editor = mgr->activeEditor();
+        auto *ws = m_mainWindow->findChild<Workspace *>();
+        QVERIFY(ws);
+        auto *mv = ws->activeLeaf() ? qobject_cast<MarkdownView *>(ws->activeLeaf()->view()) : nullptr;
+        QVERIFY(mv);
+        auto *editor = mv->editorWidget();
         QVERIFY(editor);
 
         // Count tabs before
@@ -500,7 +510,8 @@ private Q_SLOTS:
 
             // Should have opened the target note in a tab
             // (It may reuse an existing tab if Start Here is already open)
-            auto *newEditor = mgr->activeEditor();
+            auto *newMv = ws->activeLeaf() ? qobject_cast<MarkdownView *>(ws->activeLeaf()->view()) : nullptr;
+            auto *newEditor = newMv ? newMv->editorWidget() : nullptr;
             QVERIFY(newEditor);
             QVERIFY(newEditor->noteDocument());
             QCOMPARE(newEditor->noteDocument()->relativePath(), targetNote);

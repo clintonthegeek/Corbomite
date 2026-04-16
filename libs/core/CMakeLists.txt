@@ -19,10 +19,6 @@ add_library(corbomite-core STATIC
     include/corbomite/core/LinkUtils.h
     src/FrontMatterWriter.cpp
     include/corbomite/core/FrontMatterWriter.h
-    src/PaneLayout.cpp
-    include/corbomite/core/PaneLayout.h
-    src/PaneLayoutBridge.cpp
-    include/corbomite/core/PaneLayoutBridge.h
     src/Component.cpp
     include/corbomite/core/Component.h
     src/Events.cpp

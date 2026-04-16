@@ -8,7 +8,7 @@
 #include <QStringList>
 #include <QTimer>
 
-#include "corbomite/core/PaneLayout.h"
+#include <QJsonObject>
 
 namespace Corbomite {
 
@@ -58,10 +58,10 @@ public:
                           const QString &activePanel = QString());
     void saveExpandedFolders(const QStringList &folders);
 
-    /// Replace the pane layout (main SplitNode). `activeLeafId` is written
-    /// to workspace.json's root `active` field.
-    void setPaneLayout(const PaneLayout &layout,
-                       const QString &activeLeafId = QString());
+    /// Replace the workspace layout (main SplitNode JSON). `activeLeafId`
+    /// is written to workspace.json's root `active` field.
+    void setWorkspaceLayout(const QJsonObject &mainJson,
+                            const QString &activeLeafId = QString());
 
     // --- Accessors (reflect loaded or in-memory state) ---
 
@@ -69,7 +69,7 @@ public:
     QByteArray windowState() const;
     QJsonObject sidebarState() const;
     QStringList expandedFolders() const;
-    const PaneLayout &paneLayout() const;
+    QJsonObject workspaceLayout() const;
     QString activeLeafId() const;
 
     /// True once `load()` has been called successfully on a non-empty file.
@@ -84,7 +84,7 @@ private:
     /// All unknown root-level keys preserved between load and save
     /// (Obsidian unknown-key invariant).
     QJsonObject m_unknownRoot;
-    PaneLayout m_paneLayout;
+    QJsonObject m_mainJson;
     QString m_activeLeafId;
     QTimer m_saveTimer;
     int m_saveBlockCount = 0;

@@ -9,6 +9,7 @@
 
 namespace Corbomite {
 
+class NoteDocument;
 class View;
 class WorkspaceLeaf;
 
@@ -18,8 +19,12 @@ class ViewRegistry : public QObject
 
 public:
     using ViewFactory = std::function<View *(WorkspaceLeaf *)>;
+    using FileResolver = std::function<NoteDocument *(const QString &relativePath)>;
 
     explicit ViewRegistry(QObject *parent = nullptr);
+
+    void setFileResolver(FileResolver resolver);
+    NoteDocument *resolveFile(const QString &relativePath) const;
 
     void registerView(const QString &type, ViewFactory factory);
     void unregisterView(const QString &type);
@@ -42,6 +47,7 @@ Q_SIGNALS:
 private:
     QHash<QString, ViewFactory> m_viewByType;
     QHash<QString, QString> m_typeByExtension;
+    FileResolver m_fileResolver;
 };
 
 } // namespace Corbomite

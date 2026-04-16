@@ -29,6 +29,8 @@ QWidget *WorkspaceLeaf::widget() { return m_widget; }
 
 View *WorkspaceLeaf::view() const { return m_view; }
 
+ViewRegistry *WorkspaceLeaf::registry() const { return m_registry; }
+
 void WorkspaceLeaf::open(View *newView)
 {
     closeCurrentView();
@@ -127,9 +129,10 @@ void WorkspaceLeaf::setDeferred(bool deferred, const QString &icon, const QStrin
 {
     m_deferred = deferred;
     if (deferred) {
+        if (m_view)
+            m_deferredViewState = getViewState();
         m_cachedIcon = icon;
         m_cachedTitle = title;
-        // Close any currently open view — the leaf is now deferred
         closeCurrentView();
     }
 }

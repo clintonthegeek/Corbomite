@@ -2,10 +2,14 @@
 #include "MainWindow.h"
 #include "WelcomeScreen.h"
 #include "VaultService.h"
-#include "editor/EditorViewManager.h"
-#include "editor/EditorViewSpace.h"
 #include "editor/NoteEditorWidget.h"
 #include <markoff/Editor.h>
+#include "corbomite/core/Workspace.h"
+#include "corbomite/core/WorkspaceSplit.h"
+#include "corbomite/core/WorkspaceTabs.h"
+#include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomite/core/FileView.h"
+#include "corbomite/core/TextFileView.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
 #include "sidebar/BacklinksPanel.h"
@@ -34,8 +38,7 @@
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/EmbedRegistry.h"
 #include "corbomite/core/ViewRegistry.h"
-#include "corbomite/core/TextFileView.h"
-#include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomite/core/View.h"
 #include "editor/MarkdownView.h"
 #include "canvas/CanvasFileView.h"
 #include "graph/GraphView.h"
@@ -77,15 +80,12 @@
 #include <QJsonDocument>
 #include <QTextCursor>
 #include <QTabBar>
+#include <QScrollBar>
 
 namespace Corbomite {
 
 namespace {
 
-/// Cluster J Phase 6 — vault-scoped `Core::VaultResourceProvider` adapter.
-/// HoverPopover doesn't have an "active note" context, so this adapter
-/// resolves wikilinks against the vault root only (no per-note relative
-/// directory). Image bytes are loaded lazily from disk under the vault path.
 class VaultScopedResources : public Corbomite::Core::VaultResourceProvider
 {
 public:
@@ -117,18 +117,14 @@ public:
             && !rel.contains(QLatin1Char('.'))) {
             rel += QStringLiteral(".md");
         }
-        // Prefer cached document text (picks up unsaved edits in the editor).
         if (auto *doc = m_vault->cachedDocument(rel)) {
             return doc->markdown();
         }
-        // Fall back to disk read against vault root.
         const QString abs = m_vault->path() + QLatin1Char('/') + rel;
         QFile f(abs);
         if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
             return QString::fromUtf8(f.readAll());
         }
-        // Shortest-path resolution when the bare name doesn't match the
-        // root layout — mirrors `VaultResourceProvider::resolveTarget`.
         const QString filename =
             rel.mid(rel.lastIndexOf(QLatin1Char('/')) + 1);
         const auto allNotes = m_vault->allNotes();
@@ -199,10 +195,6 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
     m_hoverPopover = new HoverPopover(this);
     m_hoverPopover->setNoteService(m_vaultService->noteService());
 
-    // Cluster J Phase 6 — construct the embed registry + renderer eagerly
-    // so HoverPopover can swap to the rich-render path. Resources are
-    // null until a vault opens; built-in factories register up-front
-    // because the registry's lifetime spans every vault open/close cycle.
     m_embedRegistry = std::make_unique<Corbomite::Core::EmbedRegistry>();
     m_embedRenderer = std::make_unique<Corbomite::ReadingView::EmbedRenderer>(
         m_embedRegistry.get(), /*cache=*/nullptr, /*resources=*/nullptr);
@@ -210,9 +202,6 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
                                                           *m_embedRenderer);
     m_hoverPopover->setEmbedRenderer(m_embedRenderer.get());
 
-    // Cluster H Phase 3 — built-in EditorSuggesters. Insertion order matters
-    // (first-non-null-onTrigger-wins per audit); built-ins go first so they
-    // shadow any future plugin overrides of `[[` / `#`.
     m_suggestManager = new EditorSuggestManager(this);
     m_wikiSuggest = new WikiLinkSuggest(m_vaultService->vault());
     m_tagSuggest = new TagSuggest(m_vaultService->vault());
@@ -225,8 +214,6 @@ MainWindow::MainWindow(VaultService *vaultService, QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    // Clean up vault-related objects before base class destroys the widget tree.
-    // Order matters: reactors first (they reference services/models), then models.
     delete m_autosave;
     m_autosave = nullptr;
 
@@ -239,12 +226,6 @@ MainWindow::~MainWindow()
     delete m_sessionManager;
     m_sessionManager = nullptr;
 
-    // Cluster J Phase 6 — clear renderer back-pointers before tearing down
-    // the cache + popover resources. EmbedRenderer holds raw pointers to
-    // both; HoverPopover (owned by `this`) holds a raw pointer to the
-    // renderer, so the renderer must outlive the popover. unique_ptr
-    // destruction order in the member list runs in reverse declaration
-    // order, but tear them down explicitly here to be safe.
     if (m_embedRenderer) {
         m_embedRenderer->setMetadataCache(nullptr);
         m_embedRenderer->setResources(nullptr);
@@ -252,9 +233,6 @@ MainWindow::~MainWindow()
     if (m_hoverPopover) m_hoverPopover->setEmbedRenderer(nullptr);
     m_popoverResources.reset();
 
-    // Close MetadataCache cleanly (flushes persistence) before destroying
-    // dependent objects. SQLiteIndex subscribes to its signals, so close
-    // the cache first.
     if (m_metadataCache) {
         m_metadataCache->close();
     }
@@ -271,8 +249,6 @@ MainWindow::~MainWindow()
     delete m_commandRegistry;
     m_commandRegistry = nullptr;
 
-    // Cluster J Phase 6 — embed renderer + registry destroyed last so the
-    // earlier popover/registry-cleared-pointer dance can't dangle.
     m_embedRenderer.reset();
     m_embedRegistry.reset();
 }
@@ -280,23 +256,165 @@ MainWindow::~MainWindow()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     if (m_vaultService->isOpen()) {
-        if (!m_editorManager->queryClose()) {
+        if (!confirmCloseUnsaved()) {
             event->ignore();
             return;
         }
-        if (m_sessionManager) {
-            m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
-            m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
-            m_sessionManager->setPaneLayout(m_editorManager->buildPaneLayout());
-            if (m_fileExplorer) {
-                m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
-            }
-            m_sessionManager->saveNow();
-        }
+        saveSessionState();
     }
 
     CorbomiteMDI::MainWindow::closeEvent(event);
 }
+
+// --- Helper methods ---
+
+MarkdownView *MainWindow::activeMarkdownView() const
+{
+    if (!m_workspace || !m_workspace->activeLeaf())
+        return nullptr;
+    return qobject_cast<MarkdownView *>(m_workspace->activeLeaf()->view());
+}
+
+NoteEditorWidget *MainWindow::activeEditor() const
+{
+    auto *mv = activeMarkdownView();
+    return mv ? mv->editorWidget() : nullptr;
+}
+
+void MainWindow::openFileInWorkspace(const QString &relativePath)
+{
+    if (!m_workspace || !m_viewRegistry)
+        return;
+
+    // Check if file is already open in any leaf
+    for (auto *leaf : m_workspace->allLeaves()) {
+        if (leaf->isDeferred()) {
+            QJsonObject vs = leaf->getViewState();
+            QJsonObject state = vs[QStringLiteral("state")].toObject();
+            if (state[QStringLiteral("file")].toString() == relativePath) {
+                leaf->loadIfDeferred();
+                m_workspace->setActiveLeaf(leaf);
+                return;
+            }
+            continue;
+        }
+        if (auto *fv = qobject_cast<FileView *>(leaf->view())) {
+            if (fv->file() && fv->file()->relativePath() == relativePath) {
+                m_workspace->setActiveLeaf(leaf);
+                return;
+            }
+        }
+    }
+
+    auto *tabs = m_workspace->activeTabs();
+    if (!tabs) return;
+
+    auto *leaf = m_workspace->createLeafInTabs(tabs);
+
+    QString ext = QFileInfo(relativePath).suffix().toLower();
+    QString type = m_viewRegistry->getTypeByExtension(ext);
+    if (type.isEmpty()) type = QStringLiteral("markdown");
+
+    QJsonObject viewState;
+    viewState[QStringLiteral("type")] = type;
+    viewState[QStringLiteral("state")] = QJsonObject{
+        {QStringLiteral("file"), relativePath}
+    };
+    leaf->setViewState(viewState);
+    m_workspace->setActiveLeaf(leaf);
+}
+
+bool MainWindow::confirmCloseUnsaved()
+{
+    if (!m_workspace) return true;
+
+    QStringList modifiedPaths;
+    for (auto *leaf : m_workspace->allLeaves()) {
+        auto *mv = qobject_cast<MarkdownView *>(leaf->view());
+        if (!mv) continue;
+        auto *editor = mv->editorWidget();
+        if (editor && editor->noteDocument() && editor->noteDocument()->isModified()) {
+            modifiedPaths.append(editor->noteDocument()->relativePath());
+        }
+    }
+    modifiedPaths.removeDuplicates();
+
+    if (modifiedPaths.isEmpty())
+        return true;
+
+    QStringList names;
+    for (const QString &path : std::as_const(modifiedPaths)) {
+        QString name = path.mid(path.lastIndexOf(QLatin1Char('/')) + 1);
+        if (name.endsWith(QStringLiteral(".md"))) name.chop(3);
+        names.append(name);
+    }
+
+    QString message;
+    if (names.size() == 1) {
+        message = i18n("The document \"%1\" has unsaved changes.\n\nDo you want to save before closing?", names.first());
+    } else {
+        message = i18n("The following documents have unsaved changes:\n\n%1\n\nDo you want to save before closing?",
+                        names.join(QStringLiteral("\n")));
+    }
+
+    auto result = KMessageBox::warningTwoActionsCancel(
+        this,
+        message,
+        i18n("Unsaved Changes"),
+        KStandardGuiItem::save(),
+        KStandardGuiItem::discard()
+    );
+
+    if (result == KMessageBox::Cancel)
+        return false;
+
+    if (result == KMessageBox::PrimaryAction) {
+        for (auto *leaf : m_workspace->allLeaves()) {
+            auto *tfv = qobject_cast<TextFileView *>(leaf->view());
+            if (tfv) tfv->saveImmediately();
+        }
+    }
+
+    return true;
+}
+
+void MainWindow::saveSessionState()
+{
+    if (!m_sessionManager) return;
+    m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
+    m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
+    if (m_workspace) {
+        QJsonObject wsJson = m_workspace->serialize();
+        QString activeId = m_workspace->activeLeaf()
+            ? m_workspace->activeLeaf()->id() : QString();
+        m_sessionManager->setWorkspaceLayout(wsJson, activeId);
+    }
+    if (m_fileExplorer) {
+        m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
+    }
+    m_sessionManager->saveNow();
+}
+
+void MainWindow::propagateServicesToView(View *view)
+{
+    if (!view) return;
+    auto *mv = qobject_cast<MarkdownView *>(view);
+    if (!mv) return;
+    if (m_vaultService->isOpen())
+        mv->setVaultModel(m_vaultService->vault());
+    mv->setHoverPopover(m_hoverPopover);
+    mv->setEditorSuggestManager(m_suggestManager);
+
+    auto *editor = mv->editorWidget();
+    if (editor) {
+        connect(editor, &NoteEditorWidget::linkActivated,
+                this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
+        connect(editor, &NoteEditorWidget::cursorInfoChanged,
+                this, &MainWindow::onCursorInfoChanged, Qt::UniqueConnection);
+    }
+}
+
+// --- Actions ---
 
 void MainWindow::setupActions()
 {
@@ -309,17 +427,15 @@ void MainWindow::setupActions()
     }, ac);
     ac->setDefaultShortcut(prefsAction, QKeySequence(Qt::CTRL | Qt::Key_Comma));
 
-    // File actions
     auto *openVault = ac->addAction(QStringLiteral("file_open_vault"));
     openVault->setText(i18n("Open Vault..."));
     openVault->setIcon(QIcon::fromTheme(QStringLiteral("folder-open")));
     ac->setDefaultShortcut(openVault, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O));
     connect(openVault, &QAction::triggered, this, &MainWindow::openVaultDialog);
 
-    // Recent Vaults
     m_recentVaults = KStandardAction::openRecent(this, [this](const QUrl &url) {
         if (m_vaultService->isOpen()) {
-            if (!m_editorManager->queryClose()) return;
+            if (!confirmCloseUnsaved()) return;
         }
         m_vaultService->openVault(url.toLocalFile());
     }, ac);
@@ -352,11 +468,9 @@ void MainWindow::setupActions()
         if (ok && !name.isEmpty()) {
             QString relPath = name + QStringLiteral(".canvas");
             QString absPath = m_vaultService->vault()->path() + QLatin1Char('/') + relPath;
-            // Create empty canvas file
             Canvas::CanvasDocument emptyDoc;
             emptyDoc.saveToFile(absPath);
-            // Open it
-            m_editorManager->openCanvas(absPath);
+            openFileInWorkspace(relPath);
         }
     });
 
@@ -366,27 +480,23 @@ void MainWindow::setupActions()
     ac->setDefaultShortcut(save, QKeySequence(Qt::CTRL | Qt::Key_S));
     connect(save, &QAction::triggered, this, &MainWindow::saveCurrentNote);
 
-    // Edit menu — standard actions (editor handles them, but they need menu visibility)
     KStandardAction::undo(this, [this]() {
-        auto *editor = m_editorManager->activeEditor();
+        auto *editor = activeEditor();
         if (editor) editor->editor()->undo();
     }, ac);
 
     KStandardAction::redo(this, [this]() {
-        auto *editor = m_editorManager->activeEditor();
+        auto *editor = activeEditor();
         if (editor) editor->editor()->redo();
     }, ac);
 
     KStandardAction::find(this, [this]() {
-        // TODO: wire up find bar when implemented
         Q_UNUSED(this)
     }, ac);
 
-    // Help menu
     KStandardAction::aboutApp(qApp, []() {}, ac);
     KStandardAction::aboutKDE(qApp, []() {}, ac);
 
-    // View actions
     auto *toggleLeft = ac->addAction(QStringLiteral("view_toggle_left_sidebar"));
     toggleLeft->setText(i18n("Toggle Left Sidebar"));
     ac->setDefaultShortcut(toggleLeft, QKeySequence(Qt::CTRL | Qt::Key_Backslash));
@@ -406,7 +516,6 @@ void MainWindow::setupActions()
     zoomReset->setText(i18n("Reset Zoom"));
     ac->setDefaultShortcut(zoomReset, QKeySequence(Qt::CTRL | Qt::Key_0));
 
-    // Navigation actions
     auto *quickSwitcher = ac->addAction(QStringLiteral("quick_switcher"));
     quickSwitcher->setText(i18n("Quick Switcher"));
     quickSwitcher->setIcon(QIcon::fromTheme(QStringLiteral("quickopen")));
@@ -442,14 +551,11 @@ void MainWindow::setupActions()
     dailyNote->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
     connect(dailyNote, &QAction::triggered, this, &MainWindow::openDailyNote);
 
-    // Cluster E Phase 7 — three-mode selector. "Editing" is Obsidian's live-
-    // preview (what most users think of as the default Obsidian editor);
-    // "Source" is plain-text markdown; "Reading" is rendered-only.
     auto *editingMode = ac->addAction(QStringLiteral("view_editing_mode"));
     editingMode->setText(i18n("Live Preview"));
     editingMode->setIcon(QIcon::fromTheme(QStringLiteral("text-x-markdown")));
     connect(editingMode, &QAction::triggered, this, [this]() {
-        if (auto *editor = m_editorManager->activeEditor())
+        if (auto *editor = activeEditor())
             editor->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
     });
 
@@ -457,7 +563,7 @@ void MainWindow::setupActions()
     sourceMode->setText(i18n("Source"));
     sourceMode->setIcon(QIcon::fromTheme(QStringLiteral("text-plain")));
     connect(sourceMode, &QAction::triggered, this, [this]() {
-        if (auto *editor = m_editorManager->activeEditor())
+        if (auto *editor = activeEditor())
             editor->setViewMode(NoteEditorWidget::ViewMode::Source);
     });
 
@@ -466,36 +572,31 @@ void MainWindow::setupActions()
     readingMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
     ac->setDefaultShortcut(readingMode, QKeySequence(Qt::CTRL | Qt::Key_E));
     connect(readingMode, &QAction::triggered, this, [this]() {
-        if (auto *editor = m_editorManager->activeEditor())
+        if (auto *editor = activeEditor())
             editor->setViewMode(NoteEditorWidget::ViewMode::Reading);
     });
 
-    // Tab shortcuts
+    // Tab shortcuts — use Workspace's WorkspaceTabs
     auto *closeTab = ac->addAction(QStringLiteral("tab_close"));
     closeTab->setText(i18n("Close Tab"));
     closeTab->setIcon(QIcon::fromTheme(QStringLiteral("tab-close")));
     ac->setDefaultShortcut(closeTab, QKeySequence(Qt::CTRL | Qt::Key_W));
     connect(closeTab, &QAction::triggered, this, [this]() {
-        auto *viewSpace = m_editorManager->activeViewSpace();
-        if (viewSpace) {
-            auto *tabBar = viewSpace->findChild<QTabBar *>();
-            if (tabBar && tabBar->count() > 0) {
-                Q_EMIT tabBar->tabCloseRequested(tabBar->currentIndex());
-            }
-        }
+        if (!m_workspace) return;
+        auto *leaf = m_workspace->activeLeaf();
+        if (leaf)
+            m_workspace->closeLeaf(leaf);
     });
 
     auto *nextTab = ac->addAction(QStringLiteral("tab_next"));
     nextTab->setText(i18n("Next Tab"));
     ac->setDefaultShortcut(nextTab, QKeySequence(Qt::CTRL | Qt::Key_Tab));
     connect(nextTab, &QAction::triggered, this, [this]() {
-        auto *viewSpace = m_editorManager->activeViewSpace();
-        if (viewSpace) {
-            auto *tabBar = viewSpace->findChild<QTabBar *>();
-            if (tabBar && tabBar->count() > 1) {
-                int next = (tabBar->currentIndex() + 1) % tabBar->count();
-                tabBar->setCurrentIndex(next);
-            }
+        if (!m_workspace) return;
+        auto *tabs = m_workspace->activeTabs();
+        if (tabs && tabs->childCount() > 1) {
+            int next = (tabs->currentTab() + 1) % tabs->childCount();
+            tabs->setCurrentTab(next);
         }
     });
 
@@ -503,36 +604,45 @@ void MainWindow::setupActions()
     prevTab->setText(i18n("Previous Tab"));
     ac->setDefaultShortcut(prevTab, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Tab));
     connect(prevTab, &QAction::triggered, this, [this]() {
-        auto *viewSpace = m_editorManager->activeViewSpace();
-        if (viewSpace) {
-            auto *tabBar = viewSpace->findChild<QTabBar *>();
-            if (tabBar && tabBar->count() > 1) {
-                int prev = tabBar->currentIndex() - 1;
-                if (prev < 0) prev = tabBar->count() - 1;
-                tabBar->setCurrentIndex(prev);
-            }
+        if (!m_workspace) return;
+        auto *tabs = m_workspace->activeTabs();
+        if (tabs && tabs->childCount() > 1) {
+            int prev = tabs->currentTab() - 1;
+            if (prev < 0) prev = tabs->childCount() - 1;
+            tabs->setCurrentTab(prev);
         }
     });
 
-    // Split pane shortcuts
     auto *splitRight = ac->addAction(QStringLiteral("split_right"));
     splitRight->setText(i18n("Split Right"));
     ac->setDefaultShortcut(splitRight, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Right));
     connect(splitRight, &QAction::triggered, this, [this]() {
-        if (m_editorManager) m_editorManager->splitActiveHorizontal();
+        if (!m_workspace) return;
+        if (auto *leaf = m_workspace->activeLeaf())
+            m_workspace->splitLeaf(leaf, Qt::Horizontal);
     });
 
     auto *splitDown = ac->addAction(QStringLiteral("split_down"));
     splitDown->setText(i18n("Split Down"));
     ac->setDefaultShortcut(splitDown, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Down));
     connect(splitDown, &QAction::triggered, this, [this]() {
-        if (m_editorManager) m_editorManager->splitActiveVertical();
+        if (!m_workspace) return;
+        if (auto *leaf = m_workspace->activeLeaf())
+            m_workspace->splitLeaf(leaf, Qt::Vertical);
+    });
+
+    // Undo close tab
+    auto *undoClose = ac->addAction(QStringLiteral("tab_undo_close"));
+    undoClose->setText(i18n("Undo Close Tab"));
+    ac->setDefaultShortcut(undoClose, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_T));
+    connect(undoClose, &QAction::triggered, this, [this]() {
+        if (m_workspace)
+            m_workspace->undoCloseLeaf();
     });
 }
 
 void MainWindow::setupEditor()
 {
-    // Create the stacked widget inside the MDI central area
     m_centralStack = new QStackedWidget(centralWidget());
     centralWidget()->layout()->addWidget(m_centralStack);
 
@@ -542,7 +652,7 @@ void MainWindow::setupEditor()
 
     connect(m_welcomeScreen, &WelcomeScreen::vaultRequested, this, [this](const QString &path) {
         if (m_vaultService->isOpen()) {
-            if (!m_editorManager->queryClose()) return;
+            if (!confirmCloseUnsaved()) return;
         }
         m_vaultService->openVault(path);
     });
@@ -556,7 +666,6 @@ void MainWindow::setupEditor()
         if (!vaultDir.mkpath(QStringLiteral("."))) return;
         vaultDir.mkpath(QStringLiteral(".corbomite"));
 
-        // Create a welcome note
         QFile welcome(vaultPath + QStringLiteral("/Welcome.md"));
         if (welcome.open(QIODevice::WriteOnly | QIODevice::Text)) {
             welcome.write("# Welcome to your vault\n\n"
@@ -570,12 +679,7 @@ void MainWindow::setupEditor()
         m_vaultService->openVault(vaultPath);
     });
 
-    // Index 1: Editor view manager
-    m_editorManager = new EditorViewManager(m_centralStack);
-    m_editorManager->setHoverPopover(m_hoverPopover);
-    m_editorManager->setEditorSuggestManager(m_suggestManager);
-
-    // Create and wire ViewRegistry — built-in view factories
+    // Create ViewRegistry — built-in view factories
     m_viewRegistry = new ViewRegistry(this);
     m_viewRegistry->registerViewWithExtensions(
         {QStringLiteral("md")}, QStringLiteral("markdown"),
@@ -584,12 +688,54 @@ void MainWindow::setupEditor()
         {QStringLiteral("canvas")}, QStringLiteral("canvas"),
         &CanvasFileView::factory);
     m_viewRegistry->registerView(QStringLiteral("graph"), &GraphView::factory);
-    m_editorManager->setViewRegistry(m_viewRegistry);
 
-    m_centralStack->addWidget(m_editorManager);
+    // Index 1: Workspace (replaces EditorViewManager)
+    m_workspace = new Workspace(m_viewRegistry, this);
+    m_centralStack->addWidget(m_workspace->mainRoot()->widget());
 
-    connect(m_editorManager, &EditorViewManager::cursorInfoChanged,
-            this, &MainWindow::onCursorInfoChanged);
+    // When the active leaf changes, propagate services and update UI
+    connect(m_workspace, &Workspace::activeLeafChanged,
+            this, [this](WorkspaceLeaf *leaf) {
+        if (leaf && leaf->view())
+            propagateServicesToView(leaf->view());
+        updateWindowTitle(activeEditor());
+
+        auto *editor = activeEditor();
+        // Update sidebar panels
+        if (editor && editor->noteDocument()) {
+            if (m_backlinksPanel) m_backlinksPanel->setCurrentNote(editor->noteDocument());
+            if (m_outlinksPanel) m_outlinksPanel->setCurrentNote(editor->noteDocument());
+            if (m_outlinePanel) m_outlinePanel->setCurrentNote(editor->noteDocument());
+            if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(editor->noteDocument());
+            if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(editor->noteDocument());
+        } else {
+            if (m_backlinksPanel) m_backlinksPanel->setCurrentNote(nullptr);
+            if (m_outlinksPanel) m_outlinksPanel->setCurrentNote(nullptr);
+            if (m_outlinePanel) m_outlinePanel->setCurrentNote(nullptr);
+            if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(nullptr);
+            if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(nullptr);
+        }
+
+        if (editor && editor->noteDocument() && m_autosave)
+            m_autosave->watchDocument(editor->noteDocument());
+
+        if (editor && editor->noteDocument()) {
+            disconnect(editor->noteDocument(), &NoteDocument::modificationChanged,
+                       this, nullptr);
+            connect(editor->noteDocument(), &NoteDocument::modificationChanged,
+                    this, [this]() {
+                updateWindowTitle(activeEditor());
+            });
+        }
+    });
+
+    // When a new view is created (including deferred load), propagate services
+    connect(m_workspace, &Workspace::layoutChanged, this, [this]() {
+        for (auto *leaf : m_workspace->allLeaves()) {
+            if (leaf->view())
+                propagateServicesToView(leaf->view());
+        }
+    });
 
     // Start on welcome screen
     m_centralStack->setCurrentIndex(0);
@@ -598,7 +744,6 @@ void MainWindow::setupEditor()
 
 void MainWindow::setupSidebars()
 {
-    // File Explorer in left sidebar
     auto *toolView = createToolView(
         nullptr,
         QStringLiteral("files_panel"),
@@ -609,7 +754,6 @@ void MainWindow::setupSidebars()
 
     m_fileExplorer = new FileExplorerPanel(toolView);
     m_fileExplorer->setMenuEventEmitter(m_menuEvents);
-    // ToolView already has a QVBoxLayout from CorbomiteMDI — use it
     toolView->layout()->addWidget(m_fileExplorer);
 
     connect(m_fileExplorer, &FileExplorerPanel::noteActivated,
@@ -622,9 +766,8 @@ void MainWindow::setupSidebars()
                                               QString(), &ok);
         if (ok && !name.isEmpty()) {
             auto *doc = m_vaultService->noteService()->createNote(name, folder);
-            if (doc) {
-                m_editorManager->openNote(doc);
-            }
+            if (doc)
+                openFileInWorkspace(doc->relativePath());
         }
     });
     connect(m_fileExplorer, &FileExplorerPanel::deleteNoteRequested,
@@ -661,7 +804,6 @@ void MainWindow::setupSidebars()
         }
     });
 
-    // Search panel in left sidebar
     auto *searchToolView = createToolView(
         nullptr,
         QStringLiteral("search_panel"),
@@ -676,7 +818,6 @@ void MainWindow::setupSidebars()
     connect(m_searchPanel, &SearchPanel::noteActivated,
             this, &MainWindow::onNoteActivated);
 
-    // Right sidebar: Backlinks
     auto *backlinksView = createToolView(
         nullptr,
         QStringLiteral("backlinks_panel"),
@@ -689,7 +830,6 @@ void MainWindow::setupSidebars()
     connect(m_backlinksPanel, &BacklinksPanel::noteActivated,
             this, &MainWindow::onNoteActivated);
 
-    // Right sidebar: Outlinks
     auto *outlinksView = createToolView(
         nullptr,
         QStringLiteral("outlinks_panel"),
@@ -704,10 +844,9 @@ void MainWindow::setupSidebars()
     connect(m_outlinksPanel, &OutlinksPanel::createNoteRequested,
             this, [this](const QString &name) {
         auto *doc = m_vaultService->noteService()->createNote(name, QString());
-        if (doc) m_editorManager->openNote(doc);
+        if (doc) openFileInWorkspace(doc->relativePath());
     });
 
-    // Right sidebar: Properties
     auto *propertiesView = createToolView(
         nullptr,
         QStringLiteral("properties_panel"),
@@ -718,7 +857,6 @@ void MainWindow::setupSidebars()
     m_propertiesPanel = new PropertiesPanel(propertiesView);
     propertiesView->layout()->addWidget(m_propertiesPanel);
 
-    // Right sidebar: Outline
     auto *outlineView = createToolView(
         nullptr,
         QStringLiteral("outline_panel"),
@@ -730,12 +868,11 @@ void MainWindow::setupSidebars()
     outlineView->layout()->addWidget(m_outlinePanel);
     connect(m_outlinePanel, &OutlinePanel::scrollToLine,
             this, [this](int lineNumber) {
-        auto *editor = m_editorManager->activeEditor();
+        auto *editor = activeEditor();
         if (!editor) return;
         editor->editor()->goToLine(lineNumber);
     });
 
-    // Right sidebar: Local Graph
     auto *localGraphView = createToolView(
         nullptr,
         QStringLiteral("local_graph_panel"),
@@ -748,7 +885,6 @@ void MainWindow::setupSidebars()
     connect(m_localGraphPanel, &LocalGraphPanel::noteActivated,
             this, &MainWindow::onNoteActivated);
 
-    // Right sidebar: Graph Controls
     auto *graphControlsView = createToolView(
         nullptr,
         QStringLiteral("graph_controls_panel"),
@@ -788,7 +924,7 @@ void MainWindow::setupRibbon()
 void MainWindow::openVaultDialog()
 {
     if (m_vaultService->isOpen()) {
-        if (!m_editorManager->queryClose()) return;
+        if (!confirmCloseUnsaved()) return;
     }
 
     QString dir = QFileDialog::getExistingDirectory(
@@ -805,9 +941,7 @@ void MainWindow::openVaultDialog()
 void MainWindow::closeVault()
 {
     if (!m_vaultService->isOpen()) return;
-
-    if (!m_editorManager->queryClose()) return;
-
+    if (!confirmCloseUnsaved()) return;
     m_vaultService->closeVault();
 }
 
@@ -824,25 +958,23 @@ void MainWindow::createNewNote()
                                           QString(), &ok);
     if (ok && !name.isEmpty()) {
         auto *doc = m_vaultService->noteService()->createNote(name, QString());
-        if (doc) {
-            m_editorManager->openNote(doc);
-        }
+        if (doc)
+            openFileInWorkspace(doc->relativePath());
     }
 }
 
 void MainWindow::saveCurrentNote()
 {
-    // Check for canvas tab
-    auto *viewSpace = m_editorManager->activeViewSpace();
-    if (viewSpace) {
-        auto *currentWidget = viewSpace->findChild<QStackedWidget *>()->currentWidget();
-        if (auto *canvasTab = qobject_cast<CanvasViewTab *>(currentWidget)) {
-            canvasTab->save();
-            return;
-        }
+    if (!m_workspace) return;
+    auto *leaf = m_workspace->activeLeaf();
+    if (!leaf || !leaf->view()) return;
+
+    if (auto *tfv = qobject_cast<TextFileView *>(leaf->view())) {
+        tfv->saveImmediately();
+        return;
     }
 
-    auto *editor = m_editorManager->activeEditor();
+    auto *editor = activeEditor();
     if (editor && editor->noteDocument()) {
         m_vaultService->noteService()->saveNote(editor->noteDocument());
     }
@@ -854,7 +986,6 @@ void MainWindow::showCommandPalette()
 
     QList<KCommandBar::ActionGroup> groups;
 
-    // Collect actions from our KActionCollection, grouped by prefix
     KActionCollection *ac = actionCollection();
     QList<QAction *> fileActions, viewActions, editActions;
 
@@ -876,9 +1007,6 @@ void MainWindow::showCommandPalette()
     if (!editActions.isEmpty())
         groups.append({i18n("Other"), editActions});
 
-    // Merge CommandRegistry entries into the palette. Each Command is
-    // wrapped in a throwaway QAction parented to the KCommandBar; the
-    // QAction's triggered signal dispatches back through the registry.
     if (m_commandRegistry) {
         QList<QAction *> commandActions;
         for (auto *cmd : m_commandRegistry->listAvailable()) {
@@ -903,14 +1031,12 @@ void MainWindow::showQuickSwitcher()
     if (!m_vaultService->isOpen()) return;
 
     QStringList recent;
-    auto *viewSpace = m_editorManager->activeViewSpace();
-    if (viewSpace) {
-        recent = viewSpace->tabModel()->lruSortedPaths();
+    if (m_workspace) {
+        recent = m_workspace->lastOpenFiles();
     }
 
     auto *switcher = new QuickSwitcher(m_vaultService->vault(), recent, this);
 
-    // Position at top-center of window
     QPoint topCenter = mapToGlobal(QPoint(width() / 2 - 300, 80));
     switcher->move(topCenter);
 
@@ -919,7 +1045,7 @@ void MainWindow::showQuickSwitcher()
     connect(switcher, &QuickSwitcher::createNoteRequested,
             this, [this](const QString &name) {
         auto *doc = m_vaultService->noteService()->createNote(name, QString());
-        if (doc) m_editorManager->openNote(doc);
+        if (doc) openFileInWorkspace(doc->relativePath());
     });
 
     switcher->show();
@@ -928,19 +1054,16 @@ void MainWindow::showQuickSwitcher()
 void MainWindow::onNoteActivated(const QString &relativePath)
 {
     if (relativePath.endsWith(QStringLiteral(".canvas"))) {
-        QString absPath = m_vaultService->vault()->path() + QLatin1Char('/') + relativePath;
-        m_editorManager->openCanvas(absPath);
+        openFileInWorkspace(relativePath);
         return;
     }
 
     auto *doc = m_vaultService->noteService()->openNote(relativePath);
     if (doc) {
-        m_editorManager->openNote(doc);
+        openFileInWorkspace(relativePath);
     } else {
-        // Note doesn't exist -- create it (Obsidian behavior: clicking unresolved link creates the note)
         QString name = relativePath;
         if (name.endsWith(QStringLiteral(".md"))) name.chop(3);
-        // Extract folder if path has one
         QString folder;
         int lastSlash = name.lastIndexOf(QLatin1Char('/'));
         if (lastSlash >= 0) {
@@ -948,9 +1071,8 @@ void MainWindow::onNoteActivated(const QString &relativePath)
             name = name.mid(lastSlash + 1);
         }
         doc = m_vaultService->noteService()->createNote(name, folder);
-        if (doc) {
-            m_editorManager->openNote(doc);
-        }
+        if (doc)
+            openFileInWorkspace(doc->relativePath());
     }
 }
 
@@ -958,13 +1080,11 @@ void MainWindow::onVaultOpened()
 {
     auto *vault = m_vaultService->vault();
 
-    // Switch to editor view
     m_centralStack->setCurrentIndex(1);
     setSidebarsVisible(true);
 
     updateWindowTitle();
 
-    // Track in recent vaults
     m_recentVaults->addUrl(QUrl::fromLocalFile(vault->path()));
     auto config = KSharedConfig::openConfig();
     KConfigGroup recentGroup = config->group(QStringLiteral("RecentVaults"));
@@ -975,16 +1095,13 @@ void MainWindow::onVaultOpened()
     m_treeModel = new NotesTreeModel(vault, this);
     m_fileExplorer->setModel(m_treeModel);
 
-    // Create autosave reactor
     delete m_autosave;
     m_autosave = new AutosaveReactor(m_vaultService->noteService(), this);
 
-    // Create file watch reactor
     delete m_fileWatch;
     m_fileWatch = new FileWatchReactor(vault, this);
     m_fileWatch->startWatching(vault->path());
 
-    // Connect autosave's noteSaved to file watcher suppression
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relativePath) {
         if (m_fileWatch && m_vaultService->vault()) {
             QString absPath = m_vaultService->vault()->path() + QLatin1Char('/') + relativePath;
@@ -992,38 +1109,14 @@ void MainWindow::onVaultOpened()
         }
     });
 
-    // Watch documents as they are opened in the editor
-    connect(m_editorManager, &EditorViewManager::activeEditorChanged,
-            this, [this](NoteEditorWidget *editor) {
-        if (editor && editor->noteDocument() && m_autosave) {
-            m_autosave->watchDocument(editor->noteDocument());
-        }
+    // Set file resolver so FileView::setState can load NoteDocuments
+    m_viewRegistry->setFileResolver([this](const QString &relPath) -> NoteDocument * {
+        if (!m_vaultService || !m_vaultService->isOpen())
+            return nullptr;
+        return m_vaultService->noteService()->openNote(relPath);
     });
 
-    // Set vault on editors and connect link navigation
-    connect(m_editorManager, &EditorViewManager::activeEditorChanged,
-            this, [this](NoteEditorWidget *editor) {
-        if (!editor) return;
-        if (m_vaultService->vault()) {
-            editor->setVaultModel(m_vaultService->vault());
-        }
-        // Connect link navigation (UniqueConnection works here — pointer-to-member)
-        connect(editor, &NoteEditorWidget::linkActivated,
-                this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
-        // Update status bar when view mode changes
-        connect(editor, &NoteEditorWidget::viewModeChanged,
-                this, [this](NoteEditorWidget::ViewMode mode) {
-            if (mode == NoteEditorWidget::ViewMode::Reading)
-                m_cursorPosLabel->setText(i18n("Reading"));
-            // For Source/LivePreview, next cursorInfoChanged restores cursor pos
-        }, Qt::UniqueConnection);
-        // Apply immediately if already in reading mode
-        if (editor->viewMode() == NoteEditorWidget::ViewMode::Reading)
-            m_cursorPosLabel->setText(i18n("Reading"));
-    });
-
-    // Create LinkResolver — shared by MetadataCache (for link resolution in
-    // parsed CachedMetadata) and seeded with the vault's note paths.
+    // LinkResolver
     delete m_linkResolver;
     m_linkResolver = new LinkResolver();
     {
@@ -1036,15 +1129,10 @@ void MainWindow::onVaultOpened()
         m_linkResolver->setVaultPaths(allPaths);
     }
 
-    // Create MetadataCache (owns the five-signal API + worker thread) and
-    // SQLiteIndex (derives FTS / links / tags from cache events).
+    // MetadataCache + SQLiteIndex
     delete m_metadataCache;
     m_metadataCache = new MetadataCache(*m_linkResolver, this);
 
-    // Cluster J Phase 6 — point the embed renderer at the now-open vault.
-    // The HoverPopover already holds the renderer pointer; updating cache
-    // + resources here means subsequent hover-link previews resolve
-    // against this vault.
     m_popoverResources = std::make_unique<VaultScopedResources>(vault);
     if (m_embedRenderer) {
         m_embedRenderer->setMetadataCache(m_metadataCache);
@@ -1057,17 +1145,11 @@ void MainWindow::onVaultOpened()
     m_searchIndex->setVaultRoot(vault->path());
     m_searchIndex->setMetadataCache(m_metadataCache);
 
-    // Ensure .corbomite/ exists, then open the MetadataCache's persistent store.
     QDir().mkpath(vault->configPath());
     m_metadataCache->open(vault->configPath() + QStringLiteral("/metadata-cache.db"));
 
-    // MetadataCache::open() loads persisted state silently (no cacheChanged
-    // emissions), so SQLiteIndex's link/FTS/tag rows would otherwise stay
-    // empty for any path whose stat matches disk after rebuildVault's
-    // short-circuit. Reconcile explicitly against the freshly-loaded cache.
     m_searchIndex->reconcileWithCache();
 
-    // Kick off the initial vault scan via MetadataCache.
     statusBar()->showMessage(i18n("Indexing vault..."));
     connect(m_metadataCache, &MetadataCache::indexFinished, this, [this]() {
         statusBar()->showMessage(i18n("Indexing complete"), 3000);
@@ -1088,7 +1170,6 @@ void MainWindow::onVaultOpened()
     m_vaultService->noteService()->setSearchIndex(m_searchIndex);
     m_vaultService->vault()->setSearchIndex(m_searchIndex);
 
-    // Set index + metadata cache on sidebar panels
     m_backlinksPanel->setIndex(m_searchIndex);
     m_backlinksPanel->setMetadataCache(m_metadataCache);
     m_outlinksPanel->setIndex(m_searchIndex);
@@ -1099,41 +1180,7 @@ void MainWindow::onVaultOpened()
     m_localGraphPanel->setMetadataCache(m_metadataCache);
     m_propertiesPanel->setMetadataCache(m_metadataCache);
 
-    // Update sidebar panels when active note changes
-    connect(m_editorManager, &EditorViewManager::activeEditorChanged,
-            this, [this](NoteEditorWidget *editor) {
-        if (editor && editor->noteDocument()) {
-            m_backlinksPanel->setCurrentNote(editor->noteDocument());
-            m_outlinksPanel->setCurrentNote(editor->noteDocument());
-            m_outlinePanel->setCurrentNote(editor->noteDocument());
-            m_localGraphPanel->setCurrentNote(editor->noteDocument());
-            m_propertiesPanel->setCurrentNote(editor->noteDocument());
-        } else {
-            m_backlinksPanel->setCurrentNote(nullptr);
-            m_outlinksPanel->setCurrentNote(nullptr);
-            m_outlinePanel->setCurrentNote(nullptr);
-            m_localGraphPanel->setCurrentNote(nullptr);
-            m_propertiesPanel->setCurrentNote(nullptr);
-        }
-    });
-
-    // Update window title when active note changes
-    connect(m_editorManager, &EditorViewManager::activeEditorChanged,
-            this, [this](NoteEditorWidget *editor) {
-        updateWindowTitle(editor);
-        // Track modification state for title indicator — use singleShot-style
-        // disconnect/reconnect to avoid duplicate connections from repeated tab switches
-        if (editor && editor->noteDocument()) {
-            disconnect(editor->noteDocument(), &NoteDocument::modificationChanged,
-                       this, nullptr);
-            connect(editor->noteDocument(), &NoteDocument::modificationChanged,
-                    this, [this]() {
-                updateWindowTitle(m_editorManager->activeEditor());
-            });
-        }
-    });
-
-    // Update MetadataCache on note saves — feeds cacheChanged → SQLiteIndex.
+    // Update MetadataCache on note saves
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
         if (!m_metadataCache || !m_vaultService->vault()) return;
         auto *doc = m_vaultService->vault()->cachedDocument(relPath);
@@ -1145,16 +1192,13 @@ void MainWindow::onVaultOpened()
         m_metadataCache->onFileChanged(relPath, bytes, mtimeMs);
     });
 
-    // Propagate external file-watcher deletions to MetadataCache.
+    // File watcher integration
     if (m_fileWatch) {
-        // Notify TextFileViews of external modifications so they can reload
         connect(m_fileWatch, &FileWatchReactor::fileModifiedExternally,
                 this, [this](const QString &relativePath) {
-            for (auto *space : m_editorManager->viewSpaces()) {
-                for (auto *leaf : space->leaves()) {
-                    if (auto *tfv = qobject_cast<TextFileView *>(leaf->view())) {
-                        tfv->onExternalModify(relativePath);
-                    }
+            for (auto *leaf : m_workspace->allLeaves()) {
+                if (auto *tfv = qobject_cast<TextFileView *>(leaf->view())) {
+                    tfv->onExternalModify(relativePath);
                 }
             }
         });
@@ -1176,56 +1220,36 @@ void MainWindow::onVaultOpened()
         });
     }
 
-    // Connect internal link navigation from preview widgets
-    connect(m_editorManager->activeViewSpace(), &EditorViewSpace::internalLinkClicked,
-            this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
-
-    // Connect graph view note navigation
-    connect(m_editorManager, &EditorViewManager::graphNoteActivated,
-            this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
-
-    // Create session manager and restore session
+    // Session manager — restore workspace
     delete m_sessionManager;
     m_sessionManager = new SessionManager(this);
     m_sessionManager->setSessionPath(vault->path() + QStringLiteral("/.obsidian/workspace.json"));
     m_sessionManager->load();
 
-    // Restore window geometry if available
     const auto geometry = m_sessionManager->windowGeometry();
     if (!geometry.isEmpty()) restoreGeometry(geometry);
     const auto windowStateBytes = m_sessionManager->windowState();
     if (!windowStateBytes.isEmpty()) restoreState(windowStateBytes);
 
-    // Restore sidebar state
     const auto sidebar = m_sessionManager->sidebarState();
     if (!sidebar.isEmpty()) {
         const bool leftVisible = sidebar.value(QStringLiteral("leftVisible")).toBool(true);
         setSidebarsVisibleInternal(leftVisible, true);
     }
 
-    // Block saving during restore to avoid partial session writes
     m_sessionManager->blockSaving();
 
     if (m_sessionManager->hasLoadedSession()) {
-        m_editorManager->applyPaneLayout(
-            m_sessionManager->paneLayout(),
-            [this](EditorViewSpace *space, const PaneLeaf &leaf) {
-                const QString path = leaf.filePath;
-                if (path.isEmpty()) return;
-                if (leaf.viewType == QStringLiteral("canvas")
-                        || path.endsWith(QStringLiteral(".canvas"))) {
-                    const QString absPath =
-                        m_vaultService->vault()->path()
-                        + QLatin1Char('/') + path;
-                    space->openCanvas(absPath);
-                } else {
-                    auto *doc = m_vaultService->noteService()->openNote(path);
-                    if (doc) space->openNote(doc);
-                }
-            });
+        QJsonObject wsLayout = m_sessionManager->workspaceLayout();
+        if (!wsLayout.isEmpty()) {
+            // Wrap in the full workspace JSON expected by Workspace::deserialize
+            QJsonObject fullWs;
+            fullWs[QStringLiteral("main")] = wsLayout;
+            fullWs[QStringLiteral("active")] = m_sessionManager->activeLeafId();
+            m_workspace->deserialize(fullWs);
+        }
     }
 
-    // Restore expanded folders
     const auto folders = m_sessionManager->expandedFolders();
     if (!folders.isEmpty() && m_fileExplorer) {
         m_fileExplorer->restoreExpandedFolders(folders);
@@ -1242,9 +1266,6 @@ void MainWindow::onVaultOpened()
     m_templateService->setDefaultDateFormat(settings->defaultDateFormat());
     m_templateService->setDefaultTimeFormat(settings->defaultTimeFormat());
 
-    // Vault-local override: `.obsidian/templates.json` wins over KConfig
-    // defaults for any keys it specifies. Missing file / missing keys
-    // leave the KConfig-seeded defaults intact.
     {
         FileSystemAdapter fs;
         VaultConfig vaultConfig(&fs, vault->path());
@@ -1258,9 +1279,6 @@ void MainWindow::onVaultOpened()
     m_dailyNoteService->setFolder(settings->dailyNoteFolder());
     m_dailyNoteService->setTemplateName(settings->dailyNoteTemplate());
 
-    // Vault-local override: `.obsidian/daily-notes.json` wins over KConfig
-    // defaults. Missing file / missing keys leave the KConfig-seeded
-    // values intact.
     {
         FileSystemAdapter fs;
         VaultConfig vaultConfig(&fs, vault->path());
@@ -1272,29 +1290,20 @@ void MainWindow::onVaultOpened()
 
 void MainWindow::onVaultClosed()
 {
-    // Save session before cleanup
-    if (m_sessionManager) {
-        m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
-        m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
-        m_sessionManager->setPaneLayout(m_editorManager->buildPaneLayout());
-        if (m_fileExplorer) {
-            m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
-        }
-        m_sessionManager->saveNow();
+    saveSessionState();
+
+    // Reset workspace to default layout
+    if (m_workspace) {
+        // Close all leaves
+        auto leaves = m_workspace->allLeaves();
+        for (auto *leaf : leaves)
+            m_workspace->closeLeaf(leaf);
     }
 
-    // Disconnect vault-specific signals — prevents stale callbacks during cleanup
-    disconnect(m_editorManager, &EditorViewManager::activeEditorChanged, this, nullptr);
-    disconnect(m_editorManager, &EditorViewManager::graphNoteActivated, this, nullptr);
+    // Clear file resolver
+    if (m_viewRegistry)
+        m_viewRegistry->setFileResolver(nullptr);
 
-    // Reconnect non-vault signals that setupEditor originally set up
-    connect(m_editorManager, &EditorViewManager::cursorInfoChanged,
-            this, &MainWindow::onCursorInfoChanged);
-
-    // Close all editor state — THIS FIXES THE CRASH
-    m_editorManager->closeAllDocuments();
-
-    // Clean up reactors
     delete m_autosave;
     m_autosave = nullptr;
     if (m_fileWatch) {
@@ -1327,18 +1336,12 @@ void MainWindow::onVaultClosed()
     m_propertiesPanel->setCurrentNote(nullptr);
     m_propertiesPanel->setMetadataCache(nullptr);
 
-    // Cluster J Phase 6 — drop renderer pointers into the cache + resources
-    // BEFORE the cache + resources are torn down (the embed renderer holds
-    // raw pointers and will dereference them on the next preview).
     if (m_embedRenderer) {
         m_embedRenderer->setMetadataCache(nullptr);
         m_embedRenderer->setResources(nullptr);
     }
     m_popoverResources.reset();
 
-    // Close MetadataCache (flushes persistent store) BEFORE deleting the
-    // SQLiteIndex — the index subscribes to cache signals and must not
-    // receive a post-mortem emission.
     if (m_metadataCache) {
         m_metadataCache->close();
     }
@@ -1355,7 +1358,6 @@ void MainWindow::onVaultClosed()
     m_treeModel = nullptr;
     m_fileExplorer->setModel(nullptr);
 
-    // Switch to welcome screen
     m_centralStack->setCurrentIndex(0);
     m_welcomeScreen->refreshRecentVaults();
     setSidebarsVisibleInternal(false, true);
@@ -1366,26 +1368,28 @@ void MainWindow::onVaultClosed()
 
 void MainWindow::openGraphView()
 {
-    if (!m_vaultService->isOpen() || !m_searchIndex) return;
-    m_editorManager->openGraphView(m_searchIndex, m_vaultService->vault());
+    if (!m_vaultService->isOpen() || !m_searchIndex || !m_workspace) return;
 
-    // Wire the sidebar graph controls panel + MetadataCache to the newly
-    // opened graph tab.
-    if (auto *space = m_editorManager->activeViewSpace()) {
-        const auto graphTabs = space->findChildren<GraphViewTab *>();
-        if (!graphTabs.isEmpty()) {
-            auto *graphTab = graphTabs.first();
-            if (m_graphControlsPanel) {
-                graphTab->setControlsPanel(m_graphControlsPanel);
-            }
-            graphTab->setMetadataCache(m_metadataCache);
-        }
+    auto *tabs = m_workspace->activeTabs();
+    if (!tabs) return;
+    auto *leaf = m_workspace->createLeafInTabs(tabs);
+
+    QJsonObject viewState;
+    viewState[QStringLiteral("type")] = QStringLiteral("graph");
+    viewState[QStringLiteral("state")] = QJsonObject{};
+    leaf->setViewState(viewState);
+    m_workspace->setActiveLeaf(leaf);
+
+    // Wire graph controls if the view is a GraphViewTab
+    if (auto *graphView = leaf->view() ? leaf->view()->findChild<GraphViewTab *>() : nullptr) {
+        if (m_graphControlsPanel)
+            graphView->setControlsPanel(m_graphControlsPanel);
+        graphView->setMetadataCache(m_metadataCache);
     }
 }
 
 void MainWindow::showSearchPanel()
 {
-    // Show the search toolview and focus its input
     auto *tv = toolView(QStringLiteral("search_panel"));
     if (tv) {
         showToolView(tv);
@@ -1410,16 +1414,12 @@ void MainWindow::insertTemplate()
     QString name = picker.selectedTemplate();
     if (name.isEmpty()) return;
 
-    auto *editor = m_editorManager->activeEditor();
+    auto *editor = activeEditor();
     if (!editor || !editor->noteDocument()) return;
 
     QString expanded = m_templateService->loadAndExpand(name, editor->noteDocument()->name());
     if (expanded.isEmpty()) return;
 
-    // If note is empty, replace content; otherwise append at end.
-    // Compute final body and the absolute offset of the {{cursor}} marker
-    // within that body (if any), then strip the marker before setting the
-    // note document so the editor never sees the placeholder.
     const QString marker = TemplateService::cursorMarker();
     const bool wasEmpty = editor->noteDocument()->markdown().trimmed().isEmpty();
     QString finalBody = wasEmpty
@@ -1432,11 +1432,6 @@ void MainWindow::insertTemplate()
     }
     editor->noteDocument()->setMarkdown(finalBody);
 
-    // Position the editor cursor at the former marker location. Markoff's
-    // Editor only exposes goToLine(int) from the outside; compute the
-    // 0-based line index of the stripped-marker offset. Column-level
-    // positioning would need a new Editor API — acceptable limitation for
-    // Phase 3; the cursor lands on the right line.
     if (cursorIdx >= 0) {
         const int line = finalBody.left(cursorIdx).count(QLatin1Char('\n'));
         if (auto *mk = editor->editor()) {
@@ -1450,9 +1445,8 @@ void MainWindow::openDailyNote()
     if (!m_dailyNoteService) return;
 
     auto *doc = m_dailyNoteService->openOrCreateToday();
-    if (doc) {
-        m_editorManager->openNote(doc);
-    }
+    if (doc)
+        openFileInWorkspace(doc->relativePath());
 }
 
 void MainWindow::onCursorInfoChanged(int line, int column, int wordCount)

@@ -23,6 +23,7 @@ public:
     QJsonObject serialize() const override;
 
     View *view() const;
+    ViewRegistry *registry() const;
 
     void open(View *newView);
 

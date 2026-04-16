@@ -22,7 +22,6 @@
 
 #include "app/MainWindow.h"
 #include "app/VaultService.h"
-#include "editor/EditorViewManager.h"
 #include "editor/NoteEditorWidget.h"
 #include "editor/CompletionPopup.h"
 #include "corbomite/models/VaultModel.h"

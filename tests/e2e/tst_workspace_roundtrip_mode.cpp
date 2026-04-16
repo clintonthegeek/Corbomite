@@ -2,15 +2,13 @@
 //
 // Cluster E Phase 7 — workspace.json end-to-end round-trip test.
 //
-// Exercises the full on-disk round-trip via WorkspaceState +
-// PaneLayout + EphemeralState: build an in-memory workspace with two
-// leaves (Source + Reading), serialise to a temp workspace.json, reload,
-// assert that mode + eState.scroll + foldedHeadings + Cluster B's
-// unknown-key preservation all survive a full round-trip.
+// Exercises the full on-disk round-trip: build an in-memory workspace JSON
+// with two leaves (Source + Reading), serialise to a temp workspace.json,
+// reload, assert that mode + eState.scroll + foldedHeadings + unknown-key
+// preservation all survive a full round-trip.
 //
 // Runs headless via QTemporaryDir — no GUI needed.
 
-#include "corbomite/core/PaneLayout.h"
 #include "corbomite/storage/EphemeralState.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/WorkspaceState.h"
@@ -25,9 +23,6 @@
 
 using Corbomite::EphemeralState;
 using Corbomite::FileSystemAdapter;
-using Corbomite::PaneLayout;
-using Corbomite::PaneLayoutIndex;
-using Corbomite::PaneLeaf;
 using Corbomite::WorkspaceState;
 
 namespace {
@@ -40,8 +35,6 @@ QJsonObject readFileObject(const QString &path)
     return doc.object();
 }
 
-/// Scan the `main` SplitNode recursively and return every `leaf` node
-/// whose state.type == "markdown" (for test inspection).
 QList<QJsonObject> collectMarkdownLeaves(const QJsonObject &node)
 {
     QList<QJsonObject> out;
@@ -61,6 +54,29 @@ QList<QJsonObject> collectMarkdownLeaves(const QJsonObject &node)
     return out;
 }
 
+QJsonObject makeLeafJson(const QString &id, const QString &filePath,
+                         const QString &mode, const QJsonObject &eState,
+                         const QJsonObject &extraUnknown = {})
+{
+    QJsonObject inner;
+    inner[QStringLiteral("file")] = filePath;
+    inner[QStringLiteral("mode")] = mode;
+
+    QJsonObject viewState;
+    viewState[QStringLiteral("type")] = QStringLiteral("markdown");
+    viewState[QStringLiteral("state")] = inner;
+
+    QJsonObject leaf;
+    leaf[QStringLiteral("id")] = id;
+    leaf[QStringLiteral("type")] = QStringLiteral("leaf");
+    leaf[QStringLiteral("state")] = viewState;
+    if (!eState.isEmpty())
+        leaf[QStringLiteral("eState")] = eState;
+    for (auto it = extraUnknown.begin(); it != extraUnknown.end(); ++it)
+        leaf.insert(it.key(), it.value());
+    return leaf;
+}
+
 } // namespace
 
 class WorkspaceRoundtripModeTest : public QObject {
@@ -74,74 +90,62 @@ private Q_SLOTS:
         QVERIFY(tmp.isValid());
         const QString path = tmp.path() + QStringLiteral("/workspace.json");
 
-        // Build a PaneLayout with two leaves (different modes + eState).
-        PaneLayout layout;
-        auto *root = layout.root();
+        // Build eState for the source leaf.
+        EphemeralState sourceES;
+        sourceES.modeRaw = QStringLiteral("source");
+        sourceES.sourceFlag = true;
+        sourceES.scroll = 30.5f;
+        sourceES.cursor.line = 12;
+        sourceES.cursor.column = 4;
+        sourceES.foldedHeadings = QVector<int>{42};
 
-        PaneLeaf sourceLeaf;
-        sourceLeaf.id = QStringLiteral("leaf-source-aaaa");
-        sourceLeaf.viewType = QStringLiteral("markdown");
-        sourceLeaf.filePath = QStringLiteral("notes/one.md");
-        sourceLeaf.mode = QStringLiteral("source");
-        {
-            // Build the viewState.state inner object.
-            QJsonObject viewState;
-            viewState.insert(QStringLiteral("type"), QStringLiteral("markdown"));
-            QJsonObject inner;
-            inner.insert(QStringLiteral("file"), sourceLeaf.filePath);
-            inner.insert(QStringLiteral("mode"), QStringLiteral("source"));
-            viewState.insert(QStringLiteral("state"), inner);
-            sourceLeaf.viewState = viewState;
+        QJsonObject obsidianInternal;
+        obsidianInternal[QStringLiteral("opaque")] = 17;
+        QJsonObject sourceExtra;
+        sourceExtra[QStringLiteral("_obsidian_internal")] = obsidianInternal;
 
-            // Build and attach eState as leaf-level unknown key.
-            EphemeralState es;
-            es.modeRaw = QStringLiteral("source");
-            es.sourceFlag = true;
-            es.scroll = 30.5f;
-            es.cursor.line = 12;
-            es.cursor.column = 4;
-            es.foldedHeadings = QVector<int>{42};
-            sourceLeaf.unknown.insert(QStringLiteral("eState"), es.toJson());
+        auto sourceLeafJson = makeLeafJson(
+            QStringLiteral("leaf-source-aaaa"),
+            QStringLiteral("notes/one.md"),
+            QStringLiteral("source"),
+            sourceES.toJson(),
+            sourceExtra);
 
-            // Preserve a fabricated Obsidian-internal key to verify Cluster B's
-            // unknown-key preservation still works.
-            sourceLeaf.unknown.insert(QStringLiteral("_obsidian_internal"),
-                                      QJsonObject{{QStringLiteral("opaque"), 17}});
-        }
+        // Build eState for the reading leaf.
+        EphemeralState readingES;
+        readingES.modeRaw = QStringLiteral("preview");
+        readingES.sourceFlag = false;
+        readingES.scroll = 5.0f;
 
-        PaneLeaf readingLeaf;
-        readingLeaf.id = QStringLiteral("leaf-reading-bbbb");
-        readingLeaf.viewType = QStringLiteral("markdown");
-        readingLeaf.filePath = QStringLiteral("notes/two.md");
-        readingLeaf.mode = QStringLiteral("preview");
-        {
-            QJsonObject viewState;
-            viewState.insert(QStringLiteral("type"), QStringLiteral("markdown"));
-            QJsonObject inner;
-            inner.insert(QStringLiteral("file"), readingLeaf.filePath);
-            inner.insert(QStringLiteral("mode"), QStringLiteral("preview"));
-            viewState.insert(QStringLiteral("state"), inner);
-            readingLeaf.viewState = viewState;
+        auto readingLeafJson = makeLeafJson(
+            QStringLiteral("leaf-reading-bbbb"),
+            QStringLiteral("notes/two.md"),
+            QStringLiteral("preview"),
+            readingES.toJson());
 
-            EphemeralState es;
-            es.modeRaw = QStringLiteral("preview");
-            es.sourceFlag = false;
-            es.scroll = 5.0f;
-            readingLeaf.unknown.insert(QStringLiteral("eState"), es.toJson());
-        }
+        // Build workspace JSON: split root with two tabs children.
+        QJsonObject sourceTabs;
+        sourceTabs[QStringLiteral("type")] = QStringLiteral("tabs");
+        sourceTabs[QStringLiteral("children")] = QJsonArray{sourceLeafJson};
+        sourceTabs[QStringLiteral("currentTab")] = 0;
 
-        // Split root: first child is the source-leaf tabs, second child is
-        // the reading-leaf tabs.
-        root->addView(sourceLeaf);
-        root->splitWithNewLeaf(readingLeaf, Qt::Horizontal);
+        QJsonObject readingTabs;
+        readingTabs[QStringLiteral("type")] = QStringLiteral("tabs");
+        readingTabs[QStringLiteral("children")] = QJsonArray{readingLeafJson};
+        readingTabs[QStringLiteral("currentTab")] = 0;
 
-        // Serialise into a WorkspaceState + save.
+        QJsonObject mainSplit;
+        mainSplit[QStringLiteral("type")] = QStringLiteral("split");
+        mainSplit[QStringLiteral("direction")] = QStringLiteral("horizontal");
+        mainSplit[QStringLiteral("children")] = QJsonArray{sourceTabs, readingTabs};
+
+        // Serialise via WorkspaceState.
         WorkspaceState ws;
         QJsonObject rootObj = ws.raw();
-        rootObj.insert(QStringLiteral("main"), layout.toJson());
-        rootObj.insert(QStringLiteral("lastOpenFiles"),
-                       QJsonArray{QStringLiteral("notes/one.md"),
-                                  QStringLiteral("notes/two.md")});
+        rootObj[QStringLiteral("main")] = mainSplit;
+        rootObj[QStringLiteral("lastOpenFiles")] =
+            QJsonArray{QStringLiteral("notes/one.md"),
+                       QStringLiteral("notes/two.md")};
         ws.setRaw(rootObj);
 
         FileSystemAdapter fs;
@@ -155,8 +159,6 @@ private Q_SLOTS:
             onDisk.value(QStringLiteral("main")).toObject());
         QCOMPARE(leaves.size(), 2);
 
-        // Identify each leaf by its file path. Order depends on traversal but
-        // by construction we built source first, reading second.
         QJsonObject sourceRaw, readingRaw;
         for (const auto &l : leaves) {
             const auto inner = l.value(QStringLiteral("state")).toObject()
@@ -169,7 +171,7 @@ private Q_SLOTS:
         QVERIFY(!sourceRaw.isEmpty());
         QVERIFY(!readingRaw.isEmpty());
 
-        // Source leaf — mode "source" + eState.scroll ≈ 30.5 + eState.source:true.
+        // Source leaf — mode "source" + eState.scroll ~ 30.5 + eState.source:true.
         const auto sourceInner = sourceRaw.value(QStringLiteral("state"))
                                           .toObject().value(QStringLiteral("state"))
                                           .toObject();
@@ -184,7 +186,7 @@ private Q_SLOTS:
         QVERIFY(std::abs(sourceEState.value(QStringLiteral("scroll")).toDouble()
                          - 30.5) < 0.01);
 
-        // Reading leaf — mode "preview" + eState.scroll ≈ 5.0.
+        // Reading leaf — mode "preview" + eState.scroll ~ 5.0.
         const auto readingInner = readingRaw.value(QStringLiteral("state"))
                                             .toObject().value(QStringLiteral("state"))
                                             .toObject();
@@ -207,13 +209,25 @@ private Q_SLOTS:
         const auto reloaded = WorkspaceState::load(&fs, path);
         QVERIFY(reloaded.has_value());
 
-        auto reloadedLayout = PaneLayout::fromJson(reloaded->main());
-        auto *backSource = reloadedLayout.findLeaf(QStringLiteral("leaf-source-aaaa"));
-        QVERIFY(backSource);
-        QCOMPARE(backSource->filePath, QStringLiteral("notes/one.md"));
-        QCOMPARE(backSource->mode, QStringLiteral("source"));
+        const auto reloadedMain = reloaded->main();
+        const auto reloadedLeaves = collectMarkdownLeaves(reloadedMain);
+        QCOMPARE(reloadedLeaves.size(), 2);
+
+        QJsonObject backSource, backReading;
+        for (const auto &l : reloadedLeaves) {
+            const auto inner = l.value(QStringLiteral("state")).toObject()
+                                .value(QStringLiteral("state")).toObject();
+            if (inner.value(QStringLiteral("file")).toString()
+                    == QStringLiteral("notes/one.md")) backSource = l;
+            else if (inner.value(QStringLiteral("file")).toString()
+                    == QStringLiteral("notes/two.md")) backReading = l;
+        }
+        QVERIFY(!backSource.isEmpty());
+        QVERIFY(!backReading.isEmpty());
+
+        // Source leaf round-trip.
         auto backSourceEState = EphemeralState::fromJson(
-            backSource->unknown.value(QStringLiteral("eState")).toObject());
+            backSource.value(QStringLiteral("eState")).toObject());
         QCOMPARE(backSourceEState.modeRaw, QStringLiteral("source"));
         QCOMPARE(backSourceEState.sourceFlag, true);
         QVERIFY(std::abs(backSourceEState.scroll - 30.5f) < 0.01f);
@@ -221,18 +235,15 @@ private Q_SLOTS:
         QCOMPARE(backSourceEState.cursor.column, 4);
         QCOMPARE(backSourceEState.foldedHeadings, (QVector<int>{42}));
 
-        auto *backReading = reloadedLayout.findLeaf(QStringLiteral("leaf-reading-bbbb"));
-        QVERIFY(backReading);
-        QCOMPARE(backReading->filePath, QStringLiteral("notes/two.md"));
-        QCOMPARE(backReading->mode, QStringLiteral("preview"));
+        // Reading leaf round-trip.
         auto backReadingEState = EphemeralState::fromJson(
-            backReading->unknown.value(QStringLiteral("eState")).toObject());
+            backReading.value(QStringLiteral("eState")).toObject());
         QCOMPARE(backReadingEState.modeRaw, QStringLiteral("preview"));
         QVERIFY(std::abs(backReadingEState.scroll - 5.0f) < 0.01f);
 
         // Obsidian-internal unknown still present after reload.
-        QCOMPARE(backSource->unknown.value(QStringLiteral("_obsidian_internal"))
-                                     .toObject().value(QStringLiteral("opaque")).toInt(),
+        QCOMPARE(backSource.value(QStringLiteral("_obsidian_internal"))
+                           .toObject().value(QStringLiteral("opaque")).toInt(),
                  17);
     }
 };

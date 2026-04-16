@@ -22,8 +22,10 @@ class EmbedRenderer;
 namespace Corbomite {
 
 class VaultService;
-class EditorViewManager;
+class Workspace;
+class WorkspaceLeaf;
 class NoteEditorWidget;
+class MarkdownView;
 class FileExplorerPanel;
 class SearchPanel;
 class NotesTreeModel;
@@ -50,6 +52,7 @@ class EditorSuggestManager;
 class WikiLinkSuggest;
 class TagSuggest;
 class RibbonSlot;
+class View;
 class ViewRegistry;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
@@ -88,9 +91,15 @@ private:
     void onCursorInfoChanged(int line, int column, int wordCount);
     void updateVaultActions();
     void updateWindowTitle(NoteEditorWidget *editor = nullptr);
+    void openFileInWorkspace(const QString &relativePath);
+    MarkdownView *activeMarkdownView() const;
+    NoteEditorWidget *activeEditor() const;
+    bool confirmCloseUnsaved();
+    void saveSessionState();
+    void propagateServicesToView(View *view);
 
     VaultService *m_vaultService;
-    EditorViewManager *m_editorManager = nullptr;
+    Workspace *m_workspace = nullptr;
     ViewRegistry *m_viewRegistry = nullptr;
     FileExplorerPanel *m_fileExplorer = nullptr;
     NotesTreeModel *m_treeModel = nullptr;

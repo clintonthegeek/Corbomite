@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/FileView.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/core/ViewRegistry.h"
+#include "corbomite/core/WorkspaceLeaf.h"
 #include <KLocalizedString>
 #include <QJsonObject>
 
@@ -52,7 +54,17 @@ QJsonObject FileView::getState() const
 
 void FileView::setState(const QJsonObject &state)
 {
-    Q_UNUSED(state)
+    QString filePath = state[QStringLiteral("file")].toString();
+    if (filePath.isEmpty())
+        return;
+    if (!m_leaf)
+        return;
+    auto *reg = m_leaf->registry();
+    if (!reg)
+        return;
+    auto *doc = reg->resolveFile(filePath);
+    if (doc)
+        loadFile(doc);
 }
 
 void FileView::onLoadFile(NoteDocument *) {}

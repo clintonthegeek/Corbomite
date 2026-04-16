@@ -22,8 +22,10 @@
 
 #include "app/MainWindow.h"
 #include "app/VaultService.h"
-#include "editor/EditorViewManager.h"
 #include "editor/NoteEditorWidget.h"
+#include "editor/MarkdownView.h"
+#include "corbomite/core/Workspace.h"
+#include "corbomite/core/WorkspaceLeaf.h"
 #include "sidebar/BacklinksPanel.h"
 #include "sidebar/OutlinksPanel.h"
 #include "corbomite/models/VaultModel.h"
