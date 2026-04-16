@@ -106,7 +106,21 @@ SceneCoordinator::detectTableRegions(const QString &markdown) const
         if (b.type != TreeSitterParser::BlockBoundary::Table)
             continue;
 
-        QString tableText = markdown.mid(b.startChar, b.endChar - b.startChar);
+        // Tree-sitter's table node boundaries may not include the leading
+        // pipe character or trailing content. Expand to full line boundaries
+        // so the converter replaces ALL pipe text, not just the cell content.
+        int start = b.startChar;
+        while (start > 0 && markdown[start - 1] != QLatin1Char('\n'))
+            --start;
+        int end = b.endChar;
+        while (end < markdown.length() && markdown[end] != QLatin1Char('\n'))
+            ++end;
+        // Do NOT include trailing newline — it serves as a separator
+        // between the table and whatever follows. Including it causes
+        // the converter to eat into adjacent content (especially a
+        // second table that starts on the next non-blank line).
+
+        QString tableText = markdown.mid(start, end - start);
         if (tableText.endsWith(QLatin1Char('\n')))
             tableText.chop(1);
 
@@ -115,8 +129,8 @@ SceneCoordinator::detectTableRegions(const QString &markdown) const
             continue;
 
         TableConverter::TableRegion region;
-        region.startPos = b.startChar;
-        region.endPos = b.endChar;
+        region.startPos = start;
+        region.endPos = end;
         region.headers = TableHandler::parseRow(lines[0]);
         region.cols = region.headers.size();
         if (region.cols == 0) continue;
@@ -148,12 +162,32 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
         if (seg.type == MarkdownSegment::Text) {
             auto *item = createTextItem(seg.text);
 
-            // Detect and convert any pipe tables within this text item
+            // Detect and convert any pipe tables within this text item.
+            // The document may contain U+FFFC inline substitutions (math,
+            // checkboxes) from createTextItem() which shift positions.
+            // Strip them first so the converter's offsets (from the raw
+            // segment text) match the document's character positions.
             if (m_parser->parse(seg.text)) {
                 auto regions = detectTableRegions(seg.text);
+                // (debug removed)
                 if (!regions.isEmpty()) {
+                    item->stripInlineSubstitutions();
+
                     TableConverter &converter = m_tableConverters[item];
                     converter.convert(item->document(), regions);
+
+                    // Rebuild span map in document coordinates, then
+                    // re-apply inline substitutions.
+                    const QString hlSrc = item->buildHighlightingSource();
+                    if (m_parser->parse(hlSrc)) {
+                        auto *hl = qobject_cast<MarkdownHighlighter *>(
+                            item->document()->findChild<QSyntaxHighlighter *>());
+                        if (hl) {
+                            hl->setSpanMap(m_parser->buildSpanMap());
+                            hl->rehighlight();
+                        }
+                    }
+                    item->refreshInlineSubstitutions();
                 }
             }
         } else if (seg.type == MarkdownSegment::Image) {
@@ -603,12 +637,25 @@ void SceneCoordinator::reparse()
             if (seg.type == MarkdownSegment::Text) {
                 auto *item = createTextItem(seg.text);
 
-                // Detect and convert any pipe tables within this text item
+                // Detect and convert pipe tables (same logic as loadMarkdown)
                 if (m_parser->parse(seg.text)) {
                     auto regions = detectTableRegions(seg.text);
                     if (!regions.isEmpty()) {
+                        item->stripInlineSubstitutions();
+
                         TableConverter &converter = m_tableConverters[item];
                         converter.convert(item->document(), regions);
+
+                        const QString hlSrc = item->buildHighlightingSource();
+                        if (m_parser->parse(hlSrc)) {
+                            auto *hl = qobject_cast<MarkdownHighlighter *>(
+                                item->document()->findChild<QSyntaxHighlighter *>());
+                            if (hl) {
+                                hl->setSpanMap(m_parser->buildSpanMap());
+                                hl->rehighlight();
+                            }
+                        }
+                        item->refreshInlineSubstitutions();
                     }
                 }
             } else if (seg.type == MarkdownSegment::Image) {
@@ -633,7 +680,6 @@ void SceneCoordinator::reparse()
         for (int i = 0; i < m_items.size(); ++i) {
             if (m_items[i]->isTextItem()) {
                 auto *textItem = static_cast<MarkdownTextItem *>(m_items[i]);
-                const QString src = textItem->allMarkdown();
 
                 // Block document signals for the entire update cycle.
                 // This prevents intermediate rehighlights between strip
@@ -643,18 +689,28 @@ void SceneCoordinator::reparse()
                 const bool blocked = doc->blockSignals(true);
 
                 textItem->stripInlineSubstitutions();
-                if (m_parser->parse(src)) {
+
+                // Build a highlighting source where table-frame blocks
+                // are replaced with spaces. This produces spans in
+                // document-coordinate space, avoiding the offset mismatch
+                // between serialized pipe text and QTextTable frames.
+                const QString hlSrc = textItem->buildHighlightingSource();
+                if (m_parser->parse(hlSrc)) {
                     auto *highlighter = qobject_cast<MarkdownHighlighter *>(
                         doc->findChild<QSyntaxHighlighter *>());
                     if (highlighter)
                         highlighter->setSpanMap(m_parser->buildSpanMap());
+                }
 
-                    // Reconcile table regions — handles newly typed tables
-                    // and tables that were removed by editing.
-                    auto regions = detectTableRegions(src);
+                // Table reconciliation needs the full pipe-text source
+                // to detect newly typed tables or removed ones.
+                const QString mdSrc = textItem->allMarkdown();
+                if (m_parser->parse(mdSrc)) {
+                    auto regions = detectTableRegions(mdSrc);
                     TableConverter &converter = m_tableConverters[textItem];
                     converter.reconcile(doc, regions);
                 }
+
                 textItem->refreshBlockFormatting();
                 textItem->refreshInlineSubstitutions();
 

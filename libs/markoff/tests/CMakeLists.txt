@@ -108,6 +108,18 @@ target_link_libraries(tst_markoff_table_navigation PRIVATE Qt6::Test Qt6::Widget
 target_include_directories(tst_markoff_table_navigation PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 set_tests_properties(tst_markoff_table_navigation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_markoff_table_diagnostics tst_table_diagnostics.cpp)
+add_test(NAME tst_markoff_table_diagnostics COMMAND tst_markoff_table_diagnostics)
+target_link_libraries(tst_markoff_table_diagnostics PRIVATE Qt6::Test Qt6::Widgets markoff)
+target_include_directories(tst_markoff_table_diagnostics PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+target_compile_definitions(tst_markoff_table_diagnostics PRIVATE CMAKE_CURRENT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+set_tests_properties(tst_markoff_table_diagnostics PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_markoff_table_bugs tst_table_bugs.cpp)
+add_test(NAME tst_markoff_table_bugs COMMAND tst_markoff_table_bugs)
+target_link_libraries(tst_markoff_table_bugs PRIVATE Qt6::Test Qt6::Widgets markoff)
+set_tests_properties(tst_markoff_table_bugs PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_markoff_table_integration tst_table_integration.cpp)
 add_test(NAME tst_markoff_table_integration COMMAND tst_markoff_table_integration)
 target_link_libraries(tst_markoff_table_integration PRIVATE Qt6::Test Qt6::Widgets markoff)

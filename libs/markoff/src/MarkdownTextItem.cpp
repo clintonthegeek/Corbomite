@@ -332,6 +332,55 @@ int MarkdownTextItem::stripInlineSubstitutions()
     return delta;
 }
 
+QString MarkdownTextItem::buildHighlightingSource() const
+{
+    // Build a string with the same character count as the document where
+    // blocks inside QTextTable frames are replaced with spaces. This lets
+    // tree-sitter produce spans in document-coordinate space without being
+    // confused by the QTextTable frame structure.
+    //
+    // Precondition: document must be in source form (after
+    // stripInlineSubstitutions) so that non-table text matches what
+    // tree-sitter expects to parse.
+
+    const int charCount = m_document->characterCount();
+    // (debug removed)
+    QString src(charCount, QLatin1Char('\n'));  // fill with newlines (paragraph separators)
+
+    // Collect table frame ranges for fast lookup
+    struct Range { int first; int last; };
+    QList<Range> tableRanges;
+    for (auto *frame : m_document->rootFrame()->childFrames()) {
+        if (qobject_cast<QTextTable *>(frame))
+            tableRanges.append({frame->firstPosition(), frame->lastPosition()});
+    }
+
+    auto isInTable = [&](int pos) -> bool {
+        for (const auto &r : tableRanges) {
+            if (pos >= r.first && pos <= r.last)
+                return true;
+        }
+        return false;
+    };
+
+    for (QTextBlock block = m_document->begin(); block.isValid(); block = block.next()) {
+        const int pos = block.position();
+        if (isInTable(pos)) {
+            // Leave as spaces/newlines — tree-sitter will ignore them
+            continue;
+        }
+
+        // Copy block text at the correct document position
+        const QString text = block.text();
+        for (int i = 0; i < text.length() && pos + i < charCount; ++i) {
+            src[pos + i] = text[i];
+        }
+        // The paragraph separator at pos + text.length() is already '\n'
+    }
+
+    return src;
+}
+
 void MarkdownTextItem::applyInlineSubstitutions()
 {
     if (m_inSubstitution) return;
@@ -468,6 +517,10 @@ void MarkdownTextItem::applyInlineSubstitutions()
     cursor.endEditBlock();
     m_document->blockSignals(blocked);
 
+    // Save span map at source positions before adjustment so
+    // refreshInlineSubstitutions() can restore them after stripping.
+    m_sourcePositionSpans = hl->spans();
+
     // Adjust span offsets to match the substituted document. Each non-skipped
     // entry replaced `len` chars with 1 char. Entries are sorted ascending by
     // start (source positions). Compute cumulative shift for each span.
@@ -516,7 +569,21 @@ void MarkdownTextItem::applyInlineSubstitutions()
 void MarkdownTextItem::refreshInlineSubstitutions()
 {
     if (m_inSubstitution) return;
+
     stripInlineSubstitutions();
+
+    // applyInlineSubstitutions() adjusts span offsets to match the
+    // substituted document. After stripping, the document is back in
+    // source form but the spans still reflect substituted positions.
+    // Restore the saved source-position spans so apply can find the
+    // math regions at their correct source offsets.
+    if (!m_sourcePositionSpans.isEmpty()) {
+        auto *hl = qobject_cast<MarkdownHighlighter *>(
+            m_document->findChild<QSyntaxHighlighter *>());
+        if (hl)
+            hl->mutableSpans() = m_sourcePositionSpans;
+    }
+
     applyInlineSubstitutions();
 }
 
@@ -678,6 +745,9 @@ void MarkdownTextItem::onCursorPositionChanged()
         return;
     if (m_inSubstitution)
         return;
+    if (m_inCursorUpdate)
+        return;
+    m_inCursorUpdate = true;
 
     // 1. Snap cursor past hidden delimiters
     snapCursorPastDelimiters();
@@ -695,6 +765,8 @@ void MarkdownTextItem::onCursorPositionChanged()
         hl->setCursorPosition(cursor.block().blockNumber(),
                               cursor.positionInBlock());
     }
+
+    m_inCursorUpdate = false;
 }
 
 void MarkdownTextItem::updateReveal()

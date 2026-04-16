@@ -5,6 +5,7 @@
 #include "SelectableItem.h"
 #include "DecoratedRange.h"
 #include <QGraphicsObject>
+#include <markoff-parser/SourceSpan.h>
 
 class QTextDocument;
 
@@ -79,6 +80,14 @@ public:
     /// reparse and re-substitution so span offsets line up.
     int stripInlineSubstitutions();
 
+    /// Build a string with the same character count as the QTextDocument
+    /// where blocks inside QTextTable frames are replaced with spaces.
+    /// Used for tree-sitter parsing during reparse so that span offsets
+    /// are in document-coordinate space (not pipe-text-coordinate space).
+    /// Must be called when the document is in source form (after
+    /// stripInlineSubstitutions).
+    QString buildHighlightingSource() const;
+
     /// Set a QTextBlock visible or hidden by folding. Hidden blocks are
     /// rendered with zero height so they take no space in the layout.
     /// Exposed for SceneCoordinator's applyFoldVisibility.
@@ -114,6 +123,7 @@ private:
     qreal m_width = 600.0;
     bool m_snappingCursor = false;
     bool m_inSubstitution = false;
+    bool m_inCursorUpdate = false;
     QList<DecoratedRange> m_decoratedRanges;
 
     // Cursor-reveal state for inline math. At most one math region is
@@ -124,6 +134,12 @@ private:
     int m_revealedEnd = -1;
     bool m_revealedIsDisplay = false;  // $$ vs $
     bool m_mouseTriggered = false;     // reveal only on mouse clicks
+
+    // Snapshot of highlighter spans at source positions, saved before
+    // applyInlineSubstitutions() adjusts offsets for the substituted
+    // document. Used by refreshInlineSubstitutions() to restore correct
+    // source-position spans after stripping.
+    QList<SourceSpan> m_sourcePositionSpans;
 };
 
 } // namespace Markoff
