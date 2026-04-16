@@ -27,7 +27,7 @@ class TestWorkspaceLeaf : public QObject
 private Q_SLOTS:
     void idIsGenerated()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         QCOMPARE(leaf.id().size(), 16);
     }
 
@@ -40,7 +40,7 @@ private Q_SLOTS:
 
     void openSetsView()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         auto *view = new LeafStubView(&leaf);
         leaf.open(view);
         QCOMPARE(leaf.view(), view);
@@ -48,7 +48,7 @@ private Q_SLOTS:
 
     void serializeRoundTrip()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         auto *view = new LeafStubView(&leaf);
         leaf.open(view);
 
@@ -67,7 +67,7 @@ private Q_SLOTS:
             return new LeafStubView(leaf);
         });
 
-        WorkspaceLeaf leaf(&reg, nullptr);
+        WorkspaceLeaf leaf(&reg);
 
         QJsonObject viewState;
         viewState[QStringLiteral("type")] = QStringLiteral("leaf-stub");
@@ -81,7 +81,7 @@ private Q_SLOTS:
     void setViewStateUnknownTypeGivesNullView()
     {
         ViewRegistry reg;
-        WorkspaceLeaf leaf(&reg, nullptr);
+        WorkspaceLeaf leaf(&reg);
 
         QJsonObject viewState;
         viewState[QStringLiteral("type")] = QStringLiteral("nonexistent");
@@ -94,13 +94,13 @@ private Q_SLOTS:
 
     void pinnedDefaultFalse()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         QCOMPARE(leaf.pinned(), false);
     }
 
     void setPinned()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         QSignalSpy spy(&leaf, &WorkspaceLeaf::pinnedChanged);
 
         leaf.setPinned(true);
@@ -120,13 +120,13 @@ private Q_SLOTS:
 
     void groupDefaultEmpty()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         QVERIFY(leaf.group().isEmpty());
     }
 
     void setGroup()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         QSignalSpy spy(&leaf, &WorkspaceLeaf::groupChanged);
 
         leaf.setGroup(QStringLiteral("red"));
@@ -145,13 +145,13 @@ private Q_SLOTS:
 
     void deferredDefaultFalse()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         QCOMPARE(leaf.isDeferred(), false);
     }
 
     void setDeferred()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
 
         // Open a view, then mark as deferred
         auto *view = new LeafStubView(&leaf);
@@ -172,14 +172,14 @@ private Q_SLOTS:
 
     void historyAccess()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         QCOMPARE(leaf.history().canGoBack(), false);
         QCOMPARE(leaf.history().canGoForward(), false);
     }
 
     void serializeWithNewFields()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         leaf.setPinned(true);
         leaf.setGroup(QStringLiteral("green"));
 
@@ -191,7 +191,7 @@ private Q_SLOTS:
 
     void serializeOmitsFalsePinnedAndEmptyGroup()
     {
-        WorkspaceLeaf leaf(nullptr, nullptr);
+        WorkspaceLeaf leaf(nullptr);
         // Default: pinned=false, group=""
 
         QJsonObject json = leaf.serialize();

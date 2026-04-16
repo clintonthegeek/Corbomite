@@ -106,7 +106,7 @@ WorkspaceLeaf *EditorViewSpace::openView(const QString &type, const QJsonObject 
     auto factory = m_viewRegistry->getViewCreatorByType(type);
     if (!factory) return nullptr;
 
-    auto *leaf = new WorkspaceLeaf(m_viewRegistry, m_stack);
+    auto *leaf = new WorkspaceLeaf(m_viewRegistry);
     auto *view = factory(leaf);
     leaf->open(view);
 
@@ -114,7 +114,7 @@ WorkspaceLeaf *EditorViewSpace::openView(const QString &type, const QJsonObject 
         view->setState(state);
 
     m_leaves.append(leaf);
-    m_stack->addWidget(leaf);
+    m_stack->addWidget(leaf->widget());
 
     QString title = view->getDisplayText();
     int tabIdx = m_tabBar->addTab(title);
@@ -127,7 +127,7 @@ WorkspaceLeaf *EditorViewSpace::activeLeaf() const
 {
     auto *current = m_stack->currentWidget();
     for (auto *leaf : m_leaves) {
-        if (leaf == current)
+        if (leaf->widget() == current)
             return leaf;
     }
     return nullptr;
@@ -224,8 +224,8 @@ void EditorViewSpace::closeTab(int index)
         if (leafIdx >= 0 && leafIdx < m_leaves.size()) {
             auto *leaf = m_leaves.takeAt(leafIdx);
             m_tabBar->removeTab(index);
-            m_stack->removeWidget(leaf);
-            leaf->deleteLater();
+            m_stack->removeWidget(leaf->widget());
+            delete leaf;
             return;
         }
     }
@@ -291,7 +291,7 @@ void EditorViewSpace::onTabChanged(int index)
     if (index >= legacyCount && !m_leaves.isEmpty()) {
         int leafIdx = index - legacyCount;
         if (leafIdx >= 0 && leafIdx < m_leaves.size()) {
-            m_stack->setCurrentWidget(m_leaves[leafIdx]);
+            m_stack->setCurrentWidget(m_leaves[leafIdx]->widget());
             Q_EMIT activeEditorChanged(nullptr);
             return;
         }
@@ -469,8 +469,8 @@ void EditorViewSpace::closeAllTabs()
 {
     // Clean up leaf-based tabs
     for (auto *leaf : std::as_const(m_leaves)) {
-        m_stack->removeWidget(leaf);
-        leaf->deleteLater();
+        m_stack->removeWidget(leaf->widget());
+        delete leaf;
     }
     m_leaves.clear();
 

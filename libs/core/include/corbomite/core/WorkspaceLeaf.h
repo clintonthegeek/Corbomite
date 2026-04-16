@@ -2,25 +2,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include <QWidget>
 #include <QJsonObject>
 #include "corbomite/core/LeafHistory.h"
+#include "corbomite/core/WorkspaceItem.h"
 
 namespace Corbomite {
 
 class View;
 class ViewRegistry;
 
-class WorkspaceLeaf : public QWidget
+class WorkspaceLeaf : public WorkspaceItem
 {
     Q_OBJECT
 
 public:
-    explicit WorkspaceLeaf(ViewRegistry *registry, QWidget *parent = nullptr);
+    explicit WorkspaceLeaf(ViewRegistry *registry, QObject *parent = nullptr);
     ~WorkspaceLeaf() override;
 
-    QString id() const;
-    void setId(const QString &id);
+    QWidget *widget() override;
+    QJsonObject serialize() const override;
+
     View *view() const;
 
     void open(View *newView);
@@ -61,12 +62,9 @@ public:
     void goBack();
     void goForward();
 
-    QJsonObject serialize() const;
     static WorkspaceLeaf *deserialize(const QJsonObject &json,
                                       ViewRegistry *registry,
-                                      QWidget *parent);
-
-    static QString generateId();
+                                      QObject *parent = nullptr);
 
 Q_SIGNALS:
     void viewChanged(View *newView);
@@ -76,7 +74,7 @@ Q_SIGNALS:
 private:
     void closeCurrentView();
 
-    QString m_id;
+    QWidget *m_widget;
     View *m_view = nullptr;
     ViewRegistry *m_registry;
 
@@ -88,7 +86,6 @@ private:
     LeafHistory m_history;
     qint64 m_activeTime = 0;
 
-    // Saved state for deferred load
     QJsonObject m_deferredViewState;
 };
 

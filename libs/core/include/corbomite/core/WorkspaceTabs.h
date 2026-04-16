@@ -2,20 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include "corbomite/core/WorkspaceItem.h"
-#include <QVector>
+#include "corbomite/core/WorkspaceParent.h"
 
 class QTabBar;
 class QStackedWidget;
 class QScrollArea;
 class QVBoxLayout;
-class QWidget;
 
 namespace Corbomite {
 
 class WorkspaceLeaf;
 
-class WorkspaceTabs : public WorkspaceItem
+class WorkspaceTabs : public WorkspaceParent
 {
     Q_OBJECT
 public:
@@ -24,11 +22,8 @@ public:
     QWidget *widget() override;
     QJsonObject serialize() const override;
 
-    void addChild(WorkspaceLeaf *child, int index = -1);
-    void removeChild(WorkspaceLeaf *child, bool deleteChild = false);
-
-    int childCount() const;
-    WorkspaceLeaf *childAt(int index) const;
+    void addChild(WorkspaceItem *child, int index = -1);
+    void removeChild(WorkspaceItem *child, bool deleteChild = false);
 
     QTabBar *tabBar() const;
 
@@ -62,7 +57,6 @@ private:
     QTabBar *m_tabBar;
     QStackedWidget *m_stack;
     QScrollArea *m_scrollArea;
-    QVector<WorkspaceLeaf *> m_leaves;
     int m_currentTab = 0;
     bool m_stacked = false;
 };

@@ -14,7 +14,7 @@
 namespace Corbomite {
 
 WorkspaceTabs::WorkspaceTabs(QObject *parent)
-    : WorkspaceItem(parent)
+    : WorkspaceParent(parent)
     , m_widget(new QWidget)
     , m_layout(new QVBoxLayout(m_widget))
     , m_tabBar(new QTabBar(m_widget))
@@ -46,20 +46,11 @@ QWidget *WorkspaceTabs::widget() { return m_widget; }
 
 QTabBar *WorkspaceTabs::tabBar() const { return m_tabBar; }
 
-int WorkspaceTabs::childCount() const { return m_leaves.size(); }
-
-WorkspaceLeaf *WorkspaceTabs::childAt(int index) const
-{
-    if (index < 0 || index >= m_leaves.size())
-        return nullptr;
-    return m_leaves.at(index);
-}
-
 int WorkspaceTabs::currentTab() const { return m_currentTab; }
 
 void WorkspaceTabs::setCurrentTab(int index)
 {
-    if (index < 0 || index >= m_leaves.size())
+    if (index < 0 || index >= m_children.size())
         return;
     m_currentTab = index;
     m_tabBar->setCurrentIndex(index);
@@ -73,7 +64,8 @@ WorkspaceLeaf *WorkspaceTabs::currentLeaf() const
 
 WorkspaceLeaf *WorkspaceTabs::leafAt(int index) const
 {
-    return childAt(index);
+    auto *item = childAt(index);
+    return qobject_cast<WorkspaceLeaf *>(item);
 }
 
 bool WorkspaceTabs::isStacked() const { return m_stacked; }
@@ -92,69 +84,71 @@ void WorkspaceTabs::setStacked(bool stacked)
         auto *container = new QWidget;
         auto *vbox = new QVBoxLayout(container);
         vbox->setContentsMargins(0, 0, 0, 0);
-        for (auto *leaf : m_leaves)
-            vbox->addWidget(leaf, 1);
+        for (auto *child : m_children) {
+            if (auto *w = child->widget())
+                vbox->addWidget(w, 1);
+        }
         m_scrollArea->setWidget(container);
     } else {
         m_scrollArea->takeWidget();
-        for (int i = 0; i < m_leaves.size(); ++i)
-            m_stack->insertWidget(i, m_leaves[i]);
+        for (int i = 0; i < m_children.size(); ++i) {
+            if (auto *w = m_children[i]->widget())
+                m_stack->insertWidget(i, w);
+        }
         m_stack->setCurrentIndex(m_currentTab);
     }
 }
 
-void WorkspaceTabs::addChild(WorkspaceLeaf *child, int index)
+void WorkspaceTabs::addChild(WorkspaceItem *child, int index)
 {
-    if (!child || m_leaves.contains(child))
+    WorkspaceParent::addChild(child, index);
+
+    auto *leaf = qobject_cast<WorkspaceLeaf *>(child);
+    if (!leaf)
         return;
 
-    if (index < 0 || index >= m_leaves.size())
-        m_leaves.append(child);
-    else
-        m_leaves.insert(index, child);
+    int idx = m_children.indexOf(child);
+    m_tabBar->insertTab(idx, tabIconForLeaf(leaf), tabTextForLeaf(leaf));
 
-    int idx = m_leaves.indexOf(child);
-    m_tabBar->insertTab(idx, tabIconForLeaf(child), tabTextForLeaf(child));
-
-    if (m_stacked) {
-        if (auto *container = m_scrollArea->widget()) {
-            if (auto *vbox = container->layout())
-                vbox->addWidget(child);
+    if (auto *w = leaf->widget()) {
+        if (m_stacked) {
+            if (auto *container = m_scrollArea->widget()) {
+                if (auto *vbox = container->layout())
+                    vbox->addWidget(w);
+            }
+        } else {
+            m_stack->insertWidget(idx, w);
         }
-    } else {
-        m_stack->insertWidget(idx, child);
     }
 
-    if (m_leaves.size() == 1)
+    if (m_children.size() == 1)
         setCurrentTab(0);
 }
 
-void WorkspaceTabs::removeChild(WorkspaceLeaf *child, bool deleteChild)
+void WorkspaceTabs::removeChild(WorkspaceItem *child, bool deleteChild)
 {
-    int idx = m_leaves.indexOf(child);
+    int idx = m_children.indexOf(child);
     if (idx < 0)
         return;
 
-    // Reparent the leaf widget out of the stack/scroll area
-    child->setParent(nullptr);
+    if (auto *w = child->widget())
+        w->setParent(nullptr);
 
     m_tabBar->removeTab(idx);
-    m_leaves.removeAt(idx);
+    WorkspaceParent::removeChild(child, deleteChild);
 
-    if (m_currentTab >= m_leaves.size())
-        m_currentTab = qMax(0, m_leaves.size() - 1);
-    if (!m_leaves.isEmpty())
+    if (m_currentTab >= m_children.size())
+        m_currentTab = qMax(0, m_children.size() - 1);
+    if (!m_children.isEmpty())
         setCurrentTab(m_currentTab);
-
-    if (deleteChild)
-        delete child;
 }
 
 void WorkspaceTabs::sortPinnedLeft()
 {
-    std::stable_partition(m_leaves.begin(), m_leaves.end(),
-        [](WorkspaceLeaf *leaf) {
-            return leaf->pinned();
+    std::stable_partition(m_children.begin(), m_children.end(),
+        [](WorkspaceItem *item) {
+            auto *leaf = qobject_cast<WorkspaceLeaf *>(item);
+            return leaf && leaf->pinned();
         });
     rebuildTabBar();
 }
@@ -170,13 +164,13 @@ void WorkspaceTabs::updateTabHeader(int index)
 
 void WorkspaceTabs::updateAllTabHeaders()
 {
-    for (int i = 0; i < m_leaves.size(); ++i)
+    for (int i = 0; i < m_children.size(); ++i)
         updateTabHeader(i);
 }
 
 void WorkspaceTabs::onTabBarCurrentChanged(int index)
 {
-    if (index < 0 || index >= m_leaves.size())
+    if (index < 0 || index >= m_children.size())
         return;
     m_currentTab = index;
     m_stack->setCurrentIndex(index);
@@ -193,17 +187,22 @@ void WorkspaceTabs::rebuildTabBar()
     while (m_tabBar->count() > 0)
         m_tabBar->removeTab(0);
 
-    for (auto *leaf : m_leaves)
-        m_tabBar->addTab(tabIconForLeaf(leaf), tabTextForLeaf(leaf));
+    for (auto *child : m_children) {
+        auto *leaf = qobject_cast<WorkspaceLeaf *>(child);
+        if (leaf)
+            m_tabBar->addTab(tabIconForLeaf(leaf), tabTextForLeaf(leaf));
+    }
 
     if (!m_stacked) {
         while (m_stack->count() > 0)
             m_stack->removeWidget(m_stack->widget(0));
-        for (auto *leaf : m_leaves)
-            m_stack->addWidget(leaf);
+        for (auto *child : m_children) {
+            if (auto *w = child->widget())
+                m_stack->addWidget(w);
+        }
     }
 
-    if (m_currentTab < m_leaves.size())
+    if (m_currentTab < m_children.size())
         setCurrentTab(m_currentTab);
 }
 
@@ -242,8 +241,8 @@ QJsonObject WorkspaceTabs::serialize() const
         json[QStringLiteral("stacked")] = true;
 
     QJsonArray children;
-    for (const auto *leaf : m_leaves)
-        children.append(leaf->serialize());
+    for (const auto *child : m_children)
+        children.append(child->serialize());
     json[QStringLiteral("children")] = children;
 
     return json;

@@ -5,17 +5,16 @@
 #include "corbomite/core/ViewRegistry.h"
 
 #include <QDateTime>
-#include <QRandomGenerator>
 #include <QVBoxLayout>
 
 namespace Corbomite {
 
-WorkspaceLeaf::WorkspaceLeaf(ViewRegistry *registry, QWidget *parent)
-    : QWidget(parent)
-    , m_id(generateId())
+WorkspaceLeaf::WorkspaceLeaf(ViewRegistry *registry, QObject *parent)
+    : WorkspaceItem(parent)
+    , m_widget(new QWidget)
     , m_registry(registry)
 {
-    auto *layout = new QVBoxLayout(this);
+    auto *layout = new QVBoxLayout(m_widget);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 }
@@ -23,14 +22,10 @@ WorkspaceLeaf::WorkspaceLeaf(ViewRegistry *registry, QWidget *parent)
 WorkspaceLeaf::~WorkspaceLeaf()
 {
     closeCurrentView();
+    delete m_widget;
 }
 
-QString WorkspaceLeaf::id() const { return m_id; }
-
-void WorkspaceLeaf::setId(const QString &id)
-{
-    m_id = id;
-}
+QWidget *WorkspaceLeaf::widget() { return m_widget; }
 
 View *WorkspaceLeaf::view() const { return m_view; }
 
@@ -39,8 +34,8 @@ void WorkspaceLeaf::open(View *newView)
     closeCurrentView();
     m_view = newView;
     if (m_view) {
-        m_view->open(this);
-        layout()->addWidget(m_view);
+        m_view->open(m_widget);
+        m_widget->layout()->addWidget(m_view);
     }
     Q_EMIT viewChanged(m_view);
 }
@@ -49,7 +44,7 @@ void WorkspaceLeaf::closeCurrentView()
 {
     if (m_view) {
         m_view->close();
-        layout()->removeWidget(m_view);
+        m_widget->layout()->removeWidget(m_view);
         m_view->deleteLater();
         m_view = nullptr;
     }
@@ -243,7 +238,7 @@ void WorkspaceLeaf::goForward()
 QJsonObject WorkspaceLeaf::serialize() const
 {
     QJsonObject json;
-    json[QStringLiteral("id")] = m_id;
+    json[QStringLiteral("id")] = id();
     json[QStringLiteral("type")] = QStringLiteral("leaf");
     json[QStringLiteral("state")] = getViewState();
 
@@ -257,12 +252,12 @@ QJsonObject WorkspaceLeaf::serialize() const
 
 WorkspaceLeaf *WorkspaceLeaf::deserialize(const QJsonObject &json,
                                            ViewRegistry *registry,
-                                           QWidget *parent)
+                                           QObject *parent)
 {
     auto *leaf = new WorkspaceLeaf(registry, parent);
-    leaf->m_id = json[QStringLiteral("id")].toString();
-    if (leaf->m_id.isEmpty())
-        leaf->m_id = generateId();
+    QString leafId = json[QStringLiteral("id")].toString();
+    if (!leafId.isEmpty())
+        leaf->setId(leafId);
 
     if (json[QStringLiteral("pinned")].toBool())
         leaf->m_pinned = true;
@@ -276,17 +271,6 @@ WorkspaceLeaf *WorkspaceLeaf::deserialize(const QJsonObject &json,
         leaf->setViewState(viewState);
 
     return leaf;
-}
-
-QString WorkspaceLeaf::generateId()
-{
-    static const char chars[] = "abcdefghijklmnopqrstuvwxyz0123456789";
-    QString id;
-    id.reserve(16);
-    auto *rng = QRandomGenerator::global();
-    for (int i = 0; i < 16; ++i)
-        id.append(QLatin1Char(chars[rng->bounded(36)]));
-    return id;
 }
 
 } // namespace Corbomite
