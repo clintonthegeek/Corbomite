@@ -50,6 +50,7 @@ class EditorSuggestManager;
 class WikiLinkSuggest;
 class TagSuggest;
 class RibbonSlot;
+class ViewRegistry;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -90,6 +91,7 @@ private:
 
     VaultService *m_vaultService;
     EditorViewManager *m_editorManager = nullptr;
+    ViewRegistry *m_viewRegistry = nullptr;
     FileExplorerPanel *m_fileExplorer = nullptr;
     NotesTreeModel *m_treeModel = nullptr;
     QLabel *m_wordCountLabel = nullptr;

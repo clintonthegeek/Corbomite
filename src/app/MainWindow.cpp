@@ -33,6 +33,12 @@
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/EmbedRegistry.h"
+#include "corbomite/core/ViewRegistry.h"
+#include "corbomite/core/TextFileView.h"
+#include "corbomite/core/WorkspaceLeaf.h"
+#include "editor/MarkdownView.h"
+#include "canvas/CanvasView.h"
+#include "graph/GraphView.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
 #include "corbomite/core/VaultResourceProvider.h"
@@ -568,6 +574,18 @@ void MainWindow::setupEditor()
     m_editorManager = new EditorViewManager(m_centralStack);
     m_editorManager->setHoverPopover(m_hoverPopover);
     m_editorManager->setEditorSuggestManager(m_suggestManager);
+
+    // Create and wire ViewRegistry — built-in view factories
+    m_viewRegistry = new ViewRegistry(this);
+    m_viewRegistry->registerViewWithExtensions(
+        {QStringLiteral("md")}, QStringLiteral("markdown"),
+        &MarkdownView::factory);
+    m_viewRegistry->registerViewWithExtensions(
+        {QStringLiteral("canvas")}, QStringLiteral("canvas"),
+        &CanvasView::factory);
+    m_viewRegistry->registerView(QStringLiteral("graph"), &GraphView::factory);
+    m_editorManager->setViewRegistry(m_viewRegistry);
+
     m_centralStack->addWidget(m_editorManager);
 
     connect(m_editorManager, &EditorViewManager::cursorInfoChanged,
@@ -1129,6 +1147,17 @@ void MainWindow::onVaultOpened()
 
     // Propagate external file-watcher deletions to MetadataCache.
     if (m_fileWatch) {
+        // Notify TextFileViews of external modifications so they can reload
+        connect(m_fileWatch, &FileWatchReactor::fileModifiedExternally,
+                this, [this](const QString &relativePath) {
+            for (auto *space : m_editorManager->viewSpaces()) {
+                for (auto *leaf : space->leaves()) {
+                    if (auto *tfv = qobject_cast<TextFileView *>(leaf->view())) {
+                        tfv->onExternalModify(relativePath);
+                    }
+                }
+            }
+        });
         connect(m_fileWatch, &FileWatchReactor::fileDeletedExternally,
                 this, [this](const QString &relPath) {
             if (m_metadataCache) m_metadataCache->onFileDeleted(relPath);
