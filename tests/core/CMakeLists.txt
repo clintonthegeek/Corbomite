@@ -195,3 +195,8 @@ add_executable(tst_workspace_session tst_workspace_session.cpp)
 add_test(NAME tst_workspace_session COMMAND tst_workspace_session)
 target_link_libraries(tst_workspace_session PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_workspace_session PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_workspace_tabs_lifecycle tst_workspace_tabs_lifecycle.cpp)
+add_test(NAME tst_workspace_tabs_lifecycle COMMAND tst_workspace_tabs_lifecycle)
+target_link_libraries(tst_workspace_tabs_lifecycle PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_workspace_tabs_lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
