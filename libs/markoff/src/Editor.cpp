@@ -895,8 +895,13 @@ void Editor::toggleCheckbox()
 int Editor::cursorLine() const
 {
     auto *ti = focusedTextItem();
-    if (!ti) return 1;
-    return ti->textControl()->textCursor().blockNumber() + 1;
+    if (!ti || !m_coordinator) return 1;
+
+    auto gp = m_coordinator->globalPositionOf(
+        ti,
+        ti->textControl()->textCursor().blockNumber(),
+        ti->textControl()->textCursor().positionInBlock());
+    return gp.line;
 }
 
 int Editor::cursorColumn() const
@@ -920,14 +925,21 @@ QRect Editor::cursorScreenRect() const
 void Editor::goToLine(int line)
 {
     if (!m_coordinator) return;
-    auto *ti = focusedTextItem();
-    if (!ti) return;
-    auto *tc = ti->textControl();
-    QTextCursor cursor = tc->textCursor();
-    cursor.movePosition(QTextCursor::Start);
-    for (int i = 1; i < line; ++i)
-        cursor.movePosition(QTextCursor::NextBlock);
-    tc->setTextCursor(cursor);
+
+    auto pos = m_coordinator->itemAtGlobalLine(line);
+    if (!pos.item) {
+        ensureFocusedCursorVisible();
+        return;
+    }
+
+    pos.item->setFocus();
+    QTextBlock block = pos.item->document()->findBlockByNumber(pos.localBlockNumber);
+    QTextCursor cursor(pos.item->document());
+    if (block.isValid())
+        cursor.setPosition(block.position());
+    else
+        cursor.movePosition(QTextCursor::End);
+    pos.item->textControl()->setTextCursor(cursor);
     ensureFocusedCursorVisible();
 }
 

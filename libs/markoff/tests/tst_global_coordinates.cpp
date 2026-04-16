@@ -336,6 +336,10 @@ void TstGlobalCoordinates::cursorLineFirstItem()
     editor.show();
     QApplication::processEvents();
 
+    // Navigate to line 1 first, since the cursor position after
+    // setPlainText is implementation-defined.
+    editor.goToLine(1);
+    QApplication::processEvents();
     QCOMPARE(editor.cursorLine(), 1);
 
     editor.goToLine(3);
