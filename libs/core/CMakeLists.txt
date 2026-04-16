@@ -94,6 +94,10 @@ add_library(corbomite-core STATIC
     include/corbomite/core/Plugin.h
     src/PluginContext.cpp
     include/corbomite/core/PluginContext.h
+    src/PluginPermissionGrantDialog.cpp
+    include/corbomite/core/PluginPermissionGrantDialog.h
+    src/PluginManager.cpp
+    include/corbomite/core/PluginManager.h
     src/proxies/VaultReader.cpp
     include/corbomite/core/proxies/VaultReader.h
     src/proxies/VaultWriter.cpp
