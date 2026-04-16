@@ -2,7 +2,7 @@
 
 > **Living document.** Table of contents over `docs/superpowers/plans/cluster-*.md`. One row per cluster plan. Status mirrors `docs/PROJECT-STATE.md` Roadmap — when those diverge, **PROJECT-STATE is authoritative.** Update the Status column here per Ritual 3 (cluster done) or Ritual 2 (mid-cluster status change).
 
-**Last updated:** 2026-04-15 — Cluster E landed across 18 commits + fork Phases 1+2 as prereq; NoteEditorWidget is now a QStackedWidget three-mode host, workspace.json round-trips, ReadingView has full rendering pipeline with recycling + async + virtualization + heading-fold. Prior same-session: Clusters I + F + L landed back-to-back.
+**Last updated:** 2026-04-15 — Cluster G Part 1 landed (15 commits): View hierarchy + ViewRegistry + TextFileView + concrete subclasses + EditorViewSpace ViewRegistry wiring. Prior same-session: Clusters I + F + L + E + J landed back-to-back.
 
 ## Plans
 
@@ -14,7 +14,7 @@
 | D | Search / suggester parity | [2026-04-14-cluster-d-search-suggester-parity.md](2026-04-14-cluster-d-search-suggester-parity.md) | Full | Done | landed 2026-04-15 (5 commits) |
 | E | Three-mode pivot (Source/LivePreview/Reading) | [2026-04-14-cluster-e-markoff-three-mode-pivot.md](2026-04-14-cluster-e-markoff-three-mode-pivot.md) | Full | Done | landed 2026-04-15 (18 commits); see `cluster-retros/cluster-e.md` |
 | F | Templates / Daily Notes / Moment | [2026-04-15-cluster-f-templates-daily-notes-moment.md](2026-04-15-cluster-f-templates-daily-notes-moment.md) | Full | Done | landed 2026-04-15 (5 phases + doc closeout) |
-| G | Views hierarchy + TextFileView contract | [2026-04-14-cluster-g-views-hierarchy-SCOUTING.md](2026-04-14-cluster-g-views-hierarchy-SCOUTING.md) | Scouting | Scouting doc | expand when C Phase 1 lands |
+| G | Views hierarchy + TextFileView contract | [2026-04-15-cluster-g-views-hierarchy.md](2026-04-15-cluster-g-views-hierarchy.md) | Full | Part 1 done | Part 1 landed 2026-04-15 (15 commits); spec at `../specs/2026-04-15-cluster-g-views-hierarchy-design.md`; Part 2 (workspace containers, popout, stacked tabs, pin, history) needs separate spec |
 | H | Menus / hover / suggester UI | [2026-04-14-cluster-h-menus-hover-suggester-ui.md](2026-04-14-cluster-h-menus-hover-suggester-ui.md) | Full | Done | landed 2026-04-15 (5 commits) |
 | I | MetadataCache parity | [2026-04-15-cluster-i-metadatacache-parity.md](2026-04-15-cluster-i-metadatacache-parity.md) | Full | Done | landed 2026-04-15 (10 commits, 8 phases) |
 | J | Embed / rendering primitives | [2026-04-15-cluster-j-embed-rendering.md](2026-04-15-cluster-j-embed-rendering.md) | Full | Done | landed 2026-04-15 (18 commits, 6 phases); see `cluster-retros/cluster-j.md`; spec at `../specs/2026-04-15-cluster-j-embed-rendering-design.md` |
