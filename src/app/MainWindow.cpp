@@ -389,7 +389,7 @@ void MainWindow::saveSessionState()
         QJsonObject wsJson = m_workspace->serialize();
         QString activeId = m_workspace->activeLeaf()
             ? m_workspace->activeLeaf()->id() : QString();
-        m_sessionManager->setWorkspaceLayout(wsJson, activeId);
+        m_sessionManager->setWorkspaceLayout(wsJson[QStringLiteral("main")].toObject(), activeId);
     }
     if (m_fileExplorer) {
         m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
