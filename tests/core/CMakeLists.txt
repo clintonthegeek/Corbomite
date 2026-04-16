@@ -190,3 +190,8 @@ add_executable(tst_workspace_integration tst_workspace_integration.cpp)
 add_test(NAME tst_workspace_integration COMMAND tst_workspace_integration)
 target_link_libraries(tst_workspace_integration PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_workspace_integration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_workspace_session tst_workspace_session.cpp)
+add_test(NAME tst_workspace_session COMMAND tst_workspace_session)
+target_link_libraries(tst_workspace_session PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_workspace_session PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
