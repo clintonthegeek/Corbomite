@@ -29,6 +29,22 @@ public:
     explicit SceneCoordinator(SelectionScene *scene, QObject *parent = nullptr);
     ~SceneCoordinator() override;
 
+    struct GlobalPosition {
+        int line = 1;
+        int column = 1;
+    };
+
+    struct ItemPosition {
+        MarkdownTextItem *item = nullptr;
+        int localBlockNumber = 0;
+    };
+
+    GlobalPosition globalPositionOf(const MarkdownTextItem *item,
+                                     int localBlockNumber,
+                                     int columnInBlock) const;
+
+    ItemPosition itemAtGlobalLine(int globalLine) const;
+
     /// Load markdown: split at block boundaries, apply live-preview formatting.
     void loadMarkdown(const QString &markdown);
 

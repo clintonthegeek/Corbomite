@@ -156,6 +156,122 @@ int SceneCoordinator::sourceLineCount(const MarkdownTextItem *item)
     return lines;
 }
 
+SceneCoordinator::GlobalPosition
+SceneCoordinator::globalPositionOf(const MarkdownTextItem *item,
+                                    int localBlockNumber,
+                                    int columnInBlock) const
+{
+    int line = 1;
+    for (int i = 0; i < m_items.size(); ++i) {
+        if (i > 0)
+            line += interItemNewlines(m_items[i - 1]->isTextItem(),
+                                      m_items[i]->isTextItem());
+
+        if (m_items[i]->isTextItem()) {
+            auto *mti = static_cast<MarkdownTextItem *>(m_items[i]);
+            if (mti == item) {
+                QTextDocument *doc = mti->document();
+                for (QTextBlock block = doc->begin();
+                     block.isValid() && block.blockNumber() < localBlockNumber;
+                     block = block.next()) {
+                    const QString blockText = block.text();
+                    if (!blockText.contains(QChar::ObjectReplacementCharacter)) {
+                        line += 1 + blockText.count(QLatin1Char('\n'));
+                    } else {
+                        int blockNewlines = 0;
+                        for (auto it = block.begin(); !it.atEnd(); ++it) {
+                            const QTextFragment frag = it.fragment();
+                            if (!frag.isValid()) continue;
+                            const QString raw = frag.charFormat()
+                                .property(MathTextObject::RawProperty).toString();
+                            const QString t = frag.text();
+                            if (!raw.isEmpty() && t.size() == 1
+                                && t.at(0) == QChar::ObjectReplacementCharacter) {
+                                blockNewlines += raw.count(QLatin1Char('\n'));
+                            } else {
+                                for (QChar c : t)
+                                    if (c == QLatin1Char('\n')) ++blockNewlines;
+                            }
+                        }
+                        line += 1 + blockNewlines;
+                    }
+                }
+                return {line, columnInBlock + 1};
+            }
+            line += sourceLineCount(mti);
+        } else {
+            line += 1 + m_items[i]->toMarkdown().count(QLatin1Char('\n'));
+        }
+    }
+    return {line, columnInBlock + 1};
+}
+
+SceneCoordinator::ItemPosition
+SceneCoordinator::itemAtGlobalLine(int globalLine) const
+{
+    int line = 1;
+    for (int i = 0; i < m_items.size(); ++i) {
+        if (i > 0)
+            line += interItemNewlines(m_items[i - 1]->isTextItem(),
+                                      m_items[i]->isTextItem());
+
+        if (m_items[i]->isTextItem()) {
+            auto *mti = static_cast<MarkdownTextItem *>(m_items[i]);
+            int itemLines = sourceLineCount(mti);
+            if (globalLine < line + itemLines) {
+                int remaining = globalLine - line;
+                QTextDocument *doc = mti->document();
+                for (QTextBlock block = doc->begin();
+                     block.isValid(); block = block.next()) {
+                    if (remaining <= 0)
+                        return {mti, block.blockNumber()};
+
+                    const QString blockText = block.text();
+                    int blockLines;
+                    if (!blockText.contains(QChar::ObjectReplacementCharacter)) {
+                        blockLines = 1 + blockText.count(QLatin1Char('\n'));
+                    } else {
+                        int blockNewlines = 0;
+                        for (auto it = block.begin(); !it.atEnd(); ++it) {
+                            const QTextFragment frag = it.fragment();
+                            if (!frag.isValid()) continue;
+                            const QString raw = frag.charFormat()
+                                .property(MathTextObject::RawProperty).toString();
+                            const QString t = frag.text();
+                            if (!raw.isEmpty() && t.size() == 1
+                                && t.at(0) == QChar::ObjectReplacementCharacter) {
+                                blockNewlines += raw.count(QLatin1Char('\n'));
+                            } else {
+                                for (QChar c : t)
+                                    if (c == QLatin1Char('\n')) ++blockNewlines;
+                            }
+                        }
+                        blockLines = 1 + blockNewlines;
+                    }
+                    remaining -= blockLines;
+                }
+                QTextBlock last = doc->lastBlock();
+                return {mti, last.isValid() ? last.blockNumber() : 0};
+            }
+            line += itemLines;
+        } else {
+            int itemLines = 1 + m_items[i]->toMarkdown().count(QLatin1Char('\n'));
+            if (globalLine < line + itemLines) {
+                return {nullptr, 0};
+            }
+            line += itemLines;
+        }
+    }
+    for (int i = m_items.size() - 1; i >= 0; --i) {
+        if (m_items[i]->isTextItem()) {
+            auto *mti = static_cast<MarkdownTextItem *>(m_items[i]);
+            QTextBlock last = mti->document()->lastBlock();
+            return {mti, last.isValid() ? last.blockNumber() : 0};
+        }
+    }
+    return {nullptr, 0};
+}
+
 QString SceneCoordinator::toMarkdown() const
 {
     QString result;
