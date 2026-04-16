@@ -264,6 +264,7 @@ private:
     void handleLinkActivated(const QString &href);
     void handleLinkHovered(const QString &href);
     void subscribeLinkSignalsForItems();
+    void onCursorMoved();
 };
 
 } // namespace Markoff

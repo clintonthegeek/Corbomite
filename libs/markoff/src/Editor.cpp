@@ -1634,6 +1634,32 @@ void Editor::subscribeLinkSignalsForItems()
         connect(tc, &TextControl::linkHovered,
                 this, &Editor::handleLinkHovered,
                 Qt::UniqueConnection);
+        connect(tc, &TextControl::cursorPositionChanged,
+                this, &Editor::onCursorMoved,
+                Qt::UniqueConnection);
+    }
+}
+
+void Editor::onCursorMoved()
+{
+    auto *item = focusedTextItem();
+    if (item) {
+        QTextCursor cursor = item->textControl()->textCursor();
+        QTextTable *table = cursor.currentTable();
+        if (table) {
+            QTextTableCell cell = table->cellAt(cursor);
+            if (!m_inTable) {
+                m_inTable = true;
+                Q_EMIT tableEntered(table->rows(), table->columns());
+            }
+            Q_EMIT tableCursorMoved(cell.row(), cell.column());
+        } else if (m_inTable) {
+            m_inTable = false;
+            Q_EMIT tableExited();
+        }
+    } else if (m_inTable) {
+        m_inTable = false;
+        Q_EMIT tableExited();
     }
 }
 
