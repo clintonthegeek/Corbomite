@@ -261,15 +261,14 @@ private Q_SLOTS:
         QVERIFY(tabsWidget != nullptr);
         QVERIFY(leafWidget != nullptr);
 
-        // leafWidget must be a descendant of tabsWidget
-        bool found = false;
-        QWidget *cursor = leafWidget;
-        while (cursor) {
-            if (cursor == tabsWidget) { found = true; break; }
-            cursor = cursor->parentWidget();
-        }
-        QVERIFY2(found,
-                 "After addChild to WorkspaceTabs, leaf widget must be inside tabs widget");
+        // The spec claim is "leaf widgets go into the stack (QStackedWidget)".
+        // Verify that the leaf widget is specifically a page of the QStackedWidget,
+        // not merely somewhere in the tabs widget subtree.
+        QStackedWidget *stack = tabsWidget->findChild<QStackedWidget *>();
+        QVERIFY2(stack != nullptr,
+                 "WorkspaceTabs::widget() must contain a QStackedWidget");
+        QVERIFY2(stack->indexOf(leafWidget) >= 0,
+                 "After addChild to WorkspaceTabs, leaf widget must be a page of the QStackedWidget");
     }
 
     // ------------------------------------------------------------------
@@ -534,6 +533,10 @@ private Q_SLOTS:
         }
         QVERIFY(tabs != nullptr);
 
+        // Capture the original tabs pointer BEFORE splitting so we can verify
+        // it is preserved (not replaced) after the split operation.
+        WorkspaceTabs *originalTabs = tabs;
+
         WorkspaceLeaf *leaf = ws.createLeafInTabs(tabs);
         QVERIFY(leaf != nullptr);
 
@@ -544,15 +547,18 @@ private Q_SLOTS:
         QVERIFY2(newSplit->childCount() >= 2,
                  "WorkspaceSplit from splitLeaf must have at least 2 children");
 
-        // At least one child must be a WorkspaceTabs
-        bool hasTabs = false;
+        // The spec says "splitting a leaf wraps its parent tabs in a new split".
+        // The original tabs object must be a direct child of the new split —
+        // verify by scanning newSplit's children for the original pointer.
+        bool originalTabsFound = false;
         for (int i = 0; i < newSplit->childCount(); ++i) {
-            if (qobject_cast<WorkspaceTabs *>(newSplit->childAt(i))) {
-                hasTabs = true;
+            if (newSplit->childAt(i) == originalTabs) {
+                originalTabsFound = true;
                 break;
             }
         }
-        QVERIFY2(hasTabs, "WorkspaceSplit from splitLeaf must contain at least one WorkspaceTabs");
+        QVERIFY2(originalTabsFound,
+                 "The original WorkspaceTabs must be a direct child of the new WorkspaceSplit after splitLeaf");
     }
 
     // ------------------------------------------------------------------
@@ -839,20 +845,54 @@ private Q_SLOTS:
     // 28. WorkspaceSplit children must not be WorkspaceLeaf (invariant 3)
     //     This is an assertion of the tree invariant — WorkspaceSplit
     //     contains WorkspaceSplit or WorkspaceTabs, not leaves.
-    //     We verify the object tree contract by checking indexOf/childAt.
+    //
+    //     API note: WorkspaceSplit::addChild(WorkspaceItem*) accepts any
+    //     WorkspaceItem at compile time — the constraint is a spec-level
+    //     invariant enforced by convention, not by the type system.
+    //     Leaves are added exclusively via WorkspaceTabs::addChild().
+    //
+    //     This test verifies two things:
+    //     (a) A correctly-constructed split contains no leaf children.
+    //     (b) When a WorkspaceLeaf is incorrectly passed to
+    //         WorkspaceSplit::addChild(), it gets accepted by the base
+    //         WorkspaceParent machinery (no compile-time or runtime
+    //         guard exists), demonstrating the invariant is purely
+    //         contractual. This is documented here so a future enforcer
+    //         (e.g. a Q_ASSERT or type-check in WorkspaceSplit::addChild)
+    //         can be added without surprise.
     // ------------------------------------------------------------------
     void test_workspaceSplit_containsNonLeafChildren()
     {
+        ViewRegistry reg;
         WorkspaceSplit split;
         WorkspaceTabs *tabs = new WorkspaceTabs(&split);
         split.addChild(tabs);
 
-        // Only WorkspaceTabs should be a child, not a leaf
+        // (a) Correct usage: only WorkspaceTabs children, no leaves.
         for (int i = 0; i < split.childCount(); ++i) {
             WorkspaceItem *child = split.childAt(i);
             QVERIFY2(qobject_cast<WorkspaceLeaf *>(child) == nullptr,
                      "WorkspaceSplit must not have WorkspaceLeaf as direct children");
         }
+
+        // (b) Invariant enforcement check: the public API does NOT prevent a
+        //     leaf from being passed to WorkspaceSplit::addChild() — there is
+        //     no compile-time or runtime guard in the current implementation.
+        //     A correctly-written caller must never do this; only WorkspaceTabs
+        //     should receive leaves. We document this gap by verifying that the
+        //     leaf is silently accepted (childCount increases), so a future
+        //     Q_ASSERT can be justified and this test updated accordingly.
+        WorkspaceLeaf *rogue = new WorkspaceLeaf(&reg, &split);
+        int countBefore = split.childCount();
+        split.addChild(rogue);
+        // The leaf was accepted — the invariant is NOT enforced by the API.
+        // childCount will have grown by 1.
+        QVERIFY2(split.childCount() == countBefore + 1,
+                 "WorkspaceSplit::addChild currently accepts a WorkspaceLeaf "
+                 "(invariant is contractual only, not enforced at runtime)");
+        // Clean up: remove the rogue leaf so the split is left in a valid state.
+        split.removeChild(rogue, /*deleteChild=*/true);
+        QCOMPARE(split.childCount(), countBefore);
     }
 };
 
