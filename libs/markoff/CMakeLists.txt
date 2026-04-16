@@ -53,6 +53,8 @@ add_library(markoff STATIC
     src/FoldArrowColumn.cpp
     src/FoldGutter.cpp
     src/ResourceProvider.cpp
+    src/TableSerializer.h
+    src/TableSerializer.cpp
 )
 set_target_properties(markoff PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Markoff::Markoff ALIAS markoff)

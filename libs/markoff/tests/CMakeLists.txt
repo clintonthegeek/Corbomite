@@ -89,3 +89,9 @@ add_test(NAME tst_markoff_global_coordinates COMMAND tst_markoff_global_coordina
 target_link_libraries(tst_markoff_global_coordinates PRIVATE Qt6::Test Qt6::Widgets markoff)
 target_include_directories(tst_markoff_global_coordinates PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 set_tests_properties(tst_markoff_global_coordinates PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_markoff_table_serializer tst_table_serializer.cpp)
+add_test(NAME tst_markoff_table_serializer COMMAND tst_markoff_table_serializer)
+target_link_libraries(tst_markoff_table_serializer PRIVATE Qt6::Test Qt6::Widgets markoff)
+target_include_directories(tst_markoff_table_serializer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+set_tests_properties(tst_markoff_table_serializer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
