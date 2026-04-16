@@ -205,3 +205,8 @@ add_executable(tst_leaf_service_propagation tst_leaf_service_propagation.cpp)
 add_test(NAME tst_leaf_service_propagation COMMAND tst_leaf_service_propagation)
 target_link_libraries(tst_leaf_service_propagation PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_leaf_service_propagation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_fileview_setState tst_fileview_setState.cpp)
+add_test(NAME tst_fileview_setState COMMAND tst_fileview_setState)
+target_link_libraries(tst_fileview_setState PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_fileview_setState PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
