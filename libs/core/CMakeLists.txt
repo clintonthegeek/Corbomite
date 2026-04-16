@@ -62,6 +62,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/CodeBlockProcessorRegistry.h
     src/DiffMatchPatch.cpp
     include/corbomite/core/DiffMatchPatch.h
+    src/View.cpp
+    include/corbomite/core/View.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
