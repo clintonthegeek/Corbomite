@@ -5,6 +5,7 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/WorkspaceSplit.h"
 #include "corbomite/core/WorkspaceTabs.h"
+#include "corbomite/core/WorkspaceWindow.h"
 
 #include <QDir>
 #include <QFile>
@@ -159,14 +160,54 @@ WorkspaceSplit *Workspace::splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direct
 
 WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)
 {
-    Q_UNUSED(leaf)
-    return nullptr; // Implemented in Task 7
+    if (!leaf)
+        return nullptr;
+
+    auto *oldParent = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
+    if (oldParent)
+        oldParent->removeChild(leaf);
+
+    auto *win = new WorkspaceWindow(this);
+    auto *tabs = new WorkspaceTabs(this);
+    win->addChild(tabs);
+    tabs->addChild(leaf);
+
+    m_windows.append(win);
+    win->showWindow();
+    Q_EMIT layoutChanged();
+    return win;
 }
 
 void Workspace::reparentToMain(WorkspaceWindow *window)
 {
-    Q_UNUSED(window)
-    // Implemented in Task 7
+    if (!window)
+        return;
+
+    // Find target in main tree before touching the window tree.
+    // activeTabs() follows m_activeLeaf which may be inside the window —
+    // always anchor to the main root to avoid reparenting back into the
+    // window's inner tabs right before they are destroyed.
+    auto *targetTabs = findFirstTabs(m_mainRoot);
+    if (!targetTabs)
+        return;
+
+    QVector<WorkspaceLeaf *> leaves;
+    collectLeaves(window, leaves);
+
+    // Clear active leaf if it lives in this window.
+    if (m_activeLeaf && leaves.contains(m_activeLeaf))
+        m_activeLeaf = nullptr;
+
+    for (auto *leaf : leaves) {
+        if (auto *parent = qobject_cast<WorkspaceParent *>(leaf->parentItem()))
+            parent->removeChild(leaf);
+        targetTabs->addChild(leaf);
+    }
+
+    window->closeWindow();
+    m_windows.removeOne(window);
+    delete window;
+    Q_EMIT layoutChanged();
 }
 
 QVector<WorkspaceWindow *> Workspace::windows() const { return m_windows; }

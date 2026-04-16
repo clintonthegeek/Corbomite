@@ -88,6 +88,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/WorkspaceTabs.h
     src/Workspace.cpp
     include/corbomite/core/Workspace.h
+    src/WorkspaceWindow.cpp
+    include/corbomite/core/WorkspaceWindow.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
