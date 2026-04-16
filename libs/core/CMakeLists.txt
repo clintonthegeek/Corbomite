@@ -64,6 +64,12 @@ add_library(corbomite-core STATIC
     include/corbomite/core/DiffMatchPatch.h
     src/View.cpp
     include/corbomite/core/View.h
+    src/ItemView.cpp
+    include/corbomite/core/ItemView.h
+    src/FileView.cpp
+    include/corbomite/core/FileView.h
+    src/EditableFileView.cpp
+    include/corbomite/core/EditableFileView.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
