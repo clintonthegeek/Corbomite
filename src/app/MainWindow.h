@@ -100,6 +100,10 @@ private:
 
     VaultService *m_vaultService;
     Workspace *m_workspace = nullptr;
+    // Stable QWidget wrapper for the Workspace widget tree; owned by
+    // m_centralStack so that Workspace::layoutChanged restructurings can
+    // re-parent the root widget inside this container without needing to
+    // remove/re-add it from the stack.
     QWidget *m_workspaceContainer = nullptr;
     ViewRegistry *m_viewRegistry = nullptr;
     FileExplorerPanel *m_fileExplorer = nullptr;

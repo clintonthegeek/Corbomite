@@ -68,6 +68,7 @@
 #include <KSharedConfig>
 #include <KConfigGroup>
 #include <QApplication>
+#include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -389,7 +390,12 @@ void MainWindow::saveSessionState()
         QJsonObject wsJson = m_workspace->serialize();
         QString activeId = m_workspace->activeLeaf()
             ? m_workspace->activeLeaf()->id() : QString();
-        m_sessionManager->setWorkspaceLayout(wsJson[QStringLiteral("main")].toObject(), activeId);
+        if (!wsJson.contains(QStringLiteral("main"))) {
+            qWarning() << "MainWindow: Workspace::serialize() missing 'main' key; skipping workspace layout save";
+        } else {
+            m_sessionManager->setWorkspaceLayout(
+                wsJson[QStringLiteral("main")].toObject(), activeId);
+        }
     }
     if (m_fileExplorer) {
         m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
@@ -727,8 +733,8 @@ void MainWindow::setupEditor()
         for (auto *leaf : m_workspace->allLeaves()) {
             // Wire tab container signals (once per container)
             auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
-            if (tabs && !tabs->property("_mw_connected").toBool()) {
-                tabs->setProperty("_mw_connected", true);
+            if (tabs && !tabs->property("_mw_tabs_connected").toBool()) {
+                tabs->setProperty("_mw_tabs_connected", true);
                 connect(tabs, &WorkspaceTabs::currentTabChanged, this,
                         [this, tabs](int index) {
                     if (auto *l = tabs->leafAt(index))
@@ -742,8 +748,8 @@ void MainWindow::setupEditor()
             }
 
             // Wire deferred-load service propagation (once per leaf)
-            if (!leaf->property("_mw_connected").toBool()) {
-                leaf->setProperty("_mw_connected", true);
+            if (!leaf->property("_mw_leaf_connected").toBool()) {
+                leaf->setProperty("_mw_leaf_connected", true);
                 connect(leaf, &WorkspaceLeaf::viewChanged, this,
                         [this](View *v) { propagateServicesToView(v); });
             }
