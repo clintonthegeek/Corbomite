@@ -3,8 +3,10 @@
 #include <QTest>
 #include <QJsonObject>
 #include <QPointer>
+#include <QSplitter>
 #include "corbomite/core/WorkspaceItem.h"
 #include "corbomite/core/WorkspaceParent.h"
+#include "corbomite/core/WorkspaceSplit.h"
 
 using Corbomite::WorkspaceItem;
 using Corbomite::WorkspaceParent;
@@ -129,7 +131,61 @@ private Q_SLOTS:
         parent.removeChild(child, true);
         QVERIFY(guard.isNull());
     }
+
+    void splitDefaultHorizontal()
+    {
+        Corbomite::WorkspaceSplit split;
+        QCOMPARE(split.direction(), Qt::Horizontal);
+    }
+
+    void splitOwnsQSplitter()
+    {
+        Corbomite::WorkspaceSplit split;
+        QVERIFY(split.widget() != nullptr);
+        QVERIFY(qobject_cast<QSplitter *>(split.widget()));
+    }
+
+    void splitAddChildUpdatesQSplitter()
+    {
+        Corbomite::WorkspaceSplit split;
+        auto *child = new Corbomite::WorkspaceSplit(&split);
+        split.addChild(child);
+
+        auto *splitter = qobject_cast<QSplitter *>(split.widget());
+        QCOMPARE(splitter->count(), 1);
+    }
+
+    void splitRemoveChildUpdatesQSplitter()
+    {
+        Corbomite::WorkspaceSplit split;
+        auto *child = new Corbomite::WorkspaceSplit(&split);
+        split.addChild(child);
+        split.removeChild(child, true);
+
+        auto *splitter = qobject_cast<QSplitter *>(split.widget());
+        QCOMPARE(splitter->count(), 0);
+    }
+
+    void splitSerialize()
+    {
+        Corbomite::WorkspaceSplit split;
+        split.setDirection(Qt::Vertical);
+        split.setDimension(60);
+
+        QJsonObject json = split.serialize();
+        QCOMPARE(json[QStringLiteral("type")].toString(), QStringLiteral("split"));
+        QCOMPARE(json[QStringLiteral("direction")].toString(), QStringLiteral("vertical"));
+        QCOMPARE(json[QStringLiteral("dimension")].toInt(), 60);
+    }
+
+    void splitDirectionSyncsToQSplitter()
+    {
+        Corbomite::WorkspaceSplit split;
+        split.setDirection(Qt::Vertical);
+        auto *splitter = qobject_cast<QSplitter *>(split.widget());
+        QCOMPARE(splitter->orientation(), Qt::Vertical);
+    }
 };
 
-QTEST_GUILESS_MAIN(TestWorkspaceTree)
+QTEST_MAIN(TestWorkspaceTree)
 #include "tst_workspace_tree.moc"

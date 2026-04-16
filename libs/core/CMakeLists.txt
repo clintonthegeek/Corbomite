@@ -82,6 +82,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/WorkspaceItem.h
     src/WorkspaceParent.cpp
     include/corbomite/core/WorkspaceParent.h
+    src/WorkspaceSplit.cpp
+    include/corbomite/core/WorkspaceSplit.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
