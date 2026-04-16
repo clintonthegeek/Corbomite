@@ -686,7 +686,12 @@ void Editor::cut()
 }
 
 void Editor::paste()     { if (auto *ti = focusedTextItem()) ti->textControl()->paste(); }
-void Editor::selectAll() { if (auto *ti = focusedTextItem()) ti->textControl()->selectAll(); }
+void Editor::selectAll()
+{
+    auto *mgr = m_scene->selectionManager();
+    QKeyEvent e(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+    mgr->handleKeyPress(&e);
+}
 
 // =========================================================================
 // Formatting actions
