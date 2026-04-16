@@ -4,7 +4,6 @@
 #include "NoteEditorWidget.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "corbomite/core/ItemView.h"
 
 #include <QVBoxLayout>
 
