@@ -20,6 +20,9 @@
 #include <QRegularExpression>
 #include <QSyntaxHighlighter>
 #include <QTextBlockFormat>
+#include "TableSerializer.h"
+#include <QTextTable>
+#include <QTextFrame>
 
 namespace Markoff {
 
@@ -120,87 +123,136 @@ QString MarkdownTextItem::selectedMarkdown() const
     const int selStart = cursor.selectionStart();
     const int selEnd = cursor.selectionEnd();
 
-    // Walk the selection range fragment by fragment, expanding any
-    // U+FFFC inline objects back to their stored raw source. Mirrors
-    // allMarkdown()'s approach but constrained to the selection.
+    // Collect table frames sorted by position for overlap detection.
+    QList<QTextTable *> tables;
+    for (auto *frame : m_document->rootFrame()->childFrames()) {
+        if (auto *t = qobject_cast<QTextTable *>(frame))
+            tables.append(t);
+    }
+    std::sort(tables.begin(), tables.end(), [](QTextTable *a, QTextTable *b) {
+        return a->firstPosition() < b->firstPosition();
+    });
+
+    // Walk the root frame in document order, emitting text blocks and
+    // tables that overlap the selection.
     QString out;
     out.reserve(selEnd - selStart);
 
-    QTextBlock block = m_document->findBlock(selStart);
-    while (block.isValid() && block.position() < selEnd) {
-        // Compute the intersection of this block with the selection.
-        const int blockStart = block.position();
-        const int blockEnd = blockStart + block.length() - 1;  // exclude paragraph sep
-        const int sliceStart = qMax(selStart, blockStart);
-        const int sliceEnd   = qMin(selEnd, blockEnd);
+    QTextFrame *root = m_document->rootFrame();
+    bool firstElement = true;
 
-        for (auto it = block.begin(); !it.atEnd(); ++it) {
-            const QTextFragment frag = it.fragment();
-            if (!frag.isValid()) continue;
-            const int fragStart = frag.position();
-            const int fragEnd = fragStart + frag.length();
-            if (fragEnd <= sliceStart) continue;
-            if (fragStart >= sliceEnd) break;
-
-            const QTextCharFormat fmt = frag.charFormat();
-            const QString fragText = frag.text();
-            const int localStart = qMax(0, sliceStart - fragStart);
-            const int localEnd = qMin(fragText.size(), sliceEnd - fragStart);
-
-            const QString raw = fmt.property(MathTextObject::RawProperty).toString();
-            if (!raw.isEmpty()) {
-                // Expand each U+FFFC inline object to its raw source.
-                for (int i = localStart; i < localEnd; ++i) {
-                    if (fragText.at(i) == QChar::ObjectReplacementCharacter)
-                        out += raw;
-                    else
-                        out += fragText.at(i);
+    for (auto it = root->begin(); it != root->end(); ++it) {
+        if (auto *childFrame = it.currentFrame()) {
+            if (auto *table = qobject_cast<QTextTable *>(childFrame)) {
+                // If any part of the table overlaps the selection, emit the whole table
+                if (table->lastPosition() >= selStart && table->firstPosition() <= selEnd) {
+                    if (!firstElement)
+                        out += QLatin1Char('\n');
+                    out += TableSerializer::serialize(table);
+                    firstElement = false;
                 }
-            } else {
-                out += fragText.mid(localStart, localEnd - localStart);
             }
+        } else {
+            QTextBlock block = it.currentBlock();
+            if (!block.isValid())
+                continue;
+
+            const int blockStart = block.position();
+            const int blockEnd = blockStart + block.length() - 1; // exclude paragraph sep
+            if (blockEnd < selStart || blockStart >= selEnd)
+                continue;
+
+            const int sliceStart = qMax(selStart, blockStart);
+            const int sliceEnd   = qMin(selEnd, blockEnd);
+
+            if (!firstElement)
+                out += QLatin1Char('\n');
+
+            // Expand U+FFFC inline objects in the selected range
+            for (auto fragIt = block.begin(); !fragIt.atEnd(); ++fragIt) {
+                const QTextFragment frag = fragIt.fragment();
+                if (!frag.isValid()) continue;
+                const int fragStart = frag.position();
+                const int fragEnd = fragStart + frag.length();
+                if (fragEnd <= sliceStart) continue;
+                if (fragStart >= sliceEnd) break;
+
+                const QTextCharFormat fmt = frag.charFormat();
+                const QString fragText = frag.text();
+                const int localStart = qMax(0, sliceStart - fragStart);
+                const int localEnd = qMin(fragText.size(), sliceEnd - fragStart);
+
+                const QString raw = fmt.property(MathTextObject::RawProperty).toString();
+                if (!raw.isEmpty()) {
+                    for (int i = localStart; i < localEnd; ++i) {
+                        if (fragText.at(i) == QChar::ObjectReplacementCharacter)
+                            out += raw;
+                        else
+                            out += fragText.at(i);
+                    }
+                } else {
+                    out += fragText.mid(localStart, localEnd - localStart);
+                }
+            }
+            firstElement = false;
         }
-
-        // Append a newline between blocks if the selection crosses block
-        // boundaries.
-        if (sliceEnd >= blockEnd && block.next().isValid() && block.next().position() < selEnd)
-            out += QLatin1Char('\n');
-
-        block = block.next();
     }
     return out;
 }
 
 QString MarkdownTextItem::allMarkdown() const
 {
-    // Walk the document, expanding each U+FFFC inline object (math,
-    // checkbox, etc.) back to the delimited source stored in RawProperty.
+    // Walk the root frame using QTextFrame::iterator, which visits both
+    // regular text blocks AND child frames (QTextTable) in document order.
+    // The old doc->begin()/block.next() loop only visited top-level blocks,
+    // silently skipping blocks inside QTextTable child frames.
     QString out;
     out.reserve(m_document->characterCount());
-    for (QTextBlock block = m_document->begin(); block.isValid(); block = block.next()) {
-        const QString blockText = block.text();
-        if (!blockText.contains(QChar::ObjectReplacementCharacter)) {
-            out += blockText;
+
+    QTextFrame *root = m_document->rootFrame();
+    bool firstElement = true;
+
+    for (auto it = root->begin(); it != root->end(); ++it) {
+        if (auto *childFrame = it.currentFrame()) {
+            // Child frame — serialize tables via TableSerializer
+            if (auto *table = qobject_cast<QTextTable *>(childFrame)) {
+                if (!firstElement)
+                    out += QLatin1Char('\n');
+                out += TableSerializer::serialize(table);
+                firstElement = false;
+            }
         } else {
-            for (auto it = block.begin(); !it.atEnd(); ++it) {
-                const QTextFragment frag = it.fragment();
-                if (!frag.isValid()) continue;
-                const QTextCharFormat fmt = frag.charFormat();
-                const QString text = frag.text();
-                const QString raw = fmt.property(MathTextObject::RawProperty).toString();
-                if (!raw.isEmpty() && text.size() == 1
-                    && text.at(0) == QChar::ObjectReplacementCharacter) {
-                    out += raw;
-                } else {
-                    for (QChar c : text) {
-                        if (c != QChar::ObjectReplacementCharacter)
-                            out += c;
+            QTextBlock block = it.currentBlock();
+            if (!block.isValid())
+                continue;
+
+            if (!firstElement)
+                out += QLatin1Char('\n');
+
+            // Expand U+FFFC inline objects back to their stored raw source
+            const QString blockText = block.text();
+            if (!blockText.contains(QChar::ObjectReplacementCharacter)) {
+                out += blockText;
+            } else {
+                for (auto fragIt = block.begin(); !fragIt.atEnd(); ++fragIt) {
+                    const QTextFragment frag = fragIt.fragment();
+                    if (!frag.isValid()) continue;
+                    const QTextCharFormat fmt = frag.charFormat();
+                    const QString text = frag.text();
+                    const QString raw = fmt.property(MathTextObject::RawProperty).toString();
+                    if (!raw.isEmpty() && text.size() == 1
+                        && text.at(0) == QChar::ObjectReplacementCharacter) {
+                        out += raw;
+                    } else {
+                        for (QChar c : text) {
+                            if (c != QChar::ObjectReplacementCharacter)
+                                out += c;
+                        }
                     }
                 }
             }
+            firstElement = false;
         }
-        if (block.next().isValid())
-            out += QLatin1Char('\n');
     }
     return out;
 }
