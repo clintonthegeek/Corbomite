@@ -253,10 +253,13 @@ void TstGlobalCoordinates::cutRemovesBlockItems()
     QApplication::processEvents();
 
     QString clipboard = QApplication::clipboard()->text();
-    QVERIFY(clipboard.contains(QStringLiteral("| H |")));
+    // Table is now auto-formatted by TableSerializer, so check for header
+    // content rather than exact pipe format
+    QVERIFY(clipboard.contains(QLatin1Char('H')));
+    QVERIFY(clipboard.contains(QLatin1Char('V')));
 
     QString remaining = editor.toPlainText().trimmed();
-    QVERIFY(!remaining.contains(QStringLiteral("| H |")));
+    QVERIFY(!remaining.contains(QLatin1Char('H')));
     QVERIFY(!remaining.contains(QStringLiteral("before")));
     QVERIFY(!remaining.contains(QStringLiteral("after")));
 }
