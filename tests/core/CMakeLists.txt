@@ -211,6 +211,11 @@ add_test(NAME tst_fileview_setState COMMAND tst_fileview_setState)
 target_link_libraries(tst_fileview_setState PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_fileview_setState PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_workspace_leaf_navigate tst_workspace_leaf_navigate.cpp)
+add_test(NAME tst_workspace_leaf_navigate COMMAND tst_workspace_leaf_navigate)
+target_link_libraries(tst_workspace_leaf_navigate PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_workspace_leaf_navigate PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_plugin_metadata tst_plugin_metadata.cpp)
 add_test(NAME tst_plugin_metadata COMMAND tst_plugin_metadata)
 target_link_libraries(tst_plugin_metadata PRIVATE Qt6::Test Corbomite::Core KF6::CoreAddons)
@@ -240,3 +245,7 @@ add_test(NAME tst_plugin_manager_lifecycle COMMAND tst_plugin_manager_lifecycle)
 target_link_libraries(tst_plugin_manager_lifecycle PRIVATE
     Qt6::Test Qt6::Widgets Corbomite::Core KF6::CoreAddons KF6::ConfigCore)
 set_tests_properties(tst_plugin_manager_lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_proxy_vault tst_proxy_vault.cpp)
+add_test(NAME tst_proxy_vault COMMAND tst_proxy_vault)
+target_link_libraries(tst_proxy_vault PRIVATE Qt6::Test Corbomite::Core)
