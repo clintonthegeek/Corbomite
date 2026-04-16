@@ -24,6 +24,9 @@
 
 using namespace Corbomite;
 
+Q_DECLARE_METATYPE(Corbomite::WorkspaceLeaf *)
+Q_DECLARE_METATYPE(Corbomite::WorkspaceItem *)
+
 // ---------------------------------------------------------------------------
 // Minimal stub View so ViewRegistry can create views without real backends
 // ---------------------------------------------------------------------------
@@ -45,16 +48,6 @@ public:
 class WorkspaceIntegrationTest : public QObject
 {
     Q_OBJECT
-
-private:
-    ViewRegistry *makeRegistry(QObject *parent = nullptr)
-    {
-        auto *reg = new ViewRegistry(parent);
-        reg->registerView(QStringLiteral("stub"), [](WorkspaceLeaf *leaf) -> View * {
-            return new StubView(leaf);
-        });
-        return reg;
-    }
 
 private Q_SLOTS:
     // ------------------------------------------------------------------
