@@ -23,8 +23,6 @@ add_library(markoff STATIC
     src/BlockItem.cpp
     src/StubBlockItem.h
     src/StubBlockItem.cpp
-    src/TableBlockItem.h
-    src/TableBlockItem.cpp
     src/ImageBlockItem.h
     src/ImageBlockItem.cpp
     src/MarkdownTextItem.h

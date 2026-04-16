@@ -48,12 +48,12 @@ public:
     /// live-preview-formatted markdown but does not accept input.
     ///
     /// NOTE: Read-only mode does NOT prevent all user interaction with
-    /// non-text block items. Specifically, TableBlockItem (and future
-    /// interactive block items) may allow non-destructive display
-    /// adjustments — such as column width resizing — that affect only
-    /// the visual presentation and do not modify the underlying markdown.
-    /// These are ephemeral viewport affordances for readability, not
-    /// editing operations, and are not persisted or serialized.
+    /// non-text block items. Future interactive block items may allow
+    /// non-destructive display adjustments — such as column width resizing
+    /// — that affect only the visual presentation and do not modify the
+    /// underlying markdown. These are ephemeral viewport affordances for
+    /// readability, not editing operations, and are not persisted or
+    /// serialized.
     void setReadOnly(bool readOnly);
     bool isReadOnly() const;
 
