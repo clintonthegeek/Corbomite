@@ -140,3 +140,13 @@ add_executable(tst_view_lifecycle tst_view_lifecycle.cpp)
 add_test(NAME tst_view_lifecycle COMMAND tst_view_lifecycle)
 target_link_libraries(tst_view_lifecycle PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_view_lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_textfileview tst_textfileview.cpp)
+add_test(NAME tst_textfileview COMMAND tst_textfileview)
+target_link_libraries(tst_textfileview PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
+set_tests_properties(tst_textfileview PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_textfileview_merge tst_textfileview_merge.cpp)
+add_test(NAME tst_textfileview_merge COMMAND tst_textfileview_merge)
+target_link_libraries(tst_textfileview_merge PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
+set_tests_properties(tst_textfileview_merge PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

@@ -70,11 +70,14 @@ add_library(corbomite-core STATIC
     include/corbomite/core/FileView.h
     src/EditableFileView.cpp
     include/corbomite/core/EditableFileView.h
+    src/TextFileView.cpp
+    include/corbomite/core/TextFileView.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)
 
 target_include_directories(corbomite-core
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../storage/include
 )
 target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets KF6::SyntaxHighlighting KF6::I18n jkqtmathtext mmdr markoff)
