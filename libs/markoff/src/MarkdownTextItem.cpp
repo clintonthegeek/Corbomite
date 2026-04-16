@@ -344,7 +344,6 @@ QString MarkdownTextItem::buildHighlightingSource() const
     // tree-sitter expects to parse.
 
     const int charCount = m_document->characterCount();
-    // (debug removed)
     QString src(charCount, QLatin1Char('\n'));  // fill with newlines (paragraph separators)
 
     // Collect table frame ranges for fast lookup

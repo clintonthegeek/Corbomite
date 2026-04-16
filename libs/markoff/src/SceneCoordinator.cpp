@@ -15,6 +15,8 @@
 
 #include <QTimer>
 #include <QTextDocument>
+#include <QTextTable>
+#include <QTextFrame>
 #include <QGuiApplication>
 
 namespace Markoff {
@@ -171,23 +173,39 @@ void SceneCoordinator::loadMarkdown(const QString &markdown)
                 auto regions = detectTableRegions(seg.text);
                 // (debug removed)
                 if (!regions.isEmpty()) {
+                    // Block signals to prevent adjustSpanOffsets() from
+                    // firing during the strip/convert/rebuild cycle.
+                    // Without this, each document mutation triggers
+                    // contentsChange → adjustSpanOffsets, AND
+                    // applyInlineSubstitutions also adjusts spans
+                    // manually — causing double adjustment.
+                    QTextDocument *doc = item->document();
+                    const bool blocked = doc->blockSignals(true);
+
                     item->stripInlineSubstitutions();
 
                     TableConverter &converter = m_tableConverters[item];
-                    converter.convert(item->document(), regions);
+                    converter.convert(doc, regions);
 
                     // Rebuild span map in document coordinates, then
                     // re-apply inline substitutions.
+                    // (debug removed)
                     const QString hlSrc = item->buildHighlightingSource();
                     if (m_parser->parse(hlSrc)) {
                         auto *hl = qobject_cast<MarkdownHighlighter *>(
-                            item->document()->findChild<QSyntaxHighlighter *>());
+                            doc->findChild<QSyntaxHighlighter *>());
                         if (hl) {
                             hl->setSpanMap(m_parser->buildSpanMap());
-                            hl->rehighlight();
                         }
                     }
                     item->refreshInlineSubstitutions();
+
+                    doc->blockSignals(blocked);
+                    // Force a full rehighlight now that signals are
+                    // unblocked and spans are in the correct form.
+                    auto *hl = qobject_cast<MarkdownHighlighter *>(
+                        doc->findChild<QSyntaxHighlighter *>());
+                    if (hl) hl->rehighlight();
                 }
             }
         } else if (seg.type == MarkdownSegment::Image) {
@@ -641,21 +659,27 @@ void SceneCoordinator::reparse()
                 if (m_parser->parse(seg.text)) {
                     auto regions = detectTableRegions(seg.text);
                     if (!regions.isEmpty()) {
+                        QTextDocument *doc = item->document();
+                        const bool blocked = doc->blockSignals(true);
+
                         item->stripInlineSubstitutions();
 
                         TableConverter &converter = m_tableConverters[item];
-                        converter.convert(item->document(), regions);
+                        converter.convert(doc, regions);
 
                         const QString hlSrc = item->buildHighlightingSource();
                         if (m_parser->parse(hlSrc)) {
                             auto *hl = qobject_cast<MarkdownHighlighter *>(
-                                item->document()->findChild<QSyntaxHighlighter *>());
-                            if (hl) {
+                                doc->findChild<QSyntaxHighlighter *>());
+                            if (hl)
                                 hl->setSpanMap(m_parser->buildSpanMap());
-                                hl->rehighlight();
-                            }
                         }
                         item->refreshInlineSubstitutions();
+
+                        doc->blockSignals(blocked);
+                        auto *hl = qobject_cast<MarkdownHighlighter *>(
+                            doc->findChild<QSyntaxHighlighter *>());
+                        if (hl) hl->rehighlight();
                     }
                 }
             } else if (seg.type == MarkdownSegment::Image) {
@@ -690,25 +714,113 @@ void SceneCoordinator::reparse()
 
                 textItem->stripInlineSubstitutions();
 
-                // Build a highlighting source where table-frame blocks
-                // are replaced with spaces. This produces spans in
-                // document-coordinate space, avoiding the offset mismatch
-                // between serialized pipe text and QTextTable frames.
-                const QString hlSrc = textItem->buildHighlightingSource();
-                if (m_parser->parse(hlSrc)) {
-                    auto *highlighter = qobject_cast<MarkdownHighlighter *>(
-                        doc->findChild<QSyntaxHighlighter *>());
-                    if (highlighter)
-                        highlighter->setSpanMap(m_parser->buildSpanMap());
-                }
-
-                // Table reconciliation needs the full pipe-text source
-                // to detect newly typed tables or removed ones.
+                // Parse the full pipe-text source (allMarkdown) — tree-sitter
+                // handles this correctly and identifies all markdown features
+                // (math, headings, etc.). Then adjust span offsets to map from
+                // pipe-text coordinates to document coordinates by computing
+                // the delta between each table's pipe-text length and its
+                // document footprint.
                 const QString mdSrc = textItem->allMarkdown();
                 if (m_parser->parse(mdSrc)) {
+                    auto *highlighter = qobject_cast<MarkdownHighlighter *>(
+                        doc->findChild<QSyntaxHighlighter *>());
+
+                    // Table reconciliation
                     auto regions = detectTableRegions(mdSrc);
                     TableConverter &converter = m_tableConverters[textItem];
                     converter.reconcile(doc, regions);
+
+                    if (highlighter) {
+                        QList<SourceSpan> spans = m_parser->buildSpanMap();
+
+                        // Compute the shift for each table by finding a known
+                        // text anchor AFTER each table and comparing its position
+                        // in the pipe text vs the document.
+                        struct TableDelta { int pipeStart; int pipeEnd; int shift; };
+                        QList<TableDelta> deltas;
+                        QList<QTextTable *> docTables;
+                        for (auto *frame : doc->rootFrame()->childFrames()) {
+                            if (auto *t = qobject_cast<QTextTable *>(frame))
+                                docTables.append(t);
+                        }
+
+                        // For each table, find the first non-empty text block
+                        // after the table in the document, then find the same
+                        // text in the pipe-text string. The difference in
+                        // positions gives the cumulative shift at that point.
+                        int cumShift = 0;
+                        for (int r = 0; r < regions.size() && r < docTables.size(); ++r) {
+                            // Find first non-empty block after this table
+                            QTextBlock anchor;
+                            for (QTextBlock b = doc->findBlock(docTables[r]->lastPosition() + 1);
+                                 b.isValid(); b = b.next()) {
+                                // Skip blocks inside the next table (if any)
+                                bool inNextTable = false;
+                                if (r + 1 < docTables.size()) {
+                                    int pos = b.position();
+                                    if (pos >= docTables[r+1]->firstPosition()
+                                        && pos <= docTables[r+1]->lastPosition())
+                                        inNextTable = true;
+                                }
+                                if (!inNextTable && !b.text().isEmpty()) {
+                                    anchor = b;
+                                    break;
+                                }
+                            }
+                            if (anchor.isValid()) {
+                                // Find this text in mdSrc after the table's pipe region
+                                int pipeSearchStart = regions[r].endPos;
+                                int anchorInPipe = mdSrc.indexOf(anchor.text(), pipeSearchStart);
+                                if (anchorInPipe >= 0) {
+                                    cumShift = anchorInPipe - anchor.position();
+                                }
+                            }
+                            deltas.append({regions[r].startPos, regions[r].endPos, cumShift});
+                        }
+
+                        // Adjust spans: drop table-internal spans, shift
+                        // post-table spans by the empirically-computed delta.
+                        QList<SourceSpan> adjusted;
+                        adjusted.reserve(spans.size());
+
+                        auto shiftForPos = [&](int pipeOffset) -> int {
+                            // Find the last table whose pipe region ends
+                            // at or before this position. Use its cumulative shift.
+                            int s = 0;
+                            for (const auto &d : deltas) {
+                                if (pipeOffset >= d.pipeEnd)
+                                    s = d.shift;
+                            }
+                            return s;
+                        };
+
+                        for (const SourceSpan &span : spans) {
+                            int offset = span.charOffset;
+
+                            // Drop spans inside table pipe-text regions
+                            bool inTable = false;
+                            for (const auto &d : deltas) {
+                                if (offset >= d.pipeStart && offset < d.pipeEnd) {
+                                    inTable = true;
+                                    break;
+                                }
+                            }
+                            if (inTable) continue;
+
+                            SourceSpan adj = span;
+                            adj.charOffset -= shiftForPos(offset);
+                            if (adj.parentCharStart >= 0) {
+                                adj.parentCharStart -= shiftForPos(span.parentCharStart);
+                                adj.parentCharEnd -= shiftForPos(span.parentCharEnd);
+                            }
+                            adjusted.append(adj);
+                        }
+                        highlighter->setSpanMap(std::move(adjusted));
+                        // Invalidate the cached source-position spans so
+                        // refreshInlineSubstitutions() doesn't overwrite
+                        // our adjusted spans with stale cached ones.
+                        textItem->invalidateSourcePositionSpans();
+                    }
                 }
 
                 textItem->refreshBlockFormatting();

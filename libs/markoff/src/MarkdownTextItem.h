@@ -88,6 +88,13 @@ public:
     /// stripInlineSubstitutions).
     QString buildHighlightingSource() const;
 
+    /// Invalidate the cached source-position spans so that the next
+    /// refreshInlineSubstitutions() re-reads from the highlighter
+    /// instead of restoring stale cached spans. Call this after
+    /// externally setting a new span map (e.g., after table offset
+    /// mapping adjusts span coordinates).
+    void invalidateSourcePositionSpans() { m_sourcePositionSpans.clear(); }
+
     /// Set a QTextBlock visible or hidden by folding. Hidden blocks are
     /// rendered with zero height so they take no space in the layout.
     /// Exposed for SceneCoordinator's applyFoldVisibility.
