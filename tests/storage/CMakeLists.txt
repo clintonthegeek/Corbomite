@@ -84,3 +84,15 @@ set_tests_properties(tst_metadatacache_signals PROPERTIES ENVIRONMENT "QT_QPA_PL
 add_executable(tst_ephemeral_state tst_ephemeral_state.cpp)
 add_test(NAME tst_ephemeral_state COMMAND tst_ephemeral_state)
 target_link_libraries(tst_ephemeral_state PRIVATE Qt6::Test Corbomite::Storage)
+
+# SessionManager round-trip tests — compile SessionManager.cpp directly to
+# avoid the heavy KDE/Qt-Widgets dependencies of the CorbomiteApp static lib.
+add_executable(tst_session_manager_roundtrip
+    tst_session_manager_roundtrip.cpp
+    ${CMAKE_SOURCE_DIR}/src/app/SessionManager.cpp
+)
+add_test(NAME tst_session_manager_roundtrip COMMAND tst_session_manager_roundtrip)
+target_include_directories(tst_session_manager_roundtrip PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/app
+)
+target_link_libraries(tst_session_manager_roundtrip PRIVATE Qt6::Test Qt6::Core)
