@@ -72,6 +72,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/EditableFileView.h
     src/TextFileView.cpp
     include/corbomite/core/TextFileView.h
+    src/ViewRegistry.cpp
+    include/corbomite/core/ViewRegistry.h
 )
 set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Core ALIAS corbomite-core)

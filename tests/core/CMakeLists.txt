@@ -150,3 +150,8 @@ add_executable(tst_textfileview_merge tst_textfileview_merge.cpp)
 add_test(NAME tst_textfileview_merge COMMAND tst_textfileview_merge)
 target_link_libraries(tst_textfileview_merge PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
 set_tests_properties(tst_textfileview_merge PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_viewregistry tst_viewregistry.cpp)
+add_test(NAME tst_viewregistry COMMAND tst_viewregistry)
+target_link_libraries(tst_viewregistry PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_viewregistry PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
