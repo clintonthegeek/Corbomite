@@ -4,6 +4,7 @@
 #include "corbomite/core/View.h"
 #include "corbomite/core/ViewRegistry.h"
 
+#include <QDateTime>
 #include <QRandomGenerator>
 #include <QVBoxLayout>
 
@@ -25,6 +26,12 @@ WorkspaceLeaf::~WorkspaceLeaf()
 }
 
 QString WorkspaceLeaf::id() const { return m_id; }
+
+void WorkspaceLeaf::setId(const QString &id)
+{
+    m_id = id;
+}
+
 View *WorkspaceLeaf::view() const { return m_view; }
 
 void WorkspaceLeaf::open(View *newView)
@@ -56,6 +63,9 @@ QJsonObject WorkspaceLeaf::getViewState() const
         state[QStringLiteral("state")] = m_view->getState();
         state[QStringLiteral("icon")] = m_view->getIcon();
         state[QStringLiteral("title")] = m_view->getDisplayText();
+    } else if (m_deferred) {
+        // Return cached state for deferred leaf
+        state = m_deferredViewState;
     }
     return state;
 }
@@ -90,12 +100,158 @@ void WorkspaceLeaf::setEphemeralState(const QJsonObject &state)
         m_view->setEphemeralState(state);
 }
 
+// --- Pinned ---
+
+bool WorkspaceLeaf::pinned() const { return m_pinned; }
+
+void WorkspaceLeaf::setPinned(bool pinned)
+{
+    if (m_pinned == pinned)
+        return;
+    m_pinned = pinned;
+    Q_EMIT pinnedChanged(m_pinned);
+}
+
+// --- Group ---
+
+QString WorkspaceLeaf::group() const { return m_group; }
+
+void WorkspaceLeaf::setGroup(const QString &group)
+{
+    if (m_group == group)
+        return;
+    m_group = group;
+    Q_EMIT groupChanged(m_group);
+}
+
+// --- Deferred ---
+
+bool WorkspaceLeaf::isDeferred() const { return m_deferred; }
+
+void WorkspaceLeaf::setDeferred(bool deferred, const QString &icon, const QString &title)
+{
+    m_deferred = deferred;
+    if (deferred) {
+        m_cachedIcon = icon;
+        m_cachedTitle = title;
+        // Close any currently open view — the leaf is now deferred
+        closeCurrentView();
+    }
+}
+
+void WorkspaceLeaf::loadIfDeferred()
+{
+    if (!m_deferred)
+        return;
+    m_deferred = false;
+    if (!m_deferredViewState.isEmpty())
+        setViewState(m_deferredViewState);
+}
+
+// --- Cached metadata ---
+
+QString WorkspaceLeaf::cachedIcon() const { return m_cachedIcon; }
+QString WorkspaceLeaf::cachedTitle() const { return m_cachedTitle; }
+
+// --- History ---
+
+LeafHistory &WorkspaceLeaf::history() { return m_history; }
+const LeafHistory &WorkspaceLeaf::history() const { return m_history; }
+
+// --- Active time ---
+
+qint64 WorkspaceLeaf::activeTime() const { return m_activeTime; }
+
+void WorkspaceLeaf::updateActiveTime()
+{
+    m_activeTime = QDateTime::currentMSecsSinceEpoch();
+}
+
+// --- Navigation ---
+
+void WorkspaceLeaf::navigate(const QJsonObject &viewState)
+{
+    // Push current state to history before navigating
+    if (m_view) {
+        LeafHistoryEntry current;
+        current.title = m_view->getDisplayText();
+        current.icon = m_view->getIcon();
+        current.state = m_view->getState();
+        current.eState = m_view->getEphemeralState();
+        m_history.push(current);
+    }
+    setViewState(viewState);
+}
+
+void WorkspaceLeaf::goBack()
+{
+    if (!m_history.canGoBack())
+        return;
+
+    LeafHistoryEntry current;
+    if (m_view) {
+        current.title = m_view->getDisplayText();
+        current.icon = m_view->getIcon();
+        current.state = m_view->getState();
+        current.eState = m_view->getEphemeralState();
+    }
+
+    LeafHistoryEntry entry = m_history.goBack(current);
+    if (!entry.isValid())
+        return;
+
+    QJsonObject vs;
+    vs[QStringLiteral("state")] = entry.state;
+    // We need the type — it should be embedded in the state; fall back to current view type
+    if (m_view)
+        vs[QStringLiteral("type")] = m_view->getViewType();
+    setViewState(vs);
+
+    if (m_view && !entry.eState.isEmpty())
+        m_view->setEphemeralState(entry.eState);
+}
+
+void WorkspaceLeaf::goForward()
+{
+    if (!m_history.canGoForward())
+        return;
+
+    LeafHistoryEntry current;
+    if (m_view) {
+        current.title = m_view->getDisplayText();
+        current.icon = m_view->getIcon();
+        current.state = m_view->getState();
+        current.eState = m_view->getEphemeralState();
+    }
+
+    LeafHistoryEntry entry = m_history.goForward(current);
+    if (!entry.isValid())
+        return;
+
+    QJsonObject vs;
+    vs[QStringLiteral("state")] = entry.state;
+    if (m_view)
+        vs[QStringLiteral("type")] = m_view->getViewType();
+    setViewState(vs);
+
+    if (m_view && !entry.eState.isEmpty())
+        m_view->setEphemeralState(entry.eState);
+}
+
+// --- Serialize / Deserialize ---
+
 QJsonObject WorkspaceLeaf::serialize() const
 {
     QJsonObject json;
     json[QStringLiteral("id")] = m_id;
     json[QStringLiteral("type")] = QStringLiteral("leaf");
     json[QStringLiteral("state")] = getViewState();
+
+    if (m_pinned)
+        json[QStringLiteral("pinned")] = true;
+    if (!m_group.isEmpty())
+        json[QStringLiteral("group")] = m_group;
+
     return json;
 }
 
@@ -107,6 +263,13 @@ WorkspaceLeaf *WorkspaceLeaf::deserialize(const QJsonObject &json,
     leaf->m_id = json[QStringLiteral("id")].toString();
     if (leaf->m_id.isEmpty())
         leaf->m_id = generateId();
+
+    if (json[QStringLiteral("pinned")].toBool())
+        leaf->m_pinned = true;
+
+    QString group = json[QStringLiteral("group")].toString();
+    if (!group.isEmpty())
+        leaf->m_group = group;
 
     QJsonObject viewState = json[QStringLiteral("state")].toObject();
     if (!viewState.isEmpty())
