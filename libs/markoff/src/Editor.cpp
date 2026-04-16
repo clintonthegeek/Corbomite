@@ -828,22 +828,35 @@ void Editor::insertCallout(const QString &type) {
 
 void Editor::insertTable(int rows, int cols)
 {
-    QString table;
-    // Header row
-    for (int c = 0; c < cols; ++c)
-        table += QStringLiteral("| Col%1 ").arg(c + 1);
-    table += QStringLiteral("|\n");
-    // Separator
-    for (int c = 0; c < cols; ++c)
-        table += QStringLiteral("|---");
-    table += QStringLiteral("|\n");
-    // Data rows
-    for (int r = 0; r < rows - 1; ++r) {
-        for (int c = 0; c < cols; ++c)
-            table += QStringLiteral("|   ");
-        table += QStringLiteral("|\n");
+    auto *ti = focusedTextItem();
+    if (!ti || m_readOnly) return;
+
+    QTextCursor cursor = ti->textControl()->textCursor();
+    cursor.beginEditBlock();
+
+    // Ensure blank line before table if not at block start
+    if (!cursor.atBlockStart())
+        cursor.insertBlock();
+
+    QTextTableFormat fmt;
+    fmt.setBorderCollapse(true);
+    fmt.setCellPadding(8);
+    fmt.setCellSpacing(0);
+    fmt.setBorder(1);
+
+    auto *table = cursor.insertTable(rows + 1, cols, fmt); // +1 for header row
+
+    // Populate header with placeholder text
+    for (int c = 0; c < cols; ++c) {
+        QTextCursor cell = table->cellAt(0, c).firstCursorPosition();
+        cell.insertText(QStringLiteral("Col%1").arg(c + 1));
     }
-    insertAtCursor(table);
+
+    // Position cursor in first data cell
+    QTextCursor firstData = table->cellAt(1, 0).firstCursorPosition();
+    ti->textControl()->setTextCursor(firstData);
+
+    cursor.endEditBlock();
 }
 
 void Editor::increaseHeadingLevel()
