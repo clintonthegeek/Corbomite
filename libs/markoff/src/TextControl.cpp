@@ -949,20 +949,35 @@ void TextControlPrivate::keyPressEvent(QKeyEvent *e)
             goto accept;
         }
         if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
-            // Enter: insert new row below current, move cursor there
             QTextTableCell cell = table->cellAt(cursor);
             int row = cell.row();
-            table->insertRows(row + 1, 1);
-            cursor = table->cellAt(row + 1, 0).firstCursorPosition();
+            int col = cell.column();
+            if (row == table->rows() - 1) {
+                // Last row — insert new row and move there
+                table->insertRows(row + 1, 1);
+                cursor = table->cellAt(row + 1, col).firstCursorPosition();
+            } else {
+                // Middle row — move to same column in next row, select content
+                QTextTableCell target = table->cellAt(row + 1, col);
+                cursor = target.firstCursorPosition();
+                cursor.setPosition(target.lastCursorPosition().position(),
+                                   QTextCursor::KeepAnchor);
+            }
             q->ensureCursorVisible();
             e->accept();
             goto accept;
         }
         if (e->key() == Qt::Key_Escape) {
             // Escape: move cursor out of table (to block after table)
-            QTextTableCell lastCell = table->cellAt(table->rows() - 1, table->columns() - 1);
+            QTextTableCell lastCell = table->cellAt(table->rows() - 1,
+                                                     table->columns() - 1);
             cursor = lastCell.lastCursorPosition();
             cursor.movePosition(QTextCursor::NextBlock);
+            // If still in table or at document end, insert a blank line
+            if (cursor.currentTable() || cursor.atEnd()) {
+                cursor.setPosition(table->lastPosition() + 1);
+                cursor.insertBlock();
+            }
             q->ensureCursorVisible();
             e->accept();
             goto accept;
