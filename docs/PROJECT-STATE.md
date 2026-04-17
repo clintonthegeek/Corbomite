@@ -41,9 +41,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster K — Bases
-- **Phase:** 1 of 9 (plan landed; Phase 1 scaffold + Value primitives starting)
-- **Last completed step:** Full Cluster K plan expansion landed at `docs/superpowers/plans/2026-04-17-cluster-k-bases.md` (2026-04-17)
-- **Next expected step:** Phase 1 — `libs/bases/` scaffold + abstract `Value` base + `NullValue`/`BooleanValue`/`NumberValue`/`StringValue`/`ListValue` primitives
+- **Phase:** 2 of 9 (Phase 1 complete)
+- **Last completed step:** Phase 1 — `libs/bases/` scaffold + abstract `Value` base + `NullValue`/`BooleanValue`/`NumberValue`/`StringValue`/`ListValue` primitives (2026-04-17; commits `5825422b` `919e4590` `7d852537` `15a49faa`). 43 unit test cases across 3 test executables, all green.
+- **Next expected step:** Phase 2 — remaining Value subclasses (Date, Duration, Object, Regex, File, Link, Url, Tag, Image, Icon, HTML, Markdown, Error)
 - **Owner:** agent session
 - **Date last touched:** 2026-04-17
 - **Parser choice (locked-in 2026-04-17):** hand-rolled Pratt parser per addendum §15.1 option 2 (~250 lines, zero new runtime deps, easier to debug in C++ toolchain). Tree-sitter port option rejected; Lezer state-machine transliteration rejected.
