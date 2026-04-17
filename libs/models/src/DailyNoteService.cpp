@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/models/DailyNoteService.h"
 #include "corbomite/vault/Vault.h"
-#include "corbomite/models/NoteService.h"
+#include "corbomite/models/VaultModel.h"
 #include "corbomite/models/TemplateService.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/MomentFormatter.h"
@@ -15,11 +15,11 @@
 
 namespace Corbomite {
 
-DailyNoteService::DailyNoteService(Vault *vault, NoteService *noteService,
+DailyNoteService::DailyNoteService(Vault *vault, VaultModel *vaultModel,
                                      TemplateService *templateService, QObject *parent)
     : QObject(parent)
     , m_vault(vault)
-    , m_noteService(noteService)
+    , m_vaultModel(vaultModel)
     , m_templateService(templateService)
 {
 }
@@ -80,13 +80,13 @@ bool DailyNoteService::todayNoteExists() const
 
 NoteDocument *DailyNoteService::openOrCreateToday()
 {
-    if (!m_vault || !m_noteService) return nullptr;
+    if (!m_vault || !m_vaultModel) return nullptr;
 
     const QString relPath = todayNotePath();
 
     // If exists, just open
     if (todayNoteExists()) {
-        return m_noteService->openNote(relPath);
+        return m_vaultModel->openDocument(relPath);
     }
 
     // Ensure parent directories exist — required when m_dateFormat contains
@@ -113,14 +113,14 @@ NoteDocument *DailyNoteService::openOrCreateToday()
     QString baseName = relPath.mid(lastSlash + 1,
                                    dotMd - (lastSlash + 1));
 
-    auto *doc = m_noteService->createNote(baseName, folderPath);
+    auto *doc = m_vaultModel->createNote(baseName, folderPath);
     if (!doc) return nullptr;
 
     if (!m_templateName.isEmpty() && m_templateService) {
         QString content = m_templateService->loadAndExpand(m_templateName, baseName);
         if (!content.isEmpty()) {
             doc->setMarkdown(content);
-            m_noteService->saveNote(doc);
+            m_vaultModel->saveNote(doc);
         }
     }
 

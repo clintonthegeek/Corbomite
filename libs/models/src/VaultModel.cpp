@@ -210,4 +210,76 @@ void VaultModel::updateNoteMeta(const QString &relativePath)
     }
 }
 
+// ---- NoteService-absorbed methods (Q.0 Phase 8 T8.4) ----
+
+namespace {
+QString resolveUniqueRelPath(const VaultModel &vault,
+                             const QString &baseName,
+                             const QString &folder)
+{
+    const QString prefix = folder.isEmpty()
+                               ? QString()
+                               : folder + QLatin1Char('/');
+    QString candidate = prefix + baseName + QStringLiteral(".md");
+    if (!vault.noteExists(candidate)) return candidate;
+
+    for (int i = 1; i < 1000; ++i) {
+        candidate = prefix + baseName + QStringLiteral(" %1.md").arg(i);
+        if (!vault.noteExists(candidate)) return candidate;
+    }
+    return candidate; // give up — caller must cope
+}
+} // namespace
+
+NoteDocument *VaultModel::createNote(const QString &name,
+                                     const QString &folder)
+{
+    const QString relPath = resolveUniqueRelPath(*this, name, folder);
+
+    const QString absPath = m_vaultPath + QLatin1Char('/') + relPath;
+    if (!m_fs.writeFile(absPath, QString())) return nullptr;
+
+    addNote(relPath);
+    return openDocument(relPath);
+}
+
+bool VaultModel::saveNote(NoteDocument *doc)
+{
+    if (!doc) return false;
+
+    if (!m_fs.writeFile(doc->filePath(), doc->markdown())) return false;
+
+    doc->setModified(false);
+    Q_EMIT doc->saved();
+    updateNoteMeta(doc->relativePath());
+    Q_EMIT noteSaved(doc->relativePath());
+    return true;
+}
+
+bool VaultModel::renameNoteByPath(const QString &oldRelativePath,
+                                  const QString &newRelativePath)
+{
+    const QString oldAbs = m_vaultPath + QLatin1Char('/') + oldRelativePath;
+    const QString newAbs = m_vaultPath + QLatin1Char('/') + newRelativePath;
+
+    if (!m_fs.rename(oldAbs, newAbs)) return false;
+
+    if (m_searchIndex) {
+        m_searchIndex->repairLinks(oldRelativePath, newRelativePath,
+                                    m_vaultPath);
+    }
+
+    renameNote(oldRelativePath, newRelativePath);
+    return true;
+}
+
+bool VaultModel::deleteNoteByPath(const QString &relativePath)
+{
+    const QString absPath = m_vaultPath + QLatin1Char('/') + relativePath;
+    if (!m_fs.remove(absPath)) return false;
+
+    removeNote(relativePath);
+    return true;
+}
+
 } // namespace Corbomite

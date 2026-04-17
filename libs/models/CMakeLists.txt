@@ -10,8 +10,6 @@ add_library(corbomite-models STATIC
     include/corbomite/models/TabModel.h
     src/VaultModel.cpp
     include/corbomite/models/VaultModel.h
-    src/NoteService.cpp
-    include/corbomite/models/NoteService.h
     src/NotesTreeModel.cpp
     include/corbomite/models/NotesTreeModel.h
     src/SearchResultsModel.cpp

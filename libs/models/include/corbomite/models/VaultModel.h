@@ -42,11 +42,25 @@ public:
     NoteDocument *openDocument(const QString &relativePath);
     NoteDocument *cachedDocument(const QString &relativePath) const;
 
-    // Mutation (called by NoteService or FileWatchReactor)
+    // Mutation (internal bookkeeping — formerly driven by NoteService /
+    // FileWatchReactor; now also invoked by the high-level note ops below
+    // after their filesystem half completes).
     void addNote(const QString &relativePath);
     void removeNote(const QString &relativePath);
     void renameNote(const QString &oldPath, const QString &newPath);
     void updateNoteMeta(const QString &relativePath);
+
+    // High-level note operations absorbed from the deleted `NoteService`
+    // during Q.0 Phase 8. All five write the vault through the legacy
+    // FileSystemAdapter path (same behaviour as before) and emit their
+    // bookkeeping counterparts on success. Link-repair on rename routes
+    // through `m_searchIndex->repairLinks` when the search index is
+    // attached.
+    NoteDocument *createNote(const QString &name, const QString &folder);
+    bool          saveNote(NoteDocument *doc);
+    bool          renameNoteByPath(const QString &oldRelativePath,
+                                   const QString &newRelativePath);
+    bool          deleteNoteByPath(const QString &relativePath);
 
 Q_SIGNALS:
     void vaultScanned();
@@ -54,6 +68,7 @@ Q_SIGNALS:
     void noteRemoved(const QString &relativePath);
     void noteRenamed(const QString &oldPath, const QString &newPath);
     void noteModified(const QString &relativePath);
+    void noteSaved(const QString &relativePath);
 
 private:
     QString m_vaultPath;

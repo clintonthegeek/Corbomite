@@ -26,7 +26,6 @@
 #include "editor/CompletionPopup.h"
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/core/NoteDocument.h"
-#include "corbomite/models/NoteService.h"
 #include "markoff/Editor.h"
 
 using namespace Corbomite;

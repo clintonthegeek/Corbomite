@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "AutosaveReactor.h"
 #include "corbomite/core/NoteDocument.h"
-#include "corbomite/models/NoteService.h"
+#include "corbomite/models/VaultModel.h"
 
 namespace Corbomite {
 
-AutosaveReactor::AutosaveReactor(NoteService *noteService, QObject *parent)
+AutosaveReactor::AutosaveReactor(VaultModel *vault, QObject *parent)
     : QObject(parent)
-    , m_noteService(noteService)
+    , m_vault(vault)
 {
 }
 
@@ -22,7 +22,7 @@ void AutosaveReactor::watchDocument(NoteDocument *doc)
 
     connect(timer, &QTimer::timeout, this, [this, doc]() {
         if (doc->isModified()) {
-            m_noteService->saveNote(doc);
+            m_vault->saveNote(doc);
             Q_EMIT noteSaved(doc->relativePath());
         }
     });

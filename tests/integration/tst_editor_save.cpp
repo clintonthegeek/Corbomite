@@ -4,7 +4,6 @@
 #include <QDir>
 #include <QFile>
 #include "corbomite/models/VaultModel.h"
-#include "corbomite/models/NoteService.h"
 #include "corbomite/core/NoteDocument.h"
 
 class TestEditorSave : public QObject {
@@ -27,16 +26,15 @@ private Q_SLOTS:
 
         Corbomite::VaultModel vault;
         vault.open(tmp.path());
-        Corbomite::NoteService service(&vault);
 
-        auto *doc = service.openNote(QStringLiteral("test.md"));
+        auto *doc = vault.openDocument(QStringLiteral("test.md"));
         QCOMPARE(doc->markdown(), QStringLiteral("original content"));
         QVERIFY(!doc->isModified());
 
         doc->setMarkdown(QStringLiteral("modified content"));
         QVERIFY(doc->isModified());
 
-        QVERIFY(service.saveNote(doc));
+        QVERIFY(vault.saveNote(doc));
         QVERIFY(!doc->isModified());
 
         // Read directly from disk
@@ -53,15 +51,14 @@ private Q_SLOTS:
 
         Corbomite::VaultModel vault;
         vault.open(tmp.path());
-        Corbomite::NoteService service(&vault);
 
-        auto *doc = service.openNote(QStringLiteral("utf8.md"));
+        auto *doc = vault.openDocument(QStringLiteral("utf8.md"));
         QCOMPARE(doc->markdown(), content);
 
         // Modify and save
         QString newContent = content + QStringLiteral("\n\nMore text");
         doc->setMarkdown(newContent);
-        QVERIFY(service.saveNote(doc));
+        QVERIFY(vault.saveNote(doc));
 
         // Verify
         QFile f(tmp.path() + "/utf8.md");
@@ -74,13 +71,12 @@ private Q_SLOTS:
         QTemporaryDir tmp;
         Corbomite::VaultModel vault;
         vault.open(tmp.path());
-        Corbomite::NoteService service(&vault);
 
-        auto *doc = service.createNote(QStringLiteral("brand-new"), QString());
+        auto *doc = vault.createNote(QStringLiteral("brand-new"), QString());
         QVERIFY(doc != nullptr);
 
         doc->setMarkdown(QStringLiteral("# Brand New Note\n\nContent here."));
-        QVERIFY(service.saveNote(doc));
+        QVERIFY(vault.saveNote(doc));
 
         QFile f(tmp.path() + "/brand-new.md");
         f.open(QIODevice::ReadOnly);

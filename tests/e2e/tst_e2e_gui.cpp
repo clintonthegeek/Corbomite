@@ -34,7 +34,6 @@
 #include "corbomite/models/TabModel.h"
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/core/NoteDocument.h"
-#include "corbomite/models/NoteService.h"
 
 #include <KAboutData>
 #include <KLocalizedString>
@@ -452,7 +451,7 @@ private Q_SLOTS:
         int countBefore = vault->allNotes().size();
 
         // Create a note
-        auto *doc = m_app->noteService()->createNote(
+        auto *doc = m_app->vault()->createNote(
             QStringLiteral("E2E Test Note"), QString());
         QVERIFY(doc);
         settle(200);
@@ -466,7 +465,7 @@ private Q_SLOTS:
         QVERIFY(QFileInfo::exists(absPath));
 
         // Delete the note
-        m_app->noteService()->deleteNote(QStringLiteral("E2E Test Note.md"));
+        m_app->vault()->deleteNoteByPath(QStringLiteral("E2E Test Note.md"));
         settle(200);
 
         // Verify it's gone

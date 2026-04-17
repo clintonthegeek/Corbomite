@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "CorbomiteApp.h"
 
-#include "corbomite/models/NoteService.h"
 #include "corbomite/models/VaultModel.h"
 
 #include <QFileInfo>
@@ -11,7 +10,6 @@ namespace Corbomite {
 CorbomiteApp::CorbomiteApp(QObject *parent)
     : QObject(parent)
     , m_vault(new VaultModel(this))
-    , m_noteService(new NoteService(m_vault, this))
 {
 }
 
@@ -39,11 +37,6 @@ void CorbomiteApp::closeVault()
 VaultModel *CorbomiteApp::vault() const
 {
     return m_vault;
-}
-
-NoteService *CorbomiteApp::noteService() const
-{
-    return m_noteService;
 }
 
 bool CorbomiteApp::isOpen() const

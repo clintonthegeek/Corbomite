@@ -4,7 +4,7 @@
 #include "corbomite/core/EmbedRegistry.h"
 #include "corbomite/core/MarkdownRenderChild.h"
 #include "corbomite/core/NoteDocument.h"
-#include "corbomite/models/NoteService.h"
+#include "corbomite/models/VaultModel.h"
 #include "corbomite/readingview/EmbedRenderer.h"
 #include "corbomite/readingview/ReadingView.h"
 
@@ -72,9 +72,9 @@ HoverPopover::HoverPopover(QWidget *parent)
 
 HoverPopover::~HoverPopover() = default;
 
-void HoverPopover::setNoteService(NoteService *service)
+void HoverPopover::setVaultModel(VaultModel *vault)
 {
-    m_noteService = service;
+    m_vaultModel = vault;
 }
 
 void HoverPopover::setEmbedRenderer(Corbomite::ReadingView::EmbedRenderer *renderer)
@@ -141,11 +141,11 @@ void HoverPopover::renderTarget(const QString &target)
     // Legacy fallback — pre-Phase-6 path used when no EmbedRenderer is
     // wired (defensive; happens only in test harnesses or before the
     // first vault opens). Strips subpath; renders raw markdown only.
-    if (!m_noteService) {
+    if (!m_vaultModel) {
         m_view->setPlainText(target);
         return;
     }
-    auto *doc = m_noteService->openNote(path);
+    auto *doc = m_vaultModel->openDocument(path);
     if (!doc) {
         m_view->setPlainText(QStringLiteral("(unresolved: %1)").arg(target));
         return;

@@ -31,7 +31,6 @@
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/storage/VaultConfig.h"
 #include "corbomite/models/VaultModel.h"
-#include "corbomite/models/NoteService.h"
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/core/NoteDocument.h"
 #include "reactors/AutosaveReactor.h"
@@ -197,7 +196,7 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     m_hoverSources = new HoverLinkSourceRegistry(this);
     m_hoverSources->registerBuiltins();
     m_hoverPopover = new HoverPopover(this);
-    m_hoverPopover->setNoteService(m_app->noteService());
+    m_hoverPopover->setVaultModel(m_app->vault());
 
     m_embedRegistry = std::make_unique<Corbomite::Core::EmbedRegistry>();
     m_embedRenderer = std::make_unique<Corbomite::ReadingView::EmbedRenderer>(
@@ -830,7 +829,7 @@ void MainWindow::setupSidebars()
                                               i18n("Note name:"), QLineEdit::Normal,
                                               QString(), &ok);
         if (ok && !name.isEmpty()) {
-            auto *doc = m_app->noteService()->createNote(name, folder);
+            auto *doc = m_app->vault()->createNote(name, folder);
             if (doc)
                 openFileInWorkspace(doc->relativePath());
         }
@@ -845,7 +844,7 @@ void MainWindow::setupSidebars()
             KStandardGuiItem::cancel()
         );
         if (result == KMessageBox::PrimaryAction) {
-            m_app->noteService()->deleteNote(path);
+            m_app->vault()->deleteNoteByPath(path);
         }
     });
     connect(m_fileExplorer, &FileExplorerPanel::renameNoteRequested,
@@ -865,7 +864,7 @@ void MainWindow::setupSidebars()
             QString newPath = folder.isEmpty()
                 ? newName + QStringLiteral(".md")
                 : folder + QLatin1Char('/') + newName + QStringLiteral(".md");
-            m_app->noteService()->renameNote(path, newPath);
+            m_app->vault()->renameNoteByPath(path, newPath);
         }
     });
 
@@ -908,7 +907,7 @@ void MainWindow::setupSidebars()
             this, &MainWindow::onNoteActivated);
     connect(m_outlinksPanel, &OutlinksPanel::createNoteRequested,
             this, [this](const QString &name) {
-        auto *doc = m_app->noteService()->createNote(name, QString());
+        auto *doc = m_app->vault()->createNote(name, QString());
         if (doc) openFileInWorkspace(doc->relativePath());
     });
 
@@ -1022,7 +1021,7 @@ void MainWindow::createNewNote()
                                           i18n("Note name:"), QLineEdit::Normal,
                                           QString(), &ok);
     if (ok && !name.isEmpty()) {
-        auto *doc = m_app->noteService()->createNote(name, QString());
+        auto *doc = m_app->vault()->createNote(name, QString());
         if (doc)
             openFileInWorkspace(doc->relativePath());
     }
@@ -1035,11 +1034,11 @@ void MainWindow::saveCurrentNote()
     if (!leaf || !leaf->view()) return;
 
     // For MarkdownView the NoteDocument is the source of truth for
-    // modification state. Save through NoteService which clears
-    // NoteDocument::isModified() and notifies AutosaveReactor.
+    // modification state. Save through VaultModel which clears
+    // NoteDocument::isModified() and emits the noteSaved signal.
     auto *editor = activeEditor();
     if (editor && editor->noteDocument()) {
-        m_app->noteService()->saveNote(editor->noteDocument());
+        m_app->vault()->saveNote(editor->noteDocument());
         return;
     }
 
@@ -1111,7 +1110,7 @@ void MainWindow::showQuickSwitcher()
             this, &MainWindow::onNoteActivated);
     connect(switcher, &QuickSwitcher::createNoteRequested,
             this, [this](const QString &name) {
-        auto *doc = m_app->noteService()->createNote(name, QString());
+        auto *doc = m_app->vault()->createNote(name, QString());
         if (doc) openFileInWorkspace(doc->relativePath());
     });
 
@@ -1125,8 +1124,7 @@ void MainWindow::onNoteActivated(const QString &relativePath)
         return;
     }
 
-    auto *doc = m_app->noteService()->openNote(relativePath);
-    if (doc) {
+    if (m_app->vault()->noteExists(relativePath)) {
         openFileInWorkspace(relativePath);
     } else {
         QString name = relativePath;
@@ -1137,7 +1135,7 @@ void MainWindow::onNoteActivated(const QString &relativePath)
             folder = name.left(lastSlash);
             name = name.mid(lastSlash + 1);
         }
-        doc = m_app->noteService()->createNote(name, folder);
+        auto *doc = m_app->vault()->createNote(name, folder);
         if (doc)
             openFileInWorkspace(doc->relativePath());
     }
@@ -1171,7 +1169,7 @@ void MainWindow::onVaultOpened()
     m_fileExplorer->setModel(m_treeModel);
 
     delete m_autosave;
-    m_autosave = new AutosaveReactor(m_app->noteService(), this);
+    m_autosave = new AutosaveReactor(m_app->vault(), this);
 
     // TODO Q.0 P7: re-wire file-watcher through Vault. FileWatchReactor moved
     // to libs/vault as private Corbomite::detail::Watcher in Q.0 P2 T2.2;
@@ -1184,7 +1182,7 @@ void MainWindow::onVaultOpened()
     m_viewRegistry->setFileResolver([this](const QString &relPath) -> NoteDocument * {
         if (!m_app || !m_app->isOpen())
             return nullptr;
-        return m_app->noteService()->openNote(relPath);
+        return m_app->vault()->openDocument(relPath);
     });
 
     // LinkResolver
@@ -1242,7 +1240,6 @@ void MainWindow::onVaultOpened()
 
     m_searchPanel->setIndex(m_searchIndex);
     m_searchPanel->setMetadataCache(m_metadataCache);
-    m_app->noteService()->setSearchIndex(m_searchIndex);
     m_app->vault()->setSearchIndex(m_searchIndex);
 
     m_backlinksPanel->setIndex(m_searchIndex);
@@ -1366,7 +1363,7 @@ void MainWindow::onVaultOpened()
     }
 
     delete m_dailyNoteService;
-    m_dailyNoteService = new DailyNoteService(m_vaultObj, m_app->noteService(),
+    m_dailyNoteService = new DailyNoteService(m_vaultObj, m_app->vault(),
                                                 m_templateService, this);
     m_dailyNoteService->setDateFormat(settings->dailyNoteDateFormat());
     m_dailyNoteService->setFolder(settings->dailyNoteFolder());
@@ -1405,7 +1402,7 @@ void MainWindow::onVaultClosed()
     delete m_dailyNoteService;
     m_dailyNoteService = nullptr;
 
-    m_app->noteService()->setSearchIndex(nullptr);
+    m_app->vault()->setSearchIndex(nullptr);
 
     m_backlinksPanel->setIndex(nullptr);
     m_backlinksPanel->setMetadataCache(nullptr);

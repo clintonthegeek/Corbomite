@@ -29,7 +29,6 @@
 #include "sidebar/BacklinksPanel.h"
 #include "sidebar/OutlinksPanel.h"
 #include "corbomite/models/VaultModel.h"
-#include "corbomite/models/NoteService.h"
 #include "corbomite/core/NoteDocument.h"
 
 using namespace Corbomite;
