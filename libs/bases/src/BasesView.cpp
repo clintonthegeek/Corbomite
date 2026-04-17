@@ -64,6 +64,11 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
 
 BasesView::~BasesView() = default;
 
+Corbomite::View *BasesView::factory(WorkspaceLeaf *leaf)
+{
+    return new BasesView(leaf);
+}
+
 void BasesView::setServices(Vault *vault, MetadataCache *cache,
                             FileManager *fileManager, FunctionRegistry *funcs)
 {

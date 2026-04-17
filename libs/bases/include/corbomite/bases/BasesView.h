@@ -36,6 +36,9 @@ public:
     explicit BasesView(WorkspaceLeaf *leaf, QWidget *parent = nullptr);
     ~BasesView() override;
 
+    /// Factory for ViewRegistry::registerViewWithExtensions.
+    static Corbomite::View *factory(WorkspaceLeaf *leaf);
+
     /// Host injects these before the first setViewData call.
     void setServices(Vault *vault,
                      MetadataCache *cache,
@@ -45,6 +48,8 @@ public:
     QString getViewData() const override;
     void setViewData(const QString &data, bool clear) override;
     void clear() override;
+
+    QString getViewType() const override { return QStringLiteral("bases"); }
 
     BasesQuery *query() const { return m_query.get(); }
     BasesViewConfig *activeView() const { return m_activeView; }

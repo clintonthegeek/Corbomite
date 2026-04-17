@@ -12,6 +12,7 @@
 #include "corbomite/core/TextFileView.h"
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
+#include "corbomite/bases/BasesView.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFile.h"
@@ -567,6 +568,11 @@ void MainWindow::propagateServicesToView(View *view)
         return;
     }
 
+    if (auto *bv = qobject_cast<Corbomite::Bases::BasesView *>(view)) {
+        bv->setServices(m_vaultObj, m_metadataCache, m_fileManager);
+        return;
+    }
+
     // Graph view service wiring now happens inside the corbomite-graph-view
     // plugin: it captures Vault / SQLiteIndex / MetadataCache from its
     // PluginContext and passes them into each GraphView via the factory
@@ -846,6 +852,9 @@ void MainWindow::setupEditor()
     m_viewRegistry->registerViewWithExtensions(
         {QStringLiteral("canvas")}, QStringLiteral("canvas"),
         &CanvasFileView::factory);
+    m_viewRegistry->registerViewWithExtensions(
+        {QStringLiteral("base")}, QStringLiteral("bases"),
+        &Corbomite::Bases::BasesView::factory);
     // "graph" view type is registered by the corbomite-graph-view plugin's
     // onLoad via ViewRegistrar. Plugins are loaded before workspace layout
     // deserialize in onVaultOpened, so the type is available by the time

@@ -63,6 +63,7 @@ target_link_libraries(CorbomiteApp
         Corbomite::Storage
         Corbomite::Models
         Corbomite::Vault
+        Corbomite::Bases
         Markoff::Markoff
         Corbomite::ReadingView
         Corbomite::QutepartSource
