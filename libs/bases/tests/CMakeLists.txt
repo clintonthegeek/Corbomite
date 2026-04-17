@@ -29,3 +29,7 @@ target_link_libraries(tst_bases_value_duration PRIVATE Qt6::Test Corbomite::Base
 add_executable(tst_bases_value_string_subclasses tst_value_string_subclasses.cpp)
 add_test(NAME tst_bases_value_string_subclasses COMMAND tst_bases_value_string_subclasses)
 target_link_libraries(tst_bases_value_string_subclasses PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_bases_value_object_regex tst_value_object_regex.cpp)
+add_test(NAME tst_bases_value_object_regex COMMAND tst_bases_value_object_regex)
+target_link_libraries(tst_bases_value_object_regex PRIVATE Qt6::Test Corbomite::Bases)

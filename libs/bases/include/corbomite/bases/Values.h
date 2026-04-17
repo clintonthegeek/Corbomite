@@ -273,6 +273,79 @@ private:
     QString m_msg;
 };
 
+class ObjectValue : public Value
+{
+public:
+    ObjectValue() = default;
+
+    /// Build from an Obsidian-shape frontmatter QJsonObject. Strings that
+    /// look like wikilinks → LinkValue; URLs → UrlValue; ISO dates → DateValue;
+    /// the `tags` key → ListValue<TagValue>. Nested arrays/objects recurse.
+    static std::shared_ptr<ObjectValue> fromFrontMatter(const QJsonObject &fm);
+
+    void set(const QString &key, ValuePtr value);
+    ValuePtr get(const QString &key) const;              // exact-case
+    ValuePtr getInsensitive(const QString &key) const;   // case-insensitive
+
+    QString type() const override { return QStringLiteral("Object"); }
+    bool isTruthy() const override { return !m_order.isEmpty(); }
+    bool isEmpty() const override { return m_order.isEmpty(); }
+    bool equals(const Value &other) const override;
+    /// Case-insensitive (audit §8 invariant).
+    ValuePtr objectAccess(const QString &key) const override;
+    QStringList keys() const override { return m_order; }
+
+    QVector<ValuePtr> values() const;
+    QVector<std::pair<QString, ValuePtr>> entries() const;
+
+private:
+    QStringList m_order;
+    QHash<QString, ValuePtr> m_data;
+};
+
+/// Small adapter Value produced by BasesEntry::getByIdentifier("formula"):
+/// objectAccess forwards through a closure that resolves by formula name.
+class LambdaObjectValue : public Value
+{
+public:
+    using Resolver = std::function<ValuePtr(const QString &)>;
+    explicit LambdaObjectValue(Resolver r) : m_r(std::move(r)) {}
+
+    QString type() const override { return QStringLiteral("Object"); }
+    bool isTruthy() const override { return true; }
+    ValuePtr objectAccess(const QString &key) const override;
+
+private:
+    Resolver m_r;
+};
+
+class RegExpValue : public Value
+{
+public:
+    explicit RegExpValue(QRegularExpression re, QString source = {}, QString flags = {})
+        : m_re(std::move(re)), m_source(std::move(source)), m_flags(std::move(flags)) {}
+
+    const QRegularExpression &regex() const { return m_re; }
+    const QString &source() const { return m_source; }
+    const QString &flags() const { return m_flags; }
+
+    bool matches(const QString &s) const { return m_re.match(s).hasMatch(); }
+
+    QString type() const override { return QStringLiteral("Regex"); }
+    bool isTruthy() const override { return true; }
+    QString toString() const override;
+
+    /// Parse `/body/flags`. Flags: g|i|m|s|u|y (preserved for round-trip
+    /// but only `i` and `m` affect QRegularExpression). Returns nullptr
+    /// on malformed input.
+    static std::shared_ptr<RegExpValue> parseFromString(const QString &literal);
+
+private:
+    QRegularExpression m_re;
+    QString m_source;
+    QString m_flags;
+};
+
 /// 7-field calendar duration.
 struct DurationComponents
 {
