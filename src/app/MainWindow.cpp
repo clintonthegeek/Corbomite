@@ -12,7 +12,6 @@
 #include "corbomite/core/TextFileView.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
-#include "sidebar/BacklinksPanel.h"
 #include "sidebar/PropertiesPanel.h"
 #include "sidebar/OutlinksPanel.h"
 #include "sidebar/OutlinePanel.h"
@@ -26,6 +25,9 @@
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/FileManager.h"
+#include "corbomite/vault/Plugin.h"
+#include "corbomite/vault/PluginContext.h"
+#include "corbomite/vault/PluginManager.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
@@ -189,6 +191,20 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
 
     connect(m_app, &CorbomiteApp::vaultOpened, this, &MainWindow::onVaultOpened);
     connect(m_app, &CorbomiteApp::vaultClosed, this, &MainWindow::onVaultClosed);
+
+    if (auto *pm = m_app->pluginManager()) {
+        connect(pm, &Corbomite::PluginManager::pluginLoaded,
+                this, &MainWindow::hostPluginView);
+        connect(pm, &Corbomite::PluginManager::pluginUnloading,
+                this, &MainWindow::releasePluginView);
+        // Plugins discovered + auto-enabled before MainWindow exists
+        // need their views hosted now.
+        for (int i = 0; i < pm->pluginCount(); ++i) {
+            const auto &info = pm->pluginByIndex(i);
+            if (info.instance)
+                hostPluginView(info.metaData.base().pluginId());
+        }
+    }
 
     m_commandRegistry = new CommandRegistry();
     m_menuEvents = new MenuEventEmitter(this);
@@ -407,6 +423,87 @@ void MainWindow::saveSessionState()
     }
     m_sessionManager->unblockSaving();
     m_sessionManager->saveNow();
+}
+
+void MainWindow::rewirePluginCoreServices()
+{
+    auto *pm = m_app->pluginManager();
+    if (!pm) return;
+    pm->setContextConfigurator([this](Corbomite::PluginContext *ctx) {
+        ctx->setCoreServices(m_vaultObj, m_fileManager, m_metadataCache,
+                              m_workspace, m_commandRegistry, m_viewRegistry,
+                              m_menuEvents, nullptr /* QNetworkAccessManager */);
+    });
+    // Plugins already enabled (e.g. on subsequent vault open) get their
+    // contexts re-wired in place so proxies see the fresh services.
+    for (int i = 0; i < pm->pluginCount(); ++i) {
+        const auto &info = pm->pluginByIndex(i);
+        if (info.context) {
+            info.context->setCoreServices(m_vaultObj, m_fileManager,
+                m_metadataCache, m_workspace, m_commandRegistry,
+                m_viewRegistry, m_menuEvents, nullptr);
+        }
+    }
+}
+
+void MainWindow::hostPluginView(const QString &pluginId)
+{
+    auto *pm = m_app->pluginManager();
+    if (!pm) return;
+    auto *info = pm->pluginById(pluginId);
+    if (!info || !info->instance) return;
+
+    QObject *viewObj = info->instance->createView(this);
+    auto *widget = qobject_cast<QWidget *>(viewObj);
+    if (!widget) {
+        // Plugin returned nullptr or non-widget — nothing to host.
+        if (viewObj) viewObj->deleteLater();
+        return;
+    }
+
+    const QJsonObject raw = info->metaData.base().rawData();
+    const QString dockArea = raw.value(QStringLiteral("X-Corbomite-DockArea"))
+                                 .toString(QStringLiteral("right"));
+    const QString dockTitle = raw.value(QStringLiteral("X-Corbomite-DockTitle"))
+                                  .toString(info->metaData.base().name());
+    const QString dockIcon = raw.value(QStringLiteral("X-Corbomite-DockIcon"))
+                                  .toString(info->metaData.base().iconName());
+
+    KMultiTabBar::KMultiTabBarPosition pos =
+        (dockArea == QLatin1String("left")) ? KMultiTabBar::Left
+                                              : KMultiTabBar::Right;
+
+    const QString toolViewId = pluginId + QStringLiteral("_panel");
+    auto *toolView = createToolView(
+        nullptr,
+        toolViewId,
+        pos,
+        QIcon::fromTheme(dockIcon.isEmpty() ? QStringLiteral("preferences-plugin")
+                                              : dockIcon),
+        dockTitle);
+    if (!toolView || !toolView->layout()) {
+        // Already hosted (e.g. on rapid disable+enable race) or the MDI
+        // refused the slot. Drop the widget — releasePluginView will
+        // tear down the existing host on its own.
+        widget->deleteLater();
+        return;
+    }
+    toolView->setObjectName(toolViewId);
+    widget->setParent(toolView);
+    toolView->layout()->addWidget(widget);
+    m_hostedPluginViews.insert(pluginId, widget);
+}
+
+void MainWindow::releasePluginView(const QString &pluginId)
+{
+    auto it = m_hostedPluginViews.find(pluginId);
+    if (it == m_hostedPluginViews.end()) return;
+    QWidget *widget = it.value();
+    m_hostedPluginViews.erase(it);
+    if (!widget) return;
+    QWidget *toolView = widget->parentWidget();
+    if (toolView) toolView->deleteLater();
+    else widget->deleteLater();
 }
 
 void MainWindow::propagateServicesToView(View *view)
@@ -775,18 +872,18 @@ void MainWindow::setupEditor()
         auto *editor = activeEditor();
         // Update sidebar panels
         if (editor && editor->noteDocument()) {
-            if (m_backlinksPanel) m_backlinksPanel->setCurrentNote(editor->noteDocument());
             if (m_outlinksPanel) m_outlinksPanel->setCurrentNote(editor->noteDocument());
             if (m_outlinePanel) m_outlinePanel->setCurrentNote(editor->noteDocument());
             if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(editor->noteDocument());
             if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(editor->noteDocument());
         } else {
-            if (m_backlinksPanel) m_backlinksPanel->setCurrentNote(nullptr);
             if (m_outlinksPanel) m_outlinksPanel->setCurrentNote(nullptr);
             if (m_outlinePanel) m_outlinePanel->setCurrentNote(nullptr);
             if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(nullptr);
             if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(nullptr);
         }
+        // BacklinksView (now an InternalPlugin) reacts to active-leaf
+        // changes via WorkspaceController::activeFileChanged on its own.
 
         if (editor && editor->noteDocument() && m_autosave)
             m_autosave->watchDocument(editor->noteDocument());
@@ -883,17 +980,10 @@ void MainWindow::setupSidebars()
     connect(m_searchPanel, &SearchPanel::noteActivated,
             this, &MainWindow::onNoteActivated);
 
-    auto *backlinksView = createToolView(
-        nullptr,
-        QStringLiteral("backlinks_panel"),
-        KMultiTabBar::Right,
-        QIcon::fromTheme(QStringLiteral("link")),
-        i18n("Backlinks")
-    );
-    m_backlinksPanel = new BacklinksPanel(backlinksView);
-    backlinksView->layout()->addWidget(m_backlinksPanel);
-    connect(m_backlinksPanel, &BacklinksPanel::noteActivated,
-            this, &MainWindow::onNoteActivated);
+    // Backlinks panel migrated to InternalPlugin "corbomite-backlinks"
+    // (Cluster Q Task 13). MainWindow no longer constructs it; the
+    // plugin's createView() output is hosted by hostPluginView() when
+    // PluginManager fires pluginLoaded.
 
     auto *outlinksView = createToolView(
         nullptr,
@@ -1243,8 +1333,6 @@ void MainWindow::onVaultOpened(const QString &path)
     m_searchPanel->setIndex(m_searchIndex);
     m_searchPanel->setMetadataCache(m_metadataCache);
 
-    m_backlinksPanel->setIndex(m_searchIndex);
-    m_backlinksPanel->setMetadataCache(m_metadataCache);
     m_outlinksPanel->setIndex(m_searchIndex);
     m_outlinksPanel->setVault(m_vaultObj);
     m_outlinksPanel->setMetadataCache(m_metadataCache);
@@ -1376,11 +1464,31 @@ void MainWindow::onVaultOpened(const QString &path)
         m_dailyNoteService->initFromVaultConfig(vaultConfig);
     }
 
+    // Plugin lifecycle: now that core services exist, wire the
+    // configurator on every future PluginContext + load enabled plugins
+    // from KConfig. Hosted views attach via the pluginLoaded signal.
+    rewirePluginCoreServices();
+    if (auto *pm = m_app->pluginManager()) pm->loadEnabledStateFromConfig();
+
     updateVaultActions();
 }
 
 void MainWindow::onVaultClosed()
 {
+    // Tear down vault-scoped plugins before clearing the services they
+    // hold pointers to. PluginManager::pluginUnloading fires per plugin
+    // and triggers releasePluginView.
+    if (auto *pm = m_app->pluginManager()) {
+        QStringList loadedIds;
+        for (int i = 0; i < pm->pluginCount(); ++i) {
+            const auto &info = pm->pluginByIndex(i);
+            if (info.instance)
+                loadedIds.append(info.metaData.base().pluginId());
+        }
+        // Lifecycle teardown — keep persisted enabled-state intact.
+        for (const QString &id : loadedIds) pm->disablePlugin(id, /*persist=*/false);
+    }
+
     saveSessionState();
 
     // Reset workspace to empty default layout. destroyTree() safely
@@ -1407,9 +1515,6 @@ void MainWindow::onVaultClosed()
     if (m_tagSuggest) m_tagSuggest->setIndex(nullptr);
     if (m_hoverPopover) m_hoverPopover->setVault(nullptr);
 
-    m_backlinksPanel->setIndex(nullptr);
-    m_backlinksPanel->setMetadataCache(nullptr);
-    m_backlinksPanel->setCurrentNote(nullptr);
     m_outlinksPanel->setIndex(nullptr);
     m_outlinksPanel->setMetadataCache(nullptr);
     m_outlinksPanel->setVault(nullptr);

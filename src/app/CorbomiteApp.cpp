@@ -11,11 +11,18 @@ CorbomiteApp::CorbomiteApp(QObject *parent)
     : QObject(parent)
     , m_pluginManager(new PluginManager(this))
 {
-    // Cluster Q Phase 2 (Task 12): discover + auto-enable plugins at
-    // startup. Plugin views attach to MainWindow when each plugin
-    // emits pluginLoaded — see MainWindow's pluginLoaded slot.
+    // Cluster Q Phase 2 (Task 12): discover plugins at startup. Plugins
+    // are vault-scoped — actual enable happens when MainWindow opens a
+    // vault and is in a position to wire core services into each
+    // PluginContext via PluginManager::setContextConfigurator + then
+    // calls loadEnabledStateFromConfig.
+#ifdef CORBOMITE_PLUGIN_DEV_DIR
+    // Dev builds discover plugins from the build tree; release builds
+    // fall through to PluginManager's default ${KDE_INSTALL_PLUGINDIR}
+    // resolution.
+    m_pluginManager->setSystemSearchPath(QStringLiteral(CORBOMITE_PLUGIN_DEV_DIR));
+#endif
     m_pluginManager->discoverPlugins();
-    m_pluginManager->loadEnabledStateFromConfig();
 }
 
 CorbomiteApp::~CorbomiteApp() = default;

@@ -26,7 +26,6 @@
 #include "editor/MarkdownView.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "sidebar/BacklinksPanel.h"
 #include "sidebar/OutlinksPanel.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/core/NoteDocument.h"
@@ -117,12 +116,20 @@ private Q_SLOTS:
         auto *spokeDoc = vault->openDocument(QStringLiteral("Spoke.md"));
         QVERIFY(spokeDoc);
 
-        auto *backlinks = m_mainWindow->findChild<BacklinksPanel *>();
-        QVERIFY(backlinks);
-        backlinks->setCurrentNote(spokeDoc);
-        settle(200);
+        // BacklinksView is now an InternalPlugin (Cluster Q Task 13).
+        // The plugin's host adds a tool view named
+        // "corbomite-backlinks_panel" containing the live plugin widget.
+        // Walk the child tree for the QListWidget inside that tool view.
+        Q_UNUSED(spokeDoc);
+        m_mainWindow->onNoteActivated(QStringLiteral("Spoke.md"));
+        settle(300);
 
-        auto *header = backlinks->findChild<QLabel *>();
+        auto *toolView = m_mainWindow->findChild<QWidget *>(
+            QStringLiteral("corbomite-backlinks_panel"));
+        QVERIFY2(toolView, "BacklinksPlugin tool view was not hosted by MainWindow");
+        auto *list = toolView->findChild<QListWidget *>();
+        QVERIFY(list);
+        auto *header = toolView->findChild<QLabel *>();
         QVERIFY(header);
         QVERIFY2(header->text().contains(QStringLiteral("(1)")),
                  qPrintable(QStringLiteral("Header was: ") + header->text()));

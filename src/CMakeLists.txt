@@ -1,6 +1,13 @@
 include(KDECMakeSettings)
 kconfig_add_kcfg_files(CORBOMITE_KCFG_SRCS app/corbomitesettings.kcfgc GENERATE_MOC)
 
+# Built-in plugin output directory for dev builds. Each plugin's
+# CMakeLists.txt drops its .so here; CorbomiteApp adds this path to
+# the PluginManager's system search list at startup so dev runs
+# discover plugins from the build tree without an `install` step.
+set(CORBOMITE_PLUGIN_DEV_DIR "${CMAKE_BINARY_DIR}/lib/plugins/corbomite"
+    CACHE INTERNAL "Build-tree plugin output dir")
+
 add_library(CorbomiteApp STATIC
     ${CORBOMITE_KCFG_SRCS}
     app/CorbomiteApp.cpp
@@ -12,7 +19,6 @@ add_library(CorbomiteApp STATIC
     mdi/CorbomiteMDI.cpp
     sidebar/FileExplorerPanel.cpp
     sidebar/SearchPanel.cpp
-    sidebar/BacklinksPanel.cpp
     sidebar/OutlinksPanel.cpp
     sidebar/OutlinePanel.cpp
     sidebar/PropertiesPanel.cpp
@@ -87,3 +93,9 @@ target_include_directories(CorbomiteApp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas
     ${CMAKE_CURRENT_BINARY_DIR}
 )
+
+target_compile_definitions(CorbomiteApp PRIVATE
+    CORBOMITE_PLUGIN_DEV_DIR="${CORBOMITE_PLUGIN_DEV_DIR}")
+
+# Built-in plugins (Cluster Q migrations).
+add_subdirectory(plugins/backlinks)

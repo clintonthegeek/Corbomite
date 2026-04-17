@@ -66,7 +66,14 @@ public:
 
     // Load / unload lifecycle (Task 6)
     bool enablePlugin(const QString &id);
-    bool disablePlugin(const QString &id);
+
+    /// Unload a plugin. When `persist` is true (default — user action via
+    /// Settings) the disabled state is written to KConfig so the plugin
+    /// stays off across restarts. When false (vault-lifecycle teardown)
+    /// the in-memory instance is destroyed but KConfig is left alone, so
+    /// the next vault-open / app-launch can re-enable based on the
+    /// user's persisted choice.
+    bool disablePlugin(const QString &id, bool persist = true);
 
     /// For each discovered plugin, read KConfig to decide if it should be
     /// enabled (fall back to metadata's EnabledByDefault).
@@ -88,6 +95,12 @@ public:
     /// through this callback instead of `PluginPermissionGrantDialog`. Return
     /// value is the granted subset; empty = user cancelled.
     void setPromptHandler(PromptFn fn);
+
+    using ContextConfigurator = std::function<void(PluginContext *)>;
+    /// When set, every freshly-constructed PluginContext is handed to this
+    /// callback before plugin->load(ctx). The host uses this hook to call
+    /// PluginContext::setCoreServices() so onLoad sees fully-wired proxies.
+    void setContextConfigurator(ContextConfigurator fn);
 
 Q_SIGNALS:
     void pluginDiscovered(const QString &id);
@@ -113,6 +126,7 @@ private:
     KSharedConfig::Ptr m_config;
     FactoryFn m_factoryOverride;
     PromptFn  m_promptHandler;
+    ContextConfigurator m_contextConfigurator;
 };
 
 } // namespace Corbomite

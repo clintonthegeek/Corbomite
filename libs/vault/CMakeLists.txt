@@ -11,7 +11,7 @@ find_package(KF6I18n REQUIRED)
 find_package(KF6CoreAddons REQUIRED)
 find_package(KF6Config REQUIRED)
 
-add_library(vault STATIC
+add_library(vault SHARED
     include/corbomite/vault/TAbstractFile.h
     src/TAbstractFile.cpp
     include/corbomite/vault/TFile.h
@@ -62,6 +62,17 @@ target_link_libraries(vault
     PRIVATE
         MarkoffParser::MarkoffParser
 )
+
+# PluginManager's MinVersion gate compares plugin metadata against this
+# value at runtime. Sourced from the top-level project() VERSION so
+# bumps to corbomite's version automatically propagate.
+if(DEFINED Corbomite_VERSION)
+    target_compile_definitions(vault PRIVATE
+        CORBOMITE_APP_VERSION="${Corbomite_VERSION}")
+elseif(DEFINED PROJECT_VERSION)
+    target_compile_definitions(vault PRIVATE
+        CORBOMITE_APP_VERSION="${PROJECT_VERSION}")
+endif()
 
 enable_testing()
 add_subdirectory(tests)

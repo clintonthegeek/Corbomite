@@ -1,0 +1,19 @@
+{
+    "KPlugin": {
+        "Id": "corbomite-backlinks",
+        "Name": "Backlinks",
+        "Description": "Show notes that link to the active note",
+        "Icon": "link",
+        "Version": "1.0",
+        "License": "GPL-3.0-or-later",
+        "Category": "Core",
+        "EnabledByDefault": true,
+        "Authors": [{"Name": "Corbomite Developers"}]
+    },
+    "X-Corbomite-Trusted": true,
+    "X-Corbomite-Permissions": ["metadata.read", "workspace", "ui.views"],
+    "X-Corbomite-MinVersion": "0.1.0",
+    "X-Corbomite-DockArea": "right",
+    "X-Corbomite-DockIcon": "link",
+    "X-Corbomite-DockTitle": "Backlinks"
+}

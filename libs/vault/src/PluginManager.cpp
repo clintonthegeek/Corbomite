@@ -77,6 +77,11 @@ void PluginManager::setPromptHandler(PromptFn fn)
     m_promptHandler = std::move(fn);
 }
 
+void PluginManager::setContextConfigurator(ContextConfigurator fn)
+{
+    m_contextConfigurator = std::move(fn);
+}
+
 QVersionNumber PluginManager::appVersion() const
 {
 #ifdef CORBOMITE_APP_VERSION
@@ -176,7 +181,19 @@ bool PluginManager::enablePlugin(const QString &id)
                                   << id << "—" << factoryResult.errorString;
             return false;
         }
-        plugin = factoryResult.plugin->create<Plugin>(this);
+        // KPluginFactory::create<T> looks up the registered class by T's
+        // metaobject name. Pass the BacklinksPlugin/etc subclass name
+        // (resolved later) — for now use the typeless virtual create()
+        // with the empty iface, which makes KPluginFactory return the
+        // first registered plugin class.
+        QObject *raw = factoryResult.plugin->create<QObject>(this);
+        plugin = qobject_cast<Plugin *>(raw);
+        if (!plugin && raw) {
+            qWarning().noquote() << "PluginManager: factory for" << id
+                << "produced a" << raw->metaObject()->className()
+                << "which is not a Corbomite::Plugin";
+            delete raw;
+        }
     }
     if (!plugin) {
         qWarning().noquote() << "PluginManager: factory returned nullptr for" << id;
@@ -184,6 +201,7 @@ bool PluginManager::enablePlugin(const QString &id)
     }
 
     info->context = new PluginContext(info->metaData, granted);
+    if (m_contextConfigurator) m_contextConfigurator(info->context);
     info->instance = plugin;
     plugin->load(info->context);
     info->enabled = true;
@@ -194,7 +212,7 @@ bool PluginManager::enablePlugin(const QString &id)
     return true;
 }
 
-bool PluginManager::disablePlugin(const QString &id)
+bool PluginManager::disablePlugin(const QString &id, bool persist)
 {
     auto *info = const_cast<PluginInfo *>(pluginById(id));
     if (!info || !info->instance) return false;
@@ -208,7 +226,7 @@ bool PluginManager::disablePlugin(const QString &id)
     info->context = nullptr;
     info->enabled = false;
 
-    writeEnabledState(id, false);
+    if (persist) writeEnabledState(id, false);
     Q_EMIT pluginDisabled(id);
     return true;
 }
@@ -219,9 +237,13 @@ void PluginManager::loadEnabledStateFromConfig()
     KConfigGroup grp(m_config, QStringLiteral("Plugins"));
     for (auto &info : m_plugins) {
         const QString id = info.metaData.base().pluginId();
-        const bool defaultOn = info.metaData.base().rawData()
-            .value(QStringLiteral("KPlugin")).toObject()
-            .value(QStringLiteral("EnabledByDefault")).toBool(false);
+        // Embedded metadata via Q_PLUGIN_METADATA flattens KPlugin's
+        // children to the rawData top level — KPluginMetaData::
+        // isEnabledByDefault() walks both layouts. Trusted built-ins
+        // are always on by default; untrusted plugins fall back to the
+        // metadata-declared EnabledByDefault flag.
+        const bool defaultOn = info.metaData.trusted()
+            || info.metaData.base().isEnabledByDefault();
         const bool enabled = grp.readEntry(id + QStringLiteral("Enabled"), defaultOn);
         if (enabled) enablePlugin(id);
     }

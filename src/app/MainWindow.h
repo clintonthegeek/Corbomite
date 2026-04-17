@@ -2,6 +2,7 @@
 #pragma once
 
 #include "mdi/CorbomiteMDI.h"
+#include <QHash>
 #include <QLabel>
 #include <QCloseEvent>
 #include <QStackedWidget>
@@ -40,7 +41,6 @@ class SessionManager;
 class SQLiteIndex;
 class MetadataCache;
 class LinkResolver;
-class BacklinksPanel;
 class OutlinksPanel;
 class OutlinePanel;
 class PropertiesPanel;
@@ -59,6 +59,7 @@ class TagSuggest;
 class RibbonSlot;
 class View;
 class ViewRegistry;
+class Plugin;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -108,6 +109,23 @@ private:
     void saveSessionState();
     void propagateServicesToView(View *view);
 
+    /// Look up the loaded plugin by id and host its createView() output
+    /// into a tool view determined by X-Corbomite-DockArea metadata.
+    /// Triggered from PluginManager::pluginLoaded.
+    void hostPluginView(const QString &pluginId);
+
+    /// Tear down the tool view created for `pluginId` (if any).
+    /// Triggered from PluginManager::pluginUnloading.
+    void releasePluginView(const QString &pluginId);
+
+    /// Wire the granted core services on every plugin context — Vault,
+    /// FileManager, MetadataCache, Workspace, CommandRegistry,
+    /// ViewRegistry, MenuEventEmitter. Plugin must subscribe to whatever
+    /// it needs via the proxies. Called when those services materialise
+    /// (post onVaultOpened) so plugins loaded earlier in startup don't
+    /// see nullptr.
+    void rewirePluginCoreServices();
+
     CorbomiteApp *m_app;
     // Q.0 P6 — canonical Vault aggregate created alongside the legacy
     // VaultModel during the consumer-migration wave. Both coexist until
@@ -135,7 +153,6 @@ private:
     SQLiteIndex *m_searchIndex = nullptr;
     MetadataCache *m_metadataCache = nullptr;
     LinkResolver *m_linkResolver = nullptr;
-    BacklinksPanel *m_backlinksPanel = nullptr;
     OutlinksPanel *m_outlinksPanel = nullptr;
     OutlinePanel *m_outlinePanel = nullptr;
     PropertiesPanel *m_propertiesPanel = nullptr;
@@ -161,6 +178,12 @@ private:
     WikiLinkSuggest *m_wikiSuggest = nullptr;
     TagSuggest *m_tagSuggest = nullptr;
     RibbonSlot *m_ribbon = nullptr;
+
+    // Cluster Q (Tasks 13-20) — tool views hosting plugin createView()
+    // output. Keyed by plugin id; the value is the QWidget the
+    // CorbomiteMDI tool view holds. Used by releasePluginView to find
+    // and tear down the tool view when the plugin unloads.
+    QHash<QString, QWidget *> m_hostedPluginViews;
 };
 
 } // namespace Corbomite
