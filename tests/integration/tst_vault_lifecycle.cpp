@@ -9,6 +9,7 @@
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/FileManager.h"
+#include "corbomite/vault/proxies/VaultProxy.h"
 #include "corbomite/core/NoteDocument.h"
 
 class TestVaultLifecycle : public QObject {
@@ -36,7 +37,11 @@ private Q_SLOTS:
         vault.load(tmp.path());
         QCOMPARE(vault.getMarkdownFiles().size(), 2);
 
-        Corbomite::NotesTreeModel tree(&vault);
+        Corbomite::VaultProxy proxy(&vault,
+            {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
+             QStringLiteral("vault.events")},
+            QStringLiteral("test"));
+        Corbomite::NotesTreeModel tree(&proxy);
         QCOMPARE(tree.rowCount(QModelIndex()), 2); // folder + note1.md
 
         Corbomite::FileManager fileManager(&vault, nullptr);

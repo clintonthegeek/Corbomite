@@ -23,7 +23,7 @@ QObject *FileExplorerPlugin::createView(MainWindow *mainWindow)
 {
     auto *ctx = context();
     if (!ctx) return nullptr;
-    auto *vault = ctx->vaultRaw();
+    auto *vault = ctx->vault();
     auto *fileManager = ctx->fileManager();
     if (!vault || !fileManager) {
         qWarning() << "FileExplorerPlugin: vault.read+vault.write missing";

@@ -7,6 +7,7 @@
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/Vault.h"
+#include "corbomite/vault/proxies/VaultProxy.h"
 
 class TestNotesTreeModel : public QObject {
     Q_OBJECT
@@ -20,6 +21,13 @@ class TestNotesTreeModel : public QObject {
         f.close();
     }
 
+    static QSet<QString> fullGrants()
+    {
+        return {QStringLiteral("vault.read"),
+                QStringLiteral("vault.write"),
+                QStringLiteral("vault.events")};
+    }
+
 private Q_SLOTS:
     void testEmptyVault()
     {
@@ -27,8 +35,9 @@ private Q_SLOTS:
         Corbomite::FileSystemAdapter fs;
         Corbomite::Vault vault(&fs);
         vault.load(tmp.path());
+        Corbomite::VaultProxy proxy(&vault, fullGrants(), QStringLiteral("test"));
 
-        Corbomite::NotesTreeModel model(&vault);
+        Corbomite::NotesTreeModel model(&proxy);
 
         QCOMPARE(model.rowCount(QModelIndex()), 0);
     }
@@ -42,7 +51,8 @@ private Q_SLOTS:
         Corbomite::FileSystemAdapter fs;
         Corbomite::Vault vault(&fs);
         vault.load(tmp.path());
-        Corbomite::NotesTreeModel model(&vault);
+        Corbomite::VaultProxy proxy(&vault, fullGrants(), QStringLiteral("test"));
+        Corbomite::NotesTreeModel model(&proxy);
 
         QCOMPARE(model.rowCount(QModelIndex()), 2);
     }
@@ -56,7 +66,8 @@ private Q_SLOTS:
         Corbomite::FileSystemAdapter fs;
         Corbomite::Vault vault(&fs);
         vault.load(tmp.path());
-        Corbomite::NotesTreeModel model(&vault);
+        Corbomite::VaultProxy proxy(&vault, fullGrants(), QStringLiteral("test"));
+        Corbomite::NotesTreeModel model(&proxy);
 
         // Root should have: "folder" directory + "top.md" file = 2 items
         QCOMPARE(model.rowCount(QModelIndex()), 2);
@@ -81,7 +92,8 @@ private Q_SLOTS:
         Corbomite::FileSystemAdapter fs;
         Corbomite::Vault vault(&fs);
         vault.load(tmp.path());
-        Corbomite::NotesTreeModel model(&vault);
+        Corbomite::VaultProxy proxy(&vault, fullGrants(), QStringLiteral("test"));
+        Corbomite::NotesTreeModel model(&proxy);
 
         auto idx = model.index(0, 0, QModelIndex());
         QCOMPARE(model.data(idx, Corbomite::NotesTreeModel::PathRole).toString(),
@@ -96,7 +108,8 @@ private Q_SLOTS:
         Corbomite::FileSystemAdapter fs;
         Corbomite::Vault vault(&fs);
         vault.load(tmp.path());
-        Corbomite::NotesTreeModel model(&vault);
+        Corbomite::VaultProxy proxy(&vault, fullGrants(), QStringLiteral("test"));
+        Corbomite::NotesTreeModel model(&proxy);
 
         auto idx = model.index(0, 0, QModelIndex());
         QString name = model.data(idx, Qt::DisplayRole).toString();
@@ -112,7 +125,8 @@ private Q_SLOTS:
         Corbomite::FileSystemAdapter fs;
         Corbomite::Vault vault(&fs);
         vault.load(tmp.path());
-        Corbomite::NotesTreeModel model(&vault);
+        Corbomite::VaultProxy proxy(&vault, fullGrants(), QStringLiteral("test"));
+        Corbomite::NotesTreeModel model(&proxy);
 
         // First item should be directory, second should be file
         auto first = model.index(0, 0, QModelIndex());
@@ -127,7 +141,8 @@ private Q_SLOTS:
         Corbomite::FileSystemAdapter fs;
         Corbomite::Vault vault(&fs);
         vault.load(tmp.path());
-        Corbomite::NotesTreeModel model(&vault);
+        Corbomite::VaultProxy proxy(&vault, fullGrants(), QStringLiteral("test"));
+        Corbomite::NotesTreeModel model(&proxy);
 
         QCOMPARE(model.rowCount(QModelIndex()), 0);
 
@@ -144,7 +159,8 @@ private Q_SLOTS:
         Corbomite::FileSystemAdapter fs;
         Corbomite::Vault vault(&fs);
         vault.load(tmp.path());
-        Corbomite::NotesTreeModel model(&vault);
+        Corbomite::VaultProxy proxy(&vault, fullGrants(), QStringLiteral("test"));
+        Corbomite::NotesTreeModel model(&proxy);
         QCOMPARE(model.rowCount(QModelIndex()), 1);
 
         auto *tf = vault.getFileByPath(QStringLiteral("note.md"));

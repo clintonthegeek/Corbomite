@@ -8,14 +8,14 @@ namespace Corbomite {
 
 class FileManagerProxy;
 class NotesTreeModel;
-class Vault;
+class VaultProxy;
 class WorkspaceController;
 
 class FileExplorerView : public QWidget
 {
     Q_OBJECT
 public:
-    FileExplorerView(Vault *vault,
+    FileExplorerView(VaultProxy *vault,
                      FileManagerProxy *fileManager,
                      WorkspaceController *workspace,
                      QWidget *parent = nullptr);
@@ -42,7 +42,7 @@ private:
     void onDeleteNote(const QString &relativePath);
     void onRenameNote(const QString &relativePath);
 
-    Vault *m_vault = nullptr;
+    VaultProxy *m_vault = nullptr;
     FileManagerProxy *m_fmProxy = nullptr;
     WorkspaceController *m_workspace = nullptr;
 

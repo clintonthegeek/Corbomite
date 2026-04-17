@@ -42,7 +42,7 @@ void TestFileExplorerPlugin::createsViewWhenVaultGranted()
 
     PluginContext ctx(makeMeta(),
         {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
-         QStringLiteral("workspace")});
+         QStringLiteral("vault.events"), QStringLiteral("workspace")});
     ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
                          nullptr, nullptr);
     plugin.load(&ctx);
@@ -74,7 +74,8 @@ void TestFileExplorerPlugin::sessionStateRoundTripsEmptyWhenNoFolders()
     FileManager fm(&vault, &cache);
 
     PluginContext ctx(makeMeta(),
-        {QStringLiteral("vault.read"), QStringLiteral("vault.write")});
+        {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
+         QStringLiteral("vault.events")});
     ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
                          nullptr, nullptr);
     plugin.load(&ctx);

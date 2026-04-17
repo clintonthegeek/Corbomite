@@ -10,7 +10,7 @@
         "Authors": [{"Name": "Corbomite Developers"}]
     },
     "X-Corbomite-Trusted": true,
-    "X-Corbomite-Permissions": ["vault.read", "vault.write", "workspace", "ui.views", "ui.menus"],
+    "X-Corbomite-Permissions": ["vault.read", "vault.write", "vault.events", "workspace", "ui.views", "ui.menus"],
     "X-Corbomite-MinVersion": "0.1.0",
     "X-Corbomite-DockArea": "left",
     "X-Corbomite-DockIcon": "folder",

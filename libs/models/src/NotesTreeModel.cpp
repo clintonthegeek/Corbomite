@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/vault/TFile.h"
-#include "corbomite/vault/Vault.h"
+#include "corbomite/vault/proxies/VaultProxy.h"
 #include <QDateTime>
 #include <algorithm>
 #include <functional>
@@ -17,7 +17,7 @@ bool isTreeFile(const TFile *tf)
 }
 }  // namespace
 
-NotesTreeModel::NotesTreeModel(Vault *vault, QObject *parent)
+NotesTreeModel::NotesTreeModel(VaultProxy *vault, QObject *parent)
     : QAbstractItemModel(parent)
     , m_vault(vault)
     , m_root(std::make_unique<TreeNode>())
@@ -25,11 +25,13 @@ NotesTreeModel::NotesTreeModel(Vault *vault, QObject *parent)
     m_root->name = QStringLiteral("root");
     m_root->isDirectory = true;
 
-    connect(m_vault, &Vault::created, this, &NotesTreeModel::onCreated);
-    connect(m_vault, &Vault::deletedFile, this, &NotesTreeModel::onDeleted);
-    connect(m_vault, &Vault::renamed, this, &NotesTreeModel::onRenamed);
-
-    if (m_vault->isLoaded()) {
+    if (m_vault) {
+        // Subscribe to the forwarded VaultProxy signals. Note: these only
+        // fire when the owning plugin holds the `vault.events` permission;
+        // without that grant the signals are defined but never emit.
+        connect(m_vault, &VaultProxy::created, this, &NotesTreeModel::onCreated);
+        connect(m_vault, &VaultProxy::deletedFile, this, &NotesTreeModel::onDeleted);
+        connect(m_vault, &VaultProxy::renamed, this, &NotesTreeModel::onRenamed);
         rebuild();
     }
 }

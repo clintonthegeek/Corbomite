@@ -10,7 +10,7 @@ namespace Corbomite {
 
 class TAbstractFile;
 class TFile;
-class Vault;
+class VaultProxy;
 
 class NotesTreeModel : public QAbstractItemModel {
     Q_OBJECT
@@ -23,7 +23,12 @@ public:
         FileTypeRole
     };
 
-    explicit NotesTreeModel(Vault *vault, QObject *parent = nullptr);
+    /// Builds a hierarchical tree of the vault's markdown + canvas files.
+    /// Subscribes to `VaultProxy::created` / `modified` / `deletedFile` /
+    /// `renamed` to rebuild reactively — the caller must have granted the
+    /// proxy `vault.read` AND `vault.events` or signals will never fire
+    /// and `getFiles()` will return empty.
+    explicit NotesTreeModel(VaultProxy *vault, QObject *parent = nullptr);
 
     // QAbstractItemModel interface
     QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
@@ -54,7 +59,7 @@ private:
     void onDeleted(TAbstractFile *f);
     void onRenamed(TAbstractFile *f, const QString &oldPath);
 
-    Vault *m_vault;
+    VaultProxy *m_vault;
     std::unique_ptr<TreeNode> m_root;
 };
 

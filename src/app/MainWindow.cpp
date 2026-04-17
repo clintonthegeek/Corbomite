@@ -24,7 +24,6 @@
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/storage/VaultConfig.h"
-#include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/core/NoteDocument.h"
 #include "reactors/AutosaveReactor.h"
 #include "SessionManager.h"
@@ -260,9 +259,6 @@ MainWindow::~MainWindow()
     m_metadataCache = nullptr;
     delete m_linkResolver;
     m_linkResolver = nullptr;
-
-    delete m_treeModel;
-    m_treeModel = nullptr;
 
     delete m_commandRegistry;
     m_commandRegistry = nullptr;
@@ -1159,10 +1155,10 @@ void MainWindow::onVaultOpened(const QString &path)
 
     const QString configPath = path + QStringLiteral("/") + m_vaultObj->configDir();
 
-    delete m_treeModel;
-    m_treeModel = new NotesTreeModel(m_vaultObj, this);
-    // m_treeModel still constructed for now (consumers TBD); FileExplorer
-    // plugin builds its own NotesTreeModel via VaultProxy::vaultRaw().
+    // NotesTreeModel lives entirely inside the FileExplorer plugin now —
+    // MainWindow used to construct one here "in case" some host-side
+    // consumer needed it, but none ever appeared. Removed in Cluster N
+    // Task 2.5 when NotesTreeModel migrated onto VaultProxy.
 
     delete m_autosave;
     m_autosave = new AutosaveReactor(m_vaultObj, this);
@@ -1426,9 +1422,6 @@ void MainWindow::onVaultClosed()
     m_metadataCache = nullptr;
     delete m_linkResolver;
     m_linkResolver = nullptr;
-
-    delete m_treeModel;
-    m_treeModel = nullptr;
 
     m_centralStack->setCurrentIndex(0);
     m_welcomeScreen->refreshRecentVaults();

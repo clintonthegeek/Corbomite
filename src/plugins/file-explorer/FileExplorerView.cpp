@@ -4,8 +4,8 @@
 #include "corbomite/core/proxies/WorkspaceController.h"
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/vault/TFile.h"
-#include "corbomite/vault/Vault.h"
 #include "corbomite/vault/proxies/FileManagerProxy.h"
+#include "corbomite/vault/proxies/VaultProxy.h"
 
 #include <KLocalizedString>
 #include <QInputDialog>
@@ -19,7 +19,7 @@
 
 namespace Corbomite {
 
-FileExplorerView::FileExplorerView(Vault *vault,
+FileExplorerView::FileExplorerView(VaultProxy *vault,
                                     FileManagerProxy *fileManager,
                                     WorkspaceController *workspace,
                                     QWidget *parent)
