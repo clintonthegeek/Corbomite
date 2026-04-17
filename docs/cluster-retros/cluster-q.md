@@ -129,36 +129,58 @@ subscription wiring.
 
 ## Cluster Q follow-ups (deferred — see PROJECT-STATE)
 
-1. **Real keyring backend for SecretStorage** (KWallet via KF6::Wallet
-   or QtKeychain). Current backend is in-process per-plugin QHash —
-   loses secrets on app exit.
-2. **GraphView main-area view-type registration.** Move GraphView,
-   GraphViewTab, GraphControlsPanel into the plugin .so; register
-   "graph" view type via ViewRegistrar in onLoad.
-3. **WorkspaceController::goToLine(activeLeaf, line)** for the Outline
-   plugin's scroll-to-heading regression.
-4. **SessionManager round-trip for FileExplorer expanded folders.**
-   Add `Plugin::saveSessionState` / `loadSessionState` virtuals (or
-   per-plugin KConfigGroup helpers) so plugins can persist UI state.
+### Closed in post-Q sweep (2026-04-17)
+
+Six of the ten follow-ups closed in an autonomous sweep across
+commits `b50fbba` → `393177e`:
+
+1. ~~**Real keyring backend for SecretStorage.**~~ **Still open.**
+   Deferred mid-sweep because KWallet / QtKeychain typically require
+   an active user session and can prompt wallet-unlock dialogs —
+   risky under SSH. Revisit when a developer is at the console.
+2. ~~**GraphView main-area view-type registration.**~~ Landed
+   2026-04-17 (`393177e`). GraphView + GraphViewTab +
+   GraphControlsPanel + CollapsibleSection moved into
+   `src/plugins/graph-view/`. Plugin's `onLoad` captures Vault +
+   SQLiteIndex + MetadataCache and registers "graph" via
+   ViewRegistrar with a factory closure. `createView` returns a
+   singleton GraphControlsPanel hosted as a Right-side tool view.
+   MainWindow's hardcoded factory registration + panel construction
+   gone. Plugin-load ordering moved before workspace deserialize.
+   Drive-by: ViewRegistrar now holds its ViewRegistry via QPointer.
+3. ~~**WorkspaceController::goToLine.**~~ Landed (`93b6ffa`).
+   `EditableFileView::setCursorLine(int)` virtual on the host side;
+   MarkdownView override dispatches to NoteEditorWidget which
+   forwards per ViewMode (Source / LivePreview / Reading).
+4. ~~**SessionManager round-trip for FileExplorer expanded
+   folders.**~~ Landed (`2ef24f9`). `Plugin::saveSessionState` /
+   `loadSessionState` virtuals; SessionManager gained
+   `setPluginSessionState(id, state)` /
+   `pluginSessionState(id)` under `_corbomite.plugins.<id>`.
+   FileExplorerPlugin serializes the tree's expand state.
 5. **Rewrite tst_propertiespanel against PropertiesView with mock
-   proxies.** End-to-end coverage works via e2e suite for now.
-6. **Reconcile Cluster Q plan with MetadataCacheReader move.** Plan
-   still says `libs/core/include/.../proxies/MetadataCacheReader.h`;
-   actual location is `libs/storage/include/.../proxies/`.
-7. **Dedicated SearchProxy** wrapping SQLiteIndex's compiled-search
-   API. Currently SQLiteIndex is exposed directly via
-   `PluginContext::searchIndex()` gated on `metadata.read` —
-   stop-gap.
-8. **Vault* / MetadataCache* raw exposure via `vaultRaw()` /
-   `metadataCacheRaw()`** is also a stop-gap. Right design is
-   richer proxies (e.g. TreeModelProxy wrapping NotesTreeModel
-   without exposing Vault*).
-9. **`focusSearchInput` shortcut** lost when SearchPanel migrated.
-   Plugin tool view is reachable but the inner QLineEdit isn't from
-   the host — needs a `Plugin::focus(activeChild)` virtual.
-10. **Per-plugin tests for the seven undocumented plugins.**
-    Only Backlinks shipped with `tst_backlinks_plugin`. The other
-    six should follow the same pattern (mock context with permissions,
-    assert createView returns / fails appropriately).
+   proxies.** **Still open.** Per-plugin test at
+   `src/plugins/properties/tests/tst_properties_plugin.cpp`
+   partially covers createView; the old tst_propertiespanel
+   writeback semantics still need a mock-context rewrite.
+6. ~~**Reconcile Cluster Q plan with MetadataCacheReader
+   move.**~~ Landed (`b50fbba`). Plan gained a reconciliation
+   note at the top of the File structure section.
+7. **Dedicated SearchProxy.** **Still open.** Current
+   `PluginContext::searchIndex()` direct exposure remains.
+8. **Raw vault / metadata exposure via `vaultRaw()` /
+   `metadataCacheRaw()`.** **Still open.** Awaits richer proxies.
+9. ~~**`focusSearchInput` shortcut.**~~ Landed (`656d73f`).
+   `Plugin::focus(QObject *view)` virtual with QWidget default;
+   SearchPlugin overrides to dispatch to SearchView's QLineEdit.
+10. ~~**Per-plugin tests for the seven undocumented plugins.**~~
+    Landed (`89f6cc3`). All seven now ship with tst_*_plugin
+    following the canonical pattern. Drive-by fix: graph-view
+    plugin subdirectory was missing from src/CMakeLists.txt; the
+    .so never actually built. Added.
+
+Follow-ups still open: #1 (keyring), #5 (properties test
+rewrite), #7 (dedicated SearchProxy), #8 (richer proxies than
+raw exposure).
 
 Length: ~830 words.
