@@ -5,7 +5,7 @@
 #include "corbomite/storage/CaseSensitivityProbe.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/IgnoreFilter.h"
-#include "corbomite/storage/VaultScanner.h"
+#include "corbomite/vault/VaultScanner.h"
 #include "corbomite/storage/VaultTrash.h"
 
 using namespace Corbomite;

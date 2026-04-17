@@ -7,7 +7,7 @@
 #include "corbomite/core/NoteMeta.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/storage/FileSystemAdapter.h"
-#include "corbomite/storage/VaultScanner.h"
+#include "corbomite/vault/VaultScanner.h"
 
 namespace Corbomite {
 

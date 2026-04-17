@@ -32,6 +32,8 @@ target_include_directories(corbomite-models
 )
 target_link_libraries(corbomite-models PUBLIC Qt6::Core Qt6::Widgets MarkoffParser::MarkoffParser)
 
+target_link_libraries(corbomite-models PUBLIC Corbomite::Vault)
+
 if(NOT PROJECT_IS_TOP_LEVEL)
     target_link_libraries(corbomite-models PUBLIC Corbomite::Core Corbomite::Storage)
 endif()

@@ -3,7 +3,7 @@
 #include <QTemporaryDir>
 #include <QDir>
 #include <QFile>
-#include "corbomite/storage/VaultScanner.h"
+#include "corbomite/vault/VaultScanner.h"
 
 class TestVaultScanner : public QObject {
     Q_OBJECT

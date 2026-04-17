@@ -12,7 +12,7 @@ target_link_libraries(tst_filesystemadapter PRIVATE Qt6::Test Corbomite::Storage
 
 add_executable(tst_vaultscanner tst_vaultscanner.cpp)
 add_test(NAME tst_vaultscanner COMMAND tst_vaultscanner)
-target_link_libraries(tst_vaultscanner PRIVATE Qt6::Test Corbomite::Storage Corbomite::Core)
+target_link_libraries(tst_vaultscanner PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage Corbomite::Core)
 
 add_executable(tst_sqliteindex tst_sqliteindex.cpp)
 add_test(NAME tst_sqliteindex COMMAND tst_sqliteindex)
@@ -33,7 +33,7 @@ target_link_libraries(tst_workspacestate PRIVATE Qt6::Test Corbomite::Storage)
 
 add_executable(tst_probe_trash_ignore tst_probe_trash_ignore.cpp)
 add_test(NAME tst_probe_trash_ignore COMMAND tst_probe_trash_ignore)
-target_link_libraries(tst_probe_trash_ignore PRIVATE Qt6::Test Corbomite::Storage Corbomite::Core)
+target_link_libraries(tst_probe_trash_ignore PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage Corbomite::Core)
 
 add_executable(tst_vaultprocess tst_vaultprocess.cpp)
 add_test(NAME tst_vaultprocess COMMAND tst_vaultprocess)

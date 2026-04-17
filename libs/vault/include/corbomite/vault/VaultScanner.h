@@ -7,6 +7,10 @@
 #include <QVector>
 #include <QString>
 
+// Moved from libs/storage/ into libs/vault/ during Cluster Q.0 Phase 2 Task
+// 2.1; header path is now corbomite/vault/VaultScanner.h. Namespace remains
+// Corbomite:: — no source changes at callers other than the #include path.
+
 namespace Corbomite {
 
 class VaultScanner {

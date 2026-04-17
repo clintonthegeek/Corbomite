@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "FileWatchReactor.h"
 #include "corbomite/models/VaultModel.h"
-#include "corbomite/storage/VaultScanner.h"
+#include "corbomite/vault/VaultScanner.h"
 #include <QDir>
 #include <QDirIterator>
 

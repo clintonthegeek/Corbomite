@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/storage/VaultScanner.h"
+#include "corbomite/vault/VaultScanner.h"
 #include <QDirIterator>
 
 namespace Corbomite {
