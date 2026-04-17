@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/core/Plugin.h"
+#include "corbomite/vault/Plugin.h"
 
 namespace Corbomite {
 

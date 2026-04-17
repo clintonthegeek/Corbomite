@@ -6,7 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets Network)
+find_package(KF6I18n REQUIRED)
+find_package(KF6CoreAddons REQUIRED)
+find_package(KF6Config REQUIRED)
 
 add_library(vault STATIC
     include/corbomite/vault/TAbstractFile.h
@@ -29,6 +32,14 @@ add_library(vault STATIC
     src/proxies/VaultProxy.cpp
     include/corbomite/vault/proxies/FileManagerProxy.h
     src/proxies/FileManagerProxy.cpp
+    include/corbomite/vault/Plugin.h
+    src/Plugin.cpp
+    include/corbomite/vault/PluginContext.h
+    src/PluginContext.cpp
+    include/corbomite/vault/PluginPermissionGrantDialog.h
+    src/PluginPermissionGrantDialog.cpp
+    include/corbomite/vault/PluginManager.h
+    src/PluginManager.cpp
 )
 set_target_properties(vault PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Vault ALIAS vault)
@@ -41,8 +52,13 @@ target_include_directories(vault
 target_link_libraries(vault
     PUBLIC
         Qt6::Core
+        Qt6::Widgets
+        Qt6::Network
         Corbomite::Core
         Corbomite::Storage
+        KF6::I18n
+        KF6::CoreAddons
+        KF6::ConfigCore
     PRIVATE
         MarkoffParser::MarkoffParser
 )

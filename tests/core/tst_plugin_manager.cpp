@@ -3,7 +3,7 @@
 #include <QJsonObject>
 #include <QSignalSpy>
 #include <QTest>
-#include "corbomite/core/PluginManager.h"
+#include "corbomite/vault/PluginManager.h"
 
 class TestPluginManager : public QObject
 {

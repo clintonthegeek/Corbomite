@@ -9,9 +9,9 @@
 #include <KConfigGroup>
 #include <KSharedConfig>
 
-#include "corbomite/core/Plugin.h"
-#include "corbomite/core/PluginContext.h"
-#include "corbomite/core/PluginManager.h"
+#include "corbomite/vault/Plugin.h"
+#include "corbomite/vault/PluginContext.h"
+#include "corbomite/vault/PluginManager.h"
 
 namespace {
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/core/PluginManager.h"
+#include "corbomite/vault/PluginManager.h"
 
-#include "corbomite/core/Plugin.h"
-#include "corbomite/core/PluginContext.h"
-#include "corbomite/core/PluginPermissionGrantDialog.h"
+#include "corbomite/vault/Plugin.h"
+#include "corbomite/vault/PluginContext.h"
+#include "corbomite/vault/PluginPermissionGrantDialog.h"
 
 #include <KConfigGroup>
 #include <KPluginFactory>

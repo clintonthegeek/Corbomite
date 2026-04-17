@@ -12,10 +12,8 @@ class QNetworkAccessManager;
 namespace Corbomite {
 
 // Forward decls — core service types (passed in via setCoreServices).
-// Note: Vault proxies were dropped in Cluster Q.0 Phase 1 (the path-only
-// Task-7 Vault + VaultReader + VaultWriter all went with it). The new
-// VaultProxy + FileManagerProxy land in libs/vault/ during Phase 9; this
-// file wires them back in at that point.
+class Vault;
+class FileManager;
 class MetadataCache;
 class Workspace;
 class CommandRegistry;
@@ -23,6 +21,8 @@ class ViewRegistry;
 class MenuEventEmitter;
 
 // Forward decls — proxy types (owned by PluginContext, lazy-constructed).
+class VaultProxy;
+class FileManagerProxy;
 class MetadataCacheReader;
 class WorkspaceController;
 class CommandRegistrar;
@@ -49,7 +49,9 @@ public:
     /// Install core-service references. Must be called before the plugin
     /// invokes any granted accessor. Pass nullptr for services the host
     /// does not provide; the corresponding accessor will then return nullptr.
-    void setCoreServices(MetadataCache *metadata,
+    void setCoreServices(Vault *vault,
+                         FileManager *fileManager,
+                         MetadataCache *metadata,
                          Workspace *workspace,
                          CommandRegistry *commands,
                          ViewRegistry *views,
@@ -63,6 +65,8 @@ public:
 
     // Permission-gated accessors. Lazy-constructed; nullptr if either permission
     // is ungranted or the underlying core service is null.
+    VaultProxy            *vault() const;           // "vault.read" || "vault.write" || "vault.events"
+    FileManagerProxy      *fileManager() const;     // "vault.read" || "vault.write" || "metadata.read"
     MetadataCacheReader   *metadataCache() const;   // "metadata.read"
     WorkspaceController   *workspace() const;       // "workspace"
     CommandRegistrar      *commands() const;        // "ui.commands"
@@ -80,6 +84,8 @@ private:
     QSet<QString>  m_granted;
 
     // Owned proxies (lazy)
+    mutable VaultProxy          *m_vaultProxy = nullptr;
+    mutable FileManagerProxy    *m_fileManagerProxy = nullptr;
     mutable MetadataCacheReader *m_metadataReader = nullptr;
     mutable WorkspaceController *m_workspaceController = nullptr;
     mutable CommandRegistrar    *m_commandRegistrar = nullptr;
@@ -89,6 +95,8 @@ private:
     mutable ProcessSpawner      *m_processSpawner = nullptr;
 
     // Non-owning core service references
+    Vault                 *m_vault = nullptr;
+    FileManager           *m_fileManager = nullptr;
     MetadataCache         *m_metadata = nullptr;
     Workspace             *m_workspace = nullptr;
     CommandRegistry       *m_commandRegistry = nullptr;

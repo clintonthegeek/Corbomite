@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/core/PluginPermissionGrantDialog.h"
+#include "corbomite/vault/PluginPermissionGrantDialog.h"
 
 #include <KLocalizedString>
 

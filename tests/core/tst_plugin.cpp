@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
-#include "corbomite/core/Plugin.h"
-#include "corbomite/core/PluginContext.h"
+#include "corbomite/vault/Plugin.h"
+#include "corbomite/vault/PluginContext.h"
 
 class TrackingPlugin : public Corbomite::Plugin
 {

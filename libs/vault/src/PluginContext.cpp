@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/core/PluginContext.h"
+#include "corbomite/vault/PluginContext.h"
 
 #include "corbomite/core/proxies/CommandRegistrar.h"
 #include "corbomite/core/proxies/MenuInjector.h"
@@ -8,12 +8,17 @@
 #include "corbomite/core/proxies/SecretStorage.h"
 #include "corbomite/core/proxies/ViewRegistrar.h"
 #include "corbomite/core/proxies/WorkspaceController.h"
+#include "corbomite/vault/proxies/FileManagerProxy.h"
+#include "corbomite/vault/proxies/VaultProxy.h"
 
 #include <KSharedConfig>
 
 namespace Corbomite {
 
 namespace {
+constexpr auto kVaultRead    = "vault.read";
+constexpr auto kVaultWrite   = "vault.write";
+constexpr auto kVaultEvents  = "vault.events";
 constexpr auto kMetadataRead = "metadata.read";
 constexpr auto kWorkspace    = "workspace";
 constexpr auto kUiCommands   = "ui.commands";
@@ -30,6 +35,8 @@ PluginContext::PluginContext(PluginMetaData meta, QSet<QString> granted)
 
 PluginContext::~PluginContext()
 {
+    delete m_vaultProxy;
+    delete m_fileManagerProxy;
     delete m_metadataReader;
     delete m_workspaceController;
     delete m_commandRegistrar;
@@ -39,17 +46,53 @@ PluginContext::~PluginContext()
     delete m_processSpawner;
 }
 
-void PluginContext::setCoreServices(MetadataCache *m, Workspace *w,
+void PluginContext::setCoreServices(Vault *v, FileManager *fm,
+                                     MetadataCache *m, Workspace *w,
                                      CommandRegistry *c, ViewRegistry *vr,
                                      MenuEventEmitter *me,
                                      QNetworkAccessManager *n)
 {
+    m_vault = v;
+    m_fileManager = fm;
     m_metadata = m;
     m_workspace = w;
     m_commandRegistry = c;
     m_viewRegistry = vr;
     m_menuEmitter = me;
     m_network = n;
+}
+
+VaultProxy *PluginContext::vault() const
+{
+    // VaultProxy gates each method on its own token. Construct the proxy if
+    // the plugin holds ANY of the vault.* tokens — otherwise there is no
+    // reachable method and nullptr is the right answer.
+    const bool anyVaultPerm =
+        hasPermission(QLatin1String(kVaultRead))
+        || hasPermission(QLatin1String(kVaultWrite))
+        || hasPermission(QLatin1String(kVaultEvents));
+    if (!anyVaultPerm || !m_vault) return nullptr;
+    if (!m_vaultProxy) {
+        m_vaultProxy = new VaultProxy(m_vault, m_granted,
+                                      m_meta.base().pluginId());
+    }
+    return m_vaultProxy;
+}
+
+FileManagerProxy *PluginContext::fileManager() const
+{
+    // FileManagerProxy gates per-method: vault.read for queries,
+    // vault.write for mutations, metadata.read for generateMarkdownLink.
+    const bool anyFmPerm =
+        hasPermission(QLatin1String(kVaultRead))
+        || hasPermission(QLatin1String(kVaultWrite))
+        || hasPermission(QLatin1String(kMetadataRead));
+    if (!anyFmPerm || !m_fileManager) return nullptr;
+    if (!m_fileManagerProxy) {
+        m_fileManagerProxy = new FileManagerProxy(m_fileManager, m_granted,
+                                                  m_meta.base().pluginId());
+    }
+    return m_fileManagerProxy;
 }
 
 MetadataCacheReader *PluginContext::metadataCache() const

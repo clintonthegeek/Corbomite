@@ -219,28 +219,28 @@ target_link_libraries(tst_plugin_metadata PRIVATE Qt6::Test Corbomite::Core KF6:
 
 add_executable(tst_plugin tst_plugin.cpp)
 add_test(NAME tst_plugin COMMAND tst_plugin)
-target_link_libraries(tst_plugin PRIVATE Qt6::Test Corbomite::Core KF6::CoreAddons)
+target_link_libraries(tst_plugin PRIVATE Qt6::Test Corbomite::Core Corbomite::Vault KF6::CoreAddons)
 set_tests_properties(tst_plugin PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_plugin_context tst_plugin_context.cpp)
 add_test(NAME tst_plugin_context COMMAND tst_plugin_context)
-target_link_libraries(tst_plugin_context PRIVATE Qt6::Test Corbomite::Core KF6::CoreAddons)
+target_link_libraries(tst_plugin_context PRIVATE Qt6::Test Corbomite::Core Corbomite::Vault Corbomite::Storage KF6::CoreAddons)
 set_tests_properties(tst_plugin_context PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_plugin_permission_dialog tst_plugin_permission_dialog.cpp)
 add_test(NAME tst_plugin_permission_dialog COMMAND tst_plugin_permission_dialog)
-target_link_libraries(tst_plugin_permission_dialog PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+target_link_libraries(tst_plugin_permission_dialog PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Vault)
 set_tests_properties(tst_plugin_permission_dialog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_plugin_manager tst_plugin_manager.cpp)
 add_test(NAME tst_plugin_manager COMMAND tst_plugin_manager)
-target_link_libraries(tst_plugin_manager PRIVATE Qt6::Test Corbomite::Core KF6::CoreAddons)
+target_link_libraries(tst_plugin_manager PRIVATE Qt6::Test Corbomite::Core Corbomite::Vault KF6::CoreAddons)
 set_tests_properties(tst_plugin_manager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_plugin_manager_lifecycle tst_plugin_manager_lifecycle.cpp)
 add_test(NAME tst_plugin_manager_lifecycle COMMAND tst_plugin_manager_lifecycle)
 target_link_libraries(tst_plugin_manager_lifecycle PRIVATE
-    Qt6::Test Qt6::Widgets Corbomite::Core KF6::CoreAddons KF6::ConfigCore)
+    Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Vault KF6::CoreAddons KF6::ConfigCore)
 set_tests_properties(tst_plugin_manager_lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_proxy_metadata tst_proxy_metadata.cpp)

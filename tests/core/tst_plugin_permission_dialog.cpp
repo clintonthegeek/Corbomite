@@ -2,7 +2,7 @@
 #include <QTest>
 #include <QSet>
 #include <QStringList>
-#include "corbomite/core/PluginPermissionGrantDialog.h"
+#include "corbomite/vault/PluginPermissionGrantDialog.h"
 
 class TestPluginPermissionDialog : public QObject
 {
