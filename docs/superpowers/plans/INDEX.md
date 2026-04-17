@@ -24,7 +24,8 @@
 | N | Plugin-ready surfaces | — | — | Deferred | builds incrementally on B + C |
 | O | Advanced query layer (post-parity) | [2026-04-14-cluster-o-query-layer-SCOUTING.md](2026-04-14-cluster-o-query-layer-SCOUTING.md) | Scouting | Scouting doc | additive graph+FTS over markdown vault; **post-parity** |
 | P | Graffodil adoption (internal refactor) | [2026-04-14-cluster-p-graffodil-adoption-SCOUTING.md](2026-04-14-cluster-p-graffodil-adoption-SCOUTING.md) | Scouting | Scouting doc | port libs/forcegraph + libs/canvas onto Graffodil; **parallelisable with parity** |
-| Q | Internal-plugin wrapping + permissions | — | — | Plan-needed (brainstorm pending) | `InternalPlugin` `Component` wrapper around built-in features + `core-plugins.json` + Settings toggle + plugin-permissions system; design input at `memory/project_cluster_q_permissions.md` |
+| Q | Internal-plugin wrapping + permissions | [full](2026-04-16-cluster-q-internal-plugin-wrapping.md) | Full | On hold (Tasks 1-6 landed; 7-12 rewrite after Q.0) | Paused until Q.0 lands. Tasks 1-6 (Plugin/PluginContext/PluginManager + grant dialog + proxy scaffold) shipped on `35a9c07`, `b01b998`, `4fa4509`, `b9a271d`, `b67e7ed`. Tasks 7-12 (PluginContext rewire + 8 internal-plugin migrations) are re-planned against the new Vault during Q.0 Phase 11. |
+| Q.0 | Vault architecture refactor (Cluster Q prerequisite) | [full](2026-04-16-cluster-q0-vault-architecture.md) | Full | In progress (Phase 1 done 2026-04-16) | Collapses the three-way Vault split (`Corbomite::Vault` stub / `VaultModel` / `VaultService`) into a single `libs/vault/` library with `Vault` + `FileManager` + `TFile`/`TFolder`/`TAbstractFile`. Phase 1 (scaffold + handle types + proxy demolition) landed. Phase 2 (DataAdapter ownership + file watcher) next. Spec at `../specs/2026-04-16-vault-architecture-design.md`. |
 
 ## Parallel long-term internal refactors (not cluster-numbered)
 
