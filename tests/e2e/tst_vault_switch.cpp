@@ -17,7 +17,7 @@
 
 #include "app/MainWindow.h"
 #include "app/CorbomiteApp.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/Vault.h"
 
 using namespace Corbomite;
 
@@ -79,7 +79,7 @@ private Q_SLOTS:
         QVERIFY(m_app->openVault(m_vaultA.path()));
         settle(500);
         QVERIFY(m_app->isOpen());
-        QCOMPARE(m_app->vault()->allNotes().size(), 2);
+        QCOMPARE(m_mainWindow->vaultObj()->getMarkdownFiles().size(), 2);
 
         // Open a note so there is editor state to tear down
         m_mainWindow->onNoteActivated(QStringLiteral("a1.md"));
@@ -102,7 +102,7 @@ private Q_SLOTS:
 
         QVERIFY2(opened, "openVault(B) while A is live failed");
         QVERIFY(m_app->isOpen());
-        QCOMPARE(m_app->vault()->allNotes().size(), 1);
+        QCOMPARE(m_mainWindow->vaultObj()->getMarkdownFiles().size(), 1);
 
         qDebug() << "Vault swap A→B: survived. closedSpy=" << closedSpy.count()
                  << "openedSpy=" << openedSpy.count();
@@ -115,7 +115,7 @@ private Q_SLOTS:
         const bool opened = m_app->openVault(m_vaultA.path());
         settle(500);
         QVERIFY(opened);
-        QCOMPARE(m_app->vault()->allNotes().size(), 2);
+        QCOMPARE(m_mainWindow->vaultObj()->getMarkdownFiles().size(), 2);
         qDebug() << "Vault swap B→A: survived.";
     }
 

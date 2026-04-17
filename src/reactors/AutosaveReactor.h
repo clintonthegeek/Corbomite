@@ -8,13 +8,13 @@
 namespace Corbomite {
 
 class NoteDocument;
-class VaultModel;
+class Vault;
 
 class AutosaveReactor : public QObject {
     Q_OBJECT
 
 public:
-    explicit AutosaveReactor(VaultModel *vault, QObject *parent = nullptr);
+    explicit AutosaveReactor(Vault *vault, QObject *parent = nullptr);
 
     void watchDocument(NoteDocument *doc);
     void unwatchDocument(NoteDocument *doc);
@@ -26,7 +26,7 @@ Q_SIGNALS:
 private:
     void onModificationChanged(NoteDocument *doc, bool modified);
 
-    VaultModel *m_vault;
+    Vault *m_vault;
     QHash<NoteDocument *, QTimer *> m_timers;
     int m_delayMs = 2000;
 };

@@ -5,14 +5,14 @@
 
 namespace Corbomite {
 
-class VaultModel;
+class Vault;
 
 // Built-in suggester for `[[wiki-link]]` completion. Activates when the
 // user types `[[` and continues until the cursor leaves the link context
 // (closing `]`, newline, or moving outside the trigger range).
 class WikiLinkSuggest : public EditorSuggest {
 public:
-    explicit WikiLinkSuggest(VaultModel *vault);
+    explicit WikiLinkSuggest(Vault *vault);
 
     std::optional<EditorSuggestTriggerInfo> onTrigger(int cursorPos,
                                                         const QString &lineText,
@@ -21,8 +21,10 @@ public:
     QString selectSuggestion(const QString &chosen,
                               const EditorSuggestTriggerInfo &ctx) override;
 
+    void setVault(Vault *vault) { m_vault = vault; }
+
 private:
-    VaultModel *m_vault;
+    Vault *m_vault;
 };
 
 } // namespace Corbomite

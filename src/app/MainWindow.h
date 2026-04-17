@@ -70,6 +70,7 @@ public:
     /// Accessor used by e2e tests to wire panels/editors defensively
     /// when propagateServicesToView hasn't fired yet under offscreen.
     Vault *vaultObj() const { return m_vaultObj; }
+    FileManager *fileManager() const { return m_fileManager; }
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
@@ -95,7 +96,7 @@ private:
     void openGraphView();
     void insertTemplate();
     void openDailyNote();
-    void onVaultOpened();
+    void onVaultOpened(const QString &path);
     void onVaultClosed();
     void onCursorInfoChanged(int line, int column, int wordCount);
     void updateVaultActions();

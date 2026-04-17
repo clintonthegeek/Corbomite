@@ -28,7 +28,7 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "sidebar/BacklinksPanel.h"
 #include "sidebar/OutlinksPanel.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/Vault.h"
 #include "corbomite/core/NoteDocument.h"
 
 using namespace Corbomite;
@@ -90,7 +90,7 @@ private Q_SLOTS:
         settle(800);  // Allow rebuildVault + cache reconcile + panel refresh.
 
         // Open Hub.md — use openDocument so content is loaded and parsed.
-        auto *vault = m_app->vault();
+        auto *vault = m_mainWindow->vaultObj();
         QVERIFY(vault);
         auto *hubDoc = vault->openDocument(QStringLiteral("Hub.md"));
         QVERIFY(hubDoc);
@@ -112,7 +112,7 @@ private Q_SLOTS:
     {
         // Vault already open from previous test (test order matters here;
         // QTest runs methods in declaration order).
-        auto *vault = m_app->vault();
+        auto *vault = m_mainWindow->vaultObj();
         QVERIFY(vault);
         auto *spokeDoc = vault->openDocument(QStringLiteral("Spoke.md"));
         QVERIFY(spokeDoc);

@@ -30,7 +30,6 @@
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/storage/VaultConfig.h"
-#include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/core/NoteDocument.h"
 #include "reactors/AutosaveReactor.h"
@@ -92,12 +91,12 @@ namespace {
 class VaultScopedResources : public Corbomite::Core::VaultResourceProvider
 {
 public:
-    explicit VaultScopedResources(VaultModel *vault) : m_vault(vault) {}
+    explicit VaultScopedResources(Vault *vault) : m_vault(vault) {}
 
     QUrl resolveImage(const QString &name) const override
     {
         if (!m_vault) return {};
-        const QString path = m_vault->path() + QLatin1Char('/') + name;
+        const QString path = m_vault->basePath() + QLatin1Char('/') + name;
         if (QFileInfo::exists(path)) return QUrl::fromLocalFile(path);
         return {};
     }
@@ -105,7 +104,7 @@ public:
     QByteArray loadImageBytes(const QString &name) const override
     {
         if (!m_vault) return {};
-        const QString path = m_vault->path() + QLatin1Char('/') + name;
+        const QString path = m_vault->basePath() + QLatin1Char('/') + name;
         QFile f(path);
         if (!f.open(QIODevice::ReadOnly)) return {};
         return f.readAll();
@@ -123,22 +122,22 @@ public:
         if (auto *doc = m_vault->cachedDocument(rel)) {
             return doc->markdown();
         }
-        const QString abs = m_vault->path() + QLatin1Char('/') + rel;
+        const QString abs = m_vault->basePath() + QLatin1Char('/') + rel;
         QFile f(abs);
         if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
             return QString::fromUtf8(f.readAll());
         }
         const QString filename =
             rel.mid(rel.lastIndexOf(QLatin1Char('/')) + 1);
-        const auto allNotes = m_vault->allNotes();
-        for (const auto &meta : allNotes) {
-            if (meta.relativePath == filename
-                || meta.relativePath.endsWith(QLatin1Char('/') + filename)) {
-                if (auto *doc = m_vault->cachedDocument(meta.relativePath)) {
+        const auto files = m_vault->getMarkdownFiles();
+        for (auto *tf : files) {
+            if (!tf) continue;
+            if (tf->path == filename
+                || tf->path.endsWith(QLatin1Char('/') + filename)) {
+                if (auto *doc = m_vault->cachedDocument(tf->path)) {
                     return doc->markdown();
                 }
-                QFile alt(m_vault->path() + QLatin1Char('/')
-                          + meta.relativePath);
+                QFile alt(m_vault->basePath() + QLatin1Char('/') + tf->path);
                 if (alt.open(QIODevice::ReadOnly | QIODevice::Text)) {
                     return QString::fromUtf8(alt.readAll());
                 }
@@ -150,16 +149,16 @@ public:
     QUrl resolveWikiLink(const QString &target) const override
     {
         if (!m_vault) return {};
-        return QUrl::fromLocalFile(m_vault->path() + QLatin1Char('/') + target);
+        return QUrl::fromLocalFile(m_vault->basePath() + QLatin1Char('/') + target);
     }
 
     bool wikiLinkExists(const QString &target) const override
     {
-        return m_vault ? m_vault->noteExists(target) : false;
+        return m_vault && m_vault->getAbstractFileByPath(target) != nullptr;
     }
 
 private:
-    VaultModel *m_vault;
+    Vault *m_vault;
 };
 
 } // namespace
@@ -196,7 +195,7 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     m_hoverSources = new HoverLinkSourceRegistry(this);
     m_hoverSources->registerBuiltins();
     m_hoverPopover = new HoverPopover(this);
-    m_hoverPopover->setVaultModel(m_app->vault());
+    // Vault binding deferred to onVaultOpened — no vault exists yet.
 
     m_embedRegistry = std::make_unique<Corbomite::Core::EmbedRegistry>();
     m_embedRenderer = std::make_unique<Corbomite::ReadingView::EmbedRenderer>(
@@ -206,8 +205,10 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     m_hoverPopover->setEmbedRenderer(m_embedRenderer.get());
 
     m_suggestManager = new EditorSuggestManager(this);
-    m_wikiSuggest = new WikiLinkSuggest(m_app->vault());
-    m_tagSuggest = new TagSuggest(m_app->vault());
+    // Suggesters start nullptr-bound; MainWindow rebinds on vault
+    // open/close via their setters.
+    m_wikiSuggest = new WikiLinkSuggest(nullptr);
+    m_tagSuggest = new TagSuggest(nullptr);
     m_suggestManager->registerSuggest(m_wikiSuggest);
     m_suggestManager->registerSuggest(m_tagSuggest);
 
@@ -497,7 +498,7 @@ void MainWindow::setupActions()
                                               QString(), &ok);
         if (ok && !name.isEmpty()) {
             QString relPath = name + QStringLiteral(".canvas");
-            QString absPath = m_app->vault()->path() + QLatin1Char('/') + relPath;
+            QString absPath = m_vaultObj->basePath() + QLatin1Char('/') + relPath;
             Canvas::CanvasDocument emptyDoc;
             emptyDoc.saveToFile(absPath);
             openFileInWorkspace(relPath);
@@ -828,10 +829,10 @@ void MainWindow::setupSidebars()
         QString name = QInputDialog::getText(this, i18n("New Note"),
                                               i18n("Note name:"), QLineEdit::Normal,
                                               QString(), &ok);
-        if (ok && !name.isEmpty()) {
-            auto *doc = m_app->vault()->createNote(name, folder);
-            if (doc)
-                openFileInWorkspace(doc->relativePath());
+        if (ok && !name.isEmpty() && m_fileManager) {
+            auto *tf = m_fileManager->createMarkdownNote(name, folder);
+            if (tf)
+                openFileInWorkspace(tf->path);
         }
     });
     connect(m_fileExplorer, &FileExplorerPanel::deleteNoteRequested,
@@ -843,8 +844,8 @@ void MainWindow::setupSidebars()
             KStandardGuiItem::del(),
             KStandardGuiItem::cancel()
         );
-        if (result == KMessageBox::PrimaryAction) {
-            m_app->vault()->deleteNoteByPath(path);
+        if (result == KMessageBox::PrimaryAction && m_fileManager) {
+            m_fileManager->trashFileByPath(path);
         }
     });
     connect(m_fileExplorer, &FileExplorerPanel::renameNoteRequested,
@@ -864,7 +865,7 @@ void MainWindow::setupSidebars()
             QString newPath = folder.isEmpty()
                 ? newName + QStringLiteral(".md")
                 : folder + QLatin1Char('/') + newName + QStringLiteral(".md");
-            m_app->vault()->renameNoteByPath(path, newPath);
+            if (m_fileManager) m_fileManager->renameFileByPath(path, newPath);
         }
     });
 
@@ -907,8 +908,9 @@ void MainWindow::setupSidebars()
             this, &MainWindow::onNoteActivated);
     connect(m_outlinksPanel, &OutlinksPanel::createNoteRequested,
             this, [this](const QString &name) {
-        auto *doc = m_app->vault()->createNote(name, QString());
-        if (doc) openFileInWorkspace(doc->relativePath());
+        if (!m_fileManager) return;
+        auto *tf = m_fileManager->createMarkdownNote(name, QString());
+        if (tf) openFileInWorkspace(tf->path);
     });
 
     auto *propertiesView = createToolView(
@@ -1020,10 +1022,10 @@ void MainWindow::createNewNote()
     QString name = QInputDialog::getText(this, i18n("New Note"),
                                           i18n("Note name:"), QLineEdit::Normal,
                                           QString(), &ok);
-    if (ok && !name.isEmpty()) {
-        auto *doc = m_app->vault()->createNote(name, QString());
-        if (doc)
-            openFileInWorkspace(doc->relativePath());
+    if (ok && !name.isEmpty() && m_fileManager) {
+        auto *tf = m_fileManager->createMarkdownNote(name, QString());
+        if (tf)
+            openFileInWorkspace(tf->path);
     }
 }
 
@@ -1034,11 +1036,12 @@ void MainWindow::saveCurrentNote()
     if (!leaf || !leaf->view()) return;
 
     // For MarkdownView the NoteDocument is the source of truth for
-    // modification state. Save through VaultModel which clears
-    // NoteDocument::isModified() and emits the noteSaved signal.
+    // modification state. Save through Vault::saveDocument — it writes
+    // via Vault::modify so the self-write echo-suppression ledger keeps
+    // our own save from re-firing as an external modify event.
     auto *editor = activeEditor();
-    if (editor && editor->noteDocument()) {
-        m_app->vault()->saveNote(editor->noteDocument());
+    if (editor && editor->noteDocument() && m_vaultObj) {
+        m_vaultObj->saveDocument(editor->noteDocument());
         return;
     }
 
@@ -1110,8 +1113,9 @@ void MainWindow::showQuickSwitcher()
             this, &MainWindow::onNoteActivated);
     connect(switcher, &QuickSwitcher::createNoteRequested,
             this, [this](const QString &name) {
-        auto *doc = m_app->vault()->createNote(name, QString());
-        if (doc) openFileInWorkspace(doc->relativePath());
+        if (!m_fileManager) return;
+        auto *tf = m_fileManager->createMarkdownNote(name, QString());
+        if (tf) openFileInWorkspace(tf->path);
     });
 
     switcher->show();
@@ -1124,9 +1128,9 @@ void MainWindow::onNoteActivated(const QString &relativePath)
         return;
     }
 
-    if (m_app->vault()->noteExists(relativePath)) {
+    if (m_vaultObj && m_vaultObj->getAbstractFileByPath(relativePath)) {
         openFileInWorkspace(relativePath);
-    } else {
+    } else if (m_fileManager) {
         QString name = relativePath;
         if (name.endsWith(QStringLiteral(".md"))) name.chop(3);
         QString folder;
@@ -1135,54 +1139,46 @@ void MainWindow::onNoteActivated(const QString &relativePath)
             folder = name.left(lastSlash);
             name = name.mid(lastSlash + 1);
         }
-        auto *doc = m_app->vault()->createNote(name, folder);
-        if (doc)
-            openFileInWorkspace(doc->relativePath());
+        auto *tf = m_fileManager->createMarkdownNote(name, folder);
+        if (tf)
+            openFileInWorkspace(tf->path);
     }
 }
 
-void MainWindow::onVaultOpened()
+void MainWindow::onVaultOpened(const QString &path)
 {
-    auto *vault = m_app->vault();
-
     m_centralStack->setCurrentIndex(1);
     setSidebarsVisible(true);
 
     updateWindowTitle();
 
-    m_recentVaults->addUrl(QUrl::fromLocalFile(vault->path()));
+    m_recentVaults->addUrl(QUrl::fromLocalFile(path));
     auto config = KSharedConfig::openConfig();
     KConfigGroup recentGroup = config->group(QStringLiteral("RecentVaults"));
     m_recentVaults->saveEntries(recentGroup);
     config->sync();
 
-    // Q.0 P6 — canonical Vault. Construct before NotesTreeModel / LinkResolver
+    // Canonical Vault. Construct before NotesTreeModel / LinkResolver
     // so consumers can bind against the loaded tree. MetadataCache +
     // FileManager are created below (FileManager depends on MetadataCache).
     if (!m_fsAdapter) m_fsAdapter = std::make_unique<FileSystemAdapter>();
     delete m_vaultObj;
     m_vaultObj = new Vault(m_fsAdapter.get(), this);
-    m_vaultObj->load(vault->path());
+    m_vaultObj->load(path);
+
+    const QString configPath = path + QStringLiteral("/") + m_vaultObj->configDir();
 
     delete m_treeModel;
     m_treeModel = new NotesTreeModel(m_vaultObj, this);
     m_fileExplorer->setModel(m_treeModel);
 
     delete m_autosave;
-    m_autosave = new AutosaveReactor(m_app->vault(), this);
-
-    // TODO Q.0 P7: re-wire file-watcher through Vault. FileWatchReactor moved
-    // to libs/vault as private Corbomite::detail::Watcher in Q.0 P2 T2.2;
-    // Vault's public `created` / `modified` / `deletedFile` / `renamed`
-    // signals (Q.0 P2 T2.4) will drive the TextFileView + MetadataCache
-    // pipelines below once Phase 7 migrates them. For now the pipeline is
-    // suppressed — external filesystem changes won't propagate to the UI.
+    m_autosave = new AutosaveReactor(m_vaultObj, this);
 
     // Set file resolver so FileView::setState can load NoteDocuments
     m_viewRegistry->setFileResolver([this](const QString &relPath) -> NoteDocument * {
-        if (!m_app || !m_app->isOpen())
-            return nullptr;
-        return m_app->vault()->openDocument(relPath);
+        if (!m_vaultObj) return nullptr;
+        return m_vaultObj->openDocument(relPath);
     });
 
     // LinkResolver
@@ -1190,10 +1186,10 @@ void MainWindow::onVaultOpened()
     m_linkResolver = new LinkResolver();
     {
         QStringList allPaths;
-        const auto allNotes = vault->allNotes();
-        allPaths.reserve(allNotes.size());
-        for (const auto &meta : allNotes) {
-            allPaths.append(meta.relativePath);
+        const auto files = m_vaultObj->getMarkdownFiles();
+        allPaths.reserve(files.size());
+        for (auto *tf : files) {
+            if (tf) allPaths.append(tf->path);
         }
         m_linkResolver->setVaultPaths(allPaths);
     }
@@ -1202,24 +1198,30 @@ void MainWindow::onVaultOpened()
     delete m_metadataCache;
     m_metadataCache = new MetadataCache(*m_linkResolver, this);
 
-    // Q.0 P6 — FileManager depends on MetadataCache (constructed just above).
+    // FileManager depends on MetadataCache (constructed just above).
     delete m_fileManager;
     m_fileManager = new FileManager(m_vaultObj, m_metadataCache, this);
 
-    m_popoverResources = std::make_unique<VaultScopedResources>(vault);
+    m_popoverResources = std::make_unique<VaultScopedResources>(m_vaultObj);
     if (m_embedRenderer) {
         m_embedRenderer->setMetadataCache(m_metadataCache);
         m_embedRenderer->setResources(m_popoverResources.get());
     }
 
+    // Wire suggesters + hover popover against the live vault.
+    m_hoverPopover->setVault(m_vaultObj);
+    if (m_wikiSuggest) m_wikiSuggest->setVault(m_vaultObj);
+
+    QDir().mkpath(configPath);
+
     delete m_searchIndex;
     m_searchIndex = new SQLiteIndex(this);
-    m_searchIndex->open(vault->configPath() + QStringLiteral("/index.sqlite"));
-    m_searchIndex->setVaultRoot(vault->path());
+    m_searchIndex->open(configPath + QStringLiteral("/index.sqlite"));
+    m_searchIndex->setVaultRoot(path);
     m_searchIndex->setMetadataCache(m_metadataCache);
+    if (m_tagSuggest) m_tagSuggest->setIndex(m_searchIndex);
 
-    QDir().mkpath(vault->configPath());
-    m_metadataCache->open(vault->configPath() + QStringLiteral("/metadata-cache.db"));
+    m_metadataCache->open(configPath + QStringLiteral("/metadata-cache.db"));
 
     m_searchIndex->reconcileWithCache();
 
@@ -1230,17 +1232,16 @@ void MainWindow::onVaultOpened()
 
     {
         QStringList notePaths;
-        const auto allNotes = vault->allNotes();
-        notePaths.reserve(allNotes.size());
-        for (const auto &meta : allNotes) {
-            notePaths.append(meta.relativePath);
+        const auto files = m_vaultObj->getMarkdownFiles();
+        notePaths.reserve(files.size());
+        for (auto *tf : files) {
+            if (tf) notePaths.append(tf->path);
         }
-        m_metadataCache->rebuildVault(vault->path(), notePaths);
+        m_metadataCache->rebuildVault(path, notePaths);
     }
 
     m_searchPanel->setIndex(m_searchIndex);
     m_searchPanel->setMetadataCache(m_metadataCache);
-    m_app->vault()->setSearchIndex(m_searchIndex);
 
     m_backlinksPanel->setIndex(m_searchIndex);
     m_backlinksPanel->setMetadataCache(m_metadataCache);
@@ -1256,12 +1257,12 @@ void MainWindow::onVaultOpened()
 
     // Update MetadataCache on note saves
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
-        if (!m_metadataCache || !m_app->vault()) return;
-        auto *doc = m_app->vault()->cachedDocument(relPath);
+        if (!m_metadataCache || !m_vaultObj) return;
+        auto *doc = m_vaultObj->cachedDocument(relPath);
         if (!doc) return;
         const QByteArray bytes = doc->markdown().toUtf8();
         const QString absPath =
-            m_app->vault()->path() + QLatin1Char('/') + relPath;
+            m_vaultObj->basePath() + QLatin1Char('/') + relPath;
         const qint64 mtimeMs = QFileInfo(absPath).lastModified().toMSecsSinceEpoch();
         m_metadataCache->onFileChanged(relPath, bytes, mtimeMs);
     });
@@ -1313,7 +1314,7 @@ void MainWindow::onVaultOpened()
     // Session manager — restore workspace
     delete m_sessionManager;
     m_sessionManager = new SessionManager(this);
-    m_sessionManager->setSessionPath(vault->path() + QStringLiteral("/.obsidian/workspace.json"));
+    m_sessionManager->setSessionPath(path + QStringLiteral("/.obsidian/workspace.json"));
     m_sessionManager->load();
 
     const auto geometry = m_sessionManager->windowGeometry();
@@ -1358,12 +1359,12 @@ void MainWindow::onVaultOpened()
 
     {
         FileSystemAdapter fs;
-        VaultConfig vaultConfig(&fs, vault->path());
+        VaultConfig vaultConfig(&fs, path);
         m_templateService->initFromVaultConfig(vaultConfig);
     }
 
     delete m_dailyNoteService;
-    m_dailyNoteService = new DailyNoteService(m_vaultObj, m_app->vault(),
+    m_dailyNoteService = new DailyNoteService(m_vaultObj, m_fileManager,
                                                 m_templateService, this);
     m_dailyNoteService->setDateFormat(settings->dailyNoteDateFormat());
     m_dailyNoteService->setFolder(settings->dailyNoteFolder());
@@ -1371,7 +1372,7 @@ void MainWindow::onVaultOpened()
 
     {
         FileSystemAdapter fs;
-        VaultConfig vaultConfig(&fs, vault->path());
+        VaultConfig vaultConfig(&fs, path);
         m_dailyNoteService->initFromVaultConfig(vaultConfig);
     }
 
@@ -1402,7 +1403,9 @@ void MainWindow::onVaultClosed()
     delete m_dailyNoteService;
     m_dailyNoteService = nullptr;
 
-    m_app->vault()->setSearchIndex(nullptr);
+    if (m_wikiSuggest) m_wikiSuggest->setVault(nullptr);
+    if (m_tagSuggest) m_tagSuggest->setIndex(nullptr);
+    if (m_hoverPopover) m_hoverPopover->setVault(nullptr);
 
     m_backlinksPanel->setIndex(nullptr);
     m_backlinksPanel->setMetadataCache(nullptr);
@@ -1584,8 +1587,8 @@ void MainWindow::updateWindowTitle(NoteEditorWidget *editor)
         title += QStringLiteral(" \u2014 ");
     }
 
-    if (m_app->isOpen()) {
-        title += m_app->vault()->name();
+    if (m_vaultObj && m_vaultObj->isLoaded()) {
+        title += m_vaultObj->getName();
         title += QStringLiteral(" \u2014 ");
     }
 

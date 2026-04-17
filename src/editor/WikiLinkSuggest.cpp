@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "WikiLinkSuggest.h"
 
-#include "corbomite/core/NoteMeta.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/Vault.h"
 #include "corbomite/search/FuzzyMatcher.h"
 
 namespace Corbomite {
 
-WikiLinkSuggest::WikiLinkSuggest(VaultModel *vault)
+WikiLinkSuggest::WikiLinkSuggest(Vault *vault)
     : m_vault(vault)
 {
 }
@@ -40,15 +40,11 @@ QStringList WikiLinkSuggest::getSuggestions(const EditorSuggestTriggerInfo &ctx)
 {
     if (!m_vault) return {};
     QStringList names;
-    const auto notes = m_vault->allNotes();
-    names.reserve(notes.size());
-    for (const auto &n : notes) {
-        QString name = n.relativePath;
-        const int slash = name.lastIndexOf(QLatin1Char('/'));
-        if (slash >= 0) name = name.mid(slash + 1);
-        const int dot = name.lastIndexOf(QLatin1Char('.'));
-        if (dot > 0) name = name.left(dot);
-        names.append(name);
+    const auto files = m_vault->getMarkdownFiles();
+    names.reserve(files.size());
+    for (auto *tf : files) {
+        if (!tf) continue;
+        names.append(tf->basename);
     }
     if (ctx.query.isEmpty()) return names;
     auto prepared = FuzzyMatcher::prepareQuery(ctx.query);

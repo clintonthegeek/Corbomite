@@ -30,7 +30,9 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/Vault.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/FileManager.h"
 #include "corbomite/models/TabModel.h"
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/core/NoteDocument.h"
@@ -132,7 +134,7 @@ private Q_SLOTS:
         settle(500); // Allow scan + index build
 
         QVERIFY(m_app->isOpen());
-        QCOMPARE(m_app->vault()->name(), QStringLiteral("PKM LM"));
+        QCOMPARE(m_mainWindow->vaultObj()->getName(), QStringLiteral("PKM LM"));
 
         // Verify file tree has entries
         auto *tree = fileTree();
@@ -140,7 +142,7 @@ private Q_SLOTS:
         QVERIFY(tree->model());
         QVERIFY(tree->model()->rowCount() > 0);
 
-        qDebug() << "Vault opened with" << m_app->vault()->allNotes().size() << "notes";
+        qDebug() << "Vault opened with" << m_mainWindow->vaultObj()->getMarkdownFiles().size() << "notes";
     }
 
     // ---------------------------------------------------------------
@@ -149,7 +151,7 @@ private Q_SLOTS:
     void testOpenNote()
     {
         // Find "Start Here.md" in the vault
-        QVERIFY(m_app->vault()->noteExists(QStringLiteral("Start Here.md")));
+        QVERIFY(m_mainWindow->vaultObj()->getAbstractFileByPath(QStringLiteral("Start Here.md")));
 
         // Open it via the slot (simulates double-click)
         m_mainWindow->onNoteActivated(QStringLiteral("Start Here.md"));
@@ -446,32 +448,34 @@ private Q_SLOTS:
     // ---------------------------------------------------------------
     void testCreateAndDeleteNote()
     {
-        auto *vault = m_app->vault();
+        auto *vault = m_mainWindow->vaultObj();
+        auto *fm = m_mainWindow->fileManager();
         QVERIFY(vault);
-        int countBefore = vault->allNotes().size();
+        QVERIFY(fm);
+        int countBefore = vault->getMarkdownFiles().size();
 
         // Create a note
-        auto *doc = m_app->vault()->createNote(
+        auto *tf = fm->createMarkdownNote(
             QStringLiteral("E2E Test Note"), QString());
-        QVERIFY(doc);
+        QVERIFY(tf);
         settle(200);
 
         // Verify it exists in the vault model
-        QVERIFY(vault->noteExists(QStringLiteral("E2E Test Note.md")));
-        QCOMPARE(vault->allNotes().size(), countBefore + 1);
+        QVERIFY(vault->getAbstractFileByPath(QStringLiteral("E2E Test Note.md")));
+        QCOMPARE(vault->getMarkdownFiles().size(), countBefore + 1);
 
         // Verify file exists on disk
-        QString absPath = vault->path() + QStringLiteral("/E2E Test Note.md");
+        QString absPath = vault->basePath() + QStringLiteral("/E2E Test Note.md");
         QVERIFY(QFileInfo::exists(absPath));
 
         // Delete the note
-        m_app->vault()->deleteNoteByPath(QStringLiteral("E2E Test Note.md"));
+        fm->trashFileByPath(QStringLiteral("E2E Test Note.md"));
         settle(200);
 
         // Verify it's gone
-        QVERIFY(!vault->noteExists(QStringLiteral("E2E Test Note.md")));
+        QVERIFY(!vault->getAbstractFileByPath(QStringLiteral("E2E Test Note.md")));
         QVERIFY(!QFileInfo::exists(absPath));
-        QCOMPARE(vault->allNotes().size(), countBefore);
+        QCOMPARE(vault->getMarkdownFiles().size(), countBefore);
 
         qDebug() << "Create and delete note: OK";
     }
@@ -503,7 +507,7 @@ private Q_SLOTS:
         // (Simulating actual mouse Ctrl+Click on the exact wikilink position is fragile)
         // The signal is what Ctrl+Click produces — test the end-to-end connection
         QString targetNote = QStringLiteral("Start Here.md");
-        if (m_app->vault()->noteExists(targetNote)) {
+        if (m_mainWindow->vaultObj()->getAbstractFileByPath(targetNote)) {
             Q_EMIT editor->linkActivated(targetNote);
             settle(300);
 
@@ -577,13 +581,13 @@ private Q_SLOTS:
         // the test event loop).
         auto *ws = m_mainWindow->findChild<Workspace *>();
         QVERIFY(ws);
-        ws->writeWorkspaceJson(m_app->vault()->path());
+        ws->writeWorkspaceJson(m_mainWindow->vaultObj()->basePath());
         settle(100);
 
         // Verify workspace.json (Obsidian-compatible session file)
         // Note: Workspace::writeWorkspaceJson writes to <vault>/.obsidian/workspace.json,
         // NOT <vault>/.corbomite/ (which is configPath()).
-        QString sessionPath = m_app->vault()->path()
+        QString sessionPath = m_mainWindow->vaultObj()->basePath()
             + QStringLiteral("/.obsidian/workspace.json");
         QVERIFY2(QFileInfo::exists(sessionPath),
                  qPrintable(QStringLiteral("Session file not found at: ") + sessionPath));

@@ -8,8 +8,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include "corbomite/models/DailyNoteService.h"
-#include "corbomite/models/VaultModel.h"
 #include "corbomite/models/TemplateService.h"
+#include "corbomite/core/NoteDocument.h"
+#include "corbomite/vault/FileManager.h"
 #include "corbomite/core/MomentFormatter.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/VaultConfig.h"
@@ -41,14 +42,13 @@ private Q_SLOTS:
     {
         QTemporaryDir tmp;
         QDir().mkpath(tmp.path() + "/vault");
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
         daily.setDateFormat(QStringLiteral("YYYY-MM-DD"));
         daily.setFolder(QStringLiteral("Daily Notes"));
 
@@ -63,14 +63,13 @@ private Q_SLOTS:
     {
         QTemporaryDir tmp;
         QDir().mkpath(tmp.path() + "/vault");
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
         daily.setDateFormat(QStringLiteral("YYYY-MM-DD"));
         daily.setFolder(QString());  // bare file at vault root
 
@@ -83,14 +82,13 @@ private Q_SLOTS:
     {
         QTemporaryDir tmp;
         QDir().mkpath(tmp.path() + "/vault");
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
         daily.setDateFormat(QStringLiteral("YYYY/MMMM/YYYY-MM-DD"));
         daily.setFolder(QStringLiteral("Daily"));
 
@@ -104,14 +102,13 @@ private Q_SLOTS:
     {
         QTemporaryDir tmp;
         QDir().mkpath(tmp.path() + "/vault");
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
         daily.setDateFormat(QStringLiteral("YYYY/MMMM/YYYY-MM-DD"));
         daily.setFolder(QStringLiteral("Daily"));
 
@@ -140,14 +137,13 @@ private Q_SLOTS:
     {
         QTemporaryDir tmp;
         QDir().mkpath(tmp.path() + "/vault");
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
 
         QVERIFY(!daily.todayNoteExists());
     }
@@ -156,14 +152,13 @@ private Q_SLOTS:
     {
         QTemporaryDir tmp;
         QDir().mkpath(tmp.path() + "/vault");
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
         daily.setFolder(QStringLiteral("Daily Notes"));
 
         auto *doc = daily.openOrCreateToday();
@@ -181,15 +176,14 @@ private Q_SLOTS:
         createFile(tmp.path() + "/vault/Templates/Daily.md",
                    "# {{title}}\n\nDate: {{date}}\n\n## Tasks\n\n- [ ] ");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
         templateService.setTemplateFolder(QStringLiteral("Templates"));
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
         daily.setFolder(QStringLiteral("Daily Notes"));
         daily.setTemplateName(QStringLiteral("Daily"));
 
@@ -206,21 +200,20 @@ private Q_SLOTS:
     void testOpenExistingDoesNotModify()
     {
         QTemporaryDir tmp;
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
         daily.setFolder(QStringLiteral("Daily Notes"));
 
         // Create today's note first
         auto *doc1 = daily.openOrCreateToday();
         QVERIFY(doc1);
         doc1->setMarkdown(QStringLiteral("My custom content"));
-        vault.saveNote(doc1);
+        vaultObj.saveDocument(doc1);
 
         // Open again — should return same doc, not overwrite
         auto *doc2 = daily.openOrCreateToday();
@@ -239,14 +232,13 @@ private Q_SLOTS:
         obj.insert(QStringLiteral("template"), QStringLiteral("t.md"));
         writeJsonFile(tmp.path() + "/vault/.obsidian/daily-notes.json", obj);
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
 
         Corbomite::FileSystemAdapter fs;
         Corbomite::VaultConfig cfg(&fs, tmp.path() + "/vault");
@@ -264,14 +256,13 @@ private Q_SLOTS:
         QDir().mkpath(tmp.path() + "/vault");
         // Note: no .obsidian/daily-notes.json file.
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
         daily.setDateFormat(QStringLiteral("YYYY-MM-DD"));
         daily.setFolder(QStringLiteral("Preseeded"));
         daily.setTemplateName(QStringLiteral("PreseededTpl"));
@@ -296,14 +287,13 @@ private Q_SLOTS:
         obj.insert(QStringLiteral("folder"), QStringLiteral("d"));
         writeJsonFile(tmp.path() + "/vault/.obsidian/daily-notes.json", obj);
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
         daily.setDateFormat(QStringLiteral("YYYY-MM-DD"));
         daily.setTemplateName(QStringLiteral("MyTpl"));
 
@@ -333,15 +323,14 @@ private Q_SLOTS:
         obj.insert(QStringLiteral("template"), QStringLiteral("Daily"));
         writeJsonFile(tmp.path() + "/vault/.obsidian/daily-notes.json", obj);
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
         Corbomite::FileSystemAdapter vaultFs;
         Corbomite::Vault vaultObj(&vaultFs);
         vaultObj.load(tmp.path() + "/vault");
+        Corbomite::FileManager fileManager(&vaultObj, nullptr);
         Corbomite::TemplateService templateService(&vaultObj);
         templateService.setTemplateFolder(QStringLiteral("Templates"));
 
-        Corbomite::DailyNoteService daily(&vaultObj, &vault, &templateService);
+        Corbomite::DailyNoteService daily(&vaultObj, &fileManager, &templateService);
 
         Corbomite::FileSystemAdapter fs;
         Corbomite::VaultConfig cfg(&fs, tmp.path() + "/vault");

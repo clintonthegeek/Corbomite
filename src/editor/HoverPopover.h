@@ -13,7 +13,7 @@ class ReadingView;
 
 namespace Corbomite {
 
-class VaultModel;
+class Vault;
 
 // Floating preview that pops up after a 300ms hover over a wiki/markdown
 // link. Per docs/obsidian-audit/domains/ui-bundle.md §7 — the delay constant
@@ -37,9 +37,9 @@ public:
     explicit HoverPopover(QWidget *parent = nullptr);
     ~HoverPopover() override;
 
-    // Set the VaultModel used to look up target paths → markdown bodies
-    // via the legacy fallback path when no EmbedRenderer is wired.
-    void setVaultModel(VaultModel *vault);
+    // Set the canonical Vault used to look up target paths → markdown
+    // bodies via the legacy fallback path when no EmbedRenderer is wired.
+    void setVault(Vault *vault);
 
     // Cluster J Phase 6 — supply the per-vault `EmbedRenderer`. When set,
     // `renderTarget` routes through `EmbedRenderer::render` so math /
@@ -72,7 +72,7 @@ private:
     void renderTarget(const QString &target);
 
     Corbomite::ReadingView::ReadingView *m_view = nullptr;
-    VaultModel *m_vaultModel = nullptr;
+    Vault *m_vault = nullptr;
     Corbomite::ReadingView::EmbedRenderer *m_embedRenderer = nullptr;
     QTimer m_delayTimer;
     QString m_pendingTarget;

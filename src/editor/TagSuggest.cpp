@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "TagSuggest.h"
 
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/search/FuzzyMatcher.h"
 
 namespace Corbomite {
 
-TagSuggest::TagSuggest(VaultModel *vault)
-    : m_vault(vault)
+TagSuggest::TagSuggest(SQLiteIndex *index)
+    : m_index(index)
 {
 }
 
@@ -40,8 +40,13 @@ TagSuggest::onTrigger(int cursorPos, const QString &lineText, NoteDocument *file
 
 QStringList TagSuggest::getSuggestions(const EditorSuggestTriggerInfo &ctx)
 {
-    if (!m_vault) return {};
-    QStringList tags = m_vault->allTags();
+    if (!m_index) return {};
+    // SQLiteIndex surfaces tags with the leading '#' verbatim. Strip it so
+    // suggestions match the contract the old VaultModel::allTags used.
+    QStringList tags = m_index->allTags();
+    for (QString &t : tags) {
+        if (t.startsWith(QLatin1Char('#'))) t.remove(0, 1);
+    }
     if (ctx.query.isEmpty()) return tags;
     auto prepared = FuzzyMatcher::prepareQuery(ctx.query);
     QStringList ranked;

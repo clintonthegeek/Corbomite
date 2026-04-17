@@ -9,18 +9,15 @@
 
 namespace Corbomite {
 
-class VaultModel;
-
-/// Top-level application object. Owns the legacy `VaultModel` and
-/// drives the vault open/close lifecycle.
+/// Top-level application object. Owns process-wide state (the
+/// RecentVaults helper) and drives the vault open/close lifecycle as a
+/// pair of signals — the actual canonical `Corbomite::Vault` + related
+/// data-layer objects are owned by `MainWindow`, which constructs them
+/// from the `path` argument to `vaultOpened`.
 ///
-/// During Q.0 Phase 8 this absorbed what used to live in `VaultService`
-/// (deleted in Task 8.3). Task 8.4 folded `NoteService` into VaultModel,
-/// so the NoteService getter is gone; call `vault()->createNote(...)`
-/// etc. directly. The canonical `Corbomite::Vault` + `FileManager`
-/// aggregate itself is still constructed downstream in
-/// `MainWindow::onVaultOpened` and will migrate up here in a later
-/// phase.
+/// During Q.0 Phase 8 this absorbed `VaultService`; Phase 10 retired
+/// `VaultModel` entirely so `CorbomiteApp` no longer owns any vault-
+/// side state beyond the "is a vault currently open" flag.
 class CorbomiteApp : public QObject {
     Q_OBJECT
 public:
@@ -29,9 +26,8 @@ public:
 
     bool openVault(const QString &path);
     void closeVault();
-
-    VaultModel *vault() const;
     bool isOpen() const;
+    QString currentVaultPath() const;
 
     /// Read-through accessor — also refreshes stale entries from the
     /// backing store so the welcome-screen list stays live across
@@ -40,11 +36,11 @@ public:
     QStringList recentVaults();
 
 Q_SIGNALS:
-    void vaultOpened();
+    void vaultOpened(const QString &path);
     void vaultClosed();
 
 private:
-    VaultModel *m_vault;
+    QString m_currentPath;
     RecentVaults m_recentVaults;
 };
 
