@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.19)
 project(Corbomite VERSION 0.1.0 LANGUAGES CXX)
 
 option(CORBOMITE_DEV_BUILD "Build with dev identity (isolated config/data, [Dev] suffix)" OFF)
+option(CORBOMITE_BUILD_EXAMPLES "Build example plugins" OFF)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets DBus Sql Svg)
 set(CMAKE_CXX_STANDARD 20)
@@ -190,3 +191,10 @@ add_subdirectory(tests/graph)
 add_subdirectory(tests/sidebar)
 add_subdirectory(libs/forcegraph/tests)
 add_subdirectory(libs/canvas/tests)
+
+# Examples (opt-in) — gated behind CORBOMITE_BUILD_EXAMPLES so default
+# builds don't pay for them.
+if(CORBOMITE_BUILD_EXAMPLES)
+    add_subdirectory(examples/plugin-template)
+    # Task 5.2 will add: add_subdirectory(examples/note-stats-plugin)
+endif()

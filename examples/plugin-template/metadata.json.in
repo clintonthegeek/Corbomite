@@ -1,0 +1,14 @@
+{
+    "KPlugin": {
+        "Id": "example.template",
+        "Name": "Template Plugin",
+        "Description": "Skeleton to copy when starting a new Corbomite plugin",
+        "Version": "0.1.0",
+        "Authors": [{ "Name": "Your Name" }],
+        "License": "GPL-3.0-or-later"
+    },
+    "X-Corbomite-Trusted": @X_CORBOMITE_TRUSTED@,
+    "X-Corbomite-Permissions": ["vault.read"],
+    "X-Corbomite-MinVersion": "0.1.0",
+    "X-Corbomite-ApiLevel": 1
+}
