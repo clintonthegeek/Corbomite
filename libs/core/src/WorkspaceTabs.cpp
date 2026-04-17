@@ -40,6 +40,18 @@ WorkspaceTabs::WorkspaceTabs(QObject *parent)
             this, &WorkspaceTabs::onTabBarCurrentChanged);
     connect(m_tabBar, &QTabBar::tabCloseRequested,
             this, &WorkspaceTabs::onTabBarCloseRequested);
+    connect(m_tabBar, &QTabBar::tabMoved,
+            this, [this](int from, int to) {
+        if (from >= 0 && from < m_children.size()
+            && to >= 0 && to < m_children.size()) {
+            m_children.move(from, to);
+        }
+    });
+}
+
+WorkspaceTabs::~WorkspaceTabs()
+{
+    delete m_widget;
 }
 
 QWidget *WorkspaceTabs::widget() { return m_widget; }
@@ -109,6 +121,11 @@ void WorkspaceTabs::addChild(WorkspaceItem *child, int index)
 
     int idx = m_children.indexOf(child);
     m_tabBar->insertTab(idx, tabIconForLeaf(leaf), tabTextForLeaf(leaf));
+
+    connect(leaf, &WorkspaceLeaf::viewChanged, this, [this, child]() {
+        int i = m_children.indexOf(child);
+        if (i >= 0) updateTabHeader(i);
+    });
 
     if (auto *w = leaf->widget()) {
         if (m_stacked) {

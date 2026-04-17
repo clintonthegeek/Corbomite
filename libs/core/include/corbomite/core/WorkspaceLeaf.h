@@ -3,6 +3,7 @@
 #pragma once
 
 #include <QJsonObject>
+#include <QPointer>
 #include "corbomite/core/LeafHistory.h"
 #include "corbomite/core/WorkspaceItem.h"
 
@@ -67,16 +68,18 @@ public:
                                       ViewRegistry *registry,
                                       QObject *parent = nullptr);
 
+    /// Close and destroy the current view, releasing any file references.
+    void closeCurrentView();
+
 Q_SIGNALS:
     void viewChanged(View *newView);
     void pinnedChanged(bool pinned);
     void groupChanged(const QString &group);
 
 private:
-    void closeCurrentView();
 
-    QWidget *m_widget;
-    View *m_view = nullptr;
+    QPointer<QWidget> m_widget;
+    QPointer<View> m_view;
     ViewRegistry *m_registry;
 
     bool m_pinned = false;

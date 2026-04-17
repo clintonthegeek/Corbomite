@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QPointer>
 #include "corbomite/core/WorkspaceParent.h"
 
 class QTabBar;
@@ -18,6 +19,7 @@ class WorkspaceTabs : public WorkspaceParent
     Q_OBJECT
 public:
     explicit WorkspaceTabs(QObject *parent = nullptr);
+    ~WorkspaceTabs() override;
 
     QWidget *widget() override;
     QJsonObject serialize() const override;
@@ -52,7 +54,7 @@ private:
     QString tabTextForLeaf(WorkspaceLeaf *leaf) const;
     QIcon tabIconForLeaf(WorkspaceLeaf *leaf) const;
 
-    QWidget *m_widget;
+    QPointer<QWidget> m_widget;
     QVBoxLayout *m_layout;
     QTabBar *m_tabBar;
     QStackedWidget *m_stack;

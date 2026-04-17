@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QPointer>
 #include "corbomite/core/WorkspaceParent.h"
 
 class QSplitter;
@@ -13,6 +14,7 @@ class WorkspaceSplit : public WorkspaceParent
     Q_OBJECT
 public:
     explicit WorkspaceSplit(QObject *parent = nullptr);
+    ~WorkspaceSplit() override;
 
     Qt::Orientation direction() const;
     void setDirection(Qt::Orientation dir);
@@ -27,7 +29,7 @@ public:
     void syncDimensionsToSplitter();
 
 private:
-    QSplitter *m_splitter;
+    QPointer<QSplitter> m_splitter;
     Qt::Orientation m_direction = Qt::Horizontal;
 };
 

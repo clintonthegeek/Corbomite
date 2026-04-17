@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QWidget>
 
 namespace Corbomite {
 
@@ -21,7 +22,10 @@ Workspace::Workspace(ViewRegistry *registry, QObject *parent)
     setupDefaultLayout();
 }
 
-Workspace::~Workspace() = default;
+Workspace::~Workspace()
+{
+    destroyTree();
+}
 
 ViewRegistry *Workspace::viewRegistry() const { return m_registry; }
 
@@ -296,10 +300,7 @@ QJsonObject Workspace::serialize() const
 
 void Workspace::deserialize(const QJsonObject &json)
 {
-    delete m_mainRoot;
-    m_mainRoot = nullptr;
-    m_activeLeaf = nullptr;
-    m_undoHistory.clear();
+    destroyTree();
 
     if (json.contains(QStringLiteral("main"))) {
         auto *node = deserializeNode(json[QStringLiteral("main")].toObject());
@@ -323,10 +324,18 @@ void Workspace::deserialize(const QJsonObject &json)
         m_lastOpenFiles.append(v.toString());
 
     // Mark all non-active leaves as deferred so they don't construct a View
-    // until the user focuses them. The active leaf is loaded eagerly.
+    // until the user focuses them. The active leaf and each WorkspaceTabs'
+    // currentTab leaf are loaded eagerly (§3.5).
     for (auto *leaf : allLeaves()) {
         if (leaf == m_activeLeaf)
             continue;
+
+        // Don't defer the currentTab leaf of its parent WorkspaceTabs.
+        if (auto *parentTabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem())) {
+            if (parentTabs->currentLeaf() == leaf)
+                continue;
+        }
+
         auto state = leaf->getViewState();
         QString icon = state[QStringLiteral("icon")].toString();
         QString title = state[QStringLiteral("title")].toString();
@@ -340,6 +349,8 @@ void Workspace::deserialize(const QJsonObject &json)
     // Ensure the active leaf is not stuck in deferred state.
     if (m_activeLeaf && m_activeLeaf->isDeferred())
         m_activeLeaf->loadIfDeferred();
+
+    Q_EMIT layoutChanged();
 }
 
 void Workspace::readWorkspaceJson(const QString &vaultPath)
@@ -348,6 +359,12 @@ void Workspace::readWorkspaceJson(const QString &vaultPath)
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) {
         setupDefaultLayout();
+        // Spec: default layout must have at least one leaf with an active leaf set.
+        auto *tabs = findFirstTabs(m_mainRoot);
+        if (tabs) {
+            auto *leaf = createLeafInTabs(tabs);
+            setActiveLeaf(leaf);
+        }
         return;
     }
 
@@ -355,6 +372,11 @@ void Workspace::readWorkspaceJson(const QString &vaultPath)
     QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
     if (err.error != QJsonParseError::NoError) {
         setupDefaultLayout();
+        auto *tabs = findFirstTabs(m_mainRoot);
+        if (tabs) {
+            auto *leaf = createLeafInTabs(tabs);
+            setActiveLeaf(leaf);
+        }
         return;
     }
 
@@ -488,12 +510,65 @@ WorkspaceTabs *Workspace::findFirstTabs(WorkspaceItem *root) const
 
 void Workspace::setupDefaultLayout()
 {
-    delete m_mainRoot;
+    destroyTree();
     m_mainRoot = new WorkspaceSplit(this);
     m_mainRoot->setDirection(Qt::Vertical);
 
     auto *tabs = new WorkspaceTabs(this);
     m_mainRoot->addChild(tabs);
+}
+
+void Workspace::resetToDefaultLayout()
+{
+    destroyTree();
+    setupDefaultLayout();
+    Q_EMIT layoutChanged();
+}
+
+void Workspace::destroyTree()
+{
+    if (!m_mainRoot)
+        return;
+
+    // 1. Close all views to release NoteDocument / file references
+    //    before the widget tree is torn down.
+    for (auto *leaf : allLeaves())
+        leaf->closeCurrentView();
+
+    // 2. Collect every item in the tree (depth-first).
+    QVector<WorkspaceItem *> items;
+    collectAllItems(m_mainRoot, items);
+
+    // 3. Detach each item's widget from its Qt parent so that
+    //    cascade deletion doesn't reach sibling widgets.  After this
+    //    each widget is an orphan that its own destructor can safely
+    //    delete without double-free.  QPointer guards mean widget()
+    //    returns nullptr if the widget was already cascade-deleted
+    //    (e.g. during MainWindow destruction).
+    for (auto *item : items) {
+        if (auto *w = item->widget())
+            w->setParent(nullptr);
+    }
+
+    // 4. Clear internal pointers before deleting objects.
+    m_mainRoot = nullptr;
+    m_activeLeaf = nullptr;
+    m_undoHistory.clear();
+
+    // 5. Delete every item — their destructors delete their own widget.
+    qDeleteAll(items);
+}
+
+void Workspace::collectAllItems(WorkspaceItem *root,
+                                QVector<WorkspaceItem *> &out) const
+{
+    if (!root)
+        return;
+    out.append(root);
+    if (auto *p = qobject_cast<WorkspaceParent *>(root)) {
+        for (auto *child : p->children())
+            collectAllItems(child, out);
+    }
 }
 
 } // namespace Corbomite

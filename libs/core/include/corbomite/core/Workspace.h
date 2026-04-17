@@ -78,6 +78,9 @@ public:
     void readWorkspaceJson(const QString &vaultPath);
     void writeWorkspaceJson(const QString &vaultPath);
 
+    /// Tear down the current tree and recreate an empty default layout.
+    void resetToDefaultLayout();
+
 Q_SIGNALS:
     void activeLeafChanged(WorkspaceLeaf *leaf);
     void layoutChanged();
@@ -90,6 +93,8 @@ private:
     void collectLeaves(WorkspaceItem *root, QVector<WorkspaceLeaf *> &out) const;
     WorkspaceTabs *findFirstTabs(WorkspaceItem *root) const;
     void setupDefaultLayout();
+    void destroyTree();
+    void collectAllItems(WorkspaceItem *root, QVector<WorkspaceItem *> &out) const;
 
     ViewRegistry *m_registry;
     WorkspaceSplit *m_mainRoot = nullptr;

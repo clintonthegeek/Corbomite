@@ -46,7 +46,8 @@ void WorkspaceLeaf::closeCurrentView()
 {
     if (m_view) {
         m_view->close();
-        m_widget->layout()->removeWidget(m_view);
+        if (m_widget && m_widget->layout())
+            m_widget->layout()->removeWidget(m_view);
         m_view->deleteLater();
         m_view = nullptr;
     }
@@ -82,8 +83,10 @@ void WorkspaceLeaf::setViewState(const QJsonObject &state)
     open(newView);
 
     QJsonObject viewState = state[QStringLiteral("state")].toObject();
-    if (!viewState.isEmpty())
+    if (!viewState.isEmpty()) {
         m_view->setState(viewState);
+        Q_EMIT viewChanged(m_view);
+    }
 }
 
 QJsonObject WorkspaceLeaf::getEphemeralState() const
@@ -178,7 +181,17 @@ void WorkspaceLeaf::navigate(const QJsonObject &viewState)
         current.eState = m_view->getEphemeralState();
         m_history.push(current);
     }
-    setViewState(viewState);
+
+    // If viewState specifies a different view type, switch via setViewState.
+    // Otherwise update the existing view's state in-place.
+    QString type = viewState[QStringLiteral("type")].toString();
+    if (!type.isEmpty() && (!m_view || m_view->getViewType() != type)) {
+        setViewState(viewState);
+    } else if (m_view) {
+        QJsonObject inner = viewState[QStringLiteral("state")].toObject();
+        m_view->setState(inner.isEmpty() ? viewState : inner);
+        Q_EMIT viewChanged(m_view);
+    }
 }
 
 void WorkspaceLeaf::goBack()
@@ -198,15 +211,12 @@ void WorkspaceLeaf::goBack()
     if (!entry.isValid())
         return;
 
-    QJsonObject vs;
-    vs[QStringLiteral("state")] = entry.state;
-    // We need the type — it should be embedded in the state; fall back to current view type
-    if (m_view)
-        vs[QStringLiteral("type")] = m_view->getViewType();
-    setViewState(vs);
-
-    if (m_view && !entry.eState.isEmpty())
-        m_view->setEphemeralState(entry.eState);
+    if (m_view) {
+        m_view->setState(entry.state);
+        Q_EMIT viewChanged(m_view);
+        if (!entry.eState.isEmpty())
+            m_view->setEphemeralState(entry.eState);
+    }
 }
 
 void WorkspaceLeaf::goForward()
@@ -226,14 +236,12 @@ void WorkspaceLeaf::goForward()
     if (!entry.isValid())
         return;
 
-    QJsonObject vs;
-    vs[QStringLiteral("state")] = entry.state;
-    if (m_view)
-        vs[QStringLiteral("type")] = m_view->getViewType();
-    setViewState(vs);
-
-    if (m_view && !entry.eState.isEmpty())
-        m_view->setEphemeralState(entry.eState);
+    if (m_view) {
+        m_view->setState(entry.state);
+        Q_EMIT viewChanged(m_view);
+        if (!entry.eState.isEmpty())
+            m_view->setEphemeralState(entry.eState);
+    }
 }
 
 // --- Serialize / Deserialize ---

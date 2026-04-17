@@ -15,6 +15,11 @@ WorkspaceSplit::WorkspaceSplit(QObject *parent)
     m_splitter->setChildrenCollapsible(false);
 }
 
+WorkspaceSplit::~WorkspaceSplit()
+{
+    delete m_splitter;
+}
+
 Qt::Orientation WorkspaceSplit::direction() const { return m_direction; }
 
 void WorkspaceSplit::setDirection(Qt::Orientation dir)
