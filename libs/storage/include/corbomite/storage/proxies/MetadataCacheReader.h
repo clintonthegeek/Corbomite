@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QJsonObject>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -30,6 +31,10 @@ public:
     QStringList outlinksFor(const QString &path) const;
     QStringList tagsIn(const QString &path) const;
     QStringList allTags() const;
+
+    /// Frontmatter for a note as a JSON object — empty if the file has
+    /// no frontmatter or no cache entry.
+    QJsonObject frontmatterFor(const QString &path) const;
 
 Q_SIGNALS:
     /// Emitted when the cache entry for `path` changes (insert or update).

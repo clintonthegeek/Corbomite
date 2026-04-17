@@ -138,6 +138,14 @@ QStringList MetadataCacheReader::tagsIn(const QString &path) const
     return tags;
 }
 
+QJsonObject MetadataCacheReader::frontmatterFor(const QString &path) const
+{
+    if (!m_cache) return {};
+    const auto entry = m_cache->getFileCache(path);
+    if (!entry || !entry->frontmatter) return {};
+    return *entry->frontmatter;
+}
+
 QStringList MetadataCacheReader::allTags() const
 {
     if (!m_cache) return {};

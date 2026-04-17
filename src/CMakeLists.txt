@@ -19,7 +19,6 @@ add_library(CorbomiteApp STATIC
     mdi/CorbomiteMDI.cpp
     sidebar/FileExplorerPanel.cpp
     sidebar/SearchPanel.cpp
-    sidebar/PropertiesPanel.cpp
     sidebar/PropertyEditorWidget.cpp
     editor/MarkdownView.cpp
     editor/MarkdownView.h
@@ -99,3 +98,4 @@ target_compile_definitions(CorbomiteApp PRIVATE
 add_subdirectory(plugins/backlinks)
 add_subdirectory(plugins/outlinks)
 add_subdirectory(plugins/outline)
+add_subdirectory(plugins/properties)

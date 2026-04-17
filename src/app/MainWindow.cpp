@@ -12,7 +12,6 @@
 #include "corbomite/core/TextFileView.h"
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
-#include "sidebar/PropertiesPanel.h"
 #include "graph/LocalGraphPanel.h"
 #include "graph/GraphControlsPanel.h"
 #include "graph/GraphViewTab.h"
@@ -871,13 +870,11 @@ void MainWindow::setupEditor()
         // Update sidebar panels
         if (editor && editor->noteDocument()) {
             if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(editor->noteDocument());
-            if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(editor->noteDocument());
         } else {
             if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(nullptr);
-            if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(nullptr);
         }
-        // BacklinksView, OutlinksView, OutlineView (InternalPlugins)
-        // react to active-leaf changes via WorkspaceController.
+        // Backlinks/Outlinks/Outline/Properties (InternalPlugins) react
+        // to active-leaf changes via WorkspaceController.
 
         if (editor && editor->noteDocument() && m_autosave)
             m_autosave->watchDocument(editor->noteDocument());
@@ -982,15 +979,8 @@ void MainWindow::setupSidebars()
     // Outlinks panel migrated to InternalPlugin "corbomite-outlinks"
     // (Cluster Q Task 14). MainWindow no longer constructs it.
 
-    auto *propertiesView = createToolView(
-        nullptr,
-        QStringLiteral("properties_panel"),
-        KMultiTabBar::Right,
-        QIcon::fromTheme(QStringLiteral("document-properties")),
-        i18n("Properties")
-    );
-    m_propertiesPanel = new PropertiesPanel(propertiesView);
-    propertiesView->layout()->addWidget(m_propertiesPanel);
+    // Properties panel migrated to InternalPlugin "corbomite-properties"
+    // (Cluster Q Task 16).
 
     // Outline panel migrated to InternalPlugin "corbomite-outline"
     // (Cluster Q Task 15). Scroll-to-line on item click is deferred —
@@ -1303,10 +1293,6 @@ void MainWindow::onVaultOpened(const QString &path)
     m_localGraphPanel->setIndex(m_searchIndex);
     m_localGraphPanel->setVault(m_vaultObj);
     m_localGraphPanel->setMetadataCache(m_metadataCache);
-    m_propertiesPanel->setMetadataCache(m_metadataCache);
-    m_propertiesPanel->setVault(m_vaultObj);
-    m_propertiesPanel->setFileManager(m_fileManager);
-
     // Update MetadataCache on note saves
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
         if (!m_metadataCache || !m_vaultObj) return;
@@ -1483,10 +1469,6 @@ void MainWindow::onVaultClosed()
     m_localGraphPanel->setMetadataCache(nullptr);
     m_localGraphPanel->setVault(nullptr);
     m_localGraphPanel->setCurrentNote(nullptr);
-    m_propertiesPanel->setCurrentNote(nullptr);
-    m_propertiesPanel->setFileManager(nullptr);
-    m_propertiesPanel->setVault(nullptr);
-    m_propertiesPanel->setMetadataCache(nullptr);
 
     if (m_embedRenderer) {
         m_embedRenderer->setMetadataCache(nullptr);
