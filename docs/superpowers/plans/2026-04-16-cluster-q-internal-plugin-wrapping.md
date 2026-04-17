@@ -28,16 +28,19 @@
 
 ## File structure (overview — locks decomposition)
 
+> **Q.0 Phase 9 update (2026-04-17):** the plugin-system types (`Plugin`,
+> `PluginContext`, `PluginManager`, `PluginPermissionGrantDialog`) moved
+> from `libs/core/` to `libs/vault/` because `PluginContext` now includes
+> the new `VaultProxy` + `FileManagerProxy` headers, and `libs/core/`
+> cannot depend on `libs/vault/` (cycle). `PluginMetaData` stays in
+> `libs/core/`. `VaultReader` + `VaultWriter` are **deleted** — replaced
+> by `VaultProxy` + `FileManagerProxy` in `libs/vault/include/corbomite/
+> vault/proxies/`. Tasks 7–12 bodies below updated accordingly.
+
 ```
 libs/core/include/corbomite/core/
-  Plugin.h                       # abstract base
-  PluginMetaData.h               # KPluginMetaData wrapper
-  PluginContext.h                # handed to plugin->onLoad(ctx)
-  PluginManager.h                # singleton-ish, owned by CorbomiteApp
-  PluginPermissionGrantDialog.h  # modal dialog
+  PluginMetaData.h               # KPluginMetaData wrapper (stays here)
   proxies/
-    VaultReader.h
-    VaultWriter.h
     MetadataCacheReader.h
     WorkspaceController.h
     CommandRegistrar.h
@@ -46,25 +49,41 @@ libs/core/include/corbomite/core/
     SecretStorage.h
     ProcessSpawner.h
 
+libs/vault/include/corbomite/vault/
+  Plugin.h                       # abstract base (moved Q.0 P9)
+  PluginContext.h                # handed to plugin->onLoad(ctx) (moved Q.0 P9)
+  PluginManager.h                # owned by CorbomiteApp (moved Q.0 P9)
+  PluginPermissionGrantDialog.h  # modal dialog (moved Q.0 P9)
+  proxies/
+    VaultProxy.h                 # replaces VaultReader + VaultWriter (Q.0 P9)
+    FileManagerProxy.h           # new (Q.0 P9 — gates FileManager surface)
+
 libs/core/src/
-  Plugin.cpp
   PluginMetaData.cpp
+  proxies/*.cpp
+
+libs/vault/src/
+  Plugin.cpp
   PluginContext.cpp
   PluginManager.cpp
   PluginPermissionGrantDialog.cpp
-  proxies/*.cpp
+  proxies/VaultProxy.cpp
+  proxies/FileManagerProxy.cpp
 
 tests/core/
-  tst_plugin.cpp
+  tst_plugin.cpp                   # links Corbomite::Vault
   tst_plugin_metadata.cpp
-  tst_plugin_context.cpp
-  tst_plugin_manager.cpp
-  tst_plugin_permission_dialog.cpp
-  tst_proxy_vault.cpp           # covers VaultReader + VaultWriter
+  tst_plugin_context.cpp           # links Corbomite::Vault
+  tst_plugin_manager.cpp           # links Corbomite::Vault
+  tst_plugin_permission_dialog.cpp # links Corbomite::Vault
   tst_proxy_metadata.cpp
   tst_proxy_workspace.cpp
-  tst_proxy_ui.cpp              # covers CommandRegistrar + ViewRegistrar + MenuInjector
+  tst_proxy_ui.cpp                 # covers CommandRegistrar + ViewRegistrar + MenuInjector
   tst_proxy_secrets_process.cpp
+
+libs/vault/tests/
+  tst_vault_proxy.cpp              # Q.0 P9 (5 cases)
+  tst_file_manager_proxy.cpp       # Q.0 P9 (5 cases)
 
 src/plugins/
   backlinks/
@@ -319,7 +338,7 @@ plus an Origin field for install-path trust normalization."
 ## Task 2: Plugin abstract base class + tests
 
 **Files:**
-- Create: `libs/core/include/corbomite/core/Plugin.h`
+- Create: `libs/core/include/corbomite/vault/Plugin.h`
 - Create: `libs/core/src/Plugin.cpp`
 - Create: `tests/core/tst_plugin.cpp`
 - Modify: `libs/core/CMakeLists.txt`, `tests/core/CMakeLists.txt`
@@ -331,8 +350,8 @@ plus an Origin field for install-path trust normalization."
 ```cpp
 #include <QTest>
 #include <QSignalSpy>
-#include "corbomite/core/Plugin.h"
-#include "corbomite/core/PluginContext.h"
+#include "corbomite/vault/Plugin.h"
+#include "corbomite/vault/PluginContext.h"
 
 class TrackingPlugin : public Corbomite::Plugin
 {
@@ -406,7 +425,7 @@ Expected: compile error — Plugin.h missing.
 
 - [ ] **Step 3: Implement Plugin base**
 
-Create `libs/core/include/corbomite/core/Plugin.h`:
+Create `libs/core/include/corbomite/vault/Plugin.h`:
 
 ```cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -473,8 +492,8 @@ Create `libs/core/src/Plugin.cpp`:
 
 ```cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/core/Plugin.h"
-#include "corbomite/core/PluginContext.h"
+#include "corbomite/vault/Plugin.h"
+#include "corbomite/vault/PluginContext.h"
 
 namespace Corbomite {
 
@@ -513,7 +532,7 @@ Expected: all 3 test slots PASS. If `PluginContext` doesn't yet exist as a type 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add libs/core/include/corbomite/core/Plugin.h \
+git add libs/core/include/corbomite/vault/Plugin.h \
         libs/core/src/Plugin.cpp \
         libs/core/CMakeLists.txt \
         tests/core/tst_plugin.cpp \
@@ -530,7 +549,7 @@ inherit this; PluginManager drives lifecycle in Task 3."
 ## Task 3: PluginContext + 9 proxy stubs
 
 **Files:**
-- Create: `libs/core/include/corbomite/core/PluginContext.h`
+- Create: `libs/core/include/corbomite/vault/PluginContext.h`
 - Create: `libs/core/include/corbomite/core/proxies/{VaultReader,VaultWriter,MetadataCacheReader,WorkspaceController,CommandRegistrar,ViewRegistrar,MenuInjector,SecretStorage,ProcessSpawner}.h`
 - Create: `libs/core/src/PluginContext.cpp`
 - Create: `libs/core/src/proxies/{...}.cpp`
@@ -545,7 +564,7 @@ inherit this; PluginManager drives lifecycle in Task 3."
 
 ```cpp
 #include <QTest>
-#include "corbomite/core/PluginContext.h"
+#include "corbomite/vault/PluginContext.h"
 #include "corbomite/core/proxies/VaultReader.h"
 #include "corbomite/core/proxies/VaultWriter.h"
 
@@ -610,7 +629,7 @@ Expected: compile error — PluginContext.h missing.
 
 - [ ] **Step 3: Implement PluginContext + stub proxies**
 
-Create `libs/core/include/corbomite/core/PluginContext.h`:
+Create `libs/core/include/corbomite/vault/PluginContext.h`:
 
 ```cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -763,7 +782,7 @@ Create `libs/core/src/PluginContext.cpp`:
 
 ```cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/core/PluginContext.h"
+#include "corbomite/vault/PluginContext.h"
 #include "corbomite/core/proxies/VaultReader.h"
 #include "corbomite/core/proxies/VaultWriter.h"
 #include "corbomite/core/proxies/MetadataCacheReader.h"
@@ -834,7 +853,7 @@ Expected: all 3 test slots PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add libs/core/include/corbomite/core/PluginContext.h \
+git add libs/core/include/corbomite/vault/PluginContext.h \
         libs/core/include/corbomite/core/proxies/ \
         libs/core/src/PluginContext.cpp \
         libs/core/src/proxies/ \
@@ -853,7 +872,7 @@ permissions; proxies are stubs pending per-proxy wire-up tasks."
 ## Task 4: PluginPermissionGrantDialog + tests
 
 **Files:**
-- Create: `libs/core/include/corbomite/core/PluginPermissionGrantDialog.h`
+- Create: `libs/core/include/corbomite/vault/PluginPermissionGrantDialog.h`
 - Create: `libs/core/src/PluginPermissionGrantDialog.cpp`
 - Create: `tests/core/tst_plugin_permission_dialog.cpp`
 
@@ -864,7 +883,7 @@ permissions; proxies are stubs pending per-proxy wire-up tasks."
 ```cpp
 #include <QTest>
 #include <QSet>
-#include "corbomite/core/PluginPermissionGrantDialog.h"
+#include "corbomite/vault/PluginPermissionGrantDialog.h"
 
 class TestPluginPermissionDialog : public QObject
 {
@@ -916,7 +935,7 @@ Expected: compile error.
 
 - [ ] **Step 3: Implement**
 
-Create `libs/core/include/corbomite/core/PluginPermissionGrantDialog.h`:
+Create `libs/core/include/corbomite/vault/PluginPermissionGrantDialog.h`:
 
 ```cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -999,7 +1018,7 @@ Expected: 3/3 PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add libs/core/include/corbomite/core/PluginPermissionGrantDialog.h \
+git add libs/core/include/corbomite/vault/PluginPermissionGrantDialog.h \
         libs/core/src/PluginPermissionGrantDialog.cpp \
         libs/core/CMakeLists.txt \
         tests/core/tst_plugin_permission_dialog.cpp \
@@ -1016,7 +1035,7 @@ prompts on untrusted plugins. Human-readable descriptions for all
 ## Task 5: PluginManager — discovery + trust normalization
 
 **Files:**
-- Create: `libs/core/include/corbomite/core/PluginManager.h`
+- Create: `libs/core/include/corbomite/vault/PluginManager.h`
 - Create: `libs/core/src/PluginManager.cpp`
 - Create: `tests/core/tst_plugin_manager.cpp`
 
@@ -1028,7 +1047,7 @@ prompts on untrusted plugins. Human-readable descriptions for all
 // tests/core/tst_plugin_manager.cpp
 #include <QTest>
 #include <QTemporaryDir>
-#include "corbomite/core/PluginManager.h"
+#include "corbomite/vault/PluginManager.h"
 
 class TestPluginManager : public QObject
 {
@@ -1084,7 +1103,7 @@ QTEST_MAIN(TestPluginManager)
 
 - [ ] **Step 3: Implement discovery-only PluginManager**
 
-Create `libs/core/include/corbomite/core/PluginManager.h`:
+Create `libs/core/include/corbomite/vault/PluginManager.h`:
 
 ```cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -1153,9 +1172,9 @@ Create `libs/core/src/PluginManager.cpp`:
 
 ```cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/core/PluginManager.h"
-#include "corbomite/core/Plugin.h"
-#include "corbomite/core/PluginContext.h"
+#include "corbomite/vault/PluginManager.h"
+#include "corbomite/vault/Plugin.h"
+#include "corbomite/vault/PluginContext.h"
 
 #include <KPluginMetaData>
 #include <QCoreApplication>
@@ -1271,7 +1290,7 @@ Expected: 3/3 PASS. May need to create fixture JSON files in the test; use `QFil
 - [ ] **Step 5: Commit**
 
 ```bash
-git add libs/core/include/corbomite/core/PluginManager.h \
+git add libs/core/include/corbomite/vault/PluginManager.h \
         libs/core/src/PluginManager.cpp \
         libs/core/src/PluginMetaData.cpp \
         libs/core/CMakeLists.txt \
@@ -1290,7 +1309,7 @@ for user-path plugins regardless of JSON claim."
 ## Task 6: PluginManager — load/unload/enable/disable/KConfig
 
 **Files:**
-- Modify: `libs/core/include/corbomite/core/PluginManager.h`
+- Modify: `libs/core/include/corbomite/vault/PluginManager.h`
 - Modify: `libs/core/src/PluginManager.cpp`
 - Modify: `tests/core/tst_plugin_manager.cpp`
 - Create: `tests/core/fixture-plugin/` — a minimal `.so` fixture plugin used by tests
@@ -1454,7 +1473,7 @@ Expected: all tests PASS. Fixture plugin builds to a `.so` during test configure
 - [ ] **Step 5: Commit**
 
 ```bash
-git add libs/core/include/corbomite/core/PluginManager.h \
+git add libs/core/include/corbomite/vault/PluginManager.h \
         libs/core/src/PluginManager.cpp \
         tests/core/tst_plugin_manager.cpp \
         tests/core/fixture-plugin/ \
@@ -1468,107 +1487,35 @@ PluginPermissionGrantDialog on first enable with ungranted perms."
 
 ---
 
-## Task 7: Proxy wire-up — Vault (reader + writer)
+## Task 7: Proxy wire-up — Vault (superseded by Q.0 Phase 9)
 
-**Files:**
-- Modify: `libs/core/src/proxies/VaultReader.cpp`
-- Modify: `libs/core/src/proxies/VaultWriter.cpp`
-- Modify: `libs/core/include/corbomite/core/proxies/{VaultReader,VaultWriter}.h` — add method signatures
-- Create: `tests/core/tst_proxy_vault.cpp`
+**Status:** **No-op here — done as Q.0 Phase 9.**
 
-- [ ] **Step 1: Write failing test**
+`VaultReader` + `VaultWriter` are gone. `VaultProxy` + `FileManagerProxy`
+(in `libs/vault/include/corbomite/vault/proxies/`) ship with full
+method surface and permission gating as of Q.0 P9. See:
+- Commit `4487e40` (T9.1 VaultProxy — 5 test cases)
+- Commit `646524b` (T9.2 FileManagerProxy — 5 test cases)
+- Commit `f78d0ba` (T9.3 PluginContext rewire — adds `vault()` +
+  `fileManager()` accessors, moves plugin-system to `libs/vault/`)
+
+Proxy permission tokens:
+- `vault.read` — read + tree queries + `readConfigJson`
+- `vault.write` — every mutation + `writeConfigJson`/`deleteConfigJson` +
+  all `FileManagerProxy` mutations (renameFile, processFrontMatter,
+  createNewMarkdownFile, createNewFolder, insertIntoFile, trashFile)
+- `vault.events` — `VaultProxy::on(event, fn)` / `off(token)`
+- `metadata.read` — gates `FileManagerProxy::generateMarkdownLink`
+  (reads host-side `MetadataCache`)
+
+Plugin-facing usage in Tasks 13–20 becomes:
 
 ```cpp
-// tests/core/tst_proxy_vault.cpp
-#include <QTest>
-#include <QTemporaryDir>
-#include "corbomite/core/proxies/VaultReader.h"
-#include "corbomite/core/proxies/VaultWriter.h"
-#include "corbomite/storage/Vault.h"
-
-class TestProxyVault : public QObject
-{
-    Q_OBJECT
-private slots:
-    void readerReturnsNoteBytes();
-    void writerCreatesNote();
-    void writerRenameMovesFile();
-};
-
-void TestProxyVault::readerReturnsNoteBytes()
-{
-    QTemporaryDir vaultDir;
-    // ... seed a note.md with known content ...
-    Corbomite::Vault vault(vaultDir.path());
-    Corbomite::VaultReader reader(&vault);
-    const QByteArray body = reader.read(QStringLiteral("note.md"));
-    QCOMPARE(body, QByteArrayLiteral("# Hello\n"));
-}
-// ... other tests forward-compatible with VaultWriter::create / rename ...
-
-QTEST_MAIN(TestProxyVault)
-#include "tst_proxy_vault.moc"
+if (auto *v = ctx->vault())             v->modify(file, bytes);
+if (auto *fm = ctx->fileManager())      fm->renameFile(file, newPath);
 ```
 
-- [ ] **Step 2: Run, verify fails**
-
-- [ ] **Step 3: Extend proxy headers + implementations**
-
-`VaultReader.h`:
-```cpp
-namespace Corbomite {
-class Vault;
-class VaultReader
-{
-public:
-    explicit VaultReader(Vault *v) : m_vault(v) {}
-    QByteArray read(const QString &relativePath) const;
-    bool exists(const QString &relativePath) const;
-    QStringList list(const QString &subdir = {}) const;
-private:
-    Vault *m_vault;
-};
-}
-```
-
-`VaultReader.cpp` — forward each method to the corresponding `Vault` API.
-
-`VaultWriter.h`:
-```cpp
-namespace Corbomite {
-class Vault;
-class VaultWriter
-{
-public:
-    explicit VaultWriter(Vault *v) : m_vault(v) {}
-    bool create(const QString &relativePath, const QByteArray &body);
-    bool write(const QString &relativePath, const QByteArray &body);
-    bool rename(const QString &oldPath, const QString &newPath);
-    bool remove(const QString &relativePath);
-private:
-    Vault *m_vault;
-};
-}
-```
-
-`VaultWriter.cpp` — same pattern.
-
-- [ ] **Step 4: Build + run tests, verify pass**
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add libs/core/include/corbomite/core/proxies/VaultReader.h \
-        libs/core/include/corbomite/core/proxies/VaultWriter.h \
-        libs/core/src/proxies/VaultReader.cpp \
-        libs/core/src/proxies/VaultWriter.cpp \
-        tests/core/tst_proxy_vault.cpp \
-        tests/core/CMakeLists.txt
-git commit -m "feat(core): wire VaultReader + VaultWriter proxies to Vault
-
-Cluster Q phase 1: proxies forward to Corbomite::Vault;
-vault.read / vault.write permissions gate access."
-```
+No work required in this task. Move on to Task 8.
 
 ---
 
@@ -1662,7 +1609,7 @@ Since this is a GUI page, the test uses `offscreen` Qt and verifies the widget t
 #include <QTest>
 #include <QListWidget>
 #include "dialogs/PluginsPage.h"
-#include "corbomite/core/PluginManager.h"
+#include "corbomite/vault/PluginManager.h"
 
 class TestPluginsPage : public QObject
 {
@@ -1778,6 +1725,14 @@ void CorbomiteApp::initializePlugins()
 {
     m_pluginManager = new Corbomite::PluginManager(this);
     m_pluginManager->discoverPlugins();
+
+    // Post-Q.0 P9: each PluginContext needs Vault + FileManager installed
+    // via setCoreServices before enablePlugin fires onLoad. Install them
+    // via a setCoreServices-callback wired into PluginManager's enable
+    // path (factory override hook) or, more simply, iterate after
+    // discovery and call ctx->setCoreServices(vault, fileManager, ...)
+    // on each discovered context before loadEnabledStateFromConfig.
+
     m_pluginManager->loadEnabledStateFromConfig(); // loads + calls enablePlugin() for each enabled
 
     // For each loaded plugin, connect to pluginLoaded/pluginUnloading to
@@ -1864,7 +1819,7 @@ reverse-order unload at shutdown."
 // src/plugins/backlinks/tests/tst_backlinks_plugin.cpp
 #include <QTest>
 #include "BacklinksPlugin.h"
-#include "corbomite/core/PluginContext.h"
+#include "corbomite/vault/PluginContext.h"
 #include "corbomite/core/proxies/MetadataCacheReader.h"
 #include "corbomite/core/proxies/ViewRegistrar.h"
 
@@ -1892,7 +1847,7 @@ void TestBacklinksPlugin::createsViewWithGrantedContext()
 ```cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-#include "corbomite/core/Plugin.h"
+#include "corbomite/vault/Plugin.h"
 
 class BacklinksPlugin : public Corbomite::Plugin
 {
@@ -1910,7 +1865,7 @@ public:
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "BacklinksPlugin.h"
 #include "BacklinksView.h"
-#include "corbomite/core/PluginContext.h"
+#include "corbomite/vault/PluginContext.h"
 #include "corbomite/core/proxies/MetadataCacheReader.h"
 
 #include <KPluginFactory>
@@ -2080,7 +2035,11 @@ ui.views + workspace permissions."
 Permissions: `vault.write` (to write frontmatter via `FrontMatterWriter`), `metadata.read` (to query frontmatter state), `ui.views`.
 
 Notes:
-- `PropertiesView`'s `FrontMatterWriter` writeback routes through `VaultWriter` proxy now — extend `VaultWriter` with `writeFrontMatter(path, yaml)` if not already present (else add in this task).
+- `PropertiesView`'s frontmatter writeback routes through
+  `FileManagerProxy::processFrontMatter(TFile *, FrontMatterMutator)` —
+  already implemented as of Q.0 P5 (+ P9 proxy). Obsolete reference to
+  `FrontMatterWriter` removed with its class in Q.0 P10. No proxy
+  extension required.
 - 500ms debounced writeback + subscribe to `MetadataCacheReader::cacheChanged` (add the signal to the proxy).
 
 - [ ] **Step 1-5:** Follow Task 14 pattern.
@@ -2102,7 +2061,11 @@ metadata.read + ui.views."
 Permissions: `vault.read` (for file previews), `metadata.read` (for FTS), `ui.views`, `ui.commands` (Ctrl+Shift+F), `workspace` (open result → navigate to file).
 
 Notes:
-- SearchView uses `SQLiteIndex` which is part of `Corbomite::Storage`. `VaultReader` proxy needs a `search()` method OR we expose `SQLiteIndex` as part of `MetadataCacheReader` surface.
+- SearchView uses `SQLiteIndex` which is part of `Corbomite::Storage`.
+  Expose SQLiteIndex search on `MetadataCacheReader` surface (preferred)
+  or add a dedicated `SearchProxy` — decide during task execution.
+  `VaultProxy` is not the right home (search is metadata/index, not
+  filesystem).
 - Ctrl+Shift+F command registration goes through `CommandRegistrar` proxy.
 
 - [ ] **Step 1-5:** Follow Task 14 pattern.
@@ -2125,7 +2088,13 @@ Permissions: `vault.read`, `vault.write` (rename/new/delete), `ui.views`, `ui.me
 
 Notes:
 - File-menu items (New Note, Delete, Rename) go through `MenuInjector` proxy.
-- FileExplorer's tree uses `VaultModel` — ensure `VaultReader` exposes the model OR the Plugin holds a reference via the context.
+- FileExplorer's tree uses `NotesTreeModel` (backed by `Vault::getFiles()`
+  + `Vault::created/deletedFile/renamed` signals since Q.0 P7). The
+  plugin constructs its own `NotesTreeModel` from `VaultProxy::getFiles()`
+  and subscribes to `VaultProxy::on("create"/"delete"/"rename", ...)` —
+  no proxy extension needed. Rename goes through
+  `FileManagerProxy::renameFile` (link rewrite). `VaultModel` is gone
+  (Q.0 P10).
 
 - [ ] **Step 1-5:** Follow Task 14 pattern.
 
