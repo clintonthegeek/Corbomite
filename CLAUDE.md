@@ -30,8 +30,10 @@ Configure and build with the dev build flag:
 
 ```bash
 cmake -B build -DCORBOMITE_DEV_BUILD=ON
-cmake --build build
+cmake --build build -j 10
 ```
+
+Always pass `-j 10` to `cmake --build` — the default serial build is slow on this tree. Use the same `-j 10` for incremental rebuilds.
 
 Run:
 ```bash
@@ -40,7 +42,7 @@ Run:
 
 Run tests:
 ```bash
-cd build && ctest --output-on-failure
+cd build && ctest --output-on-failure -j 10
 ```
 
 ### Dev Build Isolation
