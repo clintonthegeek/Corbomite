@@ -39,14 +39,41 @@ add_library(corbomite-storage STATIC
     src/proxies/SearchProxy.cpp
     include/corbomite/storage/proxies/SearchProxy.h
 )
-set_target_properties(corbomite-storage PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(corbomite-storage PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    EXPORT_NAME Storage)
 add_library(Corbomite::Storage ALIAS corbomite-storage)
 
 target_include_directories(corbomite-storage
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${KDE_INSTALL_INCLUDEDIR}>
 )
-target_link_libraries(corbomite-storage PUBLIC Qt6::Core Qt6::Sql MarkoffParser::MarkoffParser)
+target_link_libraries(corbomite-storage
+    PUBLIC
+        Qt6::Core Qt6::Sql
+    # MarkoffParser is a submodule dep — used only in .cpp today, kept on
+    # the PUBLIC interface for header-visibility convenience. Wrapped with
+    # BUILD_INTERFACE so it doesn't leak into the installed package, which
+    # does not ship submodule targets. See libs/core/CMakeLists.txt for
+    # the full rationale.
+    PUBLIC
+        $<BUILD_INTERFACE:MarkoffParser::MarkoffParser>)
 
 if(NOT PROJECT_IS_TOP_LEVEL)
     target_link_libraries(corbomite-storage PUBLIC Corbomite::Core)
+endif()
+
+# Install rules (public consumption via find_package(Corbomite)).
+if(DEFINED KDE_INSTALL_INCLUDEDIR)
+    install(TARGETS corbomite-storage
+        EXPORT CorbomiteTargets
+        RUNTIME DESTINATION ${KDE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${KDE_INSTALL_LIBDIR}
+        INCLUDES DESTINATION ${KDE_INSTALL_INCLUDEDIR}
+    )
+    install(DIRECTORY include/corbomite/storage/
+        DESTINATION ${KDE_INSTALL_INCLUDEDIR}/corbomite/storage
+    )
 endif()

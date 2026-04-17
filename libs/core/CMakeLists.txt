@@ -102,15 +102,48 @@ add_library(corbomite-core STATIC
     src/proxies/ProcessSpawner.cpp
     include/corbomite/core/proxies/ProcessSpawner.h
 )
-set_target_properties(corbomite-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(corbomite-core PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    EXPORT_NAME Core)
 add_library(Corbomite::Core ALIAS corbomite-core)
 
 target_include_directories(corbomite-core
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${KDE_INSTALL_INCLUDEDIR}>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../storage/include
 )
-target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets Qt6::Network KF6::SyntaxHighlighting KF6::I18n KF6::CoreAddons KF6::ConfigCore jkqtmathtext mmdr markoff)
+target_link_libraries(corbomite-core
+    PUBLIC
+        Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets Qt6::Network
+        KF6::SyntaxHighlighting KF6::I18n KF6::CoreAddons KF6::ConfigCore
+    # Submodule / bundled deps are linked only in the in-tree BUILD
+    # interface. They are not shipped as part of the installed Corbomite
+    # package. Third-party plugins that link against an installed
+    # Corbomite::Core must still be built in a tree that resolves these
+    # symbols themselves (typically via add_subdirectory of Corbomite).
+    PUBLIC
+        $<BUILD_INTERFACE:jkqtmathtext>
+        $<BUILD_INTERFACE:mmdr>
+        $<BUILD_INTERFACE:markoff>)
 
 if(CORBOMITE_USE_KEYRING)
     target_link_libraries(corbomite-core PRIVATE Qt6Keychain::Qt6Keychain)
+endif()
+
+# Install rules (public consumption via find_package(Corbomite)).
+# KDE_INSTALL_* is provided by the parent Corbomite tree's
+# include(KDEInstallDirs); when this lib is built standalone the
+# install step is skipped.
+if(DEFINED KDE_INSTALL_INCLUDEDIR)
+    install(TARGETS corbomite-core
+        EXPORT CorbomiteTargets
+        RUNTIME DESTINATION ${KDE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${KDE_INSTALL_LIBDIR}
+        INCLUDES DESTINATION ${KDE_INSTALL_INCLUDEDIR}
+    )
+    install(DIRECTORY include/corbomite/core/
+        DESTINATION ${KDE_INSTALL_INCLUDEDIR}/corbomite/core
+    )
 endif()

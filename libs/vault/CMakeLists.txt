@@ -43,11 +43,15 @@ add_library(vault SHARED
     include/corbomite/vault/PluginManager.h
     src/PluginManager.cpp
 )
-set_target_properties(vault PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(vault PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    EXPORT_NAME Vault)
 add_library(Corbomite::Vault ALIAS vault)
 
 target_include_directories(vault
-    PUBLIC  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${KDE_INSTALL_INCLUDEDIR}>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
@@ -74,6 +78,20 @@ if(DEFINED Corbomite_VERSION)
 elseif(DEFINED PROJECT_VERSION)
     target_compile_definitions(vault PRIVATE
         CORBOMITE_APP_VERSION="${PROJECT_VERSION}")
+endif()
+
+# Install rules (public consumption via find_package(Corbomite)).
+if(DEFINED KDE_INSTALL_INCLUDEDIR)
+    install(TARGETS vault
+        EXPORT CorbomiteTargets
+        RUNTIME DESTINATION ${KDE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${KDE_INSTALL_LIBDIR}
+        INCLUDES DESTINATION ${KDE_INSTALL_INCLUDEDIR}
+    )
+    install(DIRECTORY include/corbomite/vault/
+        DESTINATION ${KDE_INSTALL_INCLUDEDIR}/corbomite/vault
+    )
 endif()
 
 enable_testing()

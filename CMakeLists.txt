@@ -141,6 +141,31 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_xmlgui_rcfile}
 
 install(FILES data/org.corbomite.Corbomite.desktop DESTINATION ${KDE_INSTALL_APPDIR})
 
+# CMake package-config: lets third-party plugins do find_package(Corbomite)
+# to pull in Corbomite::Core / Vault / Storage / Models targets and the
+# corbomite_add_plugin() helper. Must come after all add_subdirectory(libs/*)
+# calls so each library's install(TARGETS ... EXPORT CorbomiteTargets) has
+# already registered into the export set.
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_LIST_DIR}/cmake/CorbomiteConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/CorbomiteConfig.cmake"
+    INSTALL_DESTINATION "${KDE_INSTALL_CMAKEPACKAGEDIR}/Corbomite"
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/CorbomiteConfig.cmake"
+    "${CMAKE_CURRENT_LIST_DIR}/cmake/CorbomitePlugin.cmake"
+    DESTINATION "${KDE_INSTALL_CMAKEPACKAGEDIR}/Corbomite"
+)
+
+install(EXPORT CorbomiteTargets
+    FILE CorbomiteTargets.cmake
+    NAMESPACE Corbomite::
+    DESTINATION "${KDE_INSTALL_CMAKEPACKAGEDIR}/Corbomite"
+)
+
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     qt_generate_deploy_app_script(
         TARGET Corbomite
