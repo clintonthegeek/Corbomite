@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonDocument>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QTimer>
@@ -394,6 +395,57 @@ bool Vault::copy(TAbstractFile *f, const QString &newPath)
     }
     // Recursive folder copy is declared in the spec as scope-deferred.
     return false;
+}
+
+void Vault::setConfigDir(const QString &d)
+{
+    if (d.isEmpty() || d == QStringLiteral(".")) return;
+    if (!d.startsWith(QLatin1Char('.'))) return;
+    m_configDir = d;
+}
+
+namespace {
+QString configJsonAbs(const QString &basePath, const QString &configDir,
+                      const QString &name)
+{
+    return basePath + QLatin1Char('/') + configDir + QLatin1Char('/')
+         + name + QStringLiteral(".json");
+}
+}
+
+QJsonValue Vault::readConfigJson(const QString &name) const
+{
+    if (!m_adapter || m_basePath.isEmpty()) return {};
+    const QString abs = configJsonAbs(m_basePath, m_configDir, name);
+    auto body = m_adapter->readBinary(abs);
+    if (!body.has_value()) return {};
+    QJsonParseError err;
+    const auto doc = QJsonDocument::fromJson(*body, &err);
+    if (err.error != QJsonParseError::NoError) return {};
+    if (doc.isObject()) return doc.object();
+    if (doc.isArray())  return doc.array();
+    return {};
+}
+
+bool Vault::writeConfigJson(const QString &name, const QJsonValue &value)
+{
+    if (!m_adapter || m_basePath.isEmpty()) return false;
+    m_adapter->mkpath(m_basePath + QLatin1Char('/') + m_configDir);
+    const QString abs = configJsonAbs(m_basePath, m_configDir, name);
+
+    QJsonDocument doc;
+    if (value.isObject())      doc = QJsonDocument(value.toObject());
+    else if (value.isArray())  doc = QJsonDocument(value.toArray());
+    else return false;
+
+    const QByteArray body = doc.toJson(QJsonDocument::Indented);
+    return m_adapter->writeBinary(abs, body);
+}
+
+bool Vault::deleteConfigJson(const QString &name)
+{
+    if (!m_adapter) return false;
+    return m_adapter->remove(configJsonAbs(m_basePath, m_configDir, name));
 }
 
 bool Vault::trash(TAbstractFile *f, bool useSystem)

@@ -6,6 +6,9 @@
 #include <unordered_map>
 
 #include <QHash>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
 #include <QObject>
 #include <QString>
 #include <QVector>
@@ -58,6 +61,16 @@ public:
     bool    isLoaded() const;
     QString getName() const;
     QString basePath() const;
+
+    // ---- Config directory (.obsidian by default) ----
+    QString configDir() const { return m_configDir; }
+    /// Rejects names without a leading '.' or bare '.'; falls back silently.
+    void    setConfigDir(const QString &d);
+
+    // ---- Config-JSON I/O (.obsidian/<name>.json) ----
+    QJsonValue readConfigJson(const QString &name) const;
+    bool       writeConfigJson(const QString &name, const QJsonValue &value);
+    bool       deleteConfigJson(const QString &name);
 
     // ---- Tree queries ----
     TFolder        *getRoot() const;
@@ -135,6 +148,8 @@ private:
     // `deleted == true` and read the object without UAF. std::vector
     // (not QVector) because QVector requires value-copyable during grow.
     std::vector<std::unique_ptr<TAbstractFile>> m_pendingDelete;
+
+    QString m_configDir = QStringLiteral(".obsidian");
 
     // Sparse read cache populated by cachedRead; invalidated on
     // modify/delete/rename. Lives on Vault so every TFile doesn't pay for
