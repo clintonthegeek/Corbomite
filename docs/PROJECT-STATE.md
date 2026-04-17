@@ -41,9 +41,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster K — Bases
-- **Phase:** 5 of 9 (Phase 4 complete)
-- **Last completed step:** Phase 4 — Evaluator (2026-04-17; commit `3bde9f80`). 22 tests across arithmetic / relational / equality / logical short-circuit / null-propagation / unary / member / index / error-propagation. `!Null` returns Null (propagation, not true — addendum §4.4 divergence). Logical `&&`/`||` always returns fresh BooleanValue (addendum §3 note).
-- **Next expected step:** Phase 5 — FunctionRegistry + built-ins (globals + per-type methods + hard-cased `if`/`list.map/filter/reduce`/`object.map/filter`)
+- **Phase:** 6 of 9 (Phase 5 complete)
+- **Last completed step:** Phase 5 — FunctionRegistry + 43 built-in function registrations + Formula wrapper + hard-cased if/map/filter/reduce (2026-04-17; commit `3bbd5c24`). ShadowingContext binds `value`/`index`/`acc`/`key` for lambda bodies. Full addendum §8 catalog landed except `file()`/`LinkValue.asFile()` stubs (require Vault binding in BasesEntry ctx). 44 tests pass.
+- **Next expected step:** Phase 6 — `.base` YAML schema (PropertyId, FilterTree, BasesViewConfig, BasesQuery)
 - **Owner:** agent session
 - **Date last touched:** 2026-04-17
 - **Parser choice (locked-in 2026-04-17):** hand-rolled Pratt parser per addendum §15.1 option 2 (~250 lines, zero new runtime deps, easier to debug in C++ toolchain). Tree-sitter port option rejected; Lezer state-machine transliteration rejected.
