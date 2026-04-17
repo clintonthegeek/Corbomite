@@ -22,6 +22,8 @@
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
 #include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/vault/TAbstractFile.h"
+#include "corbomite/vault/TFile.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/FileManager.h"
 #include "corbomite/storage/LinkResolver.h"
@@ -1267,12 +1269,49 @@ void MainWindow::onVaultOpened()
         m_metadataCache->onFileChanged(relPath, bytes, mtimeMs);
     });
 
-    // TODO Q.0 P7: re-wire file-watcher signal consumers onto Vault::created
-    // / Vault::modified / Vault::deletedFile / Vault::renamed (Q.0 P2 T2.4
-    // introduces the producers). Previously these three blocks wired
-    // FileWatchReactor's fileModifiedExternally / fileDeletedExternally /
-    // fileCreatedExternally signals to TextFileView::onExternalModify and
-    // MetadataCache::onFileChanged / onFileDeleted; gap accepted per plan.
+    // Q.0 P7 — external-filesystem events flow through Vault's signals.
+    // Self-writes are suppressed by Vault's echo-suppression ledger, so these
+    // handlers only fire for genuinely external mutations.
+    connect(m_vaultObj, &Vault::created, this,
+            [this](TAbstractFile *f) {
+        auto *tf = dynamic_cast<TFile *>(f);
+        if (!tf || tf->extension != QLatin1String("md")) return;
+        if (!m_metadataCache) return;
+        const QByteArray bytes = m_vaultObj->read(tf);
+        const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;
+        m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);
+    });
+    connect(m_vaultObj, &Vault::modified, this, [this](TFile *tf) {
+        if (!tf) return;
+        // Every TextFileView learns about external modifications so it can
+        // reload / three-way-merge as appropriate.
+        if (m_workspace) {
+            for (auto *leaf : m_workspace->allLeaves()) {
+                if (auto *tfv = qobject_cast<TextFileView *>(leaf->view())) {
+                    tfv->onExternalModify(tf->path);
+                }
+            }
+        }
+        if (m_metadataCache && tf->extension == QLatin1String("md")) {
+            const QByteArray bytes = m_vaultObj->read(tf);
+            const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;
+            m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);
+        }
+    });
+    connect(m_vaultObj, &Vault::deletedFile, this, [this](TAbstractFile *f) {
+        if (!f || !m_metadataCache) return;
+        m_metadataCache->onFileDeleted(f->path);
+    });
+    connect(m_vaultObj, &Vault::renamed, this,
+            [this](TAbstractFile *f, const QString &oldPath) {
+        if (!f || !m_metadataCache) return;
+        m_metadataCache->onFileDeleted(oldPath);
+        auto *tf = dynamic_cast<TFile *>(f);
+        if (!tf || tf->extension != QLatin1String("md")) return;
+        const QByteArray bytes = m_vaultObj->read(tf);
+        const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;
+        m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);
+    });
 
     // Session manager — restore workspace
     delete m_sessionManager;
