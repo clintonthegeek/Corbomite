@@ -1,0 +1,20 @@
+{
+    "KPlugin": {
+        "Id": "example.note-stats",
+        "Name": "Note Statistics",
+        "Description": "Shows vault-wide note count, word count, tags, and links",
+        "Version": "0.1.0",
+        "Authors": [{ "Name": "Corbomite Contributors" }],
+        "License": "GPL-3.0-or-later"
+    },
+    "X-Corbomite-Trusted": @X_CORBOMITE_TRUSTED@,
+    "X-Corbomite-Permissions": [
+        "vault.read",
+        "vault.events",
+        "metadata.read",
+        "ui.views"
+    ],
+    "X-Corbomite-DockArea": "right",
+    "X-Corbomite-MinVersion": "0.1.0",
+    "X-Corbomite-ApiLevel": 1
+}

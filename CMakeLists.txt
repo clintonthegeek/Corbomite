@@ -196,5 +196,5 @@ add_subdirectory(libs/canvas/tests)
 # builds don't pay for them.
 if(CORBOMITE_BUILD_EXAMPLES)
     add_subdirectory(examples/plugin-template)
-    # Task 5.2 will add: add_subdirectory(examples/note-stats-plugin)
+    add_subdirectory(examples/note-stats-plugin)
 endif()
