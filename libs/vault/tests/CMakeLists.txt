@@ -153,3 +153,10 @@ target_link_libraries(tst_vault_proxy
 add_test(NAME tst_vault_proxy COMMAND tst_vault_proxy)
 set_tests_properties(tst_vault_proxy PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_file_manager_proxy tst_file_manager_proxy.cpp)
+target_link_libraries(tst_file_manager_proxy
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_file_manager_proxy COMMAND tst_file_manager_proxy)
+set_tests_properties(tst_file_manager_proxy PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

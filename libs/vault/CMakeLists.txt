@@ -27,6 +27,8 @@ add_library(vault STATIC
     src/FileManager.cpp
     include/corbomite/vault/proxies/VaultProxy.h
     src/proxies/VaultProxy.cpp
+    include/corbomite/vault/proxies/FileManagerProxy.h
+    src/proxies/FileManagerProxy.cpp
 )
 set_target_properties(vault PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Vault ALIAS vault)
