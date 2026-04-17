@@ -31,7 +31,6 @@ class WorkspaceLeaf;
 class NoteEditorWidget;
 class MarkdownView;
 class FileExplorerPanel;
-class SearchPanel;
 class NotesTreeModel;
 class AutosaveReactor;
 // FileWatchReactor forward decl removed — moved into Corbomite::detail::Watcher
@@ -146,7 +145,6 @@ private:
     // Corbomite::detail::Watcher. Re-wired to Vault's public signal API in
     // Q.0 Phase 7.
     SessionManager *m_sessionManager = nullptr;
-    SearchPanel *m_searchPanel = nullptr;
     SQLiteIndex *m_searchIndex = nullptr;
     MetadataCache *m_metadataCache = nullptr;
     LinkResolver *m_linkResolver = nullptr;

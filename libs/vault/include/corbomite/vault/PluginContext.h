@@ -15,6 +15,7 @@ namespace Corbomite {
 class Vault;
 class FileManager;
 class MetadataCache;
+class SQLiteIndex;
 class Workspace;
 class CommandRegistry;
 class ViewRegistry;
@@ -58,6 +59,15 @@ public:
                          MenuEventEmitter *menus,
                          QNetworkAccessManager *network);
 
+    /// Sets the host-side SQLiteIndex pointer. Plugins read it via
+    /// `searchIndex()` gated on `metadata.read`. Direct exposure is a
+    /// stop-gap pending a dedicated `SearchProxy` (Cluster Q follow-up).
+    void setSearchIndex(SQLiteIndex *index) { m_searchIndex = index; }
+
+    /// Returns the host SQLiteIndex if the plugin holds `metadata.read`.
+    /// nullptr otherwise. Direct pointer — no proxy abstraction yet.
+    SQLiteIndex *searchIndex() const;
+
     // Metadata accessors
     const PluginMetaData &metaData() const { return m_meta; }
     const QSet<QString>  &grantedPermissions() const { return m_granted; }
@@ -98,6 +108,7 @@ private:
     Vault                 *m_vault = nullptr;
     FileManager           *m_fileManager = nullptr;
     MetadataCache         *m_metadata = nullptr;
+    SQLiteIndex           *m_searchIndex = nullptr;
     Workspace             *m_workspace = nullptr;
     CommandRegistry       *m_commandRegistry = nullptr;
     ViewRegistry          *m_viewRegistry = nullptr;

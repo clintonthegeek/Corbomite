@@ -1,0 +1,18 @@
+{
+    "KPlugin": {
+        "Name": "Search",
+        "Description": "Full-text search across the active vault",
+        "Icon": "edit-find",
+        "Version": "1.0",
+        "License": "GPL-3.0-or-later",
+        "Category": "Core",
+        "EnabledByDefault": true,
+        "Authors": [{"Name": "Corbomite Developers"}]
+    },
+    "X-Corbomite-Trusted": true,
+    "X-Corbomite-Permissions": ["vault.read", "metadata.read", "workspace", "ui.views", "ui.commands"],
+    "X-Corbomite-MinVersion": "0.1.0",
+    "X-Corbomite-DockArea": "left",
+    "X-Corbomite-DockIcon": "edit-find",
+    "X-Corbomite-DockTitle": "Search"
+}

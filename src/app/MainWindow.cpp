@@ -11,7 +11,6 @@
 #include "corbomite/core/FileView.h"
 #include "corbomite/core/TextFileView.h"
 #include "sidebar/FileExplorerPanel.h"
-#include "sidebar/SearchPanel.h"
 #include "graph/LocalGraphPanel.h"
 #include "graph/GraphControlsPanel.h"
 #include "graph/GraphViewTab.h"
@@ -190,17 +189,22 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     connect(m_app, &CorbomiteApp::vaultClosed, this, &MainWindow::onVaultClosed);
 
     if (auto *pm = m_app->pluginManager()) {
+        // Tear down any plugin instances from a previous MainWindow's
+        // lifetime — their PluginContexts hold pointers to the dead
+        // MainWindow's Workspace/Vault/etc. Re-enable happens on
+        // onVaultOpened with this MainWindow's services freshly wired.
+        QStringList stale;
+        for (int i = 0; i < pm->pluginCount(); ++i) {
+            const auto &info = pm->pluginByIndex(i);
+            if (info.instance) stale.append(info.metaData.base().pluginId());
+        }
+        for (const QString &id : stale)
+            pm->disablePlugin(id, /*persist=*/false);
+
         connect(pm, &Corbomite::PluginManager::pluginLoaded,
                 this, &MainWindow::hostPluginView);
         connect(pm, &Corbomite::PluginManager::pluginUnloading,
                 this, &MainWindow::releasePluginView);
-        // Plugins discovered + auto-enabled before MainWindow exists
-        // need their views hosted now.
-        for (int i = 0; i < pm->pluginCount(); ++i) {
-            const auto &info = pm->pluginByIndex(i);
-            if (info.instance)
-                hostPluginView(info.metaData.base().pluginId());
-        }
     }
 
     m_commandRegistry = new CommandRegistry();
@@ -430,6 +434,7 @@ void MainWindow::rewirePluginCoreServices()
         ctx->setCoreServices(m_vaultObj, m_fileManager, m_metadataCache,
                               m_workspace, m_commandRegistry, m_viewRegistry,
                               m_menuEvents, nullptr /* QNetworkAccessManager */);
+        ctx->setSearchIndex(m_searchIndex);
     });
     // Plugins already enabled (e.g. on subsequent vault open) get their
     // contexts re-wired in place so proxies see the fresh services.
@@ -439,6 +444,7 @@ void MainWindow::rewirePluginCoreServices()
             info.context->setCoreServices(m_vaultObj, m_fileManager,
                 m_metadataCache, m_workspace, m_commandRegistry,
                 m_viewRegistry, m_menuEvents, nullptr);
+            info.context->setSearchIndex(m_searchIndex);
         }
     }
 }
@@ -957,19 +963,8 @@ void MainWindow::setupSidebars()
         }
     });
 
-    auto *searchToolView = createToolView(
-        nullptr,
-        QStringLiteral("search_panel"),
-        KMultiTabBar::Left,
-        QIcon::fromTheme(QStringLiteral("edit-find")),
-        i18n("Search")
-    );
-
-    m_searchPanel = new SearchPanel(searchToolView);
-    searchToolView->layout()->addWidget(m_searchPanel);
-
-    connect(m_searchPanel, &SearchPanel::noteActivated,
-            this, &MainWindow::onNoteActivated);
+    // Search panel migrated to InternalPlugin "corbomite-search"
+    // (Cluster Q Task 17).
 
     // Backlinks panel migrated to InternalPlugin "corbomite-backlinks"
     // (Cluster Q Task 13). MainWindow no longer constructs it; the
@@ -1287,9 +1282,6 @@ void MainWindow::onVaultOpened(const QString &path)
         m_metadataCache->rebuildVault(path, notePaths);
     }
 
-    m_searchPanel->setIndex(m_searchIndex);
-    m_searchPanel->setMetadataCache(m_metadataCache);
-
     m_localGraphPanel->setIndex(m_searchIndex);
     m_localGraphPanel->setVault(m_vaultObj);
     m_localGraphPanel->setMetadataCache(m_metadataCache);
@@ -1491,8 +1483,6 @@ void MainWindow::onVaultClosed()
     m_metadataCache = nullptr;
     delete m_linkResolver;
     m_linkResolver = nullptr;
-    m_searchPanel->setIndex(nullptr);
-    m_searchPanel->setMetadataCache(nullptr);
 
     delete m_treeModel;
     m_treeModel = nullptr;
@@ -1530,11 +1520,12 @@ void MainWindow::openGraphView()
 
 void MainWindow::showSearchPanel()
 {
-    auto *tv = toolView(QStringLiteral("search_panel"));
-    if (tv) {
-        showToolView(tv);
-        m_searchPanel->focusSearchInput();
-    }
+    // Search panel is now an InternalPlugin (Cluster Q Task 17). Surface
+    // its tool view via the plugin-id-derived slot. Focus management is
+    // a follow-up — plugin views aren't reachable for `focusSearchInput`
+    // calls without a host-side accessor.
+    auto *tv = toolView(QStringLiteral("corbomite-search_panel"));
+    if (tv) showToolView(tv);
 }
 
 void MainWindow::insertTemplate()

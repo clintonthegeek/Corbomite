@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "SearchPanel.h"
+#include "SearchView.h"
+
+#include "corbomite/core/proxies/WorkspaceController.h"
 #include "corbomite/models/SearchResultsModel.h"
 #include "corbomite/search/SearchDSL.h"
-#include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
+#include "corbomite/storage/proxies/MetadataCacheReader.h"
 
 #include <KLocalizedString>
 #include <QHBoxLayout>
@@ -13,12 +15,18 @@
 
 namespace Corbomite {
 
-SearchPanel::SearchPanel(QWidget *parent)
+SearchView::SearchView(SQLiteIndex *index,
+                        MetadataCacheReader *metadata,
+                        WorkspaceController *workspace,
+                        QWidget *parent)
     : QWidget(parent)
     , m_searchInput(new QLineEdit(this))
     , m_helpButton(new QToolButton(this))
     , m_resultView(new QTreeView(this))
     , m_statusLabel(new QLabel(this))
+    , m_index(index)
+    , m_metadata(metadata)
+    , m_workspace(workspace)
     , m_resultsModel(new SearchResultsModel(this))
 {
     auto *layout = new QVBoxLayout(this);
@@ -54,41 +62,25 @@ SearchPanel::SearchPanel(QWidget *parent)
     m_debounceTimer.setSingleShot(true);
     m_debounceTimer.setInterval(300);
 
-    connect(m_searchInput, &QLineEdit::textChanged, this, &SearchPanel::onSearchTextChanged);
-    connect(&m_debounceTimer, &QTimer::timeout, this, &SearchPanel::executeSearch);
-    connect(m_resultView, &QTreeView::doubleClicked, this, &SearchPanel::onResultClicked);
-    connect(m_helpButton, &QToolButton::clicked, this, &SearchPanel::showOperatorHelp);
-}
+    connect(m_searchInput, &QLineEdit::textChanged, this, &SearchView::onSearchTextChanged);
+    connect(&m_debounceTimer, &QTimer::timeout, this, &SearchView::executeSearch);
+    connect(m_resultView, &QTreeView::doubleClicked, this, &SearchView::onResultClicked);
+    connect(m_helpButton, &QToolButton::clicked, this, &SearchView::showOperatorHelp);
 
-void SearchPanel::setIndex(SQLiteIndex *index)
-{
-    m_index = index;
-}
-
-void SearchPanel::setMetadataCache(MetadataCache *cache)
-{
-    if (m_cache) {
-        disconnect(m_cache, nullptr, this, nullptr);
-    }
-    m_cache = cache;
-    if (m_cache) {
-        // When the index settles, re-run the current query so the results
-        // reflect the latest state of the vault.
-        connect(m_cache, &MetadataCache::indexFinished, this, [this]() {
-            if (!m_searchInput->text().trimmed().isEmpty()) {
-                executeSearch();
-            }
+    if (m_metadata) {
+        connect(m_metadata, &MetadataCacheReader::indexFinished, this, [this]() {
+            if (!m_searchInput->text().trimmed().isEmpty()) executeSearch();
         });
     }
 }
 
-void SearchPanel::focusSearchInput()
+void SearchView::focusSearchInput()
 {
     m_searchInput->setFocus();
     m_searchInput->selectAll();
 }
 
-void SearchPanel::onSearchTextChanged(const QString &text)
+void SearchView::onSearchTextChanged(const QString &text)
 {
     if (text.trimmed().isEmpty()) {
         m_resultsModel->clear();
@@ -98,10 +90,9 @@ void SearchPanel::onSearchTextChanged(const QString &text)
     m_debounceTimer.start();
 }
 
-void SearchPanel::executeSearch()
+void SearchView::executeSearch()
 {
     if (!m_index) return;
-
     const QString query = m_searchInput->text().trimmed();
     if (query.isEmpty()) return;
 
@@ -112,20 +103,12 @@ void SearchPanel::executeSearch()
         m_statusLabel->setVisible(true);
         return;
     }
+    if (!parsed.root) return;
 
     QVector<SearchMatch> results;
     QString unsupportedNote;
-
-    if (!parsed.root) {
-        // Empty parse — happens on whitespace-only inputs we already short-circuit.
-        return;
-    }
-
     auto plan = SearchDSL::compile(parsed.root);
     if (plan.fts5Query.isEmpty() && plan.requiredTags.isEmpty() && plan.excludedTags.isEmpty()) {
-        // Parser produced an AST but compile dropped everything (e.g. only
-        // unsupported operators). Fall back to literal-string FTS5 search so
-        // the user still sees something useful.
         results = m_index->search(query);
     } else {
         results = m_index->searchCompiled(plan.fts5Query, plan.requiredTags, plan.excludedTags);
@@ -133,9 +116,7 @@ void SearchPanel::executeSearch()
     if (!plan.unsupported.isEmpty()) {
         unsupportedNote = i18n(" (unsupported: %1)", plan.unsupported.join(QStringLiteral(", ")));
     }
-
     m_resultsModel->setResults(results);
-
     m_statusLabel->setText(i18n("%1 matches in %2 files%3",
                                 m_resultsModel->totalMatchCount(),
                                 m_resultsModel->fileCount(),
@@ -144,15 +125,13 @@ void SearchPanel::executeSearch()
     m_resultView->expandAll();
 }
 
-void SearchPanel::onResultClicked(const QModelIndex &index)
+void SearchView::onResultClicked(const QModelIndex &index)
 {
-    QString path = index.data(SearchResultsModel::NotePathRole).toString();
-    if (!path.isEmpty()) {
-        Q_EMIT noteActivated(path);
-    }
+    const QString path = index.data(SearchResultsModel::NotePathRole).toString();
+    if (!path.isEmpty() && m_workspace) m_workspace->openFile(path);
 }
 
-void SearchPanel::showOperatorHelp()
+void SearchView::showOperatorHelp()
 {
     const QString text = i18n(
         "<b>Search operators</b><br>"

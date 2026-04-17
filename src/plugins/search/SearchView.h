@@ -5,29 +5,27 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QTimer>
-#include <QPointer>
 #include <QToolButton>
 #include <QTreeView>
 #include <QWidget>
 
 namespace Corbomite {
 
+class MetadataCacheReader;
 class SQLiteIndex;
-class MetadataCache;
 class SearchResultsModel;
+class WorkspaceController;
 
-class SearchPanel : public QWidget {
+class SearchView : public QWidget
+{
     Q_OBJECT
-
 public:
-    explicit SearchPanel(QWidget *parent = nullptr);
+    SearchView(SQLiteIndex *index,
+               MetadataCacheReader *metadata,
+               WorkspaceController *workspace,
+               QWidget *parent = nullptr);
 
-    void setIndex(SQLiteIndex *index);
-    void setMetadataCache(MetadataCache *cache);
     void focusSearchInput();
-
-Q_SIGNALS:
-    void noteActivated(const QString &relativePath);
 
 private:
     void onSearchTextChanged(const QString &text);
@@ -42,7 +40,8 @@ private:
     QTimer m_debounceTimer;
 
     SQLiteIndex *m_index = nullptr;
-    QPointer<MetadataCache> m_cache;
+    MetadataCacheReader *m_metadata = nullptr;
+    WorkspaceController *m_workspace = nullptr;
     SearchResultsModel *m_resultsModel;
 };
 

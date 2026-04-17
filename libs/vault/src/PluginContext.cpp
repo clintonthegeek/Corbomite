@@ -95,6 +95,12 @@ FileManagerProxy *PluginContext::fileManager() const
     return m_fileManagerProxy;
 }
 
+SQLiteIndex *PluginContext::searchIndex() const
+{
+    if (!hasPermission(QLatin1String(kMetadataRead))) return nullptr;
+    return m_searchIndex;
+}
+
 MetadataCacheReader *PluginContext::metadataCache() const
 {
     if (!hasPermission(QLatin1String(kMetadataRead)) || !m_metadata) return nullptr;

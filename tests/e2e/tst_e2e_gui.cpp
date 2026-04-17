@@ -29,7 +29,6 @@
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "sidebar/FileExplorerPanel.h"
-#include "sidebar/SearchPanel.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/FileManager.h"
@@ -83,12 +82,14 @@ private:
         return views.isEmpty() ? nullptr : views.first();
     }
 
-    // Helper: get search input
+    // Helper: get search input from the SearchPlugin's hosted tool view
+    // (Cluster Q Task 17 — search migrated to InternalPlugin).
     QLineEdit *searchInput()
     {
-        auto *panel = m_mainWindow->findChild<SearchPanel *>();
-        if (!panel) return nullptr;
-        return panel->findChild<QLineEdit *>();
+        auto *toolView = m_mainWindow->findChild<QWidget *>(
+            QStringLiteral("corbomite-search_panel"));
+        if (!toolView) return nullptr;
+        return toolView->findChild<QLineEdit *>();
     }
 
 private Q_SLOTS:
@@ -329,8 +330,9 @@ private Q_SLOTS:
         QTest::keyClicks(input, "Obsidian");
         settle(500); // Wait for debounce + FTS5 query
 
-        // Check that search results appeared
-        auto *panel = m_mainWindow->findChild<SearchPanel *>();
+        // Check that search results appeared (panel is now a plugin tool view)
+        auto *panel = m_mainWindow->findChild<QWidget *>(
+            QStringLiteral("corbomite-search_panel"));
         QVERIFY(panel);
         auto *resultTree = panel->findChild<QTreeView *>();
         QVERIFY(resultTree);
