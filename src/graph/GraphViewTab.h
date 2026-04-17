@@ -14,14 +14,14 @@ namespace Corbomite {
 
 class GraphControlsPanel;
 class SQLiteIndex;
-class VaultModel;
+class Vault;
 class MetadataCache;
 
 class GraphViewTab : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GraphViewTab(SQLiteIndex *index, VaultModel *vault, QWidget *parent = nullptr);
+    explicit GraphViewTab(SQLiteIndex *index, Vault *vault, QWidget *parent = nullptr);
     ~GraphViewTab() override;
 
     void buildGraph();
@@ -42,7 +42,7 @@ private:
     ForceGraph::ForceGraphView *m_graphView;
     ForceGraph::ForceLayoutEngine *m_engine;
     SQLiteIndex *m_index;
-    VaultModel *m_vault;
+    Vault *m_vault;
 
     GraphControlsPanel *m_controlsPanel = nullptr;
     QPointer<MetadataCache> m_cache;

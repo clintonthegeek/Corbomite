@@ -23,7 +23,7 @@ QString GraphView::getDisplayText() const { return i18n("Graph view"); }
 QString GraphView::getIcon() const { return QStringLiteral("network-wired"); }
 
 void GraphView::setIndex(SQLiteIndex *index) { m_index = index; }
-void GraphView::setVaultModel(VaultModel *vault) { m_vault = vault; }
+void GraphView::setVault(Vault *vault) { m_vault = vault; }
 
 void GraphView::setMetadataCache(MetadataCache *cache)
 {

@@ -7,7 +7,7 @@
 namespace Corbomite {
 
 class SQLiteIndex;
-class VaultModel;
+class Vault;
 
 class GraphDataBuilder {
 public:
@@ -16,8 +16,8 @@ public:
         QVector<ForceGraph::GraphEdge> edges;
     };
 
-    static Result buildGlobalGraph(SQLiteIndex *index, VaultModel *vault);
-    static Result buildLocalGraph(SQLiteIndex *index, VaultModel *vault,
+    static Result buildGlobalGraph(SQLiteIndex *index, Vault *vault);
+    static Result buildLocalGraph(SQLiteIndex *index, Vault *vault,
                                    const QString &centerNotePath, int depth = 2);
 };
 

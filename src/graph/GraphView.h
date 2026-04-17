@@ -8,7 +8,7 @@ namespace Corbomite {
 
 class GraphViewTab;
 class SQLiteIndex;
-class VaultModel;
+class Vault;
 class MetadataCache;
 class GraphControlsPanel;
 
@@ -24,7 +24,7 @@ public:
     QString getIcon() const override;
 
     void setIndex(SQLiteIndex *index);
-    void setVaultModel(VaultModel *vault);
+    void setVault(Vault *vault);
     void setMetadataCache(MetadataCache *cache);
     void setControlsPanel(GraphControlsPanel *panel);
     GraphViewTab *graphWidget() const;
@@ -38,7 +38,7 @@ protected:
 private:
     GraphViewTab *m_graphWidget = nullptr;
     SQLiteIndex *m_index = nullptr;
-    VaultModel *m_vault = nullptr;
+    Vault *m_vault = nullptr;
 };
 
 } // namespace Corbomite

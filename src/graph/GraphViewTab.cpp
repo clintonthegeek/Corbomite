@@ -3,7 +3,7 @@
 #include "GraphControlsPanel.h"
 #include "GraphDataBuilder.h"
 
-#include <corbomite/models/VaultModel.h>
+#include <corbomite/vault/Vault.h>
 #include <corbomite/storage/MetadataCache.h>
 #include <forcegraph/ForceLayoutEngine.h>
 #include <forcegraph/ForceGraphView.h>
@@ -28,7 +28,7 @@
 
 namespace Corbomite {
 
-GraphViewTab::GraphViewTab(SQLiteIndex *index, VaultModel *vault, QWidget *parent)
+GraphViewTab::GraphViewTab(SQLiteIndex *index, Vault *vault, QWidget *parent)
     : QWidget(parent)
     , m_index(index)
     , m_vault(vault)
@@ -265,7 +265,7 @@ void GraphViewTab::showNodeContextMenu(const QString &nodeId, const QPoint &glob
 
     // Node ID is the vault-relative path
     QString relativePath = nodeId;
-    QString absolutePath = m_vault->path() + QLatin1Char('/') + relativePath;
+    QString absolutePath = m_vault->basePath() + QLatin1Char('/') + relativePath;
     QString displayName = relativePath.mid(relativePath.lastIndexOf(QLatin1Char('/')) + 1);
     if (displayName.endsWith(QStringLiteral(".md"))) displayName.chop(3);
 

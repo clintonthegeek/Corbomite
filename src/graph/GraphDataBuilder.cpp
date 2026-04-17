@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "GraphDataBuilder.h"
 #include "corbomite/storage/SQLiteIndex.h"
-#include "corbomite/models/VaultModel.h"
-#include "corbomite/core/NoteMeta.h"
+#include "corbomite/vault/Vault.h"
+#include "corbomite/vault/TFile.h"
 
 #include <QApplication>
 #include <QPalette>
@@ -67,19 +67,19 @@ static void classifyNode(ForceGraph::GraphNode &node, int deg, bool exists)
     node.color = colorForType(node.type);
 }
 
-GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SQLiteIndex *index, VaultModel *vault)
+GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SQLiteIndex *index, Vault *vault)
 {
     Result result;
     if (!index || !vault) return result;
 
     // Collect all note paths and their degrees
     QHash<QString, int> degree;
-    auto allNotes = vault->allNotes();
+    auto allFiles = vault->getMarkdownFiles();
     QSet<QString> existingPaths;
 
-    for (const auto &meta : allNotes) {
-        existingPaths.insert(meta.relativePath);
-        degree[meta.relativePath] = 0;
+    for (TFile *f : allFiles) {
+        existingPaths.insert(f->path);
+        degree[f->path] = 0;
     }
 
     // Get all links and count degrees
@@ -111,11 +111,11 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SQLiteIndex *index, 
     }
 
     // Build nodes
-    for (const auto &meta : allNotes) {
+    for (TFile *f : allFiles) {
         ForceGraph::GraphNode node;
-        node.id = meta.relativePath;
-        node.label = meta.nameFromPath();
-        classifyNode(node, degree.value(meta.relativePath, 0), true);
+        node.id = f->path;
+        node.label = f->basename;
+        classifyNode(node, degree.value(f->path, 0), true);
 
         // Rich tooltip
         int deg = node.degree;
@@ -123,7 +123,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SQLiteIndex *index, 
             .arg(node.label.toHtmlEscaped())
             .arg(deg)
             .arg(deg == 1 ? QString() : QStringLiteral("s"));
-        const auto &nodeTags = noteTags.value(meta.relativePath);
+        const auto &nodeTags = noteTags.value(f->path);
         if (!nodeTags.isEmpty()) {
             tip += QStringLiteral("<br><i>%1</i>").arg(nodeTags.join(QStringLiteral(", ")));
         }
@@ -159,7 +159,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SQLiteIndex *index, 
     return result;
 }
 
-GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SQLiteIndex *index, VaultModel *vault,
+GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SQLiteIndex *index, Vault *vault,
                                                             const QString &centerNotePath, int depth)
 {
     Result result;
@@ -224,7 +224,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SQLiteIndex *index, V
         if (name.endsWith(QStringLiteral(".md"))) name.chop(3);
         node.label = name;
 
-        bool exists = vault->noteExists(path);
+        bool exists = vault->getAbstractFileByPath(path) != nullptr;
         classifyNode(node, degree.value(path, 0), exists);
 
         // Center note gets special treatment: teal + larger

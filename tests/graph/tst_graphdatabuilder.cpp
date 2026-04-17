@@ -9,10 +9,11 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include "graph/GraphDataBuilder.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
+#include "corbomite/vault/Vault.h"
 
 class TestGraphDataBuilder : public QObject {
     Q_OBJECT
@@ -29,15 +30,15 @@ class TestGraphDataBuilder : public QObject {
     // Drive a MetadataCache rebuild of `vault` through `index` and wait for
     // indexFinished. Callers own the heap objects (stored on the stack frame).
     void indexVault(const QString &vault,
-                    Corbomite::VaultModel &vaultModel,
+                    Corbomite::Vault &vaultObj,
                     Corbomite::LinkResolver &resolver,
                     Corbomite::MetadataCache &cache,
                     Corbomite::SQLiteIndex &index,
                     const QString &dbPath)
     {
         QStringList paths;
-        for (const auto &meta : vaultModel.allNotes()) {
-            paths.append(meta.relativePath);
+        for (Corbomite::TFile *f : vaultObj.getMarkdownFiles()) {
+            paths.append(f->path);
         }
         resolver.setVaultPaths(paths);
 
@@ -61,15 +62,16 @@ private Q_SLOTS:
         createFile(vault + "/B.md", "Links to [[C]]");
         createFile(vault + "/C.md", "No links");
 
-        Corbomite::VaultModel vaultModel;
-        vaultModel.open(vault);
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vaultObj(&fs);
+        vaultObj.load(vault);
 
         Corbomite::LinkResolver resolver;
         Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
+        indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
 
         QCOMPARE(result.nodes.size(), 3);
         QCOMPARE(result.edges.size(), 2); // A->B, B->C
@@ -81,15 +83,16 @@ private Q_SLOTS:
         QString vault = tmp.path() + "/vault";
         createFile(vault + "/A.md", "Links to [[NonExistent]]");
 
-        Corbomite::VaultModel vaultModel;
-        vaultModel.open(vault);
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vaultObj(&fs);
+        vaultObj.load(vault);
 
         Corbomite::LinkResolver resolver;
         Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
+        indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
 
         // A + NonExistent (unresolved)
         QCOMPARE(result.nodes.size(), 2);
@@ -116,15 +119,16 @@ private Q_SLOTS:
         createFile(vault + "/other.md", "Target");
         createFile(vault + "/orphan.md", "No links at all");
 
-        Corbomite::VaultModel vaultModel;
-        vaultModel.open(vault);
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vaultObj(&fs);
+        vaultObj.load(vault);
 
         Corbomite::LinkResolver resolver;
         Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
+        indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
 
         QCOMPARE(result.nodes.size(), 3);
 
@@ -148,15 +152,16 @@ private Q_SLOTS:
         createFile(vault + "/B.md", "Just a note");
         createFile(vault + "/C.md", "Just a note");
 
-        Corbomite::VaultModel vaultModel;
-        vaultModel.open(vault);
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vaultObj(&fs);
+        vaultObj.load(vault);
 
         Corbomite::LinkResolver resolver;
         Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
+        indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
 
         // Find hub node — should have larger radius than leaf nodes
         double hubRadius = 0, leafRadius = 0;
@@ -176,24 +181,25 @@ private Q_SLOTS:
         createFile(vault + "/far.md", "Far away");
         createFile(vault + "/unrelated.md", "No connection");
 
-        Corbomite::VaultModel vaultModel;
-        vaultModel.open(vault);
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vaultObj(&fs);
+        vaultObj.load(vault);
 
         Corbomite::LinkResolver resolver;
         Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
+        indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
         // Depth 1: only center + direct neighbors
         auto result1 = Corbomite::GraphDataBuilder::buildLocalGraph(
-            &index, &vaultModel, QStringLiteral("center.md"), 1);
+            &index, &vaultObj, QStringLiteral("center.md"), 1);
 
         QCOMPARE(result1.nodes.size(), 2); // center + neighbor
         QCOMPARE(result1.edges.size(), 1);
 
         // Depth 2: center + neighbor + far
         auto result2 = Corbomite::GraphDataBuilder::buildLocalGraph(
-            &index, &vaultModel, QStringLiteral("center.md"), 2);
+            &index, &vaultObj, QStringLiteral("center.md"), 2);
 
         QCOMPARE(result2.nodes.size(), 3); // center + neighbor + far
         QCOMPARE(result2.edges.size(), 2);
@@ -210,15 +216,16 @@ private Q_SLOTS:
         QString vault = tmp.path() + "/vault";
         QDir().mkpath(vault);
 
-        Corbomite::VaultModel vaultModel;
-        vaultModel.open(vault);
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vaultObj(&fs);
+        vaultObj.load(vault);
 
         Corbomite::LinkResolver resolver;
         Corbomite::MetadataCache cache(resolver);
         Corbomite::SQLiteIndex index;
-        indexVault(vault, vaultModel, resolver, cache, index, tmp.path() + "/index.sqlite");
+        indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultModel);
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
         QCOMPARE(result.nodes.size(), 0);
         QCOMPARE(result.edges.size(), 0);
     }

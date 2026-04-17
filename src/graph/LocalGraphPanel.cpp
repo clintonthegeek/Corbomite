@@ -50,7 +50,7 @@ void LocalGraphPanel::setMetadataCache(MetadataCache *cache)
     }
 }
 
-void LocalGraphPanel::setVaultModel(VaultModel *vault)
+void LocalGraphPanel::setVault(Vault *vault)
 {
     m_vault = vault;
 }

@@ -1248,7 +1248,7 @@ void MainWindow::onVaultOpened()
     m_outlinksPanel->setVault(m_vaultObj);
     m_outlinksPanel->setMetadataCache(m_metadataCache);
     m_localGraphPanel->setIndex(m_searchIndex);
-    m_localGraphPanel->setVaultModel(vault);
+    m_localGraphPanel->setVault(m_vaultObj);
     m_localGraphPanel->setMetadataCache(m_metadataCache);
     m_propertiesPanel->setMetadataCache(m_metadataCache);
 
@@ -1375,7 +1375,7 @@ void MainWindow::onVaultClosed()
     m_outlinePanel->setCurrentNote(nullptr);
     m_localGraphPanel->setIndex(nullptr);
     m_localGraphPanel->setMetadataCache(nullptr);
-    m_localGraphPanel->setVaultModel(nullptr);
+    m_localGraphPanel->setVault(nullptr);
     m_localGraphPanel->setCurrentNote(nullptr);
     m_propertiesPanel->setCurrentNote(nullptr);
     m_propertiesPanel->setMetadataCache(nullptr);
