@@ -319,6 +319,65 @@ private:
     Resolver m_r;
 };
 
+class FileValue : public Value, public std::enable_shared_from_this<FileValue>
+{
+public:
+    FileValue(TFile *file, MetadataCache *cache);
+    ~FileValue() override;
+
+    TFile *file() const { return m_file; }
+    MetadataCache *cache() const { return m_cache; }
+
+    QString type() const override { return QStringLiteral("File"); }
+    bool isTruthy() const override { return m_file != nullptr; }
+    QString toString() const override;  // file.name
+    bool equals(const Value &other) const override;
+    bool looseEquals(const Value &other) const override;
+    ValuePtr objectAccess(const QString &key) const override;
+    QStringList keys() const override;
+
+    // --- aggregate accessors — populated lazily from MetadataCache ---
+    std::shared_ptr<ListValue> getLinks() const;
+    std::shared_ptr<ListValue> getBacklinks() const;
+    std::shared_ptr<ListValue> getEmbeds() const;
+    std::shared_ptr<ListValue> getTags() const;
+    std::shared_ptr<ObjectValue> getProperties() const;
+
+    // --- predicates for built-in file.* methods (Phase 5) ---
+    bool hasLink(const ValuePtr &other) const;
+    bool inFolder(const QString &folderPath) const;
+    bool hasTag(const QStringList &tags) const;
+    bool hasProperty(const QString &name) const;
+
+    static const QStringList &filePropertyMembers();  // 14 names per audit §2
+
+protected:
+    TFile *m_file;
+    MetadataCache *m_cache;
+
+    mutable std::shared_ptr<ListValue>   m_cachedLinks;
+    mutable std::shared_ptr<ListValue>   m_cachedBacklinks;
+    mutable std::shared_ptr<ListValue>   m_cachedEmbeds;
+    mutable std::shared_ptr<ListValue>   m_cachedTags;
+    mutable std::shared_ptr<ObjectValue> m_cachedProperties;
+};
+
+/// `this` binding. Forwards objectAccess to the enclosing entry's
+/// getByIdentifier (set by BasesEntry on evaluation entry).
+class ThisFileValue : public FileValue
+{
+public:
+    using Forwarder = std::function<ValuePtr(const QString &)>;
+
+    ThisFileValue(TFile *file, MetadataCache *cache, Forwarder forwarder);
+
+    QString type() const override { return QStringLiteral("ThisFile"); }
+    ValuePtr objectAccess(const QString &key) const override;
+
+private:
+    Forwarder m_forwarder;
+};
+
 class RegExpValue : public Value
 {
 public:
