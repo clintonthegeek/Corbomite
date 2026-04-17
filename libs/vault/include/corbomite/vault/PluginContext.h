@@ -68,6 +68,15 @@ public:
     /// nullptr otherwise. Direct pointer — no proxy abstraction yet.
     SQLiteIndex *searchIndex() const;
 
+    /// Returns the host Vault aggregate directly. Gated on `vault.read`.
+    /// Stop-gap exposure for plugins that need a Vault* (e.g. to feed
+    /// NotesTreeModel) — proxy abstraction TBD.
+    Vault *vaultRaw() const;
+
+    /// Returns the host MetadataCache directly. Gated on `metadata.read`.
+    /// Stop-gap exposure for the same reason.
+    MetadataCache *metadataCacheRaw() const;
+
     // Metadata accessors
     const PluginMetaData &metaData() const { return m_meta; }
     const QSet<QString>  &grantedPermissions() const { return m_granted; }

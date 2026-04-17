@@ -10,7 +10,6 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/FileView.h"
 #include "corbomite/core/TextFileView.h"
-#include "sidebar/FileExplorerPanel.h"
 #include "graph/LocalGraphPanel.h"
 #include "graph/GraphControlsPanel.h"
 #include "graph/GraphViewTab.h"
@@ -419,9 +418,9 @@ void MainWindow::saveSessionState()
                 wsJson[QStringLiteral("main")].toObject(), activeId);
         }
     }
-    if (m_fileExplorer) {
-        m_sessionManager->saveExpandedFolders(m_fileExplorer->expandedFolders());
-    }
+    // Expanded-folder persistence moved into FileExplorer plugin
+    // (Cluster Q Task 18); follow-up: surface a plugin-side helper
+    // that SessionManager can query via WorkspaceController.
     m_sessionManager->unblockSaving();
     m_sessionManager->saveNow();
 }
@@ -903,65 +902,12 @@ void MainWindow::setupEditor()
 
 void MainWindow::setupSidebars()
 {
-    auto *toolView = createToolView(
-        nullptr,
-        QStringLiteral("files_panel"),
-        KMultiTabBar::Left,
-        QIcon::fromTheme(QStringLiteral("folder")),
-        i18n("Files")
-    );
-
-    m_fileExplorer = new FileExplorerPanel(toolView);
-    m_fileExplorer->setMenuEventEmitter(m_menuEvents);
-    toolView->layout()->addWidget(m_fileExplorer);
-
-    connect(m_fileExplorer, &FileExplorerPanel::noteActivated,
-            this, &MainWindow::onNoteActivated);
-    connect(m_fileExplorer, &FileExplorerPanel::newNoteRequested,
-            this, [this](const QString &folder) {
-        bool ok;
-        QString name = QInputDialog::getText(this, i18n("New Note"),
-                                              i18n("Note name:"), QLineEdit::Normal,
-                                              QString(), &ok);
-        if (ok && !name.isEmpty() && m_fileManager) {
-            auto *tf = m_fileManager->createMarkdownNote(name, folder);
-            if (tf)
-                openFileInWorkspace(tf->path);
-        }
-    });
-    connect(m_fileExplorer, &FileExplorerPanel::deleteNoteRequested,
-            this, [this](const QString &path) {
-        auto result = KMessageBox::questionTwoActions(
-            this,
-            i18n("Delete \"%1\"?", path),
-            i18n("Delete Note"),
-            KStandardGuiItem::del(),
-            KStandardGuiItem::cancel()
-        );
-        if (result == KMessageBox::PrimaryAction && m_fileManager) {
-            m_fileManager->trashFileByPath(path);
-        }
-    });
-    connect(m_fileExplorer, &FileExplorerPanel::renameNoteRequested,
-            this, [this](const QString &path) {
-        QString oldName = path.mid(path.lastIndexOf(QLatin1Char('/')) + 1);
-        if (oldName.endsWith(QStringLiteral(".md"))) oldName.chop(3);
-
-        bool ok;
-        QString newName = QInputDialog::getText(this, i18n("Rename Note"),
-                                                 i18n("New name:"), QLineEdit::Normal,
-                                                 oldName, &ok);
-        if (ok && !newName.isEmpty() && newName != oldName) {
-            QString folder;
-            int lastSlash = path.lastIndexOf(QLatin1Char('/'));
-            if (lastSlash > 0) folder = path.left(lastSlash);
-
-            QString newPath = folder.isEmpty()
-                ? newName + QStringLiteral(".md")
-                : folder + QLatin1Char('/') + newName + QStringLiteral(".md");
-            if (m_fileManager) m_fileManager->renameFileByPath(path, newPath);
-        }
-    });
+    // FileExplorer panel migrated to InternalPlugin
+    // "corbomite-file-explorer" (Cluster Q Task 18). MainWindow no
+    // longer constructs the tree, NotesTreeModel, or the right-click
+    // file ops — all live inside the plugin via VaultProxy +
+    // FileManagerProxy + WorkspaceController. Session expanded-folders
+    // persistence is a follow-up; see Recent decisions.
 
     // Search panel migrated to InternalPlugin "corbomite-search"
     // (Cluster Q Task 17).
@@ -1212,7 +1158,8 @@ void MainWindow::onVaultOpened(const QString &path)
 
     delete m_treeModel;
     m_treeModel = new NotesTreeModel(m_vaultObj, this);
-    m_fileExplorer->setModel(m_treeModel);
+    // m_treeModel still constructed for now (consumers TBD); FileExplorer
+    // plugin builds its own NotesTreeModel via VaultProxy::vaultRaw().
 
     delete m_autosave;
     m_autosave = new AutosaveReactor(m_vaultObj, this);
@@ -1372,9 +1319,8 @@ void MainWindow::onVaultOpened(const QString &path)
     }
 
     const auto folders = m_sessionManager->expandedFolders();
-    if (!folders.isEmpty() && m_fileExplorer) {
-        m_fileExplorer->restoreExpandedFolders(folders);
-    }
+    // Expanded-folder restore moved into the plugin (Cluster Q Task 18).
+    Q_UNUSED(folders);
 
     m_sessionManager->unblockSaving();
 
@@ -1486,7 +1432,6 @@ void MainWindow::onVaultClosed()
 
     delete m_treeModel;
     m_treeModel = nullptr;
-    m_fileExplorer->setModel(nullptr);
 
     m_centralStack->setCurrentIndex(0);
     m_welcomeScreen->refreshRecentVaults();

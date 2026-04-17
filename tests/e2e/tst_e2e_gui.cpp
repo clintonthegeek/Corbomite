@@ -28,7 +28,6 @@
 #include "editor/MarkdownView.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "sidebar/FileExplorerPanel.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/FileManager.h"
@@ -69,16 +68,16 @@ private:
         return m_mainWindow->findChild<QTabBar *>();
     }
 
-    // Helper: get the file tree QTreeView
+    // Helper: get the file tree QTreeView (now lives inside the
+    // FileExplorerPlugin's hosted tool view).
     QTreeView *fileTree()
     {
-        auto views = m_mainWindow->findChildren<QTreeView *>();
-        for (auto *v : views) {
-            // The file tree is in the FileExplorerPanel
-            if (qobject_cast<FileExplorerPanel *>(v->parentWidget()))
-                return v;
+        auto *toolView = m_mainWindow->findChild<QWidget *>(
+            QStringLiteral("corbomite-file-explorer_panel"));
+        if (toolView) {
+            if (auto *tv = toolView->findChild<QTreeView *>()) return tv;
         }
-        // Fallback: first tree view
+        auto views = m_mainWindow->findChildren<QTreeView *>();
         return views.isEmpty() ? nullptr : views.first();
     }
 

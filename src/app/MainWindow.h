@@ -30,7 +30,6 @@ class Workspace;
 class WorkspaceLeaf;
 class NoteEditorWidget;
 class MarkdownView;
-class FileExplorerPanel;
 class NotesTreeModel;
 class AutosaveReactor;
 // FileWatchReactor forward decl removed — moved into Corbomite::detail::Watcher
@@ -136,7 +135,6 @@ private:
     // remove/re-add it from the stack.
     QWidget *m_workspaceContainer = nullptr;
     ViewRegistry *m_viewRegistry = nullptr;
-    FileExplorerPanel *m_fileExplorer = nullptr;
     NotesTreeModel *m_treeModel = nullptr;
     QLabel *m_wordCountLabel = nullptr;
     QLabel *m_cursorPosLabel = nullptr;

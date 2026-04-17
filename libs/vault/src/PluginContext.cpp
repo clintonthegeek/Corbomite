@@ -101,6 +101,18 @@ SQLiteIndex *PluginContext::searchIndex() const
     return m_searchIndex;
 }
 
+Vault *PluginContext::vaultRaw() const
+{
+    if (!hasPermission(QLatin1String(kVaultRead))) return nullptr;
+    return m_vault;
+}
+
+MetadataCache *PluginContext::metadataCacheRaw() const
+{
+    if (!hasPermission(QLatin1String(kMetadataRead))) return nullptr;
+    return m_metadata;
+}
+
 MetadataCacheReader *PluginContext::metadataCache() const
 {
     if (!hasPermission(QLatin1String(kMetadataRead)) || !m_metadata) return nullptr;
