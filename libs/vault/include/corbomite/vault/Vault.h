@@ -105,6 +105,15 @@ private:
     // (not QVector) because QVector requires value-copyable during grow.
     std::vector<std::unique_ptr<TAbstractFile>> m_pendingDelete;
 
+    // Self-write echo suppression ledger. Outgoing writes (Phase 3
+    // Vault::modify/create/process/...) call stampSelfWrite(rel, mtimeMs)
+    // before the adapter write; onExternalModified calls consumeSelfWrite
+    // on the event's (rel, mtimeMs) and returns without emitting if the
+    // ledger holds a match. Entries auto-expire after 1s.
+    QHash<QString, qint64> m_selfWriteMtimes;
+    void stampSelfWrite(const QString &rel, qint64 mtimeMs);
+    bool consumeSelfWrite(const QString &rel, qint64 mtimeMs);
+
     void buildTree();
     void teardownTree();
 };

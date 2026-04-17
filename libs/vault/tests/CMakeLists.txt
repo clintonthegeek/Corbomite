@@ -39,3 +39,10 @@ add_test(NAME tst_vault_watcher COMMAND tst_vault_watcher)
 set_tests_properties(tst_vault_watcher PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 30)
+
+add_executable(tst_vault_echo_suppression tst_vault_echo_suppression.cpp)
+target_link_libraries(tst_vault_echo_suppression
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_echo_suppression COMMAND tst_vault_echo_suppression)
+set_tests_properties(tst_vault_echo_suppression PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

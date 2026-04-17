@@ -222,14 +222,34 @@ void Vault::onExternalModified(const QString &relPath)
     if (!f) return;
     QFileInfo fi(m_basePath + QLatin1Char('/') + rel);
     if (!fi.exists()) return;
+    const qint64 mtimeMs = fi.lastModified().toMSecsSinceEpoch();
+    if (consumeSelfWrite(rel, mtimeMs)) return;  // self-write echo, suppress
+
     FileStat fs;
     fs.exists    = true;
     fs.isFile    = true;
     fs.sizeBytes = fi.size();
-    fs.mtimeMs   = fi.lastModified().toMSecsSinceEpoch();
+    fs.mtimeMs   = mtimeMs;
     fs.ctimeMs   = fi.birthTime().toMSecsSinceEpoch();
     f->stat      = fs;
     Q_EMIT modified(f);
+}
+
+void Vault::stampSelfWrite(const QString &rel, qint64 mtimeMs)
+{
+    m_selfWriteMtimes.insert(rel, mtimeMs);
+    QTimer::singleShot(1000, this, [this, rel] {
+        m_selfWriteMtimes.remove(rel);
+    });
+}
+
+bool Vault::consumeSelfWrite(const QString &rel, qint64 mtimeMs)
+{
+    auto it = m_selfWriteMtimes.find(rel);
+    if (it == m_selfWriteMtimes.end()) return false;
+    if (it.value() != mtimeMs) return false;
+    m_selfWriteMtimes.erase(it);
+    return true;
 }
 
 void Vault::onExternalDeleted(const QString &relPath)
