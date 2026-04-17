@@ -41,9 +41,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster K — Bases
-- **Phase:** 7 of 9 (Phase 6 complete)
-- **Last completed step:** Phase 6 — `.base` YAML schema (2026-04-17; commit `c528ace2`). PropertyId/FilterTree/BasesViewConfig/BasesQuery land with round-trip support through Markoff::YamlValue reader + a small indented hand-rolled emitter. Empty-file-default-table, legacy `display:` migration, and unrecognizedData preservation all work. 19 tests green.
-- **Next expected step:** Phase 7 — BasesEntry + BasesQueryResult + QueryController (incremental refresh via MetadataCache signals)
+- **Phase:** 8 of 9 (Phase 7 complete)
+- **Last completed step:** Phase 7 — BasesEntry + BasesQueryResult + QueryController (2026-04-17; commit `bb4a9cc3`). `formulaValue` memoises + detects cycles. `BasesQueryResult::groups()` lazily partitions; null-keyed groups land at end. QueryController 50ms-debounces MetadataCache::cacheChanged/cacheDeleted into a single recomputeNow. 6 smoke tests pass; full Vault-backed integration deferred to Phase 9.
+- **Next expected step:** Phase 8 — BasesView (TextFileView subclass) + BasesTableModel (QAbstractTableModel) + BasesCellDelegate + QTableView hookup + inline-edit frontmatter writeback
 - **Owner:** agent session
 - **Date last touched:** 2026-04-17
 - **Parser choice (locked-in 2026-04-17):** hand-rolled Pratt parser per addendum §15.1 option 2 (~250 lines, zero new runtime deps, easier to debug in C++ toolchain). Tree-sitter port option rejected; Lezer state-machine transliteration rejected.
