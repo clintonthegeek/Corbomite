@@ -21,8 +21,6 @@ add_library(corbomite-core STATIC
     include/corbomite/core/LinkUtils.h
     src/FrontMatterWriter.cpp
     include/corbomite/core/FrontMatterWriter.h
-    src/Vault.cpp
-    include/corbomite/core/Vault.h
     src/Component.cpp
     include/corbomite/core/Component.h
     src/Events.cpp
