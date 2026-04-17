@@ -15,6 +15,12 @@ class EditableFileView : public FileView
 public:
     explicit EditableFileView(WorkspaceLeaf *leaf, QWidget *parent = nullptr);
 
+    /// Move the cursor to `line` (1-based). Default returns false — subclasses
+    /// that host an editable editor (Markdown source/live-preview) override.
+    /// Used by WorkspaceController::goToLine to drive Outline-style
+    /// scroll-to-heading from plugins.
+    virtual bool setCursorLine(int line);
+
 protected:
     void onOpen() override;
     void onPaneMenu(QMenu *menu) override;

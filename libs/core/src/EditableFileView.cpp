@@ -16,6 +16,11 @@ EditableFileView::EditableFileView(WorkspaceLeaf *leaf, QWidget *parent)
 {
 }
 
+bool EditableFileView::setCursorLine(int /*line*/)
+{
+    return false;
+}
+
 void EditableFileView::onOpen()
 {
     FileView::onOpen();

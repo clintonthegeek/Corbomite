@@ -68,6 +68,12 @@ public:
     int currentLine() const;
     int currentColumn() const;
 
+    /// Move the cursor to `line` (1-based). Dispatches per active ViewMode:
+    /// Source uses Qutepart's setCursorPosition; LivePreview uses Markoff's
+    /// goToLine; Reading is a no-op (no cursor). Returns true if the mode
+    /// could apply the change, false for Reading mode or out-of-range.
+    bool goToLine(int line);
+
     // Cluster E Phase 1/7 — ephemeral-state round-trip. Captures / restores
     // scroll, cursor, mode, and fold through `Corbomite::EphemeralState`.
     // Phase 7 wires these through `EditorViewManager::{build,apply}PaneLayout`

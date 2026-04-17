@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/proxies/WorkspaceController.h"
 
+#include "corbomite/core/EditableFileView.h"
 #include "corbomite/core/FileView.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/ViewRegistry.h"
@@ -118,6 +119,16 @@ bool WorkspaceController::popoutLeaf(const QString &leafId)
     auto *leaf = m_workspace->findLeafById(leafId);
     if (!leaf) return false;
     return m_workspace->popoutLeaf(leaf) != nullptr;
+}
+
+bool WorkspaceController::goToLine(int line)
+{
+    if (!m_workspace) return false;
+    auto *leaf = m_workspace->activeLeaf();
+    if (!leaf) return false;
+    auto *editable = qobject_cast<EditableFileView *>(leaf->view());
+    if (!editable) return false;
+    return editable->setCursorLine(line);
 }
 
 } // namespace Corbomite

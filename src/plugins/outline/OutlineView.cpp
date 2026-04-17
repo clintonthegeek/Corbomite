@@ -142,10 +142,10 @@ void OutlineView::refresh()
 void OutlineView::onItemClicked(QTreeWidgetItem *item, int column)
 {
     Q_UNUSED(column);
-    Q_UNUSED(item);
-    // Scroll-to-line in active editor is deferred — WorkspaceController
-    // doesn't expose an editor handle yet. Follow-up: extend the
-    // workspace proxy with goToLine(activeLeaf, line).
+    if (!item || !m_workspace) return;
+    const int line = item->data(0, Qt::UserRole).toInt();
+    if (line <= 0) return;
+    m_workspace->goToLine(line);
 }
 
 } // namespace Corbomite

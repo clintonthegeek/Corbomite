@@ -172,6 +172,28 @@ void NoteEditorWidget::saveLivePreviewTextToDocument()
     }
 }
 
+bool NoteEditorWidget::goToLine(int line)
+{
+    if (line < 1) return false;
+    switch (m_viewMode) {
+    case ViewMode::Source:
+        if (m_sourceEditor) {
+            m_sourceEditor->setCursorPosition({line - 1, 0});
+            return true;
+        }
+        return false;
+    case ViewMode::LivePreview:
+        if (m_editor) {
+            m_editor->goToLine(line);
+            return true;
+        }
+        return false;
+    case ViewMode::Reading:
+        return false;
+    }
+    return false;
+}
+
 EphemeralState NoteEditorWidget::captureEphemeralStateFor(ViewMode mode) const
 {
     EphemeralState s;

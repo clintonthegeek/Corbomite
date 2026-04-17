@@ -66,6 +66,12 @@ bool MarkdownView::canAcceptExtension(const QString &ext) const
     return ext.compare(QStringLiteral("md"), Qt::CaseInsensitive) == 0;
 }
 
+bool MarkdownView::setCursorLine(int line)
+{
+    if (!m_editorWidget) return false;
+    return m_editorWidget->goToLine(line);
+}
+
 QJsonObject MarkdownView::getState() const
 {
     QJsonObject state = FileView::getState();

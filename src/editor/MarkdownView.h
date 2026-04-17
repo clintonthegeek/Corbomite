@@ -30,6 +30,8 @@ public:
 
     bool canAcceptExtension(const QString &ext) const override;
 
+    bool setCursorLine(int line) override;
+
     QJsonObject getState() const override;
     void setState(const QJsonObject &state) override;
     QJsonObject getEphemeralState() const override;

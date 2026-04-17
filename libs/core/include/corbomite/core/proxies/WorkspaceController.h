@@ -53,6 +53,12 @@ public:
     /// true on success.
     bool popoutLeaf(const QString &leafId);
 
+    /// Move the cursor of the active leaf's view to `line` (1-based). Returns
+    /// true if the active leaf hosts an editable file view that could apply
+    /// the move. Used by the Outline plugin's scroll-to-heading flow and any
+    /// plugin that needs to drive the editor caret.
+    bool goToLine(int line);
+
 Q_SIGNALS:
     /// Emitted when the active leaf changes — `relativePath` is the
     /// vault-relative path of the file in the new active leaf, or
