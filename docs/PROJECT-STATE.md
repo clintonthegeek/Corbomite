@@ -41,9 +41,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster K — Bases
-- **Phase:** 3 of 9 (Phase 2 complete)
-- **Last completed step:** Phase 2 — all remaining Value subclasses landed: DateValue/RelativeDateValue, DurationValue (ISO-8601 + shorthand), Tag/Link/Url/Icon/Image/HTML/Markdown/Error StringValue subclasses, RegExpValue, ObjectValue (+ fromFrontMatter lazy coercer + LambdaObjectValue adapter), FileValue/ThisFileValue with MetadataCache-backed aggregate caches (2026-04-17; commits `4f2881e1` `48cb9d97` `fac90d67` `f9af1b6d` `704efa77`). 7 Phase-2 test executables, all green. FileValue's fixture-heavy test path deferred to Phase 7 Task 7.1 (BasesEntry tests exercise the same code end-to-end with a real Vault).
-- **Next expected step:** Phase 3 — Lexer + Pratt parser + AST node types (`Corbomite::Bases::Parser`, `Lexer`, `Ast.h`)
+- **Phase:** 4 of 9 (Phase 3 complete)
+- **Last completed step:** Phase 3 — hand-rolled Lexer + AST + Pratt parser (2026-04-17; commits `521a3366` `8af044f4`). 17 lexer tests + 22 parser tests, all green. std::vector<ExprPtr> (not QVector) because QVector can't grow with move-only unique_ptr. Constant-fold `-<NumLit>` at build-time per addendum §4.4. Error recovery always surfaces at top-level as InvalidExpr (addendum §1 "RK").
+- **Next expected step:** Phase 4 — Evaluator (EvalContext abstract + typed-operator dispatch for comparisons/arithmetic/unary/null propagation per addendum §4)
 - **Owner:** agent session
 - **Date last touched:** 2026-04-17
 - **Parser choice (locked-in 2026-04-17):** hand-rolled Pratt parser per addendum §15.1 option 2 (~250 lines, zero new runtime deps, easier to debug in C++ toolchain). Tree-sitter port option rejected; Lezer state-machine transliteration rejected.
