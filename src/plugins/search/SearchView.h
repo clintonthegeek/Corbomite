@@ -12,7 +12,7 @@
 namespace Corbomite {
 
 class MetadataCacheReader;
-class SQLiteIndex;
+class SearchProxy;
 class SearchResultsModel;
 class WorkspaceController;
 
@@ -20,7 +20,7 @@ class SearchView : public QWidget
 {
     Q_OBJECT
 public:
-    SearchView(SQLiteIndex *index,
+    SearchView(SearchProxy *search,
                MetadataCacheReader *metadata,
                WorkspaceController *workspace,
                QWidget *parent = nullptr);
@@ -39,7 +39,7 @@ private:
     QLabel *m_statusLabel;
     QTimer m_debounceTimer;
 
-    SQLiteIndex *m_index = nullptr;
+    SearchProxy *m_search = nullptr;
     MetadataCacheReader *m_metadata = nullptr;
     WorkspaceController *m_workspace = nullptr;
     SearchResultsModel *m_resultsModel;

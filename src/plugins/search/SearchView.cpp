@@ -4,8 +4,8 @@
 #include "corbomite/core/proxies/WorkspaceController.h"
 #include "corbomite/models/SearchResultsModel.h"
 #include "corbomite/search/SearchDSL.h"
-#include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/storage/proxies/MetadataCacheReader.h"
+#include "corbomite/storage/proxies/SearchProxy.h"
 
 #include <KLocalizedString>
 #include <QHBoxLayout>
@@ -15,7 +15,7 @@
 
 namespace Corbomite {
 
-SearchView::SearchView(SQLiteIndex *index,
+SearchView::SearchView(SearchProxy *search,
                         MetadataCacheReader *metadata,
                         WorkspaceController *workspace,
                         QWidget *parent)
@@ -24,7 +24,7 @@ SearchView::SearchView(SQLiteIndex *index,
     , m_helpButton(new QToolButton(this))
     , m_resultView(new QTreeView(this))
     , m_statusLabel(new QLabel(this))
-    , m_index(index)
+    , m_search(search)
     , m_metadata(metadata)
     , m_workspace(workspace)
     , m_resultsModel(new SearchResultsModel(this))
@@ -92,7 +92,7 @@ void SearchView::onSearchTextChanged(const QString &text)
 
 void SearchView::executeSearch()
 {
-    if (!m_index) return;
+    if (!m_search) return;
     const QString query = m_searchInput->text().trimmed();
     if (query.isEmpty()) return;
 
@@ -109,9 +109,9 @@ void SearchView::executeSearch()
     QString unsupportedNote;
     auto plan = SearchDSL::compile(parsed.root);
     if (plan.fts5Query.isEmpty() && plan.requiredTags.isEmpty() && plan.excludedTags.isEmpty()) {
-        results = m_index->search(query);
+        results = m_search->search(query);
     } else {
-        results = m_index->searchCompiled(plan.fts5Query, plan.requiredTags, plan.excludedTags);
+        results = m_search->searchCompiled(plan.fts5Query, plan.requiredTags, plan.excludedTags);
     }
     if (!plan.unsupported.isEmpty()) {
         unsupportedNote = i18n(" (unsupported: %1)", plan.unsupported.join(QStringLiteral(", ")));

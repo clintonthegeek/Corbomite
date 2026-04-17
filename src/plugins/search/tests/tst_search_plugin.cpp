@@ -9,6 +9,7 @@
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
+#include "corbomite/storage/proxies/SearchProxy.h"
 #include "corbomite/vault/PluginContext.h"
 
 using namespace Corbomite;

@@ -21,13 +21,13 @@ QObject *SearchPlugin::createView(MainWindow *mainWindow)
 {
     auto *ctx = context();
     if (!ctx) return nullptr;
-    auto *index = ctx->searchIndex();
+    auto *search = ctx->search();
     auto *metadata = ctx->metadataCache();
-    if (!index || !metadata) {
+    if (!search || !metadata) {
         qWarning() << "SearchPlugin: metadata.read missing; view skipped";
         return nullptr;
     }
-    return new SearchView(index, metadata, ctx->workspace(),
+    return new SearchView(search, metadata, ctx->workspace(),
                             reinterpret_cast<QWidget *>(mainWindow));
 }
 
