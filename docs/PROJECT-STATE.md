@@ -41,9 +41,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster K — Bases
-- **Phase:** 4 of 9 (Phase 3 complete)
-- **Last completed step:** Phase 3 — hand-rolled Lexer + AST + Pratt parser (2026-04-17; commits `521a3366` `8af044f4`). 17 lexer tests + 22 parser tests, all green. std::vector<ExprPtr> (not QVector) because QVector can't grow with move-only unique_ptr. Constant-fold `-<NumLit>` at build-time per addendum §4.4. Error recovery always surfaces at top-level as InvalidExpr (addendum §1 "RK").
-- **Next expected step:** Phase 4 — Evaluator (EvalContext abstract + typed-operator dispatch for comparisons/arithmetic/unary/null propagation per addendum §4)
+- **Phase:** 5 of 9 (Phase 4 complete)
+- **Last completed step:** Phase 4 — Evaluator (2026-04-17; commit `3bde9f80`). 22 tests across arithmetic / relational / equality / logical short-circuit / null-propagation / unary / member / index / error-propagation. `!Null` returns Null (propagation, not true — addendum §4.4 divergence). Logical `&&`/`||` always returns fresh BooleanValue (addendum §3 note).
+- **Next expected step:** Phase 5 — FunctionRegistry + built-ins (globals + per-type methods + hard-cased `if`/`list.map/filter/reduce`/`object.map/filter`)
 - **Owner:** agent session
 - **Date last touched:** 2026-04-17
 - **Parser choice (locked-in 2026-04-17):** hand-rolled Pratt parser per addendum §15.1 option 2 (~250 lines, zero new runtime deps, easier to debug in C++ toolchain). Tree-sitter port option rejected; Lezer state-machine transliteration rejected.
