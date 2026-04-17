@@ -21,3 +21,7 @@ target_link_libraries(tst_bases_value_list PRIVATE Qt6::Test Corbomite::Bases)
 add_executable(tst_bases_value_date tst_value_date.cpp)
 add_test(NAME tst_bases_value_date COMMAND tst_bases_value_date)
 target_link_libraries(tst_bases_value_date PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_bases_value_duration tst_value_duration.cpp)
+add_test(NAME tst_bases_value_duration COMMAND tst_bases_value_duration)
+target_link_libraries(tst_bases_value_duration PRIVATE Qt6::Test Corbomite::Bases)

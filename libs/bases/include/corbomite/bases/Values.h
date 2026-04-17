@@ -179,4 +179,58 @@ public:
     QString toString() const override;  // "3 days ago"
 };
 
+/// 7-field calendar duration.
+struct DurationComponents
+{
+    qint64 years = 0, months = 0, days = 0;
+    qint64 hours = 0, minutes = 0, seconds = 0, milliseconds = 0;
+
+    bool isZero() const
+    {
+        return !years && !months && !days && !hours
+            && !minutes && !seconds && !milliseconds;
+    }
+};
+
+class DurationValue : public Value
+{
+public:
+    explicit DurationValue(DurationComponents c) : m_c(c) {}
+
+    const DurationComponents &components() const { return m_c; }
+
+    /// Approximation: years*365.25*86400000 + months*30*86400000 + ...
+    /// Used by relational comparison and `Du - Du` reduction. Exact for
+    /// zero-year/zero-month durations; approximate elsewhere.
+    qint64 totalMilliseconds() const;
+
+    QString type() const override { return QStringLiteral("Duration"); }
+    bool isTruthy() const override { return !m_c.isZero(); }
+    QString toString() const override;           // humanised
+    bool equals(const Value &other) const override;
+    bool looseEquals(const Value &other) const override;
+    ValuePtr objectAccess(const QString &key) const override;
+    QStringList keys() const override;
+
+    /// Date arithmetic. Calendar-aware via QDate::addYears/addMonths/addDays.
+    std::shared_ptr<DateValue> addToDate(const DateValue &d, bool subtract = false) const;
+
+    /// Componentwise combine.
+    DurationComponents plus(const DurationComponents &o) const;
+    DurationComponents minus(const DurationComponents &o) const;
+    DurationComponents timesScalar(double n) const;
+
+    /// ISO-8601 PnYnMnWnDTnHnMnS or shorthand.
+    /// Shorthand honours the case-sensitive `M`=months / `m`=minutes split
+    /// and includes `ms` / `millisecond` / `milliseconds` (addendum §6.1,
+    /// §14 divergence-from-docs note).
+    static std::shared_ptr<DurationValue> parseFromString(const QString &text);
+
+    /// Build from a millisecond count (for `D - D` reduction).
+    static std::shared_ptr<DurationValue> fromMilliseconds(qint64 ms);
+
+private:
+    DurationComponents m_c;
+};
+
 }  // namespace Corbomite::Bases
