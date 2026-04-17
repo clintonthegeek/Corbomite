@@ -13,6 +13,37 @@
 
 namespace Corbomite {
 
+namespace {
+QString fileForLeaf(WorkspaceLeaf *leaf)
+{
+    if (!leaf) return {};
+    if (auto *fv = qobject_cast<FileView *>(leaf->view())) {
+        if (fv->file()) return fv->file()->relativePath();
+    }
+    const QJsonObject vs = leaf->getViewState();
+    return vs.value(QStringLiteral("state")).toObject()
+        .value(QStringLiteral("file")).toString();
+}
+} // namespace
+
+WorkspaceController::WorkspaceController(Workspace *workspace, QObject *parent)
+    : QObject(parent), m_workspace(workspace)
+{
+    if (!m_workspace) return;
+    connect(m_workspace, &Workspace::activeLeafChanged, this,
+            [this](WorkspaceLeaf *leaf) {
+                Q_EMIT activeFileChanged(fileForLeaf(leaf));
+            });
+}
+
+WorkspaceController::~WorkspaceController() = default;
+
+QString WorkspaceController::activeFilePath() const
+{
+    if (!m_workspace) return {};
+    return fileForLeaf(m_workspace->activeLeaf());
+}
+
 bool WorkspaceController::openFile(const QString &relativePath)
 {
     if (!m_workspace || relativePath.isEmpty()) return false;

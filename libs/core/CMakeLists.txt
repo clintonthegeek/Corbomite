@@ -88,8 +88,6 @@ add_library(corbomite-core STATIC
     include/corbomite/core/WorkspaceWindow.h
     src/PluginMetaData.cpp
     include/corbomite/core/PluginMetaData.h
-    src/proxies/MetadataCacheReader.cpp
-    include/corbomite/core/proxies/MetadataCacheReader.h
     src/proxies/WorkspaceController.cpp
     include/corbomite/core/proxies/WorkspaceController.h
     src/proxies/CommandRegistrar.cpp

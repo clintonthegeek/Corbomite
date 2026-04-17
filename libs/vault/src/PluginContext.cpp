@@ -3,7 +3,7 @@
 
 #include "corbomite/core/proxies/CommandRegistrar.h"
 #include "corbomite/core/proxies/MenuInjector.h"
-#include "corbomite/core/proxies/MetadataCacheReader.h"
+#include "corbomite/storage/proxies/MetadataCacheReader.h"
 #include "corbomite/core/proxies/ProcessSpawner.h"
 #include "corbomite/core/proxies/SecretStorage.h"
 #include "corbomite/core/proxies/ViewRegistrar.h"

@@ -3,7 +3,7 @@
 #include <QCoreApplication>
 #include <QSignalSpy>
 
-#include "corbomite/core/proxies/MetadataCacheReader.h"
+#include "corbomite/storage/proxies/MetadataCacheReader.h"
 #include "corbomite/storage/CachedMetadata.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"

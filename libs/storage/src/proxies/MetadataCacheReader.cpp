@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/core/proxies/MetadataCacheReader.h"
+#include "corbomite/storage/proxies/MetadataCacheReader.h"
 
 #include "corbomite/storage/CachedMetadata.h"
 #include "corbomite/storage/MetadataCache.h"
@@ -7,6 +7,29 @@
 #include <QSet>
 
 namespace Corbomite {
+
+MetadataCacheReader::MetadataCacheReader(MetadataCache *cache, QObject *parent)
+    : QObject(parent), m_cache(cache)
+{
+    if (!m_cache) return;
+    connect(m_cache, &MetadataCache::cacheChanged, this,
+            [this](const QString &p, const QString &,
+                   const Corbomite::CachedMetadata &) {
+                Q_EMIT cacheChanged(p);
+            });
+    connect(m_cache, &MetadataCache::cacheDeleted, this,
+            [this](const QString &p, const Corbomite::CachedMetadata &) {
+                Q_EMIT cacheDeleted(p);
+            });
+    connect(m_cache, &MetadataCache::linksResolvedFor,
+            this, &MetadataCacheReader::linksResolvedFor);
+    connect(m_cache, &MetadataCache::allLinksResolved,
+            this, &MetadataCacheReader::allLinksResolved);
+    connect(m_cache, &MetadataCache::indexFinished,
+            this, &MetadataCacheReader::indexFinished);
+}
+
+MetadataCacheReader::~MetadataCacheReader() = default;
 
 namespace {
 
