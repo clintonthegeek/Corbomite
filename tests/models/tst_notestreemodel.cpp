@@ -4,7 +4,9 @@
 #include <QDir>
 #include <QFile>
 #include "corbomite/models/NotesTreeModel.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/Vault.h"
 
 class TestNotesTreeModel : public QObject {
     Q_OBJECT
@@ -22,8 +24,9 @@ private Q_SLOTS:
     void testEmptyVault()
     {
         QTemporaryDir tmp;
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
 
         Corbomite::NotesTreeModel model(&vault);
 
@@ -36,8 +39,9 @@ private Q_SLOTS:
         createFile(tmp.path() + "/alpha.md");
         createFile(tmp.path() + "/beta.md");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
         Corbomite::NotesTreeModel model(&vault);
 
         QCOMPARE(model.rowCount(QModelIndex()), 2);
@@ -49,8 +53,9 @@ private Q_SLOTS:
         createFile(tmp.path() + "/top.md");
         createFile(tmp.path() + "/folder/nested.md");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
         Corbomite::NotesTreeModel model(&vault);
 
         // Root should have: "folder" directory + "top.md" file = 2 items
@@ -73,8 +78,9 @@ private Q_SLOTS:
         QTemporaryDir tmp;
         createFile(tmp.path() + "/note.md");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
         Corbomite::NotesTreeModel model(&vault);
 
         auto idx = model.index(0, 0, QModelIndex());
@@ -87,8 +93,9 @@ private Q_SLOTS:
         QTemporaryDir tmp;
         createFile(tmp.path() + "/My Note.md");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
         Corbomite::NotesTreeModel model(&vault);
 
         auto idx = model.index(0, 0, QModelIndex());
@@ -102,8 +109,9 @@ private Q_SLOTS:
         createFile(tmp.path() + "/zebra.md");
         createFile(tmp.path() + "/aFolder/note.md");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
         Corbomite::NotesTreeModel model(&vault);
 
         // First item should be directory, second should be file
@@ -116,14 +124,14 @@ private Q_SLOTS:
     void testReactsToNoteAdded()
     {
         QTemporaryDir tmp;
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
         Corbomite::NotesTreeModel model(&vault);
 
         QCOMPARE(model.rowCount(QModelIndex()), 0);
 
-        createFile(tmp.path() + "/added.md");
-        vault.addNote(QStringLiteral("added.md"));
+        QVERIFY(vault.create(QStringLiteral("added.md"), QByteArray()));
 
         QCOMPARE(model.rowCount(QModelIndex()), 1);
     }
@@ -133,12 +141,15 @@ private Q_SLOTS:
         QTemporaryDir tmp;
         createFile(tmp.path() + "/note.md");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
         Corbomite::NotesTreeModel model(&vault);
         QCOMPARE(model.rowCount(QModelIndex()), 1);
 
-        vault.removeNote(QStringLiteral("note.md"));
+        auto *tf = vault.getFileByPath(QStringLiteral("note.md"));
+        QVERIFY(tf);
+        QVERIFY(vault.remove(tf));
 
         QCOMPARE(model.rowCount(QModelIndex()), 0);
     }

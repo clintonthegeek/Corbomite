@@ -1156,8 +1156,16 @@ void MainWindow::onVaultOpened()
     m_recentVaults->saveEntries(recentGroup);
     config->sync();
 
+    // Q.0 P6 — canonical Vault. Construct before NotesTreeModel / LinkResolver
+    // so consumers can bind against the loaded tree. MetadataCache +
+    // FileManager are created below (FileManager depends on MetadataCache).
+    if (!m_fsAdapter) m_fsAdapter = std::make_unique<FileSystemAdapter>();
+    delete m_vaultObj;
+    m_vaultObj = new Vault(m_fsAdapter.get(), this);
+    m_vaultObj->load(vault->path());
+
     delete m_treeModel;
-    m_treeModel = new NotesTreeModel(vault, this);
+    m_treeModel = new NotesTreeModel(m_vaultObj, this);
     m_fileExplorer->setModel(m_treeModel);
 
     delete m_autosave;
@@ -1194,15 +1202,8 @@ void MainWindow::onVaultOpened()
     delete m_metadataCache;
     m_metadataCache = new MetadataCache(*m_linkResolver, this);
 
-    // Q.0 P6 — canonical Vault + FileManager. Runs alongside the legacy
-    // VaultService/VaultModel pair; panels migrate onto these during this
-    // phase.
-    if (!m_fsAdapter) m_fsAdapter = std::make_unique<FileSystemAdapter>();
+    // Q.0 P6 — FileManager depends on MetadataCache (constructed just above).
     delete m_fileManager;
-    m_fileManager = nullptr;
-    delete m_vaultObj;
-    m_vaultObj = new Vault(m_fsAdapter.get(), this);
-    m_vaultObj->load(vault->path());
     m_fileManager = new FileManager(m_vaultObj, m_metadataCache, this);
 
     m_popoverResources = std::make_unique<VaultScopedResources>(vault);

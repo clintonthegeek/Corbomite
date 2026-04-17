@@ -1,12 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/models/NotesTreeModel.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/Vault.h"
+#include <QDateTime>
 #include <algorithm>
 #include <functional>
 
 namespace Corbomite {
 
-NotesTreeModel::NotesTreeModel(VaultModel *vault, QObject *parent)
+namespace {
+bool isTreeFile(const TFile *tf)
+{
+    if (!tf) return false;
+    return tf->extension == QLatin1String("md")
+        || tf->extension == QLatin1String("canvas");
+}
+}  // namespace
+
+NotesTreeModel::NotesTreeModel(Vault *vault, QObject *parent)
     : QAbstractItemModel(parent)
     , m_vault(vault)
     , m_root(std::make_unique<TreeNode>())
@@ -14,11 +25,11 @@ NotesTreeModel::NotesTreeModel(VaultModel *vault, QObject *parent)
     m_root->name = QStringLiteral("root");
     m_root->isDirectory = true;
 
-    connect(m_vault, &VaultModel::vaultScanned, this, &NotesTreeModel::onVaultScanned);
-    connect(m_vault, &VaultModel::noteAdded, this, &NotesTreeModel::onNoteAdded);
-    connect(m_vault, &VaultModel::noteRemoved, this, &NotesTreeModel::onNoteRemoved);
+    connect(m_vault, &Vault::created, this, &NotesTreeModel::onCreated);
+    connect(m_vault, &Vault::deletedFile, this, &NotesTreeModel::onDeleted);
+    connect(m_vault, &Vault::renamed, this, &NotesTreeModel::onRenamed);
 
-    if (m_vault->isOpen()) {
+    if (m_vault->isLoaded()) {
         rebuild();
     }
 }
@@ -73,9 +84,12 @@ QVariant NotesTreeModel::data(const QModelIndex &index, int role) const
     case IsDirectoryRole:
         return node->isDirectory;
     case ModifiedTimeRole:
-        if (!node->isDirectory) {
-            auto meta = m_vault->noteMeta(node->relativePath);
-            return meta.modified;
+        if (!node->isDirectory && m_vault) {
+            if (TFile *tf = m_vault->getFileByPath(node->relativePath)) {
+                if (tf->stat) {
+                    return QDateTime::fromMSecsSinceEpoch(tf->stat->mtimeMs);
+                }
+            }
         }
         return {};
     case FileTypeRole:
@@ -170,25 +184,28 @@ void NotesTreeModel::rebuild()
     beginResetModel();
     m_root->children.clear();
 
-    const auto notes = m_vault->allNotes();
+    if (!m_vault) {
+        endResetModel();
+        return;
+    }
+
     QSet<QString> seenPaths; // Guard against duplicates
 
-    for (const auto &meta : notes) {
-        // Skip duplicates (can occur if FileWatchReactor re-adds existing notes)
-        if (seenPaths.contains(meta.relativePath)) continue;
-        seenPaths.insert(meta.relativePath);
+    for (TFile *tf : m_vault->getFiles()) {
+        if (!isTreeFile(tf)) continue;
+        const QString path = tf->path;
+        if (seenPaths.contains(path)) continue;
+        seenPaths.insert(path);
 
-        int lastSlash = meta.relativePath.lastIndexOf(QLatin1Char('/'));
-        QString dirPath = lastSlash > 0 ? meta.relativePath.left(lastSlash) : QString();
-        QString fileName = meta.relativePath.mid(lastSlash + 1);
-
-        // Skip empty filenames (malformed paths)
+        int lastSlash = path.lastIndexOf(QLatin1Char('/'));
+        QString dirPath = lastSlash > 0 ? path.left(lastSlash) : QString();
+        QString fileName = path.mid(lastSlash + 1);
         if (fileName.isEmpty()) continue;
 
         auto *parentDir = findOrCreateDir(dirPath);
         auto node = std::make_unique<TreeNode>();
         node->name = fileName;
-        node->relativePath = meta.relativePath;
+        node->relativePath = path;
         node->isDirectory = false;
         node->parentNode = parentDir;
         parentDir->children.push_back(std::move(node));
@@ -198,19 +215,26 @@ void NotesTreeModel::rebuild()
     endResetModel();
 }
 
-void NotesTreeModel::onVaultScanned()
+void NotesTreeModel::onCreated(TAbstractFile *f)
 {
-    rebuild();
-}
-
-void NotesTreeModel::onNoteAdded(const QString &relativePath)
-{
+    TFile *tf = dynamic_cast<TFile *>(f);
+    if (!isTreeFile(tf)) return;
     // Simple approach: full rebuild. Optimize later if needed.
     rebuild();
 }
 
-void NotesTreeModel::onNoteRemoved(const QString &relativePath)
+void NotesTreeModel::onDeleted(TAbstractFile *f)
 {
+    TFile *tf = dynamic_cast<TFile *>(f);
+    if (!isTreeFile(tf)) return;
+    rebuild();
+}
+
+void NotesTreeModel::onRenamed(TAbstractFile *f, const QString &oldPath)
+{
+    Q_UNUSED(oldPath)
+    TFile *tf = dynamic_cast<TFile *>(f);
+    if (!isTreeFile(tf)) return;
     rebuild();
 }
 

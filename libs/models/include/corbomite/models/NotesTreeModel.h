@@ -8,7 +8,9 @@
 
 namespace Corbomite {
 
-class VaultModel;
+class TAbstractFile;
+class TFile;
+class Vault;
 
 class NotesTreeModel : public QAbstractItemModel {
     Q_OBJECT
@@ -21,7 +23,7 @@ public:
         FileTypeRole
     };
 
-    explicit NotesTreeModel(VaultModel *vault, QObject *parent = nullptr);
+    explicit NotesTreeModel(Vault *vault, QObject *parent = nullptr);
 
     // QAbstractItemModel interface
     QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
@@ -48,11 +50,11 @@ private:
     TreeNode *findOrCreateDir(const QString &dirPath);
     void sortChildren(TreeNode *node);
 
-    void onNoteAdded(const QString &relativePath);
-    void onNoteRemoved(const QString &relativePath);
-    void onVaultScanned();
+    void onCreated(TAbstractFile *f);
+    void onDeleted(TAbstractFile *f);
+    void onRenamed(TAbstractFile *f, const QString &oldPath);
 
-    VaultModel *m_vault;
+    Vault *m_vault;
     std::unique_ptr<TreeNode> m_root;
 };
 

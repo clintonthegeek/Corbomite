@@ -7,6 +7,8 @@
 #include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NoteService.h"
 #include "corbomite/models/NotesTreeModel.h"
+#include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/vault/Vault.h"
 
 class TestVaultLifecycle : public QObject {
     Q_OBJECT
@@ -28,13 +30,18 @@ private Q_SLOTS:
         createFile(tmp.path() + "/note1.md", QStringLiteral("# Note 1"));
         createFile(tmp.path() + "/folder/note2.md", QStringLiteral("# Note 2"));
 
-        // Open vault
+        // Open legacy VaultModel (drives NoteService) + canonical Vault
+        // (drives NotesTreeModel) in parallel — matches MainWindow wiring
+        // during the Q.0 migration window.
         Corbomite::VaultModel vault;
         vault.open(tmp.path());
         QCOMPARE(vault.allNotes().size(), 2);
 
-        // Tree model reflects vault
-        Corbomite::NotesTreeModel tree(&vault);
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vaultObj(&fs);
+        vaultObj.load(tmp.path());
+
+        Corbomite::NotesTreeModel tree(&vaultObj);
         QCOMPARE(tree.rowCount(QModelIndex()), 2); // folder + note1.md
 
         // Create note via service
@@ -43,7 +50,15 @@ private Q_SLOTS:
         QVERIFY(doc != nullptr);
         QVERIFY(QFileInfo::exists(tmp.path() + "/new-note.md"));
         QCOMPARE(vault.allNotes().size(), 3);
-        QCOMPARE(tree.rowCount(QModelIndex()), 3); // folder + note1 + new-note
+
+        // NoteService writes via QSaveFile directly, bypassing the canonical
+        // Vault; production drives tree updates through Vault's watcher, which
+        // is asynchronous. Rebind a fresh tree after a reload for deterministic
+        // assertions — mirrors MainWindow's tear-down/rebuild on vault switch.
+        vaultObj.unload();
+        vaultObj.load(tmp.path());
+        Corbomite::NotesTreeModel tree2(&vaultObj);
+        QCOMPARE(tree2.rowCount(QModelIndex()), 3); // folder + note1 + new-note
 
         // Open and modify note
         auto *opened = service.openNote(QStringLiteral("note1.md"));
