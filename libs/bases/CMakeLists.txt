@@ -14,6 +14,7 @@ add_library(corbomite-bases STATIC
     src/NumberValue.cpp
     src/StringValue.cpp
     src/ListValue.cpp
+    src/DateValue.cpp
     include/corbomite/bases/ValuePtr.h
     include/corbomite/bases/Value.h
     include/corbomite/bases/Values.h

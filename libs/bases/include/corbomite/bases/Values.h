@@ -145,4 +145,38 @@ private:
     QVector<ValuePtr> m_data;
 };
 
+class DateValue : public Value
+{
+public:
+    DateValue(QDateTime dt, bool hasTime) : m_dt(std::move(dt)), m_hasTime(hasTime) {}
+
+    const QDateTime &dateTime() const { return m_dt; }
+    bool hasTime() const { return m_hasTime; }
+
+    QString type() const override { return QStringLiteral("Date"); }
+    bool isTruthy() const override { return true; }
+    bool isEmpty() const override { return false; }
+    QString toString() const override;
+    bool equals(const Value &other) const override;
+    bool looseEquals(const Value &other) const override;
+    ValuePtr objectAccess(const QString &key) const override;
+    QStringList keys() const override;
+
+    /// `YYYY-MM-DD` (date-only) or `YYYY-MM-DD[ T]HH:MM[:SS[.ms]][TZ]`.
+    /// Returns nullptr on malformed input. Matches addendum §6.1.
+    static std::shared_ptr<DateValue> parseFromString(const QString &text);
+
+protected:
+    QDateTime m_dt;
+    bool m_hasTime;
+};
+
+class RelativeDateValue : public DateValue
+{
+public:
+    RelativeDateValue(QDateTime dt, bool hasTime) : DateValue(std::move(dt), hasTime) {}
+
+    QString toString() const override;  // "3 days ago"
+};
+
 }  // namespace Corbomite::Bases

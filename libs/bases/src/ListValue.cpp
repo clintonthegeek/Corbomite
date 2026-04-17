@@ -220,21 +220,7 @@ ValuePtr ListValue::stddev() const
     return std::make_shared<NumberValue>(std::sqrt(sumSq / static_cast<double>(xs.size())));
 }
 
-// --- date aggregates ---
-//
-// earliest/latest require DateValue which lands in Phase 2 Task 2.1.
-// Their tests live under tst_value_date.cpp (Phase 2). For Phase 1 we
-// return NullValue so the signatures are stable. Phase 2 Task 2.1
-// replaces the bodies with the real implementation.
-
-ValuePtr ListValue::earliest() const
-{
-    return NullValue::instance();
-}
-
-ValuePtr ListValue::latest() const
-{
-    return NullValue::instance();
-}
+// earliest/latest implementations live in DateValue.cpp (they depend on
+// the full DateValue class definition for dynamic_cast).
 
 }  // namespace Corbomite::Bases
