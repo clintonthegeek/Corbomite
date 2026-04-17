@@ -426,6 +426,14 @@ void MainWindow::rewirePluginCoreServices()
                               m_searchIndex, m_workspace, m_commandRegistry,
                               m_viewRegistry, m_menuEvents,
                               nullptr /* QNetworkAccessManager */);
+        if (m_vaultObj && m_vaultObj->isLoaded()) {
+            const QString dir = m_vaultObj->basePath()
+                              + QLatin1Char('/') + m_vaultObj->configDir()
+                              + QStringLiteral("/plugins/")
+                              + ctx->metaData().base().pluginId();
+            QDir().mkpath(dir);
+            ctx->setPluginDataDir(dir);
+        }
     });
     // Plugins already enabled (e.g. on subsequent vault open) get their
     // contexts re-wired in place so proxies see the fresh services.
@@ -435,6 +443,14 @@ void MainWindow::rewirePluginCoreServices()
             info.context->setCoreServices(m_vaultObj, m_fileManager,
                 m_metadataCache, m_searchIndex, m_workspace, m_commandRegistry,
                 m_viewRegistry, m_menuEvents, nullptr);
+            if (m_vaultObj && m_vaultObj->isLoaded()) {
+                const QString dir = m_vaultObj->basePath()
+                                  + QLatin1Char('/') + m_vaultObj->configDir()
+                                  + QStringLiteral("/plugins/")
+                                  + info.metaData.base().pluginId();
+                QDir().mkpath(dir);
+                info.context->setPluginDataDir(dir);
+            }
         }
     }
 }

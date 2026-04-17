@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QDir>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -28,6 +30,9 @@ private slots:
     void vaultAndFileManagerProxiesLazyConstruct();
     void searchAccessorLazyConstructsWhenGranted();
     void searchAccessorReturnsNullWhenPermissionDenied();
+    void pluginDataRoundTripWithConfigPermission();
+    void pluginDataDeniedWithoutConfigPermission();
+    void pluginDataEmptyWithoutDirWired();
 };
 
 static Corbomite::PluginMetaData emptyMeta()
@@ -154,6 +159,39 @@ void TestPluginContext::searchAccessorReturnsNullWhenPermissionDenied()
                         nullptr, nullptr, nullptr);
 
     QVERIFY(ctx.search() == nullptr);
+}
+
+void TestPluginContext::pluginDataRoundTripWithConfigPermission()
+{
+    QTemporaryDir dir; QVERIFY(dir.isValid());
+    Corbomite::PluginContext ctx(emptyMeta(), {QStringLiteral("config")});
+    ctx.setPluginDataDir(dir.path());
+
+    QJsonObject payload;
+    payload.insert(QStringLiteral("greeting"), QStringLiteral("hi"));
+    QVERIFY(ctx.saveData(payload));
+
+    const QJsonObject out = ctx.loadData();
+    QCOMPARE(out.value(QStringLiteral("greeting")).toString(),
+             QStringLiteral("hi"));
+}
+
+void TestPluginContext::pluginDataDeniedWithoutConfigPermission()
+{
+    QTemporaryDir dir; QVERIFY(dir.isValid());
+    Corbomite::PluginContext ctx(emptyMeta(), {}); // no config perm
+    ctx.setPluginDataDir(dir.path());
+
+    QVERIFY(!ctx.saveData(QJsonObject{ {QStringLiteral("v"), 1} }));
+    QCOMPARE(ctx.loadData().size(), 0);
+}
+
+void TestPluginContext::pluginDataEmptyWithoutDirWired()
+{
+    Corbomite::PluginContext ctx(emptyMeta(), {QStringLiteral("config")});
+    // setPluginDataDir intentionally NOT called.
+    QVERIFY(!ctx.saveData(QJsonObject{ {QStringLiteral("v"), 1} }));
+    QCOMPARE(ctx.loadData().size(), 0);
 }
 
 QTEST_MAIN(TestPluginContext)

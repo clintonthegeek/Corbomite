@@ -9,6 +9,7 @@
 #include "corbomite/core/proxies/SecretStorage.h"
 #include "corbomite/core/proxies/ViewRegistrar.h"
 #include "corbomite/core/proxies/WorkspaceController.h"
+#include "corbomite/vault/PluginDataStore.h"
 #include "corbomite/vault/proxies/FileManagerProxy.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
 
@@ -174,6 +175,28 @@ KConfigGroup PluginContext::config()
     if (!hasPermission(QLatin1String(kConfig))) return {};
     return KConfigGroup(KSharedConfig::openConfig(),
                         QStringLiteral("Plugin-") + m_meta.base().pluginId());
+}
+
+void PluginContext::setPluginDataDir(const QString &dir)
+{
+    m_pluginDataDir = dir;
+    m_dataStore.reset();
+}
+
+QJsonObject PluginContext::loadData() const
+{
+    if (!hasPermission(QLatin1String(kConfig))) return {};
+    if (m_pluginDataDir.isEmpty()) return {};
+    if (!m_dataStore) m_dataStore = std::make_unique<PluginDataStore>(m_pluginDataDir);
+    return m_dataStore->load();
+}
+
+bool PluginContext::saveData(const QJsonObject &obj)
+{
+    if (!hasPermission(QLatin1String(kConfig))) return false;
+    if (m_pluginDataDir.isEmpty()) return false;
+    if (!m_dataStore) m_dataStore = std::make_unique<PluginDataStore>(m_pluginDataDir);
+    return m_dataStore->save(obj);
 }
 
 } // namespace Corbomite

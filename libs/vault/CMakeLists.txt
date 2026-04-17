@@ -36,6 +36,8 @@ add_library(vault SHARED
     src/Plugin.cpp
     include/corbomite/vault/PluginContext.h
     src/PluginContext.cpp
+    include/corbomite/vault/PluginDataStore.h
+    src/PluginDataStore.cpp
     include/corbomite/vault/PluginPermissionGrantDialog.h
     src/PluginPermissionGrantDialog.cpp
     include/corbomite/vault/PluginManager.h

@@ -4,12 +4,17 @@
 #include "corbomite/core/PluginMetaData.h"
 
 #include <KConfigGroup>
+#include <QJsonObject>
 #include <QSet>
 #include <QString>
+
+#include <memory>
 
 class QNetworkAccessManager;
 
 namespace Corbomite {
+
+class PluginDataStore;
 
 // Forward decls — core service types (passed in via setCoreServices).
 class Vault;
@@ -83,6 +88,16 @@ public:
     /// Per-plugin KConfig group. Returns an empty group if "config" is ungranted.
     KConfigGroup config();
 
+    /// Persistent per-plugin JSON state at
+    /// `<vault>/.obsidian/plugins/<plugin-id>/data.json`.
+    /// Returns an empty object if the plugin hasn't saved yet or the
+    /// host hasn't wired a data dir. Gated by "config" permission.
+    QJsonObject loadData() const;
+    bool        saveData(const QJsonObject &obj);
+
+    /// Host wiring — PluginManager calls this before plugin->load().
+    void setPluginDataDir(const QString &dir);
+
 private:
     PluginMetaData m_meta;
     QSet<QString>  m_granted;
@@ -98,6 +113,10 @@ private:
     mutable MenuInjector        *m_menuInjector = nullptr;
     mutable SecretStorage       *m_secretStorage = nullptr;
     mutable ProcessSpawner      *m_processSpawner = nullptr;
+
+    // Plugin-data.json persistence
+    QString                                  m_pluginDataDir;
+    mutable std::unique_ptr<PluginDataStore> m_dataStore;
 
     // Non-owning core service references
     Vault                 *m_vault = nullptr;
