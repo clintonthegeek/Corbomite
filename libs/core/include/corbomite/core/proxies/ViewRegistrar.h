@@ -14,11 +14,18 @@ class WorkspaceLeaf;
 using ViewFactory = std::function<View *(WorkspaceLeaf *)>;
 
 /// View-registration facade for plugins with the "ui.views" permission.
-/// Stub — wire-up lands in Cluster Q Task 9.
+///
+/// Tracks every type registered + every extension mapped, and unregisters
+/// them all on destruction. Permission gating happens upstream in
+/// PluginContext::views() — the proxy itself is unconditional.
 class ViewRegistrar
 {
 public:
-    explicit ViewRegistrar(ViewRegistry *registry) : m_registry(registry) {}
+    explicit ViewRegistrar(ViewRegistry *registry);
+    ~ViewRegistrar();
+
+    ViewRegistrar(const ViewRegistrar &) = delete;
+    ViewRegistrar &operator=(const ViewRegistrar &) = delete;
 
     void registerView(const QString &type, ViewFactory factory);
     void registerExtensions(const QStringList &extensions, const QString &type);
@@ -26,6 +33,8 @@ public:
 
 private:
     ViewRegistry *m_registry;
+    QStringList m_registeredTypes;
+    QStringList m_registeredExtensions;
 };
 
 } // namespace Corbomite

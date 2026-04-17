@@ -251,3 +251,8 @@ add_executable(tst_proxy_workspace tst_proxy_workspace.cpp)
 add_test(NAME tst_proxy_workspace COMMAND tst_proxy_workspace)
 target_link_libraries(tst_proxy_workspace PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_proxy_workspace PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_proxy_ui tst_proxy_ui.cpp)
+add_test(NAME tst_proxy_ui COMMAND tst_proxy_ui)
+target_link_libraries(tst_proxy_ui PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_proxy_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
