@@ -13,7 +13,6 @@
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
 #include "sidebar/PropertiesPanel.h"
-#include "sidebar/OutlinePanel.h"
 #include "graph/LocalGraphPanel.h"
 #include "graph/GraphControlsPanel.h"
 #include "graph/GraphViewTab.h"
@@ -871,16 +870,14 @@ void MainWindow::setupEditor()
         auto *editor = activeEditor();
         // Update sidebar panels
         if (editor && editor->noteDocument()) {
-            if (m_outlinePanel) m_outlinePanel->setCurrentNote(editor->noteDocument());
             if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(editor->noteDocument());
             if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(editor->noteDocument());
         } else {
-            if (m_outlinePanel) m_outlinePanel->setCurrentNote(nullptr);
             if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(nullptr);
             if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(nullptr);
         }
-        // BacklinksView and OutlinksView (InternalPlugins) react to
-        // active-leaf changes via WorkspaceController on their own.
+        // BacklinksView, OutlinksView, OutlineView (InternalPlugins)
+        // react to active-leaf changes via WorkspaceController.
 
         if (editor && editor->noteDocument() && m_autosave)
             m_autosave->watchDocument(editor->noteDocument());
@@ -995,21 +992,9 @@ void MainWindow::setupSidebars()
     m_propertiesPanel = new PropertiesPanel(propertiesView);
     propertiesView->layout()->addWidget(m_propertiesPanel);
 
-    auto *outlineView = createToolView(
-        nullptr,
-        QStringLiteral("outline_panel"),
-        KMultiTabBar::Right,
-        QIcon::fromTheme(QStringLiteral("view-list-tree")),
-        i18n("Outline")
-    );
-    m_outlinePanel = new OutlinePanel(outlineView);
-    outlineView->layout()->addWidget(m_outlinePanel);
-    connect(m_outlinePanel, &OutlinePanel::scrollToLine,
-            this, [this](int lineNumber) {
-        auto *editor = activeEditor();
-        if (!editor) return;
-        editor->editor()->goToLine(lineNumber);
-    });
+    // Outline panel migrated to InternalPlugin "corbomite-outline"
+    // (Cluster Q Task 15). Scroll-to-line on item click is deferred —
+    // no host-side editor accessor exposed via WorkspaceController yet.
 
     auto *localGraphView = createToolView(
         nullptr,
@@ -1494,7 +1479,6 @@ void MainWindow::onVaultClosed()
     if (m_tagSuggest) m_tagSuggest->setIndex(nullptr);
     if (m_hoverPopover) m_hoverPopover->setVault(nullptr);
 
-    m_outlinePanel->setCurrentNote(nullptr);
     m_localGraphPanel->setIndex(nullptr);
     m_localGraphPanel->setMetadataCache(nullptr);
     m_localGraphPanel->setVault(nullptr);

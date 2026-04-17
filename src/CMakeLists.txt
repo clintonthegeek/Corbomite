@@ -19,7 +19,6 @@ add_library(CorbomiteApp STATIC
     mdi/CorbomiteMDI.cpp
     sidebar/FileExplorerPanel.cpp
     sidebar/SearchPanel.cpp
-    sidebar/OutlinePanel.cpp
     sidebar/PropertiesPanel.cpp
     sidebar/PropertyEditorWidget.cpp
     editor/MarkdownView.cpp
@@ -99,3 +98,4 @@ target_compile_definitions(CorbomiteApp PRIVATE
 # Built-in plugins (Cluster Q migrations).
 add_subdirectory(plugins/backlinks)
 add_subdirectory(plugins/outlinks)
+add_subdirectory(plugins/outline)

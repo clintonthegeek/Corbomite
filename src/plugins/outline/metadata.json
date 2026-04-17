@@ -1,0 +1,18 @@
+{
+    "KPlugin": {
+        "Name": "Outline",
+        "Description": "Show the heading hierarchy of the active note",
+        "Icon": "view-list-tree",
+        "Version": "1.0",
+        "License": "GPL-3.0-or-later",
+        "Category": "Core",
+        "EnabledByDefault": true,
+        "Authors": [{"Name": "Corbomite Developers"}]
+    },
+    "X-Corbomite-Trusted": true,
+    "X-Corbomite-Permissions": ["vault.read", "metadata.read", "workspace", "ui.views"],
+    "X-Corbomite-MinVersion": "0.1.0",
+    "X-Corbomite-DockArea": "right",
+    "X-Corbomite-DockIcon": "view-list-tree",
+    "X-Corbomite-DockTitle": "Outline"
+}
