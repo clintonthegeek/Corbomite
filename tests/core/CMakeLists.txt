@@ -249,3 +249,12 @@ set_tests_properties(tst_plugin_manager_lifecycle PROPERTIES ENVIRONMENT "QT_QPA
 add_executable(tst_proxy_vault tst_proxy_vault.cpp)
 add_test(NAME tst_proxy_vault COMMAND tst_proxy_vault)
 target_link_libraries(tst_proxy_vault PRIVATE Qt6::Test Corbomite::Core)
+
+add_executable(tst_proxy_metadata tst_proxy_metadata.cpp)
+add_test(NAME tst_proxy_metadata COMMAND tst_proxy_metadata)
+target_link_libraries(tst_proxy_metadata PRIVATE Qt6::Test Corbomite::Core Corbomite::Storage)
+
+add_executable(tst_proxy_workspace tst_proxy_workspace.cpp)
+add_test(NAME tst_proxy_workspace COMMAND tst_proxy_workspace)
+target_link_libraries(tst_proxy_workspace PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_proxy_workspace PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
