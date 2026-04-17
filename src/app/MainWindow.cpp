@@ -10,7 +10,6 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/FileView.h"
 #include "corbomite/core/TextFileView.h"
-#include "graph/LocalGraphPanel.h"
 #include "graph/GraphControlsPanel.h"
 #include "graph/GraphViewTab.h"
 #include "canvas/CanvasViewTab.h"
@@ -873,13 +872,10 @@ void MainWindow::setupEditor()
 
         auto *editor = activeEditor();
         // Update sidebar panels
-        if (editor && editor->noteDocument()) {
-            if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(editor->noteDocument());
-        } else {
-            if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(nullptr);
-        }
-        // Backlinks/Outlinks/Outline/Properties (InternalPlugins) react
-        // to active-leaf changes via WorkspaceController.
+        // All sidebar panels (Backlinks/Outlinks/Outline/Properties/
+        // LocalGraph/FileExplorer/Search) are now InternalPlugins that
+        // react to active-leaf changes via WorkspaceController.
+        Q_UNUSED(editor);
 
         if (editor && editor->noteDocument() && m_autosave)
             m_autosave->watchDocument(editor->noteDocument());
@@ -927,17 +923,8 @@ void MainWindow::setupSidebars()
     // (Cluster Q Task 15). Scroll-to-line on item click is deferred —
     // no host-side editor accessor exposed via WorkspaceController yet.
 
-    auto *localGraphView = createToolView(
-        nullptr,
-        QStringLiteral("local_graph_panel"),
-        KMultiTabBar::Right,
-        QIcon::fromTheme(QStringLiteral("preferences-system-network")),
-        i18n("Local Graph")
-    );
-    m_localGraphPanel = new LocalGraphPanel(localGraphView);
-    localGraphView->layout()->addWidget(m_localGraphPanel);
-    connect(m_localGraphPanel, &LocalGraphPanel::noteActivated,
-            this, &MainWindow::onNoteActivated);
+    // LocalGraph panel migrated to InternalPlugin "corbomite-local-graph"
+    // (Cluster Q Task 19).
 
     auto *graphControlsView = createToolView(
         nullptr,
@@ -1229,9 +1216,6 @@ void MainWindow::onVaultOpened(const QString &path)
         m_metadataCache->rebuildVault(path, notePaths);
     }
 
-    m_localGraphPanel->setIndex(m_searchIndex);
-    m_localGraphPanel->setVault(m_vaultObj);
-    m_localGraphPanel->setMetadataCache(m_metadataCache);
     // Update MetadataCache on note saves
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
         if (!m_metadataCache || !m_vaultObj) return;
@@ -1403,10 +1387,6 @@ void MainWindow::onVaultClosed()
     if (m_tagSuggest) m_tagSuggest->setIndex(nullptr);
     if (m_hoverPopover) m_hoverPopover->setVault(nullptr);
 
-    m_localGraphPanel->setIndex(nullptr);
-    m_localGraphPanel->setMetadataCache(nullptr);
-    m_localGraphPanel->setVault(nullptr);
-    m_localGraphPanel->setCurrentNote(nullptr);
 
     if (m_embedRenderer) {
         m_embedRenderer->setMetadataCache(nullptr);

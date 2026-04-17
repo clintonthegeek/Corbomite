@@ -39,7 +39,6 @@ class SessionManager;
 class SQLiteIndex;
 class MetadataCache;
 class LinkResolver;
-class LocalGraphPanel;
 class GraphControlsPanel;
 class TemplateService;
 class DailyNoteService;
@@ -146,7 +145,6 @@ private:
     SQLiteIndex *m_searchIndex = nullptr;
     MetadataCache *m_metadataCache = nullptr;
     LinkResolver *m_linkResolver = nullptr;
-    LocalGraphPanel *m_localGraphPanel = nullptr;
     GraphControlsPanel *m_graphControlsPanel = nullptr;
     KRecentFilesAction *m_recentVaults = nullptr;
     TemplateService *m_templateService = nullptr;

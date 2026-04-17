@@ -43,7 +43,6 @@ add_library(CorbomiteApp STATIC
     graph/GraphView.cpp
     graph/GraphView.h
     graph/GraphViewTab.cpp
-    graph/LocalGraphPanel.cpp
     graph/CollapsibleSection.cpp
     graph/GraphControlsPanel.cpp
     canvas/CanvasFileView.cpp
@@ -99,3 +98,4 @@ add_subdirectory(plugins/outline)
 add_subdirectory(plugins/properties)
 add_subdirectory(plugins/search)
 add_subdirectory(plugins/file-explorer)
+add_subdirectory(plugins/local-graph)
