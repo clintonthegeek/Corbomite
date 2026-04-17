@@ -25,3 +25,8 @@ add_executable(tst_momentformatpreview tst_momentformatpreview.cpp)
 add_test(NAME tst_momentformatpreview COMMAND tst_momentformatpreview)
 target_link_libraries(tst_momentformatpreview PRIVATE Qt6::Test CorbomiteApp)
 set_tests_properties(tst_momentformatpreview PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_plugins_page tst_plugins_page.cpp)
+add_test(NAME tst_plugins_page COMMAND tst_plugins_page)
+target_link_libraries(tst_plugins_page PRIVATE Qt6::Test CorbomiteApp Corbomite::Vault KF6::CoreAddons KF6::ConfigCore)
+set_tests_properties(tst_plugins_page PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

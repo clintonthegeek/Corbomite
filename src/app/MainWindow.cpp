@@ -453,7 +453,7 @@ void MainWindow::setupActions()
 
     KStandardAction::quit(qApp, &QApplication::quit, ac);
     auto *prefsAction = KStandardAction::preferences(this, [this]() {
-        SettingsDialog dialog(this);
+        SettingsDialog dialog(nullptr /* PluginManager wired in Task 12 */, this);
         dialog.exec();
     }, ac);
     ac->setDefaultShortcut(prefsAction, QKeySequence(Qt::CTRL | Qt::Key_Comma));

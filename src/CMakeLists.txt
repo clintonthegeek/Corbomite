@@ -33,6 +33,7 @@ add_library(CorbomiteApp STATIC
     dialogs/Notice.cpp
     dialogs/MomentFormatPreview.cpp
     dialogs/SettingsDialog.cpp
+    dialogs/PluginsPage.cpp
     dialogs/QuickSwitcherModel.cpp
     dialogs/QuickSwitcherDelegate.cpp
     dialogs/QuickSwitcher.cpp
@@ -66,6 +67,7 @@ target_link_libraries(CorbomiteApp
         Corbomite::Search
         Corbomite::Storage
         Corbomite::Models
+        Corbomite::Vault
         Markoff::Markoff
         Corbomite::ReadingView
         Corbomite::QutepartSource

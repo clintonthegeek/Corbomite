@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SettingsDialog.h"
 #include "MomentFormatPreview.h"
+#include "PluginsPage.h"
 #include "corbomitesettings.h"
 #include <KLocalizedString>
 #include <QVBoxLayout>
@@ -14,8 +15,8 @@
 
 namespace Corbomite {
 
-SettingsDialog::SettingsDialog(QWidget *parent)
-    : KPageDialog(parent)
+SettingsDialog::SettingsDialog(PluginManager *plugins, QWidget *parent)
+    : KPageDialog(parent), m_plugins(plugins)
 {
     setWindowTitle(i18n("Settings"));
     setFaceType(KPageDialog::List);
@@ -25,6 +26,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     setupFilesPage();
     setupAppearancePage();
     setupDailyNotesPage();
+    setupPluginsPage();
 
     connect(this, &QDialog::accepted, this, &SettingsDialog::applySettings);
     connect(button(QDialogButtonBox::Apply), &QPushButton::clicked, this, &SettingsDialog::applySettings);
@@ -148,6 +150,13 @@ void SettingsDialog::setupDailyNotesPage()
 
     auto item = addPage(page, i18n("Daily Notes"));
     item->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
+}
+
+void SettingsDialog::setupPluginsPage()
+{
+    auto *page = new PluginsPage(m_plugins);
+    auto *item = addPage(page, i18n("Plugins"));
+    item->setIcon(QIcon::fromTheme(QStringLiteral("preferences-plugin")));
 }
 
 void SettingsDialog::applySettings()
