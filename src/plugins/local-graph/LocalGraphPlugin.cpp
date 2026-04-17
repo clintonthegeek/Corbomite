@@ -20,14 +20,14 @@ QObject *LocalGraphPlugin::createView(MainWindow *mainWindow)
 {
     auto *ctx = context();
     if (!ctx) return nullptr;
-    auto *vault = ctx->vaultRaw();
-    auto *index = ctx->searchIndex();
+    auto *vault = ctx->vault();
+    auto *search = ctx->search();
     auto *metadata = ctx->metadataCache();
-    if (!vault || !index || !metadata) {
+    if (!vault || !search || !metadata) {
         qWarning() << "LocalGraphPlugin: vault.read+metadata.read missing";
         return nullptr;
     }
-    return new LocalGraphView(index, vault, metadata, ctx->workspace(),
+    return new LocalGraphView(search, vault, metadata, ctx->workspace(),
                                 reinterpret_cast<QWidget *>(mainWindow));
 }
 

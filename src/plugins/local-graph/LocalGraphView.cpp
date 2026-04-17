@@ -5,7 +5,8 @@
 
 #include "corbomite/core/proxies/WorkspaceController.h"
 #include "corbomite/storage/proxies/MetadataCacheReader.h"
-#include "corbomite/vault/Vault.h"
+#include "corbomite/storage/proxies/SearchProxy.h"
+#include "corbomite/vault/proxies/VaultProxy.h"
 
 #include <forcegraph/ForceGraphView.h>
 #include <forcegraph/ForceLayoutEngine.h>
@@ -14,13 +15,13 @@
 
 namespace Corbomite {
 
-LocalGraphView::LocalGraphView(SQLiteIndex *index,
-                                Vault *vault,
+LocalGraphView::LocalGraphView(SearchProxy *search,
+                                VaultProxy *vault,
                                 MetadataCacheReader *metadata,
                                 WorkspaceController *workspace,
                                 QWidget *parent)
     : QWidget(parent)
-    , m_index(index)
+    , m_search(search)
     , m_vault(vault)
     , m_metadata(metadata)
     , m_workspace(workspace)
@@ -61,11 +62,11 @@ void LocalGraphView::onActiveFileChanged(const QString &path)
 void LocalGraphView::refresh()
 {
     m_engine->stop();
-    if (!m_index || !m_vault || m_currentPath.isEmpty()) {
+    if (!m_search || !m_vault || m_currentPath.isEmpty()) {
         m_engine->clear();
         return;
     }
-    auto data = GraphDataBuilder::buildLocalGraph(m_index, m_vault, m_currentPath, 2);
+    auto data = GraphDataBuilder::buildLocalGraph(m_search, m_vault, m_currentPath, 2);
     m_graphView->setNodes(data.nodes);
     m_graphView->setEdges(data.edges);
     if (!data.nodes.isEmpty()) {

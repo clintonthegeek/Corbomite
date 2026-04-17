@@ -11,16 +11,16 @@ class ForceLayoutEngine;
 namespace Corbomite {
 
 class MetadataCacheReader;
-class SQLiteIndex;
-class Vault;
+class SearchProxy;
+class VaultProxy;
 class WorkspaceController;
 
 class LocalGraphView : public QWidget
 {
     Q_OBJECT
 public:
-    LocalGraphView(SQLiteIndex *index,
-                   Vault *vault,
+    LocalGraphView(SearchProxy *search,
+                   VaultProxy *vault,
                    MetadataCacheReader *metadata,
                    WorkspaceController *workspace,
                    QWidget *parent = nullptr);
@@ -31,8 +31,8 @@ private Q_SLOTS:
 private:
     void refresh();
 
-    SQLiteIndex *m_index = nullptr;
-    Vault *m_vault = nullptr;
+    SearchProxy *m_search = nullptr;
+    VaultProxy *m_vault = nullptr;
     MetadataCacheReader *m_metadata = nullptr;
     WorkspaceController *m_workspace = nullptr;
 
