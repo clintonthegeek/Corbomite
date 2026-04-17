@@ -6,7 +6,8 @@
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/IgnoreFilter.h"
 #include "corbomite/vault/VaultScanner.h"
-#include "corbomite/storage/VaultTrash.h"
+// VaultTrash deleted in Q.0 Phase 3 Task 3.7 — its behavior lives on
+// Vault::trash now, covered by libs/vault/tests/tst_vault_trash.cpp.
 
 using namespace Corbomite;
 
@@ -43,68 +44,8 @@ private Q_SLOTS:
         QVERIFY(r);
     }
 
-    // --- VaultTrash ---
-
-    void trashFirstCopyKeepsBasename()
-    {
-        QTemporaryDir tmp;
-        FileSystemAdapter fs;
-        fs.write(tmp.path() + QStringLiteral("/doomed.md"), QStringLiteral("bye"));
-
-        VaultTrash trash(&fs, tmp.path());
-        const QString target = trash.moveToTrash(QStringLiteral("doomed.md"));
-        QVERIFY(!target.isEmpty());
-        QVERIFY(fs.exists(tmp.path() + QStringLiteral("/.trash/doomed.md")));
-        QVERIFY(!fs.exists(tmp.path() + QStringLiteral("/doomed.md")));
-    }
-
-    void trashCollisionsGetSpaceNumberSuffix()
-    {
-        QTemporaryDir tmp;
-        FileSystemAdapter fs;
-
-        // Three files with same basename in different folders.
-        fs.write(tmp.path() + QStringLiteral("/a/note.md"), QStringLiteral("a"));
-        fs.write(tmp.path() + QStringLiteral("/b/note.md"), QStringLiteral("b"));
-        fs.write(tmp.path() + QStringLiteral("/c/note.md"), QStringLiteral("c"));
-
-        VaultTrash trash(&fs, tmp.path());
-        QCOMPARE(trash.moveToTrash(QStringLiteral("a/note.md")),
-                 tmp.path() + QStringLiteral("/.trash/note.md"));
-        QCOMPARE(trash.moveToTrash(QStringLiteral("b/note.md")),
-                 tmp.path() + QStringLiteral("/.trash/note 2.md"));
-        QCOMPARE(trash.moveToTrash(QStringLiteral("c/note.md")),
-                 tmp.path() + QStringLiteral("/.trash/note 3.md"));
-    }
-
-    void trashPreservesExtension()
-    {
-        QTemporaryDir tmp;
-        FileSystemAdapter fs;
-        fs.write(tmp.path() + QStringLiteral("/img.canvas"), QStringLiteral("x"));
-
-        VaultTrash trash(&fs, tmp.path());
-        const auto t = trash.moveToTrash(QStringLiteral("img.canvas"));
-        QVERIFY(t.endsWith(QStringLiteral(".canvas")));
-    }
-
-    void trashMissingFileReturnsEmpty()
-    {
-        QTemporaryDir tmp;
-        FileSystemAdapter fs;
-        VaultTrash trash(&fs, tmp.path());
-        QCOMPARE(trash.moveToTrash(QStringLiteral("nonexistent.md")), QString());
-    }
-
-    void trashFileWithNoExtensionWorks()
-    {
-        QTemporaryDir tmp;
-        FileSystemAdapter fs;
-        fs.write(tmp.path() + QStringLiteral("/README"), QStringLiteral("x"));
-        VaultTrash trash(&fs, tmp.path());
-        const auto t = trash.moveToTrash(QStringLiteral("README"));
-        QVERIFY(t.endsWith(QStringLiteral("/README")));
-    }
+    // --- VaultTrash tests deleted (class deleted in Q.0 P3 T3.7).
+    //     Replacement coverage: libs/vault/tests/tst_vault_trash.cpp. ---
 
     // --- IgnoreFilter ---
 

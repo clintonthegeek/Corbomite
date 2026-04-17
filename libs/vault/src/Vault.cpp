@@ -230,6 +230,235 @@ bool Vault::process(TFile *f, const ProcessMutator &mutator)
     return modify(f, next);
 }
 
+TFile *Vault::create(const QString &path, const QByteArray &body)
+{
+    if (!m_adapter) return nullptr;
+    const QString rel = VaultPaths::normalize(path);
+    if (m_fileMap.count(rel)) return nullptr;
+
+    const QString abs = m_basePath + QLatin1Char('/') + rel;
+    if (!m_adapter->mkpath(QFileInfo(abs).absolutePath())) return nullptr;
+
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    WriteHints hints;
+    hints.mtimeMs = nowMs;
+    stampSelfWrite(rel, nowMs);
+    if (!m_adapter->writeBinary(abs, body, hints)) return nullptr;
+
+    // Build any missing intermediate folders on the in-memory tree.
+    TFolder *parent = m_root;
+    const int slash = rel.lastIndexOf(QLatin1Char('/'));
+    if (slash > 0) {
+        const QString parentRel = rel.left(slash);
+        if (auto *p = getFolderByPath(parentRel)) {
+            parent = p;
+        } else {
+            const QStringList segments = parentRel.split(QLatin1Char('/'));
+            QString cur;
+            TFolder *p2 = m_root;
+            for (const QString &seg : segments) {
+                cur = cur.isEmpty() ? seg : cur + QLatin1Char('/') + seg;
+                if (auto *existing = getFolderByPath(cur)) { p2 = existing; continue; }
+                auto folder = std::make_unique<TFolder>(this, cur);
+                folder->parent = p2;
+                p2->children.append(folder.get());
+                TFolder *raw = folder.get();
+                m_fileMap.emplace(cur, std::move(folder));
+                Q_EMIT created(raw);
+                p2 = raw;
+            }
+            parent = p2;
+        }
+    }
+
+    auto owned = std::make_unique<TFile>(this, rel);
+    FileStat st;
+    st.exists    = true;
+    st.isFile    = true;
+    st.sizeBytes = body.size();
+    st.mtimeMs   = nowMs;
+    st.ctimeMs   = nowMs;
+    owned->stat  = st;
+    owned->parent = parent;
+    parent->children.append(owned.get());
+    TFile *raw = owned.get();
+    m_fileMap.emplace(rel, std::move(owned));
+    m_readCache.insert(rel, body);
+    Q_EMIT created(raw);
+    return raw;
+}
+
+TFile *Vault::createBinary(const QString &path, const QByteArray &body)
+{
+    return create(path, body);
+}
+
+TFolder *Vault::createFolder(const QString &path)
+{
+    if (!m_adapter) return nullptr;
+    const QString rel = VaultPaths::normalize(path);
+    if (m_fileMap.count(rel)) return nullptr;
+    const QString abs = m_basePath + QLatin1Char('/') + rel;
+    if (!m_adapter->mkpath(abs)) return nullptr;
+
+    TFolder *parent = m_root;
+    const int slash = rel.lastIndexOf(QLatin1Char('/'));
+    if (slash > 0) {
+        if (auto *p = getFolderByPath(rel.left(slash))) parent = p;
+    }
+    auto owned = std::make_unique<TFolder>(this, rel);
+    owned->parent = parent;
+    parent->children.append(owned.get());
+    TFolder *raw = owned.get();
+    m_fileMap.emplace(rel, std::move(owned));
+    Q_EMIT created(raw);
+    return raw;
+}
+
+bool Vault::rename(TAbstractFile *f, const QString &newPath)
+{
+    if (!f || !m_adapter) return false;
+    const QString oldRel = f->path;
+    const QString newRel = VaultPaths::normalize(newPath);
+    if (oldRel == newRel) return true;
+    if (m_fileMap.count(newRel)) return false;
+
+    const QString oldAbs = m_basePath + QLatin1Char('/') + oldRel;
+    const QString newAbs = m_basePath + QLatin1Char('/') + newRel;
+    m_adapter->mkpath(QFileInfo(newAbs).absolutePath());
+    if (!m_adapter->rename(oldAbs, newAbs)) return false;
+
+    auto it = m_fileMap.find(oldRel);
+    if (it == m_fileMap.end()) return false;
+    std::unique_ptr<TAbstractFile> node = std::move(it->second);
+    m_fileMap.erase(it);
+
+    if (TFolder *p = node->parent) p->children.removeAll(node.get());
+    TFolder *newParent = m_root;
+    const int slash = newRel.lastIndexOf(QLatin1Char('/'));
+    if (slash > 0) {
+        if (auto *p = getFolderByPath(newRel.left(slash))) newParent = p;
+    }
+    node->parent = newParent;
+    newParent->children.append(node.get());
+    node->setPath(newRel);
+
+    if (m_readCache.contains(oldRel)) {
+        m_readCache.insert(newRel, m_readCache.take(oldRel));
+    }
+
+    TAbstractFile *raw = node.get();
+    m_fileMap.emplace(newRel, std::move(node));
+    Q_EMIT renamed(raw, oldRel);
+    return true;
+}
+
+bool Vault::remove(TAbstractFile *f, bool recursive)
+{
+    if (!f || !m_adapter) return false;
+    const QString rel = f->path;
+    const QString abs = m_basePath + QLatin1Char('/') + rel;
+
+    if (auto *folder = dynamic_cast<TFolder *>(f)) {
+        if (!recursive && !folder->children.isEmpty()) return false;
+        if (!m_adapter->rmdir(abs)) return false;
+    } else {
+        if (!m_adapter->remove(abs)) return false;
+    }
+
+    auto it = m_fileMap.find(rel);
+    if (it == m_fileMap.end()) return false;
+    std::unique_ptr<TAbstractFile> node = std::move(it->second);
+    m_fileMap.erase(it);
+
+    if (TFolder *p = node->parent) p->children.removeAll(node.get());
+    node->deleted = true;
+    m_readCache.remove(rel);
+
+    TAbstractFile *raw = node.get();
+    m_pendingDelete.push_back(std::move(node));
+    Q_EMIT deletedFile(raw);
+    QTimer::singleShot(0, this, [this] { m_pendingDelete.clear(); });
+    return true;
+}
+
+bool Vault::copy(TAbstractFile *f, const QString &newPath)
+{
+    if (!f || !m_adapter) return false;
+    const QString newRel = VaultPaths::normalize(newPath);
+    if (m_fileMap.count(newRel)) return false;
+
+    if (auto *file = dynamic_cast<TFile *>(f)) {
+        const QByteArray body = read(file);
+        return create(newRel, body) != nullptr;
+    }
+    // Recursive folder copy is declared in the spec as scope-deferred.
+    return false;
+}
+
+bool Vault::trash(TAbstractFile *f, bool useSystem)
+{
+    if (!f || !m_adapter) return false;
+    if (dynamic_cast<TFolder *>(f) && f->path == QStringLiteral("/")) return false;
+
+    if (useSystem) {
+        const QString abs = m_basePath + QLatin1Char('/') + f->path;
+        if (m_adapter->moveToTrash(abs)) {
+            const QString rel = f->path;
+            auto it = m_fileMap.find(rel);
+            if (it != m_fileMap.end()) {
+                std::unique_ptr<TAbstractFile> node = std::move(it->second);
+                m_fileMap.erase(it);
+                if (TFolder *p = node->parent) p->children.removeAll(node.get());
+                node->deleted = true;
+                m_readCache.remove(rel);
+                TAbstractFile *raw = node.get();
+                m_pendingDelete.push_back(std::move(node));
+                Q_EMIT deletedFile(raw);
+                QTimer::singleShot(0, this, [this] { m_pendingDelete.clear(); });
+            }
+            return true;
+        }
+        // Fall through to local trash.
+    }
+
+    const QString rel = f->path;
+    const QFileInfo fi(rel);
+    const QString base = fi.completeBaseName();
+    const QString ext  = fi.suffix();
+    const QString trashRoot = QStringLiteral(".trash");
+    m_adapter->mkpath(m_basePath + QLatin1Char('/') + trashRoot);
+
+    QString candidate = base + (ext.isEmpty() ? QString() : (QLatin1Char('.') + ext));
+    QString candidateRel = trashRoot + QLatin1Char('/') + candidate;
+    int n = 2;
+    while (QFileInfo::exists(m_basePath + QLatin1Char('/') + candidateRel)) {
+        candidate = base + QStringLiteral(" ") + QString::number(n)
+                  + (ext.isEmpty() ? QString() : (QLatin1Char('.') + ext));
+        candidateRel = trashRoot + QLatin1Char('/') + candidate;
+        ++n;
+    }
+
+    if (!m_adapter->rename(m_basePath + QLatin1Char('/') + rel,
+                           m_basePath + QLatin1Char('/') + candidateRel)) {
+        return false;
+    }
+
+    auto it = m_fileMap.find(rel);
+    if (it != m_fileMap.end()) {
+        std::unique_ptr<TAbstractFile> node = std::move(it->second);
+        m_fileMap.erase(it);
+        if (TFolder *p = node->parent) p->children.removeAll(node.get());
+        node->deleted = true;
+        m_readCache.remove(rel);
+        TAbstractFile *raw = node.get();
+        m_pendingDelete.push_back(std::move(node));
+        Q_EMIT deletedFile(raw);
+        QTimer::singleShot(0, this, [this] { m_pendingDelete.clear(); });
+    }
+    return true;
+}
+
 void Vault::buildTree()
 {
     if (m_basePath.isEmpty() || !m_adapter) return;

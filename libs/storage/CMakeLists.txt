@@ -21,8 +21,6 @@ add_library(corbomite-storage STATIC
     include/corbomite/storage/EphemeralState.h
     src/CaseSensitivityProbe.cpp
     include/corbomite/storage/CaseSensitivityProbe.h
-    src/VaultTrash.cpp
-    include/corbomite/storage/VaultTrash.h
     src/IgnoreFilter.cpp
     include/corbomite/storage/IgnoreFilter.h
     src/CachedMetadata.cpp

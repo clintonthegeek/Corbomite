@@ -75,3 +75,24 @@ target_link_libraries(tst_vault_process
 add_test(NAME tst_vault_process COMMAND tst_vault_process)
 set_tests_properties(tst_vault_process PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_vault_create tst_vault_create.cpp)
+target_link_libraries(tst_vault_create
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_create COMMAND tst_vault_create)
+set_tests_properties(tst_vault_create PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_vault_rename_remove tst_vault_rename_remove.cpp)
+target_link_libraries(tst_vault_rename_remove
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_rename_remove COMMAND tst_vault_rename_remove)
+set_tests_properties(tst_vault_rename_remove PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_vault_trash tst_vault_trash.cpp)
+target_link_libraries(tst_vault_trash
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_trash COMMAND tst_vault_trash)
+set_tests_properties(tst_vault_trash PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

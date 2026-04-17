@@ -88,6 +88,15 @@ public:
     using ProcessMutator = std::function<QByteArray(const QByteArray &)>;
     bool process(TFile *f, const ProcessMutator &mutator);
 
+    TFile   *create(const QString &path, const QByteArray &body);
+    TFile   *createBinary(const QString &path, const QByteArray &body);
+    TFolder *createFolder(const QString &path);
+
+    bool rename(TAbstractFile *f, const QString &newPath);
+    bool remove(TAbstractFile *f, bool recursive = false);
+    bool copy(TAbstractFile *f, const QString &newPath);
+    bool trash(TAbstractFile *f, bool useSystem);
+
 signals:
     void created(Corbomite::TAbstractFile *f);
     void modified(Corbomite::TFile *f);
