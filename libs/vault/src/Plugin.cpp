@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/vault/Plugin.h"
 
+#include <QWidget>
+
 namespace Corbomite {
 
 Plugin::Plugin(QObject *parent) : QObject(parent), Component() {}
@@ -27,6 +29,13 @@ void Plugin::onunload()
 QObject *Plugin::createView(MainWindow *)
 {
     return nullptr;
+}
+
+void Plugin::focus(QObject *view)
+{
+    if (auto *w = qobject_cast<QWidget *>(view)) {
+        w->setFocus();
+    }
 }
 
 KTextEditor::ConfigPage *Plugin::configPage(int, QWidget *)

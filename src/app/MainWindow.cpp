@@ -1444,12 +1444,21 @@ void MainWindow::openGraphView()
 
 void MainWindow::showSearchPanel()
 {
-    // Search panel is now an InternalPlugin (Cluster Q Task 17). Surface
-    // its tool view via the plugin-id-derived slot. Focus management is
-    // a follow-up — plugin views aren't reachable for `focusSearchInput`
-    // calls without a host-side accessor.
+    // Search panel is an InternalPlugin (Cluster Q Task 17). Surface its
+    // tool view via the plugin-id-derived slot, then dispatch focus through
+    // the plugin so SearchPlugin can land caret on its QLineEdit rather
+    // than the tool-view root widget.
     auto *tv = toolView(QStringLiteral("corbomite-search_panel"));
-    if (tv) showToolView(tv);
+    if (!tv) return;
+    showToolView(tv);
+    if (auto *pm = m_app ? m_app->pluginManager() : nullptr) {
+        if (const auto *info = pm->pluginById(QStringLiteral("corbomite-search"))) {
+            auto it = m_hostedPluginViews.constFind(QStringLiteral("corbomite-search"));
+            if (info->instance && it != m_hostedPluginViews.constEnd()) {
+                info->instance->focus(*it);
+            }
+        }
+    }
 }
 
 void MainWindow::insertTemplate()

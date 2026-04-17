@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QApplication>
+#include <QFocusEvent>
 #include <QTest>
+#include <QWidget>
 #include "corbomite/vault/Plugin.h"
 #include "corbomite/vault/PluginContext.h"
 
@@ -29,6 +32,7 @@ private slots:
     void cleanupsFireLifo();
     void contextClearedAfterUnload();
     void createViewDefaultsToNullptr();
+    void focusDefaultsToSetFocusOnWidget();
 };
 
 static Corbomite::PluginContext *makeCtx()
@@ -111,6 +115,44 @@ void TestPlugin::createViewDefaultsToNullptr()
     QCOMPARE(p.createView(nullptr), nullptr);
     QCOMPARE(p.configPages(), 0);
     QCOMPARE(p.configPage(0, nullptr), nullptr);
+}
+
+void TestPlugin::focusDefaultsToSetFocusOnWidget()
+{
+    TrackingPlugin p;
+    // Null input is a safe no-op.
+    p.focus(nullptr);
+
+    // Non-widget QObject is ignored (no crash, no state change).
+    QObject nonWidget;
+    p.focus(&nonWidget);
+
+    // Widget input: default implementation dispatches setFocus. Under an
+    // offscreen platform we can't meaningfully observe focus transitions
+    // through the window system, so assert dispatch-by-classification via
+    // a widget that records the focus-in event.
+    class FocusCatcher : public QWidget
+    {
+    public:
+        int focusInCount = 0;
+    protected:
+        void focusInEvent(QFocusEvent *e) override
+        {
+            ++focusInCount;
+            QWidget::focusInEvent(e);
+        }
+    };
+    QWidget host;
+    host.resize(10, 10);
+    auto *catcher = new FocusCatcher;
+    catcher->setParent(&host);
+    catcher->setFocusPolicy(Qt::StrongFocus);
+    host.show();
+    QApplication::processEvents();
+
+    p.focus(catcher);
+    QApplication::processEvents();
+    QVERIFY(catcher->focusInCount >= 1);
 }
 
 QTEST_MAIN(TestPlugin)

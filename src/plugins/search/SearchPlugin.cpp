@@ -31,6 +31,15 @@ QObject *SearchPlugin::createView(MainWindow *mainWindow)
                             reinterpret_cast<QWidget *>(mainWindow));
 }
 
+void SearchPlugin::focus(QObject *view)
+{
+    if (auto *sv = qobject_cast<SearchView *>(view)) {
+        sv->focusSearchInput();
+        return;
+    }
+    Plugin::focus(view);
+}
+
 } // namespace Corbomite
 
 K_PLUGIN_FACTORY_WITH_JSON(SearchPluginFactory, "metadata.json",

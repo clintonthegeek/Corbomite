@@ -48,6 +48,13 @@ public:
     /// Per-window view factory. Default returns nullptr (headless plugins).
     virtual QObject *createView(MainWindow *mainWindow);
 
+    /// Hand focus to the plugin's view. Default sets focus on `view` if it's
+    /// a QWidget; plugins whose view contains a non-root target (e.g. Search
+    /// wants its QLineEdit focused, not the surrounding tree view) override
+    /// this to dispatch. Called by the host after `showToolView(...)` when
+    /// the user triggers a focus shortcut (e.g. Ctrl+Shift+F for Search).
+    virtual void focus(QObject *view);
+
     /// Number of KConfig pages this plugin provides. Default 0.
     virtual int configPages() const { return 0; }
 

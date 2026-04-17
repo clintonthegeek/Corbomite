@@ -13,6 +13,7 @@ public:
     ~SearchPlugin() override;
 
     QObject *createView(MainWindow *mainWindow) override;
+    void focus(QObject *view) override;
 };
 
 } // namespace Corbomite
