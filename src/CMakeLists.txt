@@ -5,6 +5,7 @@ add_library(CorbomiteApp STATIC
     ${CORBOMITE_KCFG_SRCS}
     app/CorbomiteApp.cpp
     app/MainWindow.cpp
+    app/RecentVaults.cpp
     app/VaultService.cpp
     app/SessionManager.cpp
     app/RibbonSlot.cpp

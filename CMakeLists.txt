@@ -131,6 +131,7 @@ endif()
 
 # Tests
 enable_testing()
+add_subdirectory(tests/app)
 add_subdirectory(tests/core)
 add_subdirectory(tests/storage)
 add_subdirectory(tests/search)

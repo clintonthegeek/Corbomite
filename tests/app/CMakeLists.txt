@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.19)
+project(Corbomite_AppTests LANGUAGES CXX)
+enable_testing()
+find_package(Qt6 REQUIRED COMPONENTS Test)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+
+add_executable(tst_recent_vaults tst_recent_vaults.cpp)
+add_test(NAME tst_recent_vaults COMMAND tst_recent_vaults)
+target_link_libraries(tst_recent_vaults PRIVATE Qt6::Test CorbomiteApp)
+set_tests_properties(tst_recent_vaults PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
