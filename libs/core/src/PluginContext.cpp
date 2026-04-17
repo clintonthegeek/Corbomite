@@ -6,8 +6,6 @@
 #include "corbomite/core/proxies/MetadataCacheReader.h"
 #include "corbomite/core/proxies/ProcessSpawner.h"
 #include "corbomite/core/proxies/SecretStorage.h"
-#include "corbomite/core/proxies/VaultReader.h"
-#include "corbomite/core/proxies/VaultWriter.h"
 #include "corbomite/core/proxies/ViewRegistrar.h"
 #include "corbomite/core/proxies/WorkspaceController.h"
 
@@ -16,8 +14,6 @@
 namespace Corbomite {
 
 namespace {
-constexpr auto kVaultRead    = "vault.read";
-constexpr auto kVaultWrite   = "vault.write";
 constexpr auto kMetadataRead = "metadata.read";
 constexpr auto kWorkspace    = "workspace";
 constexpr auto kUiCommands   = "ui.commands";
@@ -34,8 +30,6 @@ PluginContext::PluginContext(PluginMetaData meta, QSet<QString> granted)
 
 PluginContext::~PluginContext()
 {
-    delete m_vaultReader;
-    delete m_vaultWriter;
     delete m_metadataReader;
     delete m_workspaceController;
     delete m_commandRegistrar;
@@ -45,32 +39,17 @@ PluginContext::~PluginContext()
     delete m_processSpawner;
 }
 
-void PluginContext::setCoreServices(Vault *v, MetadataCache *m, Workspace *w,
+void PluginContext::setCoreServices(MetadataCache *m, Workspace *w,
                                      CommandRegistry *c, ViewRegistry *vr,
                                      MenuEventEmitter *me,
                                      QNetworkAccessManager *n)
 {
-    m_vault = v;
     m_metadata = m;
     m_workspace = w;
     m_commandRegistry = c;
     m_viewRegistry = vr;
     m_menuEmitter = me;
     m_network = n;
-}
-
-VaultReader *PluginContext::vaultReader() const
-{
-    if (!hasPermission(QLatin1String(kVaultRead)) || !m_vault) return nullptr;
-    if (!m_vaultReader) m_vaultReader = new VaultReader(m_vault);
-    return m_vaultReader;
-}
-
-VaultWriter *PluginContext::vaultWriter() const
-{
-    if (!hasPermission(QLatin1String(kVaultWrite)) || !m_vault) return nullptr;
-    if (!m_vaultWriter) m_vaultWriter = new VaultWriter(m_vault);
-    return m_vaultWriter;
 }
 
 MetadataCacheReader *PluginContext::metadataCache() const

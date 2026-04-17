@@ -12,7 +12,10 @@ class QNetworkAccessManager;
 namespace Corbomite {
 
 // Forward decls — core service types (passed in via setCoreServices).
-class Vault;
+// Note: Vault proxies were dropped in Cluster Q.0 Phase 1 (the path-only
+// Task-7 Vault + VaultReader + VaultWriter all went with it). The new
+// VaultProxy + FileManagerProxy land in libs/vault/ during Phase 9; this
+// file wires them back in at that point.
 class MetadataCache;
 class Workspace;
 class CommandRegistry;
@@ -20,8 +23,6 @@ class ViewRegistry;
 class MenuEventEmitter;
 
 // Forward decls — proxy types (owned by PluginContext, lazy-constructed).
-class VaultReader;
-class VaultWriter;
 class MetadataCacheReader;
 class WorkspaceController;
 class CommandRegistrar;
@@ -36,9 +37,6 @@ class ProcessSpawner;
 /// Each accessor returns nullptr when either:
 ///   - the corresponding permission was not granted, OR
 ///   - the underlying core service has not been installed via setCoreServices().
-///
-/// Plugin authors call sites read like:
-///   if (auto *r = ctx->vaultReader()) r->read(path);
 class PluginContext
 {
 public:
@@ -51,8 +49,7 @@ public:
     /// Install core-service references. Must be called before the plugin
     /// invokes any granted accessor. Pass nullptr for services the host
     /// does not provide; the corresponding accessor will then return nullptr.
-    void setCoreServices(Vault *vault,
-                         MetadataCache *metadata,
+    void setCoreServices(MetadataCache *metadata,
                          Workspace *workspace,
                          CommandRegistry *commands,
                          ViewRegistry *views,
@@ -66,8 +63,6 @@ public:
 
     // Permission-gated accessors. Lazy-constructed; nullptr if either permission
     // is ungranted or the underlying core service is null.
-    VaultReader           *vaultReader() const;     // "vault.read"
-    VaultWriter           *vaultWriter() const;     // "vault.write"
     MetadataCacheReader   *metadataCache() const;   // "metadata.read"
     WorkspaceController   *workspace() const;       // "workspace"
     CommandRegistrar      *commands() const;        // "ui.commands"
@@ -85,8 +80,6 @@ private:
     QSet<QString>  m_granted;
 
     // Owned proxies (lazy)
-    mutable VaultReader         *m_vaultReader = nullptr;
-    mutable VaultWriter         *m_vaultWriter = nullptr;
     mutable MetadataCacheReader *m_metadataReader = nullptr;
     mutable WorkspaceController *m_workspaceController = nullptr;
     mutable CommandRegistrar    *m_commandRegistrar = nullptr;
@@ -96,7 +89,6 @@ private:
     mutable ProcessSpawner      *m_processSpawner = nullptr;
 
     // Non-owning core service references
-    Vault                 *m_vault = nullptr;
     MetadataCache         *m_metadata = nullptr;
     Workspace             *m_workspace = nullptr;
     CommandRegistry       *m_commandRegistry = nullptr;
