@@ -18,16 +18,11 @@ std::unique_ptr<RenderedDocument> RegexRenderEngine::render(
     // 2. Render markdown to HTML via legacy renderer
     QString html = m_legacyRenderer.renderToHtml(md);
 
-    // 3. Apply profile-specific CSS overrides
-    QString styleOverrides = buildStylesheet(options);
-    if (!styleOverrides.isEmpty()) {
-        // Insert style overrides before </head>
-        html.replace(QStringLiteral("</head>"),
-                     QStringLiteral("<style>") + styleOverrides + QStringLiteral("</style></head>"));
-    }
-
-    // 4. Create QTextDocument from HTML
+    // 3. Create QTextDocument from HTML with profile-specific CSS
     auto doc = std::make_unique<QTextDocument>();
+    QString styleOverrides = buildStylesheet(options);
+    if (!styleOverrides.isEmpty())
+        doc->setDefaultStyleSheet(styleOverrides);
     doc->setHtml(html);
 
     return RenderedDocument::fromQTextDocument(std::move(doc));
@@ -39,22 +34,17 @@ QString RegexRenderEngine::buildStylesheet(const RenderOptions &options) const
     int maxWidth = options.maxWidthPx.value_or(m_profile.maxWidthPx);
     int margin = options.marginPx.value_or(m_profile.marginPx);
 
-    // Only emit overrides if they differ from the legacy renderer defaults
-    // (legacy defaults: font-size 16px, max-width 700px, padding 20px)
     QString css;
 
-    bool needsBody = (fontSize != 16 || maxWidth != 700 || margin != 20);
-    if (needsBody) {
-        css += QStringLiteral("body { ");
-        css += QStringLiteral("font-size: %1px; ").arg(fontSize);
-        if (maxWidth > 0) {
-            css += QStringLiteral("max-width: %1px; ").arg(maxWidth);
-        } else {
-            css += QStringLiteral("max-width: none; ");
-        }
-        css += QStringLiteral("padding: %1px; ").arg(margin);
-        css += QStringLiteral("} ");
+    css += QStringLiteral("body { ");
+    css += QStringLiteral("font-size: %1px; ").arg(fontSize);
+    if (maxWidth > 0) {
+        css += QStringLiteral("max-width: %1px; ").arg(maxWidth);
+    } else {
+        css += QStringLiteral("max-width: none; ");
     }
+    css += QStringLiteral("padding: %1px; ").arg(margin);
+    css += QStringLiteral("} ");
 
     return css;
 }
