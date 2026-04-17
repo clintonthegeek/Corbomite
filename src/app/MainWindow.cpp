@@ -413,7 +413,7 @@ void MainWindow::propagateServicesToView(View *view)
 
     if (auto *mv = qobject_cast<MarkdownView *>(view)) {
         if (m_vaultService->isOpen())
-            mv->setVaultModel(m_vaultService->vault());
+            mv->setVault(m_vaultObj);
         mv->setHoverPopover(m_hoverPopover);
         mv->setEditorSuggestManager(m_suggestManager);
 

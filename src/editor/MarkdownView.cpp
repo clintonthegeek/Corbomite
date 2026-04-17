@@ -105,9 +105,9 @@ void MarkdownView::setEphemeralState(const QJsonObject &state)
 
 NoteEditorWidget *MarkdownView::editorWidget() const { return m_editorWidget; }
 
-void MarkdownView::setVaultModel(VaultModel *vault)
+void MarkdownView::setVault(Vault *vault)
 {
-    m_editorWidget->setVaultModel(vault);
+    m_editorWidget->setVault(vault);
 }
 
 void MarkdownView::setHoverPopover(HoverPopover *popover)

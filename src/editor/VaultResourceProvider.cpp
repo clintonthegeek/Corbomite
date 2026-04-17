@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "VaultResourceProvider.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/Vault.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -8,9 +9,9 @@
 
 namespace Corbomite {
 
-VaultResourceProvider::VaultResourceProvider(VaultModel *vault, const QString &noteRelativePath)
+VaultResourceProvider::VaultResourceProvider(Vault *vault, const QString &noteRelativePath)
     : m_vault(vault)
-    , m_vaultPath(vault ? vault->path() : QString())
+    , m_vaultPath(vault ? vault->basePath() : QString())
 {
     int lastSlash = noteRelativePath.lastIndexOf(QLatin1Char('/'));
     m_noteDir = lastSlash > 0 ? noteRelativePath.left(lastSlash) : QString();
@@ -28,24 +29,22 @@ QString VaultResourceProvider::resolveTarget(const QString &target) const
     // Try relative to current note first
     if (!m_noteDir.isEmpty()) {
         QString relative = m_noteDir + QLatin1Char('/') + withExt;
-        if (m_vault && m_vault->noteExists(relative)) {
+        if (m_vault && m_vault->getAbstractFileByPath(relative)) {
             return relative;
         }
     }
 
     // Try as-is (relative to vault root)
-    if (m_vault && m_vault->noteExists(withExt)) {
+    if (m_vault && m_vault->getAbstractFileByPath(withExt)) {
         return withExt;
     }
 
     // Shortest-path match: search all notes for matching filename
     if (m_vault) {
         QString filename = withExt.mid(withExt.lastIndexOf(QLatin1Char('/')) + 1);
-        const auto notes = m_vault->allNotes();
-        for (const auto &meta : notes) {
-            if (meta.relativePath.endsWith(QLatin1Char('/') + filename)
-                || meta.relativePath == filename) {
-                return meta.relativePath;
+        for (TFile *f : m_vault->getMarkdownFiles()) {
+            if (f->path.endsWith(QLatin1Char('/') + filename) || f->path == filename) {
+                return f->path;
             }
         }
     }
@@ -76,8 +75,8 @@ std::optional<QString> VaultResourceProvider::resolveEmbed(const QString &name) 
 {
     QString resolved = resolveTarget(name);
     if (m_vault) {
-        if (auto *doc = m_vault->cachedDocument(resolved)) {
-            return doc->markdown();
+        if (TFile *tf = m_vault->getFileByPath(resolved)) {
+            return QString::fromUtf8(m_vault->cachedRead(tf));
         }
         QString absPath = m_vaultPath + QLatin1Char('/') + resolved;
         QFile file(absPath);
@@ -101,7 +100,7 @@ bool VaultResourceProvider::linkExists(const QString &target) const
 
     // resolveTarget finds the best match; verify it actually exists
     QString resolved = resolveTarget(target);
-    return m_vault->noteExists(resolved);
+    return m_vault->getAbstractFileByPath(resolved) != nullptr;
 }
 
 } // namespace Corbomite

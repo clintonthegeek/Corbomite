@@ -18,7 +18,7 @@ namespace Corbomite {
 struct EphemeralState;
 class NoteDocument;
 class SourceEditor;
-class VaultModel;
+class Vault;
 class VaultResourceProvider;
 class CompletionPopup;
 class HoverPopover;
@@ -41,7 +41,7 @@ public:
 
     void setNoteDocument(NoteDocument *doc);
     NoteDocument *noteDocument() const;
-    void setVaultModel(VaultModel *vault);
+    void setVault(Vault *vault);
 
     /// Phase-7 transition: (1) flush outgoing widget's text to NoteDocument,
     /// (2) capture outgoing ephemeral state, (3) swap QStackedWidget index
@@ -126,7 +126,7 @@ private:
     int m_readingIndex = -1;
 
     NoteDocument *m_doc = nullptr;
-    VaultModel *m_vault = nullptr;
+    Vault *m_vault = nullptr;
     VaultResourceProvider *m_resourceProvider = nullptr;
     bool m_updatingFromDoc = false;
     int m_cachedWordCount = 0;

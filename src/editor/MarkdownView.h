@@ -9,7 +9,7 @@ namespace Corbomite {
 class NoteEditorWidget;
 class HoverPopover;
 class EditorSuggestManager;
-class VaultModel;
+class Vault;
 
 class MarkdownView : public TextFileView
 {
@@ -37,7 +37,7 @@ public:
 
     NoteEditorWidget *editorWidget() const;
 
-    void setVaultModel(VaultModel *vault);
+    void setVault(Vault *vault);
     void setHoverPopover(HoverPopover *popover);
     void setEditorSuggestManager(EditorSuggestManager *manager);
 

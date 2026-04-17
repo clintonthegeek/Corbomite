@@ -5,11 +5,11 @@
 
 namespace Corbomite {
 
-class VaultModel;
+class Vault;
 
 class VaultResourceProvider : public Markoff::ResourceProvider {
 public:
-    VaultResourceProvider(VaultModel *vault, const QString &noteRelativePath);
+    VaultResourceProvider(Vault *vault, const QString &noteRelativePath);
 
     QUrl resolveImage(const QString &name) const override;
     std::optional<QString> resolveEmbed(const QString &name) const override;
@@ -19,7 +19,7 @@ public:
 private:
     QString resolveTarget(const QString &target) const;
 
-    VaultModel *m_vault;
+    Vault *m_vault;
     QString m_vaultPath;
     QString m_noteDir; // directory containing the current note
 };

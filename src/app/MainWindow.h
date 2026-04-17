@@ -67,6 +67,10 @@ public:
     explicit MainWindow(VaultService *vaultService, QWidget *parent = nullptr);
     ~MainWindow() override;
 
+    /// Accessor used by e2e tests to wire panels/editors defensively
+    /// when propagateServicesToView hasn't fired yet under offscreen.
+    Vault *vaultObj() const { return m_vaultObj; }
+
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
 

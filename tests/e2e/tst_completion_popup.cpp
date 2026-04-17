@@ -116,7 +116,7 @@ private Q_SLOTS:
         QVERIFY(nw);
         // Defensively ensure the vault is set on this editor — the
         // active-editor signal may not have fired yet under offscreen.
-        nw->setVaultModel(m_vaultService->vault());
+        nw->setVault(m_mainWindow->vaultObj());
 
         m_mainWindow->activateWindow();
         editor->setFocus();

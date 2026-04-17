@@ -8,7 +8,7 @@
 #include "corbomite/core/EditorSuggest.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/NoteDocument.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/Vault.h"
 #include "corbomite/storage/EphemeralState.h"
 #include "dialogs/QuickSwitcherModel.h"
 
@@ -105,7 +105,7 @@ NoteDocument *NoteEditorWidget::noteDocument() const
     return m_doc;
 }
 
-void NoteEditorWidget::setVaultModel(VaultModel *vault)
+void NoteEditorWidget::setVault(Vault *vault)
 {
     m_vault = vault;
     if (m_doc && m_vault) {
