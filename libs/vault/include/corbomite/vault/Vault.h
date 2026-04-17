@@ -16,6 +16,24 @@ class TAbstractFile;
 class TFile;
 class TFolder;
 
+namespace detail { class Watcher; }
+
+// Forward-declared type pointers appear in Vault's Qt signals. Callers that
+// connect via QSignalSpy / Qt::QueuedConnection / Events-mixin dispatch need
+// these registered so QMetaType can copy them through QVariant. Registration
+// happens at Vault's first ctor call via a static-local flag in Vault.cpp.
+}  // namespace Corbomite
+
+#include "corbomite/vault/TAbstractFile.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/TFolder.h"
+
+Q_DECLARE_METATYPE(Corbomite::TAbstractFile *)
+Q_DECLARE_METATYPE(Corbomite::TFile *)
+Q_DECLARE_METATYPE(Corbomite::TFolder *)
+
+namespace Corbomite {
+
 /// Canonical vault aggregate. Single-vault-per-process. Owns the
 /// TFile/TFolder tree, composes a DataAdapter for file I/O, and emits
 /// signals on every mutation. See
@@ -48,6 +66,20 @@ public:
     QVector<TAbstractFile *> getAllLoadedFiles() const;
     bool    isEmpty() const;
 
+signals:
+    void created(Corbomite::TAbstractFile *f);
+    void modified(Corbomite::TFile *f);
+    void deletedFile(Corbomite::TAbstractFile *f);
+    void renamed(Corbomite::TAbstractFile *f, const QString &oldPath);
+    void closed();
+
+private Q_SLOTS:
+    // Watcher-dispatched handlers. Relative paths only (no basePath prefix).
+    void onExternalCreated(const QString &relPath);
+    void onExternalModified(const QString &relPath);
+    void onExternalDeleted(const QString &relPath);
+    void onExternalRenamed(const QString &oldRel, const QString &newRel);
+
 private:
     DataAdapter *m_adapter;
     QString      m_basePath;
@@ -63,6 +95,15 @@ private:
 
     // Non-owning shortcut to the root node (also in m_fileMap at "/").
     TFolder *m_root = nullptr;
+
+    // Filesystem watcher — private detail class; header in src/.
+    std::unique_ptr<detail::Watcher> m_watcher;
+
+    // Deferred-deletion queue: entries persist for one event-loop turn after
+    // `deletedFile` emission so synchronous subscribers can observe
+    // `deleted == true` and read the object without UAF. std::vector
+    // (not QVector) because QVector requires value-copyable during grow.
+    std::vector<std::unique_ptr<TAbstractFile>> m_pendingDelete;
 
     void buildTree();
     void teardownTree();

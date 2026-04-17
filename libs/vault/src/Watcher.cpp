@@ -3,6 +3,10 @@
 
 #include "corbomite/vault/Vault.h"
 
+#include <QDir>
+#include <QDirIterator>
+#include <QFileInfo>
+
 namespace Corbomite::detail {
 
 Watcher::Watcher(Vault *vault, QObject *parent)
@@ -20,11 +24,39 @@ Watcher::Watcher(Vault *vault, QObject *parent)
 
 Watcher::~Watcher() = default;
 
-// Task 2.2 ships the skeleton only; Task 2.4 fills these in.
+namespace {
+bool isExcluded(const QString &rel)
+{
+    return rel.startsWith(QStringLiteral(".obsidian/")) ||
+           rel == QStringLiteral(".obsidian") ||
+           rel.startsWith(QStringLiteral(".corbomite/")) ||
+           rel == QStringLiteral(".corbomite") ||
+           rel.startsWith(QStringLiteral(".trash/")) ||
+           rel == QStringLiteral(".trash") ||
+           rel.startsWith(QStringLiteral(".git/")) ||
+           rel == QStringLiteral(".git");
+}
+}
+
 void Watcher::start(const QString &basePath)
 {
     stop();
-    m_basePath = basePath;
+    m_basePath = QDir::cleanPath(basePath);
+    if (m_basePath.isEmpty()) return;
+
+    m_fsw.addPath(m_basePath);
+    snapshotDirectory(m_basePath);
+
+    QDirIterator it(m_basePath,
+                    QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
+                    QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        const QString d = it.next();
+        const QString rel = toRel(d);
+        if (isExcluded(rel)) continue;
+        m_fsw.addPath(d);
+        snapshotDirectory(d);
+    }
 }
 
 void Watcher::stop()
@@ -51,24 +83,103 @@ void Watcher::onFileChanged(const QString &absPath)
     m_drainTimer.start();
 }
 
-void Watcher::drainPending()
+void Watcher::snapshotDirectory(const QString &absDir)
 {
-    // Task 2.4: implement directory-diff + signal emission.
-    m_pending.clear();
+    QDirIterator it(absDir, QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden);
+    while (it.hasNext()) {
+        it.next();
+        const QFileInfo fi = it.fileInfo();
+        const QString rel = toRel(fi.absoluteFilePath());
+        if (isExcluded(rel)) continue;
+        m_knownFiles.insert(rel, fi.lastModified().toMSecsSinceEpoch());
+        // Watch the file itself so content-only modifications (no dir
+        // entry churn) trigger fileChanged. Directory-level watchers do not
+        // fire on content mutation across all filesystems.
+        m_fsw.addPath(fi.absoluteFilePath());
+    }
 }
 
-void Watcher::snapshotDirectory(const QString & /*absDir*/)
+void Watcher::drainPending()
 {
-    // Task 2.4: populate m_knownFiles with (relPath, mtime) pairs.
+    if (m_basePath.isEmpty()) {
+        m_pending.clear();
+        return;
+    }
+
+    // Re-snapshot the tree and diff against m_knownFiles.
+    QHash<QString, qint64> fresh;
+    QDirIterator it(m_basePath,
+                    QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden,
+                    QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        const QFileInfo fi = it.fileInfo();
+        const QString rel = toRel(fi.absoluteFilePath());
+        if (isExcluded(rel)) continue;
+        fresh.insert(rel, fi.lastModified().toMSecsSinceEpoch());
+    }
+
+    // Separate into deleted + created lists; emit modifieds directly.
+    QStringList createdRels;
+    QStringList deletedRels;
+    for (auto fit = fresh.cbegin(); fit != fresh.cend(); ++fit) {
+        const auto known = m_knownFiles.constFind(fit.key());
+        if (known == m_knownFiles.cend()) {
+            createdRels.append(fit.key());
+        } else if (known.value() != fit.value()) {
+            Q_EMIT modified(fit.key());
+        }
+    }
+    for (auto kit = m_knownFiles.cbegin(); kit != m_knownFiles.cend(); ++kit) {
+        if (!fresh.contains(kit.key())) deletedRels.append(kit.key());
+    }
+
+    // Pair delete+create by matching mtime within this drain (best-effort
+    // rename detection). Unpaired entries emit as plain delete / create.
+    QStringList unpairedCreates = createdRels;
+    for (const QString &oldRel : deletedRels) {
+        const auto knownIt = m_knownFiles.constFind(oldRel);
+        const qint64 oldMtime =
+            knownIt != m_knownFiles.cend() ? knownIt.value() : 0;
+        bool matched = false;
+        for (int i = 0; i < unpairedCreates.size(); ++i) {
+            const QString &newRel = unpairedCreates[i];
+            const qint64 newMtime = fresh.value(newRel);
+            if (oldMtime != 0 && newMtime == oldMtime) {
+                Q_EMIT renamed(oldRel, newRel);
+                unpairedCreates.removeAt(i);
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) Q_EMIT deleted(oldRel);
+    }
+    for (const QString &newRel : unpairedCreates) Q_EMIT created(newRel);
+
+    // Re-add subdirs + files to the watcher so newly-created entries
+    // join the watch list. QFileSystemWatcher dedups addPath internally.
+    QDirIterator dit(m_basePath,
+                     QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
+                     QDirIterator::Subdirectories);
+    while (dit.hasNext()) {
+        const QString d = dit.next();
+        const QString rel = toRel(d);
+        if (isExcluded(rel)) continue;
+        if (!m_fsw.directories().contains(d)) m_fsw.addPath(d);
+    }
+    for (auto fit = fresh.cbegin(); fit != fresh.cend(); ++fit) {
+        const QString abs = m_basePath + QLatin1Char('/') + fit.key();
+        if (!m_fsw.files().contains(abs)) m_fsw.addPath(abs);
+    }
+
+    m_knownFiles = std::move(fresh);
+    m_pending.clear();
 }
 
 QString Watcher::toRel(const QString &abs) const
 {
     if (m_basePath.isEmpty()) return abs;
-    if (abs.startsWith(m_basePath)) {
-        return abs.mid(m_basePath.size() + 1);
-    }
-    return abs;
+    return QDir(m_basePath).relativeFilePath(abs);
 }
 
 } // namespace Corbomite::detail

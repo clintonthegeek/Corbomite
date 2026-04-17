@@ -8,9 +8,11 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QTimer>
 #include <functional>
 
 #include "PathNormalization.h"
+#include "Watcher.h"
 
 namespace Corbomite {
 
@@ -18,9 +20,27 @@ Vault::Vault(DataAdapter *adapter, QObject *parent)
     : QObject(parent)
     , m_adapter(adapter)
 {
+    static const int kMetatypes = [] {
+        qRegisterMetaType<Corbomite::TAbstractFile *>("Corbomite::TAbstractFile*");
+        qRegisterMetaType<Corbomite::TFile *>("Corbomite::TFile*");
+        qRegisterMetaType<Corbomite::TFolder *>("Corbomite::TFolder*");
+        return 0;
+    }();
+    Q_UNUSED(kMetatypes);
+
     auto root = std::make_unique<TFolder>(this, QStringLiteral("/"));
     m_root = root.get();
     m_fileMap.emplace(QStringLiteral("/"), std::move(root));
+
+    m_watcher = std::make_unique<detail::Watcher>(this);
+    connect(m_watcher.get(), &detail::Watcher::created,
+            this, &Vault::onExternalCreated);
+    connect(m_watcher.get(), &detail::Watcher::modified,
+            this, &Vault::onExternalModified);
+    connect(m_watcher.get(), &detail::Watcher::deleted,
+            this, &Vault::onExternalDeleted);
+    connect(m_watcher.get(), &detail::Watcher::renamed,
+            this, &Vault::onExternalRenamed);
 }
 
 Vault::~Vault() = default;
@@ -30,14 +50,18 @@ void Vault::load(const QString &basePath)
     unload();
     m_basePath = QDir::cleanPath(basePath);
     buildTree();
+    if (m_watcher) m_watcher->start(m_basePath);
     m_loaded = true;
 }
 
 void Vault::unload()
 {
+    const bool wasLoaded = m_loaded;
+    if (m_watcher) m_watcher->stop();
     teardownTree();
     m_basePath.clear();
     m_loaded = false;
+    if (wasLoaded) Q_EMIT closed();
 }
 
 bool Vault::isLoaded() const { return m_loaded; }
@@ -151,6 +175,95 @@ void Vault::teardownTree()
     auto root = std::make_unique<TFolder>(this, QStringLiteral("/"));
     m_root = root.get();
     m_fileMap.emplace(QStringLiteral("/"), std::move(root));
+}
+
+void Vault::onExternalCreated(const QString &relPath)
+{
+    const QString rel = VaultPaths::normalize(relPath);
+    if (m_fileMap.count(rel)) return;  // already tracked
+
+    QFileInfo fi(m_basePath + QLatin1Char('/') + rel);
+    if (!fi.exists()) return;
+
+    TFolder *parent = m_root;
+    const int slash = rel.lastIndexOf(QLatin1Char('/'));
+    if (slash > 0) {
+        if (auto *p = getFolderByPath(rel.left(slash))) parent = p;
+    }
+
+    if (fi.isDir()) {
+        auto folder = std::make_unique<TFolder>(this, rel);
+        folder->parent = parent;
+        parent->children.append(folder.get());
+        TAbstractFile *raw = folder.get();
+        m_fileMap.emplace(rel, std::move(folder));
+        Q_EMIT created(raw);
+    } else if (fi.isFile()) {
+        auto file = std::make_unique<TFile>(this, rel);
+        file->parent = parent;
+        FileStat fs;
+        fs.exists    = true;
+        fs.isFile    = true;
+        fs.sizeBytes = fi.size();
+        fs.mtimeMs   = fi.lastModified().toMSecsSinceEpoch();
+        fs.ctimeMs   = fi.birthTime().toMSecsSinceEpoch();
+        file->stat   = fs;
+        parent->children.append(file.get());
+        TAbstractFile *raw = file.get();
+        m_fileMap.emplace(rel, std::move(file));
+        Q_EMIT created(raw);
+    }
+}
+
+void Vault::onExternalModified(const QString &relPath)
+{
+    const QString rel = VaultPaths::normalize(relPath);
+    TFile *f = getFileByPath(rel);
+    if (!f) return;
+    QFileInfo fi(m_basePath + QLatin1Char('/') + rel);
+    if (!fi.exists()) return;
+    FileStat fs;
+    fs.exists    = true;
+    fs.isFile    = true;
+    fs.sizeBytes = fi.size();
+    fs.mtimeMs   = fi.lastModified().toMSecsSinceEpoch();
+    fs.ctimeMs   = fi.birthTime().toMSecsSinceEpoch();
+    f->stat      = fs;
+    Q_EMIT modified(f);
+}
+
+void Vault::onExternalDeleted(const QString &relPath)
+{
+    const QString rel = VaultPaths::normalize(relPath);
+    auto it = m_fileMap.find(rel);
+    if (it == m_fileMap.end()) return;
+
+    std::unique_ptr<TAbstractFile> owned = std::move(it->second);
+    m_fileMap.erase(it);
+
+    owned->deleted = true;
+    if (TFolder *parent = owned->parent) {
+        parent->children.removeAll(owned.get());
+    }
+    TAbstractFile *raw = owned.get();
+    m_pendingDelete.push_back(std::move(owned));
+    Q_EMIT deletedFile(raw);
+
+    QTimer::singleShot(0, this, [this] { m_pendingDelete.clear(); });
+}
+
+void Vault::onExternalRenamed(const QString &oldRel, const QString &newRel)
+{
+    const QString oldR = VaultPaths::normalize(oldRel);
+    const QString newR = VaultPaths::normalize(newRel);
+    auto it = m_fileMap.find(oldR);
+    if (it == m_fileMap.end()) return;
+    auto node = std::move(it->second);
+    m_fileMap.erase(it);
+    node->setPath(newR);
+    TAbstractFile *raw = node.get();
+    m_fileMap.emplace(newR, std::move(node));
+    Q_EMIT renamed(raw, oldR);
 }
 
 } // namespace Corbomite
