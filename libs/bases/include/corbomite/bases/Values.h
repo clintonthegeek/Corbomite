@@ -179,6 +179,100 @@ public:
     QString toString() const override;  // "3 days ago"
 };
 
+/// Tag — StringValue with hierarchical-prefix matching.
+class TagValue : public StringValue
+{
+public:
+    explicit TagValue(QString tag) : StringValue(std::move(tag)) {}
+    QString type() const override { return QStringLiteral("Tag"); }
+    /// `#parent` matches `#parent/child` via `/` boundary. Exact match
+    /// also qualifies.
+    bool tagMatches(const QString &other) const;
+};
+
+/// `[[link]]` / `[[link|display]]`. Subclass of StringValue where m_data
+/// holds the normalised link target; display + sourcePath are separate.
+class LinkValue : public StringValue
+{
+public:
+    LinkValue(QString link, QString sourcePath = {}, QString display = {})
+        : StringValue(std::move(link)),
+          m_sourcePath(std::move(sourcePath)),
+          m_display(std::move(display)) {}
+
+    const QString &sourcePath() const { return m_sourcePath; }
+    const QString &display() const { return m_display; }
+
+    QString type() const override { return QStringLiteral("Link"); }
+    QString toString() const override;  // `[[data|display]]` or `[[data]]`
+    bool looseEquals(const Value &other) const override;
+
+    /// Parse `[[...]]` or `[[...|display]]`. Returns nullptr if not a
+    /// wikilink literal.
+    static std::shared_ptr<LinkValue> parseFromString(const QString &text,
+                                                      const QString &sourcePath = {});
+
+private:
+    QString m_sourcePath;
+    QString m_display;
+};
+
+class UrlValue : public StringValue
+{
+public:
+    explicit UrlValue(QString url, QString display = {})
+        : StringValue(std::move(url)), m_display(std::move(display)) {}
+    const QString &display() const { return m_display; }
+
+    QString type() const override { return QStringLiteral("URL"); }
+
+private:
+    QString m_display;
+};
+
+class IconValue : public StringValue
+{
+public:
+    explicit IconValue(QString name) : StringValue(std::move(name)) {}
+    QString type() const override { return QStringLiteral("Icon"); }
+};
+
+class ImageValue : public StringValue
+{
+public:
+    explicit ImageValue(QString pathOrUrl) : StringValue(std::move(pathOrUrl)) {}
+    QString type() const override { return QStringLiteral("Image"); }
+};
+
+class HTMLValue : public StringValue
+{
+public:
+    explicit HTMLValue(QString html) : StringValue(std::move(html)) {}
+    QString type() const override { return QStringLiteral("HTML"); }
+};
+
+class MarkdownValue : public StringValue
+{
+public:
+    explicit MarkdownValue(QString md) : StringValue(std::move(md)) {}
+    QString type() const override { return QStringLiteral("Markdown"); }
+};
+
+class FormulaErrorValue : public Value
+{
+public:
+    explicit FormulaErrorValue(QString msg) : m_msg(std::move(msg)) {}
+
+    const QString &message() const { return m_msg; }
+
+    QString type() const override { return QStringLiteral("Error"); }
+    bool isTruthy() const override { return false; }
+    QString toString() const override { return m_msg; }
+
+private:
+    QString m_msg;
+};
+
 /// 7-field calendar duration.
 struct DurationComponents
 {
