@@ -41,9 +41,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster K — Bases
-- **Phase:** 6 of 9 (Phase 5 complete)
-- **Last completed step:** Phase 5 — FunctionRegistry + 43 built-in function registrations + Formula wrapper + hard-cased if/map/filter/reduce (2026-04-17; commit `3bbd5c24`). ShadowingContext binds `value`/`index`/`acc`/`key` for lambda bodies. Full addendum §8 catalog landed except `file()`/`LinkValue.asFile()` stubs (require Vault binding in BasesEntry ctx). 44 tests pass.
-- **Next expected step:** Phase 6 — `.base` YAML schema (PropertyId, FilterTree, BasesViewConfig, BasesQuery)
+- **Phase:** 7 of 9 (Phase 6 complete)
+- **Last completed step:** Phase 6 — `.base` YAML schema (2026-04-17; commit `c528ace2`). PropertyId/FilterTree/BasesViewConfig/BasesQuery land with round-trip support through Markoff::YamlValue reader + a small indented hand-rolled emitter. Empty-file-default-table, legacy `display:` migration, and unrecognizedData preservation all work. 19 tests green.
+- **Next expected step:** Phase 7 — BasesEntry + BasesQueryResult + QueryController (incremental refresh via MetadataCache signals)
 - **Owner:** agent session
 - **Date last touched:** 2026-04-17
 - **Parser choice (locked-in 2026-04-17):** hand-rolled Pratt parser per addendum §15.1 option 2 (~250 lines, zero new runtime deps, easier to debug in C++ toolchain). Tree-sitter port option rejected; Lezer state-machine transliteration rejected.
