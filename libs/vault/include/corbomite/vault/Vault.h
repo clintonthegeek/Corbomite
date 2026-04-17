@@ -9,6 +9,8 @@
 #include <QString>
 #include <QVector>
 
+#include "corbomite/storage/DataAdapter.h"  // for WriteHints + FileStat
+
 namespace Corbomite {
 
 class DataAdapter;
@@ -71,6 +73,11 @@ public:
     QByteArray readBinary(TFile *f) const;
     QByteArray readRaw(const QString &path) const;
     QByteArray cachedRead(TFile *f);
+
+    // ---- Write (sync, atomic via DataAdapter) ----
+    bool modify(TFile *f, const QByteArray &body, const WriteHints &hints = {});
+    bool modifyBinary(TFile *f, const QByteArray &body, const WriteHints &hints = {});
+    bool append(TFile *f, const QByteArray &body);
 
 signals:
     void created(Corbomite::TAbstractFile *f);

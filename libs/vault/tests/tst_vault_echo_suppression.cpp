@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
+#include <QSignalSpy>
+#include <QTemporaryDir>
+#include <QFile>
 
-// Phase 3 Task 3.3 will turn on the real tests once Vault::modify lands.
-// The echo-suppression ledger (stampSelfWrite / consumeSelfWrite) is private
-// API and not test-accessible until a public mutation entry point exists.
+#include "corbomite/vault/Vault.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/storage/FileSystemAdapter.h"
 
 class TestVaultEchoSuppression : public QObject
 {
@@ -15,12 +18,52 @@ private slots:
 
 void TestVaultEchoSuppression::selfWriteDoesNotDoubleEmit()
 {
-    QSKIP("Phase 3 Task 3.3 turns this on (needs Vault::modify)", QTest::SkipAll);
+    QTemporaryDir dir;
+    QFile f(dir.path() + "/a.md");
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("one");
+    f.close();
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    QSignalSpy spy(&vault, &Corbomite::Vault::modified);
+
+    vault.modify(tf, QByteArray("two"));
+    QTest::qWait(300);
+    // Exactly one emission — the direct modify() call — NOT two (which
+    // would indicate the watcher's echo made it through).
+    QCOMPARE(spy.count(), 1);
 }
 
 void TestVaultEchoSuppression::externalWriteAfterSelfWriteEmits()
 {
-    QSKIP("Phase 3 Task 3.3 turns this on (needs Vault::modify)", QTest::SkipAll);
+    QTemporaryDir dir;
+    QFile f(dir.path() + "/a.md");
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("one");
+    f.close();
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    vault.modify(tf, QByteArray("two"));
+
+    QTest::qWait(1200);  // past the 1s self-write ledger window
+    QSignalSpy spy(&vault, &Corbomite::Vault::modified);
+
+    QFile g(dir.path() + "/a.md");
+    QVERIFY(g.open(QIODevice::WriteOnly));
+    g.write("three");
+    g.close();
+
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 5000);
 }
 
 QTEST_MAIN(TestVaultEchoSuppression)

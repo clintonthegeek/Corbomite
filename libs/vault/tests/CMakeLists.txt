@@ -61,3 +61,10 @@ add_test(NAME tst_vault_cached_read COMMAND tst_vault_cached_read)
 set_tests_properties(tst_vault_cached_read PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 30)
+
+add_executable(tst_vault_modify tst_vault_modify.cpp)
+target_link_libraries(tst_vault_modify
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_modify COMMAND tst_vault_modify)
+set_tests_properties(tst_vault_modify PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

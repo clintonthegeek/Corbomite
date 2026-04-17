@@ -6,6 +6,7 @@
 #include "corbomite/vault/TFolder.h"
 #include "corbomite/storage/DataAdapter.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
 #include <QTimer>
@@ -151,6 +152,46 @@ QByteArray Vault::cachedRead(TFile *f)
     const QByteArray body = read(f);
     m_readCache.insert(f->path, body);
     return body;
+}
+
+bool Vault::modify(TFile *f, const QByteArray &body, const WriteHints &hints)
+{
+    if (!f || !m_adapter) return false;
+    const QString abs = m_basePath + QLatin1Char('/') + f->path;
+
+    WriteHints effective = hints;
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    if (!effective.mtimeMs.has_value()) effective.mtimeMs = nowMs;
+    stampSelfWrite(f->path, *effective.mtimeMs);
+
+    if (!m_adapter->writeBinary(abs, body, effective)) return false;
+
+    m_readCache.insert(f->path, body);
+    if (f->stat.has_value()) {
+        f->stat->mtimeMs   = *effective.mtimeMs;
+        f->stat->sizeBytes = body.size();
+    } else {
+        FileStat fs;
+        fs.exists    = true;
+        fs.isFile    = true;
+        fs.sizeBytes = body.size();
+        fs.mtimeMs   = *effective.mtimeMs;
+        f->stat      = fs;
+    }
+    Q_EMIT modified(f);
+    return true;
+}
+
+bool Vault::modifyBinary(TFile *f, const QByteArray &body, const WriteHints &hints)
+{
+    return modify(f, body, hints);
+}
+
+bool Vault::append(TFile *f, const QByteArray &body)
+{
+    if (!f) return false;
+    const QByteArray cur = read(f);
+    return modify(f, cur + body);
 }
 
 void Vault::buildTree()
