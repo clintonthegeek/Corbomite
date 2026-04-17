@@ -9,7 +9,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core)
 
 add_library(vault STATIC
-    # sources added by subsequent tasks
+    include/corbomite/vault/TAbstractFile.h
+    src/TAbstractFile.cpp
 )
 set_target_properties(vault PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Vault ALIAS vault)
