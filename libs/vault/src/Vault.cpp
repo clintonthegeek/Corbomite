@@ -7,8 +7,8 @@
 #include "corbomite/storage/DataAdapter.h"
 
 #include <QDir>
-#include <QDirIterator>
 #include <QFileInfo>
+#include <functional>
 
 #include "PathNormalization.h"
 
@@ -101,54 +101,48 @@ bool Vault::isEmpty() const { return m_fileMap.size() <= 1; }
 
 void Vault::buildTree()
 {
-    if (m_basePath.isEmpty()) return;
+    if (m_basePath.isEmpty() || !m_adapter) return;
 
-    QDirIterator it(m_basePath,
-                    QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
-                    QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        const QString abs = it.next();
-        QFileInfo fi(abs);
-        QString rel = VaultPaths::normalize(QDir(m_basePath).relativeFilePath(abs));
-        if (rel.startsWith(QStringLiteral(".obsidian/")) ||
-            rel == QStringLiteral(".obsidian") ||
-            rel.startsWith(QStringLiteral(".corbomite/")) ||
-            rel == QStringLiteral(".corbomite") ||
-            rel.startsWith(QStringLiteral(".trash/")) ||
-            rel == QStringLiteral(".trash")) {
-            continue;
-        }
+    std::function<void(const QString &, TFolder *)> walk =
+        [&](const QString &absDir, TFolder *parent) {
+            const QStringList entries = m_adapter->list(absDir);
+            for (const QString &entry : entries) {
+                const QString absChild = absDir + QLatin1Char('/') + entry;
+                const QString rel = VaultPaths::normalize(
+                    QDir(m_basePath).relativeFilePath(absChild));
+                if (rel.startsWith(QStringLiteral(".obsidian/")) ||
+                    rel == QStringLiteral(".obsidian") ||
+                    rel.startsWith(QStringLiteral(".corbomite/")) ||
+                    rel == QStringLiteral(".corbomite") ||
+                    rel.startsWith(QStringLiteral(".trash/")) ||
+                    rel == QStringLiteral(".trash")) {
+                    continue;
+                }
 
-        if (fi.isDir()) {
-            auto folder = std::make_unique<TFolder>(this, rel);
-            m_fileMap.emplace(rel, std::move(folder));
-        } else if (fi.isFile()) {
-            auto file = std::make_unique<TFile>(this, rel);
-            FileStat stat;
-            stat.exists    = true;
-            stat.isFile    = true;
-            stat.sizeBytes = fi.size();
-            stat.mtimeMs   = fi.lastModified().toMSecsSinceEpoch();
-            stat.ctimeMs   = fi.birthTime().toMSecsSinceEpoch();
-            file->stat     = stat;
-            m_fileMap.emplace(rel, std::move(file));
-        }
-    }
-    for (auto &[k, v] : m_fileMap) {
-        if (k == QStringLiteral("/")) continue;
-        const int slash = k.lastIndexOf(QLatin1Char('/'));
-        TFolder *parent = m_root;
-        if (slash > 0) {
-            auto pit = m_fileMap.find(k.left(slash));
-            if (pit != m_fileMap.end()) {
-                parent = dynamic_cast<TFolder *>(pit->second.get());
+                const FileStat st = m_adapter->stat(absChild);
+                if (st.isDirectory) {
+                    auto folder = std::make_unique<TFolder>(this, rel);
+                    folder->parent = parent;
+                    parent->children.append(folder.get());
+                    TFolder *raw = folder.get();
+                    m_fileMap.emplace(rel, std::move(folder));
+                    walk(absChild, raw);
+                } else if (st.isFile) {
+                    auto file = std::make_unique<TFile>(this, rel);
+                    file->parent = parent;
+                    FileStat fs;
+                    fs.exists    = true;
+                    fs.isFile    = true;
+                    fs.sizeBytes = st.sizeBytes;
+                    fs.mtimeMs   = st.mtimeMs;
+                    fs.ctimeMs   = st.ctimeMs;
+                    file->stat   = fs;
+                    parent->children.append(file.get());
+                    m_fileMap.emplace(rel, std::move(file));
+                }
             }
-        }
-        if (parent) {
-            v->parent = parent;
-            parent->children.append(v.get());
-        }
-    }
+        };
+    walk(m_basePath, m_root);
 }
 
 void Vault::teardownTree()

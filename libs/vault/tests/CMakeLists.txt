@@ -24,3 +24,10 @@ target_link_libraries(tst_vault_skeleton
 add_test(NAME tst_vault_skeleton COMMAND tst_vault_skeleton)
 set_tests_properties(tst_vault_skeleton PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_vault_adapter tst_vault_adapter.cpp)
+target_link_libraries(tst_vault_adapter
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_adapter COMMAND tst_vault_adapter)
+set_tests_properties(tst_vault_adapter PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
