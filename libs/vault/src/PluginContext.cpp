@@ -4,6 +4,7 @@
 #include "corbomite/core/proxies/CommandRegistrar.h"
 #include "corbomite/core/proxies/MenuInjector.h"
 #include "corbomite/storage/proxies/MetadataCacheReader.h"
+#include "corbomite/storage/proxies/SearchProxy.h"
 #include "corbomite/core/proxies/ProcessSpawner.h"
 #include "corbomite/core/proxies/SecretStorage.h"
 #include "corbomite/core/proxies/ViewRegistrar.h"
@@ -38,6 +39,7 @@ PluginContext::~PluginContext()
     delete m_vaultProxy;
     delete m_fileManagerProxy;
     delete m_metadataReader;
+    delete m_searchProxy;
     delete m_workspaceController;
     delete m_commandRegistrar;
     delete m_viewRegistrar;
@@ -118,6 +120,17 @@ MetadataCacheReader *PluginContext::metadataCache() const
     if (!hasPermission(QLatin1String(kMetadataRead)) || !m_metadata) return nullptr;
     if (!m_metadataReader) m_metadataReader = new MetadataCacheReader(m_metadata);
     return m_metadataReader;
+}
+
+SearchProxy *PluginContext::search() const
+{
+    if (!m_searchIndex) return nullptr;
+    if (!hasPermission(QLatin1String(kMetadataRead))) return nullptr;
+    if (!m_searchProxy) {
+        m_searchProxy = new SearchProxy(m_searchIndex, m_granted,
+                                        m_meta.base().pluginId());
+    }
+    return m_searchProxy;
 }
 
 WorkspaceController *PluginContext::workspace() const

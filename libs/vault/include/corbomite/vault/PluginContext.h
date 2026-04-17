@@ -25,6 +25,7 @@ class MenuEventEmitter;
 class VaultProxy;
 class FileManagerProxy;
 class MetadataCacheReader;
+class SearchProxy;
 class WorkspaceController;
 class CommandRegistrar;
 class ViewRegistrar;
@@ -87,6 +88,7 @@ public:
     VaultProxy            *vault() const;           // "vault.read" || "vault.write" || "vault.events"
     FileManagerProxy      *fileManager() const;     // "vault.read" || "vault.write" || "metadata.read"
     MetadataCacheReader   *metadataCache() const;   // "metadata.read"
+    SearchProxy           *search() const;          // "metadata.read"
     WorkspaceController   *workspace() const;       // "workspace"
     CommandRegistrar      *commands() const;        // "ui.commands"
     ViewRegistrar         *views() const;           // "ui.views"
@@ -106,6 +108,7 @@ private:
     mutable VaultProxy          *m_vaultProxy = nullptr;
     mutable FileManagerProxy    *m_fileManagerProxy = nullptr;
     mutable MetadataCacheReader *m_metadataReader = nullptr;
+    mutable SearchProxy         *m_searchProxy = nullptr;
     mutable WorkspaceController *m_workspaceController = nullptr;
     mutable CommandRegistrar    *m_commandRegistrar = nullptr;
     mutable ViewRegistrar       *m_viewRegistrar = nullptr;

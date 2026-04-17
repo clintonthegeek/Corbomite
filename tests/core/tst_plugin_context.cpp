@@ -5,6 +5,8 @@
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
+#include "corbomite/storage/SQLiteIndex.h"
+#include "corbomite/storage/proxies/SearchProxy.h"
 #include "corbomite/vault/FileManager.h"
 #include "corbomite/vault/PluginContext.h"
 #include "corbomite/vault/Vault.h"
@@ -24,6 +26,8 @@ private slots:
     void hasPermissionMatchesGranted();
     void networkAccessorReturnsInstalledManager();
     void vaultAndFileManagerProxiesLazyConstruct();
+    void searchAccessorLazyConstructsWhenGranted();
+    void searchAccessorReturnsNullWhenPermissionDenied();
 };
 
 static Corbomite::PluginMetaData emptyMeta()
@@ -124,6 +128,34 @@ void TestPluginContext::vaultAndFileManagerProxiesLazyConstruct()
     // Lazy construction: second call returns same instance.
     QCOMPARE(ctx.vault(), vproxy);
     QCOMPARE(ctx.fileManager(), fmproxy);
+}
+
+void TestPluginContext::searchAccessorLazyConstructsWhenGranted()
+{
+    QSet<QString> granted = { QStringLiteral("metadata.read") };
+    Corbomite::PluginContext ctx(emptyMeta(), granted);
+
+    Corbomite::SQLiteIndex index;
+    ctx.setCoreServices(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+                        nullptr, nullptr);
+    ctx.setSearchIndex(&index);
+
+    auto *proxy = ctx.search();
+    QVERIFY(proxy != nullptr);
+    QCOMPARE(ctx.search(), proxy);  // idempotent
+}
+
+void TestPluginContext::searchAccessorReturnsNullWhenPermissionDenied()
+{
+    QSet<QString> granted;  // no metadata.read
+    Corbomite::PluginContext ctx(emptyMeta(), granted);
+
+    Corbomite::SQLiteIndex index;
+    ctx.setCoreServices(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+                        nullptr, nullptr);
+    ctx.setSearchIndex(&index);
+
+    QVERIFY(ctx.search() == nullptr);
 }
 
 QTEST_MAIN(TestPluginContext)
