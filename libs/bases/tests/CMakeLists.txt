@@ -37,3 +37,7 @@ target_link_libraries(tst_bases_value_object_regex PRIVATE Qt6::Test Corbomite::
 add_executable(tst_bases_lexer tst_lexer.cpp)
 add_test(NAME tst_bases_lexer COMMAND tst_bases_lexer)
 target_link_libraries(tst_bases_lexer PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_bases_parser tst_parser.cpp)
+add_test(NAME tst_bases_parser COMMAND tst_bases_parser)
+target_link_libraries(tst_bases_parser PRIVATE Qt6::Test Corbomite::Bases)

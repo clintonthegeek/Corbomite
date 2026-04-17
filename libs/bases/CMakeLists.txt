@@ -22,6 +22,9 @@ add_library(corbomite-bases STATIC
     src/FileValue.cpp
     src/Lexer.cpp
     include/corbomite/bases/Lexer.h
+    include/corbomite/bases/Ast.h
+    src/Parser.cpp
+    include/corbomite/bases/Parser.h
     include/corbomite/bases/ValuePtr.h
     include/corbomite/bases/Value.h
     include/corbomite/bases/Values.h
