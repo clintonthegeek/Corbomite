@@ -109,3 +109,7 @@ target_include_directories(corbomite-core
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../storage/include
 )
 target_link_libraries(corbomite-core PUBLIC Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets Qt6::Network KF6::SyntaxHighlighting KF6::I18n KF6::CoreAddons KF6::ConfigCore jkqtmathtext mmdr markoff)
+
+if(CORBOMITE_USE_KEYRING)
+    target_link_libraries(corbomite-core PRIVATE Qt6Keychain::Qt6Keychain)
+endif()

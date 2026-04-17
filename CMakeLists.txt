@@ -30,6 +30,21 @@ find_package(KF6ConfigWidgets REQUIRED)
 find_package(KF6DBusAddons REQUIRED)
 find_package(KF6SyntaxHighlighting REQUIRED)
 
+# Optional: qt6keychain for persistent SecretStorage backend. Auto-disables
+# when the package isn't installed; SecretStorage then falls back to an
+# in-process QHash (with a qCWarning noting secrets won't persist).
+option(CORBOMITE_USE_KEYRING "Use qt6keychain for SecretStorage" ON)
+if(CORBOMITE_USE_KEYRING)
+    find_package(Qt6Keychain CONFIG)
+    if(NOT Qt6Keychain_FOUND)
+        message(STATUS "Qt6Keychain not found; SecretStorage will use in-process QHash fallback")
+        set(CORBOMITE_USE_KEYRING OFF CACHE BOOL "" FORCE)
+    endif()
+endif()
+if(CORBOMITE_USE_KEYRING)
+    add_compile_definitions(CORBOMITE_HAVE_KEYRING=1)
+endif()
+
 
 # Libraries
 #

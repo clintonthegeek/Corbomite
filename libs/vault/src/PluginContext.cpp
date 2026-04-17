@@ -156,7 +156,9 @@ QNetworkAccessManager *PluginContext::network() const
 SecretStorage *PluginContext::secrets() const
 {
     if (!hasPermission(QLatin1String(kSecrets))) return nullptr;
-    if (!m_secretStorage) m_secretStorage = new SecretStorage(m_meta.base().pluginId());
+    if (!m_secretStorage) {
+        m_secretStorage = new SecretStorage(m_meta.base().pluginId(), m_granted);
+    }
     return m_secretStorage;
 }
 
