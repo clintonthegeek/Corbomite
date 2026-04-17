@@ -36,6 +36,8 @@ add_library(corbomite-storage STATIC
     include/corbomite/storage/CachedMetadataStore.h
     src/proxies/MetadataCacheReader.cpp
     include/corbomite/storage/proxies/MetadataCacheReader.h
+    src/proxies/SearchProxy.cpp
+    include/corbomite/storage/proxies/SearchProxy.h
 )
 set_target_properties(corbomite-storage PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Storage ALIAS corbomite-storage)
