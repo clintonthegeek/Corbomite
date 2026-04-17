@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QApplication>
+#include <QCommandLineParser>
+#include <QDir>
+#include <QFileInfo>
 #include <KAboutData>
 #include <KLocalizedString>
 #include <KDBusService>
@@ -37,10 +40,27 @@ int main(int argc, char *argv[])
     // Any Modal/Menu that owns a Scope will push/pop onto this.
     Corbomite::ScopeManager::instance()->installOnApplication();
 
+    // Command-line arguments: a positional argument opens the given vault
+    // path immediately. Enables `./Corbomite <vault-path>` for dev/testing
+    // and one-click launch via file manager.
+    QCommandLineParser parser;
+    parser.setApplicationDescription(aboutData.shortDescription());
+    parser.addHelpOption();
+    parser.addVersionOption();
+    parser.addPositionalArgument(QStringLiteral("vault"),
+        i18n("Vault directory to open on startup."), QStringLiteral("[vault]"));
+    parser.process(app);
+
     Corbomite::CorbomiteApp corbomiteApp;
     auto *mainWindow = new Corbomite::MainWindow(&corbomiteApp);
     mainWindow->setAttribute(Qt::WA_DeleteOnClose);
     mainWindow->show();
+
+    const QStringList posArgs = parser.positionalArguments();
+    if (!posArgs.isEmpty()) {
+        const QString vaultPath = QFileInfo(posArgs.first()).absoluteFilePath();
+        if (QDir(vaultPath).exists()) corbomiteApp.openVault(vaultPath);
+    }
 
     return app.exec();
 }

@@ -1284,7 +1284,13 @@ void Sidebar::dragLeaveEvent(QDragLeaveEvent *)
 
 void Sidebar::setVisible(bool visible)
 {
-    if (visible && (m_toolviews.empty() || !m_mainWin->sidebarsVisible())) {
+    // Guard: honour the user's "Show Sidebars" master toggle. Previously
+    // also bailed when `m_toolviews.empty()`, but that broke the Cluster Q
+    // flow where all tool views arrive from plugins AFTER the window has
+    // shown — the initial show(true) was silently dropped and nothing
+    // re-triggered when plugins added their tool views. An empty sidebar
+    // collapses to a ~25px tab strip; that's fine.
+    if (visible && !m_mainWin->sidebarsVisible()) {
         return;
     }
 

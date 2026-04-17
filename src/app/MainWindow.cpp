@@ -457,7 +457,6 @@ void MainWindow::hostPluginView(const QString &pluginId)
     QObject *viewObj = info->instance->createView(this);
     auto *widget = qobject_cast<QWidget *>(viewObj);
     if (!widget) {
-        // Plugin returned nullptr or non-widget — nothing to host.
         if (viewObj) viewObj->deleteLater();
         return;
     }
