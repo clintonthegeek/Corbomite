@@ -7,14 +7,14 @@
 
 namespace Corbomite {
 
-class VaultModel;
+class Vault;
 class VaultConfig;
 
 class TemplateService : public QObject {
     Q_OBJECT
 
 public:
-    explicit TemplateService(VaultModel *vault, QObject *parent = nullptr);
+    explicit TemplateService(Vault *vault, QObject *parent = nullptr);
 
     void setTemplateFolder(const QString &folder);
     QString templateFolder() const;
@@ -52,7 +52,7 @@ public:
     static QString cursorMarker() { return QStringLiteral("{{cursor}}"); }
 
 private:
-    VaultModel *m_vault;
+    Vault *m_vault;
     QString m_templateFolder = QStringLiteral("Templates");
     QString m_dateFormat = QStringLiteral("YYYY-MM-DD");
     QString m_timeFormat = QStringLiteral("HH:mm");

@@ -10,9 +10,9 @@
 #include <QTime>
 #include "corbomite/core/MomentFormatter.h"
 #include "corbomite/models/TemplateService.h"
-#include "corbomite/models/VaultModel.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/VaultConfig.h"
+#include "corbomite/vault/Vault.h"
 
 class TestTemplateService : public QObject {
     Q_OBJECT
@@ -101,8 +101,9 @@ private Q_SLOTS:
         createFile(tmp.path() + "/vault/Templates/Meeting.md", "## Meeting Notes");
         createFile(tmp.path() + "/vault/Templates/notamd.txt", "ignored");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path() + "/vault");
 
         Corbomite::TemplateService service(&vault);
         service.setTemplateFolder(QStringLiteral("Templates"));
@@ -118,8 +119,9 @@ private Q_SLOTS:
         QTemporaryDir tmp;
         QDir().mkpath(tmp.path() + "/vault");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path() + "/vault");
 
         Corbomite::TemplateService service(&vault);
         service.setTemplateFolder(QStringLiteral("Templates"));
@@ -133,8 +135,9 @@ private Q_SLOTS:
         createFile(tmp.path() + "/vault/Templates/Test.md",
                    "# {{title}}\nCreated: {{date}}");
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path() + "/vault");
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path() + "/vault");
 
         Corbomite::TemplateService service(&vault);
         service.setTemplateFolder(QStringLiteral("Templates"));

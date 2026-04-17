@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/models/DailyNoteService.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/Vault.h"
 #include "corbomite/models/NoteService.h"
 #include "corbomite/models/TemplateService.h"
 #include "corbomite/core/NoteDocument.h"
@@ -15,7 +15,7 @@
 
 namespace Corbomite {
 
-DailyNoteService::DailyNoteService(VaultModel *vault, NoteService *noteService,
+DailyNoteService::DailyNoteService(Vault *vault, NoteService *noteService,
                                      TemplateService *templateService, QObject *parent)
     : QObject(parent)
     , m_vault(vault)
@@ -74,7 +74,7 @@ QString DailyNoteService::todayNotePath() const
 bool DailyNoteService::todayNoteExists() const
 {
     if (!m_vault) return false;
-    QString absPath = m_vault->path() + QLatin1Char('/') + todayNotePath();
+    QString absPath = m_vault->basePath() + QLatin1Char('/') + todayNotePath();
     return QFileInfo::exists(absPath);
 }
 
@@ -94,7 +94,7 @@ NoteDocument *DailyNoteService::openOrCreateToday()
     // FileSystemAdapter::writeBinary also does mkpath, but we guard here
     // so the folder/filename split passed to createNote is well-defined.
     {
-        const QString absPath = m_vault->path() + QLatin1Char('/') + relPath;
+        const QString absPath = m_vault->basePath() + QLatin1Char('/') + relPath;
         const QFileInfo fi(absPath);
         const QDir parent = fi.dir();
         if (!parent.exists()) {

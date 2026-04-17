@@ -6,7 +6,7 @@
 
 namespace Corbomite {
 
-class VaultModel;
+class Vault;
 class NoteService;
 class NoteDocument;
 class TemplateService;
@@ -16,7 +16,7 @@ class DailyNoteService : public QObject {
     Q_OBJECT
 
 public:
-    explicit DailyNoteService(VaultModel *vault, NoteService *noteService,
+    explicit DailyNoteService(Vault *vault, NoteService *noteService,
                                TemplateService *templateService, QObject *parent = nullptr);
 
     void setDateFormat(const QString &format);
@@ -36,7 +36,7 @@ public:
     NoteDocument *openOrCreateToday();
 
 private:
-    VaultModel *m_vault;
+    Vault *m_vault;
     NoteService *m_noteService;
     TemplateService *m_templateService;
     QString m_dateFormat = QStringLiteral("YYYY-MM-DD");

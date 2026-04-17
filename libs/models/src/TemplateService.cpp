@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/models/TemplateService.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/Vault.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/VaultConfig.h"
 #include "corbomite/core/MomentFormatter.h"
@@ -12,7 +12,7 @@
 
 namespace Corbomite {
 
-TemplateService::TemplateService(VaultModel *vault, QObject *parent)
+TemplateService::TemplateService(Vault *vault, QObject *parent)
     : QObject(parent)
     , m_vault(vault)
 {
@@ -52,7 +52,7 @@ QStringList TemplateService::availableTemplates() const
 {
     if (!m_vault) return {};
 
-    QString absPath = m_vault->path() + QLatin1Char('/') + m_templateFolder;
+    QString absPath = m_vault->basePath() + QLatin1Char('/') + m_templateFolder;
     QDir dir(absPath);
     if (!dir.exists()) return {};
 
@@ -133,7 +133,7 @@ QString TemplateService::loadAndExpand(const QString &templateName,
 {
     if (!m_vault) return {};
 
-    QString path = m_vault->path() + QLatin1Char('/')
+    QString path = m_vault->basePath() + QLatin1Char('/')
                  + m_templateFolder + QLatin1Char('/')
                  + templateName + QStringLiteral(".md");
 

@@ -1354,7 +1354,7 @@ void MainWindow::onVaultOpened()
     auto *settings = CorbomiteSettings::self();
 
     delete m_templateService;
-    m_templateService = new TemplateService(vault, this);
+    m_templateService = new TemplateService(m_vaultObj, this);
     m_templateService->setTemplateFolder(settings->templateFolder());
     m_templateService->setDefaultDateFormat(settings->defaultDateFormat());
     m_templateService->setDefaultTimeFormat(settings->defaultTimeFormat());
@@ -1366,7 +1366,7 @@ void MainWindow::onVaultOpened()
     }
 
     delete m_dailyNoteService;
-    m_dailyNoteService = new DailyNoteService(vault, m_vaultService->noteService(),
+    m_dailyNoteService = new DailyNoteService(m_vaultObj, m_vaultService->noteService(),
                                                 m_templateService, this);
     m_dailyNoteService->setDateFormat(settings->dailyNoteDateFormat());
     m_dailyNoteService->setFolder(settings->dailyNoteFolder());
