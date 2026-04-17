@@ -10,6 +10,9 @@ find_package(KF6I18n REQUIRED)
 add_library(corbomite-bases STATIC
     src/Value.cpp
     src/NullValue.cpp
+    src/BooleanValue.cpp
+    src/NumberValue.cpp
+    src/StringValue.cpp
     include/corbomite/bases/ValuePtr.h
     include/corbomite/bases/Value.h
     include/corbomite/bases/Values.h
