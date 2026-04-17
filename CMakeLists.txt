@@ -32,18 +32,30 @@ find_package(KF6SyntaxHighlighting REQUIRED)
 
 
 # Libraries
-set(RYML_DEFAULT_CALLBACK_USES_EXCEPTIONS ON CACHE BOOL "" FORCE)
-add_subdirectory(libs/rapidyaml)
+#
+# Markoff family (markoff + markoff-parser + rapidyaml) lives in a separate
+# repo at ~/dev/Markoff, attached here as a git submodule. Its own top-level
+# CMakeLists adds the three sub-libraries. Tests inside the submodule are
+# disabled when built as a sub-dir of Corbomite (we run Markoff's tests from
+# within the Markoff repo); Corbomite keeps its own Markoff integration
+# tests at libs/markoff-family/tests/markoff.
+# jkqtmathtext and mmdr stay in Corbomite (shared by core + readingview +
+# markoff). They must be added BEFORE libs/markoff-family so that markoff's
+# defensive `if(NOT TARGET jkqtmathtext)` fallback inside the submodule
+# short-circuits (otherwise it tries add_subdirectory(../jkqtmathtext),
+# which resolves to the wrong path inside the submodule).
 add_subdirectory(libs/jkqtmathtext)
+add_subdirectory(libs/mmdr)
+
+set(MARKOFF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+add_subdirectory(libs/markoff-family)
+
 add_subdirectory(libs/core)
 add_subdirectory(libs/search)
 add_subdirectory(libs/storage)
 add_subdirectory(libs/models)
 add_subdirectory(libs/forcegraph)
 add_subdirectory(libs/canvas)
-add_subdirectory(libs/mmdr)
-add_subdirectory(libs/markoff-parser)
-add_subdirectory(libs/markoff)
 add_subdirectory(libs/qutepart-corbomite)
 add_subdirectory(libs/readingview)
 
@@ -119,7 +131,6 @@ endif()
 # Tests
 enable_testing()
 add_subdirectory(tests/core)
-add_subdirectory(tests/markoff)
 add_subdirectory(tests/storage)
 add_subdirectory(tests/search)
 add_subdirectory(tests/models)

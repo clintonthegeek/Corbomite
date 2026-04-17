@@ -1,0 +1,3 @@
+[submodule "libs/markoff-family"]
+	path = libs/markoff-family
+	url = /home/clinton/dev/Markoff
