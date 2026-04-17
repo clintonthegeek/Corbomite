@@ -25,6 +25,7 @@ constexpr auto kSidebarRightVisible = "rightVisible";
 constexpr auto kSidebarRightWidth = "rightWidth";
 constexpr auto kSidebarActivePanel = "activePanel";
 constexpr auto kExpandedFolders = "expandedFolders";
+constexpr auto kPlugins = "plugins";
 
 } // namespace
 
@@ -144,6 +145,24 @@ void SessionManager::saveExpandedFolders(const QStringList &folders)
     scheduleSave();
 }
 
+void SessionManager::setPluginSessionState(const QString &pluginId,
+                                           const QJsonObject &state)
+{
+    if (pluginId.isEmpty()) return;
+    QJsonObject plugins = m_corbomiteTail.value(QLatin1String(kPlugins)).toObject();
+    if (state.isEmpty()) {
+        plugins.remove(pluginId);
+    } else {
+        plugins.insert(pluginId, state);
+    }
+    if (plugins.isEmpty()) {
+        m_corbomiteTail.remove(QLatin1String(kPlugins));
+    } else {
+        m_corbomiteTail.insert(QLatin1String(kPlugins), plugins);
+    }
+    scheduleSave();
+}
+
 void SessionManager::setWorkspaceLayout(const QJsonObject &mainJson,
                                         const QString &activeLeafId)
 {
@@ -177,6 +196,13 @@ QStringList SessionManager::expandedFolders() const
     const auto arr = m_corbomiteTail.value(QLatin1String(kExpandedFolders)).toArray();
     for (const auto &v : arr) if (v.isString()) out.append(v.toString());
     return out;
+}
+
+QJsonObject SessionManager::pluginSessionState(const QString &pluginId) const
+{
+    if (pluginId.isEmpty()) return {};
+    return m_corbomiteTail.value(QLatin1String(kPlugins)).toObject()
+        .value(pluginId).toObject();
 }
 
 QJsonObject SessionManager::workspaceLayout() const { return m_mainJson; }

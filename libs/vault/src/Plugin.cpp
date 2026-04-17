@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/vault/Plugin.h"
 
+#include <QJsonObject>
 #include <QWidget>
 
 namespace Corbomite {
@@ -36,6 +37,15 @@ void Plugin::focus(QObject *view)
     if (auto *w = qobject_cast<QWidget *>(view)) {
         w->setFocus();
     }
+}
+
+QJsonObject Plugin::saveSessionState(QObject *) const
+{
+    return {};
+}
+
+void Plugin::loadSessionState(QObject *, const QJsonObject &)
+{
 }
 
 KTextEditor::ConfigPage *Plugin::configPage(int, QWidget *)

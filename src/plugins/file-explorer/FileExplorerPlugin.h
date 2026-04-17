@@ -13,6 +13,8 @@ public:
     ~FileExplorerPlugin() override;
 
     QObject *createView(MainWindow *mainWindow) override;
+    QJsonObject saveSessionState(QObject *view) const override;
+    void loadSessionState(QObject *view, const QJsonObject &state) override;
 };
 
 } // namespace Corbomite

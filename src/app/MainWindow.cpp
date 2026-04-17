@@ -492,6 +492,16 @@ void MainWindow::hostPluginView(const QString &pluginId)
     widget->setParent(toolView);
     toolView->layout()->addWidget(widget);
     m_hostedPluginViews.insert(pluginId, widget);
+
+    // Restore persisted per-plugin session state (tree expand, etc). Runs
+    // after the widget is parented so model-bound view restoration sees
+    // the final widget hierarchy.
+    if (m_sessionManager) {
+        const QJsonObject state = m_sessionManager->pluginSessionState(pluginId);
+        if (!state.isEmpty()) {
+            info->instance->loadSessionState(widget, state);
+        }
+    }
 }
 
 void MainWindow::releasePluginView(const QString &pluginId)
@@ -500,6 +510,20 @@ void MainWindow::releasePluginView(const QString &pluginId)
     if (it == m_hostedPluginViews.end()) return;
     QWidget *widget = it.value();
     m_hostedPluginViews.erase(it);
+
+    // Persist per-plugin session state before the view is torn down.
+    if (widget && m_sessionManager && m_app) {
+        if (auto *pm = m_app->pluginManager()) {
+            if (const auto *info = pm->pluginById(pluginId)) {
+                if (info->instance) {
+                    const QJsonObject state =
+                        info->instance->saveSessionState(widget);
+                    m_sessionManager->setPluginSessionState(pluginId, state);
+                }
+            }
+        }
+    }
+
     if (!widget) return;
     QWidget *toolView = widget->parentWidget();
     if (toolView) toolView->deleteLater();

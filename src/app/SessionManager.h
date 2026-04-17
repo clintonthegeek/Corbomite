@@ -58,6 +58,12 @@ public:
                           const QString &activePanel = QString());
     void saveExpandedFolders(const QStringList &folders);
 
+    /// Store per-plugin session state keyed by plugin id. Written under the
+    /// `_corbomite.plugins.<pluginId>` sub-object. Plugins don't reach
+    /// SessionManager directly — the host collects state via
+    /// `Plugin::saveSessionState(view)` and forwards it here.
+    void setPluginSessionState(const QString &pluginId, const QJsonObject &state);
+
     /// Replace the workspace layout (main SplitNode JSON). `activeLeafId`
     /// is written to workspace.json's root `active` field.
     void setWorkspaceLayout(const QJsonObject &mainJson,
@@ -69,6 +75,7 @@ public:
     QByteArray windowState() const;
     QJsonObject sidebarState() const;
     QStringList expandedFolders() const;
+    QJsonObject pluginSessionState(const QString &pluginId) const;
     QJsonObject workspaceLayout() const;
     QString activeLeafId() const;
 

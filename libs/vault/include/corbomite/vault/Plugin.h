@@ -3,6 +3,7 @@
 
 #include "corbomite/core/Component.h"
 
+#include <QJsonObject>
 #include <QObject>
 
 class QWidget;
@@ -54,6 +55,19 @@ public:
     /// this to dispatch. Called by the host after `showToolView(...)` when
     /// the user triggers a focus shortcut (e.g. Ctrl+Shift+F for Search).
     virtual void focus(QObject *view);
+
+    /// Serialize per-plugin session state (tree expand state, sidebar scroll,
+    /// anything that should survive a vault close/reopen). Host invokes this
+    /// on plugin teardown and stores the resulting QJsonObject under
+    /// `_corbomite.plugins.<pluginId>` in workspace.json. Default returns an
+    /// empty object.
+    virtual QJsonObject saveSessionState(QObject *view) const;
+
+    /// Apply previously-serialized session state. Host invokes this once
+    /// after `createView(...)` and before the view goes on screen, passing
+    /// the object that was most recently saved via `saveSessionState`.
+    /// Default is a no-op.
+    virtual void loadSessionState(QObject *view, const QJsonObject &state);
 
     /// Number of KConfig pages this plugin provides. Default 0.
     virtual int configPages() const { return 0; }

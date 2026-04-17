@@ -607,6 +607,61 @@ private Q_SLOTS:
         QCOMPARE(wl.value(QStringLiteral("type")).toString(), QStringLiteral("leaf"));
         QCOMPARE(wl.value(QStringLiteral("id")).toString(),   QStringLiteral("leaf-full"));
     }
+
+    // -----------------------------------------------------------------------
+    // 20. Per-plugin session state round-trip (Cluster Q retro follow-up #4)
+    //     setPluginSessionState + pluginSessionState write/read _corbomite.plugins.<id>
+    // -----------------------------------------------------------------------
+    void pluginSessionStateRoundTrip()
+    {
+        QTemporaryDir tmp;
+        const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
+
+        SessionManager smA;
+        smA.setSessionPath(path);
+
+        QJsonObject fe;
+        fe.insert(QStringLiteral("expandedFolders"),
+                  QJsonArray{QStringLiteral("a"), QStringLiteral("b/c")});
+        smA.setPluginSessionState(QStringLiteral("corbomite-file-explorer"), fe);
+
+        QJsonObject backlinks;
+        backlinks.insert(QStringLiteral("scrollY"), 42);
+        smA.setPluginSessionState(QStringLiteral("corbomite-backlinks"), backlinks);
+
+        smA.saveNow();
+
+        // On disk: both plugin states nested under _corbomite.plugins.
+        const QJsonObject root = readJson(path);
+        const QJsonObject corbomite = root.value(QStringLiteral("_corbomite")).toObject();
+        const QJsonObject plugins =
+            corbomite.value(QStringLiteral("plugins")).toObject();
+        QVERIFY(plugins.contains(QStringLiteral("corbomite-file-explorer")));
+        QVERIFY(plugins.contains(QStringLiteral("corbomite-backlinks")));
+
+        // Load into a fresh instance — accessor returns the stored object.
+        SessionManager smB;
+        smB.setSessionPath(path);
+        QVERIFY(smB.load());
+        QCOMPARE(smB.pluginSessionState(QStringLiteral("corbomite-file-explorer")),
+                 fe);
+        QCOMPARE(smB.pluginSessionState(QStringLiteral("corbomite-backlinks")),
+                 backlinks);
+
+        // Unknown id returns empty.
+        QVERIFY(smB.pluginSessionState(QStringLiteral("nope")).isEmpty());
+
+        // Setting empty state removes the entry; last-plugin drop removes
+        // the `plugins` key entirely.
+        smB.setPluginSessionState(QStringLiteral("corbomite-file-explorer"), {});
+        smB.setPluginSessionState(QStringLiteral("corbomite-backlinks"), {});
+        smB.saveNow();
+        const QJsonObject rootCleared = readJson(path);
+        const QJsonObject corbomiteCleared =
+            rootCleared.value(QStringLiteral("_corbomite")).toObject();
+        QVERIFY2(!corbomiteCleared.contains(QStringLiteral("plugins")),
+                 "empty plugins sub-object should be dropped");
+    }
 };
 
 QTEST_APPLESS_MAIN(TestSessionManagerRoundtrip)

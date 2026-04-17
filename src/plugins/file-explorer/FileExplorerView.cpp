@@ -14,6 +14,9 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 
+#include <algorithm>
+#include <functional>
+
 namespace Corbomite {
 
 FileExplorerView::FileExplorerView(Vault *vault,
@@ -48,6 +51,45 @@ FileExplorerView::FileExplorerView(Vault *vault,
 }
 
 FileExplorerView::~FileExplorerView() = default;
+
+QStringList FileExplorerView::expandedFolderPaths() const
+{
+    QStringList out;
+    if (!m_model || !m_treeView) return out;
+
+    // DFS over folder indices; recurse through expanded folders only — a
+    // collapsed folder's children aren't part of the "expanded" set anyway.
+    std::function<void(const QModelIndex &)> walk = [&](const QModelIndex &parent) {
+        const int rows = m_model->rowCount(parent);
+        for (int row = 0; row < rows; ++row) {
+            const QModelIndex idx = m_model->index(row, 0, parent);
+            if (!idx.isValid()) continue;
+            if (!idx.data(NotesTreeModel::IsDirectoryRole).toBool()) continue;
+            if (m_treeView->isExpanded(idx)) {
+                out.append(idx.data(NotesTreeModel::PathRole).toString());
+                walk(idx);
+            }
+        }
+    };
+    walk(QModelIndex());
+    return out;
+}
+
+void FileExplorerView::setExpandedFolderPaths(const QStringList &paths)
+{
+    if (!m_model || !m_treeView) return;
+    // Expand parent folders first so child expansions have an expanded
+    // ancestor chain (QTreeView::setExpanded doesn't auto-expand parents).
+    QStringList sorted = paths;
+    std::sort(sorted.begin(), sorted.end(),
+              [](const QString &a, const QString &b) {
+                  return a.count(QLatin1Char('/')) < b.count(QLatin1Char('/'));
+              });
+    for (const QString &path : sorted) {
+        const QModelIndex idx = m_model->indexForPath(path);
+        if (idx.isValid()) m_treeView->setExpanded(idx, true);
+    }
+}
 
 void FileExplorerView::onDoubleClicked(const QModelIndex &index)
 {

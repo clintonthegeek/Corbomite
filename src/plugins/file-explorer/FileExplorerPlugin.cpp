@@ -9,6 +9,8 @@
 
 #include <KPluginFactory>
 #include <QDebug>
+#include <QJsonArray>
+#include <QJsonObject>
 
 namespace Corbomite {
 
@@ -29,6 +31,30 @@ QObject *FileExplorerPlugin::createView(MainWindow *mainWindow)
     }
     return new FileExplorerView(vault, fileManager, ctx->workspace(),
                                   reinterpret_cast<QWidget *>(mainWindow));
+}
+
+QJsonObject FileExplorerPlugin::saveSessionState(QObject *view) const
+{
+    auto *fv = qobject_cast<FileExplorerView *>(view);
+    if (!fv) return {};
+    const QStringList folders = fv->expandedFolderPaths();
+    if (folders.isEmpty()) return {};
+    QJsonArray arr;
+    for (const QString &p : folders) arr.append(p);
+    QJsonObject out;
+    out.insert(QStringLiteral("expandedFolders"), arr);
+    return out;
+}
+
+void FileExplorerPlugin::loadSessionState(QObject *view,
+                                          const QJsonObject &state)
+{
+    auto *fv = qobject_cast<FileExplorerView *>(view);
+    if (!fv) return;
+    QStringList folders;
+    const QJsonArray arr = state.value(QStringLiteral("expandedFolders")).toArray();
+    for (const auto &v : arr) if (v.isString()) folders.append(v.toString());
+    if (!folders.isEmpty()) fv->setExpandedFolderPaths(folders);
 }
 
 } // namespace Corbomite
