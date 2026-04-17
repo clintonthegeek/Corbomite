@@ -45,3 +45,7 @@ target_link_libraries(tst_bases_parser PRIVATE Qt6::Test Corbomite::Bases)
 add_executable(tst_bases_evaluator tst_evaluator.cpp)
 add_test(NAME tst_bases_evaluator COMMAND tst_bases_evaluator)
 target_link_libraries(tst_bases_evaluator PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_bases_builtins tst_builtins.cpp)
+add_test(NAME tst_bases_builtins COMMAND tst_bases_builtins)
+target_link_libraries(tst_bases_builtins PRIVATE Qt6::Test Corbomite::Bases)

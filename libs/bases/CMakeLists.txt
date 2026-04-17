@@ -28,6 +28,11 @@ add_library(corbomite-bases STATIC
     include/corbomite/bases/EvalContext.h
     src/Evaluator.cpp
     include/corbomite/bases/Evaluator.h
+    src/FunctionRegistry.cpp
+    include/corbomite/bases/FunctionRegistry.h
+    src/Builtins.cpp
+    src/Formula.cpp
+    include/corbomite/bases/Formula.h
     include/corbomite/bases/ValuePtr.h
     include/corbomite/bases/Value.h
     include/corbomite/bases/Values.h

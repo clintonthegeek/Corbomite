@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/bases/Evaluator.h"
 
+#include "corbomite/bases/FunctionRegistry.h"
 #include "corbomite/bases/Parser.h"
 #include "corbomite/bases/Values.h"
 
@@ -339,20 +340,155 @@ ValuePtr Evaluator::applyArithmetic(BinOp op, const Value *l, const Value *r)
                           r ? r->type() : QStringLiteral("null")));
 }
 
+namespace {
+
+// Addendum §5.2 — iteration-bound shadowing context for list/object
+// lambdas (map/filter/reduce).
+class ShadowingContext : public EvalContext
+{
+public:
+    ShadowingContext(const EvalContext &outer, QHash<QString, ValuePtr> binds)
+        : m_outer(outer), m_binds(std::move(binds)) {}
+
+    ValuePtr getByIdentifier(const QString &name) const override
+    {
+        auto it = m_binds.constFind(name);
+        if (it != m_binds.constEnd()) return *it;
+        return m_outer.getByIdentifier(name);
+    }
+
+private:
+    const EvalContext &m_outer;
+    QHash<QString, ValuePtr> m_binds;
+};
+
+}  // namespace
+
 ValuePtr Evaluator::evalCall(const CallExpr &c, const EvalContext &ctx) const
 {
-    // Without a function registry, no call can be resolved. Evaluator
-    // still needs to evaluate args so side-effect-free expressions run
-    // (but we have no side effects). Return an error referencing the
-    // callee name.
-    QString calleeName;
-    if (auto *ident = dynamic_cast<IdentExpr *>(c.callee.get()))
-        calleeName = ident->name;
-    else if (auto *mem = dynamic_cast<MemberExpr *>(c.callee.get()))
-        calleeName = mem->member;
-    // Phase 5 wires m_funcs + hard-cased specials; until then:
-    Q_UNUSED(ctx);
-    return makeError(i18n("unknown function '%1'", calleeName));
+    // Hard-cased dispatch intercepts BEFORE arg evaluation so lambda bodies
+    // can see the iteration-bound scope (addendum §5.2, §8).
+    if (auto *ident = dynamic_cast<IdentExpr *>(c.callee.get())) {
+        if (ident->name.compare(QLatin1String("if"), Qt::CaseInsensitive) == 0) {
+            if (c.args.size() < 2 || c.args.size() > 3)
+                return makeError(i18n("if takes 2 or 3 arguments"));
+            auto cond = eval(*c.args[0], ctx);
+            if (cond && cond->isTruthy()) return eval(*c.args[1], ctx);
+            if (c.args.size() == 3) return eval(*c.args[2], ctx);
+            return NullValue::instance();
+        }
+    }
+    if (auto *member = dynamic_cast<MemberExpr *>(c.callee.get())) {
+        const QString lower = member->member.toLower();
+        const bool isListLambda = (lower == QLatin1String("map")
+                                || lower == QLatin1String("filter")
+                                || lower == QLatin1String("reduce"));
+        const bool isObjectLambda = (lower == QLatin1String("map")
+                                  || lower == QLatin1String("filter"));
+        if (isListLambda) {
+            auto subject = eval(*member->object, ctx);
+            if (auto *list = dynamic_cast<ListValue *>(subject.get())) {
+                if (lower == QLatin1String("map")) {
+                    if (c.args.size() != 1)
+                        return makeError(i18n("map(expr) takes 1 argument"));
+                    QVector<ValuePtr> out;
+                    out.reserve(list->length());
+                    for (int i = 0; i < list->length(); ++i) {
+                        QHash<QString, ValuePtr> b;
+                        b[QStringLiteral("index")] = std::make_shared<NumberValue>(i);
+                        b[QStringLiteral("value")] = list->get(i);
+                        ShadowingContext sc(ctx, b);
+                        out.push_back(eval(*c.args[0], sc));
+                    }
+                    return std::make_shared<ListValue>(out);
+                }
+                if (lower == QLatin1String("filter")) {
+                    if (c.args.size() != 1)
+                        return makeError(i18n("filter(pred) takes 1 argument"));
+                    QVector<ValuePtr> out;
+                    for (int i = 0; i < list->length(); ++i) {
+                        QHash<QString, ValuePtr> b;
+                        b[QStringLiteral("index")] = std::make_shared<NumberValue>(i);
+                        b[QStringLiteral("value")] = list->get(i);
+                        ShadowingContext sc(ctx, b);
+                        auto pred = eval(*c.args[0], sc);
+                        if (pred && pred->isTruthy()) out.push_back(list->get(i));
+                    }
+                    return std::make_shared<ListValue>(out);
+                }
+                if (lower == QLatin1String("reduce")) {
+                    if (c.args.size() != 2)
+                        return makeError(i18n("reduce(expr, initial) takes 2 arguments"));
+                    ValuePtr acc = eval(*c.args[1], ctx);
+                    for (int i = 0; i < list->length(); ++i) {
+                        QHash<QString, ValuePtr> b;
+                        b[QStringLiteral("index")] = std::make_shared<NumberValue>(i);
+                        b[QStringLiteral("value")] = list->get(i);
+                        b[QStringLiteral("acc")]   = acc;
+                        ShadowingContext sc(ctx, b);
+                        acc = eval(*c.args[0], sc);
+                    }
+                    return acc ? acc : NullValue::instance();
+                }
+            }
+            if (auto *obj = dynamic_cast<ObjectValue *>(subject.get())) {
+                if (isObjectLambda && lower == QLatin1String("map")) {
+                    if (c.args.size() != 1)
+                        return makeError(i18n("map(expr) takes 1 argument"));
+                    QVector<ValuePtr> out;
+                    for (const auto &[k, v] : obj->entries()) {
+                        QHash<QString, ValuePtr> b;
+                        b[QStringLiteral("key")] = std::make_shared<StringValue>(k);
+                        b[QStringLiteral("value")] = v;
+                        ShadowingContext sc(ctx, b);
+                        out.push_back(eval(*c.args[0], sc));
+                    }
+                    return std::make_shared<ListValue>(out);
+                }
+                if (isObjectLambda && lower == QLatin1String("filter")) {
+                    if (c.args.size() != 1)
+                        return makeError(i18n("filter(pred) takes 1 argument"));
+                    auto out = std::make_shared<ObjectValue>();
+                    for (const auto &[k, v] : obj->entries()) {
+                        QHash<QString, ValuePtr> b;
+                        b[QStringLiteral("key")] = std::make_shared<StringValue>(k);
+                        b[QStringLiteral("value")] = v;
+                        ShadowingContext sc(ctx, b);
+                        auto pred = eval(*c.args[0], sc);
+                        if (pred && pred->isTruthy()) out->set(k, v);
+                    }
+                    return out;
+                }
+            }
+            // Fall through to the regular registry path — lets
+            // per-type-named functions with these same names still resolve
+            // on non-list/object subjects (shouldn't exist but harmless).
+        }
+    }
+
+    // Regular dispatch through FunctionRegistry.
+    const BasesFunction *fn = nullptr;
+    ValuePtr subject;
+    QVector<ValuePtr> args;
+
+    if (auto *member = dynamic_cast<MemberExpr *>(c.callee.get())) {
+        subject = eval(*member->object, ctx);
+        args.push_back(subject);
+        if (m_funcs) fn = m_funcs->findInstance(subject.get(), member->member);
+        if (!fn) {
+            return makeError(i18n("unknown instance function '%1' on %2",
+                                  member->member,
+                                  subject ? subject->type() : QStringLiteral("null")));
+        }
+    } else if (auto *ident = dynamic_cast<IdentExpr *>(c.callee.get())) {
+        if (m_funcs) fn = m_funcs->findGlobal(ident->name);
+        if (!fn) return makeError(i18n("unknown function '%1'", ident->name));
+    } else {
+        return makeError(i18n("calling non-callable expression"));
+    }
+
+    for (const auto &a : c.args) args.push_back(eval(*a, ctx));
+    return fn->apply(ctx, args);
 }
 
 }  // namespace Corbomite::Bases
