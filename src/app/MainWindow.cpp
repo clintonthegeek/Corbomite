@@ -13,7 +13,6 @@
 #include "sidebar/FileExplorerPanel.h"
 #include "sidebar/SearchPanel.h"
 #include "sidebar/PropertiesPanel.h"
-#include "sidebar/OutlinksPanel.h"
 #include "sidebar/OutlinePanel.h"
 #include "graph/LocalGraphPanel.h"
 #include "graph/GraphControlsPanel.h"
@@ -872,18 +871,16 @@ void MainWindow::setupEditor()
         auto *editor = activeEditor();
         // Update sidebar panels
         if (editor && editor->noteDocument()) {
-            if (m_outlinksPanel) m_outlinksPanel->setCurrentNote(editor->noteDocument());
             if (m_outlinePanel) m_outlinePanel->setCurrentNote(editor->noteDocument());
             if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(editor->noteDocument());
             if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(editor->noteDocument());
         } else {
-            if (m_outlinksPanel) m_outlinksPanel->setCurrentNote(nullptr);
             if (m_outlinePanel) m_outlinePanel->setCurrentNote(nullptr);
             if (m_localGraphPanel) m_localGraphPanel->setCurrentNote(nullptr);
             if (m_propertiesPanel) m_propertiesPanel->setCurrentNote(nullptr);
         }
-        // BacklinksView (now an InternalPlugin) reacts to active-leaf
-        // changes via WorkspaceController::activeFileChanged on its own.
+        // BacklinksView and OutlinksView (InternalPlugins) react to
+        // active-leaf changes via WorkspaceController on their own.
 
         if (editor && editor->noteDocument() && m_autosave)
             m_autosave->watchDocument(editor->noteDocument());
@@ -985,23 +982,8 @@ void MainWindow::setupSidebars()
     // plugin's createView() output is hosted by hostPluginView() when
     // PluginManager fires pluginLoaded.
 
-    auto *outlinksView = createToolView(
-        nullptr,
-        QStringLiteral("outlinks_panel"),
-        KMultiTabBar::Right,
-        QIcon::fromTheme(QStringLiteral("go-jump")),
-        i18n("Outlinks")
-    );
-    m_outlinksPanel = new OutlinksPanel(outlinksView);
-    outlinksView->layout()->addWidget(m_outlinksPanel);
-    connect(m_outlinksPanel, &OutlinksPanel::noteActivated,
-            this, &MainWindow::onNoteActivated);
-    connect(m_outlinksPanel, &OutlinksPanel::createNoteRequested,
-            this, [this](const QString &name) {
-        if (!m_fileManager) return;
-        auto *tf = m_fileManager->createMarkdownNote(name, QString());
-        if (tf) openFileInWorkspace(tf->path);
-    });
+    // Outlinks panel migrated to InternalPlugin "corbomite-outlinks"
+    // (Cluster Q Task 14). MainWindow no longer constructs it.
 
     auto *propertiesView = createToolView(
         nullptr,
@@ -1333,9 +1315,6 @@ void MainWindow::onVaultOpened(const QString &path)
     m_searchPanel->setIndex(m_searchIndex);
     m_searchPanel->setMetadataCache(m_metadataCache);
 
-    m_outlinksPanel->setIndex(m_searchIndex);
-    m_outlinksPanel->setVault(m_vaultObj);
-    m_outlinksPanel->setMetadataCache(m_metadataCache);
     m_localGraphPanel->setIndex(m_searchIndex);
     m_localGraphPanel->setVault(m_vaultObj);
     m_localGraphPanel->setMetadataCache(m_metadataCache);
@@ -1515,10 +1494,6 @@ void MainWindow::onVaultClosed()
     if (m_tagSuggest) m_tagSuggest->setIndex(nullptr);
     if (m_hoverPopover) m_hoverPopover->setVault(nullptr);
 
-    m_outlinksPanel->setIndex(nullptr);
-    m_outlinksPanel->setMetadataCache(nullptr);
-    m_outlinksPanel->setVault(nullptr);
-    m_outlinksPanel->setCurrentNote(nullptr);
     m_outlinePanel->setCurrentNote(nullptr);
     m_localGraphPanel->setIndex(nullptr);
     m_localGraphPanel->setMetadataCache(nullptr);

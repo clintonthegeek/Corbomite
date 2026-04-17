@@ -41,7 +41,6 @@ class SessionManager;
 class SQLiteIndex;
 class MetadataCache;
 class LinkResolver;
-class OutlinksPanel;
 class OutlinePanel;
 class PropertiesPanel;
 class LocalGraphPanel;
@@ -153,7 +152,6 @@ private:
     SQLiteIndex *m_searchIndex = nullptr;
     MetadataCache *m_metadataCache = nullptr;
     LinkResolver *m_linkResolver = nullptr;
-    OutlinksPanel *m_outlinksPanel = nullptr;
     OutlinePanel *m_outlinePanel = nullptr;
     PropertiesPanel *m_propertiesPanel = nullptr;
     LocalGraphPanel *m_localGraphPanel = nullptr;

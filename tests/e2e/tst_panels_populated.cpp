@@ -26,7 +26,6 @@
 #include "editor/MarkdownView.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "sidebar/OutlinksPanel.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/core/NoteDocument.h"
 
@@ -94,15 +93,18 @@ private Q_SLOTS:
         auto *hubDoc = vault->openDocument(QStringLiteral("Hub.md"));
         QVERIFY(hubDoc);
 
-        // Walk MainWindow's children to find the OutlinksPanel header label.
-        auto *outlinks = m_mainWindow->findChild<OutlinksPanel *>();
-        QVERIFY(outlinks);
-        outlinks->setCurrentNote(hubDoc);
-        settle(200);
+        // OutlinksView is now an InternalPlugin (Cluster Q Task 14).
+        // Drive its refresh by flagging the file active via the
+        // host's note-activated path.
+        Q_UNUSED(hubDoc);
+        m_mainWindow->onNoteActivated(QStringLiteral("Hub.md"));
+        settle(300);
 
-        auto *header = outlinks->findChild<QLabel *>();
+        auto *outlinksView = m_mainWindow->findChild<QWidget *>(
+            QStringLiteral("corbomite-outlinks_panel"));
+        QVERIFY2(outlinksView, "OutlinksPlugin tool view was not hosted");
+        auto *header = outlinksView->findChild<QLabel *>();
         QVERIFY(header);
-        // The header text contains the count in parentheses.
         QVERIFY2(header->text().contains(QStringLiteral("(1)")),
                  qPrintable(QStringLiteral("Header was: ") + header->text()));
     }
