@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+
+#include "BasesQuery.h"
+#include "EvalContext.h"
+#include "PropertyId.h"
+#include "Values.h"
+
+#include <QHash>
+#include <QJsonObject>
+#include <QSet>
+#include <QString>
+
+namespace Corbomite {
+class MetadataCache;
+class TFile;
+class Vault;
+}  // namespace Corbomite
+
+namespace Corbomite::Bases {
+
+class FunctionRegistry;
+
+/// A `BasesEntry` is one vault note projected into a query result — a
+/// row in a BasesView's table. Holds a borrowed `TFile *`, a borrowed
+/// `Vault *` + `MetadataCache *`, and a back-reference to the enclosing
+/// `BasesQuery` (for formula lookup).
+class BasesEntry : public EvalContext
+{
+public:
+    BasesEntry(Vault *vault,
+               MetadataCache *cache,
+               TFile *file,
+               TFile *localFile,
+               const BasesQuery &query,
+               FunctionRegistry *funcs = nullptr);
+    ~BasesEntry() override;
+
+    TFile *file() const { return m_file; }
+    TFile *localFile() const { return m_local; }
+
+    /// Live frontmatter alias (audit §8 invariant "live alias into
+    /// MetadataCache"). Empty QJsonObject if no cache entry.
+    const QJsonObject &frontmatter() const;
+
+    /// Raw frontmatter keys.
+    QStringList getPropertyKeys() const;
+
+    /// Identifier dispatch.
+    ValuePtr getByIdentifier(const QString &name) const override;
+    QStringList keys() const override;
+
+    /// PropertyId-keyed accessor (dispatches by kind).
+    ValuePtr getValue(const PropertyId &id) const;
+
+    /// Evaluate a named formula under this entry, memoised; detects
+    /// cycles through `m_inProgressFormulas` and returns FormulaErrorValue.
+    ValuePtr formulaValue(const QString &name) const;
+
+private:
+    std::shared_ptr<FileValue> implicitFile() const;
+    std::shared_ptr<ObjectValue> noteObject() const;
+
+    Vault *m_vault;
+    MetadataCache *m_cache;
+    TFile *m_file;
+    TFile *m_local;
+    const BasesQuery &m_query;
+    FunctionRegistry *m_funcs;
+
+    mutable std::shared_ptr<FileValue> m_implicit;
+    mutable std::shared_ptr<ObjectValue> m_note;
+    mutable QHash<QString, ValuePtr> m_formulaCache;
+    mutable QSet<QString> m_inProgressFormulas;
+    mutable QJsonObject m_emptyFm;  // for frontmatter() no-cache path
+};
+
+}  // namespace Corbomite::Bases

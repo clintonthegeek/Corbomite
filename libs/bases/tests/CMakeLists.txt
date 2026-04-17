@@ -53,3 +53,7 @@ target_link_libraries(tst_bases_builtins PRIVATE Qt6::Test Corbomite::Bases)
 add_executable(tst_bases_yaml_schema tst_yaml_schema.cpp)
 add_test(NAME tst_bases_yaml_schema COMMAND tst_bases_yaml_schema)
 target_link_libraries(tst_bases_yaml_schema PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_bases_entry tst_basesentry.cpp)
+add_test(NAME tst_bases_entry COMMAND tst_bases_entry)
+target_link_libraries(tst_bases_entry PRIVATE Qt6::Test Corbomite::Bases)
