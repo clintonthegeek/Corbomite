@@ -11,6 +11,8 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core)
 add_library(vault STATIC
     include/corbomite/vault/TAbstractFile.h
     src/TAbstractFile.cpp
+    include/corbomite/vault/TFile.h
+    src/TFile.cpp
 )
 set_target_properties(vault PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Vault ALIAS vault)
