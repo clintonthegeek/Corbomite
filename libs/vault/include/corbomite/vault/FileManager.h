@@ -17,8 +17,7 @@ class MetadataCache;
 
 /// Higher-level Vault operations: link-aware rename, frontmatter mutation,
 /// new-file placement, attachment placement, link generation, trash routing.
-/// Depends on Vault + MetadataCache. Subsumes the legacy
-/// `Corbomite::FrontMatterWriter`.
+/// Depends on Vault + MetadataCache.
 class FileManager : public QObject
 {
     Q_OBJECT

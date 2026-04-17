@@ -48,7 +48,7 @@ public:
     void flushPendingWrite();
 
 Q_SIGNALS:
-    /// Emitted after a successful file write via FrontMatterWriter.
+    /// Emitted after a successful file write via FileManager::processFrontMatter.
     void propertiesWritten(const QString &filePath);
 
 private Q_SLOTS:

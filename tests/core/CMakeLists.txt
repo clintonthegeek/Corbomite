@@ -45,9 +45,6 @@ add_executable(tst_linkutils tst_linkutils.cpp)
 add_test(NAME tst_linkutils COMMAND tst_linkutils)
 target_link_libraries(tst_linkutils PRIVATE Qt6::Test Corbomite::Core MarkoffParser::MarkoffParser)
 
-add_executable(tst_frontmatterwriter tst_frontmatterwriter.cpp)
-add_test(NAME tst_frontmatterwriter COMMAND tst_frontmatterwriter)
-target_link_libraries(tst_frontmatterwriter PRIVATE Qt6::Test Corbomite::Core MarkoffParser::MarkoffParser)
 
 add_executable(tst_component tst_component.cpp)
 add_test(NAME tst_component COMMAND tst_component)

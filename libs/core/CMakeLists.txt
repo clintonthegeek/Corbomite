@@ -19,8 +19,6 @@ add_library(corbomite-core STATIC
     src/MarkoffRenderEngine.cpp
     src/LinkUtils.cpp
     include/corbomite/core/LinkUtils.h
-    src/FrontMatterWriter.cpp
-    include/corbomite/core/FrontMatterWriter.h
     src/Component.cpp
     include/corbomite/core/Component.h
     src/Events.cpp
