@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QJsonValue>
 #include <QMetaObject>
+#include <QObject>
 #include <QSet>
 #include <QString>
 #include <QUuid>
@@ -22,11 +23,19 @@ class TFolder;
 /// Permission-gated plugin-facing Vault facade. Methods return empty /
 /// false / nullptr / null QUuid when the caller lacks the required
 /// permission token. Tokens: `vault.read`, `vault.write`, `vault.events`.
-class VaultProxy
+///
+/// A `QObject` so plugin widgets can `QObject::connect` directly to the
+/// forwarded `created` / `modified` / `deletedFile` / `renamed` signals.
+/// The underlying `Vault` signals are wired in the ctor only when the
+/// owning plugin holds the `vault.events` permission; without that
+/// permission the signals are defined but never fire.
+class VaultProxy : public QObject
 {
+    Q_OBJECT
 public:
-    VaultProxy(Vault *vault, const QSet<QString> &granted, QString pluginId);
-    ~VaultProxy();
+    VaultProxy(Vault *vault, const QSet<QString> &granted, QString pluginId,
+               QObject *parent = nullptr);
+    ~VaultProxy() override;
 
     VaultProxy(const VaultProxy &) = delete;
     VaultProxy &operator=(const VaultProxy &) = delete;
@@ -68,6 +77,20 @@ public:
     QJsonValue readConfigJson(const QString &name) const;
     bool       writeConfigJson(const QString &name, const QJsonValue &v);
     bool       deleteConfigJson(const QString &name);
+
+Q_SIGNALS:
+    /// Forwarded from `Vault::created`. Only fires when the owning plugin
+    /// holds the `vault.events` permission (checked once at ctor time).
+    void created(Corbomite::TAbstractFile *f);
+    /// Forwarded from `Vault::modified`.
+    void modified(Corbomite::TFile *f);
+    /// Forwarded from `Vault::deletedFile`. Named to avoid the `QObject`
+    /// signal `destroyed`-adjacent confusion and to mirror the underlying
+    /// signal name.
+    void deletedFile(Corbomite::TAbstractFile *f);
+    /// Forwarded from `Vault::renamed`. The second arg is the old relative
+    /// path at the time of emission.
+    void renamed(Corbomite::TAbstractFile *f, const QString &oldPath);
 
 private:
     Vault                                 *m_vault;

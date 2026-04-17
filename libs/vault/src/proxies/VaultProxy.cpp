@@ -14,9 +14,18 @@ Q_LOGGING_CATEGORY(lcPluginVault, "corbomite.plugin.vault")
 }
 
 VaultProxy::VaultProxy(Vault *vault, const QSet<QString> &granted,
-                       QString pluginId)
-    : m_vault(vault), m_granted(granted), m_pluginId(std::move(pluginId))
+                       QString pluginId, QObject *parent)
+    : QObject(parent),
+      m_vault(vault),
+      m_granted(granted),
+      m_pluginId(std::move(pluginId))
 {
+    if (m_vault && canEvents()) {
+        connect(m_vault, &Vault::created, this, &VaultProxy::created);
+        connect(m_vault, &Vault::modified, this, &VaultProxy::modified);
+        connect(m_vault, &Vault::deletedFile, this, &VaultProxy::deletedFile);
+        connect(m_vault, &Vault::renamed, this, &VaultProxy::renamed);
+    }
 }
 
 VaultProxy::~VaultProxy()
