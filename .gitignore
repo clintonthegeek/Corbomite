@@ -28,6 +28,7 @@ qrc_*.cpp
 .DS_Store
 Thumbs.db
 .worktrees/
+**/__MACOSX/
 
 # Upstream Obsidian reference vaults cloned as nested git repos.
 # Only testvaults/starter-vault/ is an actual fixture we own.
