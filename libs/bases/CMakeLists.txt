@@ -9,8 +9,10 @@ find_package(KF6I18n REQUIRED)
 
 add_library(corbomite-bases STATIC
     src/Value.cpp
+    src/NullValue.cpp
     include/corbomite/bases/ValuePtr.h
     include/corbomite/bases/Value.h
+    include/corbomite/bases/Values.h
 )
 set_target_properties(corbomite-bases PROPERTIES
     POSITION_INDEPENDENT_CODE ON
