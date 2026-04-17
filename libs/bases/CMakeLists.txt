@@ -33,6 +33,14 @@ add_library(corbomite-bases STATIC
     src/Builtins.cpp
     src/Formula.cpp
     include/corbomite/bases/Formula.h
+    src/PropertyId.cpp
+    include/corbomite/bases/PropertyId.h
+    src/FilterTree.cpp
+    include/corbomite/bases/FilterTree.h
+    src/BasesViewConfig.cpp
+    include/corbomite/bases/BasesViewConfig.h
+    src/BasesQuery.cpp
+    include/corbomite/bases/BasesQuery.h
     include/corbomite/bases/ValuePtr.h
     include/corbomite/bases/Value.h
     include/corbomite/bases/Values.h
