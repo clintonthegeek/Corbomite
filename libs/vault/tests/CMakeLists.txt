@@ -110,3 +110,17 @@ target_link_libraries(tst_vault_config_json
 add_test(NAME tst_vault_config_json COMMAND tst_vault_config_json)
 set_tests_properties(tst_vault_config_json PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_file_manager tst_file_manager.cpp)
+target_link_libraries(tst_file_manager
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_file_manager COMMAND tst_file_manager)
+set_tests_properties(tst_file_manager PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_file_manager_frontmatter tst_file_manager_frontmatter.cpp)
+target_link_libraries(tst_file_manager_frontmatter
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_file_manager_frontmatter COMMAND tst_file_manager_frontmatter)
+set_tests_properties(tst_file_manager_frontmatter PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

@@ -23,6 +23,8 @@ add_library(vault STATIC
     src/VaultScanner.cpp
     src/Watcher.h
     src/Watcher.cpp
+    include/corbomite/vault/FileManager.h
+    src/FileManager.cpp
 )
 set_target_properties(vault PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Vault ALIAS vault)
@@ -37,6 +39,8 @@ target_link_libraries(vault
         Qt6::Core
         Corbomite::Core
         Corbomite::Storage
+    PRIVATE
+        MarkoffParser::MarkoffParser
 )
 
 enable_testing()
