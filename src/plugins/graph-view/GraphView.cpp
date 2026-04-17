@@ -22,10 +22,10 @@ QString GraphView::getViewType() const { return QStringLiteral("graph"); }
 QString GraphView::getDisplayText() const { return i18n("Graph view"); }
 QString GraphView::getIcon() const { return QStringLiteral("network-wired"); }
 
-void GraphView::setIndex(SQLiteIndex *index) { m_index = index; }
-void GraphView::setVault(Vault *vault) { m_vault = vault; }
+void GraphView::setSearch(SearchProxy *search) { m_search = search; }
+void GraphView::setVault(VaultProxy *vault) { m_vault = vault; }
 
-void GraphView::setMetadataCache(MetadataCache *cache)
+void GraphView::setMetadataCache(MetadataCacheReader *cache)
 {
     m_pendingCache = cache;
     if (m_graphWidget) m_graphWidget->setMetadataCache(cache);
@@ -42,8 +42,8 @@ GraphViewTab *GraphView::graphWidget() const { return m_graphWidget; }
 void GraphView::onOpen()
 {
     ItemView::onOpen();
-    if (!m_graphWidget && m_index && m_vault) {
-        m_graphWidget = new GraphViewTab(m_index, m_vault, contentWidget());
+    if (!m_graphWidget && m_search && m_vault) {
+        m_graphWidget = new GraphViewTab(m_search, m_vault, contentWidget());
         auto *layout = new QVBoxLayout(contentWidget());
         layout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(m_graphWidget);

@@ -139,6 +139,15 @@ QString VaultProxy::getName() const
     return m_vault ? m_vault->getName() : QString{};
 }
 
+QString VaultProxy::basePath() const
+{
+    if (!canRead()) {
+        logDenied("basePath", "vault.read");
+        return {};
+    }
+    return m_vault ? m_vault->basePath() : QString{};
+}
+
 bool VaultProxy::modify(TFile *f, const QByteArray &body)
 {
     if (!canWrite()) {

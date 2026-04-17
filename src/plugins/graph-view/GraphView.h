@@ -7,9 +7,9 @@
 namespace Corbomite {
 
 class GraphViewTab;
-class SQLiteIndex;
-class Vault;
-class MetadataCache;
+class SearchProxy;
+class VaultProxy;
+class MetadataCacheReader;
 class GraphControlsPanel;
 
 class GraphView : public ItemView
@@ -23,9 +23,9 @@ public:
     QString getDisplayText() const override;
     QString getIcon() const override;
 
-    void setIndex(SQLiteIndex *index);
-    void setVault(Vault *vault);
-    void setMetadataCache(MetadataCache *cache);
+    void setSearch(SearchProxy *search);
+    void setVault(VaultProxy *vault);
+    void setMetadataCache(MetadataCacheReader *cache);
     void setControlsPanel(GraphControlsPanel *panel);
     GraphViewTab *graphWidget() const;
 
@@ -37,9 +37,9 @@ protected:
 
 private:
     GraphViewTab *m_graphWidget = nullptr;
-    SQLiteIndex *m_index = nullptr;
-    Vault *m_vault = nullptr;
-    MetadataCache *m_pendingCache = nullptr;
+    SearchProxy *m_search = nullptr;
+    VaultProxy *m_vault = nullptr;
+    MetadataCacheReader *m_pendingCache = nullptr;
     GraphControlsPanel *m_pendingPanel = nullptr;
 };
 

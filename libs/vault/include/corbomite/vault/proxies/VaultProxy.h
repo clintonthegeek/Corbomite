@@ -52,6 +52,11 @@ public:
     QVector<TFile *> getFiles() const;
     TFolder       *getRoot() const;
     QString        getName() const;
+    /// Absolute filesystem path of the loaded vault (or empty string if
+    /// no vault is loaded). Mirrors `Vault::basePath` — plugins join this
+    /// with a vault-relative path to reach absolute locations (e.g. for
+    /// clipboard "copy absolute path", "open in system explorer").
+    QString        basePath() const;
 
     // ---- Mutation (gated by vault.write) ----
     bool     modify(TFile *f, const QByteArray &body);

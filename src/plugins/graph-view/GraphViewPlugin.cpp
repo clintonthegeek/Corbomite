@@ -21,15 +21,15 @@ void GraphViewPlugin::onLoad(PluginContext *ctx)
 {
     if (!ctx) return;
 
-    m_vault    = ctx->vaultRaw();
-    m_index    = ctx->searchIndex();
-    m_metadata = ctx->metadataCacheRaw();
+    m_vault    = ctx->vault();
+    m_search   = ctx->search();
+    m_metadata = ctx->metadataCache();
 
     if (auto *views = ctx->views()) {
         views->registerView(QStringLiteral("graph"),
             [this](WorkspaceLeaf *leaf) -> View * {
                 auto *view = new GraphView(leaf);
-                view->setIndex(m_index);
+                view->setSearch(m_search);
                 view->setVault(m_vault);
                 view->setMetadataCache(m_metadata);
                 if (m_controlsPanel) {
@@ -46,7 +46,7 @@ void GraphViewPlugin::onUnload()
     // the "graph" type automatically. Controls panel, if still alive,
     // is parented to a MainWindow tool view which tears it down.
     m_vault = nullptr;
-    m_index = nullptr;
+    m_search = nullptr;
     m_metadata = nullptr;
     m_controlsPanel.clear();
 }

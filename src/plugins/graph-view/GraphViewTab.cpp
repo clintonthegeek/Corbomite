@@ -3,8 +3,9 @@
 #include "GraphControlsPanel.h"
 #include "GraphDataBuilder.h"
 
-#include <corbomite/vault/Vault.h>
-#include <corbomite/storage/MetadataCache.h>
+#include <corbomite/storage/proxies/MetadataCacheReader.h>
+#include <corbomite/storage/proxies/SearchProxy.h>
+#include <corbomite/vault/proxies/VaultProxy.h>
 #include <forcegraph/ForceLayoutEngine.h>
 #include <forcegraph/ForceGraphView.h>
 #include <forcegraph/MultilevelLayout.h>
@@ -28,9 +29,9 @@
 
 namespace Corbomite {
 
-GraphViewTab::GraphViewTab(SQLiteIndex *index, Vault *vault, QWidget *parent)
+GraphViewTab::GraphViewTab(SearchProxy *search, VaultProxy *vault, QWidget *parent)
     : QWidget(parent)
-    , m_index(index)
+    , m_search(search)
     , m_vault(vault)
 {
     m_engine = new ForceGraph::ForceLayoutEngine(this);
@@ -63,7 +64,7 @@ GraphViewTab::~GraphViewTab()
 
 void GraphViewTab::buildGraph()
 {
-    auto data = GraphDataBuilder::buildGlobalGraph(m_index, m_vault);
+    auto data = GraphDataBuilder::buildGlobalGraph(m_search, m_vault);
 
     // Cap at 10K — beyond that, GPU acceleration (P8) is needed
     static constexpr int MAX_GRAPH_NODES = 10000;
@@ -121,7 +122,7 @@ void GraphViewTab::setControlsPanel(GraphControlsPanel *panel)
     }
 }
 
-void GraphViewTab::setMetadataCache(MetadataCache *cache)
+void GraphViewTab::setMetadataCache(MetadataCacheReader *cache)
 {
     if (m_cache) {
         disconnect(m_cache, nullptr, this, nullptr);
@@ -131,14 +132,12 @@ void GraphViewTab::setMetadataCache(MetadataCache *cache)
         // Full rebuild when initial indexing completes or any single note
         // changes. The global graph is cheap enough to recompute on each
         // mutation — Phase 8 can add incremental updates later if needed.
-        connect(m_cache, &MetadataCache::indexFinished,
+        connect(m_cache, &MetadataCacheReader::indexFinished,
                 this, [this]() { buildGraph(); });
-        connect(m_cache, &MetadataCache::cacheChanged,
-                this, [this](const QString &, const QString &, const CachedMetadata &) {
-            buildGraph();
-        });
-        connect(m_cache, &MetadataCache::cacheDeleted,
-                this, [this](const QString &, const CachedMetadata &) { buildGraph(); });
+        connect(m_cache, &MetadataCacheReader::cacheChanged,
+                this, [this](const QString &) { buildGraph(); });
+        connect(m_cache, &MetadataCacheReader::cacheDeleted,
+                this, [this](const QString &) { buildGraph(); });
     }
 }
 

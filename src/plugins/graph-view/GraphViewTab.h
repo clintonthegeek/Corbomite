@@ -13,20 +13,20 @@ class ForceGraphView;
 namespace Corbomite {
 
 class GraphControlsPanel;
-class SQLiteIndex;
-class Vault;
-class MetadataCache;
+class SearchProxy;
+class VaultProxy;
+class MetadataCacheReader;
 
 class GraphViewTab : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GraphViewTab(SQLiteIndex *index, Vault *vault, QWidget *parent = nullptr);
+    explicit GraphViewTab(SearchProxy *search, VaultProxy *vault, QWidget *parent = nullptr);
     ~GraphViewTab() override;
 
     void buildGraph();
     void setControlsPanel(GraphControlsPanel *panel);
-    void setMetadataCache(MetadataCache *cache);
+    void setMetadataCache(MetadataCacheReader *cache);
 
 Q_SIGNALS:
     void noteActivated(const QString &relativePath);
@@ -41,11 +41,11 @@ private:
 
     ForceGraph::ForceGraphView *m_graphView;
     ForceGraph::ForceLayoutEngine *m_engine;
-    SQLiteIndex *m_index;
-    Vault *m_vault;
+    SearchProxy *m_search;
+    VaultProxy *m_vault;
 
     GraphControlsPanel *m_controlsPanel = nullptr;
-    QPointer<MetadataCache> m_cache;
+    QPointer<MetadataCacheReader> m_cache;
 
     // Cached full graph data (before filtering)
     QVector<ForceGraph::GraphNode> m_allNodes;
