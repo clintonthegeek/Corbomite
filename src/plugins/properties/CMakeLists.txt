@@ -1,25 +1,19 @@
-add_library(corbomite-properties MODULE)
-target_sources(corbomite-properties PRIVATE
-    PropertiesPlugin.cpp
-    PropertiesView.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../sidebar/PropertyEditorWidget.cpp
-)
-target_include_directories(corbomite-properties PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../sidebar
-)
-target_link_libraries(corbomite-properties PRIVATE
-    Qt6::Widgets
-    KF6::I18n
-    KF6::CoreAddons
-    Corbomite::Core
-    Corbomite::Storage
-    Corbomite::Vault
-    Corbomite::Models
-)
-set_target_properties(corbomite-properties PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CORBOMITE_PLUGIN_DEV_DIR}"
-    PREFIX ""
-)
+corbomite_add_plugin(corbomite-properties
+    METADATA_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/metadata.json.in"
+    SOURCES
+        PropertiesPlugin.cpp
+        PropertiesView.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../sidebar/PropertyEditorWidget.cpp
+    TRUSTED
+    INCLUDE_DIRECTORIES
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../sidebar
+    LINK_LIBRARIES
+        Qt6::Widgets
+        KF6::I18n
+        Corbomite::Core
+        Corbomite::Storage
+        Corbomite::Vault
+        Corbomite::Models)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

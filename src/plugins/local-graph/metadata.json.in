@@ -1,18 +1,18 @@
 {
     "KPlugin": {
-        "Name": "Outline",
-        "Description": "Show the heading hierarchy of the active note",
-        "Icon": "view-list-tree",
+        "Name": "Local Graph",
+        "Description": "Show notes near the active note in a force-directed graph",
+        "Icon": "preferences-system-network",
         "Version": "1.0",
         "License": "GPL-3.0-or-later",
         "Category": "Core",
         "EnabledByDefault": true,
         "Authors": [{"Name": "Corbomite Developers"}]
     },
-    "X-Corbomite-Trusted": true,
+    "X-Corbomite-Trusted": @X_CORBOMITE_TRUSTED@,
     "X-Corbomite-Permissions": ["vault.read", "metadata.read", "workspace", "ui.views"],
     "X-Corbomite-MinVersion": "0.1.0",
     "X-Corbomite-DockArea": "right",
-    "X-Corbomite-DockIcon": "view-list-tree",
-    "X-Corbomite-DockTitle": "Outline"
+    "X-Corbomite-DockIcon": "preferences-system-network",
+    "X-Corbomite-DockTitle": "Local Graph"
 }

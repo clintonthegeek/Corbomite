@@ -12,6 +12,11 @@ add_executable(tst_properties_plugin tst_properties_plugin.cpp
 target_include_directories(tst_properties_plugin PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../sidebar)
+# moc resolves K_PLUGIN_FACTORY_WITH_JSON("metadata.json", ...) against
+# its include path; the configured metadata.json lives in the plugin
+# target's build directory (parent scope).
+set_property(TARGET tst_properties_plugin APPEND PROPERTY
+    AUTOMOC_MOC_OPTIONS "-I${CMAKE_CURRENT_BINARY_DIR}/..")
 add_test(NAME tst_properties_plugin COMMAND tst_properties_plugin)
 target_link_libraries(tst_properties_plugin PRIVATE
     Qt6::Test Qt6::Widgets

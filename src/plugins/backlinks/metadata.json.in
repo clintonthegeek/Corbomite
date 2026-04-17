@@ -10,7 +10,7 @@
         "EnabledByDefault": true,
         "Authors": [{"Name": "Corbomite Developers"}]
     },
-    "X-Corbomite-Trusted": true,
+    "X-Corbomite-Trusted": @X_CORBOMITE_TRUSTED@,
     "X-Corbomite-Permissions": ["metadata.read", "workspace", "ui.views"],
     "X-Corbomite-MinVersion": "0.1.0",
     "X-Corbomite-DockArea": "right",

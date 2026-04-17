@@ -19,6 +19,12 @@ set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 include(KDEInstallDirs)
 include(KDECMakeSettings)
 
+# Project-local CMake modules (helpers used by in-tree + third-party
+# plugins). Must appear after ECM_MODULE_PATH is set so KDE modules
+# still resolve first.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+include(CorbomitePlugin)
+
 # KDE Frameworks dependencies
 find_package(KF6CoreAddons REQUIRED)
 find_package(KF6I18n REQUIRED)

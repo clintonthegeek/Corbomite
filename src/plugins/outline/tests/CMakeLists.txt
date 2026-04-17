@@ -10,6 +10,11 @@ add_executable(tst_outline_plugin tst_outline_plugin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../OutlineView.cpp)
 target_include_directories(tst_outline_plugin PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/..)
+# moc resolves K_PLUGIN_FACTORY_WITH_JSON("metadata.json", ...) against
+# its include path; the configured metadata.json lives in the plugin
+# target's build directory (parent scope).
+set_property(TARGET tst_outline_plugin APPEND PROPERTY
+    AUTOMOC_MOC_OPTIONS "-I${CMAKE_CURRENT_BINARY_DIR}/..")
 add_test(NAME tst_outline_plugin COMMAND tst_outline_plugin)
 target_link_libraries(tst_outline_plugin PRIVATE
     Qt6::Test Qt6::Widgets

@@ -1,23 +1,22 @@
-add_library(corbomite-search-plugin MODULE)
-target_sources(corbomite-search-plugin PRIVATE
-    SearchPlugin.cpp
-    SearchView.cpp
-)
-target_link_libraries(corbomite-search-plugin PRIVATE
-    Qt6::Widgets
-    KF6::I18n
-    KF6::CoreAddons
-    Corbomite::Core
-    Corbomite::Search
-    Corbomite::Storage
-    Corbomite::Vault
-    Corbomite::Models
-)
+corbomite_add_plugin(corbomite-search-plugin
+    METADATA_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/metadata.json.in"
+    SOURCES
+        SearchPlugin.cpp
+        SearchView.cpp
+    TRUSTED
+    LINK_LIBRARIES
+        Qt6::Widgets
+        KF6::I18n
+        Corbomite::Core
+        Corbomite::Search
+        Corbomite::Storage
+        Corbomite::Vault
+        Corbomite::Models)
+
+# Preserve the artifact name (corbomite-search) so PluginManager config
+# keys and CorbomiteApp dev discovery don't need to change.
 set_target_properties(corbomite-search-plugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CORBOMITE_PLUGIN_DEV_DIR}"
-    PREFIX ""
-    OUTPUT_NAME "corbomite-search"
-)
+    OUTPUT_NAME "corbomite-search")
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

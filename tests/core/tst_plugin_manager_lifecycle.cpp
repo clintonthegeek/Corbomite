@@ -87,6 +87,7 @@ class TestPluginManagerLifecycle : public QObject
     Q_OBJECT
 private slots:
     void enableTrustedPluginAutoGrantsAndLoads();
+    void trustedPluginBypassesPromptHandler();
     void disablePluginUnloadsAndDeletes();
     void enableThenDisableSignalsFire();
     void kconfigPersistsEnabledState();
@@ -121,6 +122,43 @@ void TestPluginManagerLifecycle::enableTrustedPluginAutoGrantsAndLoads()
 
     // Our fake plugin counted the onLoad call
     QCOMPARE(stats.value(QStringLiteral("trusted-a"))->loaded, 1);
+
+    delete mgr;
+    qDeleteAll(stats);
+}
+
+void TestPluginManagerLifecycle::trustedPluginBypassesPromptHandler()
+{
+    // Trust-skip contract: an in-tree plugin that ships
+    // X-Corbomite-Trusted: true (via corbomite_add_plugin(... TRUSTED))
+    // must never be routed to the permission-grant prompt, even when
+    // the PluginManager has a handler registered. Its declared perms
+    // are auto-granted on first enable.
+    QTemporaryDir cfg;
+    QHash<QString, FakeStats *> stats;
+    auto *mgr = makeTestManager(cfg, &stats);
+
+    bool promptFired = false;
+    mgr->setPromptHandler([&](const Corbomite::PluginMetaData &,
+                               const QSet<QString> &declared) {
+        promptFired = true;
+        return declared;
+    });
+
+    mgr->ingest({makeFixture(QStringLiteral("trusted-b"), true,
+                             {QStringLiteral("vault.read"),
+                              QStringLiteral("network")})},
+                Corbomite::PluginMetaData::Origin::System);
+
+    QVERIFY(mgr->enablePlugin(QStringLiteral("trusted-b")));
+    QVERIFY(!promptFired); // trusted path never consults the handler
+
+    const auto *info = mgr->pluginById(QStringLiteral("trusted-b"));
+    QVERIFY(info && info->context);
+    // Both declared perms were auto-granted on the trusted path.
+    QCOMPARE(info->context->grantedPermissions().size(), 2);
+    QVERIFY(info->context->hasPermission(QStringLiteral("vault.read")));
+    QVERIFY(info->context->hasPermission(QStringLiteral("network")));
 
     delete mgr;
     qDeleteAll(stats);
