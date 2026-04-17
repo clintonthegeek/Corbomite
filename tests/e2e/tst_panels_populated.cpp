@@ -21,7 +21,7 @@
 #include <KLocalizedString>
 
 #include "app/MainWindow.h"
-#include "app/VaultService.h"
+#include "app/CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
 #include "editor/MarkdownView.h"
 #include "corbomite/core/Workspace.h"
@@ -38,7 +38,7 @@ class TestPanelsPopulated : public QObject {
     Q_OBJECT
 
 private:
-    VaultService *m_vaultService = nullptr;
+    CorbomiteApp *m_app = nullptr;
     MainWindow *m_mainWindow = nullptr;
     QTemporaryDir m_vaultDir;
 
@@ -69,8 +69,8 @@ private Q_SLOTS:
         writeFile(m_vaultDir.path() + "/Spoke.md",
                   QByteArrayLiteral("# Spoke\n\nNo outgoing links.\n"));
 
-        m_vaultService = new VaultService(this);
-        m_mainWindow = new MainWindow(m_vaultService);
+        m_app = new CorbomiteApp(this);
+        m_mainWindow = new MainWindow(m_app);
         m_mainWindow->show();
         QVERIFY(QTest::qWaitForWindowExposed(m_mainWindow));
         settle(300);
@@ -80,18 +80,18 @@ private Q_SLOTS:
     {
         delete m_mainWindow;
         m_mainWindow = nullptr;
-        delete m_vaultService;
-        m_vaultService = nullptr;
+        delete m_app;
+        m_app = nullptr;
     }
 
     // Open vault, open Hub.md, assert OutlinksPanel header reads "Outgoing Links (1)".
     void hubNoteShowsOneOutgoingLink()
     {
-        QVERIFY(m_vaultService->openVault(m_vaultDir.path()));
+        QVERIFY(m_app->openVault(m_vaultDir.path()));
         settle(800);  // Allow rebuildVault + cache reconcile + panel refresh.
 
         // Open Hub.md — use openDocument so content is loaded and parsed.
-        auto *vault = m_vaultService->vault();
+        auto *vault = m_app->vault();
         QVERIFY(vault);
         auto *hubDoc = vault->openDocument(QStringLiteral("Hub.md"));
         QVERIFY(hubDoc);
@@ -113,7 +113,7 @@ private Q_SLOTS:
     {
         // Vault already open from previous test (test order matters here;
         // QTest runs methods in declaration order).
-        auto *vault = m_vaultService->vault();
+        auto *vault = m_app->vault();
         QVERIFY(vault);
         auto *spokeDoc = vault->openDocument(QStringLiteral("Spoke.md"));
         QVERIFY(spokeDoc);

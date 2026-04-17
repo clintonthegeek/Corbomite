@@ -9,13 +9,13 @@ class QPushButton;
 
 namespace Corbomite {
 
-class VaultService;
+class CorbomiteApp;
 
 class WelcomeScreen : public QWidget {
     Q_OBJECT
 
 public:
-    explicit WelcomeScreen(VaultService *vaultService, QWidget *parent = nullptr);
+    explicit WelcomeScreen(CorbomiteApp *app, QWidget *parent = nullptr);
 
     void refreshRecentVaults();
 
@@ -31,7 +31,7 @@ protected:
 private:
     void generateArtwork();
 
-    VaultService *m_vaultService;
+    CorbomiteApp *m_app;
     QListWidget *m_recentList;
     QPushButton *m_openButton;
     QPushButton *m_createButton;

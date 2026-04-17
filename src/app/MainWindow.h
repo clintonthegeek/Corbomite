@@ -24,7 +24,7 @@ namespace Corbomite {
 class FileSystemAdapter;
 class Vault;
 class FileManager;
-class VaultService;
+class CorbomiteApp;
 class Workspace;
 class WorkspaceLeaf;
 class NoteEditorWidget;
@@ -64,7 +64,7 @@ class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
 
 public:
-    explicit MainWindow(VaultService *vaultService, QWidget *parent = nullptr);
+    explicit MainWindow(CorbomiteApp *app, QWidget *parent = nullptr);
     ~MainWindow() override;
 
     /// Accessor used by e2e tests to wire panels/editors defensively
@@ -107,7 +107,7 @@ private:
     void saveSessionState();
     void propagateServicesToView(View *view);
 
-    VaultService *m_vaultService;
+    CorbomiteApp *m_app;
     // Q.0 P6 — canonical Vault aggregate created alongside the legacy
     // VaultModel during the consumer-migration wave. Both coexist until
     // Phase 10 deletes VaultModel. Owned by `this` (QObject parent).

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "WelcomeScreen.h"
-#include "VaultService.h"
+#include "CorbomiteApp.h"
 
 #include <KLocalizedString>
 
@@ -18,9 +18,9 @@
 
 namespace Corbomite {
 
-WelcomeScreen::WelcomeScreen(VaultService *vaultService, QWidget *parent)
+WelcomeScreen::WelcomeScreen(CorbomiteApp *app, QWidget *parent)
     : QWidget(parent)
-    , m_vaultService(vaultService)
+    , m_app(app)
     , m_artworkSeed(QRandomGenerator::global()->bounded(100000))
 {
     auto *outerLayout = new QVBoxLayout(this);
@@ -110,7 +110,7 @@ void WelcomeScreen::refreshRecentVaults()
 {
     m_recentList->clear();
 
-    QStringList recent = m_vaultService->recentVaults();
+    QStringList recent = m_app->recentVaults();
     int count = qMin(recent.size(), 8);
 
     for (int i = 0; i < count; ++i) {

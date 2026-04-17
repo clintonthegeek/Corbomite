@@ -5,7 +5,7 @@
 #include <KDBusService>
 #include <QIcon>
 #include "MainWindow.h"
-#include "VaultService.h"
+#include "CorbomiteApp.h"
 #include "corbomite/core/ScopeManager.h"
 
 int main(int argc, char *argv[])
@@ -37,8 +37,8 @@ int main(int argc, char *argv[])
     // Any Modal/Menu that owns a Scope will push/pop onto this.
     Corbomite::ScopeManager::instance()->installOnApplication();
 
-    Corbomite::VaultService vaultService;
-    auto *mainWindow = new Corbomite::MainWindow(&vaultService);
+    Corbomite::CorbomiteApp corbomiteApp;
+    auto *mainWindow = new Corbomite::MainWindow(&corbomiteApp);
     mainWindow->setAttribute(Qt::WA_DeleteOnClose);
     mainWindow->show();
 

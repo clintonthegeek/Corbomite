@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Reproduction test for project_vault_switching memory.
-// Exercises the full MainWindow + VaultService path when the user opens
+// Exercises the full MainWindow + CorbomiteApp path when the user opens
 // a second vault while a vault is already live. Pre-3b this reportedly
 // crashed; we need to know if 3b's session rework happened to resolve
 // it (narrower Phase 4 scope) or not (we need full Kate destroy-rebuild).
@@ -16,7 +16,7 @@
 #include <KLocalizedString>
 
 #include "app/MainWindow.h"
-#include "app/VaultService.h"
+#include "app/CorbomiteApp.h"
 #include "corbomite/models/VaultModel.h"
 
 using namespace Corbomite;
@@ -25,7 +25,7 @@ class TestVaultSwitch : public QObject {
     Q_OBJECT
 
 private:
-    VaultService *m_vaultService = nullptr;
+    CorbomiteApp *m_app = nullptr;
     MainWindow *m_mainWindow = nullptr;
     QTemporaryDir m_vaultA;
     QTemporaryDir m_vaultB;
@@ -57,8 +57,8 @@ private Q_SLOTS:
         createFile(m_vaultA.path() + "/a2.md", QStringLiteral("# A2\n"));
         createFile(m_vaultB.path() + "/b1.md", QStringLiteral("# B1\n"));
 
-        m_vaultService = new VaultService(this);
-        m_mainWindow = new MainWindow(m_vaultService);
+        m_app = new CorbomiteApp(this);
+        m_mainWindow = new MainWindow(m_app);
         m_mainWindow->show();
         QVERIFY(QTest::qWaitForWindowExposed(m_mainWindow));
         settle(200);
@@ -68,18 +68,18 @@ private Q_SLOTS:
     {
         delete m_mainWindow;
         m_mainWindow = nullptr;
-        delete m_vaultService;
-        m_vaultService = nullptr;
+        delete m_app;
+        m_app = nullptr;
     }
 
     // Open A, open a note, then open B while A is live.
     // Pre-3b claim: this crashes.
     void testSwitchVaultWhileLive()
     {
-        QVERIFY(m_vaultService->openVault(m_vaultA.path()));
+        QVERIFY(m_app->openVault(m_vaultA.path()));
         settle(500);
-        QVERIFY(m_vaultService->isOpen());
-        QCOMPARE(m_vaultService->vault()->allNotes().size(), 2);
+        QVERIFY(m_app->isOpen());
+        QCOMPARE(m_app->vault()->allNotes().size(), 2);
 
         // Open a note so there is editor state to tear down
         m_mainWindow->onNoteActivated(QStringLiteral("a1.md"));
@@ -87,22 +87,22 @@ private Q_SLOTS:
 
         // Now open a second vault while A is live — replicates the user
         // flow: File → Open Vault while a vault is loaded.
-        // VaultService::openVault internally calls closeVault first when
+        // CorbomiteApp::openVault internally calls closeVault first when
         // something is open (if that's how it works today), otherwise we
         // need to call closeVault explicitly.
-        QSignalSpy closedSpy(m_vaultService, &VaultService::vaultClosed);
-        QSignalSpy openedSpy(m_vaultService, &VaultService::vaultOpened);
+        QSignalSpy closedSpy(m_app, &CorbomiteApp::vaultClosed);
+        QSignalSpy openedSpy(m_app, &CorbomiteApp::vaultOpened);
 
         // Mimic MainWindow::openVaultDialog path (minus the QFileDialog).
         // That path calls m_editorManager->queryClose() then openVault();
         // closeVault is only called explicitly by the Close Vault action.
         // The in-process swap goes: openVault(B) with A still open.
-        const bool opened = m_vaultService->openVault(m_vaultB.path());
+        const bool opened = m_app->openVault(m_vaultB.path());
         settle(500);
 
         QVERIFY2(opened, "openVault(B) while A is live failed");
-        QVERIFY(m_vaultService->isOpen());
-        QCOMPARE(m_vaultService->vault()->allNotes().size(), 1);
+        QVERIFY(m_app->isOpen());
+        QCOMPARE(m_app->vault()->allNotes().size(), 1);
 
         qDebug() << "Vault swap A→B: survived. closedSpy=" << closedSpy.count()
                  << "openedSpy=" << openedSpy.count();
@@ -111,11 +111,11 @@ private Q_SLOTS:
     // Now swap B→A to exercise the other direction.
     void testSwitchVaultBack()
     {
-        QVERIFY(m_vaultService->isOpen());
-        const bool opened = m_vaultService->openVault(m_vaultA.path());
+        QVERIFY(m_app->isOpen());
+        const bool opened = m_app->openVault(m_vaultA.path());
         settle(500);
         QVERIFY(opened);
-        QCOMPARE(m_vaultService->vault()->allNotes().size(), 2);
+        QCOMPARE(m_app->vault()->allNotes().size(), 2);
         qDebug() << "Vault swap B→A: survived.";
     }
 
@@ -123,12 +123,12 @@ private Q_SLOTS:
     void testRapidSwaps()
     {
         for (int i = 0; i < 3; ++i) {
-            QVERIFY(m_vaultService->openVault(m_vaultB.path()));
+            QVERIFY(m_app->openVault(m_vaultB.path()));
             settle(150);
-            QVERIFY(m_vaultService->openVault(m_vaultA.path()));
+            QVERIFY(m_app->openVault(m_vaultA.path()));
             settle(150);
         }
-        QVERIFY(m_vaultService->isOpen());
+        QVERIFY(m_app->isOpen());
         qDebug() << "3 rapid A↔B swaps: survived.";
     }
 };

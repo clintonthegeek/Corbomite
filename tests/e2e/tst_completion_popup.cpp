@@ -21,7 +21,7 @@
 #include <KLocalizedString>
 
 #include "app/MainWindow.h"
-#include "app/VaultService.h"
+#include "app/CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
 #include "editor/CompletionPopup.h"
 #include "corbomite/models/VaultModel.h"
@@ -35,7 +35,7 @@ class TestCompletionPopup : public QObject {
     Q_OBJECT
 
 private:
-    VaultService *m_vaultService = nullptr;
+    CorbomiteApp *m_app = nullptr;
     MainWindow *m_mainWindow = nullptr;
     QTemporaryDir m_vault;
 
@@ -85,13 +85,13 @@ private Q_SLOTS:
         createFile(m_vault.path() + "/Banana.md", QStringLiteral("# Banana\n"));
         createFile(m_vault.path() + "/Target.md", QStringLiteral("# Target\n"));
 
-        m_vaultService = new VaultService(this);
-        m_mainWindow = new MainWindow(m_vaultService);
+        m_app = new CorbomiteApp(this);
+        m_mainWindow = new MainWindow(m_app);
         m_mainWindow->show();
         QVERIFY(QTest::qWaitForWindowExposed(m_mainWindow));
         settle();
 
-        QVERIFY(m_vaultService->openVault(m_vault.path()));
+        QVERIFY(m_app->openVault(m_vault.path()));
         settle(500);
 
         // Open a note so an editor exists.
@@ -104,8 +104,8 @@ private Q_SLOTS:
     {
         delete m_mainWindow;
         m_mainWindow = nullptr;
-        delete m_vaultService;
-        m_vaultService = nullptr;
+        delete m_app;
+        m_app = nullptr;
     }
 
     void testTypingBracketBracketShowsPopup()
