@@ -41,9 +41,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster K — Bases
-- **Phase:** 2 of 9 (Phase 1 complete)
-- **Last completed step:** Phase 1 — `libs/bases/` scaffold + abstract `Value` base + `NullValue`/`BooleanValue`/`NumberValue`/`StringValue`/`ListValue` primitives (2026-04-17; commits `5825422b` `919e4590` `7d852537` `15a49faa`). 43 unit test cases across 3 test executables, all green.
-- **Next expected step:** Phase 2 — remaining Value subclasses (Date, Duration, Object, Regex, File, Link, Url, Tag, Image, Icon, HTML, Markdown, Error)
+- **Phase:** 3 of 9 (Phase 2 complete)
+- **Last completed step:** Phase 2 — all remaining Value subclasses landed: DateValue/RelativeDateValue, DurationValue (ISO-8601 + shorthand), Tag/Link/Url/Icon/Image/HTML/Markdown/Error StringValue subclasses, RegExpValue, ObjectValue (+ fromFrontMatter lazy coercer + LambdaObjectValue adapter), FileValue/ThisFileValue with MetadataCache-backed aggregate caches (2026-04-17; commits `4f2881e1` `48cb9d97` `fac90d67` `f9af1b6d` `704efa77`). 7 Phase-2 test executables, all green. FileValue's fixture-heavy test path deferred to Phase 7 Task 7.1 (BasesEntry tests exercise the same code end-to-end with a real Vault).
+- **Next expected step:** Phase 3 — Lexer + Pratt parser + AST node types (`Corbomite::Bases::Parser`, `Lexer`, `Ast.h`)
 - **Owner:** agent session
 - **Date last touched:** 2026-04-17
 - **Parser choice (locked-in 2026-04-17):** hand-rolled Pratt parser per addendum §15.1 option 2 (~250 lines, zero new runtime deps, easier to debug in C++ toolchain). Tree-sitter port option rejected; Lezer state-machine transliteration rejected.
