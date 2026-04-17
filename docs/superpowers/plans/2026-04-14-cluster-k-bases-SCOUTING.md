@@ -3,7 +3,8 @@
 > **Living-status note:** This is a *scouting document*, not a plan. It captures prior-art breadcrumbs + open architectural questions so a full plan can be written efficiently when Cluster K is unblocked. Live status is in [`docs/PROJECT-STATE.md`](../../PROJECT-STATE.md). When expanded to a full plan, rename to drop `-SCOUTING` suffix and update `INDEX.md`.
 
 **Scouting written:** 2026-04-14.
-**Expand to full plan when:** the Bases formula/filter DSL (symbols `DK`/`RK`/`JK`/`PX` in `_internal.js`) is extracted (PROJECT-STATE controller follow-up #3). Also benefits from Cluster A (`FrontMatter`), Cluster I (MetadataCache), and Cluster J (RenderContext for Value rendering) being at least in flight.
+**Blocker status:** **Resolved 2026-04-17.** DSL extraction landed as [`docs/obsidian-audit/addenda/2026-04-17-bases-formula-dsl.md`](../../obsidian-audit/addenda/2026-04-17-bases-formula-dsl.md) (15 sections: parser architecture, EBNF, precedence, type-aware operator semantics, evaluation context, Value hierarchy, string-escape rules, full function catalog, summary formulas, filter structure, identifier resolution, error surfaces, plugin surface, observed impl-vs-doc divergence, implementation options for this cluster). All gating conditions (Cluster A/I/J in flight or done) are also satisfied — A, I, J are all closed. **Ready for plan expansion.**
+**Expand to full plan when:** *(was: the Bases formula/filter DSL is extracted — now satisfied.)* Expand now; the phasing sketched in §"Rough phasing" below is a starting point, and §15 of the DSL addendum provides the parser/evaluator implementation-choice analysis that this scouting doc's §"Key architectural questions" #1 asked for.
 
 **Covers (deferred to full plan):** P2.13 (Bases), P3.12 (OperatorFuncConfigs plugin registry).
 
@@ -22,11 +23,19 @@ The audit estimated 8–10 weeks for a Bases MVP. That's too much scope to plan 
 - `VAULT-FORMAT.md` §6 — canonical `.base` file format consolidation.
 - `GAP-ANALYSIS.md` §Cluster K.
 
-## Controller-side follow-up (blocking)
+## Controller-side follow-up (blocking) — ~~BLOCKING~~ **RESOLVED 2026-04-17**
 
-Must happen before the full plan is written:
+~~Must happen before the full plan is written:~~ **Done.**
 
-**Extract `DK`/`RK`/`JK`/`PX` Bases formula/filter DSL parser.** Grep `_internal.js` for `DK(` call sites and trace back. The help page at `help.obsidian.md/bases/functions` is authoritative for user-facing grammar. Output: `docs/obsidian-audit/addenda/<date>-bases-formula-dsl.md` with the EBNF grammar + operator table + function list.
+~~**Extract `DK`/`RK`/`JK`/`PX` Bases formula/filter DSL parser.**~~ Landed as [`docs/obsidian-audit/addenda/2026-04-17-bases-formula-dsl.md`](../../obsidian-audit/addenda/2026-04-17-bases-formula-dsl.md). Key findings that reshape planning:
+
+1. The parser is **Lezer** (CodeMirror 6's parser generator), not hand-rolled — the Bases DSL is a small JS-style expression language with LR grammar + node-walker AST + typed interpreter (`NK` subclass hierarchy).
+2. Filter and formula grammars are **the same language**; filter-objects (`and`/`or`/`not`) compose outside the DSL in `BasesViewConfig`.
+3. Closed 16-class `Value` hierarchy with `static type` strings; plugins cannot add `Value` subclasses or operators — only functions via `registerGlobalFunc` / `registerInstanceFunc`.
+4. ~50 built-in functions catalogued (14 global + per-type methods on String/Number/Date/List/Object/Regexp/Link/File + 15 default summary formulas expressed *as* formulas over an implicit `values` list).
+5. Several special-cases hard-coded in the call-evaluator (`if`, `list.map/filter/reduce`, `object.map/filter`) that bypass the function registry.
+
+Three implementation options for the C++ port are sketched in §15 of the addendum (tree-sitter grammar port / hand-rolled Pratt parser / full Lezer state-machine transliteration). **Plan-expansion task should pick one during phase 3 design.**
 
 ## Prior-art breadcrumbs (local paths — do NOT clone)
 

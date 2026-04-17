@@ -509,5 +509,6 @@ Obsidian is a layered Electron app. At the bottom sits **`core/App`** wiring the
 
 > **Append-only.** When implementation reveals new or corrected facts about Obsidian, write a dated file in `addenda/` and link it here (most recent on top). See `addenda/README.md` for the format. **Never edit the taxonomy or domain docs above** — they are snapshots of audit-time belief and must remain stable.
 
+- [2026-04-17 — Bases formula / filter DSL: grammar, operator semantics, function catalog](addenda/2026-04-17-bases-formula-dsl.md)
 - [2026-04-15 — Markoff strips footnote-def lines before tree-sitter (offset-shift)](addenda/2026-04-15-markoff-footnote-def-offset-shift.md)
 - [2026-04-15 — Daily Notes + Templates JSON schemas](addenda/2026-04-15-daily-notes-templates-schemas.md)
