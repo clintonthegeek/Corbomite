@@ -1251,6 +1251,8 @@ void MainWindow::onVaultOpened()
     m_localGraphPanel->setVault(m_vaultObj);
     m_localGraphPanel->setMetadataCache(m_metadataCache);
     m_propertiesPanel->setMetadataCache(m_metadataCache);
+    m_propertiesPanel->setVault(m_vaultObj);
+    m_propertiesPanel->setFileManager(m_fileManager);
 
     // Update MetadataCache on note saves
     connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relPath) {
@@ -1378,6 +1380,8 @@ void MainWindow::onVaultClosed()
     m_localGraphPanel->setVault(nullptr);
     m_localGraphPanel->setCurrentNote(nullptr);
     m_propertiesPanel->setCurrentNote(nullptr);
+    m_propertiesPanel->setFileManager(nullptr);
+    m_propertiesPanel->setVault(nullptr);
     m_propertiesPanel->setMetadataCache(nullptr);
 
     if (m_embedRenderer) {

@@ -12,13 +12,15 @@ class QTimer;
 
 namespace Corbomite {
 
+class FileManager;
 class MetadataCache;
 class NoteDocument;
 class PropertyEditorWidget;
+class Vault;
 
 /// Sidebar panel that shows the current note's YAML frontmatter as an
 /// editable key-value form. Edits are debounced 500ms and written back
-/// atomically via FrontMatterWriter::process. Subscribes to
+/// atomically via FileManager::processFrontMatter. Subscribes to
 /// MetadataCache::cacheChanged for reactive refresh on external edits,
 /// but suppresses refresh while the user is actively editing (debounce
 /// timer active).
@@ -29,6 +31,10 @@ public:
     ~PropertiesPanel() override;
 
     void setMetadataCache(MetadataCache *cache);
+    /// Q.0 P6 — pair of (Vault, FileManager) drives frontmatter writeback.
+    /// Both must be non-null for writes to flush.
+    void setVault(Vault *vault);
+    void setFileManager(FileManager *fm);
     void setCurrentNote(NoteDocument *doc);
 
     /// Programmatic helper for tests — add a property with a default
@@ -65,6 +71,8 @@ private:
 
     QPointer<MetadataCache> m_cache;
     QPointer<NoteDocument> m_currentDoc;
+    Vault *m_vault = nullptr;
+    FileManager *m_fileManager = nullptr;
 
     struct EditorRow {
         QString key;

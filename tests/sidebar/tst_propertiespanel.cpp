@@ -26,8 +26,11 @@
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/models/PropertyType.h"
 #include "corbomite/models/PropertyTypeInference.h"
+#include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
+#include "corbomite/vault/FileManager.h"
+#include "corbomite/vault/Vault.h"
 
 #include "PropertiesPanel.h"
 #include "PropertyEditorWidget.h"
@@ -349,7 +352,7 @@ private Q_SLOTS:
         QCOMPARE(panel.rowCount(), 0);
     }
 
-    void testPanelWritebackThroughFrontMatterWriter()
+    void testPanelWritebackThroughFileManager()
     {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());
@@ -376,11 +379,18 @@ private Q_SLOTS:
         cache.onFileChanged(noteRel, content, 1000);
         QTRY_COMPARE_WITH_TIMEOUT(cSpy.count(), 1, 2000);
 
+        FileSystemAdapter fs;
+        Vault vault(&fs);
+        vault.load(vaultRoot);
+        FileManager fileManager(&vault, &cache);
+
         NoteDocument doc(vaultRoot, noteRel);
         PropertiesPanel panel;
         QSignalSpy writtenSpy(&panel, &PropertiesPanel::propertiesWritten);
 
         panel.setMetadataCache(&cache);
+        panel.setVault(&vault);
+        panel.setFileManager(&fileManager);
         panel.setCurrentNote(&doc);
         QCOMPARE(panel.rowCount(), 1);
 

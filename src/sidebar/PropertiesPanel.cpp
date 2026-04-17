@@ -3,12 +3,14 @@
 
 #include "PropertyEditorWidget.h"
 
-#include "corbomite/core/FrontMatterWriter.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/models/PropertyType.h"
 #include "corbomite/models/PropertyTypeInference.h"
 #include "corbomite/storage/CachedMetadata.h"
 #include "corbomite/storage/MetadataCache.h"
+#include "corbomite/vault/FileManager.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/Vault.h"
 
 #include <KLocalizedString>
 
@@ -81,6 +83,16 @@ void PropertiesPanel::setMetadataCache(MetadataCache *cache)
                 });
     }
     refresh();
+}
+
+void PropertiesPanel::setVault(Vault *vault)
+{
+    m_vault = vault;
+}
+
+void PropertiesPanel::setFileManager(FileManager *fm)
+{
+    m_fileManager = fm;
 }
 
 void PropertiesPanel::setCurrentNote(NoteDocument *doc)
@@ -220,56 +232,56 @@ void PropertiesPanel::scheduleWrite()
 
 void PropertiesPanel::flushWrite()
 {
-    if (!m_currentDoc) return;
+    if (!m_currentDoc || !m_vault || !m_fileManager) return;
 
-    const QString filePath = m_currentDoc->filePath();
-    if (filePath.isEmpty()) return;
+    const QString relPath = m_currentDoc->relativePath();
+    if (relPath.isEmpty()) return;
+
+    TFile *tf = m_vault->getFileByPath(relPath);
+    if (!tf) return;
 
     QVector<EditorRow> snapshot = m_rows;
 
-    QString err;
-    const bool ok = FrontMatterWriter::process(
-        filePath,
-        [&snapshot](Markoff::YamlValue &fm) {
-            // Remove keys not currently present in the editor snapshot
-            // (handles deletion via UI in a future iteration). For now,
-            // we preserve unknown keys by not touching them. Just
-            // overwrite known keys.
+    const bool ok = m_fileManager->processFrontMatter(
+        tf,
+        [&snapshot](QVariantMap &fm) {
+            // Overwrite keys present in the editor snapshot. Keys not in
+            // the snapshot are preserved as-is (deletion via UI is a
+            // future iteration).
             for (const auto &row : snapshot) {
                 if (!row.editor) continue;
                 const Markoff::YamlValue v = row.editor->currentValue();
                 switch (v.kind()) {
                 case Markoff::YamlValue::Kind::Bool:
-                    fm.setBool(row.key, v.asBool());
+                    fm[row.key] = v.asBool();
                     break;
                 case Markoff::YamlValue::Kind::Int:
-                    fm.setInt(row.key, v.asInt());
+                    fm[row.key] = QVariant::fromValue<qlonglong>(v.asInt());
                     break;
                 case Markoff::YamlValue::Kind::Double:
-                    fm.setDouble(row.key, v.asDouble());
+                    fm[row.key] = v.asDouble();
                     break;
                 case Markoff::YamlValue::Kind::String:
-                    fm.setString(row.key, v.asString());
+                    fm[row.key] = v.asString();
                     break;
                 case Markoff::YamlValue::Kind::Seq:
-                    fm.setSeq(row.key, v.asStringList());
+                    fm[row.key] = v.asStringList();
                     break;
                 case Markoff::YamlValue::Kind::Null:
                 default:
-                    fm.setNull(row.key);
+                    fm[row.key] = QVariant();
                     break;
                 }
             }
-        },
-        &err);
+        });
 
     if (!ok) {
-        qWarning() << "PropertiesPanel: FrontMatterWriter::process failed:"
-                   << err << "for" << filePath;
+        qWarning() << "PropertiesPanel: FileManager::processFrontMatter failed for"
+                   << m_currentDoc->filePath();
         return;
     }
 
-    Q_EMIT propertiesWritten(filePath);
+    Q_EMIT propertiesWritten(m_currentDoc->filePath());
 }
 
 }  // namespace Corbomite
