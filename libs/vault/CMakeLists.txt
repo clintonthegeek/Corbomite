@@ -13,6 +13,8 @@ add_library(vault STATIC
     src/TAbstractFile.cpp
     include/corbomite/vault/TFile.h
     src/TFile.cpp
+    include/corbomite/vault/TFolder.h
+    src/TFolder.cpp
 )
 set_target_properties(vault PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Vault ALIAS vault)

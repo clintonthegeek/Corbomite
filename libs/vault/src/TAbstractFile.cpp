@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/vault/TAbstractFile.h"
+#include "corbomite/vault/TFolder.h"
 
 #include <QFileInfo>
-#include <QRegularExpression>
 
 namespace Corbomite {
 
@@ -23,15 +23,15 @@ QString TAbstractFile::getNewPathAfterRename(const QString &newName) const
 {
     if (!parent) return {};
 
-    QString cleaned = newName;
-    cleaned.remove(QRegularExpression(QStringLiteral("[\\x00-\\x1F]")));
+    QString cleaned;
+    cleaned.reserve(newName.size());
+    for (QChar ch : newName) {
+        if (ch.unicode() >= 0x20) cleaned.append(ch);
+    }
     cleaned = cleaned.trimmed();
     if (cleaned.isEmpty()) return {};
 
-    // Parent-prefix computation deferred to Task 1.4 (requires TFolder
-    // complete type). Until then, return empty; parent-backed rename is
-    // exercised by tst_vault_tree once TFolder exists.
-    return {};
+    return parent->getParentPrefix() + cleaned;
 }
 
 } // namespace Corbomite
