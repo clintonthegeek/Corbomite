@@ -36,12 +36,26 @@
 > `libs/core/`. `VaultReader` + `VaultWriter` are **deleted** — replaced
 > by `VaultProxy` + `FileManagerProxy` in `libs/vault/include/corbomite/
 > vault/proxies/`. Tasks 7–12 bodies below updated accordingly.
+>
+> **Cluster Q close update (2026-04-17):** `MetadataCacheReader` ended up
+> in `libs/storage/`, not `libs/core/`. Making it a `QObject` with method-
+> pointer connect requires `MetadataCache::staticMetaObject` at link time,
+> which forced every test that linked `Corbomite::Core` (without
+> `Corbomite::Storage`) to fail. Moving the proxy to `libs/storage/` co-
+> locates it with its underlying service and is cleaner architecturally.
+> All path references below that read `libs/core/include/corbomite/core/
+> proxies/MetadataCacheReader.{h,cpp}` should be read as
+> `libs/storage/include/corbomite/storage/proxies/MetadataCacheReader.{h,cpp}`.
+> The header include line is `#include "corbomite/storage/proxies/
+> MetadataCacheReader.h"`. The companion header for the other eight
+> proxies (WorkspaceController, CommandRegistrar, ViewRegistrar,
+> MenuInjector, SecretStorage, ProcessSpawner) did stay in `libs/core/`;
+> only MetadataCacheReader moved.
 
 ```
 libs/core/include/corbomite/core/
   PluginMetaData.h               # KPluginMetaData wrapper (stays here)
   proxies/
-    MetadataCacheReader.h
     WorkspaceController.h
     CommandRegistrar.h
     ViewRegistrar.h
@@ -58,9 +72,16 @@ libs/vault/include/corbomite/vault/
     VaultProxy.h                 # replaces VaultReader + VaultWriter (Q.0 P9)
     FileManagerProxy.h           # new (Q.0 P9 — gates FileManager surface)
 
+libs/storage/include/corbomite/storage/
+  proxies/
+    MetadataCacheReader.h        # moved from libs/core/ at Cluster Q close (QObject link cycle)
+
 libs/core/src/
   PluginMetaData.cpp
-  proxies/*.cpp
+  proxies/*.cpp  # all proxies except MetadataCacheReader
+
+libs/storage/src/
+  proxies/MetadataCacheReader.cpp
 
 libs/vault/src/
   Plugin.cpp
