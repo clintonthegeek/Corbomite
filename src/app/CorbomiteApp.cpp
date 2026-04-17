@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "CorbomiteApp.h"
 
+#include "corbomite/vault/PluginManager.h"
+
 #include <QFileInfo>
 
 namespace Corbomite {
 
 CorbomiteApp::CorbomiteApp(QObject *parent)
     : QObject(parent)
+    , m_pluginManager(new PluginManager(this))
 {
+    // Cluster Q Phase 2 (Task 12): discover + auto-enable plugins at
+    // startup. Plugin views attach to MainWindow when each plugin
+    // emits pluginLoaded — see MainWindow's pluginLoaded slot.
+    m_pluginManager->discoverPlugins();
+    m_pluginManager->loadEnabledStateFromConfig();
 }
 
 CorbomiteApp::~CorbomiteApp() = default;
