@@ -1,4 +1,4 @@
-// src/graph/GraphView.h
+// src/plugins/graph-view/GraphView.h
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
@@ -39,6 +39,8 @@ private:
     GraphViewTab *m_graphWidget = nullptr;
     SQLiteIndex *m_index = nullptr;
     Vault *m_vault = nullptr;
+    MetadataCache *m_pendingCache = nullptr;
+    GraphControlsPanel *m_pendingPanel = nullptr;
 };
 
 } // namespace Corbomite

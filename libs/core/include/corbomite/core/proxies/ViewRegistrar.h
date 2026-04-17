@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <functional>
@@ -32,7 +33,10 @@ public:
     void unregisterView(const QString &type);
 
 private:
-    ViewRegistry *m_registry;
+    // QPointer so destructor can safely skip cleanup when the host
+    // ViewRegistry has already been destroyed (e.g. under the Cluster Q
+    // recreated-MainWindow teardown path in tst_e2e_gui testCleanShutdown).
+    QPointer<ViewRegistry> m_registry;
     QStringList m_registeredTypes;
     QStringList m_registeredExtensions;
 };

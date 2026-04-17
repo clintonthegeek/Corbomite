@@ -1,7 +1,7 @@
 {
     "KPlugin": {
         "Name": "Graph View",
-        "Description": "Global graph of all notes in the vault (main-area tab)",
+        "Description": "Global graph of all notes in the vault (main-area tab + docked controls)",
         "Icon": "preferences-system-network",
         "Version": "1.0",
         "License": "GPL-3.0-or-later",
@@ -10,6 +10,9 @@
         "Authors": [{"Name": "Corbomite Developers"}]
     },
     "X-Corbomite-Trusted": true,
-    "X-Corbomite-Permissions": ["metadata.read", "workspace", "ui.views"],
-    "X-Corbomite-MinVersion": "0.1.0"
+    "X-Corbomite-Permissions": ["vault.read", "metadata.read", "workspace", "ui.views"],
+    "X-Corbomite-MinVersion": "0.1.0",
+    "X-Corbomite-DockArea": "right",
+    "X-Corbomite-DockIcon": "configure",
+    "X-Corbomite-DockTitle": "Graph Controls"
 }

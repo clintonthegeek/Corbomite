@@ -1,4 +1,4 @@
-// src/graph/GraphView.cpp
+// src/plugins/graph-view/GraphView.cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "GraphView.h"
 #include "GraphViewTab.h"
@@ -27,14 +27,14 @@ void GraphView::setVault(Vault *vault) { m_vault = vault; }
 
 void GraphView::setMetadataCache(MetadataCache *cache)
 {
-    if (m_graphWidget)
-        m_graphWidget->setMetadataCache(cache);
+    m_pendingCache = cache;
+    if (m_graphWidget) m_graphWidget->setMetadataCache(cache);
 }
 
 void GraphView::setControlsPanel(GraphControlsPanel *panel)
 {
-    if (m_graphWidget)
-        m_graphWidget->setControlsPanel(panel);
+    m_pendingPanel = panel;
+    if (m_graphWidget) m_graphWidget->setControlsPanel(panel);
 }
 
 GraphViewTab *GraphView::graphWidget() const { return m_graphWidget; }
@@ -50,6 +50,10 @@ void GraphView::onOpen()
 
         connect(m_graphWidget, &GraphViewTab::noteActivated,
                 this, &GraphView::noteActivated);
+
+        // Apply services that were set before the widget existed.
+        if (m_pendingCache) m_graphWidget->setMetadataCache(m_pendingCache);
+        if (m_pendingPanel) m_graphWidget->setControlsPanel(m_pendingPanel);
     }
 }
 

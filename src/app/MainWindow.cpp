@@ -10,8 +10,6 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/FileView.h"
 #include "corbomite/core/TextFileView.h"
-#include "graph/GraphControlsPanel.h"
-#include "graph/GraphViewTab.h"
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
 #include "corbomite/storage/FileSystemAdapter.h"
@@ -38,7 +36,6 @@
 #include "corbomite/core/View.h"
 #include "editor/MarkdownView.h"
 #include "canvas/CanvasFileView.h"
-#include "graph/GraphView.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
 #include "corbomite/core/VaultResourceProvider.h"
@@ -559,11 +556,10 @@ void MainWindow::propagateServicesToView(View *view)
         return;
     }
 
-    if (auto *graphTab = view->findChild<GraphViewTab *>()) {
-        if (m_graphControlsPanel)
-            graphTab->setControlsPanel(m_graphControlsPanel);
-        graphTab->setMetadataCache(m_metadataCache);
-    }
+    // Graph view service wiring now happens inside the corbomite-graph-view
+    // plugin: it captures Vault / SQLiteIndex / MetadataCache from its
+    // PluginContext and passes them into each GraphView via the factory
+    // closure registered with ViewRegistrar.
 }
 
 // --- Actions ---
@@ -839,7 +835,10 @@ void MainWindow::setupEditor()
     m_viewRegistry->registerViewWithExtensions(
         {QStringLiteral("canvas")}, QStringLiteral("canvas"),
         &CanvasFileView::factory);
-    m_viewRegistry->registerView(QStringLiteral("graph"), &GraphView::factory);
+    // "graph" view type is registered by the corbomite-graph-view plugin's
+    // onLoad via ViewRegistrar. Plugins are loaded before workspace layout
+    // deserialize in onVaultOpened, so the type is available by the time
+    // any restored "graph" leaf instantiates.
 
     // Index 1: Workspace (replaces EditorViewManager)
     m_workspace = new Workspace(m_viewRegistry, this);
@@ -949,15 +948,9 @@ void MainWindow::setupSidebars()
     // LocalGraph panel migrated to InternalPlugin "corbomite-local-graph"
     // (Cluster Q Task 19).
 
-    auto *graphControlsView = createToolView(
-        nullptr,
-        QStringLiteral("graph_controls_panel"),
-        KMultiTabBar::Right,
-        QIcon::fromTheme(QStringLiteral("configure")),
-        i18n("Graph Controls")
-    );
-    m_graphControlsPanel = new GraphControlsPanel(graphControlsView);
-    graphControlsView->layout()->addWidget(m_graphControlsPanel);
+    // Graph Controls panel is hosted by corbomite-graph-view plugin's
+    // createView path — shows up as a Right-side tool view when the
+    // plugin loads. No direct construction here.
 }
 
 void MainWindow::setupStatusBar()
@@ -1314,6 +1307,13 @@ void MainWindow::onVaultOpened(const QString &path)
 
     m_sessionManager->blockSaving();
 
+    // Plugin lifecycle moved ahead of workspace.deserialize so view types
+    // registered by plugins (notably "graph" by corbomite-graph-view) are
+    // available when a restored leaf instantiates. Hosted-view attachment
+    // still rides the pluginLoaded signal that enablePlugin emits below.
+    rewirePluginCoreServices();
+    if (auto *pm = m_app->pluginManager()) pm->loadEnabledStateFromConfig();
+
     if (m_sessionManager->hasLoadedSession()) {
         QJsonObject wsLayout = m_sessionManager->workspaceLayout();
         if (!wsLayout.isEmpty()) {
@@ -1358,12 +1358,6 @@ void MainWindow::onVaultOpened(const QString &path)
         VaultConfig vaultConfig(&fs, path);
         m_dailyNoteService->initFromVaultConfig(vaultConfig);
     }
-
-    // Plugin lifecycle: now that core services exist, wire the
-    // configurator on every future PluginContext + load enabled plugins
-    // from KConfig. Hosted views attach via the pluginLoaded signal.
-    rewirePluginCoreServices();
-    if (auto *pm = m_app->pluginManager()) pm->loadEnabledStateFromConfig();
 
     updateVaultActions();
 }
@@ -1458,12 +1452,8 @@ void MainWindow::openGraphView()
     leaf->setViewState(viewState);
     m_workspace->setActiveLeaf(leaf);
 
-    // Wire graph controls if the view is a GraphViewTab
-    if (auto *graphView = leaf->view() ? leaf->view()->findChild<GraphViewTab *>() : nullptr) {
-        if (m_graphControlsPanel)
-            graphView->setControlsPanel(m_graphControlsPanel);
-        graphView->setMetadataCache(m_metadataCache);
-    }
+    // Service wiring happens inside corbomite-graph-view plugin's factory
+    // closure — no direct graphTab manipulation from the host.
 }
 
 void MainWindow::showSearchPanel()

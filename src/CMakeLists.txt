@@ -40,11 +40,6 @@ add_library(CorbomiteApp STATIC
     dialogs/QuickSwitcher.cpp
     dialogs/TemplatePicker.cpp
     graph/GraphDataBuilder.cpp
-    graph/GraphView.cpp
-    graph/GraphView.h
-    graph/GraphViewTab.cpp
-    graph/CollapsibleSection.cpp
-    graph/GraphControlsPanel.cpp
     canvas/CanvasFileView.cpp
     canvas/CanvasFileView.h
     canvas/CanvasViewTab.cpp
