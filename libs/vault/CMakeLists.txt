@@ -21,6 +21,8 @@ add_library(vault STATIC
     src/PathNormalization.cpp
     include/corbomite/vault/VaultScanner.h
     src/VaultScanner.cpp
+    src/Watcher.h
+    src/Watcher.cpp
 )
 set_target_properties(vault PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Vault ALIAS vault)

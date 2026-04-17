@@ -31,7 +31,6 @@
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/core/NoteDocument.h"
 #include "reactors/AutosaveReactor.h"
-#include "reactors/FileWatchReactor.h"
 #include "SessionManager.h"
 
 #include "corbomite/core/Command.h"
@@ -218,11 +217,7 @@ MainWindow::~MainWindow()
     delete m_autosave;
     m_autosave = nullptr;
 
-    if (m_fileWatch) {
-        m_fileWatch->stopWatching();
-    }
-    delete m_fileWatch;
-    m_fileWatch = nullptr;
+    // FileWatchReactor teardown removed (Q.0 P2 T2.2).
 
     delete m_sessionManager;
     m_sessionManager = nullptr;
@@ -1160,16 +1155,12 @@ void MainWindow::onVaultOpened()
     delete m_autosave;
     m_autosave = new AutosaveReactor(m_vaultService->noteService(), this);
 
-    delete m_fileWatch;
-    m_fileWatch = new FileWatchReactor(vault, this);
-    m_fileWatch->startWatching(vault->path());
-
-    connect(m_autosave, &AutosaveReactor::noteSaved, this, [this](const QString &relativePath) {
-        if (m_fileWatch && m_vaultService->vault()) {
-            QString absPath = m_vaultService->vault()->path() + QLatin1Char('/') + relativePath;
-            m_fileWatch->suppressPath(absPath);
-        }
-    });
+    // TODO Q.0 P7: re-wire file-watcher through Vault. FileWatchReactor moved
+    // to libs/vault as private Corbomite::detail::Watcher in Q.0 P2 T2.2;
+    // Vault's public `created` / `modified` / `deletedFile` / `renamed`
+    // signals (Q.0 P2 T2.4) will drive the TextFileView + MetadataCache
+    // pipelines below once Phase 7 migrates them. For now the pipeline is
+    // suppressed — external filesystem changes won't propagate to the UI.
 
     // Set file resolver so FileView::setState can load NoteDocuments
     m_viewRegistry->setFileResolver([this](const QString &relPath) -> NoteDocument * {
@@ -1254,33 +1245,12 @@ void MainWindow::onVaultOpened()
         m_metadataCache->onFileChanged(relPath, bytes, mtimeMs);
     });
 
-    // File watcher integration
-    if (m_fileWatch) {
-        connect(m_fileWatch, &FileWatchReactor::fileModifiedExternally,
-                this, [this](const QString &relativePath) {
-            for (auto *leaf : m_workspace->allLeaves()) {
-                if (auto *tfv = qobject_cast<TextFileView *>(leaf->view())) {
-                    tfv->onExternalModify(relativePath);
-                }
-            }
-        });
-        connect(m_fileWatch, &FileWatchReactor::fileDeletedExternally,
-                this, [this](const QString &relPath) {
-            if (m_metadataCache) m_metadataCache->onFileDeleted(relPath);
-        });
-        connect(m_fileWatch, &FileWatchReactor::fileCreatedExternally,
-                this, [this](const QString &relPath) {
-            if (!m_metadataCache || !m_vaultService->vault()) return;
-            const QString absPath =
-                m_vaultService->vault()->path() + QLatin1Char('/') + relPath;
-            QFile f(absPath);
-            if (!f.open(QIODevice::ReadOnly)) return;
-            const QByteArray bytes = f.readAll();
-            const qint64 mtimeMs =
-                QFileInfo(absPath).lastModified().toMSecsSinceEpoch();
-            m_metadataCache->onFileChanged(relPath, bytes, mtimeMs);
-        });
-    }
+    // TODO Q.0 P7: re-wire file-watcher signal consumers onto Vault::created
+    // / Vault::modified / Vault::deletedFile / Vault::renamed (Q.0 P2 T2.4
+    // introduces the producers). Previously these three blocks wired
+    // FileWatchReactor's fileModifiedExternally / fileDeletedExternally /
+    // fileCreatedExternally signals to TextFileView::onExternalModify and
+    // MetadataCache::onFileChanged / onFileDeleted; gap accepted per plan.
 
     // Session manager — restore workspace
     delete m_sessionManager;
@@ -1365,11 +1335,7 @@ void MainWindow::onVaultClosed()
 
     delete m_autosave;
     m_autosave = nullptr;
-    if (m_fileWatch) {
-        m_fileWatch->stopWatching();
-    }
-    delete m_fileWatch;
-    m_fileWatch = nullptr;
+    // FileWatchReactor teardown removed (Q.0 P2 T2.2).
     delete m_sessionManager;
     m_sessionManager = nullptr;
 

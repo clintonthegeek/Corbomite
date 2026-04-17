@@ -30,7 +30,9 @@ class FileExplorerPanel;
 class SearchPanel;
 class NotesTreeModel;
 class AutosaveReactor;
-class FileWatchReactor;
+// FileWatchReactor forward decl removed — moved into Corbomite::detail::Watcher
+// inside libs/vault/ during Q.0 Phase 2 Task 2.2. Re-exposed via Vault's
+// public signal API in Q.0 Phase 7.
 class SessionManager;
 class SQLiteIndex;
 class MetadataCache;
@@ -111,7 +113,9 @@ private:
     QLabel *m_wordCountLabel = nullptr;
     QLabel *m_cursorPosLabel = nullptr;
     AutosaveReactor *m_autosave = nullptr;
-    FileWatchReactor *m_fileWatch = nullptr;
+    // m_fileWatch removed — FileWatchReactor moved to libs/vault as private
+    // Corbomite::detail::Watcher. Re-wired to Vault's public signal API in
+    // Q.0 Phase 7.
     SessionManager *m_sessionManager = nullptr;
     SearchPanel *m_searchPanel = nullptr;
     SQLiteIndex *m_searchIndex = nullptr;
