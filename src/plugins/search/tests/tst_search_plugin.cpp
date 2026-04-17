@@ -34,9 +34,8 @@ void TestSearchPlugin::createsViewWhenMetadataReadGranted()
 
     PluginContext ctx(makeMeta(),
         {QStringLiteral("metadata.read"), QStringLiteral("workspace")});
-    ctx.setCoreServices(nullptr, nullptr, &cache, nullptr, nullptr,
+    ctx.setCoreServices(nullptr, nullptr, &cache, &index, nullptr, nullptr,
                          nullptr, nullptr, nullptr);
-    ctx.setSearchIndex(&index);
     plugin.load(&ctx);
 
     QObject *view = plugin.createView(nullptr);
@@ -51,9 +50,9 @@ void TestSearchPlugin::returnsNullWhenIndexMissing()
     LinkResolver resolver;
     MetadataCache cache(resolver);
     PluginContext ctx(makeMeta(), {QStringLiteral("metadata.read")});
-    ctx.setCoreServices(nullptr, nullptr, &cache, nullptr, nullptr,
+    ctx.setCoreServices(nullptr, nullptr, &cache, nullptr, nullptr, nullptr,
                          nullptr, nullptr, nullptr);
-    // No setSearchIndex — searchIndex() returns nullptr.
+    // No SQLiteIndex — search() returns nullptr.
     plugin.load(&ctx);
     QCOMPARE(plugin.createView(nullptr), nullptr);
 }

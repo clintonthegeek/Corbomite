@@ -423,9 +423,9 @@ void MainWindow::rewirePluginCoreServices()
     if (!pm) return;
     pm->setContextConfigurator([this](Corbomite::PluginContext *ctx) {
         ctx->setCoreServices(m_vaultObj, m_fileManager, m_metadataCache,
-                              m_workspace, m_commandRegistry, m_viewRegistry,
-                              m_menuEvents, nullptr /* QNetworkAccessManager */);
-        ctx->setSearchIndex(m_searchIndex);
+                              m_searchIndex, m_workspace, m_commandRegistry,
+                              m_viewRegistry, m_menuEvents,
+                              nullptr /* QNetworkAccessManager */);
     });
     // Plugins already enabled (e.g. on subsequent vault open) get their
     // contexts re-wired in place so proxies see the fresh services.
@@ -433,9 +433,8 @@ void MainWindow::rewirePluginCoreServices()
         const auto &info = pm->pluginByIndex(i);
         if (info.context) {
             info.context->setCoreServices(m_vaultObj, m_fileManager,
-                m_metadataCache, m_workspace, m_commandRegistry,
+                m_metadataCache, m_searchIndex, m_workspace, m_commandRegistry,
                 m_viewRegistry, m_menuEvents, nullptr);
-            info.context->setSearchIndex(m_searchIndex);
         }
     }
 }

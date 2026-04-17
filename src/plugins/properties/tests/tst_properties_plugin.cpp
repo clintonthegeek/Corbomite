@@ -41,7 +41,7 @@ void TestPropertiesPlugin::createsViewWhenMetadataAndWriteGranted()
         {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
          QStringLiteral("metadata.read"), QStringLiteral("workspace")});
     ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
-                         nullptr, nullptr);
+                         nullptr, nullptr, nullptr);
     plugin.load(&ctx);
 
     QObject *view = plugin.createView(nullptr);
@@ -56,7 +56,7 @@ void TestPropertiesPlugin::returnsNullWhenVaultWriteMissing()
     LinkResolver resolver;
     MetadataCache cache(resolver);
     PluginContext ctx(makeMeta(), {QStringLiteral("metadata.read")});
-    ctx.setCoreServices(nullptr, nullptr, &cache, nullptr, nullptr,
+    ctx.setCoreServices(nullptr, nullptr, &cache, nullptr, nullptr, nullptr,
                          nullptr, nullptr, nullptr);
     plugin.load(&ctx);
     // No FileManager (missing vault.read/write) → createView returns null.

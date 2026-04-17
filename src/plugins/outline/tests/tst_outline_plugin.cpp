@@ -38,7 +38,7 @@ void TestOutlinePlugin::createsViewWhenVaultReadGranted()
     PluginContext ctx(makeMeta(),
         {QStringLiteral("vault.read"), QStringLiteral("metadata.read"),
          QStringLiteral("workspace")});
-    ctx.setCoreServices(&vault, nullptr, &cache, nullptr, nullptr,
+    ctx.setCoreServices(&vault, nullptr, &cache, nullptr, nullptr, nullptr,
                          nullptr, nullptr, nullptr);
     plugin.load(&ctx);
 

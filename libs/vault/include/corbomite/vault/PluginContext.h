@@ -54,29 +54,12 @@ public:
     void setCoreServices(Vault *vault,
                          FileManager *fileManager,
                          MetadataCache *metadata,
+                         SQLiteIndex *searchIndex,
                          Workspace *workspace,
                          CommandRegistry *commands,
                          ViewRegistry *views,
                          MenuEventEmitter *menus,
                          QNetworkAccessManager *network);
-
-    /// Sets the host-side SQLiteIndex pointer. Plugins read it via
-    /// `searchIndex()` gated on `metadata.read`. Direct exposure is a
-    /// stop-gap pending a dedicated `SearchProxy` (Cluster Q follow-up).
-    void setSearchIndex(SQLiteIndex *index) { m_searchIndex = index; }
-
-    /// Returns the host SQLiteIndex if the plugin holds `metadata.read`.
-    /// nullptr otherwise. Direct pointer — no proxy abstraction yet.
-    SQLiteIndex *searchIndex() const;
-
-    /// Returns the host Vault aggregate directly. Gated on `vault.read`.
-    /// Stop-gap exposure for plugins that need a Vault* (e.g. to feed
-    /// NotesTreeModel) — proxy abstraction TBD.
-    Vault *vaultRaw() const;
-
-    /// Returns the host MetadataCache directly. Gated on `metadata.read`.
-    /// Stop-gap exposure for the same reason.
-    MetadataCache *metadataCacheRaw() const;
 
     // Metadata accessors
     const PluginMetaData &metaData() const { return m_meta; }

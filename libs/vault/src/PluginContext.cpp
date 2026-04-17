@@ -49,14 +49,15 @@ PluginContext::~PluginContext()
 }
 
 void PluginContext::setCoreServices(Vault *v, FileManager *fm,
-                                     MetadataCache *m, Workspace *w,
-                                     CommandRegistry *c, ViewRegistry *vr,
-                                     MenuEventEmitter *me,
+                                     MetadataCache *m, SQLiteIndex *si,
+                                     Workspace *w, CommandRegistry *c,
+                                     ViewRegistry *vr, MenuEventEmitter *me,
                                      QNetworkAccessManager *n)
 {
     m_vault = v;
     m_fileManager = fm;
     m_metadata = m;
+    m_searchIndex = si;
     m_workspace = w;
     m_commandRegistry = c;
     m_viewRegistry = vr;
@@ -95,24 +96,6 @@ FileManagerProxy *PluginContext::fileManager() const
                                                   m_meta.base().pluginId());
     }
     return m_fileManagerProxy;
-}
-
-SQLiteIndex *PluginContext::searchIndex() const
-{
-    if (!hasPermission(QLatin1String(kMetadataRead))) return nullptr;
-    return m_searchIndex;
-}
-
-Vault *PluginContext::vaultRaw() const
-{
-    if (!hasPermission(QLatin1String(kVaultRead))) return nullptr;
-    return m_vault;
-}
-
-MetadataCache *PluginContext::metadataCacheRaw() const
-{
-    if (!hasPermission(QLatin1String(kMetadataRead))) return nullptr;
-    return m_metadata;
 }
 
 MetadataCacheReader *PluginContext::metadataCache() const

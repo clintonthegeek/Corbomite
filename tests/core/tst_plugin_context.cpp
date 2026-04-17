@@ -46,8 +46,8 @@ void TestPluginContext::ungrantedAccessorsReturnNull()
     auto *fakeViews    = reinterpret_cast<Corbomite::ViewRegistry *>(0x1);
     auto *fakeMenus    = reinterpret_cast<Corbomite::MenuEventEmitter *>(0x1);
     auto *fakeNet      = reinterpret_cast<QNetworkAccessManager *>(0x1);
-    ctx.setCoreServices(fakeVault, fakeFm, fakeMetadata, fakeWs, fakeCmds,
-                        fakeViews, fakeMenus, fakeNet);
+    ctx.setCoreServices(fakeVault, fakeFm, fakeMetadata, nullptr,
+                        fakeWs, fakeCmds, fakeViews, fakeMenus, fakeNet);
 
     QCOMPARE(ctx.vault(), nullptr);
     QCOMPARE(ctx.fileManager(), nullptr);
@@ -101,7 +101,7 @@ void TestPluginContext::networkAccessorReturnsInstalledManager()
     Corbomite::PluginContext ctx(emptyMeta(), {QStringLiteral("network")});
     auto *fakeNet = reinterpret_cast<QNetworkAccessManager *>(0x42);
     ctx.setCoreServices(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                        nullptr, fakeNet);
+                        nullptr, nullptr, fakeNet);
     QCOMPARE(ctx.network(), fakeNet);
 }
 
@@ -119,7 +119,7 @@ void TestPluginContext::vaultAndFileManagerProxiesLazyConstruct()
         {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
          QStringLiteral("metadata.read")});
     ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
-                        nullptr, nullptr);
+                        nullptr, nullptr, nullptr);
 
     auto *vproxy = ctx.vault();
     auto *fmproxy = ctx.fileManager();
@@ -136,9 +136,8 @@ void TestPluginContext::searchAccessorLazyConstructsWhenGranted()
     Corbomite::PluginContext ctx(emptyMeta(), granted);
 
     Corbomite::SQLiteIndex index;
-    ctx.setCoreServices(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                        nullptr, nullptr);
-    ctx.setSearchIndex(&index);
+    ctx.setCoreServices(nullptr, nullptr, nullptr, &index, nullptr, nullptr,
+                        nullptr, nullptr, nullptr);
 
     auto *proxy = ctx.search();
     QVERIFY(proxy != nullptr);
@@ -151,9 +150,8 @@ void TestPluginContext::searchAccessorReturnsNullWhenPermissionDenied()
     Corbomite::PluginContext ctx(emptyMeta(), granted);
 
     Corbomite::SQLiteIndex index;
-    ctx.setCoreServices(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                        nullptr, nullptr);
-    ctx.setSearchIndex(&index);
+    ctx.setCoreServices(nullptr, nullptr, nullptr, &index, nullptr, nullptr,
+                        nullptr, nullptr, nullptr);
 
     QVERIFY(ctx.search() == nullptr);
 }

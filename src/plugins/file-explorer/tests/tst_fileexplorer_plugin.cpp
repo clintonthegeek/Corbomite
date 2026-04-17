@@ -44,7 +44,7 @@ void TestFileExplorerPlugin::createsViewWhenVaultGranted()
         {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
          QStringLiteral("vault.events"), QStringLiteral("workspace")});
     ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
-                         nullptr, nullptr);
+                         nullptr, nullptr, nullptr);
     plugin.load(&ctx);
 
     QObject *view = plugin.createView(nullptr);
@@ -77,7 +77,7 @@ void TestFileExplorerPlugin::sessionStateRoundTripsEmptyWhenNoFolders()
         {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
          QStringLiteral("vault.events")});
     ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
-                         nullptr, nullptr);
+                         nullptr, nullptr, nullptr);
     plugin.load(&ctx);
 
     QObject *view = plugin.createView(nullptr);

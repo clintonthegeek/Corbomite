@@ -44,9 +44,8 @@ void TestGraphViewPlugin::registersGraphViewTypeOnLoad()
     PluginContext ctx(makeMeta(),
         {QStringLiteral("vault.read"), QStringLiteral("metadata.read"),
          QStringLiteral("workspace"), QStringLiteral("ui.views")});
-    ctx.setCoreServices(&vault, nullptr, &cache, nullptr, nullptr,
+    ctx.setCoreServices(&vault, nullptr, &cache, &index, nullptr, nullptr,
                          &registry, nullptr, nullptr);
-    ctx.setSearchIndex(&index);
     plugin.load(&ctx);
 
     QCOMPARE(registry.getTypeByExtension(QStringLiteral("md")), QString());
@@ -73,7 +72,7 @@ void TestGraphViewPlugin::skipsViewRegistrationWithoutUiViewsPermission()
     ViewRegistry registry;
     GraphViewPlugin plugin;
     PluginContext ctx(makeMeta(), {QStringLiteral("vault.read")});
-    ctx.setCoreServices(nullptr, nullptr, nullptr, nullptr, nullptr,
+    ctx.setCoreServices(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
                          &registry, nullptr, nullptr);
     plugin.load(&ctx);
     QVERIFY(!bool(registry.getViewCreatorByType(QStringLiteral("graph"))));

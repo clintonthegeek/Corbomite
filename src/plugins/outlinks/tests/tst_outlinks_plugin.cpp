@@ -29,7 +29,7 @@ void TestOutlinksPlugin::createsViewWhenMetadataReadGranted()
         {QStringLiteral("metadata.read"), QStringLiteral("workspace")});
     LinkResolver resolver;
     MetadataCache cache(resolver);
-    ctx.setCoreServices(nullptr, nullptr, &cache, nullptr,
+    ctx.setCoreServices(nullptr, nullptr, &cache, nullptr, nullptr,
                          nullptr, nullptr, nullptr, nullptr);
     plugin.load(&ctx);
 

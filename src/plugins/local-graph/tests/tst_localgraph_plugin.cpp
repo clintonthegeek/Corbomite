@@ -40,9 +40,8 @@ void TestLocalGraphPlugin::createsViewWhenVaultAndMetadataGranted()
     PluginContext ctx(makeMeta(),
         {QStringLiteral("vault.read"), QStringLiteral("metadata.read"),
          QStringLiteral("workspace")});
-    ctx.setCoreServices(&vault, nullptr, &cache, nullptr, nullptr,
+    ctx.setCoreServices(&vault, nullptr, &cache, &index, nullptr, nullptr,
                          nullptr, nullptr, nullptr);
-    ctx.setSearchIndex(&index);
     plugin.load(&ctx);
 
     QObject *view = plugin.createView(nullptr);
@@ -56,7 +55,7 @@ void TestLocalGraphPlugin::returnsNullWhenVaultMissing()
     LocalGraphPlugin plugin;
     PluginContext ctx(makeMeta(),
         {QStringLiteral("vault.read"), QStringLiteral("metadata.read")});
-    // No setCoreServices → vaultRaw() / metadata() / searchIndex() all null.
+    // No setCoreServices → vault() / metadataCache() / search() all null.
     plugin.load(&ctx);
     QCOMPARE(plugin.createView(nullptr), nullptr);
 }
