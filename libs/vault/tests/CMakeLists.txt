@@ -124,3 +124,25 @@ target_link_libraries(tst_file_manager_frontmatter
 add_test(NAME tst_file_manager_frontmatter COMMAND tst_file_manager_frontmatter)
 set_tests_properties(tst_file_manager_frontmatter PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_file_manager_rename tst_file_manager_rename.cpp)
+target_link_libraries(tst_file_manager_rename
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_file_manager_rename COMMAND tst_file_manager_rename)
+set_tests_properties(tst_file_manager_rename PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 30)
+
+add_executable(tst_file_manager_newfile tst_file_manager_newfile.cpp)
+target_link_libraries(tst_file_manager_newfile
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_file_manager_newfile COMMAND tst_file_manager_newfile)
+set_tests_properties(tst_file_manager_newfile PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_file_manager_misc tst_file_manager_misc.cpp)
+target_link_libraries(tst_file_manager_misc
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_file_manager_misc COMMAND tst_file_manager_misc)
+set_tests_properties(tst_file_manager_misc PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
