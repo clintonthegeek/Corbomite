@@ -123,6 +123,36 @@ QVector<TAbstractFile *> Vault::getAllLoadedFiles() const
 
 bool Vault::isEmpty() const { return m_fileMap.size() <= 1; }
 
+QByteArray Vault::read(TFile *f) const
+{
+    if (!f || !m_adapter) return {};
+    auto body = m_adapter->readBinary(m_basePath + QLatin1Char('/') + f->path);
+    return body.has_value() ? *body : QByteArray{};
+}
+
+QByteArray Vault::readBinary(TFile *f) const
+{
+    return read(f);
+}
+
+QByteArray Vault::readRaw(const QString &path) const
+{
+    if (!m_adapter) return {};
+    auto body = m_adapter->readBinary(
+        m_basePath + QLatin1Char('/') + VaultPaths::normalize(path));
+    return body.has_value() ? *body : QByteArray{};
+}
+
+QByteArray Vault::cachedRead(TFile *f)
+{
+    if (!f) return {};
+    auto it = m_readCache.constFind(f->path);
+    if (it != m_readCache.cend()) return it.value();
+    const QByteArray body = read(f);
+    m_readCache.insert(f->path, body);
+    return body;
+}
+
 void Vault::buildTree()
 {
     if (m_basePath.isEmpty() || !m_adapter) return;
@@ -172,6 +202,7 @@ void Vault::buildTree()
 void Vault::teardownTree()
 {
     m_fileMap.clear();
+    m_readCache.clear();
     auto root = std::make_unique<TFolder>(this, QStringLiteral("/"));
     m_root = root.get();
     m_fileMap.emplace(QStringLiteral("/"), std::move(root));
@@ -232,6 +263,7 @@ void Vault::onExternalModified(const QString &relPath)
     fs.mtimeMs   = mtimeMs;
     fs.ctimeMs   = fi.birthTime().toMSecsSinceEpoch();
     f->stat      = fs;
+    m_readCache.remove(rel);
     Q_EMIT modified(f);
 }
 
@@ -266,6 +298,7 @@ void Vault::onExternalDeleted(const QString &relPath)
         parent->children.removeAll(owned.get());
     }
     TAbstractFile *raw = owned.get();
+    m_readCache.remove(rel);
     m_pendingDelete.push_back(std::move(owned));
     Q_EMIT deletedFile(raw);
 
@@ -280,6 +313,7 @@ void Vault::onExternalRenamed(const QString &oldRel, const QString &newRel)
     if (it == m_fileMap.end()) return;
     auto node = std::move(it->second);
     m_fileMap.erase(it);
+    m_readCache.remove(oldR);
     node->setPath(newR);
     TAbstractFile *raw = node.get();
     m_fileMap.emplace(newR, std::move(node));

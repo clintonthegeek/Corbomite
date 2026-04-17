@@ -46,3 +46,18 @@ target_link_libraries(tst_vault_echo_suppression
 add_test(NAME tst_vault_echo_suppression COMMAND tst_vault_echo_suppression)
 set_tests_properties(tst_vault_echo_suppression PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_vault_read tst_vault_read.cpp)
+target_link_libraries(tst_vault_read
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_read COMMAND tst_vault_read)
+set_tests_properties(tst_vault_read PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_vault_cached_read tst_vault_cached_read.cpp)
+target_link_libraries(tst_vault_cached_read
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_cached_read COMMAND tst_vault_cached_read)
+set_tests_properties(tst_vault_cached_read PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 30)

@@ -66,6 +66,12 @@ public:
     QVector<TAbstractFile *> getAllLoadedFiles() const;
     bool    isEmpty() const;
 
+    // ---- Read ----
+    QByteArray read(TFile *f) const;
+    QByteArray readBinary(TFile *f) const;
+    QByteArray readRaw(const QString &path) const;
+    QByteArray cachedRead(TFile *f);
+
 signals:
     void created(Corbomite::TAbstractFile *f);
     void modified(Corbomite::TFile *f);
@@ -104,6 +110,11 @@ private:
     // `deleted == true` and read the object without UAF. std::vector
     // (not QVector) because QVector requires value-copyable during grow.
     std::vector<std::unique_ptr<TAbstractFile>> m_pendingDelete;
+
+    // Sparse read cache populated by cachedRead; invalidated on
+    // modify/delete/rename. Lives on Vault so every TFile doesn't pay for
+    // an unused QByteArray field.
+    mutable QHash<QString, QByteArray> m_readCache;
 
     // Self-write echo suppression ledger. Outgoing writes (Phase 3
     // Vault::modify/create/process/...) call stampSelfWrite(rel, mtimeMs)
