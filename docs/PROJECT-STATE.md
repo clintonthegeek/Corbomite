@@ -41,9 +41,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster K — Bases
-- **Phase:** 8 of 9 (Phase 7 complete)
-- **Last completed step:** Phase 7 — BasesEntry + BasesQueryResult + QueryController (2026-04-17; commit `bb4a9cc3`). `formulaValue` memoises + detects cycles. `BasesQueryResult::groups()` lazily partitions; null-keyed groups land at end. QueryController 50ms-debounces MetadataCache::cacheChanged/cacheDeleted into a single recomputeNow. 6 smoke tests pass; full Vault-backed integration deferred to Phase 9.
-- **Next expected step:** Phase 8 — BasesView (TextFileView subclass) + BasesTableModel (QAbstractTableModel) + BasesCellDelegate + QTableView hookup + inline-edit frontmatter writeback
+- **Phase:** 9 of 9 (Phase 8 complete)
+- **Last completed step:** Phase 8 — BasesView + BasesTableModel + BasesCellDelegate (2026-04-17; commit `445e48ff`). QTableView-backed main-area view with header-click sort cycling, search field, view switcher. Delegate dispatches per-Value-type editors (Boolean → QCheckBox, Number → QDoubleSpinBox, Date → QDateEdit/QDateTimeEdit, else → QLineEdit). Inline edits write through FileManager::processFrontMatter.
+- **Next expected step:** Phase 9 — Bases plugin shell (src/plugins/bases) + cluster closeout (retro + PROJECT-STATE update + SCOUTING doc deletion)
 - **Owner:** agent session
 - **Date last touched:** 2026-04-17
 - **Parser choice (locked-in 2026-04-17):** hand-rolled Pratt parser per addendum §15.1 option 2 (~250 lines, zero new runtime deps, easier to debug in C++ toolchain). Tree-sitter port option rejected; Lezer state-machine transliteration rejected.
