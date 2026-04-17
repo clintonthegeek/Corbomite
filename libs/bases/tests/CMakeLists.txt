@@ -13,3 +13,7 @@ target_link_libraries(tst_bases_value_null PRIVATE Qt6::Test Corbomite::Bases)
 add_executable(tst_bases_value_primitive tst_value_primitive.cpp)
 add_test(NAME tst_bases_value_primitive COMMAND tst_bases_value_primitive)
 target_link_libraries(tst_bases_value_primitive PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_bases_value_list tst_value_list.cpp)
+add_test(NAME tst_bases_value_list COMMAND tst_bases_value_list)
+target_link_libraries(tst_bases_value_list PRIVATE Qt6::Test Corbomite::Bases)
