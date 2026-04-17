@@ -47,6 +47,12 @@ add_library(corbomite-bases STATIC
     include/corbomite/bases/BasesQueryResult.h
     src/QueryController.cpp
     include/corbomite/bases/QueryController.h
+    src/BasesTableModel.cpp
+    include/corbomite/bases/BasesTableModel.h
+    src/BasesCellDelegate.cpp
+    include/corbomite/bases/BasesCellDelegate.h
+    src/BasesView.cpp
+    include/corbomite/bases/BasesView.h
     include/corbomite/bases/ValuePtr.h
     include/corbomite/bases/Value.h
     include/corbomite/bases/Values.h
