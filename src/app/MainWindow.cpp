@@ -22,6 +22,8 @@
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
 #include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/vault/Vault.h"
+#include "corbomite/vault/FileManager.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
@@ -232,6 +234,12 @@ MainWindow::~MainWindow()
     if (m_metadataCache) {
         m_metadataCache->close();
     }
+    // Q.0 P6 — FileManager references MetadataCache; tear down first.
+    delete m_fileManager;
+    m_fileManager = nullptr;
+    if (m_vaultObj) m_vaultObj->unload();
+    delete m_vaultObj;
+    m_vaultObj = nullptr;
     delete m_searchIndex;
     m_searchIndex = nullptr;
     delete m_metadataCache;
@@ -1186,6 +1194,17 @@ void MainWindow::onVaultOpened()
     delete m_metadataCache;
     m_metadataCache = new MetadataCache(*m_linkResolver, this);
 
+    // Q.0 P6 — canonical Vault + FileManager. Runs alongside the legacy
+    // VaultService/VaultModel pair; panels migrate onto these during this
+    // phase.
+    if (!m_fsAdapter) m_fsAdapter = std::make_unique<FileSystemAdapter>();
+    delete m_fileManager;
+    m_fileManager = nullptr;
+    delete m_vaultObj;
+    m_vaultObj = new Vault(m_fsAdapter.get(), this);
+    m_vaultObj->load(vault->path());
+    m_fileManager = new FileManager(m_vaultObj, m_metadataCache, this);
+
     m_popoverResources = std::make_unique<VaultScopedResources>(vault);
     if (m_embedRenderer) {
         m_embedRenderer->setMetadataCache(m_metadataCache);
@@ -1226,7 +1245,7 @@ void MainWindow::onVaultOpened()
     m_backlinksPanel->setIndex(m_searchIndex);
     m_backlinksPanel->setMetadataCache(m_metadataCache);
     m_outlinksPanel->setIndex(m_searchIndex);
-    m_outlinksPanel->setVaultModel(vault);
+    m_outlinksPanel->setVault(m_vaultObj);
     m_outlinksPanel->setMetadataCache(m_metadataCache);
     m_localGraphPanel->setIndex(m_searchIndex);
     m_localGraphPanel->setVaultModel(vault);
@@ -1351,7 +1370,7 @@ void MainWindow::onVaultClosed()
     m_backlinksPanel->setCurrentNote(nullptr);
     m_outlinksPanel->setIndex(nullptr);
     m_outlinksPanel->setMetadataCache(nullptr);
-    m_outlinksPanel->setVaultModel(nullptr);
+    m_outlinksPanel->setVault(nullptr);
     m_outlinksPanel->setCurrentNote(nullptr);
     m_outlinePanel->setCurrentNote(nullptr);
     m_localGraphPanel->setIndex(nullptr);
@@ -1370,6 +1389,12 @@ void MainWindow::onVaultClosed()
     if (m_metadataCache) {
         m_metadataCache->close();
     }
+    // Q.0 P6 — FileManager references MetadataCache; tear down first.
+    delete m_fileManager;
+    m_fileManager = nullptr;
+    if (m_vaultObj) m_vaultObj->unload();
+    delete m_vaultObj;
+    m_vaultObj = nullptr;
     delete m_searchIndex;
     m_searchIndex = nullptr;
     delete m_metadataCache;

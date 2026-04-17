@@ -21,6 +21,9 @@ class EmbedRenderer;
 
 namespace Corbomite {
 
+class FileSystemAdapter;
+class Vault;
+class FileManager;
 class VaultService;
 class Workspace;
 class WorkspaceLeaf;
@@ -101,6 +104,12 @@ private:
     void propagateServicesToView(View *view);
 
     VaultService *m_vaultService;
+    // Q.0 P6 — canonical Vault aggregate created alongside the legacy
+    // VaultModel during the consumer-migration wave. Both coexist until
+    // Phase 10 deletes VaultModel. Owned by `this` (QObject parent).
+    std::unique_ptr<FileSystemAdapter> m_fsAdapter;
+    Vault *m_vaultObj = nullptr;
+    FileManager *m_fileManager = nullptr;
     Workspace *m_workspace = nullptr;
     // Stable QWidget wrapper for the Workspace widget tree; owned by
     // m_centralStack so that Workspace::layoutChanged restructurings can

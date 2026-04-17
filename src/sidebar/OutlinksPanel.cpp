@@ -3,7 +3,7 @@
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/vault/Vault.h"
 
 #include <KLocalizedString>
 #include <QVBoxLayout>
@@ -69,7 +69,7 @@ void OutlinksPanel::setMetadataCache(MetadataCache *cache)
     }
 }
 
-void OutlinksPanel::setVaultModel(VaultModel *vault)
+void OutlinksPanel::setVault(Vault *vault)
 {
     m_vault = vault;
 }
@@ -115,7 +115,7 @@ void OutlinksPanel::refresh()
         item->setToolTip(link.targetPath);
 
         // Check if target exists
-        bool exists = m_vault && m_vault->noteExists(link.targetPath);
+        bool exists = m_vault && m_vault->getAbstractFileByPath(link.targetPath) != nullptr;
 
         if (exists) {
             item->setText(name);
@@ -143,7 +143,7 @@ void OutlinksPanel::onItemClicked(QListWidgetItem *item)
     QString path = item->data(Qt::UserRole).toString();
     if (path.isEmpty()) return;
 
-    bool exists = m_vault && m_vault->noteExists(path);
+    bool exists = m_vault && m_vault->getAbstractFileByPath(path) != nullptr;
     if (exists) {
         Q_EMIT noteActivated(path);
     } else {

@@ -10,7 +10,7 @@ namespace Corbomite {
 
 class NoteDocument;
 class SQLiteIndex;
-class VaultModel;
+class Vault;
 class MetadataCache;
 
 class OutlinksPanel : public QWidget {
@@ -21,7 +21,7 @@ public:
 
     void setIndex(SQLiteIndex *index);
     void setMetadataCache(MetadataCache *cache);
-    void setVaultModel(VaultModel *vault);
+    void setVault(Vault *vault);
     void setCurrentNote(NoteDocument *doc);
 
 Q_SIGNALS:
@@ -38,7 +38,7 @@ private:
 
     SQLiteIndex *m_index = nullptr;
     QPointer<MetadataCache> m_cache;
-    VaultModel *m_vault = nullptr;
+    Vault *m_vault = nullptr;
     QPointer<NoteDocument> m_currentDoc;
 };
 
