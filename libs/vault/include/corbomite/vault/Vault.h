@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <unordered_map>
 
@@ -78,6 +79,14 @@ public:
     bool modify(TFile *f, const QByteArray &body, const WriteHints &hints = {});
     bool modifyBinary(TFile *f, const QByteArray &body, const WriteHints &hints = {});
     bool append(TFile *f, const QByteArray &body);
+
+    /// Atomic read-modify-write cycle. Mutator receives the current bytes
+    /// and returns the new bytes. Concurrent calls on the same file are
+    /// serialised through a per-path mutex (same contract as the absorbed
+    /// VaultProcess class). Cross-process safety comes from the watcher +
+    /// mtime echo-suppression contract, not this method.
+    using ProcessMutator = std::function<QByteArray(const QByteArray &)>;
+    bool process(TFile *f, const ProcessMutator &mutator);
 
 signals:
     void created(Corbomite::TAbstractFile *f);

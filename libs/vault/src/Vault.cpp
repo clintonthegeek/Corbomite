@@ -9,8 +9,13 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QTimer>
 #include <functional>
+#include <memory>
+#include <string>
+#include <unordered_map>
 
 #include "PathNormalization.h"
 #include "Watcher.h"
@@ -192,6 +197,37 @@ bool Vault::append(TFile *f, const QByteArray &body)
     if (!f) return false;
     const QByteArray cur = read(f);
     return modify(f, cur + body);
+}
+
+namespace {
+// Per-path lock registry — Vault::process serialises concurrent calls on
+// the same file so a RMW cycle never loses updates. Lives at the module
+// level rather than per-Vault because the underlying filesystem is shared.
+QMutex &lockForPath(const QString &absolutePath)
+{
+    static QMutex registryMutex;
+    static std::unordered_map<std::string, std::unique_ptr<QMutex>> registry;
+
+    QMutexLocker guard(&registryMutex);
+    const std::string key = absolutePath.toStdString();
+    auto it = registry.find(key);
+    if (it == registry.end()) {
+        it = registry.emplace(key, std::make_unique<QMutex>()).first;
+    }
+    return *it->second;
+}
+} // namespace
+
+bool Vault::process(TFile *f, const ProcessMutator &mutator)
+{
+    if (!f || !mutator) return false;
+    const QString abs = m_basePath + QLatin1Char('/') + f->path;
+
+    QMutexLocker pathLock(&lockForPath(abs));
+
+    const QByteArray cur = read(f);
+    const QByteArray next = mutator(cur);
+    return modify(f, next);
 }
 
 void Vault::buildTree()

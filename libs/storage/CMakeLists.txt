@@ -25,8 +25,6 @@ add_library(corbomite-storage STATIC
     include/corbomite/storage/VaultTrash.h
     src/IgnoreFilter.cpp
     include/corbomite/storage/IgnoreFilter.h
-    src/VaultProcess.cpp
-    include/corbomite/storage/VaultProcess.h
     src/CachedMetadata.cpp
     include/corbomite/storage/CachedMetadata.h
     src/MetadataParser.cpp
