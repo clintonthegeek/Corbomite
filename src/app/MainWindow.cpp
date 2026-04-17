@@ -1100,7 +1100,7 @@ void MainWindow::showQuickSwitcher()
         recent = m_workspace->lastOpenFiles();
     }
 
-    auto *switcher = new QuickSwitcher(m_vaultService->vault(), recent, this);
+    auto *switcher = new QuickSwitcher(m_vaultObj, recent, this);
 
     QPoint topCenter = mapToGlobal(QPoint(width() / 2 - 300, 80));
     switcher->move(topCenter);

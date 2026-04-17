@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "QuickSwitcher.h"
 #include "QuickSwitcherDelegate.h"
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/core/NoteMeta.h"
 #include "corbomite/search/FuzzyMatcher.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/Vault.h"
 
 #include <KLocalizedString>
 #include <QVBoxLayout>
@@ -63,7 +65,7 @@ private:
     PreparedQuery m_prepared;
 };
 
-QuickSwitcher::QuickSwitcher(VaultModel *vault, const QStringList &recentPaths,
+QuickSwitcher::QuickSwitcher(Vault *vault, const QStringList &recentPaths,
                                QWidget *parent)
     : QFrame(parent, Qt::Popup | Qt::FramelessWindowHint)
 {
@@ -102,9 +104,19 @@ QuickSwitcher::QuickSwitcher(VaultModel *vault, const QStringList &recentPaths,
     m_resultList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     layout->addWidget(m_resultList);
 
-    // Source model
+    // Source model — build lightweight NoteMeta entries from Vault::getMarkdownFiles.
+    // QuickSwitcherModel consumes only relativePath + nameFromPath(), both of
+    // which derive from the path alone.
+    QVector<NoteMeta> notes;
+    if (vault) {
+        const auto files = vault->getMarkdownFiles();
+        notes.reserve(files.size());
+        for (TFile *f : files) {
+            notes.append(NoteMeta::fromRelativePath(f->path));
+        }
+    }
     m_sourceModel = new QuickSwitcherModel(this);
-    m_sourceModel->setNotes(vault->allNotes());
+    m_sourceModel->setNotes(notes);
     m_sourceModel->setRecentPaths(recentPaths);
 
     // Proxy model with fuzzy filtering

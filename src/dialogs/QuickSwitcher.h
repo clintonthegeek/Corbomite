@@ -11,13 +11,13 @@ class QSortFilterProxyModel;
 namespace Corbomite {
 
 class QuickSwitcherDelegate;
-class VaultModel;
+class Vault;
 
 class QuickSwitcher : public QFrame {
     Q_OBJECT
 
 public:
-    explicit QuickSwitcher(VaultModel *vault, const QStringList &recentPaths,
+    explicit QuickSwitcher(Vault *vault, const QStringList &recentPaths,
                            QWidget *parent = nullptr);
 
 Q_SIGNALS:
