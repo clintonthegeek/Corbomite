@@ -11,8 +11,18 @@ namespace Corbomite {
 ///
 /// Thin, path-only wrapper over the vault root directory: all operations take
 /// a vault-relative path, reject absolute paths, and clamp `..` escapes inside
-/// the vault. Writes are atomic via QSaveFile. No signals, no caching; the
-/// host-side VaultModel + MetadataCache continue to own those concerns.
+/// the vault. Writes are atomic via QSaveFile. No signals, no caching.
+///
+/// **Open tension (see PROJECT-STATE "Open questions"):** the real vault
+/// object is `Corbomite::VaultModel` in `libs/models/` — downstream of
+/// `libs/core/`, so we can't reference it from here without inverting the
+/// dep graph. This class was introduced in Cluster Q Task 7 (commit
+/// `b9a271d`) to unblock the plugin proxy wire-up; writes through it
+/// currently bypass `VaultModel` (no `noteAdded`/`noteModified`/etc.
+/// signals, no `NoteDocument` cache invalidation). Reads are safe. Do
+/// **not** wire a bare `Vault(vaultPath)` into `CorbomiteApp` in Cluster Q
+/// Task 12 without first resolving that tension — likely by promoting
+/// `Vault` to a pure-virtual interface that `VaultModel` implements.
 class Vault
 {
 public:
