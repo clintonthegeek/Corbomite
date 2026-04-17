@@ -15,6 +15,10 @@ add_library(vault STATIC
     src/TFile.cpp
     include/corbomite/vault/TFolder.h
     src/TFolder.cpp
+    include/corbomite/vault/Vault.h
+    src/Vault.cpp
+    src/PathNormalization.h
+    src/PathNormalization.cpp
 )
 set_target_properties(vault PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(Corbomite::Vault ALIAS vault)

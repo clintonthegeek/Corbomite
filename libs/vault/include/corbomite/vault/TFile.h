@@ -4,14 +4,9 @@
 #include <optional>
 
 #include "corbomite/vault/TAbstractFile.h"
+#include "corbomite/storage/DataAdapter.h"  // for Corbomite::FileStat
 
 namespace Corbomite {
-
-struct FileStat {
-    qint64 sizeBytes = 0;
-    qint64 mtimeMs   = 0;
-    qint64 ctimeMs   = 0;
-};
 
 /// A file node in the Vault tree. Extends `TAbstractFile` with
 /// basename/extension/stat/saving metadata.
