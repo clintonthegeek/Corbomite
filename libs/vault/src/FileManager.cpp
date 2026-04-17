@@ -317,4 +317,35 @@ QString FileManager::generateMarkdownLink(TFile *target,
 }
 bool FileManager::trashFile(TAbstractFile *f) { return m_vault && m_vault->trash(f, false); }
 
+TFile *FileManager::createMarkdownNote(const QString &name, const QString &folder)
+{
+    if (!m_vault) return nullptr;
+
+    TFolder *parent = m_vault->getRoot();
+    if (!folder.isEmpty()) {
+        if (auto *existing = m_vault->getFolderByPath(folder)) {
+            parent = existing;
+        } else if (auto *created = m_vault->createFolder(folder)) {
+            parent = created;
+        }
+    }
+    return createNewMarkdownFile(parent, name);
+}
+
+bool FileManager::renameFileByPath(const QString &oldRel, const QString &newRel)
+{
+    if (!m_vault) return false;
+    TAbstractFile *f = m_vault->getAbstractFileByPath(oldRel);
+    if (!f) return false;
+    return renameFile(f, newRel);
+}
+
+bool FileManager::trashFileByPath(const QString &relPath)
+{
+    if (!m_vault) return false;
+    TAbstractFile *f = m_vault->getAbstractFileByPath(relPath);
+    if (!f) return false;
+    return trashFile(f);
+}
+
 } // namespace Corbomite

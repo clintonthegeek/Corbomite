@@ -18,6 +18,7 @@
 namespace Corbomite {
 
 class DataAdapter;
+class NoteDocument;
 class TAbstractFile;
 class TFile;
 class TFolder;
@@ -110,12 +111,35 @@ public:
     bool copy(TAbstractFile *f, const QString &newPath);
     bool trash(TAbstractFile *f, bool useSystem);
 
+    // ---- NoteDocument lifecycle (Phase 10 — absorbed from VaultModel) ----
+    /// Returns the cached NoteDocument for `relPath`, creating + hydrating
+    /// one from disk on first access. Cache entries live until `unload()`,
+    /// the file is externally deleted, or the file is renamed (entry is
+    /// rekeyed on rename). Returns nullptr if no vault is loaded or the
+    /// path is outside the tree.
+    NoteDocument *openDocument(const QString &relPath);
+
+    /// Returns the cached NoteDocument for `relPath` or nullptr when none
+    /// has been opened. Safe to call when no vault is loaded.
+    NoteDocument *cachedDocument(const QString &relPath) const;
+
+    /// Writes `doc->markdown()` through `modify()` (so echo-suppression
+    /// keeps the save from firing as an external event), clears the doc's
+    /// modified flag, emits `NoteDocument::saved`, and emits the
+    /// `documentSaved` signal for observers. Returns false if the doc's
+    /// file isn't in the tree.
+    bool saveDocument(NoteDocument *doc);
+
 signals:
     void created(Corbomite::TAbstractFile *f);
     void modified(Corbomite::TFile *f);
     void deletedFile(Corbomite::TAbstractFile *f);
     void renamed(Corbomite::TAbstractFile *f, const QString &oldPath);
     void closed();
+    /// Fires after `saveDocument` successfully writes. Emitted with the
+    /// relative path so observers don't need to poke at the NoteDocument
+    /// pointer lifetime.
+    void documentSaved(const QString &relPath);
 
 private Q_SLOTS:
     // Watcher-dispatched handlers. Relative paths only (no basePath prefix).
@@ -155,6 +179,11 @@ private:
     // modify/delete/rename. Lives on Vault so every TFile doesn't pay for
     // an unused QByteArray field.
     mutable QHash<QString, QByteArray> m_readCache;
+
+    // NoteDocument cache (Phase 10 — absorbed from VaultModel). Keyed by
+    // normalized relative path. Entries are owned by Vault and deleted on
+    // `unload()`, `onExternalDeleted`, or rebuild. Rename rekeys the entry.
+    QHash<QString, NoteDocument *> m_docs;
 
     // Self-write echo suppression ledger. Outgoing writes (Phase 3
     // Vault::modify/create/process/...) call stampSelfWrite(rel, mtimeMs)

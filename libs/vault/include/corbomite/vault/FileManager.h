@@ -49,6 +49,21 @@ public:
                                                const QString &hintPath);
     TFolder *createNewFolder(TFolder *parent);
 
+    // ---- Path-based convenience (Phase 10 — absorbed from VaultModel) ----
+    /// Creates `<folder>/<name>.md` (dedup-appending " 1", " 2", ... on
+    /// collision), auto-creating intermediate folders. Returns the new
+    /// TFile or nullptr. Pass an empty folder to create at the vault
+    /// root.
+    TFile *createMarkdownNote(const QString &name, const QString &folder);
+
+    /// Looks up `oldRel` as a TAbstractFile and renames it to `newRel`
+    /// (link rewrite via MetadataCache applies per `renameFile`).
+    bool   renameFileByPath(const QString &oldRel, const QString &newRel);
+
+    /// Looks up `relPath` as a TAbstractFile and routes it through
+    /// `trashFile` (local trash; system-trash fallback).
+    bool   trashFileByPath(const QString &relPath);
+
     // ---- Attachments ----
     QString getAvailablePathForAttachment(const QString &linktext,
                                           const QString &sourcePathHint = {}) const;

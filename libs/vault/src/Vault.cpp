@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/vault/Vault.h"
 
+#include "corbomite/core/NoteDocument.h"
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/TFolder.h"
@@ -559,11 +560,51 @@ void Vault::buildTree()
 
 void Vault::teardownTree()
 {
+    qDeleteAll(m_docs);
+    m_docs.clear();
     m_fileMap.clear();
     m_readCache.clear();
     auto root = std::make_unique<TFolder>(this, QStringLiteral("/"));
     m_root = root.get();
     m_fileMap.emplace(QStringLiteral("/"), std::move(root));
+}
+
+NoteDocument *Vault::openDocument(const QString &relPath)
+{
+    if (!m_loaded) return nullptr;
+    const QString rel = VaultPaths::normalize(relPath);
+    if (auto *existing = m_docs.value(rel)) return existing;
+
+    auto *doc = new NoteDocument(m_basePath, rel, this);
+    if (auto *tf = getFileByPath(rel)) {
+        const QByteArray bytes = cachedRead(tf);
+        doc->setMarkdown(QString::fromUtf8(bytes));
+        doc->setModified(false);
+    }
+    m_docs.insert(rel, doc);
+    return doc;
+}
+
+NoteDocument *Vault::cachedDocument(const QString &relPath) const
+{
+    if (relPath.isEmpty()) return nullptr;
+    return m_docs.value(VaultPaths::normalize(relPath));
+}
+
+bool Vault::saveDocument(NoteDocument *doc)
+{
+    if (!doc) return false;
+    const QString rel = VaultPaths::normalize(doc->relativePath());
+    TFile *tf = getFileByPath(rel);
+    if (!tf) return false;
+
+    const QByteArray body = doc->markdown().toUtf8();
+    if (!modify(tf, body)) return false;
+
+    doc->setModified(false);
+    Q_EMIT doc->saved();
+    Q_EMIT documentSaved(rel);
+    return true;
 }
 
 void Vault::onExternalCreated(const QString &relPath)
@@ -657,6 +698,7 @@ void Vault::onExternalDeleted(const QString &relPath)
     }
     TAbstractFile *raw = owned.get();
     m_readCache.remove(rel);
+    if (auto *doc = m_docs.take(rel)) doc->deleteLater();
     m_pendingDelete.push_back(std::move(owned));
     Q_EMIT deletedFile(raw);
 
@@ -672,6 +714,7 @@ void Vault::onExternalRenamed(const QString &oldRel, const QString &newRel)
     auto node = std::move(it->second);
     m_fileMap.erase(it);
     m_readCache.remove(oldR);
+    if (auto *doc = m_docs.take(oldR)) m_docs.insert(newR, doc);
     node->setPath(newR);
     TAbstractFile *raw = node.get();
     m_fileMap.emplace(newR, std::move(node));
