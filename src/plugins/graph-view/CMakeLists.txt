@@ -13,3 +13,7 @@ set_target_properties(corbomite-graph-view PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CORBOMITE_PLUGIN_DEV_DIR}"
     PREFIX ""
 )
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

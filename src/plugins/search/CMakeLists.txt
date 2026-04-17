@@ -18,3 +18,7 @@ set_target_properties(corbomite-search-plugin PROPERTIES
     PREFIX ""
     OUTPUT_NAME "corbomite-search"
 )
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
