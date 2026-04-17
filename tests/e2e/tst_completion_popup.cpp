@@ -24,7 +24,6 @@
 #include "app/CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
 #include "editor/CompletionPopup.h"
-#include "corbomite/models/VaultModel.h"
 #include "corbomite/core/NoteDocument.h"
 #include "markoff/Editor.h"
 

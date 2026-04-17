@@ -4,10 +4,12 @@
 #include <QDir>
 #include <QFile>
 #include <QSignalSpy>
-#include "corbomite/models/VaultModel.h"
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/vault/Vault.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/FileManager.h"
+#include "corbomite/core/NoteDocument.h"
 
 class TestVaultLifecycle : public QObject {
     Q_OBJECT
@@ -29,36 +31,21 @@ private Q_SLOTS:
         createFile(tmp.path() + "/note1.md", QStringLiteral("# Note 1"));
         createFile(tmp.path() + "/folder/note2.md", QStringLiteral("# Note 2"));
 
-        // Open legacy VaultModel (drives the note-operation methods
-        // absorbed from the deleted NoteService) + canonical Vault
-        // (drives NotesTreeModel) in parallel — matches MainWindow
-        // wiring during the Q.0 migration window.
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
-        QCOMPARE(vault.allNotes().size(), 2);
-
         Corbomite::FileSystemAdapter fs;
-        Corbomite::Vault vaultObj(&fs);
-        vaultObj.load(tmp.path());
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
+        QCOMPARE(vault.getMarkdownFiles().size(), 2);
 
-        Corbomite::NotesTreeModel tree(&vaultObj);
+        Corbomite::NotesTreeModel tree(&vault);
         QCOMPARE(tree.rowCount(QModelIndex()), 2); // folder + note1.md
 
-        // Create note via VaultModel
-        auto *doc = vault.createNote(QStringLiteral("new-note"), QString());
-        QVERIFY(doc != nullptr);
-        QVERIFY(QFileInfo::exists(tmp.path() + "/new-note.md"));
-        QCOMPARE(vault.allNotes().size(), 3);
+        Corbomite::FileManager fileManager(&vault, nullptr);
 
-        // VaultModel writes directly via FileSystemAdapter, bypassing the
-        // canonical Vault; production drives tree updates through Vault's
-        // watcher, which is asynchronous. Rebind a fresh tree after a
-        // reload for deterministic assertions — mirrors MainWindow's
-        // tear-down/rebuild on vault switch.
-        vaultObj.unload();
-        vaultObj.load(tmp.path());
-        Corbomite::NotesTreeModel tree2(&vaultObj);
-        QCOMPARE(tree2.rowCount(QModelIndex()), 3); // folder + note1 + new-note
+        // Create note via FileManager
+        auto *tf = fileManager.createMarkdownNote(QStringLiteral("new-note"), QString());
+        QVERIFY(tf != nullptr);
+        QVERIFY(QFileInfo::exists(tmp.path() + "/new-note.md"));
+        QCOMPARE(vault.getMarkdownFiles().size(), 3);
 
         // Open and modify note
         auto *opened = vault.openDocument(QStringLiteral("note1.md"));
@@ -67,7 +54,7 @@ private Q_SLOTS:
         QVERIFY(opened->isModified());
 
         // Save
-        QVERIFY(vault.saveNote(opened));
+        QVERIFY(vault.saveDocument(opened));
         QVERIFY(!opened->isModified());
 
         // Verify on disk
@@ -76,19 +63,18 @@ private Q_SLOTS:
         QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("# Modified Note 1"));
 
         // Rename
-        QVERIFY(vault.renameNoteByPath(QStringLiteral("new-note.md"), QStringLiteral("renamed.md")));
-        QVERIFY(!vault.noteExists(QStringLiteral("new-note.md")));
-        QVERIFY(vault.noteExists(QStringLiteral("renamed.md")));
+        QVERIFY(fileManager.renameFileByPath(QStringLiteral("new-note.md"), QStringLiteral("renamed.md")));
+        QVERIFY(!vault.getAbstractFileByPath(QStringLiteral("new-note.md")));
+        QVERIFY(vault.getAbstractFileByPath(QStringLiteral("renamed.md")));
 
         // Delete
-        QVERIFY(vault.deleteNoteByPath(QStringLiteral("renamed.md")));
+        QVERIFY(fileManager.trashFileByPath(QStringLiteral("renamed.md")));
         QVERIFY(!QFileInfo::exists(tmp.path() + "/renamed.md"));
-        QCOMPARE(vault.allNotes().size(), 2);
+        QCOMPARE(vault.getMarkdownFiles().size(), 2);
 
         // Close vault
-        vault.close();
-        QCOMPARE(vault.allNotes().size(), 0);
-        QVERIFY(vault.path().isEmpty());
+        vault.unload();
+        QVERIFY(!vault.isLoaded());
     }
 };
 

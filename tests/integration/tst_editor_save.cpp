@@ -3,7 +3,10 @@
 #include <QTemporaryDir>
 #include <QDir>
 #include <QFile>
-#include "corbomite/models/VaultModel.h"
+#include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/vault/Vault.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/FileManager.h"
 #include "corbomite/core/NoteDocument.h"
 
 class TestEditorSave : public QObject {
@@ -24,8 +27,9 @@ private Q_SLOTS:
         QTemporaryDir tmp;
         createFile(tmp.path() + "/test.md", QStringLiteral("original content"));
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
 
         auto *doc = vault.openDocument(QStringLiteral("test.md"));
         QCOMPARE(doc->markdown(), QStringLiteral("original content"));
@@ -34,7 +38,7 @@ private Q_SLOTS:
         doc->setMarkdown(QStringLiteral("modified content"));
         QVERIFY(doc->isModified());
 
-        QVERIFY(vault.saveNote(doc));
+        QVERIFY(vault.saveDocument(doc));
         QVERIFY(!doc->isModified());
 
         // Read directly from disk
@@ -49,8 +53,9 @@ private Q_SLOTS:
         QString content = QString::fromUtf8(u8"日本語 café 🎉 résumé");
         createFile(tmp.path() + "/utf8.md", content);
 
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
 
         auto *doc = vault.openDocument(QStringLiteral("utf8.md"));
         QCOMPARE(doc->markdown(), content);
@@ -58,7 +63,7 @@ private Q_SLOTS:
         // Modify and save
         QString newContent = content + QStringLiteral("\n\nMore text");
         doc->setMarkdown(newContent);
-        QVERIFY(vault.saveNote(doc));
+        QVERIFY(vault.saveDocument(doc));
 
         // Verify
         QFile f(tmp.path() + "/utf8.md");
@@ -69,14 +74,18 @@ private Q_SLOTS:
     void testCreateAndSave()
     {
         QTemporaryDir tmp;
-        Corbomite::VaultModel vault;
-        vault.open(tmp.path());
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(tmp.path());
+        Corbomite::FileManager fileManager(&vault, nullptr);
 
-        auto *doc = vault.createNote(QStringLiteral("brand-new"), QString());
-        QVERIFY(doc != nullptr);
+        auto *tf = fileManager.createMarkdownNote(QStringLiteral("brand-new"), QString());
+        QVERIFY(tf);
+        auto *doc = vault.openDocument(tf->path);
+        QVERIFY(doc);
 
         doc->setMarkdown(QStringLiteral("# Brand New Note\n\nContent here."));
-        QVERIFY(vault.saveNote(doc));
+        QVERIFY(vault.saveDocument(doc));
 
         QFile f(tmp.path() + "/brand-new.md");
         f.open(QIODevice::ReadOnly);

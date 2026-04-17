@@ -11,16 +11,6 @@ add_test(NAME tst_tabmodel COMMAND tst_tabmodel)
 target_link_libraries(tst_tabmodel PRIVATE Qt6::Test Corbomite::Models)
 set_tests_properties(tst_tabmodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-add_executable(tst_vaultmodel tst_vaultmodel.cpp)
-add_test(NAME tst_vaultmodel COMMAND tst_vaultmodel)
-target_link_libraries(tst_vaultmodel PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)
-set_tests_properties(tst_vaultmodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-add_executable(tst_vaultmodel_notes tst_vaultmodel_notes.cpp)
-add_test(NAME tst_vaultmodel_notes COMMAND tst_vaultmodel_notes)
-target_link_libraries(tst_vaultmodel_notes PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)
-set_tests_properties(tst_vaultmodel_notes PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
 add_executable(tst_notestreemodel tst_notestreemodel.cpp)
 add_test(NAME tst_notestreemodel COMMAND tst_notestreemodel)
 target_link_libraries(tst_notestreemodel PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)
