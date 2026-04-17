@@ -37,4 +37,14 @@ QVersionNumber PluginMetaData::minAppVersion() const
     return QVersionNumber::fromString(s);
 }
 
+int PluginMetaData::apiLevel() const
+{
+    // Absent key => level 1 (today's API). We use toInt(1) so any
+    // non-integer value also falls back cleanly rather than breaking
+    // discovery.
+    return m_base.rawData()
+        .value(QStringLiteral("X-Corbomite-ApiLevel"))
+        .toInt(1);
+}
+
 } // namespace Corbomite

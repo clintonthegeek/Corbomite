@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "PluginsPage.h"
 
+#include "corbomite/core/PluginApi.h"
 #include "corbomite/vault/PluginManager.h"
 #include "corbomite/vault/PluginPermissionGrantDialog.h"
 
@@ -73,6 +74,15 @@ void PluginsPage::rebuild()
             item->setData(kPluginIdRole, id);
             item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
             item->setCheckState(info.enabled ? Qt::Checked : Qt::Unchecked);
+
+            // MinVersion / ApiLevel-incompatible rows are visible but
+            // non-interactive: the checkbox is disabled (ItemIsEnabled
+            // stripped) and cannot be toggled.
+            const auto state = m_mgr->loadState(id);
+            if (state != PluginManager::LoadState::Compatible) {
+                item->setFlags(item->flags() & ~Qt::ItemIsEnabled);
+            }
+
             m_list->addItem(item);
         }
     }
@@ -156,6 +166,34 @@ void PluginsPage::refreshDetail(int row)
                                  : i18n("Untrusted (user) plugin"),
         m_detail);
     m_detailLayout->addWidget(trustedLabel);
+
+    // Compat gate: surface a prominent "Requires …" label for plugins
+    // the host has refused to load. The enable checkbox in the list is
+    // already disabled; this label tells the user what to upgrade.
+    const auto state = m_mgr->loadState(info.metaData.base().pluginId());
+    if (state == PluginManager::LoadState::IncompatibleVersion) {
+        auto *warn = new QLabel(
+            i18n("Requires Corbomite %1 or newer — this plugin cannot be loaded.",
+                 info.metaData.minAppVersion().toString()),
+            m_detail);
+        warn->setWordWrap(true);
+        QFont wf = warn->font();
+        wf.setBold(true);
+        warn->setFont(wf);
+        m_detailLayout->addWidget(warn);
+    } else if (state == PluginManager::LoadState::IncompatibleApiLevel) {
+        auto *warn = new QLabel(
+            i18n("Requires plugin API level %1 or newer (host supports %2) "
+                 "— this plugin cannot be loaded.",
+                 info.metaData.apiLevel(),
+                 CORBOMITE_PLUGIN_API_LEVEL),
+            m_detail);
+        warn->setWordWrap(true);
+        QFont wf = warn->font();
+        wf.setBold(true);
+        warn->setFont(wf);
+        m_detailLayout->addWidget(warn);
+    }
 
     auto *line = new QFrame(m_detail);
     line->setFrameShape(QFrame::HLine);

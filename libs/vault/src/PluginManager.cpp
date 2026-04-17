@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/vault/PluginManager.h"
 
+#include "corbomite/core/PluginApi.h"
 #include "corbomite/vault/Plugin.h"
 #include "corbomite/vault/PluginContext.h"
 #include "corbomite/vault/PluginPermissionGrantDialog.h"
@@ -97,20 +98,26 @@ void PluginManager::ingest(const QList<KPluginMetaData> &metas,
     for (const auto &base : metas) {
         PluginMetaData meta(base);
         meta.setOrigin(origin);
-
-        const QVersionNumber required = meta.minAppVersion();
-        if (!required.isNull() && appVersion() < required) {
-            qWarning().noquote()
-                << "PluginManager: skipping" << base.pluginId()
-                << "— requires Corbomite >=" << required.toString()
-                << "but this build is" << appVersion().toString();
-            continue;
-        }
+        const QString id = base.pluginId();
 
         PluginInfo info;
         info.metaData = meta;
         m_plugins.append(info);
-        Q_EMIT pluginDiscovered(base.pluginId());
+
+        // Compute the gate state up front so PluginsPage can render a
+        // "requires Corbomite >= X.Y.Z" / "requires plugin API level >= N"
+        // row without anyone having to click enable. The gate is also
+        // re-checked in enablePlugin() as a defence-in-depth measure.
+        LoadState state = LoadState::Compatible;
+        const QVersionNumber required = meta.minAppVersion();
+        if (!required.isNull() && appVersion() < required) {
+            state = LoadState::IncompatibleVersion;
+        } else if (meta.apiLevel() > CORBOMITE_PLUGIN_API_LEVEL) {
+            state = LoadState::IncompatibleApiLevel;
+        }
+        m_loadState.insert(id, state);
+
+        Q_EMIT pluginDiscovered(id);
     }
 }
 
@@ -131,10 +138,36 @@ const PluginManager::PluginInfo *PluginManager::pluginById(const QString &id) co
     return nullptr;
 }
 
+PluginManager::LoadState PluginManager::loadState(const QString &id) const
+{
+    return m_loadState.value(id, LoadState::Compatible);
+}
+
 bool PluginManager::enablePlugin(const QString &id)
 {
     auto *info = const_cast<PluginInfo *>(pluginById(id));
     if (!info || info->instance) return false;
+
+    // MinVersion / ApiLevel compat gate. Runs BEFORE the permission-grant
+    // dialog so we never prompt the user for a plugin we'll refuse to
+    // load anyway. Warning log matches the id so test fixtures can
+    // QTest::ignoreMessage() the expected output.
+    const QVersionNumber required = info->metaData.minAppVersion();
+    if (!required.isNull() && appVersion() < required) {
+        m_loadState.insert(id, LoadState::IncompatibleVersion);
+        qWarning().noquote()
+            << "PluginManager:" << id << "requires Corbomite >="
+            << required.toString() << "; host is" << appVersion().toString();
+        return false;
+    }
+    if (info->metaData.apiLevel() > CORBOMITE_PLUGIN_API_LEVEL) {
+        m_loadState.insert(id, LoadState::IncompatibleApiLevel);
+        qWarning().noquote()
+            << "PluginManager:" << id << "declares API level"
+            << info->metaData.apiLevel()
+            << "; host supports up to" << CORBOMITE_PLUGIN_API_LEVEL;
+        return false;
+    }
 
     // Determine granted permissions.
     QSet<QString> granted;

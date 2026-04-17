@@ -34,6 +34,11 @@ public:
     /// X-Corbomite-MinVersion. Returns null QVersionNumber if absent or unparsable.
     QVersionNumber minAppVersion() const;
 
+    /// X-Corbomite-ApiLevel. Integer ABI-break marker. Defaults to 1 when
+    /// the key is absent — the plugin is implicitly targeting today's API.
+    /// The host accepts plugins declaring a level <= CORBOMITE_PLUGIN_API_LEVEL.
+    int apiLevel() const;
+
     void setOrigin(Origin o) { m_origin = o; }
     Origin origin() const { return m_origin; }
 

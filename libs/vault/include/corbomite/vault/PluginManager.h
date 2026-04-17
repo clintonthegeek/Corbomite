@@ -30,6 +30,21 @@ class PluginManager : public QObject
 {
     Q_OBJECT
 public:
+    /// Per-plugin gating state surfaced to PluginsPage.
+    ///
+    /// * `Compatible` — default; plugin has not been refused by the
+    ///   MinVersion / ApiLevel gate. Matches both "never attempted" and
+    ///   "attempted and passed the gate" — the load success itself is
+    ///   captured by `PluginInfo::enabled` / `PluginInfo::instance`.
+    /// * `IncompatibleVersion` — plugin's declared X-Corbomite-MinVersion
+    ///   exceeds the host's reported appVersion(). Recorded at ingest()
+    ///   so Settings can render "Requires Corbomite >= X.Y.Z" without
+    ///   the user ever clicking enable; also re-asserted in enablePlugin()
+    ///   should the gate be reached for any reason.
+    /// * `IncompatibleApiLevel` — plugin's declared X-Corbomite-ApiLevel
+    ///   exceeds CORBOMITE_PLUGIN_API_LEVEL. Recorded at ingest().
+    enum class LoadState { Compatible, IncompatibleVersion, IncompatibleApiLevel };
+
     struct PluginInfo
     {
         PluginMetaData metaData;
@@ -63,6 +78,11 @@ public:
     int pluginCount() const { return m_plugins.size(); }
     const PluginInfo &pluginByIndex(int i) const { return m_plugins[i]; }
     const PluginInfo *pluginById(const QString &id) const;
+
+    /// Gate state for the given plugin id. Returns Compatible for
+    /// unknown ids so callers that just want to ask "is there a reason
+    /// to grey out this row?" can do so without null-checks.
+    LoadState loadState(const QString &id) const;
 
     // Load / unload lifecycle (Task 6)
     bool enablePlugin(const QString &id);
@@ -123,6 +143,7 @@ private:
     QString m_systemPath;
     QString m_userPath;
     QList<PluginInfo> m_plugins;
+    QHash<QString, LoadState> m_loadState;
     KSharedConfig::Ptr m_config;
     FactoryFn m_factoryOverride;
     PromptFn  m_promptHandler;

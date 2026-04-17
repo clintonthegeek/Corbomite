@@ -71,17 +71,21 @@ void TestPluginManager::userOriginStripsTrustedClaim()
 
 void TestPluginManager::minVersionRejectsFutureRequirement()
 {
+    // Per Task 4.2 (Cluster N), MinVersion-incompatible plugins are
+    // kept in the registry so PluginsPage can render a "requires
+    // Corbomite >= X.Y.Z" message. Enforcement moved to enablePlugin()
+    // and loadState() reports IncompatibleVersion. See
+    // tst_plugin_manager_lifecycle for the enable-time assertions.
     const QJsonObject future{
         {QStringLiteral("X-Corbomite-MinVersion"), QStringLiteral("99.0.0")}};
     Corbomite::PluginManager mgr;
 
-    // Expect a qWarning about incompat during ingest
-    QTest::ignoreMessage(QtWarningMsg,
-        QRegularExpression(QStringLiteral("future-plugin")));
     mgr.ingest({makeFixture(QStringLiteral("future-plugin"), future)},
                Corbomite::PluginMetaData::Origin::System);
 
-    QCOMPARE(mgr.pluginCount(), 0);
+    QCOMPARE(mgr.pluginCount(), 1);
+    QCOMPARE(mgr.loadState(QStringLiteral("future-plugin")),
+             Corbomite::PluginManager::LoadState::IncompatibleVersion);
 }
 
 void TestPluginManager::pluginByIdRoundTrips()

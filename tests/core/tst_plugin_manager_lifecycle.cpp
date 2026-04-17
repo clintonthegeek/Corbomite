@@ -53,6 +53,22 @@ KPluginMetaData makeFixture(const QString &id,
     return KPluginMetaData(full, id);
 }
 
+/// Fixture builder that injects arbitrary extra top-level keys into the
+/// metadata JSON (needed for MinVersion + ApiLevel compat-gate tests).
+KPluginMetaData makeFixtureWith(const QString &id,
+                                  bool trusted,
+                                  const QJsonObject &extras)
+{
+    QJsonObject kplugin{
+        {QStringLiteral("Id"), id},
+        {QStringLiteral("Name"), id},
+        {QStringLiteral("EnabledByDefault"), false}};
+    QJsonObject full = extras;
+    full.insert(QStringLiteral("KPlugin"), kplugin);
+    full.insert(QStringLiteral("X-Corbomite-Trusted"), trusted);
+    return KPluginMetaData(full, id);
+}
+
 /// Build a PluginManager wired up for test isolation:
 /// - KSharedConfig redirected to a temp file
 /// - factory override returning FakePlugin instances backed by per-id FakeStats
@@ -95,6 +111,9 @@ private slots:
     void untrustedPluginWithPromptHandlerGetsPerms();
     void enablePluginUnknownIdReturnsFalse();
     void doubleEnableIsNoOp();
+    void refusesPluginWithHigherMinVersion();
+    void refusesPluginWithHigherApiLevel();
+    void loadsPluginWithCompatibleVersionAndLevel();
 };
 
 void TestPluginManagerLifecycle::enableTrustedPluginAutoGrantsAndLoads()
@@ -318,6 +337,102 @@ void TestPluginManagerLifecycle::doubleEnableIsNoOp()
     QVERIFY(mgr->enablePlugin(QStringLiteral("dup")));
     QVERIFY(!mgr->enablePlugin(QStringLiteral("dup"))); // already loaded
     QCOMPARE(stats.value(QStringLiteral("dup"))->loaded, 1);
+    delete mgr;
+    qDeleteAll(stats);
+}
+
+void TestPluginManagerLifecycle::refusesPluginWithHigherMinVersion()
+{
+    // A plugin declaring X-Corbomite-MinVersion higher than the host's
+    // reported version must be discoverable (so the Settings page can
+    // render a "requires Corbomite >= X.Y.Z" message) but enablePlugin()
+    // must refuse to load it — and never consult the prompt handler.
+    QTemporaryDir cfg;
+    QHash<QString, FakeStats *> stats;
+    auto *mgr = makeTestManager(cfg, &stats);
+
+    bool promptFired = false;
+    mgr->setPromptHandler([&](const Corbomite::PluginMetaData &,
+                               const QSet<QString> &declared) {
+        promptFired = true;
+        return declared;
+    });
+
+    const QJsonObject future{
+        {QStringLiteral("X-Corbomite-MinVersion"), QStringLiteral("99.99.99")}};
+    mgr->ingest({makeFixtureWith(QStringLiteral("future-version"), true, future)},
+                Corbomite::PluginMetaData::Origin::System);
+
+    // Plugin must survive ingest (the UI wants to show it as incompatible).
+    QCOMPARE(mgr->pluginCount(), 1);
+
+    // Expect a qWarning from the gate, swallow it.
+    QTest::ignoreMessage(QtWarningMsg,
+        QRegularExpression(QStringLiteral("future-version")));
+    QVERIFY(!mgr->enablePlugin(QStringLiteral("future-version")));
+    QVERIFY(!promptFired);
+    QCOMPARE(mgr->loadState(QStringLiteral("future-version")),
+             Corbomite::PluginManager::LoadState::IncompatibleVersion);
+
+    // No instance was constructed.
+    const auto *info = mgr->pluginById(QStringLiteral("future-version"));
+    QVERIFY(info && info->instance == nullptr);
+    QVERIFY(!info->enabled);
+
+    delete mgr;
+    qDeleteAll(stats);
+}
+
+void TestPluginManagerLifecycle::refusesPluginWithHigherApiLevel()
+{
+    // A plugin declaring X-Corbomite-ApiLevel higher than the host's
+    // CORBOMITE_PLUGIN_API_LEVEL must refuse to load. MinVersion absent.
+    QTemporaryDir cfg;
+    QHash<QString, FakeStats *> stats;
+    auto *mgr = makeTestManager(cfg, &stats);
+
+    const QJsonObject futureApi{
+        {QStringLiteral("X-Corbomite-ApiLevel"), 99}};
+    mgr->ingest({makeFixtureWith(QStringLiteral("future-api"), true, futureApi)},
+                Corbomite::PluginMetaData::Origin::System);
+    QCOMPARE(mgr->pluginCount(), 1);
+
+    QTest::ignoreMessage(QtWarningMsg,
+        QRegularExpression(QStringLiteral("future-api")));
+    QVERIFY(!mgr->enablePlugin(QStringLiteral("future-api")));
+    QCOMPARE(mgr->loadState(QStringLiteral("future-api")),
+             Corbomite::PluginManager::LoadState::IncompatibleApiLevel);
+
+    const auto *info = mgr->pluginById(QStringLiteral("future-api"));
+    QVERIFY(info && info->instance == nullptr);
+
+    delete mgr;
+    qDeleteAll(stats);
+}
+
+void TestPluginManagerLifecycle::loadsPluginWithCompatibleVersionAndLevel()
+{
+    // Baseline: minVersion = "0.1.0", apiLevel = 1 both fit the current
+    // host. Enable must succeed and loadState must reflect Compatible.
+    QTemporaryDir cfg;
+    QHash<QString, FakeStats *> stats;
+    auto *mgr = makeTestManager(cfg, &stats);
+
+    const QJsonObject compat{
+        {QStringLiteral("X-Corbomite-MinVersion"), QStringLiteral("0.1.0")},
+        {QStringLiteral("X-Corbomite-ApiLevel"), 1}};
+    mgr->ingest({makeFixtureWith(QStringLiteral("baseline"), true, compat)},
+                Corbomite::PluginMetaData::Origin::System);
+    QCOMPARE(mgr->pluginCount(), 1);
+
+    QVERIFY(mgr->enablePlugin(QStringLiteral("baseline")));
+    QCOMPARE(mgr->loadState(QStringLiteral("baseline")),
+             Corbomite::PluginManager::LoadState::Compatible);
+
+    const auto *info = mgr->pluginById(QStringLiteral("baseline"));
+    QVERIFY(info && info->instance != nullptr);
+    QVERIFY(info->enabled);
+
     delete mgr;
     qDeleteAll(stats);
 }
