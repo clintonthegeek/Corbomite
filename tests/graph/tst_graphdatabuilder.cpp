@@ -4,6 +4,10 @@
 // SQLiteIndex::rebuildIndex was deleted in Phase 8). Each test writes notes
 // under a QTemporaryDir, then calls `MetadataCache::rebuildVault(...)` and
 // waits for `indexFinished` before invoking GraphDataBuilder.
+//
+// Cluster N, Task 2.7: the raw-typed (SQLiteIndex*, Vault*) overloads were
+// removed; tests drive the builder through SearchProxy / VaultProxy now, the
+// same way plugin code does.
 
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -55,6 +59,14 @@ class TestGraphDataBuilder : public QObject {
         }
     }
 
+    // Standard permission set for all tests: graph builder needs vault file
+    // enumeration + link/tag reads.
+    static QSet<QString> grantedPermissions()
+    {
+        return { QStringLiteral("vault.read"),
+                 QStringLiteral("metadata.read") };
+    }
+
 private Q_SLOTS:
     void testGlobalGraphBasic()
     {
@@ -73,7 +85,10 @@ private Q_SLOTS:
         Corbomite::SQLiteIndex index;
         indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
+        Corbomite::VaultProxy  vaultProxy(&vaultObj, grantedPermissions(), QStringLiteral("t"));
+        Corbomite::SearchProxy searchProxy(&index, grantedPermissions(), QStringLiteral("t"));
+
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&searchProxy, &vaultProxy);
 
         QCOMPARE(result.nodes.size(), 3);
         QCOMPARE(result.edges.size(), 2); // A->B, B->C
@@ -94,7 +109,10 @@ private Q_SLOTS:
         Corbomite::SQLiteIndex index;
         indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
+        Corbomite::VaultProxy  vaultProxy(&vaultObj, grantedPermissions(), QStringLiteral("t"));
+        Corbomite::SearchProxy searchProxy(&index, grantedPermissions(), QStringLiteral("t"));
+
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&searchProxy, &vaultProxy);
 
         // A + NonExistent (unresolved)
         QCOMPARE(result.nodes.size(), 2);
@@ -130,7 +148,10 @@ private Q_SLOTS:
         Corbomite::SQLiteIndex index;
         indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
+        Corbomite::VaultProxy  vaultProxy(&vaultObj, grantedPermissions(), QStringLiteral("t"));
+        Corbomite::SearchProxy searchProxy(&index, grantedPermissions(), QStringLiteral("t"));
+
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&searchProxy, &vaultProxy);
 
         QCOMPARE(result.nodes.size(), 3);
 
@@ -163,7 +184,10 @@ private Q_SLOTS:
         Corbomite::SQLiteIndex index;
         indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
+        Corbomite::VaultProxy  vaultProxy(&vaultObj, grantedPermissions(), QStringLiteral("t"));
+        Corbomite::SearchProxy searchProxy(&index, grantedPermissions(), QStringLiteral("t"));
+
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&searchProxy, &vaultProxy);
 
         // Find hub node — should have larger radius than leaf nodes
         double hubRadius = 0, leafRadius = 0;
@@ -192,16 +216,19 @@ private Q_SLOTS:
         Corbomite::SQLiteIndex index;
         indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
+        Corbomite::VaultProxy  vaultProxy(&vaultObj, grantedPermissions(), QStringLiteral("t"));
+        Corbomite::SearchProxy searchProxy(&index, grantedPermissions(), QStringLiteral("t"));
+
         // Depth 1: only center + direct neighbors
         auto result1 = Corbomite::GraphDataBuilder::buildLocalGraph(
-            &index, &vaultObj, QStringLiteral("center.md"), 1);
+            &searchProxy, &vaultProxy, QStringLiteral("center.md"), 1);
 
         QCOMPARE(result1.nodes.size(), 2); // center + neighbor
         QCOMPARE(result1.edges.size(), 1);
 
         // Depth 2: center + neighbor + far
         auto result2 = Corbomite::GraphDataBuilder::buildLocalGraph(
-            &index, &vaultObj, QStringLiteral("center.md"), 2);
+            &searchProxy, &vaultProxy, QStringLiteral("center.md"), 2);
 
         QCOMPARE(result2.nodes.size(), 3); // center + neighbor + far
         QCOMPARE(result2.edges.size(), 2);
@@ -227,106 +254,12 @@ private Q_SLOTS:
         Corbomite::SQLiteIndex index;
         indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
 
-        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
+        Corbomite::VaultProxy  vaultProxy(&vaultObj, grantedPermissions(), QStringLiteral("t"));
+        Corbomite::SearchProxy searchProxy(&index, grantedPermissions(), QStringLiteral("t"));
+
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&searchProxy, &vaultProxy);
         QCOMPARE(result.nodes.size(), 0);
         QCOMPARE(result.edges.size(), 0);
-    }
-
-    // ---- Cluster N proxy-typed overload parity ----
-
-    // QSet of node ids (paths) for ordering-insensitive comparison
-    static QSet<QString> nodeIdSet(const Corbomite::GraphDataBuilder::Result &r)
-    {
-        QSet<QString> s;
-        for (const auto &n : r.nodes) s.insert(n.id);
-        return s;
-    }
-
-    // QSet of (sourceId, targetId) pairs for ordering-insensitive comparison
-    static QSet<QPair<QString, QString>> edgeSet(const Corbomite::GraphDataBuilder::Result &r)
-    {
-        QSet<QPair<QString, QString>> s;
-        for (const auto &e : r.edges) s.insert({e.sourceId, e.targetId});
-        return s;
-    }
-
-    void testGlobalGraphProxyOverloadMatchesRaw()
-    {
-        QTemporaryDir tmp;
-        QString vault = tmp.path() + "/vault";
-        createFile(vault + "/A.md", "Links to [[B]] and [[C]]");
-        createFile(vault + "/B.md", "Links to [[C]] and [[Unresolved]]");
-        createFile(vault + "/C.md", "No links");
-        createFile(vault + "/orphan.md", "Nothing here");
-
-        Corbomite::FileSystemAdapter fs;
-        Corbomite::Vault vaultObj(&fs);
-        vaultObj.load(vault);
-
-        Corbomite::LinkResolver resolver;
-        Corbomite::MetadataCache cache(resolver);
-        Corbomite::SQLiteIndex index;
-        indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
-
-        auto raw = Corbomite::GraphDataBuilder::buildGlobalGraph(&index, &vaultObj);
-
-        QSet<QString> granted = { QStringLiteral("vault.read"),
-                                  QStringLiteral("metadata.read") };
-        Corbomite::VaultProxy  vaultProxy(&vaultObj, granted, QStringLiteral("t"));
-        Corbomite::SearchProxy searchProxy(&index, granted, QStringLiteral("t"));
-
-        auto proxied = Corbomite::GraphDataBuilder::buildGlobalGraph(&searchProxy, &vaultProxy);
-
-        QCOMPARE(proxied.nodes.size(), raw.nodes.size());
-        QCOMPARE(proxied.edges.size(), raw.edges.size());
-        QCOMPARE(nodeIdSet(proxied), nodeIdSet(raw));
-        QCOMPARE(edgeSet(proxied), edgeSet(raw));
-    }
-
-    void testLocalGraphProxyOverloadMatchesRaw()
-    {
-        QTemporaryDir tmp;
-        QString vault = tmp.path() + "/vault";
-        createFile(vault + "/center.md", "Links to [[neighbor]]");
-        createFile(vault + "/neighbor.md", "Links to [[far]]");
-        createFile(vault + "/far.md", "Far away");
-        createFile(vault + "/unrelated.md", "No connection");
-
-        Corbomite::FileSystemAdapter fs;
-        Corbomite::Vault vaultObj(&fs);
-        vaultObj.load(vault);
-
-        Corbomite::LinkResolver resolver;
-        Corbomite::MetadataCache cache(resolver);
-        Corbomite::SQLiteIndex index;
-        indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
-
-        QSet<QString> granted = { QStringLiteral("vault.read"),
-                                  QStringLiteral("metadata.read") };
-        Corbomite::VaultProxy  vaultProxy(&vaultObj, granted, QStringLiteral("t"));
-        Corbomite::SearchProxy searchProxy(&index, granted, QStringLiteral("t"));
-
-        // Depth 1
-        auto raw1 = Corbomite::GraphDataBuilder::buildLocalGraph(
-            &index, &vaultObj, QStringLiteral("center.md"), 1);
-        auto proxied1 = Corbomite::GraphDataBuilder::buildLocalGraph(
-            &searchProxy, &vaultProxy, QStringLiteral("center.md"), 1);
-
-        QCOMPARE(proxied1.nodes.size(), raw1.nodes.size());
-        QCOMPARE(proxied1.edges.size(), raw1.edges.size());
-        QCOMPARE(nodeIdSet(proxied1), nodeIdSet(raw1));
-        QCOMPARE(edgeSet(proxied1), edgeSet(raw1));
-
-        // Depth 2
-        auto raw2 = Corbomite::GraphDataBuilder::buildLocalGraph(
-            &index, &vaultObj, QStringLiteral("center.md"), 2);
-        auto proxied2 = Corbomite::GraphDataBuilder::buildLocalGraph(
-            &searchProxy, &vaultProxy, QStringLiteral("center.md"), 2);
-
-        QCOMPARE(proxied2.nodes.size(), raw2.nodes.size());
-        QCOMPARE(proxied2.edges.size(), raw2.edges.size());
-        QCOMPARE(nodeIdSet(proxied2), nodeIdSet(raw2));
-        QCOMPARE(edgeSet(proxied2), edgeSet(raw2));
     }
 };
 
