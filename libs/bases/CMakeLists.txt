@@ -20,6 +20,8 @@ add_library(corbomite-bases STATIC
     src/RegExpValue.cpp
     src/ObjectValue.cpp
     src/FileValue.cpp
+    src/Lexer.cpp
+    include/corbomite/bases/Lexer.h
     include/corbomite/bases/ValuePtr.h
     include/corbomite/bases/Value.h
     include/corbomite/bases/Values.h
