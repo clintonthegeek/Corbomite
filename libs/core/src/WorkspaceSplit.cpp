@@ -36,6 +36,11 @@ void WorkspaceSplit::addChild(WorkspaceItem *child, int index)
     if (auto *w = child->widget()) {
         int idx = m_children.indexOf(child);
         m_splitter->insertWidget(idx, w);
+        // QSplitter::insertWidget's auto-show only triggers when the previous
+        // visibility state was already "shown"; a widget freshly reparented
+        // via setParent(nullptr) (as happens during splitLeaf reparenting)
+        // stays hidden unless we call show() explicitly.
+        w->show();
     }
     syncDimensionsToSplitter();
 }

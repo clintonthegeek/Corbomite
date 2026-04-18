@@ -555,6 +555,72 @@ private Q_SLOTS:
     }
 
     // ------------------------------------------------------------------
+    // 15b. Workspace::duplicateLeaf — Obsidian-shape user-facing split
+    //      (see docs/obsidian-audit/domains/workspace.md §6).
+    //      Must clone the source leaf's viewState/pinned/group into a new
+    //      leaf inserted into the sibling tabs, and make it active.
+    // ------------------------------------------------------------------
+    void test_workspace_duplicateLeaf_returnsNonNullLeaf()
+    {
+        ViewRegistry reg;
+        Workspace ws(&reg);
+        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
+        QVERIFY(tabs);
+        auto *src = ws.createLeafInTabs(tabs);
+        QVERIFY(src);
+
+        auto *dup = ws.duplicateLeaf(src, Qt::Horizontal);
+        QVERIFY2(dup != nullptr, "duplicateLeaf must return a non-null new leaf");
+        QVERIFY(dup != src);
+    }
+
+    void test_workspace_duplicateLeaf_newLeafIsActive()
+    {
+        ViewRegistry reg;
+        Workspace ws(&reg);
+        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
+        auto *src = ws.createLeafInTabs(tabs);
+        ws.setActiveLeaf(src);
+
+        auto *dup = ws.duplicateLeaf(src, Qt::Horizontal);
+        QVERIFY(dup);
+        QCOMPARE(ws.activeLeaf(), dup);
+    }
+
+    void test_workspace_duplicateLeaf_clonesPinnedAndGroup()
+    {
+        ViewRegistry reg;
+        Workspace ws(&reg);
+        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
+        auto *src = ws.createLeafInTabs(tabs);
+        src->setPinned(true);
+        src->setGroup(QStringLiteral("group-A"));
+
+        auto *dup = ws.duplicateLeaf(src, Qt::Vertical);
+        QVERIFY(dup);
+        QVERIFY2(dup->pinned(), "duplicated leaf must carry pinned flag");
+        QCOMPARE(dup->group(), QStringLiteral("group-A"));
+    }
+
+    void test_workspace_duplicateLeaf_newTabsContainsOnlyNewLeaf()
+    {
+        ViewRegistry reg;
+        Workspace ws(&reg);
+        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
+        auto *src = ws.createLeafInTabs(tabs);
+
+        auto *dup = ws.duplicateLeaf(src, Qt::Horizontal);
+        QVERIFY(dup);
+
+        // dup's parent tabs is the new sibling tabs; it should contain only dup.
+        auto *newTabs = qobject_cast<WorkspaceTabs *>(dup->parentItem());
+        QVERIFY(newTabs);
+        QCOMPARE(newTabs->childCount(), 1);
+        QCOMPARE(newTabs->childAt(0), dup);
+        QVERIFY2(newTabs != tabs, "duplicateLeaf must create a NEW tabs container");
+    }
+
+    // ------------------------------------------------------------------
     // 16. Widget tree mirrors workspace object tree: the widget hierarchy
     //     matches the WorkspaceItem tree structure.
     //     Split -> Tabs -> Leaf widget nesting must be reflected in QWidget

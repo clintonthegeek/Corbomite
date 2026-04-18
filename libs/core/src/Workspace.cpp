@@ -7,6 +7,7 @@
 #include "corbomite/core/WorkspaceTabs.h"
 #include "corbomite/core/WorkspaceWindow.h"
 
+#include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -20,6 +21,28 @@ Workspace::Workspace(ViewRegistry *registry, QObject *parent)
     , m_registry(registry)
 {
     setupDefaultLayout();
+
+    // Focus-based active-leaf routing: when any widget in the application
+    // receives focus, walk up the parent chain to find the owning leaf and
+    // mark it active. Matches Obsidian's per-pane focus semantics so that
+    // "open note" routes to the pane the user is actually editing in.
+    if (auto *app = qApp) {
+        connect(app, &QApplication::focusChanged, this,
+                [this](QWidget *, QWidget *now) {
+            if (!now || !m_mainRoot)
+                return;
+            QWidget *w = now;
+            while (w) {
+                for (auto *leaf : allLeaves()) {
+                    if (leaf->widget() == w) {
+                        setActiveLeaf(leaf);
+                        return;
+                    }
+                }
+                w = w->parentWidget();
+            }
+        });
+    }
 }
 
 Workspace::~Workspace()
@@ -163,6 +186,44 @@ WorkspaceSplit *Workspace::splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direct
 
     Q_EMIT layoutChanged();
     return split;
+}
+
+WorkspaceLeaf *Workspace::duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction)
+{
+    if (!leaf || !leaf->parentItem())
+        return nullptr;
+
+    // Snapshot before structural mutation.
+    QJsonObject state = leaf->getViewState();
+    QJsonObject eState = leaf->getEphemeralState();
+    LeafHistory hist = leaf->history();
+    bool wasPinned = leaf->pinned();
+    QString grp = leaf->group();
+
+    auto *split = splitLeaf(leaf, direction);
+    if (!split)
+        return nullptr;
+
+    // splitLeaf appends the new empty tabs as split's last child.
+    auto *newTabs = qobject_cast<WorkspaceTabs *>(
+        split->childAt(split->childCount() - 1));
+    if (!newTabs)
+        return nullptr;
+
+    auto *newLeaf = createLeafInTabs(newTabs);
+    if (!newLeaf)
+        return nullptr;
+
+    if (!state.isEmpty())
+        newLeaf->setViewState(state);
+    if (!eState.isEmpty())
+        newLeaf->setEphemeralState(eState);
+    newLeaf->setPinned(wasPinned);
+    newLeaf->setGroup(grp);
+    newLeaf->history() = hist;
+
+    setActiveLeaf(newLeaf);
+    return newLeaf;
 }
 
 WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)

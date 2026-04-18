@@ -784,7 +784,7 @@ void MainWindow::setupActions()
     connect(splitRight, &QAction::triggered, this, [this]() {
         if (!m_workspace) return;
         if (auto *leaf = m_workspace->activeLeaf())
-            m_workspace->splitLeaf(leaf, Qt::Horizontal);
+            m_workspace->duplicateLeaf(leaf, Qt::Horizontal);
     });
 
     auto *splitDown = ac->addAction(QStringLiteral("split_down"));
@@ -793,7 +793,7 @@ void MainWindow::setupActions()
     connect(splitDown, &QAction::triggered, this, [this]() {
         if (!m_workspace) return;
         if (auto *leaf = m_workspace->activeLeaf())
-            m_workspace->splitLeaf(leaf, Qt::Vertical);
+            m_workspace->duplicateLeaf(leaf, Qt::Vertical);
     });
 
     // Undo close tab

@@ -56,6 +56,11 @@ public:
     void undoCloseLeaf();
     WorkspaceSplit *splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction);
 
+    /// Obsidian-shape user-facing split: clone `leaf`'s view state (+ ephemeral
+    /// state, history, pinned, group) into a new leaf in a new split sibling.
+    /// The new leaf becomes active. Returns the new leaf, or nullptr on failure.
+    WorkspaceLeaf *duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction);
+
     // Popout windows (stub — implemented in Task 7)
     WorkspaceWindow *popoutLeaf(WorkspaceLeaf *leaf);
     void reparentToMain(WorkspaceWindow *window);
