@@ -50,6 +50,11 @@ Workspace::~Workspace()
     destroyTree();
 }
 
+void Workspace::revealDockView(const QString &slug)
+{
+    Q_EMIT revealDockViewRequested(slug);
+}
+
 ViewRegistry *Workspace::viewRegistry() const { return m_registry; }
 
 WorkspaceSplit *Workspace::mainRoot() const { return m_mainRoot; }

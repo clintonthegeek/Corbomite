@@ -3,12 +3,15 @@
 
 #include "OutlinksView.h"
 
+#include "corbomite/core/Command.h"
+#include "corbomite/core/proxies/CommandRegistrar.h"
 #include "corbomite/core/proxies/WorkspaceController.h"
 #include "corbomite/storage/proxies/MetadataCacheReader.h"
 #include "corbomite/vault/PluginContext.h"
 #include "corbomite/vault/proxies/FileManagerProxy.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
 
+#include <KLocalizedString>
 #include <KPluginFactory>
 #include <QDebug>
 
@@ -18,6 +21,25 @@ OutlinksPlugin::OutlinksPlugin(QObject *parent, const QVariantList &)
     : Plugin(parent) {}
 
 OutlinksPlugin::~OutlinksPlugin() = default;
+
+void OutlinksPlugin::onLoad(PluginContext *ctx)
+{
+    if (!ctx) return;
+
+    // Register `outlinks:open` — reveals the Outlinks dock panel.
+    // Consumed by Cluster R MarkdownView.onMoreOptionsMenu view.linked submenu.
+    if (auto *commands = ctx->commands()) {
+        Command open;
+        open.id = QStringLiteral("open");
+        open.name = i18n("Open outgoing links");
+        open.icon = QStringLiteral("go-next");
+        open.callback = [ctx] {
+            if (auto *ws = ctx->workspace())
+                ws->revealDockView(QStringLiteral("outlinks"));
+        };
+        commands->addCommand(open);
+    }
+}
 
 QObject *OutlinksPlugin::createView(MainWindow *mainWindow)
 {

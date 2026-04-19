@@ -59,6 +59,11 @@ public:
     /// plugin that needs to drive the editor caret.
     bool goToLine(int line);
 
+    /// Request the host reveal the dock panel for plugin `slug`. The host
+    /// resolves `slug` → tool view id `<slug>_panel` and raises it. Used
+    /// by the `<plugin>:open` commands from Cluster R Task 3.1.
+    void revealDockView(const QString &slug);
+
 Q_SIGNALS:
     /// Emitted when the active leaf changes — `relativePath` is the
     /// vault-relative path of the file in the new active leaf, or

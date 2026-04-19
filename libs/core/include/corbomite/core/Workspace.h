@@ -86,10 +86,17 @@ public:
     /// Tear down the current tree and recreate an empty default layout.
     void resetToDefaultLayout();
 
+    /// Request the host reveal the dock panel for the given plugin slug.
+    /// Emits `revealDockViewRequested(slug)` — MainWindow connects to
+    /// this to raise the plugin's tool view. Used by plugin `:open`
+    /// commands (Cluster R Task 3.1).
+    void revealDockView(const QString &slug);
+
 Q_SIGNALS:
     void activeLeafChanged(WorkspaceLeaf *leaf);
     void layoutChanged();
     void leafClosed(WorkspaceLeaf *leaf);
+    void revealDockViewRequested(const QString &slug);
 
 private:
     /// Remove an empty WorkspaceTabs from its parent split, and collapse the

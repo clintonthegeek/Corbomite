@@ -131,4 +131,10 @@ bool WorkspaceController::goToLine(int line)
     return editable->setCursorLine(line);
 }
 
+void WorkspaceController::revealDockView(const QString &slug)
+{
+    if (!m_workspace || slug.isEmpty()) return;
+    m_workspace->revealDockView(slug);
+}
+
 } // namespace Corbomite

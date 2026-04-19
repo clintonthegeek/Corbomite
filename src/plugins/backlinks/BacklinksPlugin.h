@@ -13,6 +13,9 @@ public:
     ~BacklinksPlugin() override;
 
     QObject *createView(MainWindow *mainWindow) override;
+
+protected:
+    void onLoad(PluginContext *ctx) override;
 };
 
 } // namespace Corbomite

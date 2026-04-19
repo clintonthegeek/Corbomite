@@ -862,6 +862,38 @@ void MainWindow::setupEditor()
 
     // Index 1: Workspace (replaces EditorViewManager)
     m_workspace = new Workspace(m_viewRegistry, this);
+
+    // Cluster R Task 3.1: plugin `:open` commands dispatch through
+    // Workspace::revealDockView → this slot, which resolves slug to tool-view
+    // id (`<slug>_panel`) and raises it.
+    connect(m_workspace, &Workspace::revealDockViewRequested, this,
+            [this](const QString &slug) {
+        if (slug.isEmpty()) return;
+        // Special-cased slugs (graph:open-local → the graph panel plugin id
+        // differs from the slug). Map known slugs to plugin ids; unknown
+        // slugs are treated as plugin-id-equivalent.
+        static const QHash<QString, QString> slugToPluginId = {
+            {QStringLiteral("backlinks"), QStringLiteral("corbomite-backlinks")},
+            {QStringLiteral("outlinks"),  QStringLiteral("corbomite-outlinks")},
+            {QStringLiteral("outline"),   QStringLiteral("corbomite-outline")},
+            {QStringLiteral("properties"), QStringLiteral("corbomite-properties")},
+            {QStringLiteral("local-graph"), QStringLiteral("corbomite-local-graph")},
+        };
+        const QString pluginId = slugToPluginId.value(slug, slug);
+        const QString toolViewId = pluginId + QStringLiteral("_panel");
+        auto *tv = toolView(toolViewId);
+        if (!tv) return;
+        showToolView(tv);
+        if (auto *pm = m_app ? m_app->pluginManager() : nullptr) {
+            if (const auto *info = pm->pluginById(pluginId)) {
+                auto it = m_hostedPluginViews.constFind(pluginId);
+                if (info->instance && it != m_hostedPluginViews.constEnd()) {
+                    info->instance->focus(*it);
+                }
+            }
+        }
+    });
+
     m_workspaceContainer = new QWidget(m_centralStack);
     auto *wsLayout = new QVBoxLayout(m_workspaceContainer);
     wsLayout->setContentsMargins(0, 0, 0, 0);
