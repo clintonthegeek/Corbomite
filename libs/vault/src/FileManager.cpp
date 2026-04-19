@@ -7,6 +7,7 @@
 #include "corbomite/vault/TFolder.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/CachedMetadata.h"
+#include "dialogs/MoveFileDialog.h"
 #include "dialogs/RenameDialog.h"
 
 #include <markoff-parser/Document.h>
@@ -368,6 +369,33 @@ QString FileManager::promptForFileRename(TAbstractFile *file, QWidget *parent)
     const QString newPath = parentPrefix + newName;
 
     // Delegate to renameFile — this is the link-rewrite aware path.
+    const bool ok = renameFile(file, newPath);
+    return ok ? newPath : QString();
+}
+
+QString FileManager::promptForMove(TAbstractFile *file, QWidget *parent)
+{
+    if (!file || !m_vault) return QString();
+
+    MoveFileDialog dlg(file, m_vault, parent);
+    if (dlg.exec() != QDialog::Accepted) return QString();
+
+    QString folderPath = dlg.selectedFolderPath();
+    if (folderPath.isEmpty()) return QString();
+
+    // Normalise root ("/") → empty so the prefix concat below produces a
+    // plain root-relative path.
+    if (folderPath == QStringLiteral("/")) folderPath.clear();
+
+    const QString newPath = folderPath.isEmpty()
+        ? file->name
+        : folderPath + QStringLiteral("/") + file->name;
+
+    // Collision check: target folder already has a file by this name?
+    // UX follow-up will surface a Notice; for now quietly abort.
+    if (m_vault->getAbstractFileByPath(newPath) != nullptr)
+        return QString();
+
     const bool ok = renameFile(file, newPath);
     return ok ? newPath : QString();
 }

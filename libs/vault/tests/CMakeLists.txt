@@ -187,3 +187,12 @@ target_include_directories(tst_rename_dialog
 add_test(NAME tst_rename_dialog COMMAND tst_rename_dialog)
 set_tests_properties(tst_rename_dialog PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_move_file_dialog tst_move_file_dialog.cpp)
+target_link_libraries(tst_move_file_dialog
+    PRIVATE Qt6::Test Qt6::Widgets Corbomite::Vault Corbomite::Storage)
+target_include_directories(tst_move_file_dialog
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+add_test(NAME tst_move_file_dialog COMMAND tst_move_file_dialog)
+set_tests_properties(tst_move_file_dialog PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

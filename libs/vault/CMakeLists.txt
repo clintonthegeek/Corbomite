@@ -32,6 +32,8 @@ add_library(vault SHARED
     src/FileNameValidator.cpp
     src/dialogs/RenameDialog.h
     src/dialogs/RenameDialog.cpp
+    src/dialogs/MoveFileDialog.h
+    src/dialogs/MoveFileDialog.cpp
     include/corbomite/vault/proxies/VaultProxy.h
     src/proxies/VaultProxy.cpp
     include/corbomite/vault/proxies/FileManagerProxy.h

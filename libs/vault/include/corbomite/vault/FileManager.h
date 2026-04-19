@@ -88,6 +88,11 @@ public:
     /// empty QString on cancel or failure.
     QString promptForFileRename(TAbstractFile *file, QWidget *parent = nullptr);
 
+    /// Opens a modal folder-picker and moves `file` into the chosen folder.
+    /// Returns the new full vault-relative path on success, empty QString
+    /// on cancel, no-selection, or collision.
+    QString promptForMove(TAbstractFile *file, QWidget *parent = nullptr);
+
 Q_SIGNALS:
     void renameStarted(Corbomite::TAbstractFile *f, const QString &newPath);
     void renameFinished(Corbomite::TAbstractFile *f, const QString &oldPath);
