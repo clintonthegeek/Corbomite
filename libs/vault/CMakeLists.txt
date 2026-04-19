@@ -28,6 +28,8 @@ add_library(vault SHARED
     src/Watcher.cpp
     include/corbomite/vault/FileManager.h
     src/FileManager.cpp
+    src/FileNameValidator.h
+    src/FileNameValidator.cpp
     include/corbomite/vault/proxies/VaultProxy.h
     src/proxies/VaultProxy.cpp
     include/corbomite/vault/proxies/FileManagerProxy.h

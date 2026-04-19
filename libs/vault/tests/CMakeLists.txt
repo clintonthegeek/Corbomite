@@ -167,3 +167,14 @@ target_link_libraries(tst_plugin_data_store
 add_test(NAME tst_plugin_data_store COMMAND tst_plugin_data_store)
 set_tests_properties(tst_plugin_data_store PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_file_name_validator tst_file_name_validator.cpp)
+target_link_libraries(tst_file_name_validator
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+# The validator header lives under libs/vault/src/ (private), so the test
+# needs explicit include access.
+target_include_directories(tst_file_name_validator
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+add_test(NAME tst_file_name_validator COMMAND tst_file_name_validator)
+set_tests_properties(tst_file_name_validator PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
