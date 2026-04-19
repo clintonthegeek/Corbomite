@@ -509,6 +509,16 @@ Obsidian is a layered Electron app. At the bottom sits **`core/App`** wiring the
 
 > **Append-only.** When implementation reveals new or corrected facts about Obsidian, write a dated file in `addenda/` and link it here (most recent on top). See `addenda/README.md` for the format. **Never edit the taxonomy or domain docs above** — they are snapshots of audit-time belief and must remain stable.
 
+- [2026-04-19 — File Recovery core plugin: backup store + Version History modal](addenda/2026-04-19-file-recovery-plugin.md)
+- [2026-04-19 — "Add file property" hamburger entry into frontmatter editor](addenda/2026-04-19-add-file-property-menu.md)
+- [2026-04-19 — Graph internal plugin: "Copy screenshot" menu action + preamble](addenda/2026-04-19-graph-screenshot.md)
+- [2026-04-19 — Canvas internal plugin: "Export as image" menu action + preamble](addenda/2026-04-19-canvas-export-as-image.md)
+- [2026-04-19 — "Merge entire file with…" modal UX](addenda/2026-04-19-merge-file-modal.md)
+- [2026-04-19 — `Platform.shell.showItemInFolder` — "Show in system explorer" menu action](addenda/2026-04-19-show-in-folder.md)
+- [2026-04-19 — `app.openWithDefaultApp` — "Open in default app" menu action](addenda/2026-04-19-open-with-default-app.md)
+- [2026-04-19 — `fileManager.promptForDeletion` — delete-confirm modal](addenda/2026-04-19-delete-confirm-modal.md)
+- [2026-04-19 — `fileManager.promptForFileRename` / `promptForMove` modals](addenda/2026-04-19-rename-move-modals.md)
+- [2026-04-19 — Bookmarks core plugin: on-disk format, panel, commands, modal](addenda/2026-04-19-bookmarks-core-plugin.md)
 - [2026-04-17 — Bases formula / filter DSL: grammar, operator semantics, function catalog](addenda/2026-04-17-bases-formula-dsl.md)
 - [2026-04-15 — Markoff strips footnote-def lines before tree-sitter (offset-shift)](addenda/2026-04-15-markoff-footnote-def-offset-shift.md)
 - [2026-04-15 — Daily Notes + Templates JSON schemas](addenda/2026-04-15-daily-notes-templates-schemas.md)
