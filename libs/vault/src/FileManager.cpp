@@ -7,8 +7,12 @@
 #include "corbomite/vault/TFolder.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/CachedMetadata.h"
+#include "dialogs/DeleteConfirmDialog.h"
 #include "dialogs/MoveFileDialog.h"
 #include "dialogs/RenameDialog.h"
+
+#include <KConfigGroup>
+#include <KSharedConfig>
 
 #include <markoff-parser/Document.h>
 #include <markoff-parser/YamlValue.h>
@@ -398,6 +402,35 @@ QString FileManager::promptForMove(TAbstractFile *file, QWidget *parent)
 
     const bool ok = renameFile(file, newPath);
     return ok ? newPath : QString();
+}
+
+bool FileManager::promptForDeletion(TAbstractFile *file, QWidget *parent)
+{
+    if (!file || !m_vault) return false;
+
+    const bool isFolder = dynamic_cast<TFolder *>(file) != nullptr;
+
+    KConfigGroup files(KSharedConfig::openConfig(), QStringLiteral("Files"));
+    const bool promptEnabled =
+        files.readEntry(QStringLiteral("PromptDelete"), true);
+    const QString trashOpt =
+        files.readEntry(QStringLiteral("TrashOption"), QStringLiteral("system"));
+
+    const auto performDelete = [&](Vault *v) -> bool {
+        if (trashOpt == QStringLiteral("permanent"))
+            return v->remove(file, /*recursive=*/isFolder);
+        const bool useSystem = (trashOpt == QStringLiteral("system"));
+        return v->trash(file, useSystem);
+    };
+
+    // Folders always prompt; files respect PromptDelete.
+    if (!isFolder && !promptEnabled)
+        return performDelete(m_vault);
+
+    DeleteConfirmDialog dlg(file, m_vault, parent);
+    if (dlg.exec() != QDialog::Accepted) return false;
+
+    return performDelete(m_vault);
 }
 
 } // namespace Corbomite

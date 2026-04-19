@@ -196,3 +196,13 @@ target_include_directories(tst_move_file_dialog
 add_test(NAME tst_move_file_dialog COMMAND tst_move_file_dialog)
 set_tests_properties(tst_move_file_dialog PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_delete_confirm_dialog tst_delete_confirm_dialog.cpp)
+target_link_libraries(tst_delete_confirm_dialog
+    PRIVATE Qt6::Test Qt6::Widgets KF6::ConfigCore
+            Corbomite::Vault Corbomite::Storage)
+target_include_directories(tst_delete_confirm_dialog
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+add_test(NAME tst_delete_confirm_dialog COMMAND tst_delete_confirm_dialog)
+set_tests_properties(tst_delete_confirm_dialog PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

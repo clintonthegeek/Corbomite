@@ -93,6 +93,13 @@ public:
     /// on cancel, no-selection, or collision.
     QString promptForMove(TAbstractFile *file, QWidget *parent = nullptr);
 
+    /// Opens a delete-confirm modal (respects the `[Files]/PromptDelete`
+    /// setting). Folder deletions always prompt. On confirm, routes the
+    /// file through `Vault::trash` using the `[Files]/TrashOption` config
+    /// (`system` → system trash, `vault` → `.trash/`, `permanent` →
+    /// `Vault::remove`). Returns true iff the file was actually removed.
+    bool promptForDeletion(TAbstractFile *file, QWidget *parent = nullptr);
+
 Q_SIGNALS:
     void renameStarted(Corbomite::TAbstractFile *f, const QString &newPath);
     void renameFinished(Corbomite::TAbstractFile *f, const QString &oldPath);
