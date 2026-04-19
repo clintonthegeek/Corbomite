@@ -7,10 +7,13 @@
 #include "MarkdownView.h"
 #include "NoteEditorWidget.h"
 
+#include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 
+#include <QMenu>
+#include <QStringList>
 #include <QTest>
 
 using Corbomite::MarkdownView;
@@ -26,6 +29,8 @@ class TestMarkdownView : public QObject
 private slots:
     void insertFrontmatterPropertyCreatesBlockIfMissing();
     void insertFrontmatterPropertyAppendsWhenBlockExists();
+    void onMoreOptionsMenuDispatchesAddPropertyCommand();
+    void onMoreOptionsMenuContributesViewLinkedSubmenu();
 };
 
 void TestMarkdownView::insertFrontmatterPropertyCreatesBlockIfMissing()
@@ -74,6 +79,84 @@ void TestMarkdownView::insertFrontmatterPropertyAppendsWhenBlockExists()
     QCOMPARE(afterLines, beforeLines + 1);
     // The closing fence still follows the appended row (no second --- block).
     QCOMPARE(out.count(QStringLiteral("\n---")), 1);
+}
+
+void TestMarkdownView::onMoreOptionsMenuDispatchesAddPropertyCommand()
+{
+    NoteDocument doc(QStringLiteral("/tmp/vault"), QStringLiteral("note.md"));
+    doc.setMarkdown(QStringLiteral("body\n"));
+
+    ViewRegistry registry;
+    WorkspaceLeaf leaf(&registry);
+    MarkdownView view(&leaf);
+    view.editorWidget()->setNoteDocument(&doc);
+
+    QStringList dispatched;
+    view.setMarkdownCommandDispatcher([&](const QString &id) {
+        dispatched << id;
+    });
+
+    QMenu menu;
+    Corbomite::MenuSectionHelper helper(&menu);
+    view.onMoreOptionsMenu(helper);
+    helper.finalize();
+
+    // Find the "Add file property" action and trigger it.
+    QAction *target = nullptr;
+    for (QAction *a : menu.actions()) {
+        if (a->text().contains(QStringLiteral("Add file property"))) {
+            target = a;
+            break;
+        }
+    }
+    QVERIFY2(target != nullptr, "Add file property action not found");
+    target->trigger();
+    QCOMPARE(dispatched,
+             QStringList{QStringLiteral("markdown:add-metadata-property")});
+}
+
+void TestMarkdownView::onMoreOptionsMenuContributesViewLinkedSubmenu()
+{
+    NoteDocument doc(QStringLiteral("/tmp/vault"), QStringLiteral("note.md"));
+    doc.setMarkdown(QStringLiteral("body\n"));
+
+    ViewRegistry registry;
+    WorkspaceLeaf leaf(&registry);
+    MarkdownView view(&leaf);
+    view.editorWidget()->setNoteDocument(&doc);
+
+    QStringList dispatched;
+    view.setMarkdownCommandDispatcher([&](const QString &id) {
+        dispatched << id;
+    });
+
+    QMenu menu;
+    Corbomite::MenuSectionHelper helper(&menu);
+    view.onMoreOptionsMenu(helper);
+    helper.finalize();
+
+    // Locate the submenu by title.
+    QMenu *linkedMenu = nullptr;
+    for (QAction *a : menu.actions()) {
+        if (a->menu() && a->text().contains(QStringLiteral("Open linked view"))) {
+            linkedMenu = a->menu();
+            break;
+        }
+    }
+    QVERIFY2(linkedMenu != nullptr, "Open linked view submenu missing");
+
+    // Trigger "Open backlinks".
+    QAction *backlinksAct = nullptr;
+    for (QAction *a : linkedMenu->actions()) {
+        if (a->text().contains(QStringLiteral("backlinks"))) {
+            backlinksAct = a;
+            break;
+        }
+    }
+    QVERIFY2(backlinksAct != nullptr, "Open backlinks action missing");
+    backlinksAct->trigger();
+    QVERIFY(dispatched.contains(
+        QStringLiteral("corbomite-backlinks:open")));
 }
 
 QTEST_MAIN(TestMarkdownView)

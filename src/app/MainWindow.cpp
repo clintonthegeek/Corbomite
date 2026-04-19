@@ -37,6 +37,7 @@
 #include "corbomite/core/EmbedRegistry.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/View.h"
+#include "ExportToPdf.h"
 #include "editor/MarkdownView.h"
 #include "canvas/CanvasFileView.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
@@ -615,6 +616,23 @@ void MainWindow::propagateServicesToView(View *view)
             mv->setVault(m_vaultObj);
         mv->setHoverPopover(m_hoverPopover);
         mv->setEditorSuggestManager(m_suggestManager);
+
+        // Cluster R Task 3.4: inject command-dispatch + PDF-export wiring so
+        // the hamburger menu actions can reach the host registry + Vault.
+        auto *cmds = m_commandRegistry;
+        mv->setMarkdownCommandDispatcher(
+            [cmds](const QString &commandId) {
+                if (cmds) cmds->executeById(commandId);
+            });
+        auto *vaultObj = m_vaultObj;
+        mv->setPdfExportTrigger([this, vaultObj](QWidget *parent) {
+            auto *mv2 = qobject_cast<MarkdownView *>(parent);
+            auto *doc = mv2 ? mv2->file() : nullptr;
+            if (!doc || !vaultObj) return;
+            auto *tfile = vaultObj->getFileByPath(doc->relativePath());
+            if (!tfile) return;
+            Corbomite::ExportToPdf::exportFile(tfile, vaultObj, parent);
+        });
 
         auto *editor = mv->editorWidget();
         if (editor) {

@@ -2,9 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MarkdownView.h"
 #include "NoteEditorWidget.h"
+#include "corbomite/core/EditableFileView.h"
+#include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 
+#include <KLocalizedString>
+
+#include <QAction>
+#include <QIcon>
+#include <QList>
+#include <QString>
 #include <QVBoxLayout>
 
 namespace Corbomite {
@@ -152,6 +160,180 @@ void MarkdownView::insertFrontmatterProperty()
     QString out = body;
     out.insert(closeIdx + 1, insert);  // +1 skips the leading '\n'
     doc->setMarkdown(out);
+}
+
+void MarkdownView::setMarkdownCommandDispatcher(CommandDispatch dispatcher)
+{
+    m_markdownCommandDispatcher = std::move(dispatcher);
+}
+
+void MarkdownView::setPdfExportTrigger(PdfExportTrigger trigger)
+{
+    m_pdfExportTrigger = std::move(trigger);
+}
+
+void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
+{
+    // ---- pane: Split right / Split down ----
+    auto dispatch = [this](const QString &cmd) {
+        if (m_markdownCommandDispatcher) m_markdownCommandDispatcher(cmd);
+    };
+
+    auto *splitR = new QAction(
+        QIcon::fromTheme(QStringLiteral("view-split-left-right")),
+        i18n("Split right"), this);
+    connect(splitR, &QAction::triggered, this,
+            [dispatch] { dispatch(QStringLiteral("split_right")); });
+    helper.addToSection(splitR, QStringLiteral("pane"));
+
+    auto *splitD = new QAction(
+        QIcon::fromTheme(QStringLiteral("view-split-top-bottom")),
+        i18n("Split down"), this);
+    connect(splitD, &QAction::triggered, this,
+            [dispatch] { dispatch(QStringLiteral("split_down")); });
+    helper.addToSection(splitD, QStringLiteral("pane"));
+
+    // ---- view: Backlinks-in-document toggle (Phase 4 wires the renderer) ----
+    auto *backlinksInDoc = new QAction(i18n("Backlinks in document"), this);
+    backlinksInDoc->setCheckable(true);
+    if (m_leaf) {
+        const QJsonObject vs = m_leaf->getViewState();
+        const QJsonObject st = vs.value(QStringLiteral("state")).toObject();
+        backlinksInDoc->setChecked(
+            st.value(QStringLiteral("backlinksInDocument")).toBool());
+    }
+    connect(backlinksInDoc, &QAction::triggered, this, [this](bool on) {
+        if (!m_leaf) return;
+        QJsonObject vs = m_leaf->getViewState();
+        QJsonObject st = vs.value(QStringLiteral("state")).toObject();
+        st[QStringLiteral("backlinksInDocument")] = on;
+        vs[QStringLiteral("state")] = st;
+        m_leaf->setViewState(vs);
+        // TODO Phase 4: BacklinksPostProcessor reads this flag and appends a
+        // backlinks section to the ReadingView render tree.
+    });
+    helper.addToSection(backlinksInDoc, QStringLiteral("view"));
+
+    // ---- view: Reading / Source toggles ----
+    auto *readingAct = new QAction(i18n("Reading view"), this);
+    readingAct->setCheckable(true);
+    readingAct->setChecked(
+        m_editorWidget
+        && m_editorWidget->viewMode() == NoteEditorWidget::ViewMode::Reading);
+    connect(readingAct, &QAction::triggered, this, [this] {
+        if (!m_editorWidget) return;
+        const bool toReading =
+            m_editorWidget->viewMode() != NoteEditorWidget::ViewMode::Reading;
+        m_editorWidget->setViewMode(toReading
+            ? NoteEditorWidget::ViewMode::Reading
+            : NoteEditorWidget::ViewMode::LivePreview);
+    });
+    helper.addToSection(readingAct, QStringLiteral("view"));
+
+    auto *sourceAct = new QAction(i18n("Source mode"), this);
+    sourceAct->setCheckable(true);
+    sourceAct->setChecked(
+        m_editorWidget
+        && m_editorWidget->viewMode() == NoteEditorWidget::ViewMode::Source);
+    connect(sourceAct, &QAction::triggered, this, [this] {
+        if (!m_editorWidget) return;
+        const bool toSource =
+            m_editorWidget->viewMode() != NoteEditorWidget::ViewMode::Source;
+        m_editorWidget->setViewMode(toSource
+            ? NoteEditorWidget::ViewMode::Source
+            : NoteEditorWidget::ViewMode::LivePreview);
+    });
+    helper.addToSection(sourceAct, QStringLiteral("view"));
+
+    // ---- action: Bookmark (placeholder — Cluster S) ----
+    auto *bookmarkAct = new QAction(
+        QIcon::fromTheme(QStringLiteral("bookmark-new")),
+        i18n("Bookmark..."), this);
+    bookmarkAct->setEnabled(false);
+    bookmarkAct->setToolTip(
+        i18n("Requires Bookmarks core plugin (Cluster S)"));
+    helper.addToSection(bookmarkAct, QStringLiteral("action"));
+
+    // ---- action: Add file property ----
+    auto *addPropAct = new QAction(
+        QIcon::fromTheme(QStringLiteral("list-add")),
+        i18n("Add file property"), this);
+    connect(addPropAct, &QAction::triggered, this,
+            [dispatch] {
+                dispatch(QStringLiteral("markdown:add-metadata-property"));
+            });
+    helper.addToSection(addPropAct, QStringLiteral("action"));
+
+    // ---- action: Export to PDF ----
+    auto *exportPdfAct = new QAction(
+        QIcon::fromTheme(QStringLiteral("document-export")),
+        i18n("Export to PDF..."), this);
+    connect(exportPdfAct, &QAction::triggered, this, [this] {
+        if (m_pdfExportTrigger) m_pdfExportTrigger(this);
+    });
+    helper.addToSection(exportPdfAct, QStringLiteral("action"));
+
+    // ---- find: disabled placeholders (Qutepart fork Phase 3 find/replace) ----
+    auto *findAct = new QAction(
+        QIcon::fromTheme(QStringLiteral("edit-find")),
+        i18n("Find..."), this);
+    findAct->setEnabled(false);
+    findAct->setToolTip(
+        i18n("Requires Qutepart fork Phase 3 find/replace API"));
+    helper.addToSection(findAct, QStringLiteral("find"));
+
+    auto *replaceAct = new QAction(
+        QIcon::fromTheme(QStringLiteral("edit-find-replace")),
+        i18n("Replace..."), this);
+    replaceAct->setEnabled(false);
+    replaceAct->setToolTip(
+        i18n("Requires Qutepart fork Phase 3 find/replace API"));
+    helper.addToSection(replaceAct, QStringLiteral("find"));
+
+    // ---- view.linked submenu: open the five sidebar dock panels ----
+    auto *linkedSub = helper.addSubmenu(
+        QStringLiteral("view.linked"),
+        i18n("Open linked view"),
+        QIcon::fromTheme(QStringLiteral("tab-detach")));
+
+    struct LinkedEntry {
+        QString label;
+        QString commandId;
+        QString icon;
+    };
+    const QList<LinkedEntry> entries = {
+        // Canonical ids are namespaced by pluginId (CommandRegistrar auto-prefix).
+        {i18n("Open local graph"),
+            QStringLiteral("corbomite-local-graph:open-local"),
+            QStringLiteral("preferences-system-network")},
+        {i18n("Open backlinks"),
+            QStringLiteral("corbomite-backlinks:open"),
+            QStringLiteral("go-previous")},
+        {i18n("Open outgoing links"),
+            QStringLiteral("corbomite-outlinks:open"),
+            QStringLiteral("go-next")},
+        {i18n("Open file properties"),
+            QStringLiteral("corbomite-properties:open"),
+            QStringLiteral("document-properties")},
+        {i18n("Open outline"),
+            QStringLiteral("corbomite-outline:open"),
+            QStringLiteral("view-list-tree")},
+    };
+    for (const auto &e : entries) {
+        auto *act = new QAction(QIcon::fromTheme(e.icon), e.label, this);
+        const QString cmdId = e.commandId;
+        connect(act, &QAction::triggered, this,
+                [dispatch, cmdId] { dispatch(cmdId); });
+        linkedSub->addToSection(act, QStringLiteral("action"));
+    }
+
+    // ---- Chain to EditableFileView for universal file-menu items ----
+    // Until Phase 2 Task 2.8 lands, this resolves to View::onMoreOptionsMenu
+    // (empty body). Once 2.8 ships, EditableFileView adds rename/move/delete
+    // + copy-path submenu + open-in-default-app + reveal-in-navigation +
+    // danger-zone Delete. MarkdownView's items appear BEFORE EditableFileView's
+    // within each canonical section.
+    EditableFileView::onMoreOptionsMenu(helper);
 }
 
 void MarkdownView::setVault(Vault *vault)
