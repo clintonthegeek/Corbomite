@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/View.h"
 #include "corbomite/core/Component.h"
+#include "corbomite/core/MenuSectionHelper.h"
 
 #include <QVBoxLayout>
 
@@ -65,6 +66,14 @@ QJsonObject View::getEphemeralState() const { return {}; }
 void View::setEphemeralState(const QJsonObject &) {}
 
 void View::onPaneMenu(QMenu *) {}
+
+void View::onMoreOptionsMenu(MenuSectionHelper & /*helper*/) {}
+
+void View::onPaneMenu(QMenu *menu, const QString & /*source*/)
+{
+    onPaneMenu(menu);  // backward-compat forwarder
+}
+
 void View::onTabMenu(QMenu *) {}
 void View::onResize() {}
 

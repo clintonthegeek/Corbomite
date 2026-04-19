@@ -9,6 +9,8 @@
 
 class QMenu;
 
+namespace Corbomite { class MenuSectionHelper; }
+
 namespace Corbomite {
 
 class Component;
@@ -40,6 +42,18 @@ public:
     virtual void setEphemeralState(const QJsonObject &state);
 
     virtual void onPaneMenu(QMenu *menu);
+
+    // Primary hook for hamburger-menu ("…" / overflow) contributions.
+    // Subclasses override to add items via the supplied helper. Called by
+    // ItemView::showMoreOptionsMenu before onPaneMenu(menu, "more-options").
+    virtual void onMoreOptionsMenu(MenuSectionHelper &helper);
+
+    // Context-menu hook with source discrimination. `source` distinguishes
+    // invocation contexts — "pane-menu" (tab-header right-click), "more-options"
+    // (hamburger click), "file-menu" (file-list right-click), etc.
+    // Default implementation forwards to the zero-arg overload for backward compat.
+    virtual void onPaneMenu(QMenu *menu, const QString &source);
+
     virtual void onTabMenu(QMenu *menu);
     virtual void onResize();
 

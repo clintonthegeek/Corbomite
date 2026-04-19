@@ -11,6 +11,11 @@ add_test(NAME tst_menusectionhelper COMMAND tst_menusectionhelper)
 target_link_libraries(tst_menusectionhelper PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_menusectionhelper PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_view_more_options tst_view_more_options.cpp)
+add_test(NAME tst_view_more_options COMMAND tst_view_more_options)
+target_link_libraries(tst_view_more_options PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_view_more_options PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_hoverlinksources tst_hoverlinksources.cpp)
 add_test(NAME tst_hoverlinksources COMMAND tst_hoverlinksources)
 target_link_libraries(tst_hoverlinksources PRIVATE Qt6::Test Corbomite::Core)
