@@ -24,8 +24,8 @@ public:
     QWidget *widget() override;
     QJsonObject serialize() const override;
 
-    void addChild(WorkspaceItem *child, int index = -1);
-    void removeChild(WorkspaceItem *child, bool deleteChild = false);
+    void addChild(WorkspaceItem *child, int index = -1) override;
+    void removeChild(WorkspaceItem *child, bool deleteChild = false) override;
 
     QTabBar *tabBar() const;
 

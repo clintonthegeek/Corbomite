@@ -18,8 +18,8 @@ public:
     int indexOf(WorkspaceItem *child) const;
     QVector<WorkspaceItem *> children() const;
 
-    void addChild(WorkspaceItem *child, int index = -1);
-    void removeChild(WorkspaceItem *child, bool deleteChild = false);
+    virtual void addChild(WorkspaceItem *child, int index = -1);
+    virtual void removeChild(WorkspaceItem *child, bool deleteChild = false);
     void moveChild(int from, int to);
 
 Q_SIGNALS:

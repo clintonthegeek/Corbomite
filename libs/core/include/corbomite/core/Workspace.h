@@ -92,6 +92,12 @@ Q_SIGNALS:
     void leafClosed(WorkspaceLeaf *leaf);
 
 private:
+    /// Remove an empty WorkspaceTabs from its parent split, and collapse the
+    /// split itself into its sole remaining child if that leaves the split
+    /// with only one child. Matches Obsidian's "close last tab in a split
+    /// pane reclaims the sibling's space" behaviour.
+    void collapseEmptyTabs(WorkspaceTabs *tabs);
+
     WorkspaceItem *deserializeNode(const QJsonObject &json);
     WorkspaceLeaf *findLeafInTree(WorkspaceItem *root, const QString &id) const;
     WorkspaceTabs *findTabsInTree(WorkspaceItem *root, const QString &id) const;

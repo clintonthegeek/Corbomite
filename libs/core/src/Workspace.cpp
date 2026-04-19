@@ -121,13 +121,58 @@ void Workspace::closeLeaf(WorkspaceLeaf *leaf)
 
     if (parentTabs) {
         parentTabs->removeChild(leaf, true);
-        if (parentTabs->childCount() > 0 && !m_activeLeaf)
+        if (parentTabs->childCount() > 0 && !m_activeLeaf) {
             setActiveLeaf(parentTabs->currentLeaf());
+        } else if (parentTabs->childCount() == 0) {
+            // Empty tabs container: collapse it out of the tree. If its
+            // parent split is left with a single child, promote that child
+            // in place of the split (Obsidian "split back out" semantics).
+            collapseEmptyTabs(parentTabs);
+        }
     } else {
         delete leaf;
     }
 
     Q_EMIT layoutChanged();
+}
+
+void Workspace::collapseEmptyTabs(WorkspaceTabs *tabs)
+{
+    if (!tabs || tabs->childCount() != 0)
+        return;
+
+    auto *parentSplit = qobject_cast<WorkspaceSplit *>(tabs->parentItem());
+    if (!parentSplit) {
+        // Orphan tabs — just delete it.
+        delete tabs;
+        return;
+    }
+
+    // Never let the main root become empty — it always carries at least one
+    // tabs container (the default layout). If the main root is the parent
+    // and it only has this one empty tabs, leave a fresh empty tabs in place
+    // rather than deleting it outright.
+    if (parentSplit == m_mainRoot && parentSplit->childCount() == 1) {
+        return; // keep the empty tabs as the default layout
+    }
+
+    parentSplit->removeChild(tabs, /*deleteChild=*/true);
+
+    // If the parent split is now down to one child, promote that child up
+    // one level (collapse the split itself). This is what gives users the
+    // "close right pane -> left pane reclaims the full area" behaviour.
+    if (parentSplit->childCount() == 1 && parentSplit != m_mainRoot) {
+        auto *soleChild = parentSplit->childAt(0);
+        auto *grandparent = qobject_cast<WorkspaceSplit *>(parentSplit->parentItem());
+        if (grandparent) {
+            int idx = grandparent->indexOf(parentSplit);
+            parentSplit->removeChild(soleChild, /*deleteChild=*/false);
+            grandparent->removeChild(parentSplit, /*deleteChild=*/true);
+            grandparent->addChild(soleChild, idx);
+        }
+    } else if (parentSplit == m_mainRoot && parentSplit->childCount() == 1) {
+        // mainRoot with one child is fine — mainRoot is a permanent fixture.
+    }
 }
 
 bool Workspace::canUndoCloseLeaf() const { return !m_undoHistory.isEmpty(); }
