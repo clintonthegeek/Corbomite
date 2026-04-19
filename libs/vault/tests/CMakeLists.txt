@@ -178,3 +178,12 @@ target_include_directories(tst_file_name_validator
 add_test(NAME tst_file_name_validator COMMAND tst_file_name_validator)
 set_tests_properties(tst_file_name_validator PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_rename_dialog tst_rename_dialog.cpp)
+target_link_libraries(tst_rename_dialog
+    PRIVATE Qt6::Test Qt6::Widgets Corbomite::Vault Corbomite::Storage)
+target_include_directories(tst_rename_dialog
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+add_test(NAME tst_rename_dialog COMMAND tst_rename_dialog)
+set_tests_properties(tst_rename_dialog PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

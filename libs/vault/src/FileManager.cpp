@@ -7,12 +7,14 @@
 #include "corbomite/vault/TFolder.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/CachedMetadata.h"
+#include "dialogs/RenameDialog.h"
 
 #include <markoff-parser/Document.h>
 #include <markoff-parser/YamlValue.h>
 
 #include <QFileInfo>
 #include <QVariant>
+#include <QWidget>
 
 namespace Corbomite {
 
@@ -346,6 +348,28 @@ bool FileManager::trashFileByPath(const QString &relPath)
     TAbstractFile *f = m_vault->getAbstractFileByPath(relPath);
     if (!f) return false;
     return trashFile(f);
+}
+
+QString FileManager::promptForFileRename(TAbstractFile *file, QWidget *parent)
+{
+    if (!file || !m_vault) return QString();
+
+    RenameDialog dlg(file, m_vault, parent);
+    if (dlg.exec() != QDialog::Accepted) return QString();
+
+    const QString newName = dlg.proposedNewName();
+    if (newName.isEmpty() || newName == file->name) return QString();
+
+    // Compute the new full vault-relative path. TFolder::getParentPrefix
+    // returns "" for the root folder and "<folderPath>/" for nested
+    // folders, matching what Vault::rename expects as newPath.
+    const QString parentPrefix =
+        file->parent ? file->parent->getParentPrefix() : QString();
+    const QString newPath = parentPrefix + newName;
+
+    // Delegate to renameFile — this is the link-rewrite aware path.
+    const bool ok = renameFile(file, newPath);
+    return ok ? newPath : QString();
 }
 
 } // namespace Corbomite

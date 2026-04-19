@@ -7,6 +7,8 @@
 #include <QString>
 #include <QVariantMap>
 
+class QWidget;
+
 namespace Corbomite {
 
 class Vault;
@@ -79,6 +81,12 @@ public:
 
     // ---- Trash router ----
     bool trashFile(TAbstractFile *f);
+
+    // ---- Interactive prompts (Cluster R Phase 2) ----
+    /// Opens a modal rename dialog anchored to `parent`. Returns the new
+    /// full vault-relative path on success (after `renameFile` committed),
+    /// empty QString on cancel or failure.
+    QString promptForFileRename(TAbstractFile *file, QWidget *parent = nullptr);
 
 Q_SIGNALS:
     void renameStarted(Corbomite::TAbstractFile *f, const QString &newPath);
