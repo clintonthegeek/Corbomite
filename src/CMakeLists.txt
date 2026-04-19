@@ -11,6 +11,7 @@ set(CORBOMITE_PLUGIN_DEV_DIR "${CMAKE_BINARY_DIR}/lib/plugins/corbomite"
 add_library(CorbomiteApp STATIC
     ${CORBOMITE_KCFG_SRCS}
     app/CorbomiteApp.cpp
+    app/ExportToPdf.cpp
     app/MainWindow.cpp
     app/RecentVaults.cpp
     app/SessionManager.cpp
@@ -50,6 +51,7 @@ target_link_libraries(CorbomiteApp
         Qt6::Core
         Qt6::Widgets
         Qt6::DBus
+        Qt6::PrintSupport
         KF6::CoreAddons
         KF6::I18n
         KF6::XmlGui
