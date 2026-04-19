@@ -111,6 +111,49 @@ void MarkdownView::setEphemeralState(const QJsonObject &state)
 
 NoteEditorWidget *MarkdownView::editorWidget() const { return m_editorWidget; }
 
+void MarkdownView::insertFrontmatterProperty()
+{
+    if (!m_editorWidget) return;
+
+    // If currently in Reading, flip to LivePreview so the new row is visible.
+    if (m_editorWidget->viewMode() == NoteEditorWidget::ViewMode::Reading)
+        m_editorWidget->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
+
+    auto *doc = m_editorWidget->noteDocument();
+    if (!doc) return;
+
+    QString body = doc->markdown();
+
+    // Obsidian's convention: a frontmatter block opens with `---` on the
+    // very first line and closes with `---` on its own line. If the opening
+    // fence is missing, prepend a minimal 3-line block with one empty row.
+    if (!body.startsWith(QStringLiteral("---\n"))
+        && !body.startsWith(QStringLiteral("---\r\n"))
+        && body != QStringLiteral("---")) {
+        // Prepend a new block containing one blank key.
+        const QString fm = QStringLiteral("---\n: \n---\n");
+        doc->setMarkdown(fm + body);
+        return;
+    }
+
+    // Locate the closing fence and append a blank key before it.
+    const int closeIdx = body.indexOf(QStringLiteral("\n---"), /*from=*/3);
+    if (closeIdx < 0) {
+        // Opening fence present but no closing fence — treat as malformed;
+        // append a fresh block at the top.
+        const QString fm = QStringLiteral("---\n: \n---\n");
+        doc->setMarkdown(fm + body);
+        return;
+    }
+
+    // Insert a blank property row directly before the closing `---`.
+    // Preserve a trailing newline if the closing fence is the last line.
+    const QString insert = QStringLiteral(": \n");
+    QString out = body;
+    out.insert(closeIdx + 1, insert);  // +1 skips the leading '\n'
+    doc->setMarkdown(out);
+}
+
 void MarkdownView::setVault(Vault *vault)
 {
     m_editorWidget->setVault(vault);

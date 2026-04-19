@@ -92,6 +92,28 @@ set_tests_properties(tst_note_editor_widget_mode_transition PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+# Cluster R Task 3.2 — MarkdownView::insertFrontmatterProperty ensures a
+# YAML frontmatter block exists and appends a blank property row. Links
+# against CorbomiteApp (for MarkdownView + NoteEditorWidget) plus the view
+# hierarchy from Corbomite::Core.
+add_executable(tst_markdown_view
+    tst_markdown_view.cpp
+)
+target_include_directories(tst_markdown_view PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(tst_markdown_view PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    Corbomite::Core
+)
+add_test(NAME tst_markdown_view COMMAND tst_markdown_view)
+set_tests_properties(tst_markdown_view PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 # Cluster J Phase 6 — HoverPopover renders rich content via EmbedRenderer.
 # The popover is part of CorbomiteApp, but the test only exercises a small
 # rendering surface; it pulls the .cpp/.h directly to keep link surface

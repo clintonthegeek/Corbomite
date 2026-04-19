@@ -8,7 +8,10 @@
 #include "corbomite/core/WorkspaceSplit.h"
 #include "corbomite/core/WorkspaceTabs.h"
 #include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomite/core/Command.h"
+#include "corbomite/core/EditableFileView.h"
 #include "corbomite/core/FileView.h"
+#include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/TextFileView.h"
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
@@ -203,6 +206,22 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     }
 
     m_commandRegistry = new CommandRegistry();
+
+    // Cluster R Task 3.2: register `markdown:add-metadata-property` so
+    // MarkdownView.onMoreOptionsMenu's "Add file property" action can dispatch
+    // without reaching back into MainWindow directly.
+    {
+        Command addProp;
+        addProp.id = QStringLiteral("markdown:add-metadata-property");
+        addProp.name = i18n("Add file property");
+        addProp.icon = QStringLiteral("list-add");
+        addProp.callback = [this] {
+            if (auto *mv = activeMarkdownView())
+                mv->insertFrontmatterProperty();
+        };
+        m_commandRegistry->addCommand(addProp);
+    }
+
     m_menuEvents = new MenuEventEmitter(this);
     m_hoverSources = new HoverLinkSourceRegistry(this);
     m_hoverSources->registerBuiltins();
@@ -542,6 +561,54 @@ void MainWindow::releasePluginView(const QString &pluginId)
 void MainWindow::propagateServicesToView(View *view)
 {
     if (!view) return;
+
+    // Every EditableFileView leaf gets the universal file-menu callbacks
+    // so its hamburger + tab-header rename routes through FileManager's
+    // promptForFileRename/Move/Deletion modals. Core has no vault deps,
+    // so the hookup is via std::function injections bound here.
+    if (auto *efv = qobject_cast<EditableFileView *>(view)) {
+        auto *fm = m_fileManager;
+        auto *vaultObj = m_vaultObj;
+        auto *cmds = m_commandRegistry;
+
+        const auto resolveAbs = [vaultObj](NoteDocument *doc) -> QString {
+            if (!vaultObj || !doc) return QString();
+            const QString base = vaultObj->basePath();
+            if (base.isEmpty()) return QString();
+            return base + QLatin1Char('/') + doc->relativePath();
+        };
+        const auto resolveTFile = [vaultObj](NoteDocument *doc) -> TAbstractFile * {
+            if (!vaultObj || !doc) return nullptr;
+            return vaultObj->getAbstractFileByPath(doc->relativePath());
+        };
+
+        efv->setRenameCallback(
+            [fm, resolveTFile](NoteDocument *doc, QWidget *parent) {
+                if (!fm) return;
+                if (auto *f = resolveTFile(doc))
+                    fm->promptForFileRename(f, parent);
+            });
+        efv->setMoveCallback(
+            [fm, resolveTFile](NoteDocument *doc, QWidget *parent) {
+                if (!fm) return;
+                if (auto *f = resolveTFile(doc))
+                    fm->promptForMove(f, parent);
+            });
+        efv->setDeleteCallback(
+            [fm, resolveTFile](NoteDocument *doc, QWidget *parent) {
+                if (!fm) return;
+                if (auto *f = resolveTFile(doc))
+                    fm->promptForDeletion(f, parent);
+            });
+        efv->setVaultAbsolutePathResolver(resolveAbs);
+        efv->setVaultNameResolver([vaultObj]() -> QString {
+            if (!vaultObj) return QString();
+            return QFileInfo(vaultObj->basePath()).fileName();
+        });
+        efv->setCommandDispatcher([cmds](const QString &commandId) {
+            if (cmds) cmds->executeById(commandId);
+        });
+    }
 
     if (auto *mv = qobject_cast<MarkdownView *>(view)) {
         if (m_app->isOpen())

@@ -39,6 +39,12 @@ public:
 
     NoteEditorWidget *editorWidget() const;
 
+    /// Ensure a YAML frontmatter block exists, then append a blank property
+    /// row. If the view is currently in Reading mode, switch to LivePreview
+    /// so the new row is visible. Cluster R Task 3.2 — backs the
+    /// `markdown:add-metadata-property` command.
+    void insertFrontmatterProperty();
+
     void setVault(Vault *vault);
     void setHoverPopover(HoverPopover *popover);
     void setEditorSuggestManager(EditorSuggestManager *manager);
