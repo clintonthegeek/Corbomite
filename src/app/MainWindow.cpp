@@ -653,6 +653,15 @@ void MainWindow::propagateServicesToView(View *view)
         return;
     }
 
+    if (auto *cv = qobject_cast<CanvasFileView *>(view)) {
+        // Cluster R Task 3.6 — hamburger-menu command dispatcher.
+        auto *cmds = m_commandRegistry;
+        cv->setCanvasCommandDispatcher([cmds](const QString &commandId) {
+            if (cmds) cmds->executeById(commandId);
+        });
+        return;
+    }
+
     if (auto *bv = qobject_cast<Corbomite::Bases::BasesView *>(view)) {
         bv->setServices(m_vaultObj, m_metadataCache, m_fileManager);
         return;

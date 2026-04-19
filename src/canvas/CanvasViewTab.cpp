@@ -70,4 +70,9 @@ bool CanvasViewTab::isModified() const
     return m_document->isModified();
 }
 
+Canvas::CanvasScene *CanvasViewTab::canvasScene() const
+{
+    return m_view ? m_view->canvasScene() : nullptr;
+}
+
 } // namespace Corbomite

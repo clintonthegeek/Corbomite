@@ -5,6 +5,7 @@
 
 namespace Canvas {
 class CanvasDocument;
+class CanvasScene;
 class CanvasView;
 }
 
@@ -24,6 +25,11 @@ public:
     QString filePath() const;
     bool save();
     bool isModified() const;
+
+    /// Cluster R Task 3.6 — access to the underlying CanvasScene so
+    /// CanvasFileView can drive its render-to-image / render-to-svg
+    /// export pipeline.
+    Canvas::CanvasScene *canvasScene() const;
 
 Q_SIGNALS:
     void modificationChanged(bool modified);

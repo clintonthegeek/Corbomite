@@ -4,10 +4,13 @@
 
 #include "corbomite/core/FileView.h"
 
+#include <functional>
+
 namespace Corbomite {
 
 class CanvasViewTab;
 class MarkdownRenderEngine;
+class MenuSectionHelper;
 
 class CanvasFileView : public FileView
 {
@@ -23,13 +26,32 @@ public:
     void setRenderEngine(MarkdownRenderEngine *engine);
     CanvasViewTab *canvasWidget() const;
 
+    /// Cluster R Task 3.6 — command-dispatch hook used by the hamburger
+    /// menu's Split/pane/linked-view entries. Injected by MainWindow.
+    using CommandDispatch = std::function<void(const QString &commandId)>;
+    void setCanvasCommandDispatcher(CommandDispatch dispatcher);
+
+    /// Cluster R Task 3.6 — hamburger menu: Split/Export/Bookmark-stub +
+    /// view.linked submenu. Does NOT chain to EditableFileView (canvas is
+    /// not an editable-text file view in the current hierarchy); rename /
+    /// move / delete remain a follow-up for when CanvasFileView is
+    /// promoted to EditableFileView.
+    void onMoreOptionsMenu(MenuSectionHelper &helper) override;
+
 protected:
     void onLoadFile(NoteDocument *file) override;
     void onUnloadFile(NoteDocument *file) override;
 
+private Q_SLOTS:
+    /// Cluster R Task 3.6 — modal: Area (selected / full canvas), Format
+    /// (PNG / SVG), transparent background, show edges. Writes through
+    /// CanvasScene::renderToImage / renderToSvg.
+    void showExportAsImageModal();
+
 private:
     CanvasViewTab *m_canvasWidget = nullptr;
     MarkdownRenderEngine *m_renderEngine = nullptr;
+    CommandDispatch m_canvasCommandDispatcher;
 };
 
 } // namespace Corbomite
