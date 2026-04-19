@@ -3,6 +3,7 @@
 #include <QMenu>
 #include <QSignalSpy>
 
+#include "corbomite/core/ItemView.h"
 #include "corbomite/core/View.h"
 #include "corbomite/core/MenuSectionHelper.h"
 
@@ -69,6 +70,39 @@ private slots:
         QMenu menu;
         view.onPaneMenu(&menu, QStringLiteral("more-options"));
         QCOMPARE(view.paneMenuCalls, 1);
+    }
+
+    void testItemViewShowMoreOptionsIntegration()
+    {
+        class SpyItemView : public Corbomite::ItemView {
+        public:
+            using Corbomite::ItemView::ItemView;
+            using Corbomite::View::onPaneMenu;  // un-hide two-arg overload
+            QStringList order;
+
+            QString getViewType() const override { return QStringLiteral("spy-item-view"); }
+            QString getDisplayText() const override { return QStringLiteral("Spy"); }
+
+            void onMoreOptionsMenu(Corbomite::MenuSectionHelper &h) override
+            {
+                order << QStringLiteral("onMoreOptionsMenu");
+                auto *a = new QAction(QStringLiteral("A1"), this);
+                h.addToSection(a, QStringLiteral("action"));
+            }
+            void onPaneMenu(QMenu * /*m*/, const QString &src) override
+            {
+                order << (QStringLiteral("onPaneMenu:") + src);
+            }
+        };
+
+        SpyItemView view(nullptr);
+        QMenu menu;
+        view.buildMoreOptionsMenu(&menu);
+
+        QVERIFY(view.order.contains(QStringLiteral("onMoreOptionsMenu")));
+        QVERIFY(view.order.contains(QStringLiteral("onPaneMenu:more-options")));
+        QVERIFY(view.order.indexOf(QStringLiteral("onMoreOptionsMenu")) <
+                view.order.indexOf(QStringLiteral("onPaneMenu:more-options")));
     }
 };
 

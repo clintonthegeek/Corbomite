@@ -1,6 +1,8 @@
 // libs/core/src/ItemView.cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/ItemView.h"
+#include "corbomite/core/MenuEventEmitter.h"
+#include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 
 #include <QHBoxLayout>
@@ -115,13 +117,30 @@ void ItemView::updateNavigationButtons()
     m_forwardButton->setEnabled(m_leaf->history().canGoForward());
 }
 
-void ItemView::onMoreOptionsMenu(QMenu *) {}
+void ItemView::buildMoreOptionsMenu(QMenu *menu)
+{
+    if (!menu) return;
+    Corbomite::MenuSectionHelper helper(menu);
+
+    // 1. Primary subclass hook (View::onMoreOptionsMenu(MenuSectionHelper&))
+    onMoreOptionsMenu(helper);
+
+    // 2. Back-compat: onPaneMenu with source="more-options"
+    onPaneMenu(menu, QStringLiteral("more-options"));
+
+    // 3. Plugin hook: leaf-menu emission via MenuEventEmitter
+    if (m_leaf) {
+        if (auto *emitter = m_leaf->menuEventEmitter())
+            emitter->emitLeafMenu(menu, m_leaf);
+    }
+
+    helper.finalize();
+}
 
 void ItemView::showMoreOptionsMenu()
 {
     QMenu menu(this);
-    onMoreOptionsMenu(&menu);
-    onPaneMenu(&menu);
+    buildMoreOptionsMenu(&menu);
     if (!menu.isEmpty())
         menu.exec(QCursor::pos());
 }

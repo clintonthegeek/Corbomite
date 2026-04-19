@@ -8,6 +8,7 @@
 
 class QHBoxLayout;
 class QLabel;
+class QMenu;
 class QToolButton;
 
 namespace Corbomite {
@@ -25,8 +26,20 @@ public:
     void addAction(const QString &icon, const QString &title,
                    std::function<void()> callback);
 
+    // Populates `menu` with hamburger contributions in the canonical order:
+    //   1. View::onMoreOptionsMenu(helper)        — primary subclass hook
+    //   2. View::onPaneMenu(menu, "more-options") — back-compat
+    //   3. WorkspaceLeaf::menuEventEmitter()->emitLeafMenu — plugin hook
+    //   4. helper.finalize()
+    // Does not exec() the menu — primarily a test seam; production callers use
+    // showMoreOptionsMenu().
+    void buildMoreOptionsMenu(QMenu *menu);
+
 protected:
-    virtual void onMoreOptionsMenu(QMenu *menu);
+    // Re-export View's helper-based overload so subclass override declarations
+    // do not hide the base virtual.
+    using View::onMoreOptionsMenu;
+
     void onOpen() override;
 
 private:

@@ -9,6 +9,7 @@
 
 namespace Corbomite {
 
+class MenuEventEmitter;
 class View;
 class ViewRegistry;
 
@@ -71,6 +72,11 @@ public:
     /// Close and destroy the current view, releasing any file references.
     void closeCurrentView();
 
+    /// Non-owning emitter used by ItemView::buildMoreOptionsMenu to fire
+    /// `leaf-menu` to plugins. May be null (tests, headless contexts).
+    Corbomite::MenuEventEmitter *menuEventEmitter() const { return m_menuEmitter; }
+    void setMenuEventEmitter(Corbomite::MenuEventEmitter *e) { m_menuEmitter = e; }
+
 Q_SIGNALS:
     void viewChanged(View *newView);
     void pinnedChanged(bool pinned);
@@ -91,6 +97,8 @@ private:
     qint64 m_activeTime = 0;
 
     QJsonObject m_deferredViewState;
+
+    Corbomite::MenuEventEmitter *m_menuEmitter = nullptr;  // non-owning
 };
 
 } // namespace Corbomite
