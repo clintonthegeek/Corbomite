@@ -35,6 +35,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/PluginInstance.h
     src/MenuSectionHelper.cpp
     include/corbomite/core/MenuSectionHelper.h
+    src/Platform.cpp
+    include/corbomite/core/Platform.h
     src/MenuEventEmitter.cpp
     include/corbomite/core/MenuEventEmitter.h
     src/HoverLinkSourceRegistry.cpp
@@ -129,6 +131,12 @@ target_link_libraries(corbomite-core
 
 if(CORBOMITE_USE_KEYRING)
     target_link_libraries(corbomite-core PRIVATE Qt6Keychain::Qt6Keychain)
+endif()
+
+# DBus FileManager1 (Linux-only, used by Platform::showInFolder).
+if(UNIX AND NOT APPLE)
+    find_package(Qt6 REQUIRED COMPONENTS DBus)
+    target_link_libraries(corbomite-core PRIVATE Qt6::DBus)
 endif()
 
 # Install rules (public consumption via find_package(Corbomite)).
