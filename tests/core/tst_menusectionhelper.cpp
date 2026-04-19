@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QAction>
 #include <QApplication>
+#include <QIcon>
 #include <QMenu>
 #include <QSignalSpy>
 #include <QTest>
@@ -12,13 +13,24 @@ class TestMenuSectionHelper : public QObject {
     Q_OBJECT
 
 private Q_SLOTS:
-    void testCanonicalOrder()
+    void testCanonicalOrderIsAudited()
     {
         const auto &order = Corbomite::MenuSectionHelper::canonicalSectionOrder();
-        QCOMPARE(order.first(), QStringLiteral("title"));
-        QCOMPARE(order.last(), QStringLiteral("danger"));
-        QVERIFY(order.contains(QStringLiteral("info.copy")));
-        QVERIFY(order.contains(QString()));  // unset bucket present
+        const QStringList expected = {
+            QStringLiteral("close"),
+            QStringLiteral("pane"),
+            QStringLiteral("open"),
+            QStringLiteral("action"),
+            QStringLiteral("find"),
+            QStringLiteral("info"),
+            QStringLiteral("info.copy"),
+            QStringLiteral("view"),
+            QStringLiteral("view.linked"),
+            QStringLiteral("system"),
+            QStringLiteral(""),
+            QStringLiteral("danger"),
+        };
+        QCOMPARE(order, expected);
     }
 
     void testFinalizeSortsByCanonicalOrder()
@@ -29,12 +41,12 @@ private Q_SLOTS:
         QAction copyAct(QStringLiteral("Copy"), this);
         QAction openAct(QStringLiteral("Open"), this);
         QAction deleteAct(QStringLiteral("Delete"), this);
-        QAction titleAct(QStringLiteral("Note"), this);
+        QAction closeAct(QStringLiteral("Note"), this);
 
         // Add scrambled across sections.
         helper.addToSection(&copyAct, QStringLiteral("info.copy"));
         helper.addToSection(&deleteAct, QStringLiteral("danger"));
-        helper.addToSection(&titleAct, QStringLiteral("title"));
+        helper.addToSection(&closeAct, QStringLiteral("close"));
         helper.addToSection(&openAct, QStringLiteral("open"));
 
         helper.finalize();
@@ -121,6 +133,39 @@ private Q_SLOTS:
         const int firstCount = menu.actions().size();
         helper.finalize();
         QCOMPARE(menu.actions().size(), firstCount);
+    }
+
+    void testAddSubmenuNestedHelper()
+    {
+        QMenu menu;
+        Corbomite::MenuSectionHelper helper(&menu);
+
+        QAction directAct(QStringLiteral("Direct action"));
+        helper.addToSection(&directAct, QStringLiteral("action"));
+
+        auto *sub = helper.addSubmenu(QStringLiteral("info.copy"),
+                                       QStringLiteral("Copy path"),
+                                       QIcon());
+        QAction copyAUrlAct(QStringLiteral("as Obsidian URL"));
+        QAction copyFromVaultAct(QStringLiteral("from vault folder"));
+        sub->addToSection(&copyAUrlAct, QStringLiteral("action"));
+        sub->addToSection(&copyFromVaultAct, QStringLiteral("action"));
+
+        helper.finalize();
+
+        // Top-level menu has: directAct, separator, "Copy path" submenu
+        const auto actions = menu.actions();
+        QCOMPARE(actions.size(), 3);
+        QCOMPARE(actions[0]->text(), QStringLiteral("Direct action"));
+        QVERIFY(actions[1]->isSeparator());
+        QVERIFY(actions[2]->menu() != nullptr);
+        QCOMPARE(actions[2]->text(), QStringLiteral("Copy path"));
+
+        // Submenu has: copyAUrlAct, copyFromVaultAct
+        const auto subActions = actions[2]->menu()->actions();
+        QCOMPARE(subActions.size(), 2);
+        QCOMPARE(subActions[0]->text(), QStringLiteral("as Obsidian URL"));
+        QCOMPARE(subActions[1]->text(), QStringLiteral("from vault folder"));
     }
 
     // --- MenuEventEmitter ---
