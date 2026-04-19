@@ -91,6 +91,25 @@ void FileExplorerView::setExpandedFolderPaths(const QStringList &paths)
     }
 }
 
+void FileExplorerView::revealPath(const QString &relativePath)
+{
+    if (!m_model || !m_treeView || relativePath.isEmpty()) return;
+
+    const QModelIndex idx = m_model->indexForPath(relativePath);
+    if (!idx.isValid()) return;
+
+    // Walk up the chain and expand every ancestor so the target row is
+    // actually visible. QTreeView::scrollTo only works on expanded rows.
+    QModelIndex ancestor = idx.parent();
+    while (ancestor.isValid()) {
+        m_treeView->expand(ancestor);
+        ancestor = ancestor.parent();
+    }
+
+    m_treeView->setCurrentIndex(idx);
+    m_treeView->scrollTo(idx, QAbstractItemView::PositionAtCenter);
+}
+
 void FileExplorerView::onDoubleClicked(const QModelIndex &index)
 {
     if (!index.isValid()) return;

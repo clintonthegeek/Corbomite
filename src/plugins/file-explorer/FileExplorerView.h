@@ -31,6 +31,12 @@ public:
     /// been deleted between sessions).
     void setExpandedFolderPaths(const QStringList &paths);
 
+    /// Scroll to + select the row for `relativePath`, expanding every
+    /// ancestor folder along the way. No-op if the path is not in the
+    /// current tree. Consumed by the Cluster R "Reveal file in navigation"
+    /// menu item via the `file-explorer:reveal-file` command.
+    void revealPath(const QString &relativePath);
+
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 
