@@ -281,6 +281,24 @@ MainWindow::~MainWindow()
     delete m_linkResolver;
     m_linkResolver = nullptr;
 
+    // Cluster R Task 3.1 aftershock: plugin CommandRegistrars hold a raw
+    // CommandRegistry* that must still be alive when they unload. Disable
+    // every loaded plugin before deleting the registry so each plugin's
+    // PluginContext (and its CommandRegistrar child) tears down against a
+    // live registry. `persist=false` keeps the user's enabled choice in
+    // KConfig untouched across restarts.
+    if (m_app) {
+        if (auto *pm = m_app->pluginManager()) {
+            for (int i = 0; i < pm->pluginCount(); ++i) {
+                const auto &info = pm->pluginByIndex(i);
+                if (info.instance) {
+                    pm->disablePlugin(info.metaData.base().pluginId(),
+                                      /*persist=*/false);
+                }
+            }
+        }
+    }
+
     delete m_commandRegistry;
     m_commandRegistry = nullptr;
 
