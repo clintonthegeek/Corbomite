@@ -7,6 +7,7 @@
 #include "../GraphControlsPanel.h"
 #include "../GraphViewPlugin.h"
 
+#include "corbomite/core/Command.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/LinkResolver.h"
@@ -24,9 +25,19 @@ private slots:
     void registersGraphViewTypeOnLoad();
     void createViewReturnsControlsPanel();
     void skipsViewRegistrationWithoutUiViewsPermission();
+    void registersCopyScreenshotCommandWhenUiCommandsGranted();
 };
 
 static PluginMetaData makeMeta() { return PluginMetaData(KPluginMetaData{}); }
+
+static PluginMetaData makeMetaWithId(const QString &id)
+{
+    QJsonObject full;
+    full.insert(QStringLiteral("KPlugin"),
+        QJsonObject{{QStringLiteral("Id"), id},
+                    {QStringLiteral("Name"), id}});
+    return PluginMetaData(KPluginMetaData(full, id));
+}
 
 void TestGraphViewPlugin::registersGraphViewTypeOnLoad()
 {
@@ -76,6 +87,24 @@ void TestGraphViewPlugin::skipsViewRegistrationWithoutUiViewsPermission()
                          &registry, nullptr, nullptr);
     plugin.load(&ctx);
     QVERIFY(!bool(registry.getViewCreatorByType(QStringLiteral("graph"))));
+}
+
+void TestGraphViewPlugin::registersCopyScreenshotCommandWhenUiCommandsGranted()
+{
+    // CommandRegistry must outlive PluginContext (CommandRegistrar's
+    // destructor calls removeCommand on the registry during teardown).
+    CommandRegistry commands;
+    ViewRegistry registry;
+
+    GraphViewPlugin plugin;
+    PluginContext ctx(makeMetaWithId(QStringLiteral("corbomite-graph-view")),
+        {QStringLiteral("ui.views"), QStringLiteral("ui.commands")});
+    ctx.setCoreServices(nullptr, nullptr, nullptr, nullptr, nullptr,
+                         &commands, &registry, nullptr, nullptr);
+    plugin.load(&ctx);
+
+    QVERIFY(commands.findCommand(
+        QStringLiteral("corbomite-graph-view:copy-screenshot")) != nullptr);
 }
 
 QTEST_MAIN(TestGraphViewPlugin)

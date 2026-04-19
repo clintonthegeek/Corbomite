@@ -3,8 +3,13 @@
 #include "GraphView.h"
 #include "GraphViewTab.h"
 
-#include <QVBoxLayout>
+#include "corbomite/core/MenuSectionHelper.h"
+
 #include <KLocalizedString>
+
+#include <QAction>
+#include <QIcon>
+#include <QVBoxLayout>
 
 namespace Corbomite {
 
@@ -55,6 +60,53 @@ void GraphView::onOpen()
         if (m_pendingCache) m_graphWidget->setMetadataCache(m_pendingCache);
         if (m_pendingPanel) m_graphWidget->setControlsPanel(m_pendingPanel);
     }
+}
+
+void GraphView::setGraphCommandDispatcher(CommandDispatch dispatcher)
+{
+    m_graphCommandDispatcher = std::move(dispatcher);
+}
+
+void GraphView::onMoreOptionsMenu(MenuSectionHelper &helper)
+{
+    auto dispatch = [this](const QString &cmd) {
+        if (m_graphCommandDispatcher) m_graphCommandDispatcher(cmd);
+    };
+
+    // ---- pane: Split right / Split down ----
+    auto *splitR = new QAction(
+        QIcon::fromTheme(QStringLiteral("view-split-left-right")),
+        i18n("Split right"), this);
+    connect(splitR, &QAction::triggered, this,
+            [dispatch] { dispatch(QStringLiteral("split_right")); });
+    helper.addToSection(splitR, QStringLiteral("pane"));
+
+    auto *splitD = new QAction(
+        QIcon::fromTheme(QStringLiteral("view-split-top-bottom")),
+        i18n("Split down"), this);
+    connect(splitD, &QAction::triggered, this,
+            [dispatch] { dispatch(QStringLiteral("split_down")); });
+    helper.addToSection(splitD, QStringLiteral("pane"));
+
+    // ---- action: Copy screenshot (graph:copy-screenshot via plugin) ----
+    auto *screenshotAct = new QAction(
+        QIcon::fromTheme(QStringLiteral("camera-photo")),
+        i18n("Copy screenshot"), this);
+    connect(screenshotAct, &QAction::triggered, this, [dispatch] {
+        dispatch(QStringLiteral("corbomite-graph-view:copy-screenshot"));
+    });
+    helper.addToSection(screenshotAct, QStringLiteral("action"));
+
+    // ---- action: Bookmark (placeholder — Cluster S) ----
+    auto *bookmarkAct = new QAction(
+        QIcon::fromTheme(QStringLiteral("bookmark-new")),
+        i18n("Bookmark..."), this);
+    bookmarkAct->setEnabled(false);
+    bookmarkAct->setToolTip(
+        i18n("Requires Bookmarks core plugin (Cluster S)"));
+    helper.addToSection(bookmarkAct, QStringLiteral("action"));
+
+    // GraphView is an ItemView, not an EditableFileView — no chain-up.
 }
 
 } // namespace Corbomite

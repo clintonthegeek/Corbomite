@@ -988,6 +988,15 @@ void MainWindow::setupEditor()
         }
     });
 
+    // Cluster R Task 3.7: route Workspace::commandRequested → the host
+    // CommandRegistry. Used by GraphView / CanvasFileView / MarkdownView
+    // hamburger actions that need to invoke a registered command without
+    // holding the CommandRegistry directly.
+    connect(m_workspace, &Workspace::commandRequested, this,
+            [this](const QString &commandId) {
+        if (m_commandRegistry) m_commandRegistry->executeById(commandId);
+    });
+
     m_workspaceContainer = new QWidget(m_centralStack);
     auto *wsLayout = new QVBoxLayout(m_workspaceContainer);
     wsLayout->setContentsMargins(0, 0, 0, 0);

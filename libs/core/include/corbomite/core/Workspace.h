@@ -92,11 +92,19 @@ public:
     /// commands (Cluster R Task 3.1).
     void revealDockView(const QString &slug);
 
+    /// Request the host dispatch `commandId` through its CommandRegistry.
+    /// Emits `commandRequested(commandId)`. Used by views (GraphView,
+    /// CanvasFileView, MarkdownView) to invoke `split_right` /
+    /// `<plugin>:<cmd>` etc. without holding a direct CommandRegistry ref.
+    /// Cluster R Task 3.7.
+    void requestCommand(const QString &commandId);
+
 Q_SIGNALS:
     void activeLeafChanged(WorkspaceLeaf *leaf);
     void layoutChanged();
     void leafClosed(WorkspaceLeaf *leaf);
     void revealDockViewRequested(const QString &slug);
+    void commandRequested(const QString &commandId);
 
 private:
     /// Remove an empty WorkspaceTabs from its parent split, and collapse the

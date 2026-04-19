@@ -31,6 +31,12 @@ public:
     /// true if the command was registered by this proxy.
     bool removeCommand(const QString &localId);
 
+    /// Invoke a command by its full id (including any plugin prefix).
+    /// Returns true if the command was registered and successfully executed.
+    /// Used by plugin-owned views to dispatch commands back to the registry
+    /// without holding a direct `CommandRegistry *`. Cluster R Task 3.7.
+    bool invoke(const QString &fullId);
+
     const QString &pluginId() const { return m_pluginId; }
 
 private:

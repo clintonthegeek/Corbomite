@@ -55,6 +55,11 @@ void Workspace::revealDockView(const QString &slug)
     Q_EMIT revealDockViewRequested(slug);
 }
 
+void Workspace::requestCommand(const QString &commandId)
+{
+    Q_EMIT commandRequested(commandId);
+}
+
 ViewRegistry *Workspace::viewRegistry() const { return m_registry; }
 
 WorkspaceSplit *Workspace::mainRoot() const { return m_mainRoot; }

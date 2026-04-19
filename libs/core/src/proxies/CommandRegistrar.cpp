@@ -34,4 +34,10 @@ bool CommandRegistrar::removeCommand(const QString &localId)
     return true;
 }
 
+bool CommandRegistrar::invoke(const QString &fullId)
+{
+    if (!m_registry) return false;
+    return m_registry->executeById(fullId);
+}
+
 } // namespace Corbomite

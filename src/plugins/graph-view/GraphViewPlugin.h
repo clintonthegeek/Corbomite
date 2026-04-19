@@ -4,6 +4,7 @@
 #include "corbomite/vault/Plugin.h"
 
 #include <QPointer>
+#include <QVector>
 
 namespace Corbomite {
 
@@ -51,6 +52,12 @@ private:
     // when createView hands it out). QPointer so teardown tolerates
     // reparent-delete races.
     QPointer<GraphControlsPanel> m_controlsPanel;
+
+    // Cluster R Task 3.7 — every GraphView instance appends itself here
+    // during its onOpen. The `copy-screenshot` command grabs the most
+    // recently active (last in the list) view's GraphViewTab pixmap. Uses
+    // QPointer so teardowns tolerate view-deletion races.
+    QVector<QPointer<GraphView>> m_views;
 };
 
 } // namespace Corbomite
