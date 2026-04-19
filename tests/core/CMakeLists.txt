@@ -16,6 +16,11 @@ add_test(NAME tst_platform COMMAND tst_platform)
 target_link_libraries(tst_platform PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_platform PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_path_utils tst_path_utils.cpp)
+add_test(NAME tst_path_utils COMMAND tst_path_utils)
+target_link_libraries(tst_path_utils PRIVATE Qt6::Test Corbomite::Core)
+set_tests_properties(tst_path_utils PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_view_more_options tst_view_more_options.cpp)
 add_test(NAME tst_view_more_options COMMAND tst_view_more_options)
 target_link_libraries(tst_view_more_options PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)

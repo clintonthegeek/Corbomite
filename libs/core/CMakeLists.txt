@@ -37,6 +37,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/MenuSectionHelper.h
     src/Platform.cpp
     include/corbomite/core/Platform.h
+    src/PathUtils.cpp
+    include/corbomite/core/PathUtils.h
     src/MenuEventEmitter.cpp
     include/corbomite/core/MenuEventEmitter.h
     src/HoverLinkSourceRegistry.cpp
