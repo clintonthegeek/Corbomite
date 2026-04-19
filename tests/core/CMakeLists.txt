@@ -26,6 +26,11 @@ add_test(NAME tst_view_more_options COMMAND tst_view_more_options)
 target_link_libraries(tst_view_more_options PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_view_more_options PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_editable_file_view_menu tst_editable_file_view_menu.cpp)
+add_test(NAME tst_editable_file_view_menu COMMAND tst_editable_file_view_menu)
+target_link_libraries(tst_editable_file_view_menu PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_editable_file_view_menu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_hoverlinksources tst_hoverlinksources.cpp)
 add_test(NAME tst_hoverlinksources COMMAND tst_hoverlinksources)
 target_link_libraries(tst_hoverlinksources PRIVATE Qt6::Test Corbomite::Core)
