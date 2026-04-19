@@ -3,9 +3,12 @@
 
 #include <QGraphicsScene>
 #include <QHash>
+#include <QImage>
+#include <QRectF>
 #include <functional>
 #include "CanvasTypes.h"
 
+class QIODevice;
 class QMenu;
 class QUndoStack;
 class QGraphicsProxyWidget;
@@ -73,6 +76,24 @@ public:
 
     // Undo
     QUndoStack *undoStack();
+
+    /// Cluster R Task 3.5 — render the scene's `bounds` region to an image.
+    /// `scale` multiplies the output pixel dimensions (2.0 yields a HiDPI
+    /// raster). `transparentBg` swaps the scene's background brush for
+    /// transparent. `showEdges` hides `EdgeItem`s during render (useful for
+    /// "just the nodes" exports).
+    QImage renderToImage(const QRectF &bounds,
+                          bool transparentBg = false,
+                          bool showEdges = true,
+                          qreal scale = 2.0);
+
+    /// Cluster R Task 3.5 — render the scene's `bounds` region to SVG via
+    /// `out` (caller owns the device). Same `transparentBg` + `showEdges`
+    /// semantics as `renderToImage`.
+    void renderToSvg(const QRectF &bounds,
+                      QIODevice *out,
+                      bool transparentBg = false,
+                      bool showEdges = true);
 
 Q_SIGNALS:
     void cardDoubleClicked(const QString &nodeId);

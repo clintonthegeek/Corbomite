@@ -15,3 +15,9 @@ add_executable(tst_canvasscene tst_canvasscene.cpp)
 add_test(NAME tst_canvasscene COMMAND tst_canvasscene)
 target_link_libraries(tst_canvasscene PRIVATE Qt6::Test Qt6::Widgets canvas Corbomite::Core)
 set_tests_properties(tst_canvasscene PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster R Task 3.5 — CanvasScene export pipeline (image + SVG).
+add_executable(tst_canvas_export tst_canvas_export.cpp)
+add_test(NAME tst_canvas_export COMMAND tst_canvas_export)
+target_link_libraries(tst_canvas_export PRIVATE Qt6::Test Qt6::Widgets canvas)
+set_tests_properties(tst_canvas_export PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

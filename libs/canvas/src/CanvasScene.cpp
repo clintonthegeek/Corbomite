@@ -15,9 +15,14 @@
 #include <QGraphicsProxyWidget>
 #include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneMouseEvent>
+#include <QIODevice>
+#include <QImage>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QList>
 #include <QMenu>
+#include <QPainter>
+#include <QSvgGenerator>
 #include <QTextEdit>
 #include <QUndoStack>
 
@@ -892,6 +897,72 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
     }
 
     menu.exec(event->screenPos());
+}
+
+// --- Cluster R Task 3.5 — image / SVG export --------------------------------
+
+QImage CanvasScene::renderToImage(const QRectF &bounds, bool transparentBg,
+                                    bool showEdges, qreal scale)
+{
+    const QSize sz(qMax(1, qRound(bounds.width()  * scale)),
+                   qMax(1, qRound(bounds.height() * scale)));
+    QImage img(sz, transparentBg ? QImage::Format_ARGB32
+                                  : QImage::Format_RGB32);
+    img.fill(transparentBg ? Qt::transparent
+                            : backgroundBrush().color());
+
+    // Hide edge items for "just the nodes" export when requested.
+    QList<QGraphicsItem *> hidden;
+    if (!showEdges) {
+        for (auto *edge : std::as_const(m_edgeItems)) {
+            if (edge && edge->isVisible()) {
+                edge->setVisible(false);
+                hidden.append(edge);
+            }
+        }
+    }
+
+    {
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing);
+        render(&p, QRectF(0, 0, sz.width(), sz.height()), bounds);
+    }
+
+    // Restore visibility.
+    for (auto *item : hidden) item->setVisible(true);
+    return img;
+}
+
+void CanvasScene::renderToSvg(const QRectF &bounds, QIODevice *out,
+                                bool transparentBg, bool showEdges)
+{
+    if (!out) return;
+
+    QSvgGenerator svg;
+    svg.setOutputDevice(out);
+    svg.setSize(bounds.size().toSize());
+    svg.setViewBox(bounds);
+    svg.setTitle(QStringLiteral("Canvas export"));
+
+    QList<QGraphicsItem *> hidden;
+    if (!showEdges) {
+        for (auto *edge : std::as_const(m_edgeItems)) {
+            if (edge && edge->isVisible()) {
+                edge->setVisible(false);
+                hidden.append(edge);
+            }
+        }
+    }
+
+    {
+        QPainter p(&svg);
+        if (!transparentBg) {
+            p.fillRect(bounds, backgroundBrush());
+        }
+        render(&p, bounds, bounds);
+    }
+
+    for (auto *item : hidden) item->setVisible(true);
 }
 
 } // namespace Canvas
