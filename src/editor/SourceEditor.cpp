@@ -18,6 +18,10 @@ SourceEditor::SourceEditor(QWidget *parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_qutepart);
 
+    // Capture the default font so `resetZoom()` can undo any accumulated
+    // QPlainTextEdit::zoomIn/zoomOut offsets.
+    m_defaultFont = m_qutepart->font();
+
     // QPlainTextEdit::textChanged → our textChanged
     connect(m_qutepart, &QPlainTextEdit::textChanged,
             this, &SourceEditor::textChanged);
@@ -102,6 +106,21 @@ void SourceEditor::setReadOnly(bool readOnly)
 bool SourceEditor::isReadOnly() const
 {
     return m_qutepart->isReadOnly();
+}
+
+void SourceEditor::zoomIn()
+{
+    m_qutepart->zoomIn(1);
+}
+
+void SourceEditor::zoomOut()
+{
+    m_qutepart->zoomOut(1);
+}
+
+void SourceEditor::resetZoom()
+{
+    m_qutepart->setFont(m_defaultFont);
 }
 
 } // namespace Corbomite

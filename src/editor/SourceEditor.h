@@ -60,6 +60,12 @@ public:
     void setReadOnly(bool readOnly);
     bool isReadOnly() const;
 
+    // Zoom — delegates to the underlying Qutepart/QPlainTextEdit font zoom.
+    // `resetZoom()` restores the font captured at construction time.
+    void zoomIn();
+    void zoomOut();
+    void resetZoom();
+
     // Internal-use accessor for tests and future phase-3/phase-7 wiring.
     // NOT part of the app-facing contract.
     Qutepart::Qutepart *qutepart() const { return m_qutepart; }
@@ -72,6 +78,7 @@ Q_SIGNALS:
 private:
     Qutepart::Qutepart *m_qutepart = nullptr;
     QVector<int> m_pendingFoldedHeadings; // TODO(phase-4/phase-7): honour
+    QFont m_defaultFont; // Captured at ctor for resetZoom().
 };
 
 } // namespace Corbomite
