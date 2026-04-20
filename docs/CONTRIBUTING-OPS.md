@@ -37,7 +37,8 @@ Execute every applicable step. Skip none silently.
    - Update `Date last touched`.
    - If new sub-questions arose during work, add them to `Open sub-questions`. If sub-questions were resolved, strike them through or remove.
 2. **If a phase fully completed, update the Roadmap row's Status column** to `In progress (phase N+1)` or `Done` as appropriate.
-3. **If a non-trivial decision was made** (technology choice, design call, deviation from the cluster plan), append one bullet to `Recent decisions`. Format: `- **YYYY-MM-DD — <decision>.** Reason: <one sentence>.` Most-recent on top.
+3. **If a non-trivial decision was made** (technology choice, design call, deviation from the cluster plan), append one bullet to `PROJECT-STATE.md` `Recent decisions`. Format: `- **YYYY-MM-DD — <decision>.** Reason: <one sentence>.` Most-recent on top. **If the list now exceeds 20 entries, immediately move the oldest bullet to `docs/decisions-archive.md`** under its date header (create the header if absent). Never leave `Recent decisions` above 20 entries.
+3b. **If a cluster phase closed, or the cluster itself closed**, write at most 3 sentences into `PROJECT-STATE.md` §Current focus (replacing the previous top entry) AND the **full** closeout paragraph into `docs/decisions-archive.md` under a new dated H2 header. The `**Previously:** …` cascade pattern in `PROJECT-STATE.md` is banned — if you find yourself writing it, you are writing in the wrong file.
 4. **If work revealed a new fact about Obsidian** that the audit didn't capture — or contradicts what the audit said — write an addendum:
    - File: `docs/obsidian-audit/addenda/YYYY-MM-DD-<short-topic>.md`.
    - Format: header (date, discovered-during cluster, supersedes/extends which audit doc), then a paragraph or table of the fact, then a "Why noticed now" paragraph.
@@ -83,6 +84,7 @@ Execute every applicable step.
 9. **Run the full test suite.** `cd build && ctest --output-on-failure`. Confirm no regressions in unrelated tests.
 10. **Commit** with the same message convention; subject like "feat(<area>): cluster <X> complete".
 11. **Tell the human:** "Cluster `<X>` complete; retrospective written; downstream `<list>` unblocked; suggest next focus is `<Y>`. Confirm or redirect?"
+12. **Archive the plan + spec files.** `git mv docs/superpowers/plans/<cluster-plan>.md docs/superpowers/plans/archive/` and the matching spec to `docs/superpowers/specs/archive/`. Update `docs/superpowers/plans/INDEX.md` so the cluster row's "Plan file" column points at the new `archive/...` path. **The retro file stays where it is** in `docs/cluster-retros/`.
 
 ---
 
@@ -161,3 +163,11 @@ Edge cases:
 - **Ritual 3 has propagation steps.** A landed cluster unblocks others mechanically; if no one updates downstream rows, future agents see incorrect Blocked statuses.
 - **Audit docs are read-only.** They cost ~25 hours of agent compute. Hand-editing them produces drift; addenda preserve the integrity of the audit-as-snapshot while letting facts evolve.
 - **Living files are explicit.** No agent should ever edit a "canonical" doc and wonder if they were supposed to. Lists at the top of this file resolve it.
+
+---
+
+## Backlog hygiene (`docs/backlog.md`)
+
+- When a backlog item is closed, **strike it through** (`~~text~~`) with a one-line closure note + date in the Details block. Do not delete — the crossed-out entry preserves the "why did we deprioritise X?" trail for the current quarter.
+- Quarterly (or whenever `backlog.md` exceeds 500 lines), move all struck-through items to `docs/decisions-archive.md` under a `## Backlog roll-up YYYY-MM-DD` header.
+- New backlog entries follow the schema defined at the top of `backlog.md`.
