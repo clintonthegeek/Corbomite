@@ -381,25 +381,53 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
                                                   const QStringList &excludedTags,
                                                   int maxResults) const
 {
+    return searchCompiled(fts5Query, requiredTags, excludedTags,
+                          QStringList{}, QStringList{}, maxResults);
+}
+
+QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
+                                                  const QStringList &requiredTags,
+                                                  const QStringList &excludedTags,
+                                                  const QStringList &regexPatterns,
+                                                  const QStringList &caseSensitiveTerms,
+                                                  int maxResults) const
+{
     QVector<SearchMatch> results;
     if (!m_isOpen) return results;
     if (fts5Query.isEmpty() && requiredTags.isEmpty() && excludedTags.isEmpty()) {
         return results;
     }
 
+    const bool postFilter = !regexPatterns.isEmpty() || !caseSensitiveTerms.isEmpty();
+
+    // Pre-compile regexes once. Invalid patterns cause the whole query to
+    // return no results — failing closed matches Obsidian's behaviour when
+    // a `/…/` literal is malformed.
+    QVector<QRegularExpression> regexes;
+    regexes.reserve(regexPatterns.size());
+    for (const QString &pat : regexPatterns) {
+        QRegularExpression re(pat);
+        if (!re.isValid()) return results;
+        regexes.append(re);
+    }
+
     QString sql;
     QVariantList binds;
 
+    // When we post-filter we need the raw content column too. Pull an extra
+    // column only in that path so the fast path's projection stays unchanged.
+    const QString projection = postFilter
+        ? QStringLiteral("path, snippet(notes_fts, 2, '<b>', '</b>', '...', 32), rank, content")
+        : QStringLiteral("path, snippet(notes_fts, 2, '<b>', '</b>', '...', 32), rank");
+
     if (!fts5Query.isEmpty()) {
-        sql = QStringLiteral(
-            "SELECT path, snippet(notes_fts, 2, '<b>', '</b>', '...', 32), rank "
-            "FROM notes_fts WHERE notes_fts MATCH ?");
+        sql = QStringLiteral("SELECT %1 FROM notes_fts WHERE notes_fts MATCH ?").arg(projection);
         binds.append(fts5Query);
     } else {
-        // Tag-only query — pull every note that survives the tag predicates,
-        // synthesizing a default rank/snippet so callers can still rank them.
-        sql = QStringLiteral(
-            "SELECT path, '' AS snippet, 0 AS rank FROM notes_fts WHERE 1=1");
+        sql = QStringLiteral("SELECT %1 FROM notes_fts WHERE 1=1").arg(
+            postFilter
+                ? QStringLiteral("path, '' AS snippet, 0 AS rank, content")
+                : QStringLiteral("path, '' AS snippet, 0 AS rank"));
     }
 
     for (const QString &tag : requiredTags) {
@@ -416,7 +444,10 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
     sql += fts5Query.isEmpty()
         ? QStringLiteral(" ORDER BY path LIMIT ?")
         : QStringLiteral(" ORDER BY rank LIMIT ?");
-    binds.append(maxResults);
+    // When post-filtering we may drop many rows; overfetch so small result
+    // sets still hit maxResults after filtering.
+    const int fetchLimit = postFilter ? qMax(maxResults * 4, 100) : maxResults;
+    binds.append(fetchLimit);
 
     QSqlQuery q(QSqlDatabase::database(m_connectionName));
     q.prepare(sql);
@@ -424,6 +455,22 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
     if (!q.exec()) return results;
 
     while (q.next()) {
+        if (postFilter) {
+            const QString content = q.value(3).toString();
+            bool keep = true;
+            for (const QRegularExpression &re : regexes) {
+                if (!re.match(content).hasMatch()) { keep = false; break; }
+            }
+            if (keep) {
+                for (const QString &term : caseSensitiveTerms) {
+                    if (!content.contains(term, Qt::CaseSensitive)) {
+                        keep = false; break;
+                    }
+                }
+            }
+            if (!keep) continue;
+        }
+
         SearchMatch match;
         match.notePath = q.value(0).toString();
         const auto snippet = stripBoldMarkup(q.value(1).toString());
@@ -431,6 +478,7 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
         match.matches = snippet.matches;
         match.score = q.value(2).toDouble();
         results.append(match);
+        if (results.size() >= maxResults) break;
     }
     return results;
 }

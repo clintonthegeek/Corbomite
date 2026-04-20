@@ -28,6 +28,12 @@ struct CompiledPlan {
     QString fts5Query;
     QStringList requiredTags;
     QStringList excludedTags;
+    // Post-filter predicates applied to FTS candidates' content:
+    //   - every regex in regexPatterns must match (case-insensitive by default)
+    //   - every term in caseSensitiveTerms must appear with Qt::CaseSensitive
+    // Populated by `/regex/` and `match-case:` operators.
+    QStringList regexPatterns;
+    QStringList caseSensitiveTerms;
     QStringList unsupported;
 };
 

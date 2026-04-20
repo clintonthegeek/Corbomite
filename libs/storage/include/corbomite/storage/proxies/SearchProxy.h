@@ -35,6 +35,11 @@ public:
     QVector<SearchMatch> searchCompiled(const QString &fts5Query,
                                         const QStringList &requiredTags,
                                         const QStringList &excludedTags) const;
+    QVector<SearchMatch> searchCompiled(const QString &fts5Query,
+                                        const QStringList &requiredTags,
+                                        const QStringList &excludedTags,
+                                        const QStringList &regexPatterns,
+                                        const QStringList &caseSensitiveTerms) const;
 
     // ---- Links (gated by metadata.read) ----
     QVector<LinkInfo> backlinksFor(const QString &targetPath) const;

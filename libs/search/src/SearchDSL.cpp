@@ -429,6 +429,30 @@ QString fts5Quote(const QString &term)
 // for this subtree, or empty if no FTS5-expressible portion exists.
 QString emitFts5(const SearchNodePtr &node, CompiledPlan &plan, bool negated);
 
+// Collect every Text/Phrase literal in a subtree (skipping negated branches).
+// Used by match-case to find the terms that must be re-checked with
+// Qt::CaseSensitive after FTS5 returns case-folded candidates.
+void collectLiteralTerms(const SearchNodePtr &node, QStringList &out)
+{
+    if (!node) return;
+    switch (node->kind) {
+    case SearchNode::Kind::Text:
+    case SearchNode::Kind::Phrase:
+        if (!node->text.isEmpty()) out.append(node->text);
+        return;
+    case SearchNode::Kind::Not:
+        return;  // don't elevate excluded terms into a required case filter
+    case SearchNode::Kind::OpCall:
+        // Recurse into column-qualifiers and nested match-case/ignore-case.
+        if (!node->children.isEmpty())
+            collectLiteralTerms(node->children.value(0), out);
+        return;
+    default:
+        for (const auto &c : node->children) collectLiteralTerms(c, out);
+        return;
+    }
+}
+
 QString emitOpCall(const SearchNodePtr &node, CompiledPlan &plan, bool negated)
 {
     const QString name = node->text;
@@ -464,10 +488,12 @@ QString emitOpCall(const SearchNodePtr &node, CompiledPlan &plan, bool negated)
     if (name == QLatin1String("ignore-case")) {
         return emitFts5(operand, plan, negated);
     }
-    // match-case requires a case-sensitive matcher; FTS5 default tokenizer is
-    // case-folding so we fall back to case-insensitive and flag the divergence.
+    // match-case: FTS5's default tokeniser is case-folding, so we emit the
+    // inner subtree normally (gives us candidate paths) and record the literal
+    // terms; the caller re-checks each candidate's content with
+    // Qt::CaseSensitive (SQLiteIndex::searchCompiled).
     if (name == QLatin1String("match-case")) {
-        plan.unsupported.append(QStringLiteral("match-case: (FTS5 is case-insensitive)"));
+        collectLiteralTerms(operand, plan.caseSensitiveTerms);
         return emitFts5(operand, plan, negated);
     }
     // line/block/section/task* — recognised by the parser but need
@@ -485,7 +511,9 @@ QString emitFts5(const SearchNodePtr &node, CompiledPlan &plan, bool negated)
     case SearchNode::Kind::Phrase:
         return node->text.isEmpty() ? QString() : fts5Quote(node->text);
     case SearchNode::Kind::Regex:
-        plan.unsupported.append(QStringLiteral("/regex/"));
+        // Can't express in FTS5 MATCH; caller applies as a content post-filter.
+        if (!node->text.isEmpty())
+            plan.regexPatterns.append(node->text);
         return {};
     case SearchNode::Kind::Group:
         return emitFts5(node->children.value(0), plan, negated);

@@ -509,7 +509,7 @@ user-granted set at each proxy accessor or method call.
 | `metadata.read` | `PluginContext::metadataCache()` and `search()` non-null; `MetadataCacheReader` methods + signals; `SearchProxy` methods; `FileManagerProxy::generateMarkdownLink`. |
 | `workspace` | `PluginContext::workspace()` non-null; `WorkspaceController` methods + signal. |
 | `ui.commands` | `PluginContext::commands()` non-null; `CommandRegistrar`. |
-| `ui.views` | `PluginContext::views()` non-null; `ViewRegistrar`. Plugins that mount a sidebar view via `X-Corbomite-DockArea` + `createView()` typically declare this too. |
+| `ui.views` | `PluginContext::views()` non-null; `ViewRegistrar` (main-area view-type registration, e.g. `graph`). **Not required for sidebar `createView()`** — the host's `X-Corbomite-DockArea` mount path does not touch `ViewRegistrar`, so a plugin that only ships a dock view may omit `ui.views` entirely. A plugin that calls `registerView()` for a main-area type must declare it. |
 | `ui.menus` | `PluginContext::menus()` non-null; `MenuInjector`. |
 | `network` | `PluginContext::network()` non-null. |
 | `secrets` | `PluginContext::secrets()` non-null; `SecretStorage` methods. |

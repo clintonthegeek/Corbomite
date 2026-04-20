@@ -110,10 +110,19 @@ void SearchView::executeSearch()
     QVector<SearchMatch> results;
     QString unsupportedNote;
     auto plan = SearchDSL::compile(parsed.root);
-    if (plan.fts5Query.isEmpty() && plan.requiredTags.isEmpty() && plan.excludedTags.isEmpty()) {
+    const bool postFilter = !plan.regexPatterns.isEmpty()
+                         || !plan.caseSensitiveTerms.isEmpty();
+    if (plan.fts5Query.isEmpty() && plan.requiredTags.isEmpty()
+        && plan.excludedTags.isEmpty() && !postFilter) {
         results = m_search->search(query);
+    } else if (postFilter) {
+        results = m_search->searchCompiled(plan.fts5Query, plan.requiredTags,
+                                           plan.excludedTags,
+                                           plan.regexPatterns,
+                                           plan.caseSensitiveTerms);
     } else {
-        results = m_search->searchCompiled(plan.fts5Query, plan.requiredTags, plan.excludedTags);
+        results = m_search->searchCompiled(plan.fts5Query, plan.requiredTags,
+                                           plan.excludedTags);
     }
     if (!plan.unsupported.isEmpty()) {
         unsupportedNote = i18n(" (unsupported: %1)", plan.unsupported.join(QStringLiteral(", ")));

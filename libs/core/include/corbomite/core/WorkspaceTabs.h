@@ -42,6 +42,14 @@ public:
 
     WorkspaceLeaf *leafAt(int index) const;
 
+    /// Emit tabCloseRequested for the given index / range — wraps the
+    /// signal so non-friend callers (e.g. View::onTabMenu default impl)
+    /// can drive the existing host-wired close path.
+    void requestCloseTab(int index);
+    void requestCloseOthers(int keepIndex);
+    void requestCloseToRight(int pivotIndex);
+    void requestCloseAll();
+
 Q_SIGNALS:
     void currentTabChanged(int index);
     void tabCloseRequested(int index);

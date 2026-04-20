@@ -74,11 +74,7 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** medium
 - **Details:** `SuggestPopup` should be a separate widget from `CompletionPopup`, hosting a per-row `EditorSuggest::renderSuggestion()` delegate. Today `CompletionPopup` still renders all suggestions with no per-suggester customisation. Build when the first plugin or built-in wants rich (non-text) suggestion rows.
 
-### Multi-Notice stacking coordinator
-- **Source:** Cluster H follow-up #5; [docs/PROJECT-STATE.md §Cluster H follow-ups](PROJECT-STATE.md)
-- **Blocks:** any code path that fires multiple notices in quick succession
-- **Scope:** small
-- **Details:** Today only one `Notice` can be on screen at a time. A singleton coordinator that vertically stacks open notices is needed before any code path fires multiple notices concurrently. A natural prerequisite for plugin-generated notices.
+### ~~Multi-Notice stacking coordinator~~ Done 2026-04-19 — commit `56d0db85` stacks open `Notice` toasts vertically in `src/dialogs/Notice.cpp`.
 
 ### Plugin-facing wrappers for hover/suggest surfaces
 - **Source:** Cluster H follow-up #6; [docs/PROJECT-STATE.md §Cluster H follow-ups](PROJECT-STATE.md)
@@ -104,17 +100,9 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** large
 - **Details:** The native-C++ plugin substrate from Cluster N was chosen over a V8/WebEngine embed; however, a JS shim on top remains possible as future work. Noted in the Cluster N design decisions. Depends on the sandbox/process-isolation decision above.
 
-### `ui.views` permission semantics for `createView()`-only plugins
-- **Source:** Cluster N retro §Discovered during execution; [cluster-retros/cluster-n.md](cluster-retros/cluster-n.md)
-- **Blocks:** plugin API spec completeness
-- **Scope:** small
-- **Details:** The `ui.views` permission token is checked at `registerView()` call sites, but a plugin that only calls `createView()` (no `registerView()`) never touches those sites and therefore never needs to declare the token. A spec decision is needed: should `ui.views` be required for `createView()` too? Flagged in `API-REFERENCE`; needs resolution before ApiLevel bump.
+### ~~`ui.views` permission semantics for `createView()`-only plugins~~ Resolved 2026-04-19 — `ui.views` gates `ViewRegistrar` only (main-area view-type registration); sidebar `createView()` via `X-Corbomite-DockArea` does **not** require it. `docs/plugin-development/API-REFERENCE.md §Permissions` updated to state this explicitly.
 
-### `CorbomiteConfigVersion.cmake`
-- **Source:** Cluster N retro §Discovered during execution; [cluster-retros/cluster-n.md](cluster-retros/cluster-n.md)
-- **Blocks:** `find_package(Corbomite 1.0 EXACT)` for out-of-tree plugins
-- **Scope:** small
-- **Details:** `CorbomiteConfig.cmake` is emitted and installed but `CorbomiteConfigVersion.cmake` is not, so version-constrained `find_package` calls from third-party plugin CMake projects will fail. Trivial fix (add a `write_basic_package_version_file` call); deferred out of scope for the Cluster N closeout commit.
+### ~~`CorbomiteConfigVersion.cmake`~~ Done 2026-04-19 — commit `1d4b3a9a` adds `write_basic_package_version_file` to the top-level `CMakeLists.txt` so version-constrained `find_package(Corbomite)` calls work.
 
 ### Distro packaging path validation
 - **Source:** Cluster N retro §Discovered during execution; [cluster-retros/cluster-n.md](cluster-retros/cluster-n.md)
@@ -126,17 +114,9 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 
 ## 3. Editor, Views, Workspace
 
-### Empty-state "New Tab" view
-- **Source:** Cluster G follow-up #1; [docs/PROJECT-STATE.md §Cluster G follow-ups](PROJECT-STATE.md)
-- **Blocks:** nothing hard; improves discoverability
-- **Scope:** small
-- **Details:** `WorkspaceLeaf` has no analogue of Obsidian's empty-pane placeholder (the `tD` view) that shows "Create new note" / "Go to file" / "Close" actions when a leaf has no document loaded. A newly-created leaf with no view is currently just blank. Audit reference: `docs/obsidian-audit/domains/views.md §1` (the `eD`/`tD`/`nD` trio). Not blocking round-trip compat; improves new-user discoverability.
+### ~~Empty-state "New Tab" view~~ Done 2026-04-19 — `Corbomite::EmptyView` (`libs/core/src/EmptyView.cpp`) registered from `MainWindow` as viewType `"empty"` with Create-new-file / Go-to-file / Close buttons. `WorkspaceLeaf::setViewState` also falls back to `"empty"` when a factory is missing (absorbs Cluster G follow-up #2 "unknown-viewType fallback").
 
-### Unknown-viewType fallback view
-- **Source:** Cluster G follow-up #2; [docs/PROJECT-STATE.md §Cluster G follow-ups](PROJECT-STATE.md)
-- **Blocks:** third-party plugin view types; vault portability across plugin sets
-- **Scope:** small
-- **Details:** `WorkspaceLeaf::setViewState(type, ...)` called with an unregistered type has undefined UX. Obsidian shows a canned "doesn't look like anything to me" fallback (`nD`). This matters once third-party plugins register custom view types and vaults move between installs with mismatched plugin sets. Audit reference: `docs/obsidian-audit/domains/views.md §1`. Build alongside or after `ViewRegistry` error-path hardening (follow-up #8).
+### ~~Unknown-viewType fallback view~~ Done 2026-04-19 — `WorkspaceLeaf::setViewState` now falls back to the registered `"empty"` view when a factory lookup misses (covered alongside Empty-state "New Tab" view above). Distinct `nD` vs `tD` visual treatment deferred until a consumer needs different copy.
 
 ### Centralised `Workspace::openLinkText` dispatcher
 - **Source:** Cluster G follow-up #3; [docs/PROJECT-STATE.md §Cluster G follow-ups](PROJECT-STATE.md)
@@ -150,11 +130,7 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** medium
 - **Details:** Obsidian's group-linked panes sync the active file via a `FileView::receiveSyncState(peer)` virtual. Corbomite wires `setGroup(id)` + `groupChanged` at the `WorkspaceLeaf` level but has no base-class hook for cross-group file sync. View subclasses would currently have to hand-roll sync, which means they don't. Audit reference: `docs/obsidian-audit/domains/workspace.md §1`, `domains/views.md §1`.
 
-### `lastOpenFiles` sibling key restored on load
-- **Source:** Cluster G follow-up #5; [docs/PROJECT-STATE.md §Cluster G follow-ups](PROJECT-STATE.md)
-- **Blocks:** nothing; trivial one-line fix
-- **Scope:** small
-- **Details:** `Workspace::serialize()` emits the `lastOpenFiles` sibling key alongside `main`; `SessionManager` preserves it via unknown-key passthrough on save; but `Workspace::deserialize` is never fed that sibling key on load. Pre-existing gap carried from the Cluster G Task 9 retro (`cluster-retros/cluster-g.md §What surprised`). Not blocking any cluster; a trivial fix once a consumer cares (e.g. the "recently opened" list).
+### ~~`lastOpenFiles` sibling key restored on load~~ Done 2026-04-19 — commit `1d4b3a9a` feeds the `lastOpenFiles` sibling key into `Workspace::deserialize` via `SessionManager`.
 
 ### `WorkspaceWindow` popout integration
 - **Source:** Cluster G follow-up #6; [docs/PROJECT-STATE.md §Cluster G follow-ups](PROJECT-STATE.md)
@@ -162,21 +138,17 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** large
 - **Details:** `WorkspaceWindow` exists in `libs/core/` (Task 7 was deferred during Cluster G Part 2) but the full popout-window lifecycle — separate window state persistence, cross-window leaf moves — is unbuilt. Cluster R already ships the "Open in new window" hamburger menu slot as a disabled placeholder; when this follow-up lands, the slot goes live without menu-schema changes.
 
-### `View.onTabMenu` default implementation
-- **Source:** Cluster G follow-up #7; [docs/PROJECT-STATE.md §Cluster G follow-ups](PROJECT-STATE.md)
-- **Blocks:** third-party plugin views wanting to customise the tab context menu
-- **Scope:** small
-- **Details:** The tab context menu actions (Close / Close Others / Close After / Close All / Move to New Window) are currently `MainWindow`-wired rather than implemented as a `View` base-class virtual with overridable default. This is cosmetic until a third-party plugin view wants to customise the tab context menu.
+### ~~`View.onTabMenu` default implementation~~ Done 2026-04-19 — `View::onTabMenu(QMenu *)` now emits Close / Close Others / Close All to the Right / Close All via new `WorkspaceTabs::requestCloseTab/Others/ToRight/All` helpers. `WorkspaceTabs` wires `QTabBar::customContextMenuRequested` to invoke it, so right-clicking a tab shows the canonical context menu; subclasses override to extend. "Move to New Window" deferred with Cluster G follow-up #6.
 
-### `ViewRegistry` error-path hardening
-- **Source:** Cluster G follow-up #8; [docs/PROJECT-STATE.md §Cluster G follow-ups](PROJECT-STATE.md)
-- **Blocks:** clean third-party plugin view type registration
-- **Scope:** small
-- **Details:** Three error paths in `ViewRegistry` are currently undefined: registering a duplicate `viewType`, requesting a factory for an unregistered type, and a factory-throw during construction. Audit and harden once the unknown-viewType fallback view (follow-up #2 above) lands, as that follow-up is the first consumer of the unregistered-type path.
+### ~~`ViewRegistry` error-path hardening~~ Done 2026-04-19 — commit `5f858059` hardens the three error paths (duplicate-registration, unregistered-type lookup, factory-throw) in `libs/core/src/ViewRegistry.cpp`.
 
 ---
 
 ## 4. Search and metadata
+
+### ~~Regex post-filter in search~~ Done 2026-04-19 — `SearchDSL::CompiledPlan` gained `regexPatterns` + `caseSensitiveTerms`; `SQLiteIndex::searchCompiled` overload post-filters FTS5 candidates via `QRegularExpression` / `QString::contains(Qt::CaseSensitive)` over the `notes_fts.content` column. `SearchView` routes to the new overload when either list is populated.
+
+### ~~True `match-case` semantics~~ Done 2026-04-19 — shipped together with the regex post-filter above; match-case now emits the inner subtree for FTS5 candidate narrowing and re-checks literal terms with `Qt::CaseSensitive` before returning.
 
 ### `line:` / `block:` / `section:` / `task*:` search operators
 - **Source:** Cluster D follow-up #1; [docs/PROJECT-STATE.md §Cluster D follow-ups](PROJECT-STATE.md)
@@ -190,18 +162,6 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** medium
 - **Details:** The tokeniser skips the brackets and the AST has no node for property-call expressions. Implementation needs a new `note_properties(note_path, key, value_text, value_num)` side-table. Should coordinate with Cluster I (MetadataCache parity), which built the parallel cache. Land together to avoid double migration.
 
-### Regex post-filter in search
-- **Source:** Cluster D follow-up #3; [docs/PROJECT-STATE.md §Cluster D follow-ups](PROJECT-STATE.md)
-- **Blocks:** nothing; defer until user-facing demand
-- **Scope:** small
-- **Details:** The parser builds `Regex` nodes; `compile()` currently flags them as unsupported. Implementation is straightforward: fetch all candidate paths for the surrounding clause, then `QRegularExpression::match` over each note body. The pattern is the same shape as the `match-case` follow-up below. Defer until a single user-facing demand surfaces.
-
-### True `match-case` semantics
-- **Source:** Cluster D follow-up #4; [docs/PROJECT-STATE.md §Cluster D follow-ups](PROJECT-STATE.md)
-- **Blocks:** accurate case-sensitive search
-- **Scope:** small
-- **Details:** FTS5's default `porter unicode61` tokeniser is case-folding, so `match-case` queries silently degrade to case-insensitive (surfaced in the `unsupported` set). Real implementation: fetch candidates via FTS5, then apply `QString::contains(..., Qt::CaseSensitive)` re-check per candidate. Same shape as the regex post-filter follow-up above.
-
 ### KCommandBar palette wired through `CommandRegistry`
 - **Source:** Cluster D follow-up #5; [docs/PROJECT-STATE.md §Cluster D follow-ups](PROJECT-STATE.md)
 - **Blocks:** nothing; cosmetic divergence only
@@ -214,11 +174,7 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** small
 - **Details:** Belongs to the Cluster H suggester-UI surface. The matcher infrastructure is ready; the UI prefix-routing (typing `#` switches to heading mode, `^` to block mode, `[[` to wikilink mode) is the remaining work. Build when a user notices the missing mode switching.
 
-### Snippet-text rich rendering in `SearchResultsModel`
-- **Source:** Cluster D follow-up #7; [docs/PROJECT-STATE.md §Cluster D follow-ups](PROJECT-STATE.md)
-- **Blocks:** nothing; `SearchMatch.matches` is populated but display is plain text
-- **Scope:** small
-- **Details:** `SearchMatch.matches` is now populated, but the `QTreeView` default delegate prints plain text. Two options: (a) add a `SearchResultsDelegate` that calls `ResultHighlighter::drawHighlighted` — consistent with `QuickSwitcher`/`CompletionPopup`; or (b) flip `Qt::DisplayRole` to rich-text with `<b>` tags and let Qt render it — one line of code. Option (a) is the architecturally consistent path.
+### ~~Snippet-text rich rendering in `SearchResultsModel`~~ Done 2026-04-19 — commit `96c59821` adds `SearchResultsDelegate` using `ResultHighlighter::drawHighlighted`, wired into `SearchView`.
 
 ---
 
@@ -336,11 +292,7 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** medium
 - **Details:** No dedicated `QUndoStack` exists for `BasesView`. Inline-edit writebacks go directly through `FileManager::processFrontMatter` with no undo record. A per-view undo stack should sit between the delegate's `setModelData` and the `FileManager` write.
 
-### Column-reorder persistence
-- **Source:** Cluster K retro §Deliberate MVP cuts #10; [cluster-retros/cluster-k.md](cluster-retros/cluster-k.md)
-- **Blocks:** nothing; Qt default drag-reorder works but doesn't persist
-- **Scope:** small
-- **Details:** `QTableView` header drag-reorder is enabled by Qt's default behaviour, but the reordered column sequence is not persisted back into `BasesViewConfig::order`. A `sectionMoved` signal handler on `QHeaderView` should write the new order into the config and trigger a save.
+### ~~Column-reorder persistence~~ Done 2026-04-19 — commit `261fb3cd` wires `QHeaderView::sectionMoved` to rewrite `BasesViewConfig::order` in `libs/bases/src/BasesView.cpp`.
 
 ### Multi-key sort cycling UI
 - **Source:** Cluster K retro §Deliberate MVP cuts #11; [cluster-retros/cluster-k.md](cluster-retros/cluster-k.md)

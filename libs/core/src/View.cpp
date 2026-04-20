@@ -3,7 +3,13 @@
 #include "corbomite/core/View.h"
 #include "corbomite/core/Component.h"
 #include "corbomite/core/MenuSectionHelper.h"
+#include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomite/core/WorkspaceParent.h"
+#include "corbomite/core/WorkspaceTabs.h"
 
+#include <KLocalizedString>
+#include <QAction>
+#include <QMenu>
 #include <QVBoxLayout>
 
 namespace Corbomite {
@@ -74,7 +80,40 @@ void View::onPaneMenu(QMenu *menu, const QString & /*source*/)
     onPaneMenu(menu);  // backward-compat forwarder
 }
 
-void View::onTabMenu(QMenu *) {}
+void View::onTabMenu(QMenu *menu)
+{
+    // Default: the canonical Close / Close Others / Close All to the
+    // Right / Close All menu (audit: views.md §1 tab context). Subclasses
+    // can override to customise or suppress. The leaf must live under a
+    // WorkspaceTabs for the close-siblings semantics to apply; otherwise
+    // no items are added.
+    if (!menu || !m_leaf) return;
+    auto *tabs = qobject_cast<WorkspaceTabs *>(m_leaf->parentItem());
+    if (!tabs) return;
+    const int myIdx = tabs->indexOf(m_leaf);
+    const int count = tabs->children().size();
+    if (myIdx < 0) return;
+
+    auto *aClose = menu->addAction(i18n("Close"));
+    QObject::connect(aClose, &QAction::triggered, tabs,
+                     [tabs, myIdx] { tabs->requestCloseTab(myIdx); });
+
+    if (count > 1) {
+        auto *aOthers = menu->addAction(i18n("Close Others"));
+        QObject::connect(aOthers, &QAction::triggered, tabs,
+                         [tabs, myIdx] { tabs->requestCloseOthers(myIdx); });
+
+        if (myIdx < count - 1) {
+            auto *aRight = menu->addAction(i18n("Close All to the Right"));
+            QObject::connect(aRight, &QAction::triggered, tabs,
+                             [tabs, myIdx] { tabs->requestCloseToRight(myIdx); });
+        }
+
+        auto *aAll = menu->addAction(i18n("Close All"));
+        QObject::connect(aAll, &QAction::triggered, tabs,
+                         [tabs] { tabs->requestCloseAll(); });
+    }
+}
 void View::onResize() {}
 
 QWidget *View::containerWidget() const { return m_containerWidget; }

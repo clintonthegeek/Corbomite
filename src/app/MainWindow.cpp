@@ -10,6 +10,7 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditableFileView.h"
+#include "corbomite/core/EmptyView.h"
 #include "corbomite/core/FileView.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/TextFileView.h"
@@ -967,6 +968,23 @@ void MainWindow::setupEditor()
     m_viewRegistry->registerViewWithExtensions(
         {QStringLiteral("base")}, QStringLiteral("bases"),
         &Corbomite::Bases::BasesView::factory);
+    // "empty" — blank-leaf placeholder (audit: views.md §1.tD). Handler
+    // routes each button to the host action: Create new file → createNewNote,
+    // Go to file → showQuickSwitcher, Close → Workspace::closeLeaf.
+    m_viewRegistry->registerView(
+        QStringLiteral("empty"),
+        [this](Corbomite::WorkspaceLeaf *leaf) -> Corbomite::View * {
+            return new Corbomite::EmptyView(
+                leaf,
+                [this, leaf](const QString &action) {
+                    if (action == QLatin1String("new-file"))
+                        createNewNote();
+                    else if (action == QLatin1String("go-to-file"))
+                        showQuickSwitcher();
+                    else if (action == QLatin1String("close") && m_workspace)
+                        m_workspace->closeLeaf(leaf);
+                });
+        });
     // "graph" view type is registered by the corbomite-graph-view plugin's
     // onLoad via ViewRegistrar. Plugins are loaded before workspace layout
     // deserialize in onVaultOpened, so the type is available by the time

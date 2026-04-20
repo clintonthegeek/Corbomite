@@ -312,21 +312,23 @@ private Q_SLOTS:
         QCOMPARE(plan.fts5Query, QStringLiteral("\"foo\" NOT \"bar\""));
     }
 
-    void testCompileRegexFlaggedUnsupported()
+    void testCompileRegexRecordedAsPostFilter()
     {
         auto plan = SearchDSL::compile(parseOk(QStringLiteral("/abc/")));
         QVERIFY(plan.fts5Query.isEmpty());
-        QVERIFY(!plan.unsupported.isEmpty());
-        QVERIFY(plan.unsupported.first().contains(QStringLiteral("regex")));
+        QCOMPARE(plan.regexPatterns.size(), 1);
+        QCOMPARE(plan.regexPatterns.first(), QStringLiteral("abc"));
+        QVERIFY(plan.unsupported.isEmpty());
     }
 
-    void testCompileMatchCaseFlaggedAndUnwrapped()
+    void testCompileMatchCaseRecordedAsPostFilter()
     {
-        // match-case currently can't be honoured by FTS5; we still compile the
-        // inner subtree and surface a note in `unsupported`.
+        // match-case emits the inner FTS5 query (for candidate narrowing) and
+        // records the literal terms so the caller can re-check case-sensitively.
         auto plan = SearchDSL::compile(parseOk(QStringLiteral("match-case:foo")));
         QCOMPARE(plan.fts5Query, QStringLiteral("\"foo\""));
-        QVERIFY(!plan.unsupported.isEmpty());
+        QCOMPARE(plan.caseSensitiveTerms, QStringList{QStringLiteral("foo")});
+        QVERIFY(plan.unsupported.isEmpty());
     }
 
     void testCompileIgnoreCaseTransparent()

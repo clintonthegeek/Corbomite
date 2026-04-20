@@ -6,6 +6,7 @@
 
 #include <QIcon>
 #include <QJsonArray>
+#include <QMenu>
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QTabBar>
@@ -46,6 +47,22 @@ WorkspaceTabs::WorkspaceTabs(QObject *parent)
             && to >= 0 && to < m_children.size()) {
             m_children.move(from, to);
         }
+    });
+
+    // Tab right-click context menu — delegates to the leaf's View::onTabMenu
+    // so subclasses can extend / override the default Close/Others/All.
+    m_tabBar->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tabBar, &QWidget::customContextMenuRequested, this,
+            [this](const QPoint &pos) {
+        const int idx = m_tabBar->tabAt(pos);
+        if (idx < 0) return;
+        auto *leaf = leafAt(idx);
+        if (!leaf) return;
+        auto *view = leaf->view();
+        QMenu menu;
+        if (view) view->onTabMenu(&menu);
+        if (!menu.isEmpty())
+            menu.exec(m_tabBar->mapToGlobal(pos));
     });
 }
 
@@ -203,6 +220,33 @@ void WorkspaceTabs::onTabBarCurrentChanged(int index)
 void WorkspaceTabs::onTabBarCloseRequested(int index)
 {
     Q_EMIT tabCloseRequested(index);
+}
+
+void WorkspaceTabs::requestCloseTab(int index)
+{
+    if (index < 0 || index >= m_children.size()) return;
+    Q_EMIT tabCloseRequested(index);
+}
+
+void WorkspaceTabs::requestCloseOthers(int keepIndex)
+{
+    // Iterate from the back so earlier indices stay valid as we close.
+    for (int i = m_children.size() - 1; i >= 0; --i) {
+        if (i != keepIndex)
+            Q_EMIT tabCloseRequested(i);
+    }
+}
+
+void WorkspaceTabs::requestCloseToRight(int pivotIndex)
+{
+    for (int i = m_children.size() - 1; i > pivotIndex; --i)
+        Q_EMIT tabCloseRequested(i);
+}
+
+void WorkspaceTabs::requestCloseAll()
+{
+    for (int i = m_children.size() - 1; i >= 0; --i)
+        Q_EMIT tabCloseRequested(i);
 }
 
 void WorkspaceTabs::rebuildTabBar()

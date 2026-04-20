@@ -64,6 +64,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/DiffMatchPatch.h
     src/View.cpp
     include/corbomite/core/View.h
+    src/EmptyView.cpp
+    include/corbomite/core/EmptyView.h
     src/ItemView.cpp
     include/corbomite/core/ItemView.h
     src/FileView.cpp

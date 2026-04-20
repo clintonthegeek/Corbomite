@@ -99,6 +99,18 @@ public:
                                         const QStringList &excludedTags,
                                         int maxResults = 100) const;
 
+    /// Variant that also applies content-side post-filters: every regex must
+    /// match and every case-sensitive term must appear (Qt::CaseSensitive)
+    /// in the candidate note's `content` column. Candidates failing any
+    /// predicate are dropped before the result vector is returned. Used by
+    /// SearchDSL's `/regex/` and `match-case:` operators.
+    QVector<SearchMatch> searchCompiled(const QString &fts5Query,
+                                        const QStringList &requiredTags,
+                                        const QStringList &excludedTags,
+                                        const QStringList &regexPatterns,
+                                        const QStringList &caseSensitiveTerms,
+                                        int maxResults = 100) const;
+
     // Link queries
     QVector<LinkInfo> backlinksFor(const QString &targetPath) const;
     QVector<LinkInfo> outlinksFor(const QString &sourcePath) const;

@@ -75,8 +75,15 @@ void WorkspaceLeaf::setViewState(const QJsonObject &state)
 
     auto factory = m_registry->getViewCreatorByType(type);
     if (!factory) {
-        closeCurrentView();
-        return;
+        // Audit: views.md §1.tD / §1.nD — unresolved view type falls back
+        // to the "empty" placeholder if the host registered one. This also
+        // covers vaults restored across plugin-set changes (Cluster G
+        // follow-up #2: unknown-viewType fallback).
+        factory = m_registry->getViewCreatorByType(QStringLiteral("empty"));
+        if (!factory) {
+            closeCurrentView();
+            return;
+        }
     }
 
     auto *newView = factory(this);
