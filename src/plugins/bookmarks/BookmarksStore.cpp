@@ -126,16 +126,36 @@ bool BookmarksStore::moveBookmark(const QStringList &fromPath,
     BookmarkItem *src = find(fromPath);
     if (!src) return false;
     BookmarkItem copy = *src;
-    if (!removeBookmark(fromPath)) return false;
 
+    // Remove inline without emitting (mirror of removeBookmark logic)
+    if (fromPath.isEmpty()) return false;
+    QList<BookmarkItem> *removeList = &m_items;
+    for (int i = 0; i < fromPath.size() - 1; ++i) {
+        bool ok = false;
+        const int idx = fromPath.at(i).toInt(&ok);
+        if (!ok || idx < 0 || idx >= removeList->size()) return false;
+        removeList = &((*removeList)[idx].children);
+    }
+    bool ok = false;
+    const int removeIdx = fromPath.last().toInt(&ok);
+    if (!ok || removeIdx < 0 || removeIdx >= removeList->size()) return false;
+    removeList->removeAt(removeIdx);
+
+    // Insert into destination
     QList<BookmarkItem> *dest = &m_items;
     if (!toParentPath.isEmpty()) {
         BookmarkItem *parent = find(toParentPath);
-        if (!parent) { m_items.append(std::move(copy)); emit changed(); return true; }
+        if (!parent) {
+            m_items.append(std::move(copy));
+            emit changed();
+            return true;
+        }
         dest = &parent->children;
     }
     if (insertIndex < 0 || insertIndex > dest->size()) insertIndex = dest->size();
     dest->insert(insertIndex, std::move(copy));
+
+    // Emit changed() once at the end
     emit changed();
     return true;
 }
