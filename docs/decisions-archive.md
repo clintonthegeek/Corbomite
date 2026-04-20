@@ -10,6 +10,49 @@ Conventions:
 
 ---
 
+## 2026-04-20 — Markoff Phase B absorbed (external-origin integration)
+
+First closeout under the new **external-origin integration** label (see PROJECT-STATE §Parallel long-term internal refactors). CorbomiteApp migrated off its in-tree copies of `Corbomite::QutepartSource` and `Corbomite::ReadingView` onto the Markoff submodule's tri-view API: `Markoff::Live` / `Markoff::Reading` / `Markoff::Source`, each derived from a shared `Markoff::MarkdownView` polymorphic base. Phase A (Markoff-side, already merged before this session) split markoff into four sibling libraries; Phase B (this session) flipped the Corbomite link line and deleted the in-tree copies.
+
+**Origin-class labelling:** this is the first such integration large enough to warrant distinguishing from the "Parallel long-term internal refactors" previously populated only by internally-driven work (Qutepart-Corbomite fork, Graffodil adoption). `external-origin integration` = phase cadence set by an upstream repo we own-or-consume-heavily; Corbomite absorbs on its own schedule. Expressed as `Markoff Phase <A|B|C>` rather than a cluster letter, to match the upstream repo's own naming and keep the cluster-letter space reserved for Obsidian-parity work.
+
+**Corbomite-side delivery** (single bundled commit `da9a0a2c` per user choice — staged state had to land together because build was red at every intermediate):
+
+- Submodule pin `libs/markoff-family` bumped to Markoff `v0.2.7` (seven tags across the session; see Markoff-side log below).
+- Top-level `CMakeLists.txt`: set `MARKOFF_READING_USE_REAL_COREDEPS=ON` above `add_subdirectory(libs/markoff-family)`; removed `add_subdirectory` for `libs/qutepart-corbomite` and `libs/readingview`.
+- `src/CMakeLists.txt` + `tests/editor/CMakeLists.txt`: `Markoff::Markoff` → `Markoff::Live`; added `Markoff::Reading` + `Markoff::Source`; removed `Corbomite::QutepartSource` + `Corbomite::ReadingView`.
+- `libs/core/CMakeLists.txt`: `markoff` link → `markoff-parser` (the target that exposes `<markoff-parser/Document.h>` for `libs/core/include/corbomite/core/LinkUtils.h`).
+- Source renames across `src/editor/`, `src/app/`, `tests/`: `Corbomite::ReadingView::` → `Markoff::Reading::`, `corbomite/readingview/*` → `markoff/reading/*` (12 files).
+- `NoteEditorWidget.cpp`: `foldedHeadings()` / `setFoldedHeadings()` → `foldedHeadingLines()` / `setFoldedHeadingLines()` on `ReadingView` (spec item 6 — the old name was freed for the polymorphic `QVector<FoldSpec>` override on `MarkdownView`).
+- `HoverPopover.cpp`: dropped `m_view->setFrameShape(QFrame::NoFrame)` — `ReadingView` now composes a private `QGraphicsView` inside a `QWidget` shell, no longer IS-A `QFrame` (spec item 4).
+- `git rm -r libs/qutepart-corbomite/ libs/readingview/` (entire trees).
+
+**Markoff-side work done this session** (7 commits on Markoff master, tags `v0.2.1`–`v0.2.7`):
+
+- `v0.2.1` (3 cherry-picked commits: `fc818d6` `05a2ec9` `f6c48cc`) — **stranded Cluster V Phase 2+3 editor feats recovered.** `SetHeading1..6` actions + `Ctrl+1..6` shortcuts, `cursorInTable()` accessor, widened `insertCallout(title)` / `insertTable(hasHeader)`, `currentHeadingLevel()`. These had been authored on Corbomite's local submodule-master (ahead-of-origin 5, behind 43) but never pushed to Markoff origin; Phase A's merge from `feature/tri-view-phase-a` branched off before them, so `v0.2.0` didn't include them. Discovered at build-time when `src/app/MainWindow.cpp` failed to compile against `Markoff::ActionId::SetHeading1` et al. Escalation surfaced to user; user chose option 1 ("cherry-pick and re-tag"). Rename conflicts (`libs/markoff/tests/` → `libs/markoff-live/tests/`) auto-resolved by `git add` of the new path.
+- `v0.2.2` (`4e2ca8f`) — **`Corbomite::Storage` stays linked in real-deps mode.** Phase B spec's Task 5 predicted Storage was dead weight; empirical test refuted. `libs/markoff-reading/src/EmbedRenderer.cpp:12` directly `#include "corbomite/storage/CachedMetadata.h"`. Kept `stubs/corbomite/storage/` for standalone-mode builds (invariant: Markoff's standalone `ctest` stays green). Task 5 closes as "confirmed live — retained".
+- `v0.2.3` (`9baee9a`) — **Task 6 test gates.** Four `# TODO Phase B:` tests in `libs/markoff-reading/tests/CMakeLists.txt` (`tst_sectionlayout_mermaid`, `tst_readingview_embedrenderer`, `tst_readingview_mermaid_registered`, `tst_readingview_embed_builtins`) now wrapped in `if(MARKOFF_READING_USE_REAL_COREDEPS)` and registered; standalone Markoff skips them, CorbomiteApp picks them up.
+- `v0.2.4` (empty duplicate of `v0.2.3`; created accidentally by a racing tag command and left in place per the "never force-push a tag" invariant).
+- `v0.2.5` (`efa8b10`) — **cherry-picked-test link-line fixups.** The `tst_set_heading_actions` + `tst_editor_cursor_in_table` targets linked against `markoff` (pre-rename name); post-rename the target is `markoff_live`. One sed-line per file.
+- `v0.2.6` (`c2894f4`) — **`Corbomite::Core` becomes PUBLIC on `markoff_reading`** in real-deps mode. The public forwarding header `libs/markoff-reading/include/markoff/reading/VaultResourceProvider.h` (a typedef to `Corbomite::Core::VaultResourceProvider` promoted in Cluster J Phase 1) needs the Corbomite::Core include visible transitively to consumers and tests. Standalone mode's stubs dir was already `PUBLIC`; this brings real-deps mode into parity.
+- `v0.2.7` (`44a5e95`) — **Storage link for `tst_readingview_embedrenderer`.** Test includes `<corbomite/storage/{LinkResolver,MetadataCache}.h>` directly; Storage is correctly PRIVATE on `markoff_reading` (no public header uses it), so the test gets its own `target_link_libraries(... Corbomite::Storage)`.
+
+**Test results:** 241/243 pass. Two pre-existing flakes: `tst_e2e_gui` SEGFAULT under `-j 10` parallel ctest but passes in isolation; `tst_benchmark_layout` hits the 120s ctest timeout on the scale-free-10000 case (benchmark, not a correctness regression). Neither migration-related.
+
+**Phase C (deferred, Markoff-led, not plan-ready).** Replaces the `MARKOFF_READING_USE_REAL_COREDEPS` CMake-option bridge with a proper dependency-injection seam: Markoff owns abstract interfaces (`IEmbedRegistry`, `ICodeBlockProcessorRegistry`, `IVaultResourceProvider`, etc.), Corbomite writes adapters, stubs become default no-op impls — one code path instead of a two-configuration build matrix. Same pass consolidates `Theme` / `ResourceProvider` / `LinkResolver` across the three leaves and adopts `MarkoffDocument` as the content-authoritative shared document. Ownership of both sides of the submodule boundary through Phase C rests with this agent per `libs/markoff-family/docs/handoff/2026-04-20-phase-c-ownership-handoff.md`.
+
+**Carry-forwards for future external-origin integrations:**
+- **Label form.** Use the upstream repo's own phase naming (e.g. `Markoff Phase B`) rather than minting a cluster letter. Keeps cluster-letter space reserved for Obsidian-parity work and makes `git grep "Phase B"` tractable.
+- **Origin column in §Parallel long-term internal refactors.** Two classes: `internal` (Corbomite drives cadence) and `external-origin integration` (upstream drives cadence; Corbomite absorbs on its own schedule).
+- **Spec-audit discipline.** External-repo specs can be wrong about the consuming-side impact even when the authors did a survey — the Phase B spec confidently asserted both (a) `Corbomite::Storage` was unused by readingview sources and (b) the old `setFoldedHeadings(QVector<int>)` call site didn't exist in Corbomite. Both claims wrong. Treat the spec as a starting hypothesis and reality-check empirically during execution.
+- **Tag monotonicity.** Per the Markoff repo's invariants (`libs/markoff-family/CLAUDE.md` §Invariants), tags are append-only; never force-move. When mid-execution needs produced 7 tags where a cleaner run might have produced 3, the invariant held.
+- **Pre-flight submodule-pin audit.** The "ahead 5, behind 43" of Corbomite's local submodule-master relative to origin/master was a latent time bomb. For future submodule-driven work: before bumping a pin, diff `git rev-list <current>..<new>` and `git rev-list <new>..<current>` to spot stranded commits before they surface as build failures.
+
+**Corbomite-side commit:** `da9a0a2c feat(markoff): Phase B migration to Markoff tri-view API`.
+**Markoff-side commits:** `fc818d6` `05a2ec9` `f6c48cc` `4e2ca8f` `9baee9a` `efa8b10` `c2894f4` `44a5e95` (master at `44a5e95` = v0.2.7).
+
+---
+
 ## 2026-04-20 — Cluster S (Bookmarks core plugin) closed
 
 Single-plugin delivery at `src/plugins/bookmarks/` following the Cluster Q / Cluster N playbook (KPluginFactory shared module, permission-gated proxies, vault-scoped lifecycle). Eight commits across five task groups (1.1-3.2):
