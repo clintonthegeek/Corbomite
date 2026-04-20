@@ -808,6 +808,24 @@ void MainWindow::propagateServicesToView(View *view)
                 if (auto *f = resolveTFile(doc))
                     fm->promptForDeletion(f, parent);
             });
+        // Cluster S task 3.2: route the per-view "Bookmark…" hamburger entry
+        // through the bookmarks plugin's Q_INVOKABLE modal slot. Guarded by
+        // plugin presence — when the plugin is disabled the callback stays
+        // unset and EditableFileView grays the menu entry out.
+        if (auto *pm = m_app ? m_app->pluginManager() : nullptr) {
+            if (const auto *info = pm->pluginById(QStringLiteral("corbomite-bookmarks"))) {
+                if (auto *instance = info->instance) {
+                    efv->setBookmarkCallback(
+                        [instance](NoteDocument *doc, QWidget *parent) {
+                            if (!doc) return;
+                            QMetaObject::invokeMethod(instance,
+                                "openBookmarkModalForFile",
+                                Q_ARG(QString, doc->relativePath()),
+                                Q_ARG(QWidget *, parent));
+                        });
+                }
+            }
+        }
         efv->setVaultAbsolutePathResolver(resolveAbs);
         efv->setVaultNameResolver([vaultObj]() -> QString {
             if (!vaultObj) return QString();
@@ -1359,6 +1377,7 @@ void MainWindow::setupEditor()
             {QStringLiteral("outline"),   QStringLiteral("corbomite-outline")},
             {QStringLiteral("properties"), QStringLiteral("corbomite-properties")},
             {QStringLiteral("local-graph"), QStringLiteral("corbomite-local-graph")},
+            {QStringLiteral("bookmarks"),   QStringLiteral("corbomite-bookmarks")},
         };
         const QString pluginId = slugToPluginId.value(slug, slug);
         const QString toolViewId = pluginId + QStringLiteral("_panel");

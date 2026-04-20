@@ -45,6 +45,11 @@ void EditableFileView::setDeleteCallback(NoteDocumentCallback cb)
     m_deleteCallback = std::move(cb);
 }
 
+void EditableFileView::setBookmarkCallback(NoteDocumentCallback cb)
+{
+    m_bookmarkCallback = std::move(cb);
+}
+
 void EditableFileView::setVaultAbsolutePathResolver(
     std::function<QString(NoteDocument *)> resolver)
 {
@@ -97,10 +102,16 @@ void EditableFileView::onMoreOptionsMenu(MenuSectionHelper &helper)
 
     auto *bookmarkAct = new QAction(
         QIcon::fromTheme(QStringLiteral("bookmark-new")),
-        i18n("Bookmark"), this);
-    bookmarkAct->setEnabled(false);
-    bookmarkAct->setToolTip(
-        i18n("Requires Cluster S: Bookmarks plugin"));
+        i18n("Bookmark…"), this);
+    if (m_bookmarkCallback) {
+        connect(bookmarkAct, &QAction::triggered, this, [this] {
+            if (m_bookmarkCallback && m_file) m_bookmarkCallback(m_file, this);
+        });
+    } else {
+        bookmarkAct->setEnabled(false);
+        bookmarkAct->setToolTip(
+            i18n("Enable the Bookmarks plugin to save bookmarks (Cluster S)"));
+    }
     helper.addToSection(bookmarkAct, QStringLiteral("pane"));
 
     // ---- action: Rename / Move / Version history (disabled) ----

@@ -24,6 +24,13 @@ public:
     QJsonObject saveSessionState(QObject *view) const override;
     void loadSessionState(QObject *view, const QJsonObject &state) override;
 
+    /// Host entry point for the Cluster R "Bookmark…" hamburger menu slot.
+    /// Composes a file-type BookmarkItem for `relativePath` and opens the
+    /// BookmarkModal parented at `parent`. Silent no-op if the plugin has
+    /// no live store (e.g. called before onLoad).
+    Q_INVOKABLE void openBookmarkModalForFile(const QString &relativePath,
+                                              QWidget *parent = nullptr);
+
     // Store-mutation helpers shared by command callbacks and tests. These are
     // the testable core: callbacks assemble workspace state into these inputs,
     // the helpers build the BookmarkItem and append. Exposed for

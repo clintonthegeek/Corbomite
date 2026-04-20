@@ -82,6 +82,17 @@ void BookmarksPlugin::doSave()
     vp->writeConfigJson(QStringLiteral("bookmarks.json"), m_store->toJson());
 }
 
+void BookmarksPlugin::openBookmarkModalForFile(const QString &relativePath,
+                                               QWidget *parent)
+{
+    if (!m_store || relativePath.isEmpty()) return;
+    BookmarkItem inferred;
+    inferred.type  = QStringLiteral("file");
+    inferred.path  = relativePath;
+    inferred.ctime = QDateTime::currentMSecsSinceEpoch();
+    BookmarkModal::runFor(std::move(inferred), m_store, parent);
+}
+
 QObject *BookmarksPlugin::createView(Corbomite::MainWindow *mainWindow)
 {
     auto *ctx = context();

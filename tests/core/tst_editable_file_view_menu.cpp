@@ -33,6 +33,7 @@ private slots:
     void testCopyVaultRelativePutsRelPathOnClipboard();
     void testCommandDispatcherReceivesRevealCommand();
     void testDisabledPlaceholdersHaveTooltips();
+    void testBookmarkCallbackEnablesMenuEntry();
 };
 
 namespace {
@@ -95,7 +96,7 @@ void TestEditableFileViewMenu::testAllSectionsPopulatedWhenFilePresent()
     QVERIFY(texts.contains(QStringLiteral("Reveal file in navigation")));
     QVERIFY(texts.contains(QStringLiteral("Delete")));
     QVERIFY(texts.contains(QStringLiteral("Open in new window")));
-    QVERIFY(texts.contains(QStringLiteral("Bookmark")));
+    QVERIFY(texts.contains(QStringLiteral("Bookmark…")));
 }
 
 void TestEditableFileViewMenu::testRenameCallbackFiresWithFileAndParent()
@@ -245,7 +246,7 @@ void TestEditableFileViewMenu::testDisabledPlaceholdersHaveTooltips()
         for (QAction *a : acts) {
             if (a->text() == QStringLiteral("Open in new window")) newWin = a;
             else if (a->text() == QStringLiteral("Version history")) versionHistory = a;
-            else if (a->text() == QStringLiteral("Bookmark")) bookmark = a;
+            else if (a->text() == QStringLiteral("Bookmark…")) bookmark = a;
         }
     };
     walk(menu.actions());
@@ -262,6 +263,43 @@ void TestEditableFileViewMenu::testDisabledPlaceholdersHaveTooltips()
     QVERIFY(!newWin->toolTip().isEmpty());
     QVERIFY(!versionHistory->toolTip().isEmpty());
     QVERIFY(!bookmark->toolTip().isEmpty());
+}
+
+void TestEditableFileViewMenu::testBookmarkCallbackEnablesMenuEntry()
+{
+    QTemporaryDir tmp;
+    TestEditableView view;
+    QScopedPointer<NoteDocument> doc(
+        makeDoc(nullptr, tmp.path(), QStringLiteral("foo.md")));
+    QVERIFY(view.loadFile(doc.data()));
+
+    bool called = false;
+    QString seen;
+    view.setBookmarkCallback([&](NoteDocument *d, QWidget *) {
+        called = true;
+        if (d) seen = d->relativePath();
+    });
+
+    QMenu menu;
+    MenuSectionHelper helper(&menu);
+    view.onMoreOptionsMenu(helper);
+    helper.finalize();
+
+    QAction *bookmark = nullptr;
+    auto walk = [&](QList<QAction *> acts) {
+        for (QAction *a : acts) {
+            if (a->text() == QStringLiteral("Bookmark…")) bookmark = a;
+        }
+    };
+    walk(menu.actions());
+    for (QAction *a : menu.actions())
+        if (a->menu()) walk(a->menu()->actions());
+
+    QVERIFY(bookmark);
+    QVERIFY(bookmark->isEnabled());
+    bookmark->trigger();
+    QVERIFY(called);
+    QCOMPARE(seen, QStringLiteral("foo.md"));
 }
 
 QTEST_MAIN(TestEditableFileViewMenu)

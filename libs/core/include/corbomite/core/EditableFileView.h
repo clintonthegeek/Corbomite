@@ -42,6 +42,11 @@ public:
     void setRenameCallback(NoteDocumentCallback cb);
     void setMoveCallback(NoteDocumentCallback cb);
     void setDeleteCallback(NoteDocumentCallback cb);
+    /// Host-supplied "Bookmark…" entry point. When set, the pane-section
+    /// "Bookmark…" action is enabled and invokes this callback with the
+    /// current NoteDocument. MainWindow wires it to the bookmarks plugin's
+    /// openBookmarkModalForFile slot (Cluster S task 3.2).
+    void setBookmarkCallback(NoteDocumentCallback cb);
     void setVaultAbsolutePathResolver(std::function<QString(NoteDocument *)> resolver);
     void setVaultNameResolver(std::function<QString()> resolver);
     void setCommandDispatcher(CommandDispatch dispatcher);
@@ -64,6 +69,7 @@ private:
     NoteDocumentCallback m_renameCallback;
     NoteDocumentCallback m_moveCallback;
     NoteDocumentCallback m_deleteCallback;
+    NoteDocumentCallback m_bookmarkCallback;
     std::function<QString(NoteDocument *)> m_absolutePathResolver;
     std::function<QString()> m_vaultNameResolver;
     CommandDispatch m_commandDispatcher;
