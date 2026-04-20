@@ -93,7 +93,18 @@ public:
     const Corbomite::Core::CodeBlockProcessorRegistry *
     codeBlockProcessorRegistry() const;
 
+    // Cluster V Phase 1 — app-shell zoom routing. ReadingView is a
+    // QGraphicsView, so zoom scales the viewport transform multiplicatively.
+    // `resetZoom()` undoes any accumulated factor by applying the inverse.
+    void zoomIn();
+    void zoomOut();
+    void resetZoom();
+
 Q_SIGNALS:
+    /// Emitted after `zoomIn/zoomOut/resetZoom` has mutated the view
+    /// transform. Callers may query the current factor via the viewport
+    /// transform if needed.
+    void zoomChanged();
     void scrollPositionVisualLineChanged(float visualLine);
     void wikiLinkActivated(const QString &target);
     void wikiLinkHovered(const QString &target);
@@ -170,6 +181,10 @@ private:
 
     QTimer *m_hoverTimer = nullptr;
     QString m_pendingHoverTarget;
+
+    // Cumulative user-applied zoom factor (relative to the as-constructed
+    // viewport transform). 1.0 == no user zoom.
+    double m_userZoom = 1.0;
 };
 
 } // namespace Corbomite::ReadingView

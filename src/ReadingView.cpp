@@ -820,4 +820,28 @@ void ReadingView::mouseMoveEvent(QMouseEvent *event)
     QGraphicsView::mouseMoveEvent(event);
 }
 
+void ReadingView::zoomIn()
+{
+    constexpr double kFactor = 1.1;
+    scale(kFactor, kFactor);
+    m_userZoom *= kFactor;
+    Q_EMIT zoomChanged();
+}
+
+void ReadingView::zoomOut()
+{
+    constexpr double kFactor = 1.0 / 1.1;
+    scale(kFactor, kFactor);
+    m_userZoom *= kFactor;
+    Q_EMIT zoomChanged();
+}
+
+void ReadingView::resetZoom()
+{
+    const double inv = 1.0 / m_userZoom;
+    scale(inv, inv);
+    m_userZoom = 1.0;
+    Q_EMIT zoomChanged();
+}
+
 } // namespace Corbomite::ReadingView
