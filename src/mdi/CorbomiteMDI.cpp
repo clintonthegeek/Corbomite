@@ -1605,8 +1605,16 @@ ToolView *MainWindow::createToolView(QObject *plugin,
                                      const QIcon &icon,
                                      const QString &text)
 {
-    // clashing names are not allowed
+    // Clashing names are not allowed. Historically this silently returned
+    // nullptr; the caller then dropped the new widget on the floor. If a
+    // vault-switch (or rapid disable/enable) leaves an old tool view alive
+    // under the same identifier, the new registration disappeared with no
+    // log and the sidebar was stuck empty. Warn loudly so the next time
+    // this happens it's findable from the terminal rather than gdb.
     if (toolView(identifier)) {
+        qWarning() << "CorbomiteMDI::createToolView: refusing duplicate identifier"
+                   << identifier << "— caller should release the prior tool view"
+                   << "before re-hosting";
         return nullptr;
     }
 

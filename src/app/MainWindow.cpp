@@ -189,10 +189,19 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     connect(m_app, &CorbomiteApp::vaultClosed, this, &MainWindow::onVaultClosed);
 
     if (auto *pm = m_app->pluginManager()) {
-        // Tear down any plugin instances from a previous MainWindow's
-        // lifetime — their PluginContexts hold pointers to the dead
-        // MainWindow's Workspace/Vault/etc. Re-enable happens on
-        // onVaultOpened with this MainWindow's services freshly wired.
+        // Wire host <-> plugin lifecycle callbacks BEFORE tearing down any
+        // stale plugin instances from a prior MainWindow — that way every
+        // disablePlugin() routes through releasePluginView() and tool-view
+        // cleanup runs on a consistent path. (Previously these connects
+        // ran after the teardown loop, which worked only by accident:
+        // there are no hosted tool views yet in a fresh constructor. The
+        // symmetric wiring removes that landmine for any future caller
+        // who triggers teardown from a less-pristine state.)
+        connect(pm, &Corbomite::PluginManager::pluginLoaded,
+                this, &MainWindow::hostPluginView);
+        connect(pm, &Corbomite::PluginManager::pluginUnloading,
+                this, &MainWindow::releasePluginView);
+
         QStringList stale;
         for (int i = 0; i < pm->pluginCount(); ++i) {
             const auto &info = pm->pluginByIndex(i);
@@ -200,11 +209,6 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
         }
         for (const QString &id : stale)
             pm->disablePlugin(id, /*persist=*/false);
-
-        connect(pm, &Corbomite::PluginManager::pluginLoaded,
-                this, &MainWindow::hostPluginView);
-        connect(pm, &Corbomite::PluginManager::pluginUnloading,
-                this, &MainWindow::releasePluginView);
     }
 
     m_commandRegistry = new CommandRegistry();
@@ -530,9 +534,13 @@ void MainWindow::hostPluginView(const QString &pluginId)
                                               : dockIcon),
         dockTitle);
     if (!toolView || !toolView->layout()) {
-        // Already hosted (e.g. on rapid disable+enable race) or the MDI
-        // refused the slot. Drop the widget — releasePluginView will
-        // tear down the existing host on its own.
+        // MDI refused the slot — most likely an identifier collision with
+        // a prior tool view that hasn't been released yet (see
+        // CorbomiteMDI::createToolView). Log so the next occurrence isn't
+        // silent; drop the orphaned plugin widget.
+        qWarning() << "MainWindow::hostPluginView: MDI refused tool view for"
+                   << pluginId << "(id=" << toolViewId
+                   << ") — widget discarded";
         widget->deleteLater();
         return;
     }

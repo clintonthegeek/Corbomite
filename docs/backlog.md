@@ -198,6 +198,12 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** small
 - **Details:** → see §2 (Plugin-facing wrappers). Existing `QuickSwitcher` / `KCommandBar` paths handle their own `Esc` and do not use `Scope`. Rewriting them through `Scope` is churn. Build when the first plugin-provided `Modal` lands (Cluster N direction). The `Scope` push/pop mechanism is the prerequisite for plugins to receive keyboard events inside their modals without leaking to the host.
 
+### Vault-switch sidebar-hosting regression test
+- **Source:** 2026-04-19 — sidebar-invisible fix follow-up (see `decisions-archive.md`)
+- **Blocks:** nothing; guards against regression
+- **Scope:** small
+- **Details:** The bug where `releasePluginView`'s queued `deleteLater` collided with the next `hostPluginView`'s `createToolView(identifier)` call (leaving sidebars empty after a vault swap) shipped despite `tst_vault_switch` existing — the test didn't assert tool-view hosting afterwards. An attempted regression guard in `tst_vault_switch` turned out to be a false pass: QTest's event-loop pumping during `settle()` drains the `DeferredDelete` queue before the next `openVault`, so the offscreen path doesn't hit the race that the real app hit. A true regression test probably needs either (a) a direct API-level check on `CorbomiteMDI::createToolView` — create, `deleteLater`, verify duplicate-identifier create fails, verify it succeeds after event-loop drain — or (b) a GUI test that drives the UI via the "Open Vault" action and asserts non-zero sidebar widths. Punted for now; the fix is synchronous-delete in `MainWindow::releasePluginView` plus `qWarning` on the `createToolView` / `hostPluginView` refuse paths, so the next occurrence is at least findable from the terminal.
+
 ---
 
 ## 6. Out-of-tree extractions (controller-side)
