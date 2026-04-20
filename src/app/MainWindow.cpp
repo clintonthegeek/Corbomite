@@ -48,7 +48,9 @@
 #include "editor/HoverPopover.h"
 #include "editor/TagSuggest.h"
 #include "editor/WikiLinkSuggest.h"
+#include "dialogs/CalloutPickerDialog.h"
 #include "dialogs/CreateVaultDialog.h"
+#include "dialogs/InsertTableDialog.h"
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
 #include "dialogs/TemplatePicker.h"
@@ -79,6 +81,7 @@
 #include <QFileInfo>
 #include <QLabel>
 #include <QStatusBar>
+#include <QActionGroup>
 #include <QInputDialog>
 #include <QVBoxLayout>
 #include <QJsonArray>
@@ -337,6 +340,100 @@ void MainWindow::closeEvent(QCloseEvent *event)
 }
 
 // --- Helper methods ---
+
+void MainWindow::triggerEditorAction(Markoff::ActionId id)
+{
+    auto *editor = activeEditor();
+    if (!editor || !editor->editor()) return;
+    if (auto *act = editor->editor()->action(id))
+        act->trigger();
+}
+
+void MainWindow::onSetHeading(int level)
+{
+    auto *editor = activeEditor();
+    if (!editor || !editor->editor()) return;
+    // SetHeading1..SetHeading6 are consecutive in ActionId.
+    const auto id = static_cast<Markoff::ActionId>(
+        static_cast<int>(Markoff::ActionId::SetHeading1) + (level - 1));
+    if (auto *act = editor->editor()->action(id))
+        act->trigger();
+}
+
+void MainWindow::onInsertCallout()
+{
+    auto *editor = activeEditor();
+    if (!editor || !editor->editor()) return;
+    CalloutPickerDialog dlg(this);
+    if (dlg.exec() != QDialog::Accepted) return;
+    editor->editor()->insertCallout(dlg.selectedType(), dlg.title());
+}
+
+void MainWindow::onInsertTable()
+{
+    auto *editor = activeEditor();
+    if (!editor || !editor->editor()) return;
+    InsertTableDialog dlg(this);
+    if (dlg.exec() != QDialog::Accepted) return;
+    editor->editor()->insertTable(dlg.rows(), dlg.cols(), dlg.firstRowAsHeader());
+}
+
+void MainWindow::refreshEditorActions()
+{
+    KActionCollection *ac = actionCollection();
+    auto *mv = activeMarkdownView();
+    const bool isMarkdown = mv != nullptr;
+
+    // Every action that requires a MarkdownView active.
+    static const QStringList editorActionIds = {
+        QStringLiteral("edit_find_next"), QStringLiteral("edit_find_previous"),
+        QStringLiteral("edit_replace"),
+        QStringLiteral("format_bold"), QStringLiteral("format_italic"),
+        QStringLiteral("format_strikethrough"), QStringLiteral("format_inline_code"),
+        QStringLiteral("insert_link"), QStringLiteral("insert_wiki_link"),
+        QStringLiteral("insert_image"), QStringLiteral("insert_code_block"),
+        QStringLiteral("insert_block_quote"), QStringLiteral("insert_horizontal_rule"),
+        QStringLiteral("toggle_checkbox"),
+        QStringLiteral("heading_1"), QStringLiteral("heading_2"),
+        QStringLiteral("heading_3"), QStringLiteral("heading_4"),
+        QStringLiteral("heading_5"), QStringLiteral("heading_6"),
+        QStringLiteral("heading_increase"), QStringLiteral("heading_decrease"),
+        QStringLiteral("insert_table"), QStringLiteral("insert_callout"),
+        QStringLiteral("fold_all"), QStringLiteral("unfold_all"),
+        QStringLiteral("toggle_fold"),
+        QStringLiteral("editor_toggle_mode"),
+    };
+    for (const auto &id : editorActionIds) {
+        if (auto *act = ac->action(id)) act->setEnabled(isMarkdown);
+    }
+
+    // Table submenu is additionally gated on cursorInTable().
+    const bool inTable = isMarkdown && mv->editorWidget()
+                         && mv->editorWidget()->editor()
+                         && mv->editorWidget()->editor()->cursorInTable();
+    static const QStringList tableActionIds = {
+        QStringLiteral("table_row_above"), QStringLiteral("table_row_below"),
+        QStringLiteral("table_col_left"),  QStringLiteral("table_col_right"),
+        QStringLiteral("table_delete_row"),QStringLiteral("table_delete_col"),
+    };
+    for (const auto &id : tableActionIds) {
+        if (auto *act = ac->action(id)) act->setEnabled(inTable);
+    }
+
+    // Reflect the current heading level in the H1..H6 radio group.
+    if (isMarkdown && mv->editorWidget() && mv->editorWidget()->editor()) {
+        const int level = mv->editorWidget()->editor()->currentHeadingLevel();
+        for (int i = 1; i <= 6; ++i) {
+            if (auto *act = ac->action(QStringLiteral("heading_%1").arg(i)))
+                act->setChecked(i == level);
+        }
+    } else {
+        for (int i = 1; i <= 6; ++i) {
+            if (auto *act = ac->action(QStringLiteral("heading_%1").arg(i)))
+                act->setChecked(false);
+        }
+    }
+}
 
 MarkdownView *MainWindow::activeMarkdownView() const
 {
@@ -1015,6 +1112,143 @@ void MainWindow::setupActions()
         if (m_workspace)
             m_workspace->undoCloseLeaf();
     });
+
+    // -----------------------------------------------------------------
+    // Cluster V Phase 2+3 — Markoff editor actions (Format/Heading/
+    // Insert/Table/Fold/Edit Find extensions). Each entry registers a
+    // KActionCollection slot that forwards to the active MarkdownView's
+    // Markoff::Editor. Enable-state is maintained by refreshEditorActions()
+    // on Workspace::activeLeafChanged (and cursor-moved for the Table
+    // submenu). KCommandBar palette picks these up automatically via its
+    // action-collection walk in MainWindow::showCommandPalette.
+    // -----------------------------------------------------------------
+
+    using Id = Markoff::ActionId;
+    auto addEditorAction = [this, ac](const QString &objName, Id id,
+                                      const QString &icon, const QString &label,
+                                      const QKeySequence &shortcut = {}) -> QAction* {
+        auto *act = ac->addAction(objName);
+        act->setText(label);
+        if (!icon.isEmpty())
+            act->setIcon(QIcon::fromTheme(icon));
+        if (!shortcut.isEmpty())
+            ac->setDefaultShortcut(act, shortcut);
+        connect(act, &QAction::triggered, this,
+                [this, id]() { triggerEditorAction(id); });
+        return act;
+    };
+
+    // Edit > Find / Find Next / Find Previous / Replace
+    addEditorAction(QStringLiteral("edit_find_next"), Id::FindNext,
+                    QStringLiteral("go-down-search"), i18n("Find Next"),
+                    QKeySequence::FindNext);
+    addEditorAction(QStringLiteral("edit_find_previous"), Id::FindPrevious,
+                    QStringLiteral("go-up-search"), i18n("Find Previous"),
+                    QKeySequence::FindPrevious);
+    addEditorAction(QStringLiteral("edit_replace"), Id::Replace,
+                    QStringLiteral("edit-find-replace"), i18n("Replace..."),
+                    QKeySequence::Replace);
+
+    // Format: Bold / Italic / Strikethrough / Inline code
+    addEditorAction(QStringLiteral("format_bold"), Id::ToggleBold,
+                    QStringLiteral("format-text-bold"), i18n("Bold"),
+                    QKeySequence::Bold);
+    addEditorAction(QStringLiteral("format_italic"), Id::ToggleItalic,
+                    QStringLiteral("format-text-italic"), i18n("Italic"),
+                    QKeySequence::Italic);
+    addEditorAction(QStringLiteral("format_strikethrough"), Id::ToggleStrikethrough,
+                    QStringLiteral("format-text-strikethrough"), i18n("Strikethrough"),
+                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X));
+    addEditorAction(QStringLiteral("format_inline_code"), Id::ToggleInlineCode,
+                    QStringLiteral("code-context"), i18n("Inline Code"),
+                    QKeySequence(Qt::CTRL | Qt::Key_QuoteLeft));
+
+    // Format/Insert: links + block elements (no dialog)
+    addEditorAction(QStringLiteral("insert_link"), Id::InsertLink,
+                    QStringLiteral("insert-link"), i18n("Insert Link"),
+                    QKeySequence(Qt::CTRL | Qt::Key_K));
+    addEditorAction(QStringLiteral("insert_wiki_link"), Id::InsertWikiLink,
+                    QStringLiteral("insert-link"), i18n("Insert Wiki Link"),
+                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
+    addEditorAction(QStringLiteral("insert_image"), Id::InsertImage,
+                    QStringLiteral("insert-image"), i18n("Insert Image"));
+    addEditorAction(QStringLiteral("insert_code_block"), Id::InsertCodeBlock,
+                    QStringLiteral("code-block"), i18n("Insert Code Block"));
+    addEditorAction(QStringLiteral("insert_block_quote"), Id::InsertBlockQuote,
+                    QStringLiteral("format-text-blockquote"), i18n("Insert Block Quote"));
+    addEditorAction(QStringLiteral("insert_horizontal_rule"), Id::InsertHorizontalRule,
+                    QStringLiteral("distribute-horizontal-center"), i18n("Insert Horizontal Rule"));
+    addEditorAction(QStringLiteral("toggle_checkbox"), Id::ToggleCheckbox,
+                    QStringLiteral("checkbox"), i18n("Toggle Checkbox"));
+
+    // Heading: H1..H6 as a checkable radio group + Increase/Decrease
+    auto *headingGroup = new QActionGroup(this);
+    headingGroup->setExclusive(true);
+    for (int level = 1; level <= 6; ++level) {
+        auto *act = ac->addAction(QStringLiteral("heading_%1").arg(level));
+        act->setText(i18n("Heading %1", level));
+        act->setIcon(QIcon::fromTheme(QStringLiteral("format-text-heading")));
+        act->setCheckable(true);
+        act->setActionGroup(headingGroup);
+        ac->setDefaultShortcut(
+            act, QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_0 + level)));
+        connect(act, &QAction::triggered, this,
+                [this, level]() { onSetHeading(level); });
+    }
+    addEditorAction(QStringLiteral("heading_increase"), Id::IncreaseHeading,
+                    QStringLiteral("format-header-more"), i18n("Increase Heading Level"));
+    addEditorAction(QStringLiteral("heading_decrease"), Id::DecreaseHeading,
+                    QStringLiteral("format-header-less"), i18n("Decrease Heading Level"));
+
+    // Insert: Table... / Callout... (dialog-wrapped, not Markoff-action-forwarded)
+    auto *insertTable = ac->addAction(QStringLiteral("insert_table"));
+    insertTable->setText(i18n("Insert Table..."));
+    insertTable->setIcon(QIcon::fromTheme(QStringLiteral("insert-table")));
+    connect(insertTable, &QAction::triggered, this, &MainWindow::onInsertTable);
+
+    auto *insertCallout = ac->addAction(QStringLiteral("insert_callout"));
+    insertCallout->setText(i18n("Insert Callout..."));
+    insertCallout->setIcon(QIcon::fromTheme(QStringLiteral("dialog-information")));
+    connect(insertCallout, &QAction::triggered, this, &MainWindow::onInsertCallout);
+
+    // Table operations (enable-gated on Editor::cursorInTable). Markoff's
+    // ActionId enum has no per-row/column entries — forward to the
+    // member-function API directly.
+    auto addTableAction = [this, ac](const QString &objName, const QString &icon,
+                                     const QString &label,
+                                     void (Markoff::Editor::*fn)()) {
+        auto *act = ac->addAction(objName);
+        act->setText(label);
+        if (!icon.isEmpty())
+            act->setIcon(QIcon::fromTheme(icon));
+        connect(act, &QAction::triggered, this, [this, fn]() {
+            auto *editor = activeEditor();
+            if (editor && editor->editor()) (editor->editor()->*fn)();
+        });
+    };
+    addTableAction(QStringLiteral("table_row_above"),   QStringLiteral("edit-table-insert-row-above"),
+                   i18n("Insert Row Above"),    &Markoff::Editor::tableInsertRowAbove);
+    addTableAction(QStringLiteral("table_row_below"),   QStringLiteral("edit-table-insert-row-below"),
+                   i18n("Insert Row Below"),    &Markoff::Editor::tableInsertRowBelow);
+    addTableAction(QStringLiteral("table_col_left"),    QStringLiteral("edit-table-insert-column-left"),
+                   i18n("Insert Column Left"),  &Markoff::Editor::tableInsertColumnLeft);
+    addTableAction(QStringLiteral("table_col_right"),   QStringLiteral("edit-table-insert-column-right"),
+                   i18n("Insert Column Right"), &Markoff::Editor::tableInsertColumnRight);
+    addTableAction(QStringLiteral("table_delete_row"),  QStringLiteral("edit-table-delete-row"),
+                   i18n("Delete Row"),          &Markoff::Editor::tableDeleteRow);
+    addTableAction(QStringLiteral("table_delete_col"),  QStringLiteral("edit-table-delete-column"),
+                   i18n("Delete Column"),       &Markoff::Editor::tableDeleteColumn);
+
+    // View > Fold All / Unfold All / Toggle Fold at Cursor
+    addEditorAction(QStringLiteral("fold_all"), Id::FoldAll,
+                    QStringLiteral("collapse-all"), i18n("Fold All"),
+                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Minus));
+    addEditorAction(QStringLiteral("unfold_all"), Id::UnfoldAll,
+                    QStringLiteral("expand-all"), i18n("Unfold All"),
+                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Equal));
+    addEditorAction(QStringLiteral("toggle_fold"), Id::ToggleFoldAtCursor,
+                    QStringLiteral("code-function"), i18n("Toggle Fold at Cursor"),
+                    QKeySequence(Qt::CTRL | Qt::Key_Period));
 }
 
 void MainWindow::setupEditor()
@@ -1214,6 +1448,18 @@ void MainWindow::setupEditor()
                     this, [this]() {
                 updateWindowTitle(activeEditor());
             });
+        }
+
+        // Cluster V Phase 2+3 — refresh enable-state + heading radio
+        // check-state on every active-leaf change, and hook cursor-moved
+        // on the new Markoff editor so the Table submenu's cursorInTable
+        // gate updates live while the user types.
+        refreshEditorActions();
+        if (editor && editor->editor()) {
+            disconnect(editor->editor(), &Markoff::Editor::cursorPositionChanged,
+                       this, nullptr);
+            connect(editor->editor(), &Markoff::Editor::cursorPositionChanged,
+                    this, [this](int, int) { refreshEditorActions(); });
         }
     });
 

@@ -7,6 +7,8 @@
 #include <QCloseEvent>
 #include <QStackedWidget>
 
+#include <markoff/Editor.h>
+
 #include <memory>
 
 class KRecentFilesAction;
@@ -77,6 +79,10 @@ private Q_SLOTS:
     void onAboutApp();
     void onAboutKde();
     void cycleEditorMode();
+    void onInsertCallout();
+    void onInsertTable();
+    void onSetHeading(int level);
+    void refreshEditorActions();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -108,6 +114,10 @@ private:
     void openFileInWorkspace(const QString &relativePath);
     MarkdownView *activeMarkdownView() const;
     NoteEditorWidget *activeEditor() const;
+
+    /// Forward `id` to the active `MarkdownView`'s Markoff editor. No-op
+    /// when the active view is not a MarkdownView.
+    void triggerEditorAction(Markoff::ActionId id);
     bool confirmCloseUnsaved();
     void saveSessionState();
     void propagateServicesToView(View *view);
