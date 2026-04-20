@@ -13,7 +13,7 @@
 #include "dialogs/QuickSwitcherModel.h"
 
 #include <markoff/Editor.h>
-#include <corbomite/readingview/ReadingView.h>
+#include <markoff/reading/ReadingView.h>
 
 #include <QCursor>
 #include <QKeyEvent>
@@ -144,7 +144,7 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
         break;
     case ViewMode::Reading:
         if (!m_readingView) {
-            m_readingView = new Corbomite::ReadingView::ReadingView(this);
+            m_readingView = new Markoff::Reading::ReadingView(this);
             m_readingIndex = m_stack->addWidget(m_readingView);
         }
         break;
@@ -222,7 +222,7 @@ EphemeralState NoteEditorWidget::captureEphemeralStateFor(ViewMode mode) const
     case ViewMode::Reading:
         if (m_readingView) {
             s.scroll = m_readingView->scrollPositionVisualLine();
-            s.foldedHeadings = m_readingView->foldedHeadings();
+            s.foldedHeadings = m_readingView->foldedHeadingLines();
         }
         break;
     }
@@ -254,7 +254,7 @@ void NoteEditorWidget::restoreEphemeralStateFor(ViewMode mode,
     case ViewMode::Reading:
         if (m_readingView) {
             m_readingView->setScrollPositionVisualLine(s.scroll);
-            m_readingView->setFoldedHeadings(s.foldedHeadings);
+            m_readingView->setFoldedHeadingLines(s.foldedHeadings);
         }
         break;
     }
@@ -341,7 +341,7 @@ SourceEditor *NoteEditorWidget::sourceEditor() const
     return m_sourceEditor;
 }
 
-Corbomite::ReadingView::ReadingView *NoteEditorWidget::readingView() const
+Markoff::Reading::ReadingView *NoteEditorWidget::readingView() const
 {
     return m_readingView;
 }

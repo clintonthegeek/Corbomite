@@ -20,8 +20,8 @@
 
 #include "corbomite/core/EmbedRegistry.h"
 #include "corbomite/core/VaultResourceProvider.h"
-#include "corbomite/readingview/EmbedRenderer.h"
-#include "corbomite/readingview/ReadingView.h"
+#include "markoff/reading/EmbedRenderer.h"
+#include "markoff/reading/ReadingView.h"
 #include "editor/HoverPopover.h"
 
 using namespace Corbomite;
@@ -64,13 +64,13 @@ private:
 struct RenderHarness
 {
     Corbomite::Core::EmbedRegistry registry;
-    std::unique_ptr<Corbomite::ReadingView::EmbedRenderer> renderer;
+    std::unique_ptr<Markoff::Reading::EmbedRenderer> renderer;
 
     explicit RenderHarness(Corbomite::Core::VaultResourceProvider *resources)
     {
-        renderer = std::make_unique<Corbomite::ReadingView::EmbedRenderer>(
+        renderer = std::make_unique<Markoff::Reading::EmbedRenderer>(
             &registry, /*cache=*/nullptr, resources);
-        Corbomite::ReadingView::registerBuiltinEmbedFactories(registry,
+        Markoff::Reading::registerBuiltinEmbedFactories(registry,
                                                               *renderer);
     }
 };

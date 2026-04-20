@@ -11,7 +11,7 @@
 #include "SourceEditor.h"
 
 #include <markoff/Editor.h>
-#include <corbomite/readingview/ReadingView.h>
+#include <markoff/reading/ReadingView.h>
 
 #include "corbomite/core/NoteDocument.h"
 
@@ -120,7 +120,7 @@ private Q_SLOTS:
         QVERIFY(reading);
         if (reading->mountedCount() == 0) {
             QSignalSpy mountedSpy(reading,
-                &Corbomite::ReadingView::ReadingView::mountingFinished);
+                &Markoff::Reading::ReadingView::mountingFinished);
             mountedSpy.wait(1000);
         }
 
@@ -164,7 +164,7 @@ private Q_SLOTS:
         QVERIFY(reading);
         if (reading->mountedCount() == 0) {
             QSignalSpy mountedSpy(reading,
-                &Corbomite::ReadingView::ReadingView::mountingFinished);
+                &Markoff::Reading::ReadingView::mountingFinished);
             mountedSpy.wait(1000);
         }
 

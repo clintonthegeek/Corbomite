@@ -20,7 +20,7 @@ target_include_directories(tst_source_editor PRIVATE
 target_link_libraries(tst_source_editor PRIVATE
     Qt6::Test
     Qt6::Widgets
-    Corbomite::QutepartSource
+    Markoff::Source
 )
 add_test(NAME tst_source_editor COMMAND tst_source_editor)
 set_tests_properties(tst_source_editor PROPERTIES
@@ -62,7 +62,7 @@ target_link_libraries(tst_note_editor_widget_ephemeral PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    Markoff::Markoff
+    Markoff::Live
 )
 add_test(NAME tst_note_editor_widget_ephemeral COMMAND tst_note_editor_widget_ephemeral)
 set_tests_properties(tst_note_editor_widget_ephemeral PROPERTIES
@@ -82,8 +82,8 @@ target_link_libraries(tst_note_editor_widget_mode_transition PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    Markoff::Markoff
-    Corbomite::ReadingView
+    Markoff::Live
+    Markoff::Reading
     Corbomite::Core
 )
 add_test(NAME tst_note_editor_widget_mode_transition
@@ -130,7 +130,7 @@ target_link_libraries(tst_hover_popover_render PRIVATE
     Qt6::Widgets
     Corbomite::Core
     Corbomite::Models
-    Corbomite::ReadingView
+    Markoff::Reading
 )
 add_test(NAME tst_hover_popover_render COMMAND tst_hover_popover_render)
 set_tests_properties(tst_hover_popover_render PROPERTIES

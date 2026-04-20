@@ -70,9 +70,9 @@ target_link_libraries(CorbomiteApp
         Corbomite::Models
         Corbomite::Vault
         Corbomite::Bases
-        Markoff::Markoff
-        Corbomite::ReadingView
-        Corbomite::QutepartSource
+        Markoff::Live
+        Markoff::Reading
+        Markoff::Source
         forcegraph
         canvas
 )

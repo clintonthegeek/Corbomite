@@ -9,7 +9,7 @@ namespace Markoff {
 class Editor;
 }
 
-namespace Corbomite::ReadingView {
+namespace Markoff::Reading {
 class ReadingView;
 }
 
@@ -54,7 +54,7 @@ public:
 
     Markoff::Editor *editor() const;
     SourceEditor *sourceEditor() const;
-    Corbomite::ReadingView::ReadingView *readingView() const;
+    Markoff::Reading::ReadingView *readingView() const;
 
     // Optional — when set, hovers over wiki/markdown links schedule a 300ms
     // preview popover (Cluster H Phase 2). Lifetime owned by the caller.
@@ -122,7 +122,7 @@ private:
     // first construction. See `ensureWidgetConstructed`.
     SourceEditor *m_sourceEditor = nullptr;
     // Reading mode widget — lazy. Same pattern as `m_sourceEditor`.
-    Corbomite::ReadingView::ReadingView *m_readingView = nullptr;
+    Markoff::Reading::ReadingView *m_readingView = nullptr;
     ViewMode m_viewMode = ViewMode::LivePreview;
 
     // Indices populated as widgets are constructed. -1 means "not mounted

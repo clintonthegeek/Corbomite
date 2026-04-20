@@ -4,7 +4,7 @@
 // libs/readingview/ in Cluster J Phase 1 Task 1.1.
 //
 // Contract mirrors the previous ReadingView-local interface exactly
-// (see libs/readingview/include/corbomite/readingview/VaultResourceProvider.h
+// (see libs/readingview/include/markoff/reading/VaultResourceProvider.h
 // which is now a forwarding typedef).
 
 #include <QTest>

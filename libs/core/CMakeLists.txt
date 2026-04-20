@@ -131,7 +131,7 @@ target_link_libraries(corbomite-core
     PUBLIC
         $<BUILD_INTERFACE:jkqtmathtext>
         $<BUILD_INTERFACE:mmdr>
-        $<BUILD_INTERFACE:markoff>)
+        $<BUILD_INTERFACE:markoff-parser>)
 
 if(CORBOMITE_USE_KEYRING)
     target_link_libraries(corbomite-core PRIVATE Qt6Keychain::Qt6Keychain)

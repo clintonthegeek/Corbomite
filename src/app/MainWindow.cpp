@@ -44,7 +44,7 @@
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
 #include "corbomite/core/VaultResourceProvider.h"
-#include "corbomite/readingview/EmbedRenderer.h"
+#include "markoff/reading/EmbedRenderer.h"
 #include "editor/HoverPopover.h"
 #include "editor/TagSuggest.h"
 #include "editor/WikiLinkSuggest.h"
@@ -257,9 +257,9 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     // Vault binding deferred to onVaultOpened — no vault exists yet.
 
     m_embedRegistry = std::make_unique<Corbomite::Core::EmbedRegistry>();
-    m_embedRenderer = std::make_unique<Corbomite::ReadingView::EmbedRenderer>(
+    m_embedRenderer = std::make_unique<Markoff::Reading::EmbedRenderer>(
         m_embedRegistry.get(), /*cache=*/nullptr, /*resources=*/nullptr);
-    Corbomite::ReadingView::registerBuiltinEmbedFactories(*m_embedRegistry,
+    Markoff::Reading::registerBuiltinEmbedFactories(*m_embedRegistry,
                                                           *m_embedRenderer);
     m_hoverPopover->setEmbedRenderer(m_embedRenderer.get());
 

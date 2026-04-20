@@ -71,6 +71,9 @@ add_subdirectory(libs/jkqtmathtext)
 add_subdirectory(libs/mmdr)
 
 set(MARKOFF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+# Tell markoff-reading to link Corbomite::Core + mmdr instead of its
+# standalone stub headers. Phase B bridge; replaced by a DI seam in Phase C.
+set(MARKOFF_READING_USE_REAL_COREDEPS ON CACHE BOOL "" FORCE)
 add_subdirectory(libs/markoff-family)
 
 add_subdirectory(libs/core)
@@ -81,8 +84,6 @@ add_subdirectory(libs/vault)
 add_subdirectory(libs/bases)
 add_subdirectory(libs/forcegraph)
 add_subdirectory(libs/canvas)
-add_subdirectory(libs/qutepart-corbomite)
-add_subdirectory(libs/readingview)
 
 # Application
 add_subdirectory(src)

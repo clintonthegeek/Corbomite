@@ -5,8 +5,8 @@
 #include "corbomite/core/MarkdownRenderChild.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/vault/Vault.h"
-#include "corbomite/readingview/EmbedRenderer.h"
-#include "corbomite/readingview/ReadingView.h"
+#include "markoff/reading/EmbedRenderer.h"
+#include "markoff/reading/ReadingView.h"
 
 #include <QApplication>
 #include <QGraphicsDropShadowEffect>
@@ -60,9 +60,8 @@ HoverPopover::HoverPopover(QWidget *parent)
     // Cluster J Phase 6 — the preview is now a real ReadingView. Math,
     // mermaid, syntax highlighting, wiki-links, and images all render
     // in-place via the same pipeline used by Reading mode.
-    m_view = new Corbomite::ReadingView::ReadingView(this);
+    m_view = new Markoff::Reading::ReadingView(this);
     m_view->setFocusPolicy(Qt::NoFocus);
-    m_view->setFrameShape(QFrame::NoFrame);
     layout->addWidget(m_view);
 
     m_delayTimer.setSingleShot(true);
@@ -77,12 +76,12 @@ void HoverPopover::setVault(Vault *vault)
     m_vault = vault;
 }
 
-void HoverPopover::setEmbedRenderer(Corbomite::ReadingView::EmbedRenderer *renderer)
+void HoverPopover::setEmbedRenderer(Markoff::Reading::EmbedRenderer *renderer)
 {
     m_embedRenderer = renderer;
 }
 
-Corbomite::ReadingView::ReadingView *HoverPopover::readingViewForTest() const
+Markoff::Reading::ReadingView *HoverPopover::readingViewForTest() const
 {
     return m_view;
 }

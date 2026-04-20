@@ -7,7 +7,7 @@
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "corbomite/readingview/ReadingView.h"
+#include "markoff/reading/ReadingView.h"
 #include <markoff/Editor.h>
 
 #include <KLocalizedString>

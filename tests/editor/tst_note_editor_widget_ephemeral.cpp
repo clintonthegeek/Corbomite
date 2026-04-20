@@ -4,7 +4,7 @@
 // round-trips through all three ViewMode targets (Source, LivePreview,
 // Reading). Source rides on `SourceEditor::setScrollPosition`, LivePreview on
 // `Markoff::Editor::setScrollPositionVisualLine`, Reading on the
-// `Corbomite::ReadingView::ReadingView` stub (Phase 3 fills the stub in).
+// `Markoff::Reading::ReadingView` stub (Phase 3 fills the stub in).
 //
 // Runs under QT_QPA_PLATFORM=offscreen.
 

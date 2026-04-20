@@ -18,7 +18,7 @@ class EmbedRegistry;
 class VaultResourceProvider;
 }
 
-namespace Corbomite::ReadingView {
+namespace Markoff::Reading {
 class EmbedRenderer;
 }
 
@@ -178,7 +178,7 @@ private:
     // the per-vault resource adapter is rebuilt on each `onVaultOpened` and
     // released on `onVaultClosed`.
     std::unique_ptr<Corbomite::Core::EmbedRegistry> m_embedRegistry;
-    std::unique_ptr<Corbomite::ReadingView::EmbedRenderer> m_embedRenderer;
+    std::unique_ptr<Markoff::Reading::EmbedRenderer> m_embedRenderer;
     std::unique_ptr<Corbomite::Core::VaultResourceProvider> m_popoverResources;
     EditorSuggestManager *m_suggestManager = nullptr;
     WikiLinkSuggest *m_wikiSuggest = nullptr;
