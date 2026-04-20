@@ -150,6 +150,12 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 
 ### ~~`lastOpenFiles` sibling key restored on load~~ Done 2026-04-19 — commit `1d4b3a9a` feeds the `lastOpenFiles` sibling key into `Workspace::deserialize` via `SessionManager`.
 
+### Word-processor-style Format/Heading checkstate + contextual menu gating
+- **Source:** Cluster V Phase 2+3 closeout review, 2026-04-20
+- **Blocks:** nothing ships broken without this, but the Format/Heading/Insert menus currently advertise actions whose check-state never reflects the cursor context (Bold isn't shown as active when typing inside `**foo**`, Heading radio only updates on active-leaf change, etc.)
+- **Scope:** medium (host side) / medium (Markoff side — blocked on Markoff rewrite landing)
+- **Details:** Corbomite's `MainWindow::refreshEditorActions` only exercises the subset of checks Markoff exposes today (`cursorInTable()`, `currentHeadingLevel()`). To achieve real word-processor UX — Bold highlighted inside a bold span, Table submenu hidden/disabled outside a table, Toggle Checkbox checked on a task line, Insert > Callout disabled inside an existing callout — we need a per-cursor context snapshot from Markoff covering block kind, inline span membership, table coordinates, and link/tag/footnote spans. Requirements drafted for the Markoff rewrite team at `libs/markoff-family/libs/markoff/docs/specs/2026-04-20-consumer-editor-state-surface.md` — proposes a single `EditorContext` struct + `contextChanged` signal + pull accessor. Markoff rewrite is on a separate branch; don't block on it. When it lands, retire the "static enable, never checked" Format-toolbar state in `refreshEditorActions`.
+
 ### Markoff editor right-click menu enrichment (`editor-menu` parity)
 - **Source:** Cluster V scope review, 2026-04-20
 - **Blocks:** Obsidian UX parity (Format/Heading/Insert/Table are reachable via menubar + command palette but not via right-click, which Obsidian users reach for first)
