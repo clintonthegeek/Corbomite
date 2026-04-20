@@ -59,6 +59,8 @@
 
 #include <KAboutApplicationDialog>
 #include <KAboutData>
+#include <KColorSchemeManager>
+#include <KColorSchemeModel>
 #include <KHelpMenu>
 #include <KCommandBar>
 #include <KLocalizedString>
@@ -187,6 +189,13 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
 #else
     setupGUI(Default, QStringLiteral("corbomiteui.rc"));
 #endif
+
+    // Cluster V Task 1.7 — theme dispatcher. applyTheme() applies the
+    // Appearance/Theme kcfg key via KColorSchemeManager; onSettingsApplied
+    // is the choke point reused by future appliers (V.2 autosave-delay, etc.)
+    applyTheme();
+    connect(CorbomiteSettings::self(), &KConfigSkeleton::configChanged,
+            this, &MainWindow::onSettingsApplied);
 
     connect(m_app, &CorbomiteApp::vaultOpened, this, &MainWindow::onVaultOpened);
     connect(m_app, &CorbomiteApp::vaultClosed, this, &MainWindow::onVaultClosed);
@@ -1879,6 +1888,29 @@ void MainWindow::updateWindowTitle(NoteEditorWidget *editor)
 #endif
 
     setWindowTitle(title);
+}
+
+void MainWindow::applyTheme()
+{
+    auto *mgr = KColorSchemeManager::instance();
+    if (!mgr) return;
+    const QString theme = CorbomiteSettings::self()->theme();
+    if (theme.isEmpty() || theme == QLatin1String("system")) {
+        // Unset → track OS colour scheme.
+        mgr->activateScheme(QModelIndex());
+        return;
+    }
+    const QString schemeId = (theme == QLatin1String("dark"))
+        ? QStringLiteral("BreezeDark")
+        : QStringLiteral("BreezeLight");
+    const QModelIndex idx = mgr->indexForSchemeId(schemeId);
+    if (idx.isValid()) mgr->activateScheme(idx);
+}
+
+void MainWindow::onSettingsApplied()
+{
+    applyTheme();
+    // Future appliers (V.2 autosave-delay etc.) hook here.
 }
 
 } // namespace Corbomite

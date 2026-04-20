@@ -70,6 +70,7 @@ public Q_SLOTS:
 
 private Q_SLOTS:
     void onFind();
+    void onSettingsApplied();
     void onZoomIn();
     void onZoomOut();
     void onZoomReset();
@@ -82,6 +83,7 @@ protected:
 
 private:
     void setupActions();
+    void applyTheme();
     void setupSidebars();
     void setupStatusBar();
     void setupEditor();
