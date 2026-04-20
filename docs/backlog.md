@@ -178,6 +178,14 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 
 ### ~~`ViewRegistry` error-path hardening~~ Done 2026-04-19 — commit `5f858059` hardens the three error paths (duplicate-registration, unregistered-type lookup, factory-throw) in `libs/core/src/ViewRegistry.cpp`.
 
+### Ribbon-style toolbar micro-UX experiments
+
+- **Origin:** 2026-04-20 ribbon-to-toolbar refactor (`docs/superpowers/plans/2026-04-20-ribbon-to-toolbar.md`, `docs/superpowers/specs/2026-04-20-ribbon-to-toolbar-design.md`).
+- **Status:** Deferred; not tied to a cluster.
+- **Summary:** In the switch from `RibbonSlot` to the top-docked `RibbonToolBar`, two Obsidian-ribbon UX affordances were dropped: (1) in-place drag-reorder of individual icons, (2) right-click → hide *this* icon. Users reorder and hide via the standard KDE *Settings → Configure Toolbars* dialog; visibility persists per-vault via `workspace.json['left-ribbon'].hiddenItems` when toggled through `RibbonStateController`.
+- **Action if revived:** Subclass `KToolBar` (in `RibbonToolBar`) with an event filter for right-click → add a per-item context menu exposing "Hide this icon", and implement drag-drop reorder via `mousePressEvent` / `mouseMoveEvent` handlers operating on the underlying `QAction` list. Note: `QJsonObject` does not preserve key insertion order, so a drag-reorder feature also needs a separate ordering array (e.g. `['left-ribbon'].order: string[]`) — deviating from Obsidian's on-disk schema.
+- **Rationale for deferral:** Not worth the subclass complexity until a user complaint lands; *Configure Toolbars* covers the 99% case.
+
 ---
 
 ## 4. Search and metadata
