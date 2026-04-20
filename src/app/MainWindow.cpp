@@ -186,13 +186,19 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     setupEditor();
     setupSidebars();
     setupStatusBar();
-    setupRibbonToolBar();
 
 #ifdef CORBOMITE_DEV_BUILD
     setupGUI(Default, QStringLiteral("corbomite-devui.rc"));
 #else
     setupGUI(Default, QStringLiteral("corbomiteui.rc"));
 #endif
+
+    // Ribbon must be created AFTER setupGUI — KXMLGUI's Default flag
+    // rebuilds toolbars from the .rc file and would otherwise delete a
+    // programmatically-added toolbar. Landing here also puts it
+    // immediately to the right of the KXMLGUI-created main toolbar,
+    // since addToolBar() appends in the same area in insertion order.
+    setupRibbonToolBar();
 
     // Cluster V Task 1.7 — theme dispatcher. applyTheme() applies the
     // Appearance/Theme kcfg key via KColorSchemeManager; onSettingsApplied
