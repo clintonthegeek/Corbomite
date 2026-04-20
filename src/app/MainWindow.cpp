@@ -1089,6 +1089,22 @@ void MainWindow::setupEditor()
         }
     });
 
+    // Obsidian parity: the workspace must never be left without at least one
+    // leaf while a vault is open. When the user closes the last tab, spawn a
+    // fresh empty-view leaf (audit: views.md §1.tD) so they land on the "No
+    // file is open" placeholder instead of an empty toolbar.
+    connect(m_workspace, &Workspace::layoutChanged, this, [this]() {
+        if (!m_app || !m_app->isOpen()) return;
+        if (!m_workspace->allLeaves().isEmpty()) return;
+        auto *tabs = m_workspace->activeTabs();
+        if (!tabs) return;
+        auto *leaf = m_workspace->createLeafInTabs(tabs);
+        QJsonObject vs;
+        vs[QStringLiteral("type")] = QStringLiteral("empty");
+        leaf->setViewState(vs);
+        m_workspace->setActiveLeaf(leaf);
+    });
+
     // When the active leaf changes, propagate services and update UI
     connect(m_workspace, &Workspace::activeLeafChanged,
             this, [this](WorkspaceLeaf *leaf) {
