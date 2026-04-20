@@ -35,6 +35,13 @@ public:
 
     bool setCursorLine(int line) override;
 
+    // Cluster V Phase 1 — route app-shell zoom actions to the currently active
+    // editor sub-widget (LivePreview → Markoff::Editor, Source → SourceEditor,
+    // Reading → ReadingView). NoteEditorWidget dispatches by viewMode().
+    void zoomIn() override;
+    void zoomOut() override;
+    void zoomReset() override;
+
     QJsonObject getState() const override;
     void setState(const QJsonObject &state) override;
     QJsonObject getEphemeralState() const override;

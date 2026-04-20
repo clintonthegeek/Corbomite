@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MarkdownView.h"
 #include "NoteEditorWidget.h"
+#include "SourceEditor.h"
 #include "corbomite/core/EditableFileView.h"
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomite/readingview/ReadingView.h"
+#include <markoff/Editor.h>
 
 #include <KLocalizedString>
 
@@ -78,6 +81,60 @@ bool MarkdownView::setCursorLine(int line)
 {
     if (!m_editorWidget) return false;
     return m_editorWidget->goToLine(line);
+}
+
+void MarkdownView::zoomIn()
+{
+    if (!m_editorWidget) return;
+    switch (m_editorWidget->viewMode()) {
+    case NoteEditorWidget::ViewMode::LivePreview:
+        if (auto *ed = m_editorWidget->editor()) {
+            if (auto *a = ed->action(Markoff::ActionId::ZoomIn))
+                a->trigger();
+        }
+        break;
+    case NoteEditorWidget::ViewMode::Source:
+        if (auto *se = m_editorWidget->sourceEditor()) se->zoomIn();
+        break;
+    case NoteEditorWidget::ViewMode::Reading:
+        if (auto *rv = m_editorWidget->readingView()) rv->zoomIn();
+        break;
+    }
+}
+
+void MarkdownView::zoomOut()
+{
+    if (!m_editorWidget) return;
+    switch (m_editorWidget->viewMode()) {
+    case NoteEditorWidget::ViewMode::LivePreview:
+        if (auto *ed = m_editorWidget->editor()) {
+            if (auto *a = ed->action(Markoff::ActionId::ZoomOut))
+                a->trigger();
+        }
+        break;
+    case NoteEditorWidget::ViewMode::Source:
+        if (auto *se = m_editorWidget->sourceEditor()) se->zoomOut();
+        break;
+    case NoteEditorWidget::ViewMode::Reading:
+        if (auto *rv = m_editorWidget->readingView()) rv->zoomOut();
+        break;
+    }
+}
+
+void MarkdownView::zoomReset()
+{
+    if (!m_editorWidget) return;
+    switch (m_editorWidget->viewMode()) {
+    case NoteEditorWidget::ViewMode::LivePreview:
+        if (auto *ed = m_editorWidget->editor()) ed->resetZoom();
+        break;
+    case NoteEditorWidget::ViewMode::Source:
+        if (auto *se = m_editorWidget->sourceEditor()) se->resetZoom();
+        break;
+    case NoteEditorWidget::ViewMode::Reading:
+        if (auto *rv = m_editorWidget->readingView()) rv->resetZoom();
+        break;
+    }
 }
 
 QJsonObject MarkdownView::getState() const
