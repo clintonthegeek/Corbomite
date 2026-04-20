@@ -160,6 +160,83 @@ bool BookmarksStore::moveBookmark(const QStringList &fromPath,
     return true;
 }
 
+static void splitPathSubpath(const QString &full, QString &base, QString &sub)
+{
+    const int hash = full.indexOf(QLatin1Char('#'));
+    if (hash < 0) {
+        base = full;
+        sub.clear();
+    } else {
+        base = full.left(hash);
+        sub  = full.mid(hash);
+    }
+}
+
+static int renameRecursive(QList<BookmarkItem> &items,
+                           const QString &oldPath, const QString &newPath)
+{
+    int touched = 0;
+    for (auto &it : items) {
+        if (!it.path.isEmpty()) {
+            QString base, sub;
+            splitPathSubpath(it.path, base, sub);
+            if (base == oldPath) {
+                it.path = newPath + sub;
+                ++touched;
+            } else if (base.startsWith(oldPath + QLatin1Char('/'))) {
+                // Folder rename: rewrite the prefix.
+                it.path = newPath + base.mid(oldPath.size()) + sub;
+                ++touched;
+            }
+        }
+        touched += renameRecursive(it.children, oldPath, newPath);
+    }
+    return touched;
+}
+
+static int markOrphanedRecursive(QList<BookmarkItem> &items, const QString &path)
+{
+    int touched = 0;
+    for (auto &it : items) {
+        if (!it.path.isEmpty()) {
+            QString base, sub;
+            splitPathSubpath(it.path, base, sub);
+            if (base == path) {
+                it.unknownKeys.insert(QStringLiteral("_orphaned"), true);
+                ++touched;
+            }
+        }
+        touched += markOrphanedRecursive(it.children, path);
+    }
+    return touched;
+}
+
+int BookmarksStore::renamePath(const QString &oldPath, const QString &newPath)
+{
+    if (oldPath.isEmpty() || newPath.isEmpty() || oldPath == newPath) return 0;
+    const int touched = renameRecursive(m_items, oldPath, newPath);
+    if (touched > 0) emit changed();
+    return touched;
+}
+
+int BookmarksStore::markOrphaned(const QString &path)
+{
+    if (path.isEmpty()) return 0;
+    const int touched = markOrphanedRecursive(m_items, path);
+    if (touched > 0) emit changed();
+    return touched;
+}
+
+bool BookmarksStore::setTitle(const QStringList &itemPath, const QString &title)
+{
+    BookmarkItem *it = find(itemPath);
+    if (!it) return false;
+    if (it->title == title) return true;
+    it->title = title;
+    emit changed();
+    return true;
+}
+
 BookmarkItem *BookmarksStore::find(const QStringList &itemPath)
 {
     if (itemPath.isEmpty()) return nullptr;

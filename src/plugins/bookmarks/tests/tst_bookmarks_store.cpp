@@ -20,6 +20,13 @@ private slots:
     void unknownKeysOnKnownTypeArePreserved();
     void addBookmarkAppendsAtRoot();
     void removeBookmarkByPath();
+    void renamePathRewritesMatchingBookmarks();
+    void renamePathPreservesSubpath();
+    void renamePathFolderRewritesPrefix();
+    void renamePathWalksIntoGroups();
+    void markOrphanedFlagsMatchingBookmarks();
+    void markOrphanedRoundTripsThroughJson();
+    void setTitleMutatesItem();
 };
 
 void TstBookmarksStore::emptyJsonLoadsAsEmptyStore()
@@ -127,6 +134,103 @@ void TstBookmarksStore::removeBookmarkByPath()
     store.removeBookmark({QStringLiteral("0")});
     QCOMPARE(store.rootItems().size(), 1);
     QCOMPARE(store.rootItems().at(0).path, QStringLiteral("b.md"));
+}
+
+void TstBookmarksStore::renamePathRewritesMatchingBookmarks()
+{
+    BookmarksStore store;
+    BookmarkItem a; a.type = "file"; a.path = "notes/old.md"; a.ctime = 1;
+    BookmarkItem b; b.type = "file"; b.path = "other.md";     b.ctime = 2;
+    store.addBookmark(a, {});
+    store.addBookmark(b, {});
+    const int touched = store.renamePath(QStringLiteral("notes/old.md"),
+                                         QStringLiteral("notes/new.md"));
+    QCOMPARE(touched, 1);
+    QCOMPARE(store.rootItems().at(0).path, QStringLiteral("notes/new.md"));
+    QCOMPARE(store.rootItems().at(1).path, QStringLiteral("other.md"));
+}
+
+void TstBookmarksStore::renamePathPreservesSubpath()
+{
+    BookmarksStore store;
+    BookmarkItem a; a.type = "file"; a.path = "notes/old.md#Intro";
+    a.subpath = "#Intro"; a.ctime = 1;
+    store.addBookmark(a, {});
+    QCOMPARE(store.renamePath(QStringLiteral("notes/old.md"),
+                              QStringLiteral("notes/new.md")), 1);
+    QCOMPARE(store.rootItems().at(0).path, QStringLiteral("notes/new.md#Intro"));
+    QCOMPARE(store.rootItems().at(0).subpath, QStringLiteral("#Intro"));
+}
+
+void TstBookmarksStore::renamePathFolderRewritesPrefix()
+{
+    BookmarksStore store;
+    BookmarkItem a; a.type = "file"; a.path = "archive/foo.md"; a.ctime = 1;
+    BookmarkItem b; b.type = "file"; b.path = "archive/bar.md"; b.ctime = 2;
+    BookmarkItem c; c.type = "file"; c.path = "keep.md";        c.ctime = 3;
+    store.addBookmark(a, {});
+    store.addBookmark(b, {});
+    store.addBookmark(c, {});
+    QCOMPARE(store.renamePath(QStringLiteral("archive"),
+                              QStringLiteral("old-archive")), 2);
+    QCOMPARE(store.rootItems().at(0).path, QStringLiteral("old-archive/foo.md"));
+    QCOMPARE(store.rootItems().at(1).path, QStringLiteral("old-archive/bar.md"));
+    QCOMPARE(store.rootItems().at(2).path, QStringLiteral("keep.md"));
+}
+
+void TstBookmarksStore::renamePathWalksIntoGroups()
+{
+    BookmarksStore store;
+    BookmarkItem g; g.type = "group"; g.title = "Reading";
+    BookmarkItem child; child.type = "file"; child.path = "notes/old.md";
+    g.children.append(child);
+    store.addBookmark(g, {});
+    QCOMPARE(store.renamePath(QStringLiteral("notes/old.md"),
+                              QStringLiteral("notes/new.md")), 1);
+    QCOMPARE(store.rootItems().at(0).children.at(0).path,
+             QStringLiteral("notes/new.md"));
+}
+
+void TstBookmarksStore::markOrphanedFlagsMatchingBookmarks()
+{
+    BookmarksStore store;
+    BookmarkItem a; a.type = "file"; a.path = "gone.md";       a.ctime = 1;
+    BookmarkItem b; b.type = "file"; b.path = "gone.md#Intro";
+    b.subpath = "#Intro"; b.ctime = 2;
+    BookmarkItem c; c.type = "file"; c.path = "keep.md";       c.ctime = 3;
+    store.addBookmark(a, {});
+    store.addBookmark(b, {});
+    store.addBookmark(c, {});
+    QCOMPARE(store.markOrphaned(QStringLiteral("gone.md")), 2);
+    QCOMPARE(store.rootItems().at(0).unknownKeys
+                 .value(QStringLiteral("_orphaned")).toBool(), true);
+    QCOMPARE(store.rootItems().at(1).unknownKeys
+                 .value(QStringLiteral("_orphaned")).toBool(), true);
+    QVERIFY(!store.rootItems().at(2).unknownKeys
+                 .contains(QStringLiteral("_orphaned")));
+}
+
+void TstBookmarksStore::markOrphanedRoundTripsThroughJson()
+{
+    BookmarksStore a;
+    BookmarkItem it; it.type = "file"; it.path = "gone.md"; it.ctime = 7;
+    a.addBookmark(it, {});
+    a.markOrphaned(QStringLiteral("gone.md"));
+    const QJsonObject obj = a.toJson();
+    BookmarksStore b;
+    QVERIFY(b.loadFromJson(obj));
+    QCOMPARE(b.rootItems().at(0).unknownKeys
+                 .value(QStringLiteral("_orphaned")).toBool(), true);
+}
+
+void TstBookmarksStore::setTitleMutatesItem()
+{
+    BookmarksStore store;
+    BookmarkItem a; a.type = "file"; a.path = "a.md"; a.ctime = 1;
+    store.addBookmark(a, {});
+    QVERIFY(store.setTitle({QStringLiteral("0")}, QStringLiteral("Alpha")));
+    QCOMPARE(store.rootItems().at(0).title, QStringLiteral("Alpha"));
+    QVERIFY(!store.setTitle({QStringLiteral("9")}, QStringLiteral("X")));
 }
 
 QTEST_MAIN(TstBookmarksStore)

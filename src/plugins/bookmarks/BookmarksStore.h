@@ -36,6 +36,21 @@ public:
     /// Resolve a tree path to a pointer into m_items. Nullptr if invalid.
     BookmarkItem *find(const QStringList &itemPath);
 
+    /// Rewrite every bookmark whose `path` starts with `oldPath` to the
+    /// corresponding `newPath`. Preserves any `#subpath` suffix. Returns the
+    /// number of bookmarks touched (recursively). Emits `changed()` iff > 0.
+    int renamePath(const QString &oldPath, const QString &newPath);
+
+    /// Mark every bookmark whose `path` matches `path` (or whose prefix up to
+    /// the `#` subpath matches) as orphaned by setting
+    /// `unknownKeys["_orphaned"] = true`. Preserved through round-trip so the
+    /// user can visually distinguish dead links. Returns the number of
+    /// bookmarks touched. Emits `changed()` iff > 0.
+    int markOrphaned(const QString &path);
+
+    /// Update a bookmark's user-supplied title. Emits changed().
+    bool setTitle(const QStringList &itemPath, const QString &title);
+
 signals:
     void changed();
 

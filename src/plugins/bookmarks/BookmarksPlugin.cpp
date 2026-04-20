@@ -10,6 +10,7 @@
 #include "corbomite/core/proxies/CommandRegistrar.h"
 #include "corbomite/core/proxies/WorkspaceController.h"
 #include "corbomite/vault/PluginContext.h"
+#include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
 
@@ -44,6 +45,21 @@ void BookmarksPlugin::onLoad(Corbomite::PluginContext *ctx)
         m_store->loadFromJson(obj);
     }
     connect(m_store, &BookmarksStore::changed, this, &BookmarksPlugin::scheduleSave);
+
+    // Keep bookmarks in sync when the underlying files are renamed or deleted.
+    // Requires the `vault.events` permission (granted in metadata.json.in).
+    if (auto *vp = ctx->vault()) {
+        connect(vp, &Corbomite::VaultProxy::renamed, this,
+                [this](Corbomite::TAbstractFile *f, const QString &oldPath) {
+                    if (!m_store || !f) return;
+                    m_store->renamePath(oldPath, f->path);
+                });
+        connect(vp, &Corbomite::VaultProxy::deletedFile, this,
+                [this](Corbomite::TAbstractFile *f) {
+                    if (!m_store || !f) return;
+                    m_store->markOrphaned(f->path);
+                });
+    }
 
     registerCommands(ctx);
 }
