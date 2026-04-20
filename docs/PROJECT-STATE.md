@@ -2,13 +2,13 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines by offloading closeout prose to `decisions-archive.md`. Follow Ritual 2/3 in `CONTRIBUTING-OPS.md` after every meaningful work session.
 
-**Last updated:** 2026-04-20 — Cluster V Phase 1 complete; Phase 2+3 in flight (Markoff-side tasks 2.1 + 2.2 landed in submodule, bumped into outer repo at `a5224b20`).
+**Last updated:** 2026-04-20 — Cluster V Phase 2+3 complete. Full Edit/View/Format/Heading/Insert/Table menu tree shipped with ~40 KActionCollection entries, Editor Mode radio submenu, Markoff-side widenings (`insertCallout(title)`, `insertTable(hasHeader)`, `currentHeadingLevel()`, `setHeading1..6`, `cursorInTable`), dialog helpers (CalloutPicker, InsertTable), and introspection test. Two follow-ups captured in `backlog.md` (Markoff editor-menu enrichment + Obsidian-id `CommandRegistry` mirror for `.obsidian/hotkeys.json` round-trip).
 
 ---
 
 ## Current focus
 
-**Cluster V (Editor & Workspace UI surfacing) — in flight, Phase 2+3.** Phase 1 landed (Find/Zoom/About wiring, `editor_toggle_mode` Ctrl+E, `View::zoomIn/Out/Reset` virtuals, `KColorSchemeManager` theme applier). Phase 2+3 now underway in the plan at `superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md` — Markoff-side additions (`SetHeading1..6` + Ctrl+1..6, `Editor::cursorInTable()`) shipped in the submodule and bumped into the outer tree; next up are the CalloutPicker / InsertTable dialogs and the MainWindow action-registration block.
+**Cluster V (Editor & Workspace UI surfacing) — Phase 2+3 complete, Phase 4 next.** Phases 1, 2+3 shipped. Next: Phase 4 (ReadingView interactions — `linkHovered` signal + `HoverPopover` wire-up for ReadingView, click-to-fold on HeadingItem, `codeBlockProcessorRegistry` routing, ReadingView zoom virtuals). Plan at `superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md`.
 
 ---
 
@@ -39,7 +39,7 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 | U | File Explorer enhancements (right-click + keyboard) | [scouting](superpowers/plans/2026-04-19-cluster-u-file-explorer-enhancements-SCOUTING.md) | Scouting doc | Added 2026-04-19 as Cluster R closeout follow-up #1. Reuses Cluster R primitives (FileManager prompt modals + Platform + PathUtils + MenuSectionHelper). 6 phases sketched: right-click substrate, file-row items, folder-row items, empty-area menu, keyboard (F2/Delete/Enter/Ctrl-click), Cluster H follow-up #2 residue. 3–5 days once expanded. Blocked on: Cluster R follow-up #2 (plugin menu-injection ordering) landing first or same-phase, and `TFolder*` / `TAbstractFile*` modal signature decision. Audit addendum at `obsidian-audit/addenda/2026-04-19-file-explorer-context-menu.md`. |
 | S | Bookmarks core plugin | [spec](superpowers/specs/2026-04-19-cluster-s-bookmarks-design.md) | Plan-needed (spec written 2026-04-19) | Single-phase normal task; ~5 days. `src/plugins/bookmarks/` InternalPlugin with `.obsidian/bookmarks.json` Obsidian-compat round-trip (unknown-key preservation), right-dock `BookmarksView` with drag-reorder, 7 `bookmarks:*` commands, "Bookmark…" modal. Unblocks Cluster R's "Bookmark…" menu slot. Addendum at `obsidian-audit/addenda/2026-04-19-bookmarks-core-plugin.md`. |
 | T | File Recovery plugin (Version History) | — | Deferred (post-parity) | Ship only if a user asks. Covers periodic snapshots + modal UI + restore. Cluster R ships a disabled "Open version history" menu slot that activates when T lands. Addendum at `obsidian-audit/addenda/2026-04-19-file-recovery-plugin.md`. |
-| V | Editor & Workspace UI surfacing | [full](superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md) + [spec](superpowers/specs/2026-04-20-cluster-v-editor-workspace-ui-surfacing-design.md) | In progress (phase 2+3) | Phase 1 complete (`c0e63f44` → `037d536e`). Phase 2+3 Markoff prereqs landed 2026-04-20 (submodule `f62be59`, `9c917a3`; outer `a5224b20`): `SetHeading1..6` + `cursorInTable()`. Next: dialogs + MainWindow registration. Debt split to Cluster V.2. |
+| V | Editor & Workspace UI surfacing | [full](superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md) + [spec](superpowers/specs/2026-04-20-cluster-v-editor-workspace-ui-surfacing-design.md) | In progress (phase 4 next) | Phases 1 + 2+3 complete. Phase 1 (`c0e63f44` → `037d536e`) shipped Find/Zoom/About wiring, `editor_toggle_mode` Ctrl+E cycle, `View::zoomIn/Out/Reset`, `KColorSchemeManager` theme applier. Phase 2+3 (`f62be59`/`9c917a3`/`5b146c5` submodule + `a5224b20`/`a076d5cc`/`aa028475`/`127530f4` outer) shipped Markoff `SetHeading1..6` / `cursorInTable()` / widened `insertCallout(title)` / widened `insertTable(hasHeader)` / `currentHeadingLevel()`, `CalloutPickerDialog` + `InsertTableDialog`, ~40-entry KActionCollection (Edit/View/Format/Heading/Insert/Table/Fold), Editor Mode radio submenu, full `corbomiteui.rc.in` v10 menu tree, `refreshEditorActions` gated on activeLeafChanged+cursorMoved, and `tst_mainwindow_action_wiring`. Two follow-ups tracked in `backlog.md` §3 (Markoff editor-menu enrichment, Obsidian-id CommandRegistry mirror). Next: Phase 4 (ReadingView interactions). Debt split to Cluster V.2. |
 | V.2 | Editor/Workspace debt cleanup | [scouting](superpowers/plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md) | Scouting doc | Companion to V. Holds the fold-gutter coordinator wiring, 6× VaultConfig writer routing, persisted metadata cache loader, AutosaveReactor delay wiring, optional LRU upgrade, and post-V dead-code audit pass. ~4-5 days. Blocked on V landing. |
 | W | Canvas & Graph affordances | [scouting](superpowers/plans/2026-04-20-cluster-w-canvas-graph-affordances-SCOUTING.md) | Scouting doc | Added 2026-04-20 from same audit. Split from V because it needs UX design: canvas Link/File node creation, tool palette, resize handles + snap, group ops, force-graph physics + pin UI, GraphViewTab signal wiring. 8 phases, ~8-12 days. Coordinates with Cluster M (graph/canvas audit) and Cluster P (Graffodil). |
 
@@ -48,9 +48,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster V — Editor & Workspace UI surfacing
-- **Phase:** 2+3 of 6 (Markoff menu surfacing + fold actions)
-- **Last completed step:** Tasks 2.1 + 2.2 — Markoff `SetHeading1..6` actions with Ctrl+1..6 shortcuts and `Editor::cursorInTable()` accessor; submodule bumped (2026-04-20)
-- **Next expected step:** Task 2.3 — `CalloutPickerDialog` (26 Obsidian callout types)
+- **Phase:** 4 of 6 (ReadingView interactions — not started)
+- **Last completed step:** Phase 2+3 closeout (2026-04-20) — Tasks 2.1-2.8 shipped across 7 commits; menubar/palette/hotkeys surface all ~40 editor actions; action-wiring introspection test passes; e2e sanity unchanged
+- **Next expected step:** Phase 4 Task 4.1 — `ReadingView::linkHovered` signal + rename/alias of `wikiLinkHovered` with preserved emit sites
 - **Owner:** clinton
 - **Date last touched:** 2026-04-20
 - **Open sub-questions:** none
