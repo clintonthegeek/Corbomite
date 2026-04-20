@@ -1022,32 +1022,39 @@ void MainWindow::setupActions()
     dailyNote->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
     connect(dailyNote, &QAction::triggered, this, &MainWindow::openDailyNote);
 
-    auto *editingMode = ac->addAction(QStringLiteral("view_editing_mode"));
-    editingMode->setText(i18n("Live Preview"));
-    editingMode->setIcon(QIcon::fromTheme(QStringLiteral("text-x-markdown")));
-    connect(editingMode, &QAction::triggered, this, [this]() {
-        if (auto *editor = activeEditor())
-            editor->setViewMode(NoteEditorWidget::ViewMode::LivePreview);
-    });
-
-    auto *sourceMode = ac->addAction(QStringLiteral("view_source_mode"));
-    sourceMode->setText(i18n("Source"));
-    sourceMode->setIcon(QIcon::fromTheme(QStringLiteral("text-plain")));
-    connect(sourceMode, &QAction::triggered, this, [this]() {
-        if (auto *editor = activeEditor())
-            editor->setViewMode(NoteEditorWidget::ViewMode::Source);
-    });
-
-    auto *readingMode = ac->addAction(QStringLiteral("view_reading_mode"));
-    readingMode->setText(i18n("Reading"));
-    readingMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
-    // Ctrl+E is owned by `editor_toggle_mode` (3-way cycle per spec §3.3).
-    // Direct-set to Reading remains reachable via menu; Phase 2 will replace
-    // this action with a radio submenu entry.
-    connect(readingMode, &QAction::triggered, this, [this]() {
-        if (auto *editor = activeEditor())
-            editor->setViewMode(NoteEditorWidget::ViewMode::Reading);
-    });
+    // View > Editor Mode submenu — three checkable radio actions that
+    // directly select one of the three ViewModes. Keeps the pre-existing
+    // action object names (referenced by e2e tests + API-REFERENCE).
+    // Check-state is kept in sync with the active MarkdownView via the
+    // NoteEditorWidget::viewModeChanged signal (hooked up below in the
+    // activeLeafChanged connection).
+    auto *modeGroup = new QActionGroup(this);
+    modeGroup->setExclusive(true);
+    auto addModeAction = [this, ac, modeGroup](
+        const QString &id, const QString &label, const QString &icon,
+        NoteEditorWidget::ViewMode mode) {
+        auto *act = ac->addAction(id);
+        act->setText(label);
+        act->setIcon(QIcon::fromTheme(icon));
+        act->setCheckable(true);
+        act->setActionGroup(modeGroup);
+        connect(act, &QAction::triggered, this, [this, mode]() {
+            if (auto *editor = activeEditor())
+                editor->setViewMode(mode);
+        });
+        return act;
+    };
+    // Ctrl+E is owned by `editor_toggle_mode` (3-way cycle per spec §3.3)
+    // — no per-mode shortcut is registered here.
+    addModeAction(QStringLiteral("view_source_mode"),  i18n("Source"),
+                  QStringLiteral("text-plain"),
+                  NoteEditorWidget::ViewMode::Source);
+    addModeAction(QStringLiteral("view_editing_mode"), i18n("Live Preview"),
+                  QStringLiteral("text-x-markdown"),
+                  NoteEditorWidget::ViewMode::LivePreview);
+    addModeAction(QStringLiteral("view_reading_mode"), i18n("Reading"),
+                  QStringLiteral("view-preview"),
+                  NoteEditorWidget::ViewMode::Reading);
 
     // Tab shortcuts — use Workspace's WorkspaceTabs
     auto *closeTab = ac->addAction(QStringLiteral("tab_close"));
@@ -1249,6 +1256,11 @@ void MainWindow::setupActions()
     addEditorAction(QStringLiteral("toggle_fold"), Id::ToggleFoldAtCursor,
                     QStringLiteral("code-function"), i18n("Toggle Fold at Cursor"),
                     QKeySequence(Qt::CTRL | Qt::Key_Period));
+
+    // Initial enable-state: no active MarkdownView yet, so disable the
+    // whole editor-action set. Workspace::activeLeafChanged will refresh
+    // as soon as a leaf becomes active.
+    refreshEditorActions();
 }
 
 void MainWindow::setupEditor()
@@ -1453,13 +1465,31 @@ void MainWindow::setupEditor()
         // Cluster V Phase 2+3 — refresh enable-state + heading radio
         // check-state on every active-leaf change, and hook cursor-moved
         // on the new Markoff editor so the Table submenu's cursorInTable
-        // gate updates live while the user types.
+        // gate updates live while the user types. Also sync the View >
+        // Editor Mode radio submenu to the current ViewMode and keep it
+        // in sync via the viewModeChanged signal.
         refreshEditorActions();
         if (editor && editor->editor()) {
             disconnect(editor->editor(), &Markoff::Editor::cursorPositionChanged,
                        this, nullptr);
             connect(editor->editor(), &Markoff::Editor::cursorPositionChanged,
                     this, [this](int, int) { refreshEditorActions(); });
+        }
+        if (editor) {
+            disconnect(editor, &NoteEditorWidget::viewModeChanged, this, nullptr);
+            const auto syncMode = [this](NoteEditorWidget::ViewMode m) {
+                KActionCollection *ac = actionCollection();
+                QString id;
+                switch (m) {
+                case NoteEditorWidget::ViewMode::Source:      id = QStringLiteral("view_source_mode");  break;
+                case NoteEditorWidget::ViewMode::LivePreview: id = QStringLiteral("view_editing_mode"); break;
+                case NoteEditorWidget::ViewMode::Reading:     id = QStringLiteral("view_reading_mode"); break;
+                }
+                if (auto *act = ac->action(id)) act->setChecked(true);
+            };
+            syncMode(editor->viewMode());
+            connect(editor, &NoteEditorWidget::viewModeChanged,
+                    this, syncMode);
         }
     });
 

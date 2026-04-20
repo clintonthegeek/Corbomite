@@ -29,3 +29,12 @@ target_link_libraries(tst_theme_applier PRIVATE
     Qt6::Test Qt6::Widgets KF6::ColorScheme)
 set_tests_properties(tst_theme_applier PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster V Task 2.8 — introspect the Cluster V Phase 2+3 KActionCollection
+# wiring (Format/Heading/Insert/Table/Fold/Edit-find actions, radio groups).
+add_executable(tst_mainwindow_action_wiring tst_mainwindow_action_wiring.cpp)
+add_test(NAME tst_mainwindow_action_wiring COMMAND tst_mainwindow_action_wiring)
+target_link_libraries(tst_mainwindow_action_wiring PRIVATE
+    Qt6::Test CorbomiteApp)
+set_tests_properties(tst_mainwindow_action_wiring PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
