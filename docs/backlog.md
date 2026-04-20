@@ -390,6 +390,12 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** small
 - **Details:** Popup show/hide timing-sensitive under offscreen QPA. Pre-existing. The most likely fix is converting the timed wait to a `QSignalSpy`-based wait that blocks until the popup is actually shown/hidden rather than sleeping for a fixed interval.
 
+### `tst_editorsuggest` — cursor-past-end bounds bug (QFATAL)
+- **Source:** Surfaced during Markoff C5 full-ctest 2026-04-20; confirmed failing on the pre-C5 parent commit (`d3d4d0f6`), so pre-existing and unrelated to C5.
+- **Blocks:** green-suite count (hard fail, not a flake)
+- **Scope:** small — one `dispatch(5, "@hi!", nullptr)` cursor-past-end call path
+- **Details:** `QFATAL` at `testTriggerInfoCarriesQuery()`: `ASSERT: "n <= d.size - pos" in qstring.h:1226`. A cursor position is being passed to `EditorSuggestManager::dispatch` that indexes past the end of the short test string. Likely a one-line bounds check in the dispatch path. Not a Qt version regression (seen on the same Qt we've been using); may have slipped in during a recent unrelated change.
+
 ### `tst_benchmark_layout` — layout timeout flakiness
 - **Source:** [docs/PROJECT-STATE.md §Known-flaky tests](PROJECT-STATE.md)
 - **Blocks:** nothing; excluded from "green suite" counts
