@@ -10,6 +10,26 @@ Conventions:
 
 ---
 
+## 2026-04-20 — Markoff Phase C1 (DI seam) closed
+
+Retires the Phase B bridge (`MARKOFF_READING_USE_REAL_COREDEPS` CMake option + `libs/markoff-reading/stubs/corbomite/` shim tree) in favor of runtime injection. markoff-reading now consumes host-provided implementations of seven abstract interfaces introduced in markoff-core: `Markoff::EmbedRegistry`, `Markoff::CodeBlockProcessorRegistry`, `Markoff::MermaidRenderer`, `Markoff::Vault::ResourceProvider`, `Markoff::Vault::LinkResolver`, `Markoff::Vault::MetadataCache`, `Markoff::Vault::MetadataParser`. Standalone Markoff builds fall back to `Default*` no-op concretes (also in markoff-core) via a lazy-default accessor pattern on `Markoff::Reading::ReadingView`.
+
+**Two-alpha landing pattern.** Single-tag landing was not viable — Markoff-side changes alone break CorbomiteApp, and removing the stubs before Corbomite has adapters breaks standalone build. Executed as: `v0.3.0-alpha.1` introduces new types alongside Phase B option (dual-mode); Corbomite bumps pin and writes adapters; `v0.3.0-alpha.2` gates the 4 Phase-B-style tests off (they compile against new types but assert against real mmdr/MetadataParser output at runtime — un-gating blocked on a Corbomite-side adapter-test scaffolding commit); `v0.3.0` retires the option + stubs after Corbomite has adapted. Seven Markoff commits: `fe655b0` → `d0b964b` → `b889031` → `cc9a8cc` → `2956ee7` (markoff-reading retarget; 21 files, ~300 insertions / 228 deletions; internal `src/MermaidRenderer.{h,cpp}` deleted) → `d7a7fb9` → `47c6bf5` → `1b53fd2` (stubs + option deleted) → `0282438`.
+
+**Corbomite-side adapter pattern.** Composition, not deep-inheritance refactor. Corbomite's existing `Corbomite::Core::*` / `Corbomite::*` types keep their richer Corbomite-flavored APIs; new adapter classes in `libs/core/include/corbomite/markoff_adapters/Adapters.h` wrap them as the narrower Markoff interfaces: `EmbedRegistryAdapter`, `CodeBlockRegistryAdapter`, `LinkResolverAdapter`, `MetadataCacheAdapter` (with on-the-fly `CachedMetadata` shape conversion + per-path pointer-stable cache), `MetadataParserImpl` (wraps the existing static `Corbomite::MetadataParser::parse`). Three existing Corbomite types lightly retyped: `Corbomite::Core::VaultResourceProvider` now inherits `Markoff::Vault::ResourceProvider` (trivial — signatures already matched); `Corbomite::Core::MarkdownRenderChild` now inherits `Markoff::MarkdownRenderChild + Corbomite::Component` (drops own text storage); `Corbomite::Core::EmbedRequest` / `EmbedFactory` became type aliases for their Markoff equivalents. New concrete `Corbomite::Core::MermaidRenderer` wraps the mmdr Rust FFI — previously called directly from `libs/markoff-reading/src/MermaidRenderer.cpp`, now host-owned.
+
+**MainWindow wiring.** `m_embedRegistryAdapter` + `m_mermaidRenderer` built once at ctor; `m_linkResolverAdapter` / `m_metadataCacheAdapter` / `m_metadataParserImpl` rebuilt per vault-open. `HoverPopover`'s embed path wires the adapter-backed `EmbedRenderer` end-to-end; `tst_hover_popover_render` passes with `MetadataParserImpl` injected.
+
+**Known-regression follow-ups.** (1) The 4 Phase-B-style tests in the Markoff submodule stay gated off pending Corbomite-side adapter test scaffolding. (2) `NoteEditorWidget`'s per-note `Markoff::Reading::ReadingView` doesn't yet have `setMermaidRenderer` / `setVaultMetadataParser` called at construction — mermaid in Reading mode currently produces empty SVG (lazy `DefaultMermaidRenderer` fallback). Only `HoverPopover`'s `EmbedRenderer` path has full wiring. (3) Markoff's `CLAUDE.md` still describes the Phase B option in a few places; left for a doc-only follow-up.
+
+**Corbomite commits:** `59ecd5cb` (adapter layer + retype + MainWindow wiring + tst_hover_popover_render fix) + `751fe268` (submodule pin to v0.3.0 + drop top-level `MARKOFF_READING_USE_REAL_COREDEPS` override).
+
+**Invariants preserved** (per CONTRIBUTING-OPS.md Ritual 5): (a) Markoff standalone build + ctest green at every tag (76/76 passing in a fresh build-dev checkout at `v0.3.0`). (b) No `Corbomite`-named types remain in Markoff public interfaces. (c) Tag append-only. (d) Markoff master append-only. (e) Unified commit identity across both repos.
+
+**Next:** C5 spec (ReadingView interactions — absorbs Cluster V Phase 4).
+
+---
+
 ## 2026-04-20 — Markoff Phase B absorbed (external-origin integration)
 
 First closeout under the new **external-origin integration** label (see PROJECT-STATE §Parallel long-term internal refactors). CorbomiteApp migrated off its in-tree copies of `Corbomite::QutepartSource` and `Corbomite::ReadingView` onto the Markoff submodule's tri-view API: `Markoff::Live` / `Markoff::Reading` / `Markoff::Source`, each derived from a shared `Markoff::MarkdownView` polymorphic base. Phase A (Markoff-side, already merged before this session) split markoff into four sibling libraries; Phase B (this session) flipped the Corbomite link line and deleted the in-tree copies.
