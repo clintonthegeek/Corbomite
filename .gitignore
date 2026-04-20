@@ -44,7 +44,7 @@ testvaults/sweet-setup-obsidian-starter-vault.zip
 
 # Local scratch
 Testing/
-docs/HandbookGraphDrawing.txt
+docs/archive/HandbookGraphDrawing.txt
 
 # Obsidian runtime workspace state (regenerated every session)
 testvaults/**/.obsidian/workspace.json
