@@ -3,6 +3,7 @@ corbomite_add_plugin(corbomite-search-plugin
     SOURCES
         SearchPlugin.cpp
         SearchView.cpp
+        SearchResultsDelegate.cpp
     TRUSTED
     LINK_LIBRARIES
         Qt6::Widgets

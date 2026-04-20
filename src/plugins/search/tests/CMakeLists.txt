@@ -7,7 +7,8 @@ set(CMAKE_AUTOMOC ON)
 
 add_executable(tst_search_plugin tst_search_plugin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../SearchPlugin.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../SearchView.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../SearchView.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../SearchResultsDelegate.cpp)
 target_include_directories(tst_search_plugin PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/..)
 # moc resolves K_PLUGIN_FACTORY_WITH_JSON("metadata.json", ...) against

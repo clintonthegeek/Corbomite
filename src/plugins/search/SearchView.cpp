@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SearchView.h"
 
+#include "SearchResultsDelegate.h"
 #include "corbomite/core/proxies/WorkspaceController.h"
 #include "corbomite/models/SearchResultsModel.h"
 #include "corbomite/search/SearchDSL.h"
@@ -56,6 +57,7 @@ SearchView::SearchView(SearchProxy *search,
     m_resultView->setHeaderHidden(true);
     m_resultView->setRootIsDecorated(true);
     m_resultView->setModel(m_resultsModel);
+    m_resultView->setItemDelegate(new SearchResultsDelegate(m_resultView));
     m_resultView->setFrameShape(QFrame::NoFrame);
     layout->addWidget(m_resultView);
 

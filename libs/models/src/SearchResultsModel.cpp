@@ -88,6 +88,8 @@ QVariant SearchResultsModel::data(const QModelIndex &index, int role) const
             return match.snippet;
         case NotePathRole:
             return match.notePath;
+        case MatchRangesRole:
+            return QVariant::fromValue(match.matches);
         }
     }
     return {};

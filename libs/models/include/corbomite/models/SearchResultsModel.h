@@ -14,7 +14,11 @@ public:
     enum Roles {
         NotePathRole = Qt::UserRole + 1,
         SnippetRole,
-        MatchCountRole
+        MatchCountRole,
+        /// Merge-sorted, non-overlapping [start, end) UTF-16 ranges over
+        /// the snippet text — for rich rendering in a custom delegate.
+        /// Returns an empty QVector on group/parent rows.
+        MatchRangesRole,
     };
 
     explicit SearchResultsModel(QObject *parent = nullptr);
