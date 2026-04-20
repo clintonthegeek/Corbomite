@@ -10,6 +10,16 @@
 #include <QShowEvent>
 
 namespace Corbomite {
+namespace {
+// Live notices stacked above the screen's bottom-right, top-most first.
+// Kept file-local so Notice is the only mutator. Reflow on destruction.
+QList<Notice *> &liveNotices()
+{
+    static QList<Notice *> s_live;
+    return s_live;
+}
+constexpr int kStackSpacing = 8;
+} // namespace
 
 Notice::Notice(const QString &message, int durationMs, QWidget *parent)
     : QFrame(parent, Qt::ToolTip | Qt::FramelessWindowHint)
@@ -72,15 +82,35 @@ void Notice::anchorBottomRight()
     const QRect avail = screen->availableGeometry();
     adjustSize();
     constexpr int margin = 16;
-    move(avail.right() - width() - margin, avail.bottom() - height() - margin);
+
+    // Offset upward past every earlier-shown live notice.
+    int yOffset = 0;
+    for (Notice *other : liveNotices()) {
+        if (other == this) break;
+        yOffset += other->height() + kStackSpacing;
+    }
+    move(avail.right() - width() - margin,
+         avail.bottom() - height() - margin - yOffset);
 }
 
 void Notice::showEvent(QShowEvent *event)
 {
     QFrame::showEvent(event);
+    if (!liveNotices().contains(this))
+        liveNotices().append(this);
     anchorBottomRight();
     raise();
     m_dismissTimer.start();
+}
+
+Notice::~Notice()
+{
+    liveNotices().removeAll(this);
+    // Reflow remaining notices so the stack closes the gap we leave behind.
+    for (Notice *other : liveNotices()) {
+        if (other->isVisible())
+            other->anchorBottomRight();
+    }
 }
 
 } // namespace Corbomite

@@ -34,6 +34,7 @@ public:
 
     explicit Notice(const QString &message, int durationMs = kDefaultDurationMs,
                      QWidget *parent = nullptr);
+    ~Notice() override;
 
     void setAction(const QString &label, std::function<void()> callback);
 
