@@ -3,7 +3,9 @@
 
 #include "corbomite/vault/Plugin.h"
 
+#include <QJsonObject>
 #include <QPointer>
+#include <QStringList>
 #include <QTimer>
 
 namespace Corbomite::Bookmarks {
@@ -21,6 +23,25 @@ public:
 
     QJsonObject saveSessionState(QObject *view) const override;
     void loadSessionState(QObject *view, const QJsonObject &state) override;
+
+    // Store-mutation helpers shared by command callbacks and tests. These are
+    // the testable core: callbacks assemble workspace state into these inputs,
+    // the helpers build the BookmarkItem and append. Exposed for
+    // tst_bookmarks_commands to exercise without a live WorkspaceController.
+    static void bookmarkFile(BookmarksStore *store, const QString &path,
+                             const QStringList &groupPath = {});
+    static void bookmarkAllTabs(BookmarksStore *store, const QStringList &paths,
+                                const QStringList &groupPath = {});
+    static void bookmarkHeading(BookmarksStore *store, const QString &path,
+                                const QString &heading,
+                                const QStringList &groupPath = {});
+    static void bookmarkBlock(BookmarksStore *store, const QString &path,
+                              const QString &blockId,
+                              const QStringList &groupPath = {});
+    static void bookmarkSearch(BookmarksStore *store, const QString &query,
+                               const QStringList &groupPath = {});
+    static void bookmarkGraph(BookmarksStore *store, const QJsonObject &options,
+                              const QStringList &groupPath = {});
 
 protected:
     void onLoad(Corbomite::PluginContext *ctx) override;

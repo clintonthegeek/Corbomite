@@ -29,3 +29,16 @@ target_link_libraries(tst_bookmarks_model PRIVATE
     KF6::I18n)
 set_tests_properties(tst_bookmarks_model PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_bookmarks_commands tst_bookmarks_commands.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../BookmarksCommands.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../BookmarksStore.cpp)
+target_include_directories(tst_bookmarks_commands PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/..)
+add_test(NAME tst_bookmarks_commands COMMAND tst_bookmarks_commands)
+target_link_libraries(tst_bookmarks_commands PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Core Corbomite::Vault
+    KF6::I18n)
+set_tests_properties(tst_bookmarks_commands PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

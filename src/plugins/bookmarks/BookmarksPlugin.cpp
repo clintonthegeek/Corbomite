@@ -170,7 +170,7 @@ void BookmarksPlugin::registerCommands(Corbomite::PluginContext *ctx)
     // for .obsidian/hotkeys.json round-trip (addendum §4). The raw variant
     // does NOT mutate cmd.id with the pluginId prefix.
 
-    // bookmarks:bookmark-current-file
+    // bookmarks:bookmark-current-file — fully wired against WorkspaceController.
     {
         Corbomite::Command c = makeCmd(
             QStringLiteral("bookmarks:bookmark-current-file"),
@@ -180,37 +180,45 @@ void BookmarksPlugin::registerCommands(Corbomite::PluginContext *ctx)
                 if (!m_store || !workspace) return;
                 const QString path = workspace->activeFilePath();
                 if (path.isEmpty()) return;
-                BookmarkItem item;
-                item.type  = QStringLiteral("file");
-                item.path  = path;
-                item.ctime = QDateTime::currentMSecsSinceEpoch();
-                m_store->addBookmark(std::move(item), {});
+                bookmarkFile(m_store, path);
             });
         commands->addCommandRaw(c);
     }
 
-    // bookmarks:bookmark-all-tabs
-    // TODO (Task 2.2): wire via WorkspaceController::openTabPaths() once
-    // that accessor is added to the proxy surface (Cluster V follow-up).
-    // For now the command is registered but is a no-op when called.
-    {
-        Corbomite::Command c = makeCmd(
-            QStringLiteral("bookmarks:bookmark-all-tabs"),
+    // The remaining 5 commands depend on WorkspaceController accessors that
+    // do not yet exist on the plugin proxy surface (openTabPaths,
+    // activeHeading, activeBlockId, activeSearchQuery, activeGraphOptions).
+    // Register each with a checkCallback returning false so the palette
+    // greys them out and hotkey dispatch is a no-op, while keeping the
+    // Obsidian-compatible ids reserved for hotkeys.json round-trip.
+    // Tracked as a Cluster S follow-up in backlog.md.
+    auto stubRaw = [commands, &makeCmd](const QString &id, const QString &label,
+                                         const QString &icon) {
+        Corbomite::Command c = makeCmd(id, label, icon, {});
+        c.checkCallback = [](bool) { return false; };
+        commands->addCommandRaw(c);
+    };
+
+    stubRaw(QStringLiteral("bookmarks:bookmark-all-tabs"),
             i18n("Bookmark all open tabs"),
-            QStringLiteral("bookmark-new"),
-            [this, workspace] {
-                // TODO: WorkspaceController::openTabPaths() not yet available.
-                // Implement in Task 2.2 once the proxy exposes open-tab paths.
-                Q_UNUSED(this)
-                Q_UNUSED(workspace)
-            });
-        commands->addCommandRaw(c);
-    }
-
-    // bookmark-current-heading, bookmark-current-block, bookmark-current-search,
-    // bookmark-current-graph — all context-gated (checkCallback). Deferred to
-    // Task 2.2 once the WorkspaceController surface is confirmed.
+            QStringLiteral("bookmark-new"));
+    stubRaw(QStringLiteral("bookmarks:bookmark-current-heading"),
+            i18n("Bookmark current heading"),
+            QStringLiteral("bookmark-new"));
+    stubRaw(QStringLiteral("bookmarks:bookmark-current-block"),
+            i18n("Bookmark current block"),
+            QStringLiteral("bookmark-new"));
+    stubRaw(QStringLiteral("bookmarks:bookmark-current-search"),
+            i18n("Bookmark current search"),
+            QStringLiteral("bookmark-new"));
+    stubRaw(QStringLiteral("bookmarks:bookmark-current-graph"),
+            i18n("Bookmark current graph view"),
+            QStringLiteral("bookmark-new"));
 }
+
+// Store-mutation helpers are defined in BookmarksCommands.cpp so that
+// tests can link them without pulling in KPluginFactory / BookmarksView
+// / BookmarkModal.
 
 } // namespace Corbomite::Bookmarks
 
