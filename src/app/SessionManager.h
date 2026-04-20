@@ -64,6 +64,10 @@ public:
     /// `Plugin::saveSessionState(view)` and forwards it here.
     void setPluginSessionState(const QString &pluginId, const QJsonObject &state);
 
+    /// Replace the `['left-ribbon']` sub-object at workspace.json root.
+    /// Pass `{}` to clear. Triggers scheduleSave().
+    void setLeftRibbonState(const QJsonObject &state);
+
     /// Replace the workspace layout (main SplitNode JSON). `activeLeafId`
     /// is written to workspace.json's root `active` field.
     void setWorkspaceLayout(const QJsonObject &mainJson,
@@ -76,6 +80,7 @@ public:
     QJsonObject sidebarState() const;
     QStringList expandedFolders() const;
     QJsonObject pluginSessionState(const QString &pluginId) const;
+    QJsonObject leftRibbonState() const;
     QJsonObject workspaceLayout() const;
     QString activeLeafId() const;
     QStringList lastOpenFiles() const;
@@ -93,6 +98,7 @@ private:
     /// (Obsidian unknown-key invariant).
     QJsonObject m_unknownRoot;
     QJsonObject m_mainJson;
+    QJsonObject m_leftRibbon;
     QString m_activeLeafId;
     QTimer m_saveTimer;
     int m_saveBlockCount = 0;

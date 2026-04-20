@@ -15,6 +15,7 @@ namespace {
 constexpr auto kMain = "main";
 constexpr auto kActive = "active";
 constexpr auto kCorbomite = "_corbomite";
+constexpr auto kLeftRibbon = "left-ribbon";
 
 constexpr auto kWindowGeometry = "windowGeometry";
 constexpr auto kWindowState = "windowState";
@@ -50,6 +51,7 @@ bool SessionManager::load()
     m_corbomiteTail = {};
     m_unknownRoot = {};
     m_mainJson = {};
+    m_leftRibbon = {};
     m_activeLeafId.clear();
 
     if (m_sessionPath.isEmpty()) return false;
@@ -73,12 +75,18 @@ bool SessionManager::load()
         m_corbomiteTail = root.value(QLatin1String(kCorbomite)).toObject();
     }
 
+    if (root.contains(QLatin1String(kLeftRibbon))
+            && root.value(QLatin1String(kLeftRibbon)).isObject()) {
+        m_leftRibbon = root.value(QLatin1String(kLeftRibbon)).toObject();
+    }
+
     // Everything else (Obsidian's left/right/floating/lastOpenFiles/ribbon/
     // etc.) goes into m_unknownRoot to round-trip unchanged on save.
     for (auto it = root.begin(); it != root.end(); ++it) {
         if (it.key() == QLatin1String(kMain)
                 || it.key() == QLatin1String(kActive)
-                || it.key() == QLatin1String(kCorbomite)) continue;
+                || it.key() == QLatin1String(kCorbomite)
+                || it.key() == QLatin1String(kLeftRibbon)) continue;
         m_unknownRoot.insert(it.key(), it.value());
     }
 
@@ -163,6 +171,12 @@ void SessionManager::setPluginSessionState(const QString &pluginId,
     scheduleSave();
 }
 
+void SessionManager::setLeftRibbonState(const QJsonObject &state)
+{
+    m_leftRibbon = state;
+    scheduleSave();
+}
+
 void SessionManager::setWorkspaceLayout(const QJsonObject &mainJson,
                                         const QString &activeLeafId)
 {
@@ -205,6 +219,7 @@ QJsonObject SessionManager::pluginSessionState(const QString &pluginId) const
         .value(pluginId).toObject();
 }
 
+QJsonObject SessionManager::leftRibbonState() const { return m_leftRibbon; }
 QJsonObject SessionManager::workspaceLayout() const { return m_mainJson; }
 QString SessionManager::activeLeafId() const { return m_activeLeafId; }
 
@@ -233,6 +248,9 @@ void SessionManager::doSave()
     }
     if (!m_corbomiteTail.isEmpty()) {
         root.insert(QLatin1String(kCorbomite), m_corbomiteTail);
+    }
+    if (!m_leftRibbon.isEmpty()) {
+        root.insert(QLatin1String(kLeftRibbon), m_leftRibbon);
     }
 
     QDir().mkpath(QFileInfo(m_sessionPath).absolutePath());

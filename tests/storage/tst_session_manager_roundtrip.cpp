@@ -662,6 +662,74 @@ private Q_SLOTS:
         QVERIFY2(!corbomiteCleared.contains(QStringLiteral("plugins")),
                  "empty plugins sub-object should be dropped");
     }
+
+    // -----------------------------------------------------------------------
+    // 21. setLeftRibbonState round-trips and sits at the workspace.json root
+    // (not inside _corbomite), matching Obsidian's schema.
+    // -----------------------------------------------------------------------
+    void leftRibbonStateRoundTrips()
+    {
+        QTemporaryDir tmp;
+        const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
+
+        SessionManager sm;
+        sm.setSessionPath(path);
+
+        QJsonObject hidden;
+        hidden.insert(QStringLiteral("core:graph_view"), true);
+        hidden.insert(QStringLiteral("core:quick_switcher"), false);
+        QJsonObject ribbon;
+        ribbon.insert(QStringLiteral("hiddenItems"), hidden);
+
+        sm.setLeftRibbonState(ribbon);
+        sm.saveNow();
+
+        const QJsonObject root = readJson(path);
+        QVERIFY2(root.contains(QStringLiteral("left-ribbon")),
+                 "left-ribbon must be at the workspace.json root");
+        QVERIFY2(!root.value(QStringLiteral("_corbomite")).toObject()
+                     .contains(QStringLiteral("left-ribbon")),
+                 "left-ribbon must NOT live under _corbomite");
+
+        SessionManager sm2;
+        sm2.setSessionPath(path);
+        QVERIFY(sm2.load());
+        const QJsonObject reloaded = sm2.leftRibbonState();
+        const QJsonObject reloadedHidden =
+            reloaded.value(QStringLiteral("hiddenItems")).toObject();
+        QCOMPARE(reloadedHidden.value(QStringLiteral("core:graph_view")).toBool(), true);
+        QCOMPARE(reloadedHidden.value(QStringLiteral("core:quick_switcher")).toBool(), false);
+    }
+
+    // -----------------------------------------------------------------------
+    // 22. Pre-existing left-ribbon content (written by Obsidian) is preserved
+    // on a Corbomite load → save cycle even when Corbomite never calls
+    // setLeftRibbonState (unknown-key preservation invariant).
+    // -----------------------------------------------------------------------
+    void leftRibbonPreservedFromExternalWriter()
+    {
+        QTemporaryDir tmp;
+        const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
+
+        QJsonObject external;
+        QJsonObject hidden;
+        hidden.insert(QStringLiteral("obsidian-plugin:whatever"), true);
+        QJsonObject ribbon;
+        ribbon.insert(QStringLiteral("hiddenItems"), hidden);
+        external.insert(QStringLiteral("left-ribbon"), ribbon);
+        writeJson(path, external);
+
+        SessionManager sm;
+        sm.setSessionPath(path);
+        QVERIFY(sm.load());
+        sm.saveNow();
+
+        const QJsonObject root = readJson(path);
+        const QJsonObject reloadedHidden = root.value(QStringLiteral("left-ribbon"))
+            .toObject().value(QStringLiteral("hiddenItems")).toObject();
+        QCOMPARE(reloadedHidden.value(QStringLiteral("obsidian-plugin:whatever")).toBool(),
+                 true);
+    }
 };
 
 QTEST_APPLESS_MAIN(TestSessionManagerRoundtrip)
