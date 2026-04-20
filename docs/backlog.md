@@ -10,17 +10,11 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 
 ## 1. Not-started, plan-needed, and scouting clusters
 
-### Cluster A — Link / frontmatter correctness
-- **Source:** [Cluster A plan](superpowers/plans/2026-04-14-cluster-a-link-frontmatter-correctness.md)
-- **Blocks:** many downstream clusters (keystone)
-- **Scope:** large
-- **Details:** Full-plan cluster, status "Not started". Correctness work for link resolution and frontmatter parsing — described in the INDEX as a keystone that other clusters depend on weakly or strongly. No consumer has forced the start yet; should be the first cluster picked up when the roadmap resumes parity work.
-
-### Cluster B — Vault I/O
-- **Source:** [Cluster B plan](superpowers/plans/2026-04-14-cluster-b-vault-io.md)
-- **Blocks:** depends weakly on A; wires `WorkspaceState` / `SessionManager` / `MainWindow` to `VaultConfig` + `WorkspaceState` (Phase 3b)
-- **Scope:** large
-- **Details:** Full-plan cluster, status "Not started". Primitives landed in 2026-04-14 (Phases 1–6: `DataAdapter`, `FileSystemAdapter`, `VaultConfig`, `WorkspaceState`, `CaseSensitivityProbe`, `VaultTrash`, `IgnoreFilter`, `VaultProcess`). The outstanding work is Phase 3b: app-layer wiring of `SessionManager` / `EditorViewManager` / `MainWindow` onto `WorkspaceState` rather than the current `session.json` path (~500–1000 LOC). The full Phase 3b design is in the B plan; unblocked now that Cluster G/Q are done.
+### Cluster B Phase 3b — WorkspaceState app-layer wiring (Cluster B residue)
+- **Source:** [Cluster B plan (archived)](superpowers/plans/archive/2026-04-14-cluster-b-vault-io.md)
+- **Blocks:** nothing currently; cleans up legacy `session.json` persistence path
+- **Scope:** medium (~500–1000 LOC)
+- **Details:** Cluster B is **Done** (primitives landed 2026-04-14 across Phases 1–6: `DataAdapter`, `FileSystemAdapter`, `VaultConfig`, `WorkspaceState`, `CaseSensitivityProbe`, `VaultTrash`, `IgnoreFilter`, `VaultProcess`). The residual Phase 3b is app-layer wiring of `SessionManager` / `EditorViewManager` / `MainWindow` onto `WorkspaceState` rather than the current `session.json` path. Full design in the archived B plan; unblocked now that Cluster G/Q are closed. No consumer is currently forcing the switch — pick up when a feature needs per-vault workspace state that the legacy path can't provide.
 
 ### Cluster M — Internal-plugin feature audits (Graph, Canvas)
 - **Source:** [INDEX.md](superpowers/plans/INDEX.md) row M
