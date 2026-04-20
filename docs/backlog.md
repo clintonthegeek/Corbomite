@@ -150,6 +150,18 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 
 ### ~~`lastOpenFiles` sibling key restored on load~~ Done 2026-04-19 — commit `1d4b3a9a` feeds the `lastOpenFiles` sibling key into `Workspace::deserialize` via `SessionManager`.
 
+### Markoff editor right-click menu enrichment (`editor-menu` parity)
+- **Source:** Cluster V scope review, 2026-04-20
+- **Blocks:** Obsidian UX parity (Format/Heading/Insert/Table are reachable via menubar + command palette but not via right-click, which Obsidian users reach for first)
+- **Scope:** medium
+- **Details:** `libs/markoff-family/libs/markoff/src/Editor.cpp::contextMenuEvent` currently emits only Cut/Copy/Paste/Select-All (plus table ops when inside a GFM table). Obsidian's `editor-menu` surface also includes Format (Bold/Italic/Strikethrough/InlineCode), Insert (Link/WikiLink/Image/Callout/Table/Checkbox), Heading (H1-H6 + Increase/Decrease), and fold toggles — and third-party plugins inject into this same menu via `workspace.trigger("editor-menu", menu, editor, view)`. Because Markoff is a self-contained library it can't see `KActionCollection`, so the compat-aligned pattern is: Markoff emits a new `Q_SIGNAL void aboutToShowContextMenu(QMenu *)` before `menu.exec()`; `MarkdownView` / `MainWindow` connects and appends entries built from the same `KActionCollection` actions registered in Cluster V Phase 2+3. Same signal is the natural dispatch point for the future plugin `editor-menu` contribution hook (tracked as "Menu mid-construction plugin hook" in `FEATURE-MATRIX.md §9`).
+
+### Obsidian-compat command-id mirror in `CommandRegistry`
+- **Source:** Cluster V scope review, 2026-04-20
+- **Blocks:** `.obsidian/hotkeys.json` round-trip (tracked at §5 "`.obsidian/hotkeys.json` load/save"); future plugin-API `Plugin.addCommand({id: "editor:toggle-bold", ...})` calls binding to existing built-in actions
+- **Scope:** small
+- **Details:** Cluster V Phase 2+3 registers ~25 menubar actions in `KActionCollection` under Corbomite-native object names (`format_bold`, `heading_1`, `insert_table`, …) — these are idiomatic for `corbomiteui.rc.in` and KXMLGUI but don't match Obsidian's canonical command ids (`editor:toggle-bold`, `editor:set-heading-1`, `editor:insert-table`). KActionCollection object names containing `:` also break the XMLGUI XML parser, so renaming isn't an option. Compat-aligned pattern: after `setupActions()` runs, call a new `MainWindow::mirrorBuiltInsIntoCommandRegistry()` that loops through a static `QHash<QString, QString>` (Corbomite id → Obsidian id) and calls `m_commandRegistry->registerBuiltInCommand(obsidianId, qAction)` for each pair. `KCommandBar` palette already consumes `CommandRegistry` under the "Commands" group, so the mirror shows up there alongside plugin commands. `.obsidian/hotkeys.json` load/save (§5 backlog item) then only has to walk `CommandRegistry` once.
+
 ### `WorkspaceWindow` popout integration
 - **Source:** Cluster G follow-up #6; [docs/PROJECT-STATE.md §Cluster G follow-ups](PROJECT-STATE.md)
 - **Blocks:** Cluster R "Open in new window" menu slot (currently a disabled placeholder)
