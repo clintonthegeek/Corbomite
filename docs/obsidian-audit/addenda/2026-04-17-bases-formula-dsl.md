@@ -1,9 +1,9 @@
 # Bases formula / filter DSL — extracted grammar, operator semantics, function catalog
 
 **Date:** 2026-04-17
-**Discovered during:** Exploratory spike ahead of Cluster K plan expansion. The Cluster K scouting doc ([`superpowers/plans/2026-04-14-cluster-k-bases-SCOUTING.md`](../../superpowers/plans/2026-04-14-cluster-k-bases-SCOUTING.md)) gates the full plan on this extraction; see "Expand to full plan when" in that doc.
+**Discovered during:** Exploratory spike ahead of Cluster K plan expansion. The Cluster K scouting doc ([`superpowers/plans/2026-04-14-cluster-k-bases-SCOUTING.md`](../../superpowers/plans/archive/2026-04-14-cluster-k-bases-SCOUTING.md)) gates the full plan on this extraction; see "Expand to full plan when" in that doc.
 **Supersedes / extends:** Extends `domains/bases.md` §1 (Value hierarchy), §3 (YAML schema), §11 (Missing). No prior coverage of the DSL itself in Pass 2.
-**Relevant cluster plans:** [`superpowers/plans/2026-04-14-cluster-k-bases-SCOUTING.md`](../../superpowers/plans/2026-04-14-cluster-k-bases-SCOUTING.md) (expand to full plan citing this addendum).
+**Relevant cluster plans:** [`superpowers/plans/2026-04-14-cluster-k-bases-SCOUTING.md`](../../superpowers/plans/archive/2026-04-14-cluster-k-bases-SCOUTING.md) (expand to full plan citing this addendum).
 
 > **Source provenance.** Obsidian 1.12.7. Primary references: the renamed `_internal.js` tree at `~/src/obsidian-audit/renamed/obsidian/src/` (cited as `renamed/<file>:<line>`) and the formatted single-file view at `~/src/obsidian-audit/formatted/obsidian/app.js` (cited as `formatted/app.js:<line>`). The user-facing help docs consulted were the English pages at `testvaults/obsidian-help/en/Bases/{Bases syntax.md, Formulas.md, Functions.md}`. All line numbers in this addendum are against those two canonical files; they will drift with future Obsidian releases but the surface described should remain stable across 1.x.
 

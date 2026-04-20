@@ -1,8 +1,8 @@
 # Cluster N — Plugin-Ready Surfaces — Retrospective
 
 **Closed:** 2026-04-17 (same-day execution, 5 phases on top of the Cluster Q substrate)
-**Plan:** [`docs/superpowers/plans/2026-04-17-cluster-n-plugin-ready-surfaces.md`](../superpowers/plans/2026-04-17-cluster-n-plugin-ready-surfaces.md)
-**Spec:** [`docs/superpowers/specs/2026-04-17-cluster-n-plugin-ready-surfaces-design.md`](../superpowers/specs/2026-04-17-cluster-n-plugin-ready-surfaces-design.md)
+**Plan:** [`docs/superpowers/plans/archive/2026-04-17-cluster-n-plugin-ready-surfaces.md`](../superpowers/plans/archive/2026-04-17-cluster-n-plugin-ready-surfaces.md)
+**Spec:** [`docs/superpowers/specs/archive/2026-04-17-cluster-n-plugin-ready-surfaces-design.md`](../superpowers/specs/archive/2026-04-17-cluster-n-plugin-ready-surfaces-design.md)
 **Prerequisite:** Cluster Q (Internal-plugin wrapping + permissions) — closed 2026-04-17 earlier in the day
 
 ## What landed

@@ -1,7 +1,7 @@
 # Cluster K — Bases (Retro)
 
 **Closed:** 2026-04-17.
-**Plan:** [`../superpowers/plans/2026-04-17-cluster-k-bases.md`](../superpowers/plans/2026-04-17-cluster-k-bases.md)
+**Plan:** [`../superpowers/plans/archive/2026-04-17-cluster-k-bases.md`](../superpowers/plans/archive/2026-04-17-cluster-k-bases.md)
 **DSL addendum:** [`../obsidian-audit/addenda/2026-04-17-bases-formula-dsl.md`](../obsidian-audit/addenda/2026-04-17-bases-formula-dsl.md)
 **Commits:** `98e0567e` (plan) → `5825422b` Phase 1 Task 1.1 → `f363b35f` Phase 8 closeout, plus Phase 9 wire-in + retro commits — total **~37 commits** across one autonomous session.
 

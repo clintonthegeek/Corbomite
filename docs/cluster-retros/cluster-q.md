@@ -1,8 +1,8 @@
 # Cluster Q — Internal-Plugin Wrapping + Permissions — Retrospective
 
 **Closed:** 2026-04-17 (overnight session, 8 plugins + infrastructure)
-**Plan:** [`docs/superpowers/plans/2026-04-16-cluster-q-internal-plugin-wrapping.md`](../superpowers/plans/2026-04-16-cluster-q-internal-plugin-wrapping.md)
-**Spec:** [`docs/superpowers/specs/2026-04-16-cluster-q-internal-plugin-wrapping-design.md`](../superpowers/specs/2026-04-16-cluster-q-internal-plugin-wrapping-design.md)
+**Plan:** [`docs/superpowers/plans/archive/2026-04-16-cluster-q-internal-plugin-wrapping.md`](../superpowers/plans/archive/2026-04-16-cluster-q-internal-plugin-wrapping.md)
+**Spec:** [`docs/superpowers/specs/archive/2026-04-16-cluster-q-internal-plugin-wrapping-design.md`](../superpowers/specs/archive/2026-04-16-cluster-q-internal-plugin-wrapping-design.md)
 **Prerequisite:** Cluster Q.0 (Vault architecture refactor) — closed 2026-04-17
 
 ## What changed vs the original plan
