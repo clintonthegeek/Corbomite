@@ -156,8 +156,15 @@ configure_package_config_file(
     INSTALL_DESTINATION "${KDE_INSTALL_CMAKEPACKAGEDIR}/Corbomite"
 )
 
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/CorbomiteConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/CorbomiteConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/CorbomiteConfigVersion.cmake"
     "${CMAKE_CURRENT_LIST_DIR}/cmake/CorbomitePlugin.cmake"
     DESTINATION "${KDE_INSTALL_CMAKEPACKAGEDIR}/Corbomite"
 )

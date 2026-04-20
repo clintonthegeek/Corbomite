@@ -208,6 +208,16 @@ QJsonObject SessionManager::pluginSessionState(const QString &pluginId) const
 QJsonObject SessionManager::workspaceLayout() const { return m_mainJson; }
 QString SessionManager::activeLeafId() const { return m_activeLeafId; }
 
+QStringList SessionManager::lastOpenFiles() const
+{
+    QStringList files;
+    const auto arr = m_unknownRoot.value(QStringLiteral("lastOpenFiles")).toArray();
+    files.reserve(arr.size());
+    for (const auto &v : arr)
+        files.append(v.toString());
+    return files;
+}
+
 // --- Save ---
 
 void SessionManager::doSave()

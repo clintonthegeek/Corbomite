@@ -1494,6 +1494,11 @@ void MainWindow::onVaultOpened(const QString &path)
             QJsonObject fullWs;
             fullWs[QStringLiteral("main")] = wsLayout;
             fullWs[QStringLiteral("active")] = m_sessionManager->activeLeafId();
+            QJsonArray lof;
+            for (const auto &f : m_sessionManager->lastOpenFiles())
+                lof.append(f);
+            if (!lof.isEmpty())
+                fullWs[QStringLiteral("lastOpenFiles")] = lof;
             m_workspace->deserialize(fullWs);
         }
     }

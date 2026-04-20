@@ -78,6 +78,7 @@ public:
     QJsonObject pluginSessionState(const QString &pluginId) const;
     QJsonObject workspaceLayout() const;
     QString activeLeafId() const;
+    QStringList lastOpenFiles() const;
 
     /// True once `load()` has been called successfully on a non-empty file.
     bool hasLoadedSession() const { return m_loaded; }
