@@ -75,6 +75,7 @@ private Q_SLOTS:
     void onZoomReset();
     void onAboutApp();
     void onAboutKde();
+    void cycleEditorMode();
 
 protected:
     void closeEvent(QCloseEvent *event) override;

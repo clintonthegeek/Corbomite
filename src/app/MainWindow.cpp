@@ -387,6 +387,20 @@ void MainWindow::onAboutKde()
     helpMenu->aboutKDE();
 }
 
+void MainWindow::cycleEditorMode()
+{
+    auto *mv = activeMarkdownView();
+    if (!mv) return;
+    auto *w = mv->editorWidget();
+    if (!w) return;
+    using VM = NoteEditorWidget::ViewMode;
+    switch (w->viewMode()) {
+        case VM::Source:      w->setViewMode(VM::LivePreview); break;
+        case VM::LivePreview: w->setViewMode(VM::Reading);     break;
+        case VM::Reading:     w->setViewMode(VM::Source);      break;
+    }
+}
+
 void MainWindow::openFileInWorkspace(const QString &relativePath)
 {
     if (!m_workspace || !m_viewRegistry)
@@ -858,6 +872,14 @@ void MainWindow::setupActions()
     zoomReset->setIcon(QIcon::fromTheme(QStringLiteral("zoom-original")));
     ac->setDefaultShortcut(zoomReset, QKeySequence(Qt::CTRL | Qt::Key_0));
     connect(zoomReset, &QAction::triggered, this, &MainWindow::onZoomReset);
+
+    {
+        auto *toggleMode = ac->addAction(QStringLiteral("editor_toggle_mode"));
+        toggleMode->setText(i18n("Toggle Editor Mode"));
+        toggleMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
+        ac->setDefaultShortcut(toggleMode, QKeySequence(Qt::CTRL | Qt::Key_E));
+        connect(toggleMode, &QAction::triggered, this, &MainWindow::cycleEditorMode);
+    }
 
     auto *quickSwitcher = ac->addAction(QStringLiteral("quick_switcher"));
     quickSwitcher->setText(i18n("Quick Switcher"));
