@@ -15,7 +15,6 @@ add_library(CorbomiteApp STATIC
     app/MainWindow.cpp
     app/RecentVaults.cpp
     app/SessionManager.cpp
-    app/RibbonSlot.cpp
     app/RibbonToolBar.cpp
     app/RibbonStateController.cpp
     app/WelcomeScreen.cpp

@@ -11,11 +11,6 @@ add_test(NAME tst_quickswitchermodel COMMAND tst_quickswitchermodel)
 target_link_libraries(tst_quickswitchermodel PRIVATE Qt6::Test CorbomiteApp)
 set_tests_properties(tst_quickswitchermodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-add_executable(tst_ribbonslot tst_ribbonslot.cpp)
-add_test(NAME tst_ribbonslot COMMAND tst_ribbonslot)
-target_link_libraries(tst_ribbonslot PRIVATE Qt6::Test CorbomiteApp)
-set_tests_properties(tst_ribbonslot PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
 add_executable(tst_ribbontoolbar tst_ribbontoolbar.cpp)
 add_test(NAME tst_ribbontoolbar COMMAND tst_ribbontoolbar)
 target_link_libraries(tst_ribbontoolbar PRIVATE Qt6::Test CorbomiteApp)
