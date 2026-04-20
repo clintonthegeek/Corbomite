@@ -21,6 +21,11 @@ add_test(NAME tst_ribbontoolbar COMMAND tst_ribbontoolbar)
 target_link_libraries(tst_ribbontoolbar PRIVATE Qt6::Test CorbomiteApp)
 set_tests_properties(tst_ribbontoolbar PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_ribbonstatecontroller tst_ribbonstatecontroller.cpp)
+add_test(NAME tst_ribbonstatecontroller COMMAND tst_ribbonstatecontroller)
+target_link_libraries(tst_ribbonstatecontroller PRIVATE Qt6::Test CorbomiteApp)
+set_tests_properties(tst_ribbonstatecontroller PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_notice tst_notice.cpp)
 add_test(NAME tst_notice COMMAND tst_notice)
 target_link_libraries(tst_notice PRIVATE Qt6::Test CorbomiteApp)
