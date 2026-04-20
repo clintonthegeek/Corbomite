@@ -31,7 +31,9 @@ add_library(CorbomiteApp STATIC
     editor/TagSuggest.cpp
     editor/VaultResourceProvider.cpp
     reactors/AutosaveReactor.cpp
+    dialogs/CalloutPickerDialog.cpp
     dialogs/CreateVaultDialog.cpp
+    dialogs/InsertTableDialog.cpp
     dialogs/Notice.cpp
     dialogs/MomentFormatPreview.cpp
     dialogs/SettingsDialog.cpp
