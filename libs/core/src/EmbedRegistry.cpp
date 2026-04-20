@@ -26,7 +26,7 @@ void EmbedRegistry::unregister(const Handle &h)
     }
 }
 
-std::unique_ptr<MarkdownRenderChild>
+std::unique_ptr<Markoff::MarkdownRenderChild>
 EmbedRegistry::dispatch(const EmbedRequest &req) const
 {
     const QString ext = QFileInfo(req.targetPath).suffix().toLower();

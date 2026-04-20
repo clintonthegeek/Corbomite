@@ -15,7 +15,15 @@ class KRecentFilesAction;
 
 namespace Corbomite::Core {
 class EmbedRegistry;
+class MermaidRenderer;
 class VaultResourceProvider;
+}
+
+namespace Corbomite::MarkoffAdapters {
+class EmbedRegistryAdapter;
+class LinkResolverAdapter;
+class MetadataCacheAdapter;
+class MetadataParserImpl;
 }
 
 namespace Markoff::Reading {
@@ -180,6 +188,21 @@ private:
     std::unique_ptr<Corbomite::Core::EmbedRegistry> m_embedRegistry;
     std::unique_ptr<Markoff::Reading::EmbedRenderer> m_embedRenderer;
     std::unique_ptr<Corbomite::Core::VaultResourceProvider> m_popoverResources;
+    // Phase C1 DI-seam adapters. The raw Corbomite objects above stay as
+    // the authoritative storage; these adapters present them through the
+    // Markoff::* / Markoff::Vault::* interfaces ReadingView and
+    // EmbedRenderer now consume. Registry + mermaid built once at ctor;
+    // link-resolver + metadata-cache + parser adapters rebuilt on each
+    // vault open (they close over per-vault m_linkResolver / m_metadataCache).
+    std::unique_ptr<Corbomite::MarkoffAdapters::EmbedRegistryAdapter>
+        m_embedRegistryAdapter;
+    std::unique_ptr<Corbomite::Core::MermaidRenderer> m_mermaidRenderer;
+    std::unique_ptr<Corbomite::MarkoffAdapters::LinkResolverAdapter>
+        m_linkResolverAdapter;
+    std::unique_ptr<Corbomite::MarkoffAdapters::MetadataCacheAdapter>
+        m_metadataCacheAdapter;
+    std::unique_ptr<Corbomite::MarkoffAdapters::MetadataParserImpl>
+        m_metadataParserImpl;
     EditorSuggestManager *m_suggestManager = nullptr;
     WikiLinkSuggest *m_wikiSuggest = nullptr;
     TagSuggest *m_tagSuggest = nullptr;

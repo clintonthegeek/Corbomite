@@ -21,6 +21,8 @@
 #include "corbomite/core/EmbedRegistry.h"
 #include "corbomite/core/VaultResourceProvider.h"
 #include "markoff/reading/EmbedRenderer.h"
+#include "corbomite/markoff_adapters/Adapters.h"
+#include "corbomite/storage/LinkResolver.h"
 #include "markoff/reading/ReadingView.h"
 #include "editor/HoverPopover.h"
 
@@ -64,14 +66,20 @@ private:
 struct RenderHarness
 {
     Corbomite::Core::EmbedRegistry registry;
+    Corbomite::MarkoffAdapters::EmbedRegistryAdapter registryAdapter;
+    Corbomite::LinkResolver linkResolver;
+    Corbomite::MarkoffAdapters::MetadataParserImpl metadataParser;
     std::unique_ptr<Markoff::Reading::EmbedRenderer> renderer;
 
     explicit RenderHarness(Corbomite::Core::VaultResourceProvider *resources)
+        : registryAdapter(&registry)
+        , metadataParser(&linkResolver)
     {
         renderer = std::make_unique<Markoff::Reading::EmbedRenderer>(
-            &registry, /*cache=*/nullptr, resources);
-        Markoff::Reading::registerBuiltinEmbedFactories(registry,
-                                                              *renderer);
+            &registryAdapter, /*cache=*/nullptr, resources);
+        renderer->setMetadataParser(&metadataParser);
+        Markoff::Reading::registerBuiltinEmbedFactories(registryAdapter,
+                                                        *renderer);
     }
 };
 

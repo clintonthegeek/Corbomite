@@ -6,6 +6,8 @@
 
 #include "corbomite/core/Component.h"
 
+#include <markoff/MarkdownRenderChild.h>
+
 #include <QPointer>
 #include <QString>
 #include <QWidget>
@@ -18,28 +20,25 @@ namespace Corbomite::Core {
 ///
 /// Audit reference: `docs/obsidian-audit/domains/editor-markdown.md §10`.
 ///
-/// The accessors (`setRenderedText` / `renderedText` / `mountInto` /
-/// `hostWidget`) are the minimum surface Phase 4 `EmbedRenderer` and the
-/// Mermaid / math / code-block processors call against. Rendered text is
-/// the source-string snapshot the renderer used — consumers read it to
-/// decide whether a subsequent parse result can reuse the same child.
-class MarkdownRenderChild : public Corbomite::Component
+/// Phase C1: now inherits `Markoff::MarkdownRenderChild` (for the DI
+/// seam on the ReadingView side) in addition to Corbomite's `Component`
+/// lifecycle. `setRenderedText` / `renderedText` are inherited from the
+/// Markoff base; `mountInto` is overridden to keep the QPointer<QWidget>
+/// host reference that Corbomite callers read via `hostWidget()`.
+class MarkdownRenderChild : public Markoff::MarkdownRenderChild,
+                            public Corbomite::Component
 {
 public:
     MarkdownRenderChild();
     ~MarkdownRenderChild() override;
 
-    void setRenderedText(QString text);
-    QString renderedText() const;
-
     /// Attach this child's widget subtree to `host`. Host is referenced
     /// via QPointer so renderer code can detect host destruction without
     /// chasing dangling pointers.
-    void mountInto(QWidget *host);
+    void mountInto(QWidget *host) override;
     QWidget *hostWidget() const;
 
 private:
-    QString m_renderedText;
     QPointer<QWidget> m_host;
 };
 

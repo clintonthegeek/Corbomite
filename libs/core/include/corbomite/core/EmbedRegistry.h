@@ -4,6 +4,10 @@
 #ifndef CORBOMITE_CORE_EMBEDREGISTRY_H
 #define CORBOMITE_CORE_EMBEDREGISTRY_H
 
+#include "corbomite/core/MarkdownRenderChild.h"
+
+#include <markoff/EmbedRegistry.h>
+
 #include <QHash>
 #include <QString>
 
@@ -13,28 +17,24 @@
 
 namespace Corbomite::Core {
 
-class MarkdownRenderChild;
-class VaultResourceProvider;
-
-/// Input to an EmbedFactory. Renderers assemble this when they encounter
-/// `![[Target#sub]]` (or equivalent) in the parsed document.
-struct EmbedRequest
-{
-    QString targetPath;                          ///< e.g. "Note.md", "image.png"
-    QString subpath;                             ///< "#heading" / "#^blockid" / empty
-    VaultResourceProvider *resources = nullptr;  ///< not owned
-    int depth = 0;                               ///< current embed depth
-};
-
-using EmbedFactory =
-    std::function<std::unique_ptr<MarkdownRenderChild>(const EmbedRequest &)>;
+/// Phase C1: `EmbedRequest` and `EmbedFactory` are type aliases for the
+/// Markoff DI-seam types. `Corbomite::Core::EmbedRequest` and
+/// `Markoff::EmbedRequest` are the same type — brace-init and factory
+/// lambdas remain source-compatible with their pre-C1 forms because the
+/// struct shape (targetPath / subpath / resources / depth) matches
+/// exactly, and `Corbomite::Core::VaultResourceProvider *` implicitly
+/// up-casts to `Markoff::Vault::ResourceProvider *` via the inheritance
+/// added in `VaultResourceProvider.h`.
+using EmbedRequest = Markoff::EmbedRequest;
+using EmbedFactory = Markoff::EmbedFactory;
 
 /// Extension-to-factory dispatch for `![[file.ext]]` embeds.
 ///
-/// Extension keys are case-insensitive (stored lowercased; dispatch
-/// lowercases the queried filename suffix). Built-in registrations land
-/// in Phase 5; plugin-level registrations will later route through the
-/// Cluster N stable ABI.
+/// Corbomite's registry keeps a Handle-based API (used by
+/// `tst_embedregistry` + plugin follow-ups) on top of the Markoff
+/// interface. Adapters in `corbomite/markoff_adapters/` wrap this
+/// registry for consumption by `Markoff::Reading::ReadingView`'s
+/// setter-injected seam.
 class EmbedRegistry
 {
 public:
@@ -49,7 +49,8 @@ public:
 
     Handle registerExtension(const QString &extension, EmbedFactory fn);
     void unregister(const Handle &h);
-    std::unique_ptr<MarkdownRenderChild> dispatch(const EmbedRequest &req) const;
+    std::unique_ptr<Markoff::MarkdownRenderChild>
+    dispatch(const EmbedRequest &req) const;
 
 private:
     struct Entry

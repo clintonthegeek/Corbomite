@@ -8,16 +8,6 @@ namespace Corbomite::Core {
 MarkdownRenderChild::MarkdownRenderChild() = default;
 MarkdownRenderChild::~MarkdownRenderChild() = default;
 
-void MarkdownRenderChild::setRenderedText(QString text)
-{
-    m_renderedText = std::move(text);
-}
-
-QString MarkdownRenderChild::renderedText() const
-{
-    return m_renderedText;
-}
-
 void MarkdownRenderChild::mountInto(QWidget *host)
 {
     m_host = host;

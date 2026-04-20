@@ -36,8 +36,12 @@
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/EmbedRegistry.h"
+#include "corbomite/core/MermaidRenderer.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/View.h"
+#include "corbomite/markoff_adapters/Adapters.h"
+#include "corbomite/storage/LinkResolver.h"
+#include "corbomite/storage/MetadataCache.h"
 #include "ExportToPdf.h"
 #include "editor/MarkdownView.h"
 #include "canvas/CanvasFileView.h"
@@ -257,10 +261,15 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     // Vault binding deferred to onVaultOpened — no vault exists yet.
 
     m_embedRegistry = std::make_unique<Corbomite::Core::EmbedRegistry>();
+    m_embedRegistryAdapter =
+        std::make_unique<Corbomite::MarkoffAdapters::EmbedRegistryAdapter>(
+            m_embedRegistry.get());
+    m_mermaidRenderer = std::make_unique<Corbomite::Core::MermaidRenderer>();
     m_embedRenderer = std::make_unique<Markoff::Reading::EmbedRenderer>(
-        m_embedRegistry.get(), /*cache=*/nullptr, /*resources=*/nullptr);
-    Markoff::Reading::registerBuiltinEmbedFactories(*m_embedRegistry,
-                                                          *m_embedRenderer);
+        m_embedRegistryAdapter.get(), /*cache=*/nullptr,
+        /*resources=*/nullptr);
+    Markoff::Reading::registerBuiltinEmbedFactories(*m_embedRegistryAdapter,
+                                                    *m_embedRenderer);
     m_hoverPopover->setEmbedRenderer(m_embedRenderer.get());
 
     m_suggestManager = new EditorSuggestManager(this);
@@ -1801,9 +1810,19 @@ void MainWindow::onVaultOpened(const QString &path)
     m_fileManager = new FileManager(m_vaultObj, m_metadataCache, this);
 
     m_popoverResources = std::make_unique<VaultScopedResources>(m_vaultObj);
+    m_linkResolverAdapter =
+        std::make_unique<Corbomite::MarkoffAdapters::LinkResolverAdapter>(
+            m_linkResolver);
+    m_metadataCacheAdapter =
+        std::make_unique<Corbomite::MarkoffAdapters::MetadataCacheAdapter>(
+            m_metadataCache);
+    m_metadataParserImpl =
+        std::make_unique<Corbomite::MarkoffAdapters::MetadataParserImpl>(
+            m_linkResolver);
     if (m_embedRenderer) {
-        m_embedRenderer->setMetadataCache(m_metadataCache);
+        m_embedRenderer->setMetadataCache(m_metadataCacheAdapter.get());
         m_embedRenderer->setResources(m_popoverResources.get());
+        m_embedRenderer->setMetadataParser(m_metadataParserImpl.get());
     }
 
     // Wire suggesters + hover popover against the live vault.

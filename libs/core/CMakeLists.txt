@@ -60,6 +60,10 @@ add_library(corbomite-core STATIC
     include/corbomite/core/PostProcessorRegistry.h
     src/CodeBlockProcessorRegistry.cpp
     include/corbomite/core/CodeBlockProcessorRegistry.h
+    src/MarkoffAdapters.cpp
+    include/corbomite/markoff_adapters/Adapters.h
+    src/MermaidRenderer.cpp
+    include/corbomite/core/MermaidRenderer.h
     src/DiffMatchPatch.cpp
     include/corbomite/core/DiffMatchPatch.h
     src/View.cpp
@@ -131,7 +135,10 @@ target_link_libraries(corbomite-core
     PUBLIC
         $<BUILD_INTERFACE:jkqtmathtext>
         $<BUILD_INTERFACE:mmdr>
-        $<BUILD_INTERFACE:markoff-parser>)
+        $<BUILD_INTERFACE:markoff-parser>
+        $<BUILD_INTERFACE:markoff_core>
+    PRIVATE
+        $<BUILD_INTERFACE:Corbomite::Storage>)
 
 if(CORBOMITE_USE_KEYRING)
     target_link_libraries(corbomite-core PRIVATE Qt6Keychain::Qt6Keychain)
