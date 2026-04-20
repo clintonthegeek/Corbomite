@@ -59,6 +59,7 @@ private Q_SLOTS:
     void onHeaderClicked(int column);
     void onSearchChanged(const QString &text);
     void onViewSelectorChanged(const QString &name);
+    void onSectionMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex);
 
 private:
     void rebuildLayout();

@@ -45,6 +45,7 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
 
     m_table = new QTableView(this);
     m_table->horizontalHeader()->setSectionsClickable(true);
+    m_table->horizontalHeader()->setSectionsMovable(true);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->verticalHeader()->setVisible(false);
     m_table->setEditTriggers(QAbstractItemView::DoubleClicked
@@ -56,6 +57,8 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
 
     connect(m_table->horizontalHeader(), &QHeaderView::sectionClicked,
             this, &BasesView::onHeaderClicked);
+    connect(m_table->horizontalHeader(), &QHeaderView::sectionMoved,
+            this, &BasesView::onSectionMoved);
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &BasesView::onSearchChanged);
     connect(m_viewSelector, &QComboBox::currentTextChanged,
@@ -168,6 +171,23 @@ void BasesView::onSearchChanged(const QString &text)
 void BasesView::onViewSelectorChanged(const QString &name)
 {
     setActiveView(name);
+    requestSave();
+}
+
+void BasesView::onSectionMoved(int, int, int)
+{
+    if (!m_activeView || !m_model) return;
+    auto *header = m_table->horizontalHeader();
+    const int columnCount = m_model->columnCount();
+    QVector<PropertyId> newOrder;
+    newOrder.reserve(columnCount);
+    for (int visual = 0; visual < columnCount; ++visual) {
+        const int logical = header->logicalIndex(visual);
+        if (logical < 0 || logical >= columnCount) continue;
+        newOrder.push_back(m_model->propertyAt(logical));
+    }
+    if (newOrder == m_activeView->order) return;
+    m_activeView->order = std::move(newOrder);
     requestSave();
 }
 
