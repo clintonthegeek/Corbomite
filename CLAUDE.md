@@ -6,7 +6,13 @@
 
 **Operational rituals (how to start a session, mark phase done, mark cluster done):** [`docs/CONTRIBUTING-OPS.md`](docs/CONTRIBUTING-OPS.md). Three checklists. Follow them — they are not advice.
 
-**Cluster plans (one per work cluster A–P) + parallel long-term internal refactors:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). 5 full plans + 3 stubs + 3 scouting docs + the qutepart-corbomite-fork plan as of 2026-04-15.
+**Cluster plans (one per work cluster) + parallel long-term internal refactors:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). INDEX is the table of contents over active plans; closed-cluster plans live under `plans/archive/` and are linked from INDEX.
+
+**Unified backlog (map):** [`docs/backlog.md`](docs/backlog.md). Every deferred follow-up, not-started cluster, and known-flaky test, grouped by theme. Read before picking up new work.
+
+**Decisions archive (journal):** [`docs/decisions-archive.md`](docs/decisions-archive.md). Append-only closeout summaries + rolled-off decisions. Consult for *why* a prior call was made — not at session start.
+
+**Archive directories are frozen.** `docs/archive/`, `docs/superpowers/plans/archive/`, and `docs/superpowers/specs/archive/` contain closed work. Don't follow links into them for live tasks.
 
 **Parallel internal refactors** (not cluster-numbered, run alongside parity work): the **Qutepart-Corbomite fork** at [`docs/superpowers/plans/2026-04-15-qutepart-corbomite-fork.md`](docs/superpowers/plans/2026-04-15-qutepart-corbomite-fork.md) (8-phase shaping of vendored `qutepart-cpp` into our permanent Source-mode widget at `libs/qutepart-corbomite/`; Phase 1 unblocks Cluster E). See PROJECT-STATE §"Parallel long-term internal refactors" for status.
 
@@ -14,9 +20,11 @@
 
 **Local KDE source (do not clone from invent.kde.org):** `~/src/kde/src/<repo>` is checked out for kate, kdevelop, kio, kconfig, kparts, kxmlgui, kwidgetsaddons, ktexteditor, krunner, baloo, okular, poppler, qtkeychain, sonnet (and more). Cluster plans reference these by absolute local path.
 
+**Do not regrow `PROJECT-STATE.md`.** When a cluster or phase closes, write **at most 3 sentences** in `PROJECT-STATE.md` §Current focus (replacing the previous top entry) and the **full** closeout paragraph into `docs/decisions-archive.md` under a new dated H2 header. The `**Previously:** …` cascade pattern is banned. If you find yourself writing a `Previously:` paragraph in `PROJECT-STATE.md`, you are writing in the wrong file.
+
 **Session-start ritual (TL;DR — full version in `CONTRIBUTING-OPS.md`):**
-1. Read this CLAUDE.md.
-2. Read `docs/PROJECT-STATE.md` top-to-bottom.
+1. Read `docs/PROJECT-STATE.md` top-to-bottom.
+2. If picking up new work (not continuing a live cluster), skim `docs/backlog.md` for candidates.
 3. Read the cluster plan(s) for the current focus.
 4. Read audit-doc sections cited in the plan.
 5. Glance at `git log --oneline -10`.
