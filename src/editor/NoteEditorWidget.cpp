@@ -50,16 +50,17 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
         Q_EMIT linkActivated(resolveTarget(target));
     });
     connect(m_editor, &Markoff::Editor::linkHovered,
-            this, [this](const QString &target) {
+            this, [this](const QString &target, const QPoint &globalPos) {
         if (!m_hoverPopover) return;
         if (target.isEmpty()) {
             m_hoverPopover->cancel();
         } else {
-            // Anchor near the cursor; Markoff doesn't expose hovered-link
-            // rect today (a Cluster H follow-up). The 20px y-offset keeps the
-            // popover from sitting under the cursor and triggering leaveEvent.
+            // Phase C5: Markoff now supplies the global-screen hover
+            // position directly. We preserve the +20 y-offset so the
+            // popover doesn't land under the cursor and trigger
+            // leaveEvent on the hovered link.
             m_hoverPopover->scheduleShow(resolveTarget(target),
-                                          QCursor::pos() + QPoint(0, 20));
+                                          globalPos + QPoint(0, 20));
         }
     });
     connect(m_editor, &Markoff::Editor::completionDismissHint,
@@ -146,6 +147,20 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
         if (!m_readingView) {
             m_readingView = new Markoff::Reading::ReadingView(this);
             m_readingIndex = m_stack->addWidget(m_readingView);
+            // Phase C5: wire Reading-mode link-hover into the same
+            // HoverPopover instance the editor uses. Prior to C5
+            // Reading mode had no hover popover; wiki-link hover in
+            // Reading now shows the preview consistent with Live mode.
+            connect(m_readingView, &Markoff::Reading::ReadingView::linkHovered,
+                    this, [this](const QString &href, const QPoint &globalPos) {
+                if (!m_hoverPopover) return;
+                if (href.isEmpty()) {
+                    m_hoverPopover->cancel();
+                } else {
+                    m_hoverPopover->scheduleShow(resolveTarget(href),
+                                                  globalPos + QPoint(0, 20));
+                }
+            });
         }
         break;
     }
