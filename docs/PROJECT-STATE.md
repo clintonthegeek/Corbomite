@@ -2,13 +2,15 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines by offloading closeout prose to `decisions-archive.md`. Follow Ritual 2/3 in `CONTRIBUTING-OPS.md` after every meaningful work session.
 
-**Last updated:** 2026-04-20 — Markoff Phase B (external-origin integration) absorbed. CorbomiteApp now runs on the Markoff submodule's tri-view API (`Markoff::Live` / `Markoff::Reading` / `Markoff::Source`); in-tree `libs/qutepart-corbomite/` + `libs/readingview/` deleted. Corbomite commit `da9a0a2c`; Markoff pin `v0.2.7`. Cluster V Phase 4 still pending and resumes next. See §Parallel long-term internal refactors for ongoing Markoff-side absorption status.
+**Last updated:** 2026-04-20 — Markoff Phase C stewardship. Corbomite agent took the Phase C baton per `/home/clinton/dev/Markoff/docs/handoff/2026-04-20-phase-c-ownership-handoff.md`. Phase C scope expanded to C1–C7 (was C1–C4) by folding in Cluster V Phase 4 (→ C5), the recovered consumer-editor-state-surface spec (→ C6), and the Qutepart-fork Phase 3 find/replace + fold-gutter coordinator (→ C7). Submodule pinned at Markoff `v0.2.9`. Cluster V Phase 4 explicitly deferred until its Markoff-side prerequisites land as C5; Cluster V finishes under total control of both repos. See §Markoff Phase C (external-origin integration) below for the live status board pointer.
 
 ---
 
 ## Current focus
 
-**Cluster V (Editor & Workspace UI surfacing) — Phase 2+3 complete, Phase 4 next.** Phases 1, 2+3 shipped. Next: Phase 4 (ReadingView interactions — `linkHovered` signal + `HoverPopover` wire-up for ReadingView, click-to-fold on HeadingItem, `codeBlockProcessorRegistry` routing, ReadingView zoom virtuals). Plan at `superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md`.
+**Markoff Phase C (external-origin integration) — C1 spec next.** Markoff is now co-owned by this agent. C1 (DI seam, retires the Phase B `MARKOFF_READING_USE_REAL_COREDEPS` CMake-option bridge) is the next work-unit to spec. Authoritative status board: **[`libs/markoff-family/docs/phase-c-status.md`](../libs/markoff-family/docs/phase-c-status.md)**. Session flow for Phase C work: draft spec in Markoff → draft plan in Markoff → implement on Markoff master → tag → bump Corbomite pin → adapt → ship → commit both sides. See Ritual 5 in `CONTRIBUTING-OPS.md`.
+
+**Deferred:** Cluster V Phase 4 (ReadingView interactions). Absorbed into Markoff Phase C work-unit **C5**; finishes once C1+C5 land and Corbomite adapts. Plan at `superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md`.
 
 ---
 
@@ -48,12 +50,20 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster V — Editor & Workspace UI surfacing
-- **Phase:** 4 of 6 (ReadingView interactions — not started)
+- **Phase:** 4 of 6 — **paused: blocked on Markoff Phase C C5**
 - **Last completed step:** Phase 2+3 closeout (2026-04-20) — Tasks 2.1-2.8 shipped across 7 commits; menubar/palette/hotkeys surface all ~40 editor actions; action-wiring introspection test passes; e2e sanity unchanged
-- **Next expected step:** Phase 4 Task 4.1 — `ReadingView::linkHovered` signal + rename/alias of `wikiLinkHovered` with preserved emit sites
-- **Owner:** clinton
+- **Next expected step:** resume Phase 4 once Markoff C5 lands (ReadingView `linkHovered` + click-to-fold + codeBlockProcessorRegistry + zoom virtuals). Phase 4's full scope is now part of C5's Corbomite-side adaptation beat.
+- **Owner:** clinton (paused)
 - **Date last touched:** 2026-04-20
 - **Open sub-questions:** none
+
+### Markoff Phase C (external-origin integration)
+- **Phase:** C1 next (scope: C1–C7; see §Markoff Phase C above)
+- **Last completed step:** 2026-04-20 — Phase C baton taken; scope expanded C1–C4 → C1–C7; authoritative status at `libs/markoff-family/docs/phase-c-status.md`; submodule pinned at Markoff `v0.2.9`
+- **Next expected step:** draft C1 spec (DI seam: `IEmbedRegistry` / `ICodeBlockProcessorRegistry` / `IVaultResourceProvider` / `IEmbedDepthGuard` / `IMarkdownRenderChildFactory` / `IMermaidRenderer` / `ILinkResolver` / `IMetadataCache`) in `libs/markoff-family/docs/specs/YYYY-MM-DD-phase-c1-di-seam.md`
+- **Owner:** clinton
+- **Date last touched:** 2026-04-20
+- **Open sub-questions:** whether C5 + C6 land as a single release or two (both are small; decide during C1 spec)
 
 When work begins, each in-flight cluster gets a row here:
 
@@ -75,15 +85,35 @@ Move the row to "Recent decisions" or a cluster retro on completion.
 
 | Project | Origin | Plan | Status | Notes |
 |---|---|---|---|---|
-| Qutepart-Corbomite fork | internal | [spec](superpowers/specs/2026-04-15-qutepart-corbomite-fork-design.md) + [plan](superpowers/plans/2026-04-15-qutepart-corbomite-fork.md) | Phases 1 + 2 done | Phases 1 (vendor + CMake + smoke test) and 2 (`Corbomite::SourceEditor` shim + visual-line float scroll + cursor/fold API + NoteEditorWidget mount) both landed 2026-04-15. Phase 2 extended `Qutepart` public API with `scrollPositionVisualLine` accessors (logged in library's `PROVENANCE.md`). Next: Phase 3 (public find/replace API) — parallelisable with Cluster E Phase 1. Phases 4–8 run asynchronously. |
+| Markoff integration | **external-origin**, **under Corbomite-agent stewardship** | Authoritative status: **[`phase-c-status.md`](../libs/markoff-family/docs/phase-c-status.md)** in the Markoff submodule | **Phase A + B done**, Phase C in scope-expansion; C1 next | See dedicated section below (§Markoff Phase C). Phase B absorbed 2026-04-20 as Corbomite commit `da9a0a2c`. Phase C ownership transferred 2026-04-20 per handoff doc; scope expanded from C1–C4 to C1–C7 (adds C5 Reading interactions, C6 Editor state + context-menu surface, C7 Source feature completion). Submodule pinned at Markoff `v0.2.9`. |
+| Qutepart-Corbomite fork | internal | [spec](superpowers/specs/2026-04-15-qutepart-corbomite-fork-design.md) + [plan](superpowers/plans/2026-04-15-qutepart-corbomite-fork.md) | Phases 1 + 2 done; Phase 3 absorbed into Markoff Phase C (C7) | Phases 1 (vendor + CMake + smoke test) and 2 (`Corbomite::SourceEditor` shim + visual-line float scroll + cursor/fold API + NoteEditorWidget mount) both landed 2026-04-15. Phase 2 extended `Qutepart` public API with `scrollPositionVisualLine` accessors (logged in library's `PROVENANCE.md`). **Phase 3 (public find/replace API) now absorbed into Markoff Phase C work-unit C7** — the `Markoff::Source` widget owns that surface now. Phases 4–8 on Markoff side under `Markoff::Source` maintainership; no longer tracked here. |
 | Graffodil adoption | internal | [scouting](superpowers/plans/2026-04-14-cluster-p-graffodil-adoption-SCOUTING.md) | Scouting | Listed as Cluster P in the roadmap above — internal refactor porting libs/forcegraph + libs/canvas onto Graffodil. |
-| Markoff tri-view absorption | **external-origin** | Markoff-side [spec](../libs/markoff-family/docs/specs/2026-04-20-phase-b-corbomite-migration.md) + [plan](../libs/markoff-family/docs/plans/2026-04-20-phase-b-corbomite-migration.md) | **Phase A + B done**, Phase C pending | Markoff (`/home/clinton/dev/Markoff`, submodule at `libs/markoff-family`) became the authoritative home for source / live-preview / reading widgets. **Phase A** split markoff into four sibling libraries (`Markoff::Core` / `Live` / `Source` / `Reading`) with a polymorphic `MarkdownView` base; **Phase B** (landed 2026-04-20, Corbomite commit `da9a0a2c`, Markoff submodule at `v0.2.7`) flipped CorbomiteApp onto those targets, deleted `libs/qutepart-corbomite/` + `libs/readingview/` from Corbomite, and wired `MARKOFF_READING_USE_REAL_COREDEPS=ON` as a CMake-option bridge so markoff-reading links host `Corbomite::Core` + `Corbomite::Storage` + `mmdr`. **Phase C** (Markoff-led, not yet plan-ready) replaces the option bridge with a DI seam (`IEmbedRegistry` / `ICodeBlockProcessorRegistry` / `IVaultResourceProvider`) and consolidates `Theme` / `ResourceProvider` / `LinkResolver` across the three leaves. Ownership: jointly held with Markoff per `libs/markoff-family/docs/handoff/2026-04-20-phase-c-ownership-handoff.md`. |
+
+## Markoff Phase C (external-origin integration under Corbomite-agent stewardship)
+
+Phase C of the Markoff tri-view absorption. **Single source of truth:** `libs/markoff-family/docs/phase-c-status.md` in the Markoff submodule. The table below is a mirror summary for at-a-glance PROJECT-STATE visibility — update it when the authoritative status changes, but don't treat this as the master copy.
+
+Ownership model: this agent holds commit authority on both repos. See Ritual 5 in `CONTRIBUTING-OPS.md` for the cross-repo session flow and the Markoff-side invariants to preserve (standalone build green, no `Corbomite`-named types in Markoff public API, tags append-only, `master` append-only).
+
+| ID | Work-unit | Absorbs Corbomite-side | Markoff tag | Status |
+|---|---|---|---|---|
+| C1 | DI seam (retires `MARKOFF_READING_USE_REAL_COREDEPS`) | — | `v0.3.0` | not started — next up |
+| C5 | Reading-mode interaction parity | Cluster V Phase 4 | `v0.4.0` | requirements on file |
+| C6 | Editor state + context-menu contribution surface | Backlog §3 (editor-state + editor-menu) | `v0.5.0` | requirements on file (443 + 203-line spec recovered at `v0.2.8`) |
+| C3 | `MarkoffDocument` content-authoritative | Phase-A-deferred async/scroll/cursor plumbing | `v0.6.0` | not started |
+| C7 | Source feature completion (find/replace + fold-gutter) | Qutepart-fork Phase 3 + Cluster V.2 fold-gutter | `v0.7.0` | requirements on file |
+| C2 | Theme / ResourceProvider / LinkResolver consolidation | — | `v0.8.0` | not started |
+| C4 | Renderer unification (Code/Math/Mermaid) | — | `v0.9.0` | not started |
+
+Ordering: `C1 → C5 → C6 → C3 → C7 → C2 → C4`. Rationale in the Markoff-side status doc.
 
 ---
 
 ## Recent decisions
 
 Append-only. Most recent on top. Archive entries older than ~3 months to `docs/decisions-archive.md` (quarterly).
+
+- **2026-04-20 — Markoff Phase C baton taken; scope expanded C1–C4 → C1–C7; Cluster V Phase 4 formally deferred.** Read the handoff at `libs/markoff-family/docs/handoff/2026-04-20-phase-c-ownership-handoff.md`; Phase C ownership now sits with this agent, working both sides of the submodule boundary. Scope expanded by folding in three Corbomite-prescribed work bundles the handoff didn't cover: **Cluster V Phase 4** (ReadingView `linkHovered`/click-to-fold/codeBlockProcessorRegistry/zoom virtuals) → **C5**; the **consumer editor-state surface spec** (443 + 203 lines prescribing `EditorContext` + `contextChanged` + `aboutToShowContextMenu`, recovered from Corbomite's stranded submodule-master in Markoff commits `8d92247`/`245bd56`, tagged `v0.2.8`) → **C6**; **Qutepart-fork Phase 3 (public find/replace API)** + **Cluster V.2 fold-gutter coordinator** (both now Markoff-side) → **C7**. New ordering: `C1 → C5 → C6 → C3 → C7 → C2 → C4`. Cluster V Phase 4 is paused as "blocked on Markoff Phase C C5"; its original scope ships as C5's Corbomite-side adaptation beat. Submodule pinned at Markoff `v0.2.9`. `CONTRIBUTING-OPS.md` gained **Ritual 5** (cross-repo session flow for working Corbomite + Markoff as one system). Recent-decisions bullet for the Phase B closeout (below) is now two bullets deep; Phase C session-start flow differs from normal clusters — `CONTRIBUTING-OPS.md` Ritual 5 is the authoritative how-to. Per backlog: struck the three items now absorbed by Markoff Phase C (consumer editor-state surface requirements → C6; editor right-click menu enrichment → C6; Obsidian-id CommandRegistry mirror now mostly Markoff-internal). Qutepart-fork row in §Parallel long-term internal refactors updated to mark Phase 3 as absorbed by C7.
 
 - **2026-04-20 — Markoff Phase B absorbed (external-origin integration).** CorbomiteApp flipped onto the Markoff submodule's tri-view API: `Markoff::Live` / `Markoff::Reading` / `Markoff::Source` replace Corbomite's in-tree `Corbomite::QutepartSource` + `Corbomite::ReadingView` copies, which are deleted. Corbomite commit `da9a0a2c`; Markoff pin `v0.2.7`. Mid-migration the agent discovered three Cluster V Phase 2+3 Markoff-editor commits (`SetHeading1..6`, `cursorInTable`, widen `insertCallout`/`insertTable`, `currentHeadingLevel()`) that had been authored on Corbomite's local submodule master but never reached Markoff origin; cherry-picked onto Markoff master at `v0.2.1`. Spec's "Corbomite::Storage is dead" assumption disproved — `EmbedRenderer.cpp` includes `<corbomite/storage/CachedMetadata.h>` directly; Storage stays linked in real-deps mode (Markoff `v0.2.2`). Four Phase-A-skipped markoff-reading tests now re-enabled under `MARKOFF_READING_USE_REAL_COREDEPS` (`v0.2.3`). Trailing fixups: cherry-picked tests' stale `markoff` target name (`v0.2.5`), `Corbomite::Core` becomes PUBLIC on `markoff_reading` because the forwarding header `markoff/reading/VaultResourceProvider.h` needs it (`v0.2.6`), and a test-specific Storage link for `tst_readingview_embedrenderer` (`v0.2.7`). 241/243 tests pass (2 pre-existing flakes: parallel-run e2e segfault, benchmark timeout). Cluster V Phase 4 (ReadingView interactions) resumes next; any Markoff-side impact now lands through the submodule, not via direct Corbomite-side widget edits. **Phase C** (DI seam retiring the CMake-option bridge + `Theme`/`ResourceProvider`/`LinkResolver` consolidation) is Markoff-led, not yet plan-ready. New origin-class label introduced in §Parallel long-term internal refactors: **external-origin integration** (upstream repo owns the phase cadence; Corbomite absorbs on its own schedule).
 

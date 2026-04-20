@@ -88,6 +88,60 @@ Execute every applicable step.
 
 ---
 
+## Ritual 5 — Working Markoff + Corbomite as one system (cross-repo)
+
+Goal: when the active work-unit is a Markoff Phase C item, keep both repos coherent and both sets of conventions honoured.
+
+Applies whenever you touch `/home/clinton/dev/Markoff/` — directly, or via the submodule at `libs/markoff-family/`. Adds obligations on top of Rituals 1/2/3, it does not replace them.
+
+### Ownership scope
+
+This agent holds commit authority on Markoff's `master` per `libs/markoff-family/docs/handoff/2026-04-20-phase-c-ownership-handoff.md`. You may:
+- Create and land specs, plans, implementation, and tags in the Markoff repo.
+- Retire Phase B bridge code (`MARKOFF_READING_USE_REAL_COREDEPS`, stubs) as Phase C work-units require.
+- Move types between repos when the interface design calls for it.
+
+You may **not** (without user check-in):
+- Change Markoff's public API surface (class names under `Markoff::`, public header paths under `include/markoff/`) in a way not already in a landed spec.
+- Break the current Markoff tag that CorbomiteApp builds against without landing both sides in the same pin bump.
+- Vendor the `mmdr` Rust crate into Markoff (Phase B decision; reopenable only via user ok).
+
+### Markoff-side invariants (must hold after every Markoff commit)
+
+1. **Standalone Markoff build green.** `cd /home/clinton/dev/Markoff && rm -rf build-dev && cmake -S . -B build-dev && cmake --build build-dev -j && cd build-dev && ctest` on a fresh checkout must pass with zero external projects present.
+2. **No `Corbomite`-named types in Markoff public interfaces.** The Phase B stubs under `libs/markoff-reading/stubs/corbomite/` are the one exception; they retire in Phase C work-unit C1.
+3. **Tests that need Corbomite concretes gate on the CMake option** (Phase B) or its Phase C successor (the DI seam's host-injection mechanism).
+4. **Every Phase C work-unit tags a new Markoff minor version.** `v0.3.0`, `v0.4.0`, …. Tags are append-only; never force-move.
+5. **Markoff `master` is append-only.** No force-push. Revert commits are the only way to undo.
+6. **Commit identity is unified.** Same author + co-author trailer you use on Corbomite commits.
+
+### Session flow for a Phase C work-unit
+
+Authoritative status board: **`libs/markoff-family/docs/phase-c-status.md`** in the Markoff submodule. Read it first and last.
+
+1. **Spec** in Markoff: `libs/markoff-family/docs/specs/YYYY-MM-DD-phase-c<N>-<topic>.md`. Update the status board to `spec drafted`. Commit + tag if non-trivial.
+2. **Plan** in Markoff: `libs/markoff-family/docs/plans/YYYY-MM-DD-phase-c<N>-<topic>.md`. Same format conventions as Phase A/B plans.
+3. **Implement on Markoff `master`** (per this repo's no-feature-branches convention; commits land directly). Green tests after each commit. Each work-unit commit set ends with a Markoff tag (`v0.X.0`).
+4. **Bump the submodule pin** in Corbomite: `cd libs/markoff-family && git checkout v0.X.0 && cd .. && git add libs/markoff-family`. **Pre-flight audit:** always run `git -C libs/markoff-family rev-list <new>..<current>` before committing the bump — see the `feedback_submodule_pin_audit` memory.
+5. **Adapt on the Corbomite side.** Write CorbomiteApp-side adapter code, migrate call sites, bump the Corbomite-side tests.
+6. **Smoke** end-to-end (`./build/Corbomite` + ctest) before declaring the work-unit shipped.
+7. **Retire bridge code** on the Markoff side if the work-unit replaces a prior mechanism (e.g. C1 retires the Phase B CMake option + stubs). Tag `v0.X.1` for the cleanup release.
+8. **Close** the work-unit on the status board. Append an activity-log entry in `phase-c-status.md`.
+9. **Update Corbomite's PROJECT-STATE** §Markoff Phase C summary table status column; add a Recent-decisions bullet.
+
+### Commit-convention notes
+
+Markoff-side commits use Markoff's convention (no `Cluster X phase N` footer — Markoff isn't cluster-aware). Corbomite-side commits that bump the pin or adapt to a new Markoff tag get `feat(markoff): Phase C <N> adaptation` style subjects. Both sides get the same `Co-Authored-By` trailer.
+
+### When Markoff work is "done"
+
+Phase C completes when: all seven work-units closed on the status board, the `MARKOFF_READING_USE_REAL_COREDEPS` option and its stubs are gone from Markoff, and Corbomite's CorbomiteApp is running on the final Phase C Markoff tag with no bridge code lingering. At that point:
+- Update the Markoff-side handoff doc with a "Phase C closed" header (append, don't rewrite).
+- Write a retrospective in `docs/cluster-retros/markoff-phase-c.md` on the Corbomite side (mirrors a cluster retro).
+- Consider whether Markoff ownership reverts (user decision).
+
+---
+
 ## Ritual 4 — Test enrichment cycle (recurring)
 
 Goal: after a cluster lands or after a multi-session push of code, hunt for the bugs that per-class unit tests miss — cross-component, cross-session, and UI-observable behaviour.
