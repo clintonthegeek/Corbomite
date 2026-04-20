@@ -116,6 +116,10 @@ void View::onTabMenu(QMenu *menu)
 }
 void View::onResize() {}
 
+void View::zoomIn() {}
+void View::zoomOut() {}
+void View::zoomReset() {}
+
 QWidget *View::containerWidget() const { return m_containerWidget; }
 WorkspaceLeaf *View::leaf() const { return m_leaf; }
 

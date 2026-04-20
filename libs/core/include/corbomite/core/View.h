@@ -57,6 +57,10 @@ public:
     virtual void onTabMenu(QMenu *menu);
     virtual void onResize();
 
+    virtual void zoomIn();
+    virtual void zoomOut();
+    virtual void zoomReset();
+
     QWidget *containerWidget() const;
     WorkspaceLeaf *leaf() const;
 

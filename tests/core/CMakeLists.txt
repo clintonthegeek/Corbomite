@@ -149,6 +149,11 @@ add_test(NAME tst_view_lifecycle COMMAND tst_view_lifecycle)
 target_link_libraries(tst_view_lifecycle PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_view_lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_view_zoom tst_view_zoom.cpp)
+add_test(NAME tst_view_zoom COMMAND tst_view_zoom)
+target_link_libraries(tst_view_zoom PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_view_zoom PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_textfileview tst_textfileview.cpp)
 add_test(NAME tst_textfileview COMMAND tst_textfileview)
 target_link_libraries(tst_textfileview PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
