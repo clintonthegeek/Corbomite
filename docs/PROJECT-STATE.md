@@ -8,7 +8,7 @@
 
 ## Current focus
 
-**Markoff Phase C (external-origin integration) — C1 spec drafted; plan next.** C1 spec (`libs/markoff-family/docs/specs/2026-04-20-phase-c1-di-seam.md`) lays out the two-sub-phase migration (`v0.3.0-alpha.1` → Corbomite adapters → `v0.3.0` stubs retirement). Next: draft C1 plan in Markoff, then implement. Authoritative status board: **[`libs/markoff-family/docs/phase-c-status.md`](../libs/markoff-family/docs/phase-c-status.md)**. Session flow: Ritual 5 in `CONTRIBUTING-OPS.md`.
+**Markoff Phase C (external-origin integration) — C1 ready to implement.** Spec (`libs/markoff-family/docs/specs/2026-04-20-phase-c1-di-seam.md`) + plan (`libs/markoff-family/docs/plans/2026-04-20-phase-c1-di-seam.md`) both landed. Plan is 26 tasks, self-contained (a fresh-context agent can execute). Timeline estimate ~2.5 days across both repos. Authoritative status board: **[`libs/markoff-family/docs/phase-c-status.md`](../libs/markoff-family/docs/phase-c-status.md)**. Session flow: Ritual 5 in `CONTRIBUTING-OPS.md`.
 
 **Deferred:** Cluster V Phase 4 (ReadingView interactions). Absorbed into Markoff Phase C work-unit **C5**; finishes once C1+C5 land and Corbomite adapts. Plan at `superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md`.
 
@@ -58,9 +58,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 - **Open sub-questions:** none
 
 ### Markoff Phase C (external-origin integration)
-- **Phase:** C1 spec drafted; plan + implementation pending
-- **Last completed step:** 2026-04-20 — C1 spec landed in Markoff at `docs/specs/2026-04-20-phase-c1-di-seam.md`; submodule pinned at Markoff `v0.2.10`. Ten design decisions recorded; self-approved per recipe step-3 (1:1 interface-signature port).
-- **Next expected step:** draft C1 plan in Markoff at `libs/markoff-family/docs/plans/2026-04-20-phase-c1-di-seam.md` (task-by-task; commits for C1a sub-phase on Markoff side, Corbomite adapter commit in between, C1b cleanup on Markoff side). Then implement C1a.
+- **Phase:** C1 ready to implement
+- **Last completed step:** 2026-04-20 — C1 plan landed in Markoff at `docs/plans/2026-04-20-phase-c1-di-seam.md` (26 tasks, self-contained for fresh context); submodule pinned at Markoff `v0.2.11`.
+- **Next expected step:** execute C1 plan Task 1 (add `markoff-core` primitive headers) in a fresh-context session. Plan estimated at ~2.5 days across both repos; work split C1a Markoff (Tasks 1–9) → Corbomite adapter (Tasks 10–16) → C1b Markoff (Tasks 17–22) → Corbomite cleanup (Tasks 23–26).
 - **Owner:** clinton
 - **Date last touched:** 2026-04-20
 - **Open sub-questions:** whether `tst_sectionlayout_mermaid` stays on Markoff side (asserting against empty SVG in standalone) or moves to Corbomite side (decision during C1b implementation)
@@ -97,7 +97,7 @@ Ownership model: this agent holds commit authority on both repos. See Ritual 5 i
 
 | ID | Work-unit | Absorbs Corbomite-side | Markoff tag | Status |
 |---|---|---|---|---|
-| C1 | DI seam (retires `MARKOFF_READING_USE_REAL_COREDEPS`) | — | `v0.3.0` | **spec drafted** — [Markoff-side spec](../libs/markoff-family/docs/specs/2026-04-20-phase-c1-di-seam.md); plan next |
+| C1 | DI seam (retires `MARKOFF_READING_USE_REAL_COREDEPS`) | — | `v0.3.0` | **plan drafted — ready to implement** ([spec](../libs/markoff-family/docs/specs/2026-04-20-phase-c1-di-seam.md) + [plan](../libs/markoff-family/docs/plans/2026-04-20-phase-c1-di-seam.md)) |
 | C5 | Reading-mode interaction parity | Cluster V Phase 4 | `v0.4.0` | requirements on file |
 | C6 | Editor state + context-menu contribution surface | Backlog §3 (editor-state + editor-menu) | `v0.5.0` | requirements on file (443 + 203-line spec recovered at `v0.2.8`) |
 | C3 | `MarkoffDocument` content-authoritative | Phase-A-deferred async/scroll/cursor plumbing | `v0.6.0` | not started |
