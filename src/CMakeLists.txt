@@ -59,6 +59,7 @@ target_link_libraries(CorbomiteApp
         KF6::IconThemes
         KF6::ConfigCore
         KF6::ConfigWidgets
+        KF6::ColorScheme
         KF6::DBusAddons
         Corbomite::Core
         Corbomite::Search

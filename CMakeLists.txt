@@ -34,6 +34,7 @@ find_package(KF6WidgetsAddons REQUIRED)
 find_package(KF6IconThemes REQUIRED)
 find_package(KF6Config REQUIRED)
 find_package(KF6ConfigWidgets REQUIRED)
+find_package(KF6ColorScheme REQUIRED)
 find_package(KF6DBusAddons REQUIRED)
 find_package(KF6SyntaxHighlighting REQUIRED)
 
