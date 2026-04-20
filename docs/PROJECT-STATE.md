@@ -2,13 +2,13 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines by offloading closeout prose to `decisions-archive.md`. Follow Ritual 2/3 in `CONTRIBUTING-OPS.md` after every meaningful work session.
 
-**Last updated:** 2026-04-20 — Markoff Phase C1 closed. DI seam live at Markoff `v0.3.0`; Phase B bridge (`MARKOFF_READING_USE_REAL_COREDEPS` option + `stubs/corbomite/` tree) retired. Corbomite adapter layer lives at `libs/core/include/corbomite/markoff_adapters/` (composition-based). Submodule pinned at Markoff `v0.3.0`. Next: C5 spec (ReadingView interactions → absorbs Cluster V Phase 4).
+**Last updated:** 2026-04-20 — Markoff Phase C5 spec drafted (`libs/markoff-family/docs/specs/2026-04-20-phase-c5-reading-interaction-parity.md`). Submodule pin advanced to Markoff master tip `6861f8f` (one commit past `v0.3.0`). Next: C5 plan + implementation.
 
 ---
 
 ## Current focus
 
-**Markoff Phase C — C1 closed; C5 spec next.** DI seam shipped across 7 Markoff commits (`fe655b0` → `0282438`, tags `v0.3.0-alpha.1` / `v0.3.0-alpha.2` / `v0.3.0`) and 2 Corbomite commits (`59ecd5cb` adapter + `751fe268` cleanup). Full closeout prose in `docs/decisions-archive.md`. Authoritative status board: **[`libs/markoff-family/docs/phase-c-status.md`](../libs/markoff-family/docs/phase-c-status.md)**. Ritual 5 remains the cross-repo session flow for C5–C7.
+**Markoff Phase C — C5 spec drafted; plan next.** C1 closed at Markoff `v0.3.0`. C5 spec landed on Markoff master as `6861f8f` (submodule pin advanced). Spec narrowed C5 to two real features (unified `linkHovered` + SectionLayout code-block routing); click-to-fold and zoom virtuals are already landed. Authoritative status board: **[`libs/markoff-family/docs/phase-c-status.md`](../libs/markoff-family/docs/phase-c-status.md)**. Ritual 5 remains the cross-repo session flow for C5–C7.
 
 **Deferred:** Cluster V Phase 4 (ReadingView interactions). Absorbed into Markoff Phase C work-unit **C5**; finishes once C1+C5 land and Corbomite adapts. Plan at `superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md`.
 
@@ -58,9 +58,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 - **Open sub-questions:** none
 
 ### Markoff Phase C (external-origin integration)
-- **Phase:** C1 closed; C5 spec next
-- **Last completed step:** 2026-04-20 — C1 shipped end-to-end (7 Markoff commits `fe655b0` → `0282438`, 3 Markoff tags `v0.3.0-alpha.1` / `v0.3.0-alpha.2` / `v0.3.0`, 2 Corbomite commits `59ecd5cb` adapter + `751fe268` cleanup). `MARKOFF_READING_USE_REAL_COREDEPS` option + `stubs/corbomite/` tree deleted. Corbomite adapter layer at `libs/core/include/corbomite/markoff_adapters/`.
-- **Next expected step:** draft C5 spec (ReadingView `linkHovered` unified signal + click-to-fold + codeBlockProcessorRegistry routing + `zoomIn/Out/Reset` virtuals). Input prescription already on file in `libs/markoff-family/docs/phase-c-status.md` §C5.
+- **Phase:** C5 spec drafted; plan next
+- **Last completed step:** 2026-04-20 — C5 spec `libs/markoff-family/docs/specs/2026-04-20-phase-c5-reading-interaction-parity.md` written + committed on Markoff master (`6861f8f`). Submodule pin advanced on Corbomite side. Spec narrowed scope: unified `linkHovered(href, globalPos)` replacing `wikiLinkHovered` (breaking) + widening `Markoff::Editor::linkHovered` to match; `SectionLayout` dispatch through `codeBlockProcessorRegistry` (registry populated today but never consulted during layout). Click-to-fold on fold-arrow hit-zone + `zoomIn/Out/resetZoom` virtuals on ReadingView are already-landed; spec documents them + schedules Corbomite adaptation beat (absorbs Cluster V Phase 4 — HoverPopover rewire to support regular URLs, `View::zoomIn/Out/Reset` default-no-op virtuals, un-gating four `MARKOFF_READING_USE_REAL_COREDEPS`-gated tests).
+- **Next expected step:** draft C5 plan at `libs/markoff-family/docs/plans/2026-04-20-phase-c5-reading-interaction-parity.md` via `superpowers:writing-plans`.
 - **Owner:** clinton
 - **Date last touched:** 2026-04-20
 - **Open sub-questions:** un-gating the 4 Phase-B-style tests (`tst_sectionlayout_mermaid`, `tst_readingview_embedrenderer`, `tst_readingview_mermaid_registered`, `tst_readingview_embed_builtins`) is deferred to a Corbomite-side adapter-test scaffolding commit — they currently sit behind `if(FALSE AND MARKOFF_READING_USE_REAL_COREDEPS)` in Markoff tests/CMakeLists.txt. NoteEditorWidget's per-note ReadingView needs `setMermaidRenderer` + `setVault*Parser` calls at construction time (currently only HoverPopover's EmbedRenderer path is exercised end-to-end); tracked as a C1 follow-up.
@@ -98,7 +98,7 @@ Ownership model: this agent holds commit authority on both repos. See Ritual 5 i
 | ID | Work-unit | Absorbs Corbomite-side | Markoff tag | Status |
 |---|---|---|---|---|
 | C1 | DI seam (retires `MARKOFF_READING_USE_REAL_COREDEPS`) | — | `v0.3.0` | **Done 2026-04-20** — Markoff v0.3.0 + Corbomite `59ecd5cb`/`751fe268`; adapter layer at `libs/core/include/corbomite/markoff_adapters/` |
-| C5 | Reading-mode interaction parity | Cluster V Phase 4 | `v0.4.0` | requirements on file |
+| C5 | Reading-mode interaction parity | Cluster V Phase 4 | `v0.4.0` | **spec drafted** 2026-04-20 (Markoff `6861f8f`) |
 | C6 | Editor state + context-menu contribution surface | Backlog §3 (editor-state + editor-menu) | `v0.5.0` | requirements on file (443 + 203-line spec recovered at `v0.2.8`) |
 | C3 | `MarkoffDocument` content-authoritative | Phase-A-deferred async/scroll/cursor plumbing | `v0.6.0` | not started |
 | C7 | Source feature completion (find/replace + fold-gutter) | Qutepart-fork Phase 3 + Cluster V.2 fold-gutter | `v0.7.0` | requirements on file |
