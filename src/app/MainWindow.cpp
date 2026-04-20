@@ -944,7 +944,9 @@ void MainWindow::setupActions()
     auto *readingMode = ac->addAction(QStringLiteral("view_reading_mode"));
     readingMode->setText(i18n("Reading"));
     readingMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
-    ac->setDefaultShortcut(readingMode, QKeySequence(Qt::CTRL | Qt::Key_E));
+    // Ctrl+E is owned by `editor_toggle_mode` (3-way cycle per spec §3.3).
+    // Direct-set to Reading remains reachable via menu; Phase 2 will replace
+    // this action with a radio submenu entry.
     connect(readingMode, &QAction::triggered, this, [this]() {
         if (auto *editor = activeEditor())
             editor->setViewMode(NoteEditorWidget::ViewMode::Reading);
