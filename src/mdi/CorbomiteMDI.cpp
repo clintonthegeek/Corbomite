@@ -1581,12 +1581,6 @@ void MainWindow::insertWidgetBeforeStatusbar(QWidget *widget)
     m_bottomSidebarLayout->insertWidget(idxOfStatusbar, widget);
 }
 
-void MainWindow::prependToMainHLayout(QWidget *widget)
-{
-    Q_ASSERT(m_mainHLayout);
-    m_mainHLayout->insertWidget(0, widget);
-}
-
 void MainWindow::setStatusBarVisible(bool visible)
 {
     statusBarStackedWidget()->setVisible(visible);

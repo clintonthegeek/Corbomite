@@ -54,7 +54,8 @@
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
 #include "dialogs/TemplatePicker.h"
-#include "RibbonSlot.h"
+#include "RibbonToolBar.h"
+#include "RibbonStateController.h"
 #include "corbomite/models/TemplateService.h"
 #include "corbomite/models/DailyNoteService.h"
 #include "corbomitesettings.h"
@@ -185,7 +186,7 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     setupEditor();
     setupSidebars();
     setupStatusBar();
-    setupRibbon();
+    setupRibbonToolBar();
 
 #ifdef CORBOMITE_DEV_BUILD
     setupGUI(Default, QStringLiteral("corbomite-devui.rc"));
@@ -1543,20 +1544,19 @@ void MainWindow::setupStatusBar()
     statusBar()->addPermanentWidget(m_cursorPosLabel);
 }
 
-void MainWindow::setupRibbon()
+void MainWindow::setupRibbonToolBar()
 {
-    m_ribbon = new RibbonSlot(this);
-    prependToMainHLayout(m_ribbon);
+    m_ribbonToolBar = new RibbonToolBar(QStringLiteral("ribbonToolBar"), this);
+    m_ribbonToolBar->setWindowTitle(i18n("Ribbon"));
+    // Dock to the top toolbar area, after the main toolbar inserted by
+    // KXMLGUI. addToolBar() places toolbars left-to-right in the same area
+    // in insertion order, so calling this after KXMLGUI has added the
+    // main toolbar lands us immediately to its right.
+    addToolBar(Qt::TopToolBarArea, m_ribbonToolBar);
 
-    m_ribbon->addRibbonIcon(QIcon::fromTheme(QStringLiteral("document-new")),
-                            i18n("New note"),
-                            [this] { createNewNote(); });
-    m_ribbon->addRibbonIcon(QIcon::fromTheme(QStringLiteral("quickopen")),
-                            i18n("Open quick switcher"),
-                            [this] { showQuickSwitcher(); });
-    m_ribbon->addRibbonIcon(QIcon::fromTheme(QStringLiteral("preferences-system-network")),
-                            i18n("Open graph view"),
-                            [this] { openGraphView(); });
+    // RibbonStateController is bound lazily in onVaultOpened when a
+    // SessionManager exists. Until then, no icons are registered and the
+    // toolbar is visibly empty — intentional per the design spec.
 }
 
 void MainWindow::openVaultDialog()
@@ -1875,6 +1875,14 @@ void MainWindow::onVaultOpened(const QString &path)
     m_sessionManager->setSessionPath(path + QStringLiteral("/.obsidian/workspace.json"));
     m_sessionManager->load();
 
+    if (!m_ribbonState) {
+        m_ribbonState = new RibbonStateController(m_ribbonToolBar,
+                                                   m_sessionManager, this);
+    } else {
+        m_ribbonState->rebind(m_sessionManager);
+    }
+    m_ribbonState->applyFromSession();
+
     const auto geometry = m_sessionManager->windowGeometry();
     if (!geometry.isEmpty()) restoreGeometry(geometry);
     const auto windowStateBytes = m_sessionManager->windowState();
@@ -1950,6 +1958,8 @@ void MainWindow::onVaultOpened(const QString &path)
 
 void MainWindow::onVaultClosed()
 {
+    if (m_ribbonState) m_ribbonState->rebind(nullptr);
+
     // Tear down vault-scoped plugins before clearing the services they
     // hold pointers to. PluginManager::pluginUnloading fires per plugin
     // and triggers releasePluginView.

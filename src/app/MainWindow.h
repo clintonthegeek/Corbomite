@@ -50,7 +50,8 @@ class HoverPopover;
 class EditorSuggestManager;
 class WikiLinkSuggest;
 class TagSuggest;
-class RibbonSlot;
+class RibbonToolBar;
+class RibbonStateController;
 class View;
 class ViewRegistry;
 class Plugin;
@@ -93,7 +94,7 @@ private:
     void setupSidebars();
     void setupStatusBar();
     void setupEditor();
-    void setupRibbon();
+    void setupRibbonToolBar();
 
     // Action handlers
     void openVaultDialog();
@@ -182,7 +183,8 @@ private:
     EditorSuggestManager *m_suggestManager = nullptr;
     WikiLinkSuggest *m_wikiSuggest = nullptr;
     TagSuggest *m_tagSuggest = nullptr;
-    RibbonSlot *m_ribbon = nullptr;
+    RibbonToolBar *m_ribbonToolBar = nullptr;
+    RibbonStateController *m_ribbonState = nullptr;
 
     // Cluster Q (Tasks 13-20) — tool views hosting plugin createView()
     // output. Keyed by plugin id; the value is the QWidget the
