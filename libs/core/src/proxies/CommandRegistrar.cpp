@@ -25,6 +25,16 @@ void CommandRegistrar::addCommand(Command &cmd)
     m_registeredIds.append(cmd.id);
 }
 
+void CommandRegistrar::addCommandRaw(Command &cmd)
+{
+    // Obsidian-id parity: skip the pluginId prefix mutation so the caller's
+    // canonical id (e.g. "bookmarks:bookmark-current-file") is preserved as-is.
+    // Still tracked for cleanup on destruction, same as addCommand.
+    if (!m_registry) return;
+    m_registry->addCommand(cmd);
+    m_registeredIds.append(cmd.id);
+}
+
 bool CommandRegistrar::removeCommand(const QString &localId)
 {
     if (!m_registry) return false;

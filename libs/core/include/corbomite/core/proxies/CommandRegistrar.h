@@ -27,6 +27,13 @@ public:
     /// for cleanup on destruction.
     void addCommand(Command &cmd);
 
+    /// Like addCommand, but does NOT prefix `cmd.id` with pluginId. Used by
+    /// plugins that must register commands under a canonical Obsidian-compat
+    /// namespace (e.g. `bookmarks:bookmark-current-file`) rather than the
+    /// default `<pluginId>:<localId>` shape. Tracked for cleanup on destruction
+    /// the same way as addCommand.
+    void addCommandRaw(Command &cmd);
+
     /// Remove a command by *local* id (without the plugin prefix). Returns
     /// true if the command was registered by this proxy.
     bool removeCommand(const QString &localId);

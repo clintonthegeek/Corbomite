@@ -1,0 +1,20 @@
+{
+    "KPlugin": {
+        "Id": "corbomite-bookmarks",
+        "Name": "Bookmarks",
+        "Description": "Save and organize references to files, folders, headings, blocks, searches, and graphs",
+        "Icon": "bookmark-new",
+        "Version": "1.0",
+        "License": "GPL-3.0-or-later",
+        "Category": "Core",
+        "EnabledByDefault": true,
+        "Authors": [{"Name": "Corbomite Developers"}]
+    },
+    "X-Corbomite-Trusted": @X_CORBOMITE_TRUSTED@,
+    "X-Corbomite-Permissions": ["vault.read", "vault.write", "vault.events", "workspace", "ui.views", "ui.commands"],
+    "X-Corbomite-MinVersion": "0.1.0",
+    "X-Corbomite-ApiLevel": 1,
+    "X-Corbomite-DockArea": "right",
+    "X-Corbomite-DockIcon": "bookmark-new",
+    "X-Corbomite-DockTitle": "Bookmarks"
+}
