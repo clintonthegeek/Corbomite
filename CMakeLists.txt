@@ -71,9 +71,11 @@ add_subdirectory(libs/jkqtmathtext)
 add_subdirectory(libs/mmdr)
 
 set(MARKOFF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-# Tell markoff-reading to link Corbomite::Core + mmdr instead of its
-# standalone stub headers. Phase B bridge; replaced by a DI seam in Phase C.
-set(MARKOFF_READING_USE_REAL_COREDEPS ON CACHE BOOL "" FORCE)
+# Phase B bridge (MARKOFF_READING_USE_REAL_COREDEPS) retired in Markoff
+# v0.3.0 (Phase C1). markoff-reading now consumes host-provided
+# implementations of `Markoff::*` / `Markoff::Vault::*` interfaces via
+# setter injection; the adapters live at
+# libs/core/include/corbomite/markoff_adapters/.
 add_subdirectory(libs/markoff-family)
 
 add_subdirectory(libs/core)
