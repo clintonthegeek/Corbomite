@@ -52,6 +52,24 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** medium
 - **Details:** Scouting doc (2026-04-19). Cluster R's closeout audit identified the File Explorer right-click context menu as the top remaining UX gap vs Obsidian. The scouting doc proposes reusing Cluster R primitives (`FileManager` prompt modals, `Platform`, `PathUtils`, `MenuSectionHelper`) and may absorb the Cluster H follow-up residue for `EditorViewSpace` tab bar / `TextControl` / `CorbomiteMDI Sidebar`. Estimated 3–5 days once the scouting doc is expanded to a full plan.
 
+### Cluster V — Editor & Workspace UI surfacing (surface-first — plan-needed, spec written)
+- **Source:** [Cluster V scouting](superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing-SCOUTING.md) + [spec](superpowers/specs/2026-04-20-cluster-v-editor-workspace-ui-surfacing-design.md)
+- **Blocks:** Cluster V.2 (debt-cleanup follow-on)
+- **Scope:** medium (~5-7 days)
+- **Details:** Scope narrowed via brainstorm 2026-04-20 from the 8-phase scouting doc down to 6 surface-first phases: dead app-shell actions (Find / zoom / About / theme / trash / `editor_toggle_mode` with `Ctrl+E`), Markoff menu surfacing (Format / Heading with `Ctrl+1..6` / Insert / Table / Edit Find-Replace / View Fold) with new `View::zoomIn/Out/Reset` virtuals + `Editor::cursorInTable` + `ActionId::SetHeading1..6`, fold actions (gutter click-to-fold deferred to V.2), ReadingView interactions (click-to-fold + `linkHovered → HoverPopover` + `codeBlockProcessorRegistry` dispatch), Workspace power-features (Ctrl+\ / Ctrl+Shift+\ / popout / link / Ctrl+Shift+T), Search UI (regex + match-case toggles) + toast-surfacing for 5 swallowed-error sites. Next: writing-plans → executing-plans.
+
+### Cluster V.2 — Editor/Workspace debt cleanup (scouting doc)
+- **Source:** [Cluster V.2 scouting](superpowers/plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md)
+- **Blocks:** nothing hard; activates only after Cluster V lands
+- **Scope:** medium (~4-5 days)
+- **Details:** Companion to Cluster V holding everything V deferred under the "surface-first" framing agreed 2026-04-20. Six phases: (1) fold-gutter click-to-fold — complete `FoldGutter::paint()` + wire Markoff-internal coordinator (scouting doc's "defer to Qutepart fork Phase 6" was a misread; fork Phase 6 is about themes); (2) 6× `VaultConfig` writer routing (`writeAppJson`, `writeAppearanceJson`, `writeCommunityPlugins`, `writeHotkeys`, `writeDailyNotesJson`, `writeTemplatesJson`) paired with their SettingsDialog apply-handlers via a new merge-unknown-keys helper (reuse Cluster S bookmarks precedent); (3) `CachedMetadataStore::loadInto`/`saveFrom` hookup at `MainWindow::openVault`/`closeVault` for fast cold-start; (4) Autosave delay spinbox wired into `AutosaveReactor::setDelayMs` via the `MainWindow::onSettingsApplied` dispatcher Cluster V introduces; (5) optional LRU-reopen upgrade from single-LIFO to multi-entry list; (6) post-V dead-code audit pass. Expand to full plan after V lands.
+
+### Cluster W — Canvas & Graph affordances
+- **Source:** [Cluster W scouting](superpowers/plans/2026-04-20-cluster-w-canvas-graph-affordances-SCOUTING.md)
+- **Blocks:** nothing hard; coordinates with Cluster M (audit) and Cluster P (Graffodil)
+- **Scope:** large (~8-12 days)
+- **Details:** Scouting doc (2026-04-20). Same audit as Cluster V; split out because canvas + graph need UX design, not just menu wiring. 8 phases: canvas Link/File node creation completeness, tool palette + switching, resize handles + snap-to-grid + multi-select highlight, group operations (Ctrl+G / colour / align), force-graph physics sliders + pin/unpin UI + filter UI, `GraphViewTab` 3 unconnected signals (open-in-new-tab / reveal / delete), embed registry consolidation (mermaid double-dispatch) + media-stub backlog, audit pass. Defer real PDF / audio / video renderers.
+
 ### Qutepart-Corbomite fork — Phases 3–8 (Source editor)
 - **Source:** [Fork plan](superpowers/plans/2026-04-15-qutepart-corbomite-fork.md); [spec](superpowers/specs/2026-04-15-qutepart-corbomite-fork-design.md)
 - **Blocks:** Cluster E Source-mode polish; Phase 3 unblocks find/replace API consumers
