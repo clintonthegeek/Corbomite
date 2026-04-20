@@ -68,6 +68,14 @@ public:
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
 
+private Q_SLOTS:
+    void onFind();
+    void onZoomIn();
+    void onZoomOut();
+    void onZoomReset();
+    void onAboutApp();
+    void onAboutKde();
+
 protected:
     void closeEvent(QCloseEvent *event) override;
 

@@ -57,6 +57,9 @@
 #include "corbomite/models/DailyNoteService.h"
 #include "corbomitesettings.h"
 
+#include <KAboutApplicationDialog>
+#include <KAboutData>
+#include <KHelpMenu>
 #include <KCommandBar>
 #include <KLocalizedString>
 #include <KStandardAction>
@@ -337,6 +340,51 @@ NoteEditorWidget *MainWindow::activeEditor() const
 {
     auto *mv = activeMarkdownView();
     return mv ? mv->editorWidget() : nullptr;
+}
+
+void MainWindow::onFind()
+{
+    // Route Ctrl+F to Markoff::Editor's Find action when the active view is a
+    // Markdown view in LivePreview mode. Source-mode Find is a future Qutepart
+    // fork Phase 3 concern; ReadingView has no search bar yet.
+    auto *editor = activeEditor();
+    if (!editor) return;
+    if (auto *markoff = editor->editor()) {
+        if (auto *act = markoff->action(Markoff::ActionId::Find)) act->trigger();
+    }
+}
+
+void MainWindow::onZoomIn()
+{
+    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
+    if (auto *v = leaf ? leaf->view() : nullptr) v->zoomIn();
+}
+
+void MainWindow::onZoomOut()
+{
+    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
+    if (auto *v = leaf ? leaf->view() : nullptr) v->zoomOut();
+}
+
+void MainWindow::onZoomReset()
+{
+    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
+    if (auto *v = leaf ? leaf->view() : nullptr) v->zoomReset();
+}
+
+void MainWindow::onAboutApp()
+{
+    KAboutApplicationDialog dlg(KAboutData::applicationData(), this);
+    dlg.exec();
+}
+
+void MainWindow::onAboutKde()
+{
+    // KF6 removed KAboutKdeDialog; KHelpMenu::aboutKDE() opens the canonical
+    // "About KDE" dialog. KHelpMenu owns the dialog it spawns, so we parent
+    // the helper to `this` to outlive this function call.
+    auto *helpMenu = new KHelpMenu(this);
+    helpMenu->aboutKDE();
 }
 
 void MainWindow::openFileInWorkspace(const QString &relativePath)
@@ -781,12 +829,10 @@ void MainWindow::setupActions()
         if (editor) editor->editor()->redo();
     }, ac);
 
-    KStandardAction::find(this, [this]() {
-        Q_UNUSED(this)
-    }, ac);
+    KStandardAction::find(this, &MainWindow::onFind, ac);
 
-    KStandardAction::aboutApp(qApp, []() {}, ac);
-    KStandardAction::aboutKDE(qApp, []() {}, ac);
+    KStandardAction::aboutApp(this, &MainWindow::onAboutApp, ac);
+    KStandardAction::aboutKDE(this, &MainWindow::onAboutKde, ac);
 
     auto *toggleLeft = ac->addAction(QStringLiteral("view_toggle_left_sidebar"));
     toggleLeft->setText(i18n("Toggle Left Sidebar"));
@@ -797,15 +843,21 @@ void MainWindow::setupActions()
 
     auto *zoomIn = ac->addAction(QStringLiteral("view_zoom_in"));
     zoomIn->setText(i18n("Zoom In"));
+    zoomIn->setIcon(QIcon::fromTheme(QStringLiteral("zoom-in")));
     ac->setDefaultShortcut(zoomIn, QKeySequence(Qt::CTRL | Qt::Key_Equal));
+    connect(zoomIn, &QAction::triggered, this, &MainWindow::onZoomIn);
 
     auto *zoomOut = ac->addAction(QStringLiteral("view_zoom_out"));
     zoomOut->setText(i18n("Zoom Out"));
+    zoomOut->setIcon(QIcon::fromTheme(QStringLiteral("zoom-out")));
     ac->setDefaultShortcut(zoomOut, QKeySequence(Qt::CTRL | Qt::Key_Minus));
+    connect(zoomOut, &QAction::triggered, this, &MainWindow::onZoomOut);
 
     auto *zoomReset = ac->addAction(QStringLiteral("view_zoom_reset"));
     zoomReset->setText(i18n("Reset Zoom"));
+    zoomReset->setIcon(QIcon::fromTheme(QStringLiteral("zoom-original")));
     ac->setDefaultShortcut(zoomReset, QKeySequence(Qt::CTRL | Qt::Key_0));
+    connect(zoomReset, &QAction::triggered, this, &MainWindow::onZoomReset);
 
     auto *quickSwitcher = ac->addAction(QStringLiteral("quick_switcher"));
     quickSwitcher->setText(i18n("Quick Switcher"));
