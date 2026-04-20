@@ -574,8 +574,13 @@ void MainWindow::releasePluginView(const QString &pluginId)
 
     if (!widget) return;
     QWidget *toolView = widget->parentWidget();
-    if (toolView) toolView->deleteLater();
-    else widget->deleteLater();
+    // Destroy synchronously so the next hostPluginView for the same
+    // plugin id (e.g. on vault switch) doesn't collide with a still-alive
+    // tool view of the same identifier. A queued deleteLater would make
+    // CorbomiteMDI::MainWindow::createToolView see the old instance and
+    // refuse to host the new one, leaving sidebars empty until the next
+    // relayout that never comes.
+    delete (toolView ? toolView : widget);
 }
 
 void MainWindow::propagateServicesToView(View *view)
