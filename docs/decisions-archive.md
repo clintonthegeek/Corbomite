@@ -10,6 +10,34 @@ Conventions:
 
 ---
 
+## 2026-04-20 — Cluster S (Bookmarks core plugin) closed
+
+Single-plugin delivery at `src/plugins/bookmarks/` following the Cluster Q / Cluster N playbook (KPluginFactory shared module, permission-gated proxies, vault-scoped lifecycle). Eight commits across five task groups (1.1-3.2):
+
+1. **`BookmarkItem` struct** (1.1, `4b2c677f`) — mirrors Obsidian bookmarks.json item shape; preserves unknown types + unknown keys via `unknownKeys` + `unknownType`.
+2. **`BookmarksStore` with JSON round-trip** (1.2, `3bde2762`) — 7 canonical keys known per item type, everything else rolls through `unknownKeys`; stateless load/save.
+3. **`BookmarksModel` QAbstractItemModel adapter** (1.3, `b62288e7`) — Display / Decoration / Type / BookmarksPath roles, drag-drop mime type for intra-tree reorder, single `changed()` emit per mutation (moveBookmark coalesced in `f4362683`).
+4. **Plugin shell + view + load/save** (2.1, `9134a8bb`) — `BookmarksPlugin` with VaultProxy-driven read/write (500ms debounce), right-dock `BookmarksView` with `+` header button, session-state serialization of expanded groups. `CommandRegistrar::addCommandRaw` added to `libs/core` to preserve the canonical `bookmarks:*` id prefix rather than the default `corbomite-bookmarks:*` auto-namespacing — first callsite of the mechanism; applies to any future core-plugin migration that must match Obsidian's `.obsidian/hotkeys.json` wire format.
+5. **7 commands with availability gating** (2.2, `1828cf2f`) — `open` + `bookmark-current-file` fully wired against `WorkspaceController::activeFilePath()`; `bookmark-all-tabs`, `bookmark-current-{heading,block,search,graph}` register with `checkCallback→false` pending missing accessors (`openTabPaths`, `activeHeading`, `activeBlockId`, `activeSearchQuery`, `activeGraphOptions`). The six mutation helpers (`BookmarksPlugin::bookmarkFile/AllTabs/Heading/Block/Search/Graph`) are implemented and tested; once WorkspaceController grows the accessors, the `stubRaw(...)` lines swap for real callbacks with no test churn. Static-helpers-in-separate-TU pattern (`BookmarksCommands.cpp`) kept the command tests free of KPluginFactory / view / modal deps. Cluster V follow-up tracked in backlog §Cluster S.
+6. **Stale-bookmark handling + context menu** (2.3, `924e9b53`) — `BookmarksStore::renamePath` (folder-aware prefix rewrite, preserves `#subpath` suffix), `markOrphaned` (stamps `unknownKeys["_orphaned"]=true`, round-trips through JSON), `setTitle`. Wired to `VaultProxy::renamed` + `VaultProxy::deletedFile` in `onLoad` (requires `vault.events` permission). `BookmarksView::onContextMenu` extended with Rename… (`QInputDialog`), Move to group (nested submenu with ancestor-into-self guard), Delete.
+7. **`BookmarkModal`** (3.1, `06b508e3`) — real QDialog: QLineEdit title pre-filled per type, QComboBox group picker walking nested groups ("Reading / Later"), Save/Cancel. Headlessly driveable via `composedItem()` + `commit()` for tests.
+8. **Cluster R hamburger slot live** (3.2, `613bc8ee`) — `EditableFileView::setBookmarkCallback` replaces the disabled "Bookmark" placeholder. When the plugin is loaded the action enables with label "Bookmark…"; when disabled it stays greyed with an updated tooltip. `BookmarksPlugin::openBookmarkModalForFile(path, parent)` Q_INVOKABLE slot composes a file-type BookmarkItem and opens the modal. Slug map extended with `bookmarks → corbomite-bookmarks`. `tst_editable_file_view_menu` gained an updated placeholder assertion + a new enabled-path test.
+
+**Task 3.3 (Settings tab) deferred.** No plugin currently wires a settings tab via `createSettingsTab`. Backlog entry added.
+
+**Test surface:** 4 new test binaries (`tst_bookmarks_{store,model,commands,modal}`) — 40+ cases. Full ctest clean except pre-existing flaky `tst_benchmark_layout`.
+
+**Unblocks:** Cluster R's "Bookmark…" menu slot (previously disabled placeholder).
+
+**Architectural carry-forwards:**
+- `CommandRegistrar::addCommandRaw` is the general mechanism for plugins that must register commands under canonical Obsidian ids.
+- Static-helpers-in-separate-TU pattern for plugin command tests (`BookmarksCommands.cpp`).
+- `unknownKeys["_orphaned"]` convention for stamping metadata whose round-trip survival matters more than a first-class struct field.
+
+Retro at [`cluster-retros/cluster-s.md`](cluster-retros/cluster-s.md).
+
+---
+
 ## 2026-04-19 — Cluster R + S specs written
 
 **Cluster R + S specs written.** Brainstorming session scoped per-view hamburger menus after the user noted the markdown hamburger only shows a stub "Rename…" entry. 10 new audit addenda at `obsidian-audit/addenda/2026-04-19-*.md` fill Obsidian-surface gaps the initial audit missed (Bookmarks plugin, file-recovery UI, Canvas Export-as-image, Graph Copy-screenshot, rename/move/delete modals, open-in-default-app, show-in-folder, merge-file modal, add-file-property-from-menu). Two new specs: `docs/superpowers/specs/2026-04-19-cluster-r-view-header-menus-design.md` (4-phase ~6-7 days; menu substrate alignment + universal file-menu items + per-view specialisations + inline backlinks-in-document) and `docs/superpowers/specs/2026-04-19-cluster-s-bookmarks-design.md` (single-phase normal task ~5 days; `.obsidian/bookmarks.json` round-trip + panel + 7 commands + modal). Roadmap expanded from 16 to 19 clusters (R added as UI-chrome, S added as UI-chrome, T added as post-parity deferred). Cluster G follow-ups #3 (`openLinkText` dispatcher) and #6 (WorkspaceWindow popout) tagged R-blocking-partial — R ships their menu slots as disabled placeholders that go live when the follow-ups land. Cluster H follow-up #2 (migrate 5 menu construction sites) partially absorbed by R P1-P3; residue: EditorViewSpace tab bar + TextControl + CorbomiteMDI Sidebar.
