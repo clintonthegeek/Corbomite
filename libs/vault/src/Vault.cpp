@@ -34,6 +34,7 @@ Vault::Vault(DataAdapter *adapter, QObject *parent)
         qRegisterMetaType<Corbomite::TAbstractFile *>("Corbomite::TAbstractFile*");
         qRegisterMetaType<Corbomite::TFile *>("Corbomite::TFile*");
         qRegisterMetaType<Corbomite::TFolder *>("Corbomite::TFolder*");
+        qRegisterMetaType<Corbomite::NoteDocument *>("Corbomite::NoteDocument*");
         return 0;
     }();
     Q_UNUSED(kMetatypes);
@@ -712,6 +713,8 @@ void Vault::onExternalModified(const QString &relPath)
 
     if (consumeSelfWrite(rel, mtimeMs)) return;  // self-write echo, suppress
 
+    // Update tree metadata + invalidate read cache regardless of whether an
+    // open NoteDocument exists.
     FileStat fs;
     fs.exists    = true;
     fs.isFile    = true;
@@ -721,6 +724,38 @@ void Vault::onExternalModified(const QString &relPath)
     f->stat      = fs;
     m_readCache.remove(rel);
     Q_EMIT modified(f);
+
+    // --- Origin dispatch (spec §6.2) ---
+    NoteDocument *doc = m_docs.value(rel);
+    if (!doc) return;  // no open document — tree + cache update above is sufficient
+
+    QFile diskFile(m_basePath + QLatin1Char('/') + rel);
+    if (!diskFile.open(QIODevice::ReadOnly)) {
+        qWarning() << "Vault::onExternalModified: cannot read" << rel;
+        return;
+    }
+    const QString newContent = QString::fromUtf8(diskFile.readAll());
+
+    if (!doc->isModified()) {
+        // Clean case: apply wholesale, clear undo stack, emit documentReloaded.
+        doc->markoff()->resetContent(newContent, Markoff::Origin::ExternalReloadClean);
+        // resetContent emits documentReloaded, which fires NoteDocument's
+        // handler and sets modified=true (because !d->modified was true before
+        // the reload). Explicitly reset to false after the reload.
+        doc->setModified(false);
+    } else {
+        // Dirty case: do NOT auto-apply; defer to UI via the conflict signal.
+        Q_EMIT externalReloadConflict(doc, newContent);
+    }
+}
+
+void Vault::resolveExternalReload(NoteDocument *doc, const QString &resolvedContent)
+{
+    if (!doc) return;
+    doc->markoff()->resetContent(resolvedContent, Markoff::Origin::ExternalReloadResolved);
+    // Same reasoning as the clean case: resetContent → documentReloaded →
+    // NoteDocument sets modified=true; override to false post-merge.
+    doc->setModified(false);
 }
 
 void Vault::stampSelfWrite(const QString &rel, qint64 mtimeMs)

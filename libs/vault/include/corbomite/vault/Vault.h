@@ -42,6 +42,9 @@ namespace Markoff { class ParsePool; }
 Q_DECLARE_METATYPE(Corbomite::TAbstractFile *)
 Q_DECLARE_METATYPE(Corbomite::TFile *)
 Q_DECLARE_METATYPE(Corbomite::TFolder *)
+// NoteDocument is forward-declared here; declare as opaque so QMetaType
+// accepts the pointer without requiring a complete type in this header.
+Q_DECLARE_OPAQUE_POINTER(Corbomite::NoteDocument *)
 
 namespace Corbomite {
 
@@ -144,13 +147,27 @@ signals:
     /// relative path so observers don't need to poke at the NoteDocument
     /// pointer lifetime.
     void documentSaved(const QString &relPath);
+    /// Fires when an external file modification is detected for an open
+    /// NoteDocument that has unsaved local edits (isModified() == true).
+    /// The UI layer must present a merge modal and then call
+    /// resolveExternalReload() with the chosen content.
+    void externalReloadConflict(Corbomite::NoteDocument *doc, const QString &diskContent);
 
-private Q_SLOTS:
+public Q_SLOTS:
     // Watcher-dispatched handlers. Relative paths only (no basePath prefix).
+    // Public so tests can invoke them directly without relying on real
+    // filesystem-watcher timing.
     void onExternalCreated(const QString &relPath);
     void onExternalModified(const QString &relPath);
     void onExternalDeleted(const QString &relPath);
     void onExternalRenamed(const QString &oldRel, const QString &newRel);
+
+public:
+    /// Called by the UI after the user resolves an externalReloadConflict
+    /// modal (keep-mine / take-theirs / merged). Applies `resolvedContent`
+    /// to the document via Origin::ExternalReloadResolved, clearing the
+    /// undo stack and the dirty flag.
+    void resolveExternalReload(NoteDocument *doc, const QString &resolvedContent);
 
 private:
     DataAdapter *m_adapter;
