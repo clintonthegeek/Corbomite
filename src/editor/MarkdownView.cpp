@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MarkdownView.h"
 #include "NoteEditorWidget.h"
-#include "SourceEditor.h"
+#include <markoff/source/SourceEditor.h>
 #include "corbomite/core/EditableFileView.h"
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/NoteDocument.h"

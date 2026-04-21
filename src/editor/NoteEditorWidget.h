@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QJsonObject>
 #include <QWidget>
 
 class QStackedWidget;
 
 namespace Markoff {
 class Editor;
+class MarkdownView;
+}
+
+namespace Markoff::Source {
+class SourceEditor;
 }
 
 namespace Markoff::Reading {
@@ -17,7 +23,6 @@ namespace Corbomite {
 
 struct EphemeralState;
 class NoteDocument;
-class SourceEditor;
 class Vault;
 class VaultResourceProvider;
 class CompletionPopup;
@@ -43,17 +48,17 @@ public:
     NoteDocument *noteDocument() const;
     void setVault(Vault *vault);
 
-    /// Phase-7 transition: (1) flush outgoing widget's text to NoteDocument,
-    /// (2) capture outgoing ephemeral state, (3) swap QStackedWidget index
-    /// (lazy-constructing the incoming widget if first visit), (4) load
-    /// content into the incoming widget, (5) restore scroll + fold + cursor
-    /// (cursor only across Source↔LivePreview). Emits `viewModeChanged` on
-    /// every real change.
+    /// Phase C3 mode transition: (1) snapshot ephemeral state from outgoing
+    /// leaf, (2) detach outgoing leaf via setDocument(nullptr), (3) swap
+    /// QStackedWidget index (lazy-constructing the incoming widget if first
+    /// visit), (4) attach incoming leaf via setDocument(markoff()), (5) restore
+    /// ephemeral state. Content never round-trips through leaves during swap.
+    /// Emits `viewModeChanged` on every real change.
     void setViewMode(ViewMode mode);
     ViewMode viewMode() const;
 
     Markoff::Editor *editor() const;
-    SourceEditor *sourceEditor() const;
+    Markoff::Source::SourceEditor *sourceEditor() const;
     Markoff::Reading::ReadingView *readingView() const;
 
     // Optional — when set, hovers over wiki/markdown links schedule a 300ms
@@ -91,7 +96,6 @@ private:
 
     void onTextChanged();
     void onCursorPositionChanged(int line, int column);
-    void syncFromDocument();
 
     // Completion via EditorSuggestManager (Cluster H Phase 3).
     void maybeActivateSuggester();
@@ -105,14 +109,21 @@ private:
     // Link resolution
     QString resolveTarget(const QString &target) const;
 
-    // --- Phase 7 mode-transition helpers ---
+    // --- Mode-transition helpers ---
     int stackIndexFor(ViewMode mode) const;
     void ensureWidgetConstructed(ViewMode mode);
+
+    // Returns the active MarkdownView leaf (any of the three), or nullptr if
+    // none has been constructed yet. Used to detach/attach the document during
+    // setViewMode and setNoteDocument transitions.
+    Markoff::MarkdownView *activeLeaf() const;
+
+    // Captures ephemeral state (scroll/cursor/fold) from the current active
+    // leaf as a QJsonObject, and packs it into the Corbomite EphemeralState
+    // envelope (mode + sourceFlag). Called before detaching the leaf.
     EphemeralState captureEphemeralStateFor(ViewMode mode) const;
+    // Restores ephemeral state to the target leaf widget.
     void restoreEphemeralStateFor(ViewMode mode, const EphemeralState &s);
-    void loadContentInto(ViewMode mode);
-    void saveSourceTextToDocument();
-    void saveLivePreviewTextToDocument();
 
     QStackedWidget *m_stack = nullptr;
 
@@ -120,7 +131,7 @@ private:
     // Source mode widget — lazy. Constructed on first `setViewMode(Source)`
     // and cached in the stack thereafter. Accessor returns nullptr until
     // first construction. See `ensureWidgetConstructed`.
-    SourceEditor *m_sourceEditor = nullptr;
+    Markoff::Source::SourceEditor *m_sourceEditor = nullptr;
     // Reading mode widget — lazy. Same pattern as `m_sourceEditor`.
     Markoff::Reading::ReadingView *m_readingView = nullptr;
     ViewMode m_viewMode = ViewMode::LivePreview;
@@ -134,7 +145,6 @@ private:
     NoteDocument *m_doc = nullptr;
     Vault *m_vault = nullptr;
     VaultResourceProvider *m_resourceProvider = nullptr;
-    bool m_updatingFromDoc = false;
     int m_cachedWordCount = 0;
 
     // Hover preview (lifetime owned by MainWindow).

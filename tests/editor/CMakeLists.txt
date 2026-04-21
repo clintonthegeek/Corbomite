@@ -63,14 +63,15 @@ target_link_libraries(tst_note_editor_widget_ephemeral PRIVATE
     Qt6::Widgets
     CorbomiteApp
     Markoff::Live
+    Markoff::Source
 )
 add_test(NAME tst_note_editor_widget_ephemeral COMMAND tst_note_editor_widget_ephemeral)
 set_tests_properties(tst_note_editor_widget_ephemeral PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
-# Cluster E Phase 7 — NoteEditorWidget QStackedWidget + spec'd mode-transition
-# glue. Covers Source↔LivePreview↔Reading pairs + flush-before-swap contract
+# Phase C3 — NoteEditorWidget signal-driven mode-transition glue. Covers
+# Source↔LivePreview↔Reading pairs + canonical-bytes preservation across swap
 # + viewModeChanged signal shape.
 add_executable(tst_note_editor_widget_mode_transition
     tst_note_editor_widget_mode_transition.cpp
@@ -84,6 +85,7 @@ target_link_libraries(tst_note_editor_widget_mode_transition PRIVATE
     CorbomiteApp
     Markoff::Live
     Markoff::Reading
+    Markoff::Source
     Corbomite::Core
 )
 add_test(NAME tst_note_editor_widget_mode_transition

@@ -1,26 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Cluster E Phase 2 — NoteEditorWidget save/restore ephemeral state
-// round-trips through all three ViewMode targets (Source, LivePreview,
-// Reading). Source rides on `SourceEditor::setScrollPosition`, LivePreview on
-// `Markoff::Editor::setScrollPositionVisualLine`, Reading on the
-// `Markoff::Reading::ReadingView` stub (Phase 3 fills the stub in).
+// Phase C3 — NoteEditorWidget save/restore ephemeral state round-trips
+// through all three ViewMode targets (Source, LivePreview, Reading).
+//
+// Source rides on `Markoff::Source::SourceEditor::scrollPosition`, LivePreview on
+// `Markoff::Editor::setScrollPositionVisualLine`, Reading on
+// `Markoff::Reading::ReadingView`.
 //
 // Runs under QT_QPA_PLATFORM=offscreen.
 
 #include "NoteEditorWidget.h"
-#include "SourceEditor.h"
 #include "corbomite/storage/EphemeralState.h"
 
 #include <markoff/Editor.h>
+#include <markoff/source/SourceEditor.h>
+
+#include "corbomite/core/NoteDocument.h"
 
 #include <QObject>
+#include <QSignalSpy>
 #include <QStringList>
 #include <QTest>
 
 using Corbomite::EphemeralState;
+using Corbomite::NoteDocument;
 using Corbomite::NoteEditorWidget;
-using Corbomite::SourceEditor;
+using Markoff::Source::SourceEditor;
 
 namespace {
 
@@ -47,13 +52,18 @@ private Q_SLOTS:
         widget.show();
         QVERIFY(QTest::qWaitForWindowExposed(&widget));
 
+        // Switch to Source first (lazy-constructs the Source widget).
         widget.setViewMode(NoteEditorWidget::ViewMode::Source);
+
+        NoteDocument doc(QStringLiteral("/tmp/vault"),
+                         QStringLiteral("note.md"));
+        doc.setMarkdown(makeParagraphs(60));
+        widget.setNoteDocument(&doc);
 
         // SourceEditor is the authoritative scroll source for Source mode;
         // drive it directly, then capture via the widget API.
-        auto *source = widget.findChild<SourceEditor *>();
+        auto *source = widget.sourceEditor();
         QVERIFY(source);
-        source->setPlainText(makeParagraphs(60));
         source->setScrollPosition(5.5f);
         QTest::qWait(20);
 
@@ -80,8 +90,19 @@ private Q_SLOTS:
         widget.show();
         QVERIFY(QTest::qWaitForWindowExposed(&widget));
 
+        NoteDocument doc(QStringLiteral("/tmp/vault"),
+                         QStringLiteral("note.md"));
+        doc.setMarkdown(makeParagraphs(40));
+        widget.setNoteDocument(&doc);
+
         widget.setViewMode(NoteEditorWidget::ViewMode::LivePreview);
-        widget.editor()->setPlainText(makeParagraphs(40));
+        // Wait for the Live scene to build from parseUpdated before driving scroll.
+        // wordCountChanged fires once the coordinator finishes loadMarkdown.
+        {
+            QSignalSpy spy(widget.editor(), &Markoff::Editor::wordCountChanged);
+            if (widget.editor()->toPlainText().isEmpty())
+                QVERIFY2(spy.wait(2000), "Timed out waiting for Live scene to build");
+        }
         QTest::qWait(30);
 
         widget.editor()->setScrollPositionVisualLine(8.0f);
