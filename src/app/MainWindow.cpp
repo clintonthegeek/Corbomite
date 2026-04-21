@@ -47,6 +47,7 @@
 #include "canvas/CanvasFileView.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
+#include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/VaultResourceProvider.h"
 #include "markoff/reading/EmbedRenderer.h"
 #include "editor/HoverPopover.h"
@@ -449,6 +450,117 @@ void MainWindow::refreshEditorActions()
                 act->setChecked(false);
         }
     }
+}
+
+void MainWindow::connectEditorContext(NoteEditorWidget *editor)
+{
+    if (!editor) return;
+    auto *ed = editor->editor();
+    if (!ed) return;
+    connect(ed, &Markoff::Editor::contextChanged,
+            this, &MainWindow::onEditorContextChanged,
+            Qt::UniqueConnection);
+    // Prime initial state so the toolbar reflects the snapshot even
+    // before the first cursor movement.
+    onEditorContextChanged(ed->context());
+}
+
+void MainWindow::onEditorContextChanged(const Markoff::EditorContext &ctx)
+{
+    KActionCollection *ac = actionCollection();
+    if (!ac) return;
+
+    auto setCheck = [ac](const QString &id, bool on) {
+        if (auto *a = ac->action(id)) a->setChecked(on);
+    };
+    auto setEnable = [ac](const QString &id, bool on) {
+        if (auto *a = ac->action(id)) a->setEnabled(on);
+    };
+
+    using BK = Markoff::EditorContext::BlockKind;
+
+    // Format toolbar check-state
+    setCheck(QStringLiteral("format_bold"),          ctx.inBold);
+    setCheck(QStringLiteral("format_italic"),        ctx.inItalic);
+    setCheck(QStringLiteral("format_strikethrough"), ctx.inStrikethrough);
+    setCheck(QStringLiteral("format_inline_code"),   ctx.inInlineCode);
+
+    // Heading radio
+    for (int i = 1; i <= 6; ++i) {
+        setCheck(QStringLiteral("heading_%1").arg(i),
+                 ctx.headingLevel == i);
+    }
+    setEnable(QStringLiteral("heading_increase"),
+              !ctx.readOnly && ctx.headingLevel < 6);
+    setEnable(QStringLiteral("heading_decrease"),
+              !ctx.readOnly && ctx.headingLevel >= 1);
+
+    // Table delete gating — more precise than the existing
+    // refreshEditorActions path which only gates on cursorInTable().
+    const bool inTable = (ctx.blockKind == BK::Table);
+    if (ctx.table) {
+        setEnable(QStringLiteral("table_delete_row"),
+                  !ctx.readOnly && inTable && ctx.table->rows > 1);
+        setEnable(QStringLiteral("table_delete_col"),
+                  !ctx.readOnly && inTable && ctx.table->cols > 1);
+    }
+
+    // Fold-at-cursor only on headings
+    setEnable(QStringLiteral("toggle_fold"),
+              ctx.blockKind == BK::Heading);
+}
+
+void MainWindow::connectEditorContextMenu(NoteEditorWidget *editor)
+{
+    if (!editor) return;
+    auto *ed = editor->editor();
+    if (!ed) return;
+    connect(ed, &Markoff::Editor::aboutToShowContextMenu,
+            this, &MainWindow::onAboutToShowContextMenu,
+            Qt::UniqueConnection);
+}
+
+void MainWindow::onAboutToShowContextMenu(QMenu *menu,
+                                          const Markoff::EditorContext &ctx,
+                                          const QPoint & /*globalPos*/)
+{
+    if (!menu) return;
+    using BK = Markoff::EditorContext::BlockKind;
+    Corbomite::MenuSectionHelper helper(menu);
+    KActionCollection *ac = actionCollection();
+    if (!ac) return;
+
+    auto add = [&](const QString &section, const QString &id) {
+        if (auto *a = ac->action(id)) helper.addToSection(a, section);
+    };
+
+    // Format section — always available when active view is a MarkdownView.
+    add(QStringLiteral("action"), QStringLiteral("format_bold"));
+    add(QStringLiteral("action"), QStringLiteral("format_italic"));
+    add(QStringLiteral("action"), QStringLiteral("format_strikethrough"));
+    add(QStringLiteral("action"), QStringLiteral("format_inline_code"));
+
+    // Heading / Insert — grouped into the "action" section after format
+    // entries (canonical section ordering means the helper flushes them
+    // with a single separator gap from built-ins).
+    for (int i = 1; i <= 6; ++i)
+        add(QStringLiteral("action"), QStringLiteral("heading_%1").arg(i));
+    add(QStringLiteral("action"), QStringLiteral("insert_link"));
+    add(QStringLiteral("action"), QStringLiteral("insert_wiki_link"));
+    add(QStringLiteral("action"), QStringLiteral("insert_callout"));
+    add(QStringLiteral("action"), QStringLiteral("insert_table"));
+
+    // Context-specific entries keyed off the snapshot.
+    if (ctx.blockKind == BK::Table) {
+        add(QStringLiteral("action"), QStringLiteral("table_row_above"));
+        add(QStringLiteral("action"), QStringLiteral("table_row_below"));
+        add(QStringLiteral("action"), QStringLiteral("table_col_left"));
+        add(QStringLiteral("action"), QStringLiteral("table_col_right"));
+        add(QStringLiteral("action"), QStringLiteral("table_delete_row"));
+        add(QStringLiteral("action"), QStringLiteral("table_delete_col"));
+    }
+
+    helper.finalize();
 }
 
 MarkdownView *MainWindow::activeMarkdownView() const
@@ -1190,19 +1302,25 @@ void MainWindow::setupActions()
                     QStringLiteral("edit-find-replace"), i18n("Replace..."),
                     QKeySequence::Replace);
 
-    // Format: Bold / Italic / Strikethrough / Inline code
-    addEditorAction(QStringLiteral("format_bold"), Id::ToggleBold,
+    // Format: Bold / Italic / Strikethrough / Inline code — all checkable
+    // so MainWindow::onEditorContextChanged (C6) can reflect the current
+    // inline-span state on the toolbar/menubar.
+    if (auto *a = addEditorAction(QStringLiteral("format_bold"), Id::ToggleBold,
                     QStringLiteral("format-text-bold"), i18n("Bold"),
-                    QKeySequence::Bold);
-    addEditorAction(QStringLiteral("format_italic"), Id::ToggleItalic,
+                    QKeySequence::Bold))
+        a->setCheckable(true);
+    if (auto *a = addEditorAction(QStringLiteral("format_italic"), Id::ToggleItalic,
                     QStringLiteral("format-text-italic"), i18n("Italic"),
-                    QKeySequence::Italic);
-    addEditorAction(QStringLiteral("format_strikethrough"), Id::ToggleStrikethrough,
+                    QKeySequence::Italic))
+        a->setCheckable(true);
+    if (auto *a = addEditorAction(QStringLiteral("format_strikethrough"), Id::ToggleStrikethrough,
                     QStringLiteral("format-text-strikethrough"), i18n("Strikethrough"),
-                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X));
-    addEditorAction(QStringLiteral("format_inline_code"), Id::ToggleInlineCode,
+                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X)))
+        a->setCheckable(true);
+    if (auto *a = addEditorAction(QStringLiteral("format_inline_code"), Id::ToggleInlineCode,
                     QStringLiteral("code-context"), i18n("Inline Code"),
-                    QKeySequence(Qt::CTRL | Qt::Key_QuoteLeft));
+                    QKeySequence(Qt::CTRL | Qt::Key_QuoteLeft)))
+        a->setCheckable(true);
 
     // Format/Insert: links + block elements (no dialog)
     addEditorAction(QStringLiteral("insert_link"), Id::InsertLink,
@@ -1509,6 +1627,12 @@ void MainWindow::setupEditor()
                        this, nullptr);
             connect(editor->editor(), &Markoff::Editor::cursorPositionChanged,
                     this, [this](int, int) { refreshEditorActions(); });
+        }
+        if (editor) {
+            // Phase C6 — wire Markoff EditorContext signals for live
+            // Format/Heading/Table state and context-menu contribution.
+            connectEditorContext(editor);
+            connectEditorContextMenu(editor);
         }
         if (editor) {
             disconnect(editor, &NoteEditorWidget::viewModeChanged, this, nullptr);

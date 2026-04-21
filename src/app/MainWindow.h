@@ -8,8 +8,11 @@
 #include <QStackedWidget>
 
 #include <markoff/Editor.h>
+#include <markoff/EditorContext.h>
 
 #include <memory>
+
+class QMenu;
 
 class KRecentFilesAction;
 
@@ -78,6 +81,12 @@ public:
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
+    // Phase C6 — public so e2e/action-wiring tests can invoke with a
+    // synthetic EditorContext without needing a live Markoff::Editor.
+    void onEditorContextChanged(const Markoff::EditorContext &ctx);
+    void onAboutToShowContextMenu(QMenu *menu,
+                                  const Markoff::EditorContext &ctx,
+                                  const QPoint &globalPos);
 
 private Q_SLOTS:
     void onFind();
@@ -123,6 +132,9 @@ private:
     void openFileInWorkspace(const QString &relativePath);
     MarkdownView *activeMarkdownView() const;
     NoteEditorWidget *activeEditor() const;
+
+    void connectEditorContext(NoteEditorWidget *editor);
+    void connectEditorContextMenu(NoteEditorWidget *editor);
 
     /// Forward `id` to the active `MarkdownView`'s Markoff editor. No-op
     /// when the active view is not a MarkdownView.

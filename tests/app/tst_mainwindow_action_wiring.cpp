@@ -12,6 +12,8 @@
 #include "app/CorbomiteApp.h"
 #include "app/MainWindow.h"
 
+#include <markoff/EditorContext.h>
+
 using Corbomite::CorbomiteApp;
 using Corbomite::MainWindow;
 
@@ -122,6 +124,61 @@ private slots:
             QVERIFY(act);
             QVERIFY2(act->isCheckable(), qPrintable(id));
         }
+    }
+
+    void onEditorContextChangedUpdatesFormatToolbar()
+    {
+        // Phase C6 — verifies the new MainWindow::onEditorContextChanged
+        // slot drives Format toolbar check state from an EditorContext
+        // snapshot. We invoke the slot directly rather than drive it via
+        // a real Markoff::Editor — that surface is exercised by the
+        // live-preview e2e path; here we only need the adapter wiring.
+        CorbomiteApp app;
+        MainWindow w(&app);
+        auto *ac = w.actionCollection();
+
+        auto *boldAct = ac->action(QStringLiteral("format_bold"));
+        auto *italicAct = ac->action(QStringLiteral("format_italic"));
+        auto *strikeAct = ac->action(QStringLiteral("format_strikethrough"));
+        auto *codeAct = ac->action(QStringLiteral("format_inline_code"));
+        QVERIFY(boldAct && italicAct && strikeAct && codeAct);
+
+        // Baseline: no snapshot has fired, so these start unchecked.
+        QVERIFY(!boldAct->isChecked());
+        QVERIFY(!italicAct->isChecked());
+
+        // Synthesise a cursor-inside-bold-italic snapshot.
+        Markoff::EditorContext ctx;
+        ctx.inBold = true;
+        ctx.inItalic = true;
+        w.onEditorContextChanged(ctx);
+
+        QVERIFY(boldAct->isChecked());
+        QVERIFY(italicAct->isChecked());
+        QVERIFY(!strikeAct->isChecked());
+        QVERIFY(!codeAct->isChecked());
+
+        // Move out of the run — check state should clear.
+        Markoff::EditorContext plain;
+        w.onEditorContextChanged(plain);
+        QVERIFY(!boldAct->isChecked());
+        QVERIFY(!italicAct->isChecked());
+
+        // Heading snapshot flips the matching H-N radio item.
+        Markoff::EditorContext hctx;
+        hctx.blockKind = Markoff::EditorContext::BlockKind::Heading;
+        hctx.headingLevel = 3;
+        w.onEditorContextChanged(hctx);
+        auto *h3 = ac->action(QStringLiteral("heading_3"));
+        QVERIFY(h3 && h3->isChecked());
+        for (int i = 1; i <= 6; ++i) {
+            if (i == 3) continue;
+            auto *hi = ac->action(QStringLiteral("heading_%1").arg(i));
+            QVERIFY(hi && !hi->isChecked());
+        }
+        // toggle_fold gates on blockKind == Heading.
+        auto *toggleFold = ac->action(QStringLiteral("toggle_fold"));
+        QVERIFY(toggleFold && toggleFold->isEnabled());
     }
 
     void editorActionsAreDisabledWithoutActiveMarkdownView()
