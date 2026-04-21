@@ -2,13 +2,13 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines by offloading closeout prose to `decisions-archive.md`. Follow Ritual 2/3 in `CONTRIBUTING-OPS.md` after every meaningful work session.
 
-**Last updated:** 2026-04-20 — Markoff Phase C3 spec drafted at `2e7e7d1`. Submodule pin advanced to Markoff `v0.5.0-2-g2e7e7d1`. Next: C3 plan, then staged implementation toward `v0.6.0`.
+**Last updated:** 2026-04-20 — Markoff Phase C3 plan drafted at `d9ac36b`. Submodule pin advanced to Markoff `v0.5.0-3-gd9ac36b`. Next: staged implementation toward `v0.6.0` (25 tasks across 12 phases; user pre-approved autonomous execution).
 
 ---
 
 ## Current focus
 
-**Markoff Phase C — C3 spec drafted; plan next.** C3 (`MarkoffDocument` content-authoritative) is the largest Phase C work-unit. Spec lands symmetric-B: canonical = markdown bytes behind `CanonicalBuffer` interface; one `QUndoStack` on `MarkoffDocument`; three leaves subscribe to bytewise deltas + AST + wholesale-reload; `MarkdownDelta` commands replace direct mutators; native Qt per-leaf undo disabled everywhere. Eight decisions recorded in spec §10 including rejection of A (Live scene-graph rewrite on single `QTextEdit`) as separately-scoped future phase. Phase-E hedge bakes `CanonicalBuffer` + `CursorPosition` opaque handle in for future CRDT swap. Authoritative status: **[`phase-c-status.md`](../libs/markoff-family/docs/phase-c-status.md)**. Ritual 5 remains the cross-repo session flow.
+**Markoff Phase C — C3 spec + plan drafted; implementation next.** C3 (`MarkoffDocument` content-authoritative) is the largest Phase C work-unit. Spec lands symmetric-B: canonical = markdown bytes behind `CanonicalBuffer` interface; one `QUndoStack` on `MarkoffDocument`; three leaves subscribe to bytewise deltas + AST + wholesale-reload; `MarkdownDelta` commands replace direct mutators; native Qt per-leaf undo disabled everywhere. Eight decisions recorded in spec §10 including rejection of A (Live scene-graph rewrite on single `QTextEdit`) as separately-scoped future phase. Phase-E hedge bakes `CanonicalBuffer` + `CursorPosition` opaque handle in for future CRDT swap. Authoritative status: **[`phase-c-status.md`](../libs/markoff-family/docs/phase-c-status.md)**. Ritual 5 remains the cross-repo session flow.
 
 ---
 
@@ -48,9 +48,9 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Markoff Phase C (external-origin integration)
-- **Phase:** C3 spec drafted; plan next
+- **Phase:** C3 spec + plan drafted; implementation next
 - **Last completed step:** 2026-04-20 — C3 spec drafted at Markoff `2e7e7d1`. 574-line spec lands symmetric-B: canonical = markdown bytes (`QString` behind `Markoff::CanonicalBuffer` interface); `MarkoffDocument` owns one `QUndoStack`; three leaves subscribe to `contentsChanged(offset, removed, inserted)` + `parseUpdated(Document*)` + `documentReloaded()`; every edit routes through `MarkdownDelta` commands pushed onto the shared stack; native Qt per-leaf undo disabled on every leaf's internal `QTextDocument`. `Origin` enum on `resetContent` covers FirstOpen / ExternalReloadClean / ExternalReloadResolved / UserRevertToSaved / TestFixture. `ParsePool` is a vault-scoped single-worker thread (Cluster I `MetadataWorker` precedent), injectable. `NoteDocument` becomes a 1:1 wrapper over `MarkoffDocument`; Vault's existing cache provides de-facto pooling at vault granularity. Four `NoteEditorWidget` flush/restore call sites delete; mode-swap becomes pure `setDocument(nullptr)`/`setDocument(markoff)`. Phase-E hedge: `CanonicalBuffer` interface + `CursorPosition` opaque handle ship in C3 to leave a future CRDT-backed canonical swap (`~/dev/collabtext/`) as clean internal refactor. Scouting doc at `docs/superpowers/plans/2026-04-20-phase-e-crdt-canonical-SCOUTING.md`. Rejected A (Live scene-graph rewrite on single `QTextEdit`) after Markoff-agent pushback correctly identified the Qt-cliff cost (no comparable Qt editor ships folding + `QTextTable` + math + images in one `QTextDocument`) and B-as-dual-stacks strawman; symmetric-B is the right shape.
-- **Next expected step:** draft C3 implementation plan via `superpowers:writing-plans`, then staged implementation toward Markoff `v0.6.0`. User pre-approved spec + plan; work proceeds autonomously.
+- **Next expected step:** staged implementation per the 25-task plan toward Markoff `v0.6.0`, in a subsequent session (may be this agent, the Markoff agent, or another fresh-context agent — plan is handoff-ready). Interim tag `v0.6.0-alpha.1` falls at Task 9 (after markoff-core primitives, before leaf adaptation).
 - **Owner:** clinton (with ongoing Markoff-agent collaboration)
 - **Date last touched:** 2026-04-20
 - **Open sub-questions:** `HoverPopover` live-binding (post-C3 Corbomite follow-up); sync-chattiness undo-clear (Phase-E motivator); `libs/markoff-live/CLAUDE.md` rename (cosmetic); four `MARKOFF_READING_USE_REAL_COREDEPS`-gated-then-retired tests become revivable after C3 makes injection concrete.
@@ -90,7 +90,7 @@ Ownership model: this agent holds commit authority on both repos. See Ritual 5 i
 | C1 | DI seam (retires `MARKOFF_READING_USE_REAL_COREDEPS`) | — | `v0.3.0` | **Done 2026-04-20** — Markoff v0.3.0 + Corbomite `59ecd5cb`/`751fe268`; adapter layer at `libs/core/include/corbomite/markoff_adapters/` |
 | C5 | Reading-mode interaction parity | Cluster V Phase 4 | `v0.4.0` | **Done 2026-04-20** — Markoff `v0.4.0` + Corbomite `eef21e8e` |
 | C6 | Editor state + context-menu contribution surface | Backlog §3 (editor-state + editor-menu) | `v0.5.0` | **Done 2026-04-20** — Markoff `v0.5.0` + Corbomite `a893c88d` |
-| C3 | `MarkoffDocument` content-authoritative | Phase-A-deferred async/scroll/cursor plumbing | `v0.6.0` | **spec drafted 2026-04-20** |
+| C3 | `MarkoffDocument` content-authoritative | Phase-A-deferred async/scroll/cursor plumbing | `v0.6.0` | **spec + plan drafted 2026-04-20** |
 | C7 | Source feature completion (find/replace + fold-gutter) | Qutepart-fork Phase 3 + Cluster V.2 fold-gutter | `v0.7.0` | requirements on file |
 | C2 | Theme / ResourceProvider / LinkResolver consolidation | — | `v0.8.0` | not started |
 | C4 | Renderer unification (Code/Math/Mermaid) | — | `v0.9.0` | not started |
