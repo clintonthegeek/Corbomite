@@ -203,6 +203,10 @@ add_subdirectory(tests/graph)
 add_subdirectory(tests/sidebar)
 add_subdirectory(libs/forcegraph/tests)
 add_subdirectory(libs/canvas/tests)
+# Markoff top-level cross-leaf integration tests (MARKOFF_BUILD_TESTS is OFF
+# for the submodule; Corbomite adds this subdirectory directly so the tests
+# run under ctest like any other Corbomite test).
+add_subdirectory(libs/markoff-family/tests/markoff)
 
 # Examples (opt-in) — gated behind CORBOMITE_BUILD_EXAMPLES so default
 # builds don't pay for them.
