@@ -111,6 +111,13 @@ add_test(NAME tst_vault_config_json COMMAND tst_vault_config_json)
 set_tests_properties(tst_vault_config_json PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_vault_save_reload tst_vault_save_reload.cpp)
+target_link_libraries(tst_vault_save_reload
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_save_reload COMMAND tst_vault_save_reload)
+set_tests_properties(tst_vault_save_reload PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_file_manager tst_file_manager.cpp)
 target_link_libraries(tst_file_manager
     PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)

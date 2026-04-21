@@ -2,6 +2,8 @@
 #include "corbomite/vault/Vault.h"
 
 #include "corbomite/core/NoteDocument.h"
+#include <markoff/ParsePool.h>
+#include <markoff/MarkoffDocument.h>
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/TFolder.h"
@@ -40,6 +42,8 @@ Vault::Vault(DataAdapter *adapter, QObject *parent)
     m_root = root.get();
     m_fileMap.emplace(QStringLiteral("/"), std::move(root));
 
+    m_parsePool = std::make_unique<Markoff::ParsePool>(this);
+
     m_watcher = std::make_unique<detail::Watcher>(this);
     connect(m_watcher.get(), &detail::Watcher::created,
             this, &Vault::onExternalCreated);
@@ -51,7 +55,15 @@ Vault::Vault(DataAdapter *adapter, QObject *parent)
             this, &Vault::onExternalRenamed);
 }
 
-Vault::~Vault() = default;
+Vault::~Vault()
+{
+    // Explicitly destroy NoteDocuments here so their MarkoffDocument
+    // destructors (which call ParsePool::cancelJobsFor) run while
+    // m_parsePool is still alive. Qt's parent–child mechanism would
+    // destroy them after member variables are gone, which causes UAF.
+    qDeleteAll(m_docs);
+    m_docs.clear();
+}
 
 void Vault::load(const QString &basePath)
 {
@@ -575,12 +587,14 @@ NoteDocument *Vault::openDocument(const QString &relPath)
     const QString rel = VaultPaths::normalize(relPath);
     if (auto *existing = m_docs.value(rel)) return existing;
 
-    auto *doc = new NoteDocument(m_basePath, rel, nullptr, this);
+    auto *doc = new NoteDocument(m_basePath, rel, m_parsePool.get(), this);
     if (auto *tf = getFileByPath(rel)) {
         const QByteArray bytes = cachedRead(tf);
-        doc->setMarkdown(QString::fromUtf8(bytes));
-        doc->setModified(false);
+        doc->markoff()->resetContent(QString::fromUtf8(bytes),
+                                     Markoff::Origin::FirstOpen);
     }
+    // FirstOpen emits contentsChanged which sets modified=true; undo that.
+    doc->setModified(false);
     m_docs.insert(rel, doc);
     return doc;
 }
@@ -598,8 +612,36 @@ bool Vault::saveDocument(NoteDocument *doc)
     TFile *tf = getFileByPath(rel);
     if (!tf) return false;
 
-    const QByteArray body = doc->markdown().toUtf8();
-    if (!modify(tf, body)) return false;
+    // Write canonical UTF-8 bytes verbatim — no QTextDocumentWriter, no
+    // format coercion. toMarkdown() is the MarkoffDocument's canonical source.
+    const QByteArray bytes = doc->markoff()->toMarkdown().toUtf8();
+    const QString abs = m_basePath + QLatin1Char('/') + rel;
+
+    // Stamp echo-suppression BEFORE the write so the watcher's mtime-based
+    // ledger already holds this path when the OS notification arrives.
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    stampSelfWrite(rel, nowMs);
+
+    QFile f(abs);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        // Remove the stamp — write never happened.
+        m_selfWriteMtimes.remove(rel);
+        return false;
+    }
+    const qint64 written = f.write(bytes);
+    f.close();
+
+    if (written != static_cast<qint64>(bytes.size())) {
+        m_selfWriteMtimes.remove(rel);
+        return false;
+    }
+
+    // Keep the read-cache and TFile stat consistent with what we just wrote.
+    m_readCache.insert(rel, bytes);
+    if (tf->stat.has_value()) {
+        tf->stat->sizeBytes = bytes.size();
+        tf->stat->mtimeMs   = nowMs;
+    }
 
     doc->setModified(false);
     Q_EMIT doc->saved();
@@ -653,6 +695,21 @@ void Vault::onExternalModified(const QString &relPath)
     QFileInfo fi(m_basePath + QLatin1Char('/') + rel);
     if (!fi.exists()) return;
     const qint64 mtimeMs = fi.lastModified().toMSecsSinceEpoch();
+
+    // Defense-in-depth: even if the mtime-ledger leaks, a byte-equal read
+    // is a no-op. Compare disk bytes against the canonical document bytes
+    // so saves that land back the same content never trigger a reload.
+    if (NoteDocument *doc = m_docs.value(rel)) {
+        QFile diskFile(m_basePath + QLatin1Char('/') + rel);
+        if (diskFile.open(QIODevice::ReadOnly)) {
+            const QByteArray disk = diskFile.readAll();
+            if (disk == doc->markoff()->toMarkdown().toUtf8()) {
+                consumeSelfWrite(rel, mtimeMs);  // drain ledger entry if present
+                return;  // byte-equal — not a real external change
+            }
+        }
+    }
+
     if (consumeSelfWrite(rel, mtimeMs)) return;  // self-write echo, suppress
 
     FileStat fs;
