@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
 #include <QSignalSpy>
+#include <QDir>
 #include "corbomite/core/NoteDocument.h"
+#include <markoff/MarkoffDocument.h>
+#include <markoff/MarkdownDelta.h>
 
 class TestNoteDocument : public QObject {
     Q_OBJECT
@@ -94,6 +97,41 @@ private Q_SLOTS:
         QCOMPARE(doc.filePath(), QStringLiteral("/home/user/vault/folder/note.md"));
         QCOMPARE(doc.relativePath(), QStringLiteral("folder/note.md"));
         QCOMPARE(doc.name(), QStringLiteral("note"));
+    }
+
+    // --- Wrapper API tests (Phase C3, Task 20) ---
+
+    void markoffAccessor_isNonNull()
+    {
+        Corbomite::NoteDocument note(QDir::tempPath(), QStringLiteral("t.md"));
+        QVERIFY(note.markoff() != nullptr);
+    }
+
+    void markdownDelegates_toMarkoffDocument()
+    {
+        Corbomite::NoteDocument note(QDir::tempPath(), QStringLiteral("t.md"));
+        note.markoff()->resetContent(QStringLiteral("# hello"), Markoff::Origin::FirstOpen);
+        QCOMPARE(note.markdown(), QStringLiteral("# hello"));
+    }
+
+    void textChanged_firesOnCanonicalChange()
+    {
+        Corbomite::NoteDocument note(QDir::tempPath(), QStringLiteral("t.md"));
+        QSignalSpy spy(&note, &Corbomite::NoteDocument::textChanged);
+        note.markoff()->resetContent(QStringLiteral("x"), Markoff::Origin::FirstOpen);
+        QCOMPARE(spy.count(), 1);
+    }
+
+    void modifiedFlag_flipsOnEdit()
+    {
+        Corbomite::NoteDocument note(QDir::tempPath(), QStringLiteral("t.md"));
+        note.markoff()->resetContent(QStringLiteral("base"), Markoff::Origin::FirstOpen);
+        note.setModified(false);
+        QSignalSpy modSpy(&note, &Corbomite::NoteDocument::modificationChanged);
+        note.markoff()->undoStack()->push(
+            new Markoff::MarkdownDelta(note.markoff(), 4, 0, QStringLiteral(" edited")));
+        QVERIFY(note.isModified());
+        QCOMPARE(modSpy.count(), 1);
     }
 };
 

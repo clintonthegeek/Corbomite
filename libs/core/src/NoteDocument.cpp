@@ -1,98 +1,124 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/NoteDocument.h"
+
+#include <markoff/MarkoffDocument.h>
+#include <QDir>
+#include <QFileInfo>
 #include <QRegularExpression>
 
 namespace Corbomite {
 
+struct NoteDocument::Private {
+    QString vaultRoot;
+    QString relativePath;
+    std::unique_ptr<Markoff::MarkoffDocument> markoff;
+    bool modified = false;
+    mutable int cachedWordCount = -1;
+};
+
 NoteDocument::NoteDocument(const QString &vaultRoot, const QString &relativePath,
-                           QObject *parent)
-    : QObject(parent)
-    , m_vaultRoot(vaultRoot)
-    , m_relativePath(relativePath)
+                           Markoff::ParsePool *pool, QObject *parent)
+    : QObject(parent), d(std::make_unique<Private>())
 {
+    d->vaultRoot    = vaultRoot;
+    d->relativePath = relativePath;
+    d->markoff = std::make_unique<Markoff::MarkoffDocument>(
+        /* buffer */ nullptr, pool, this);
+
+    connect(d->markoff.get(), &Markoff::MarkoffDocument::contentsChanged, this,
+            [this](qsizetype /*offset*/, qsizetype /*removed*/, qsizetype /*inserted*/) {
+        d->cachedWordCount = -1;
+        if (!d->modified)
+            setModified(true);
+        Q_EMIT textChanged();
+    });
+    connect(d->markoff.get(), &Markoff::MarkoffDocument::documentReloaded, this,
+            [this]() {
+        d->cachedWordCount = -1;
+        if (!d->modified)
+            setModified(true);
+        Q_EMIT textChanged();
+    });
 }
+
+NoteDocument::~NoteDocument() = default;
 
 QString NoteDocument::filePath() const
 {
-    return m_vaultRoot + QLatin1Char('/') + m_relativePath;
+    return d->vaultRoot + QLatin1Char('/') + d->relativePath;
 }
 
 QString NoteDocument::relativePath() const
 {
-    return m_relativePath;
+    return d->relativePath;
 }
 
 QString NoteDocument::name() const
 {
-    QString fileName = m_relativePath.mid(m_relativePath.lastIndexOf(QLatin1Char('/')) + 1);
+    // Strip leading path, strip .md suffix. Preserve existing semantics.
+    QString fileName = d->relativePath.mid(d->relativePath.lastIndexOf(QLatin1Char('/')) + 1);
     int dotPos = fileName.lastIndexOf(QLatin1Char('.'));
-    if (dotPos > 0) {
+    if (dotPos > 0)
         return fileName.left(dotPos);
-    }
     return fileName;
 }
 
 QString NoteDocument::markdown() const
 {
-    return m_markdown;
+    return d->markoff->toMarkdown();  // toMarkdown() returns const QString& — copy on return
 }
 
 void NoteDocument::setMarkdown(const QString &text)
 {
-    if (m_markdown == text) {
-        return;
-    }
-    m_markdown = text;
-    m_cachedWordCount = -1; // Invalidate cache
-
-    if (!m_modified) {
-        m_modified = true;
-        Q_EMIT modificationChanged(true);
-    }
-
-    Q_EMIT textChanged();
+    // Generic-purpose setter — callers who know their use-case should prefer
+    // markoff()->resetContent(text, Origin::*) directly.
+    d->markoff->resetContent(text, Markoff::Origin::TestFixture);
 }
 
 bool NoteDocument::isModified() const
 {
-    return m_modified;
+    return d->modified;
 }
 
 void NoteDocument::setModified(bool modified)
 {
-    if (m_modified != modified) {
-        m_modified = modified;
+    if (d->modified != modified) {
+        d->modified = modified;
         Q_EMIT modificationChanged(modified);
     }
 }
 
 int NoteDocument::wordCount() const
 {
-    if (m_cachedWordCount >= 0) {
-        return m_cachedWordCount;
-    }
+    if (d->cachedWordCount >= 0)
+        return d->cachedWordCount;
 
-    if (m_markdown.isEmpty()) {
-        m_cachedWordCount = 0;
+    const QString text = d->markoff->toMarkdown();
+    if (text.isEmpty()) {
+        d->cachedWordCount = 0;
         return 0;
     }
 
-    // Strip markdown syntax characters, then count word-like tokens
-    static const QRegularExpression wordPattern(QStringLiteral(R"(\b[a-zA-Z0-9]+(?:[-'][a-zA-Z0-9]+)*\b)"));
+    // Strip markdown syntax characters, then count word-like tokens.
+    static const QRegularExpression wordPattern(
+        QStringLiteral(R"(\b[a-zA-Z0-9]+(?:[-'][a-zA-Z0-9]+)*\b)"));
 
     int count = 0;
-    auto it = wordPattern.globalMatch(m_markdown);
+    auto it = wordPattern.globalMatch(text);
     while (it.hasNext()) {
         it.next();
         ++count;
     }
-    m_cachedWordCount = count;
+    d->cachedWordCount = count;
     return count;
 }
 
 int NoteDocument::characterCount() const
 {
-    return m_markdown.length();
+    return int(d->markoff->length());
 }
+
+Markoff::MarkoffDocument       *NoteDocument::markoff()       { return d->markoff.get(); }
+const Markoff::MarkoffDocument *NoteDocument::markoff() const { return d->markoff.get(); }
 
 } // namespace Corbomite

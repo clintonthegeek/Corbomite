@@ -3,6 +3,9 @@
 
 #include <QObject>
 #include <QString>
+#include <memory>
+
+namespace Markoff { class MarkoffDocument; class ParsePool; }
 
 namespace Corbomite {
 
@@ -12,14 +15,16 @@ class NoteDocument : public QObject {
 
 public:
     explicit NoteDocument(const QString &vaultRoot, const QString &relativePath,
+                          Markoff::ParsePool *pool = nullptr,
                           QObject *parent = nullptr);
+    ~NoteDocument() override;
 
     QString filePath() const;
     QString relativePath() const;
     QString name() const;
 
     QString markdown() const;
-    void setMarkdown(const QString &text);
+    void    setMarkdown(const QString &text);
 
     bool isModified() const;
     void setModified(bool modified);
@@ -27,17 +32,18 @@ public:
     int wordCount() const;
     int characterCount() const;
 
+    // New: leaves bind via note->markoff().
+    Markoff::MarkoffDocument       *markoff();
+    const Markoff::MarkoffDocument *markoff() const;
+
 Q_SIGNALS:
     void textChanged();
     void modificationChanged(bool modified);
     void saved();
 
 private:
-    QString m_vaultRoot;
-    QString m_relativePath;
-    QString m_markdown;
-    bool m_modified = false;
-    mutable int m_cachedWordCount = -1;
+    struct Private;
+    std::unique_ptr<Private> d;
 };
 
 } // namespace Corbomite

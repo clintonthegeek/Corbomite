@@ -575,7 +575,7 @@ NoteDocument *Vault::openDocument(const QString &relPath)
     const QString rel = VaultPaths::normalize(relPath);
     if (auto *existing = m_docs.value(rel)) return existing;
 
-    auto *doc = new NoteDocument(m_basePath, rel, this);
+    auto *doc = new NoteDocument(m_basePath, rel, nullptr, this);
     if (auto *tf = getFileByPath(rel)) {
         const QByteArray bytes = cachedRead(tf);
         doc->setMarkdown(QString::fromUtf8(bytes));

@@ -62,7 +62,7 @@ private Q_SLOTS:
         view.setDataAdapter(&adapter);
         view.setVaultRoot(QStringLiteral("/vault"));
 
-        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), nullptr, &view);
         view.loadFile(doc);
 
         view.save();
@@ -78,7 +78,7 @@ private Q_SLOTS:
         view.setDataAdapter(&adapter);
         view.setVaultRoot(QStringLiteral("/vault"));
 
-        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), nullptr, &view);
         view.loadFile(doc);
 
         view.content = QStringLiteral("hello world");
@@ -95,7 +95,7 @@ private Q_SLOTS:
         view.setDataAdapter(&adapter);
         view.setVaultRoot(QStringLiteral("/vault"));
 
-        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), nullptr, &view);
         view.loadFile(doc);
 
         view.content = QStringLiteral("changed");
@@ -125,7 +125,7 @@ private Q_SLOTS:
         view.setDataAdapter(&adapter);
         view.setVaultRoot(QStringLiteral("/vault"));
 
-        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), nullptr, &view);
         view.loadFile(doc);
 
         view.content = QStringLiteral("v2");
@@ -142,7 +142,7 @@ private Q_SLOTS:
         view.setDataAdapter(&adapter);
         view.setVaultRoot(QStringLiteral("/vault"));
 
-        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), nullptr, &view);
         view.loadFile(doc);
 
         view.content = QStringLiteral("v2");

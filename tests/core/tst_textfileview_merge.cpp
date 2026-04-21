@@ -54,7 +54,7 @@ private Q_SLOTS:
         view.setDataAdapter(&adapter);
         view.setVaultRoot(QStringLiteral("/vault"));
 
-        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), nullptr, &view);
         view.loadFile(doc);
 
         view.onExternalModify(QStringLiteral("test.md"));
@@ -70,7 +70,7 @@ private Q_SLOTS:
         view.setDataAdapter(&adapter);
         view.setVaultRoot(QStringLiteral("/vault"));
 
-        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), nullptr, &view);
         view.loadFile(doc);
 
         adapter.files[QStringLiteral("/vault/test.md")] = QStringLiteral("remote change");
@@ -87,7 +87,7 @@ private Q_SLOTS:
         view.setDataAdapter(&adapter);
         view.setVaultRoot(QStringLiteral("/vault"));
 
-        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), nullptr, &view);
         view.loadFile(doc);
 
         view.content = QStringLiteral("line1\nline2-local\nline3");
@@ -107,7 +107,7 @@ private Q_SLOTS:
         view.setDataAdapter(&adapter);
         view.setVaultRoot(QStringLiteral("/vault"));
 
-        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), nullptr, &view);
         view.loadFile(doc);
 
         view.onExternalModify(QStringLiteral("other.md"));
