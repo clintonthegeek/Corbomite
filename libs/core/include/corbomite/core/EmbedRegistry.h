@@ -23,7 +23,7 @@ namespace Corbomite::Core {
 /// lambdas remain source-compatible with their pre-C1 forms because the
 /// struct shape (targetPath / subpath / resources / depth) matches
 /// exactly, and `Corbomite::Core::VaultResourceProvider *` implicitly
-/// up-casts to `Markoff::Vault::ResourceProvider *` via the inheritance
+/// up-casts to `Markoff::ResourceProvider *` via the inheritance
 /// added in `VaultResourceProvider.h`.
 using EmbedRequest = Markoff::EmbedRequest;
 using EmbedFactory = Markoff::EmbedFactory;

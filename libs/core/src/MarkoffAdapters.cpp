@@ -196,7 +196,7 @@ MetadataParserImpl::MetadataParserImpl(const Corbomite::LinkResolver *resolver)
 Markoff::Vault::MetadataParseResult
 MetadataParserImpl::parse(const QByteArray &content,
                           const QString &path,
-                          const Markoff::Vault::LinkResolver & /*resolver*/) const
+                          const Markoff::LinkResolver & /*resolver*/) const
 {
     Markoff::Vault::MetadataParseResult out;
     if (!m_resolver) return out;

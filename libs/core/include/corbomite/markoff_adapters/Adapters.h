@@ -17,7 +17,7 @@
 
 #include <markoff/CodeBlockProcessorRegistry.h>
 #include <markoff/EmbedRegistry.h>
-#include <markoff/vault/LinkResolver.h>
+#include <markoff/LinkResolver.h>
 #include <markoff/vault/MetadataCache.h>
 #include <markoff/vault/MetadataParser.h>
 
@@ -79,12 +79,12 @@ private:
     Core::CodeBlockProcessorRegistry *m_inner;
 };
 
-/// Wraps `Corbomite::LinkResolver` as a `Markoff::Vault::LinkResolver`.
+/// Wraps `Corbomite::LinkResolver` as a `Markoff::LinkResolver`.
 /// Corbomite's algorithm is a 6-step Obsidian-compatible search; Markoff's
 /// interface is the minimal `resolve(linkText, fromPath) -> QString`. The
 /// adapter extracts the `path` field of Corbomite's ResolvedLink on hit;
 /// empty string on miss.
-class LinkResolverAdapter final : public Markoff::Vault::LinkResolver
+class LinkResolverAdapter final : public Markoff::LinkResolver
 {
 public:
     explicit LinkResolverAdapter(const Corbomite::LinkResolver *inner);
@@ -133,7 +133,7 @@ public:
     Markoff::Vault::MetadataParseResult
     parse(const QByteArray &content,
           const QString &path,
-          const Markoff::Vault::LinkResolver &resolver) const override;
+          const Markoff::LinkResolver &resolver) const override;
 
 private:
     const Corbomite::LinkResolver *m_resolver;

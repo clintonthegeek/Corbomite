@@ -87,20 +87,29 @@ std::optional<QString> VaultResourceProvider::resolveEmbed(const QString &name) 
     return std::nullopt;
 }
 
-QUrl VaultResourceProvider::resolveLink(const QString &target) const
+QUrl VaultResourceProvider::resolveWikiLink(const QString &target) const
 {
     QString resolved = resolveTarget(target);
     if (m_vaultPath.isEmpty()) return {};
     return QUrl::fromLocalFile(m_vaultPath + QLatin1Char('/') + resolved);
 }
 
-bool VaultResourceProvider::linkExists(const QString &target) const
+bool VaultResourceProvider::wikiLinkExists(const QString &target) const
 {
     if (!m_vault) return false;
 
     // resolveTarget finds the best match; verify it actually exists
     QString resolved = resolveTarget(target);
     return m_vault->getAbstractFileByPath(resolved) != nullptr;
+}
+
+QByteArray VaultResourceProvider::loadImageBytes(const QString &name) const
+{
+    const QUrl url = resolveImage(name);
+    if (url.isEmpty() || !url.isLocalFile()) return {};
+    QFile f(url.toLocalFile());
+    if (!f.open(QIODevice::ReadOnly)) return {};
+    return f.readAll();
 }
 
 } // namespace Corbomite

@@ -12,9 +12,10 @@ public:
     VaultResourceProvider(Vault *vault, const QString &noteRelativePath);
 
     QUrl resolveImage(const QString &name) const override;
+    QByteArray loadImageBytes(const QString &name) const override;
     std::optional<QString> resolveEmbed(const QString &name) const override;
-    QUrl resolveLink(const QString &target) const override;
-    bool linkExists(const QString &target) const override;
+    QUrl resolveWikiLink(const QString &target) const override;
+    bool wikiLinkExists(const QString &target) const override;
 
 private:
     QString resolveTarget(const QString &target) const;
