@@ -10,6 +10,74 @@ Conventions:
 
 ---
 
+## 2026-04-22 — Markoff Phase C2 done end-to-end (Theme / ResourceProvider / LinkResolver consolidation)
+
+The third-to-last Phase C work-unit shipped end-to-end across both repos in one autonomous session. Spec at `libs/markoff-family/docs/specs/2026-04-22-phase-c2-theme-resourceprovider-linkresolver.md` (8 load-bearing decisions in §12); plan at `libs/markoff-family/docs/plans/2026-04-22-phase-c2-theme-resourceprovider-linkresolver.md` (23 tasks); authoritative status in `libs/markoff-family/docs/phase-c-status.md` activity log. Tagged `v0.8.0`.
+
+### Markoff side (Tasks 1-14, `208ad23..89790f25`, tagged `v0.8.0`)
+
+What shipped:
+
+- **markoff-core gained:** `Theme.h` + `Theme.cpp` (`Markoff::Theme` struct with `ElementStyle` per-element data — optional fg/bg, bold/italic/underline/strike, optional `fontFamilyOverride`, percentage `fontSizeAdaptionPercent`; plus `materializeFormat`, `elementFont`, `loadJson`/`saveJson`, `defaultLight`/`defaultDark`); `QOwnNotesImport.cpp` (`HighlighterState` int → `Element` mapping table covering -1/0-30/96-100/1000-1006); `ResourceProvider.h` (broader C1 API shape — adds `loadImageBytes`); `LinkResolver.h` (lifted from `Vault::`); `FilesystemResourceProvider.{h,cpp}` (testapp default — resolves names against a base directory); 6 built-in JSON themes (Light/Dark/Solarized*/Dracula/Monokai) shipped as Qt resources at `:/markoff/themes/*.json`; `themes.qrc`.
+- **markoff-core element extension:** Source-mode entries (Selection, Cursor, LineNumberBg, LineNumberFg, ActiveLineNumberFg, FoldMarker, BracketMatch, IndentGuide), Reading entries (Embed, HtmlBlock, HtmlInline, FootnoteDef).
+- **markoff-core retired:** `vault/ResourceProvider.h`, `vault/LinkResolver.h`, `vault/DefaultResourceProvider.h`, `vault/DefaultLinkResolver.h`, `tst_markoff_default_vault_provider.cpp`. `MetadataParser` parameter type changes from unqualified `LinkResolver` (= `Vault::LinkResolver`) to `Markoff::LinkResolver`.
+- **markoff-live retired:** `Theme.h`, `Theme.cpp`, `ResourceProvider.h`, `ResourceProvider.cpp` DELETED. Bulk migration of consumers from `m_theme.formats.value(X)` → `m_theme.materializeFormat(X)` across MarkdownHighlighter (~20 sites), MarkdownTextItem, painters. PaintColors paths unchanged.
+- **markoff-reading:** `Reading::Theme` enum DELETED. `CodeBlockHighlighter` constructor takes `const Markoff::Theme &`; `setMarkoffTheme()` for runtime swap. `StyleManager` + `SectionLayout` + `ReadingView` migrate from `Theme::Light/Dark` enum values to `Markoff::Theme::defaultLight()/defaultDark()` and from `theme == Theme::Dark` to `theme.isDark`. `EmbedRenderer` + `LinkRenderer` forward-decls update to `namespace Markoff`. `EmbedRequest::resources` type changes from `Markoff::Vault::ResourceProvider*` to `Markoff::ResourceProvider*` (in `EmbedRegistry.h`).
+- **markoff-source:** `SourceEditor::setViewTheme` bridges to Qutepart palette (Base/Text/Highlight from Markoff theme) + base codeFont + current-line color. Line-number gutter / fold marker / indent guide / bracket match deferred to qutepart-corbomite-fork Phase 6 (KColorScheme drive). KSyntaxHighlighting per-token override deferred to fork Phase 4. Vendored `Qutepart::Theme` JSON loader untouched but unused.
+- **3 new tests** in markoff-core: `tst_theme_roundtrip` (full Theme → JSON → Theme byte-equivalent round-trip), `tst_theme_default_load` (all 6 built-ins parse + Light/Dark factories return populated themes with H1 + 200% adapt), `tst_theme_qownnotes_import` (smoke against extracted Light + Dark fixtures from QOwnNotes' `schemes.conf`). 2 existing tests rewritten: `tst_theme` migrated to ElementStyle API; `tst_resourceprovider` rewritten for new resolveWikiLink/wikiLinkExists/loadImageBytes API + path-return semantics for resolveEmbed (the C1 broadened spec).
+
+### Corbomite side (Tasks 15-23, `2ba85428..a7535f00`)
+
+What shipped:
+
+- **`2ba85428`** — submodule pin bump 3dc4cb5b → 89790f25 (master HEAD = v0.8.0 + one phase-c-status doc commit).
+- **`a25787c8`** — `Corbomite::Core::VaultResourceProvider` parent class swap (`Markoff::Vault::ResourceProvider` → `Markoff::ResourceProvider`); `LinkResolverAdapter` parent class swap; `src/editor/VaultResourceProvider.{h,cpp}` migrated to new API (resolveLink → resolveWikiLink, linkExists → wikiLinkExists, loadImageBytes added).
+- **`30861cde`** — `Corbomite::Core::SystemThemeBuilder::buildFromKColorScheme()` reads palette roles from `KColorScheme(QPalette::Active, View)` + `Selection` (NormalText/LinkText/NeutralText/NegativeText/BackgroundNormal/BackgroundAlternate/InactiveText) + hand-tuned base layer for code-syntax token colors + 27-entry callout accent table differentiated by background luminance (lightness < 0.5 → dark base, else light). `KF6::ColorScheme` added to `corbomite-core` public link libs. Smoke test verifies populated theme + H1 bold + 200% adapt + non-empty calloutAccents.
+- **`e53dc571`** — `Corbomite::Core::ThemeService` owns active theme + 6 built-in themes from `:/markoff/themes/*.json` Qt resources + user themes from `${XDG_CONFIG_HOME}/corbomite-dev/themes/`. `setActiveThemeByName` emits `themeChanged` when theme actually changes (no-op on same name). `addUserTheme` persists to userThemesDirectory() as `<uuid>.json`. 4-slot unit test (built-in name population including 7 names with "Follow system", themeChanged emission on activate, signal suppression on same name, "Follow system" as default).
+- **`c0ba31cc`** — MainWindow constructs ThemeService alongside KColorSchemeManager (after applyTheme() so KColorScheme is initialised first); `configChanged` → `refreshSystemTheme` so KDE color-scheme switches drive re-emission. NoteEditorWidget gains `setThemeService(Core::ThemeService*)` which subscribes to themeChanged + applies to every constructed leaf; lazy-constructed Source/Reading get setViewTheme on construction. Per-active-editor wiring at `setActiveLeafForContext` calls `editor->setThemeService(m_themeService)` so each new editor follows the active theme.
+- **`c467708c`** — SettingsDialog gains constructor parameter for ThemeService. Appearance page shows "Editor theme:" combobox listing "Follow system" + 6 built-ins + user-installed JSON themes. Selection persists to `CorbomiteSettings::markoffTheme` kcfg key + calls `ThemeService::setActiveThemeByName`. "Import QOwnNotes scheme…" button beside the combobox: opens file dialog (suggested `~/.config/PBE/QOwnNotes`), calls `Markoff::Theme::importFromQOwnNotesIni`, `ThemeService::addUserTheme`, refreshes the combobox + activates the new theme. `KMessageBox::error` on parse failure. `corbomite.kcfg` gains `MarkoffTheme` entry (default "Follow system"). MainWindow passes `m_themeService` through to SettingsDialog ctor.
+- **`a7535f00`** — restore persisted Markoff theme on startup via `m_themeService->setActiveThemeByName(CorbomiteSettings::self()->markoffTheme())`.
+- **2 new tests** in `tests/app/`: `tst_system_theme_builder`, `tst_theme_service`.
+
+### Verification
+
+- Standalone Markoff ctest 269/273 PASS — only the 4 documented pre-existing flakes (`tst_markoff_undo_grouping`, `tst_markoff_table_operations`, `tst_completion_popup`, `tst_benchmark_layout`).
+- Full Corbomite ctest 271/275 PASS — same 4 pre-existing flakes; zero C2 regressions.
+- Both Markoff invariants verified: no `Corbomite`-named types in public Markoff headers; no `<corbomite/...>` includes in public Markoff headers (only doc-comments mention "Corbomite" as the host implementor of the abstracts).
+- Manual UI smoke deferred (no display in execution environment); recommended pre-user-facing-closeout (open vault, swap themes through combobox, switch KDE color scheme between Breeze Light/Dark, import a QOwnNotes scheme).
+
+### Implementation pitfalls worth recording
+
+1. **`Q_INIT_RESOURCE` macro inside namespace.** The macro expands to `extern int qInitResources_themes(); qInitResources_themes();`. Wrapping in an anonymous namespace causes the call to recurse on the wrapper itself (stack overflow on first call — observed as SIGSEGV in `Markoff::qInitResources_themes()` because the extern decl gets namespaced). Fix: forward-declare `qInitResources_themes` at file scope (outside any namespace) and call it directly from the namespaced factory functions.
+2. **`QSettings::IniFormat` comma-separated values.** `QSettings::IniFormat` parses `key=a, b, c` as a `QStringList`, not a string. `value(...).toString()` returns empty on multi-entry lists (one-entry lists DO toString correctly because of the wrapping behaviour, masking the bug in single-fixture tests). Use `value(...).toStringList()` instead. The QOwnNotes importer initially passed local fixture tests (single-scheme `[Editor]` block) but failed on the real `schemes.conf` (35-scheme list).
+3. **CMake source globbing pitfalls.** Adding test executables that reference uncreated `.cpp` files causes `cmake -S . -B build` to fail with "Cannot find source file". When deleting files, remember to also remove from CMakeLists.txt source/PUBLIC_HEADER lists in the same change set. Same for `.qrc` files: registering Qt resources for files that don't yet exist fails at rcc time; defer the .qrc registration until all files exist.
+
+### Spec §12 — 8 load-bearing design decisions all held through execution
+
+1. One canonical surface per concept; no `Vault::` prefix. **Held.** `Markoff::ResourceProvider` and `Markoff::LinkResolver` live unnested in `markoff-core`. The C1 `Markoff::Vault::*` types retired.
+2. Full Source-mode theme absorb. **Held with carry-forward.** SourceEditor bridges Markoff theme onto Qutepart palette + base font + current-line. Vendored `Qutepart::Theme` JSON loader stays compilable but unused; deletion is a follow-up. KSyntaxHighlighting per-token override deferred to fork Phase 4.
+3. Markoff-native data model + manual QOwnNotes importer. **Held.** Typesafe `Markoff::Theme::Element` enum on the C++ API; QOwnNotes integer `HighlighterState` IDs only appear in the importer's translation table. User-initiated import via SettingsDialog button.
+4. Snapshot-only architecture. **Held.** `Markoff::Theme` is a value struct; host (Corbomite) owns the registry, picker, system-theme tracking. No `ThemeRegistry` / `ThemeManager` in `markoff-core`.
+5. Markoff-native `ElementStyle` struct (not `QTextCharFormat`). **Held.** Optional fg/bg, explicit bold/italic/underline/strike, optional `fontFamilyOverride`, percentage `fontSizeAdaptionPercent`. Materialise to `QTextCharFormat` once per `setViewTheme`.
+6. Comprehensive element coverage extension. **Held.** Source-mode (Selection/Cursor/LineNumberBg/Fg/ActiveLineNumberFg/FoldMarker/BracketMatch/IndentGuide), Reading (Embed/HtmlBlock/HtmlInline/FootnoteDef) all land in C2.
+7. System-theme via KColorScheme palette derivation + hand-tuned base layer. **Held.** `Corbomite::Core::SystemThemeBuilder` reads palette roles from KColorScheme; non-palette elements (callout accents, syntax token colors) come from a hand-tuned base layer differentiated by background luminance.
+8. Six built-in themes ship as JSON Qt resources. **Held.** Light, Dark, Solarized Light, Solarized Dark, Dracula, Monokai. `defaultLight()` / `defaultDark()` load via the same path as user themes — single code path.
+
+### Carry-forward follow-ups (logged in spec §11)
+
+- KSyntaxHighlighting per-token CodeKeyword/String/Comment override (Reading + Source) — needs qutepart-corbomite-fork Phase 4 first.
+- Line-number gutter / fold marker / indent guide / bracket match Qutepart palette wiring — needs new public API in qutepart-corbomite-fork Phase 6.
+- Vendored `Qutepart::Theme` JSON loader deletion — touches multiple files; schedule into a fork-side cleanup pass.
+- In-app FontColorWidget-equivalent theme editor (per-element bold/italic/font/color picker UI). Tier-2 polish; ship a separate cluster when there's user demand.
+- Markoff-core test for QOwnNotes importer round-trip against all 35 default schemes (currently smoke against 2).
+- Markoff-core `Markoff::EmbedRequest::resources` migration could break third-party plugins that hold `Markoff::Vault::ResourceProvider*` — but Markoff is pre-1.0 and there are no third-party plugins yet.
+
+### Next
+
+Next Phase C work-unit: **C4** (Renderer unification — collapse two-path code-block + math + mermaid rendering into single registry pattern; tag `v0.9.0`). Smallest C-phase work-unit; final polish before Phase C closeout.
+
+---
+
 ## 2026-04-21 — Markoff Phase C7 done end-to-end (Source find/replace + fold-gutter)
 
 The penultimate Phase C work-unit shipped end-to-end across both repos in one autonomous session. Spec at `libs/markoff-family/docs/specs/2026-04-21-phase-c7-source-find-replace-fold.md`; plan at `libs/markoff-family/docs/plans/2026-04-21-phase-c7-source-find-replace-fold.md`; authoritative status in `libs/markoff-family/docs/phase-c-status.md` activity log. Tagged `v0.7.0`.
