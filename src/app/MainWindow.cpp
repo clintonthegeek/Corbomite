@@ -4,6 +4,7 @@
 #include "CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
 #include <markoff/Editor.h>
+#include <markoff/source/SourceEditor.h>
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceSplit.h"
 #include "corbomite/core/WorkspaceTabs.h"
@@ -361,7 +362,35 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::triggerEditorAction(Markoff::ActionId id)
 {
     auto *editor = activeEditor();
-    if (!editor || !editor->editor()) return;
+    if (!editor) return;
+
+    // C7: Find/Replace IDs route to the active leaf's MarkdownView virtuals
+    // (Live and Source both override; Reading inherits no-op). Source's
+    // SearchController + named QAction accessors handle next/prev when a
+    // query is set; otherwise both leaves open the find bar.
+    auto *leaf = editor->activeLeaf();
+    if (leaf) {
+        switch (id) {
+            case Markoff::ActionId::FindNext:
+                if (auto *src = qobject_cast<Markoff::Source::SourceEditor *>(leaf))
+                    if (auto *act = src->findNextAction()) { act->trigger(); return; }
+                leaf->showFindBar();
+                return;
+            case Markoff::ActionId::FindPrevious:
+                if (auto *src = qobject_cast<Markoff::Source::SourceEditor *>(leaf))
+                    if (auto *act = src->findPrevAction()) { act->trigger(); return; }
+                leaf->showFindBar();
+                return;
+            case Markoff::ActionId::Replace:
+                leaf->showReplaceBar();
+                return;
+            default:
+                break;
+        }
+    }
+
+    // Fallback for non-Find/Replace IDs: dispatch via Live's action() map.
+    if (!editor->editor()) return;
     if (auto *act = editor->editor()->action(id))
         act->trigger();
 }
