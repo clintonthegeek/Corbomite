@@ -272,12 +272,13 @@ void NoteEditorWidget::restoreEphemeralStateFor(ViewMode mode,
         }
         break;
     case ViewMode::LivePreview:
-        // Cursor — Markoff's public API has `goToLine` but no column setter.
-        // Column preservation is best-effort: we land on the correct line;
-        // the cursor-reveal-source behaviour handles the rest. Line is
-        // 1-based on the wire, 0-based in EphemeralState.
+        // Line is 1-based on the Markoff::Editor wire, 0-based in
+        // EphemeralState. Column is 0-based on both. goToLineAndColumn
+        // preserves the user's in-line cursor position across Source ->
+        // Live transitions; before v0.6.1 this fell back to goToLine
+        // which always placed the cursor at column 0.
         if (s.cursor.line > 0 || s.cursor.column > 0) {
-            m_editor->goToLine(s.cursor.line + 1);
+            m_editor->goToLineAndColumn(s.cursor.line + 1, s.cursor.column);
         }
         m_editor->setScrollPositionVisualLine(s.scroll);
         break;

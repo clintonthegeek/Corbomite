@@ -86,8 +86,10 @@ private Q_SLOTS:
         // Wait for Source to receive canonical content.
         QTest::qWait(50);
 
-        // Drive cursor + scroll on Source.
-        source->setCursorPosition({50, 5});
+        // Drive cursor + scroll on Source. Line 51 is paragraph 25's
+        // text line (paragraphs are at odd 1-based lines with blank
+        // separators at even lines under makeParagraphs's \n\n joining).
+        source->setCursorPosition({51, 5});
         source->setScrollPosition(48.0f);
         QTest::qWait(30);
 
@@ -98,13 +100,21 @@ private Q_SLOTS:
         QVERIFY(waitForLiveScene(widget.editor()));
         QTest::qWait(60);
 
-        // Cursor — Markoff's public API is goToLine only, so column
-        // preservation is best-effort. Check line is within ±3.
-        // Source cursor was at line 50 (1-based) → stored as 49 (0-based)
-        // → restored as goToLine(50). Accept ±3 lines under offscreen timing.
+        // Cursor — v0.6.1 added goToLineAndColumn, so both line and
+        // column should preserve across the Source -> Live transition.
+        // Source cursor was at line 51 (1-based) + column 5
+        // → stored in EphemeralState as line 50 (0-based) + column 5
+        // → restored as goToLineAndColumn(51, 5) on Live-attach.
+        // Live's item structure maps Source lines to scene items
+        // differently (paragraph-per-item vs Qt block-per-line), so
+        // cursorLine may drift ±3. cursorColumn is 1-based in Markoff
+        // (0-based col 5 → cursorColumn 6), exact ±1.
         const int line = widget.editor()->cursorLine();
-        QVERIFY2(std::abs(line - 50) <= 3,
+        QVERIFY2(std::abs(line - 51) <= 3,
                  qPrintable(QStringLiteral("LivePreview cursor line drift: %1").arg(line)));
+        const int col = widget.editor()->cursorColumn();
+        QVERIFY2(std::abs(col - 6) <= 1,  // source col 5 + 1-based cursorColumn
+                 qPrintable(QStringLiteral("LivePreview cursor column drift: %1 (expected ~6)").arg(col)));
 
         // Scroll ≈ 48.0 within ±1.5 (offscreen viewport may clamp).
         const float scroll = widget.editor()->scrollPositionVisualLine();
