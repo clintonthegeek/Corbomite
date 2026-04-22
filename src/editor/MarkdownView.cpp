@@ -330,21 +330,23 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
     });
     helper.addToSection(exportPdfAct, QStringLiteral("action"));
 
-    // ---- find: disabled placeholders (Qutepart fork Phase 3 find/replace) ----
+    // ---- find: dispatch to leaf widget's showFindBar / showReplaceBar (C7) ----
     auto *findAct = new QAction(
         QIcon::fromTheme(QStringLiteral("edit-find")),
         i18n("Find..."), this);
-    findAct->setEnabled(false);
-    findAct->setToolTip(
-        i18n("Requires Qutepart fork Phase 3 find/replace API"));
+    connect(findAct, &QAction::triggered, this, [this] {
+        if (auto *leaf = m_editorWidget ? m_editorWidget->activeLeaf() : nullptr)
+            leaf->showFindBar();
+    });
     helper.addToSection(findAct, QStringLiteral("find"));
 
     auto *replaceAct = new QAction(
         QIcon::fromTheme(QStringLiteral("edit-find-replace")),
         i18n("Replace..."), this);
-    replaceAct->setEnabled(false);
-    replaceAct->setToolTip(
-        i18n("Requires Qutepart fork Phase 3 find/replace API"));
+    connect(replaceAct, &QAction::triggered, this, [this] {
+        if (auto *leaf = m_editorWidget ? m_editorWidget->activeLeaf() : nullptr)
+            leaf->showReplaceBar();
+    });
     helper.addToSection(replaceAct, QStringLiteral("find"));
 
     // ---- view.linked submenu: open the five sidebar dock panels ----

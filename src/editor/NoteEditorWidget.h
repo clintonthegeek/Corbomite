@@ -61,6 +61,12 @@ public:
     Markoff::Source::SourceEditor *sourceEditor() const;
     Markoff::Reading::ReadingView *readingView() const;
 
+    // Returns the active MarkdownView leaf (any of the three), or nullptr if
+    // none has been constructed yet. Cluster R / C7 consumers (MarkdownView
+    // hamburger menu + MainWindow find-replace dispatch) call this for unified
+    // virtual dispatch (showFindBar / showReplaceBar / hideFindBar / etc.).
+    Markoff::MarkdownView *activeLeaf() const;
+
     // Optional — when set, hovers over wiki/markdown links schedule a 300ms
     // preview popover (Cluster H Phase 2). Lifetime owned by the caller.
     void setHoverPopover(HoverPopover *popover);
@@ -113,10 +119,8 @@ private:
     int stackIndexFor(ViewMode mode) const;
     void ensureWidgetConstructed(ViewMode mode);
 
-    // Returns the active MarkdownView leaf (any of the three), or nullptr if
-    // none has been constructed yet. Used to detach/attach the document during
-    // setViewMode and setNoteDocument transitions.
-    Markoff::MarkdownView *activeLeaf() const;
+    // (activeLeaf is now a public accessor — declared above with editor()/
+    // sourceEditor()/readingView(). Internal callers below also use it.)
 
     // Captures ephemeral state (scroll/cursor/fold) from the current active
     // leaf as a QJsonObject, and packs it into the Corbomite EphemeralState
