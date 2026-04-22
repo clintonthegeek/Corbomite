@@ -68,6 +68,8 @@
 
 #include <KAboutApplicationDialog>
 #include <KAboutData>
+#include "corbomite/core/ThemeService.h"
+
 #include <KColorSchemeManager>
 #include <KColorSchemeModel>
 #include <KHelpMenu>
@@ -212,6 +214,16 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     applyTheme();
     connect(CorbomiteSettings::self(), &KConfigSkeleton::configChanged,
             this, &MainWindow::onSettingsApplied);
+
+    // C2 — ThemeService owns the active Markoff theme + the registry of
+    // installed themes. Constructed after applyTheme() so KColorScheme is
+    // initialised before SystemThemeBuilder reads it on first build.
+    // onSettingsApplied() refreshes the system theme when the KDE color
+    // scheme changes.
+    m_themeService = new Corbomite::Core::ThemeService(
+        KColorSchemeManager::instance(), this);
+    connect(CorbomiteSettings::self(), &KConfigSkeleton::configChanged,
+            m_themeService, &Corbomite::Core::ThemeService::refreshSystemTheme);
 
     connect(m_app, &CorbomiteApp::vaultOpened, this, &MainWindow::onVaultOpened);
     connect(m_app, &CorbomiteApp::vaultClosed, this, &MainWindow::onVaultClosed);
@@ -1662,6 +1674,9 @@ void MainWindow::setupEditor()
             // Format/Heading/Table state and context-menu contribution.
             connectEditorContext(editor);
             connectEditorContextMenu(editor);
+            // C2 — wire ThemeService so this editor follows theme changes.
+            if (m_themeService)
+                editor->setThemeService(m_themeService);
         }
         if (editor) {
             disconnect(editor, &NoteEditorWidget::viewModeChanged, this, nullptr);

@@ -20,6 +20,7 @@ namespace Corbomite::Core {
 class EmbedRegistry;
 class MermaidRenderer;
 class VaultResourceProvider;
+class ThemeService;
 }
 
 namespace Corbomite::MarkoffAdapters {
@@ -193,6 +194,7 @@ private:
     MenuEventEmitter *m_menuEvents = nullptr;
     HoverLinkSourceRegistry *m_hoverSources = nullptr;
     HoverPopover *m_hoverPopover = nullptr;
+    Corbomite::Core::ThemeService *m_themeService = nullptr;
     // Cluster J Phase 6 — EmbedRegistry + EmbedRenderer feed HoverPopover
     // (and any future preview surfaces). Built once at MainWindow construction;
     // the per-vault resource adapter is rebuilt on each `onVaultOpened` and

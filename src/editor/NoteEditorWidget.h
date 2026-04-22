@@ -30,6 +30,10 @@ class HoverPopover;
 class EditorSuggestManager;
 class EditorSuggest;
 
+namespace Core {
+class ThemeService;
+}
+
 class NoteEditorWidget : public QWidget {
     Q_OBJECT
 
@@ -75,6 +79,11 @@ public:
     // manager's registered EditorSuggest list (insertion-order first-wins).
     // Lifetime owned by the caller (typically MainWindow).
     void setEditorSuggestManager(EditorSuggestManager *manager);
+
+    // C2 — subscribe to theme changes. When set, this widget applies
+    // ThemeService::currentTheme() to every constructed leaf and follows
+    // future themeChanged emissions. Lifetime owned by the caller.
+    void setThemeService(Core::ThemeService *service);
 
     int currentLine() const;
     int currentColumn() const;
@@ -122,6 +131,9 @@ private:
     // (activeLeaf is now a public accessor — declared above with editor()/
     // sourceEditor()/readingView(). Internal callers below also use it.)
 
+    // C2 — apply current theme to every constructed leaf (Live/Source/Reading).
+    void applyThemeToAllLeaves();
+
     // Captures ephemeral state (scroll/cursor/fold) from the current active
     // leaf as a QJsonObject, and packs it into the Corbomite EphemeralState
     // envelope (mode + sourceFlag). Called before detaching the leaf.
@@ -153,6 +165,9 @@ private:
 
     // Hover preview (lifetime owned by MainWindow).
     HoverPopover *m_hoverPopover = nullptr;
+
+    // C2 — theme service (lifetime owned by MainWindow).
+    Core::ThemeService *m_themeService = nullptr;
 
     // Completion state
     CompletionPopup *m_completionPopup = nullptr;

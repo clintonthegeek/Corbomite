@@ -7,6 +7,7 @@
 #include "corbomite/core/EditorSuggest.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/core/ThemeService.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/storage/EphemeralState.h"
 #include "dialogs/QuickSwitcherModel.h"
@@ -118,6 +119,27 @@ void NoteEditorWidget::setEditorSuggestManager(EditorSuggestManager *manager)
     m_suggestManager = manager;
 }
 
+void NoteEditorWidget::setThemeService(Core::ThemeService *service)
+{
+    if (m_themeService == service) return;
+    if (m_themeService)
+        disconnect(m_themeService, nullptr, this, nullptr);
+    m_themeService = service;
+    if (!m_themeService) return;
+    connect(m_themeService, &Core::ThemeService::themeChanged,
+            this, [this](const Markoff::Theme &) { applyThemeToAllLeaves(); });
+    applyThemeToAllLeaves();
+}
+
+void NoteEditorWidget::applyThemeToAllLeaves()
+{
+    if (!m_themeService) return;
+    const Markoff::Theme theme = m_themeService->currentTheme();
+    if (m_editor)        m_editor->setViewTheme(theme);
+    if (m_sourceEditor)  m_sourceEditor->setViewTheme(theme);
+    if (m_readingView)   m_readingView->setViewTheme(theme);
+}
+
 NoteDocument *NoteEditorWidget::noteDocument() const
 {
     return m_doc;
@@ -155,6 +177,8 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
         if (!m_sourceEditor) {
             m_sourceEditor = new Markoff::Source::SourceEditor(this);
             m_sourceIndex = m_stack->addWidget(m_sourceEditor);
+            if (m_themeService)
+                m_sourceEditor->setViewTheme(m_themeService->currentTheme());
         }
         break;
     case ViewMode::LivePreview:
@@ -164,6 +188,8 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
         if (!m_readingView) {
             m_readingView = new Markoff::Reading::ReadingView(this);
             m_readingIndex = m_stack->addWidget(m_readingView);
+            if (m_themeService)
+                m_readingView->setViewTheme(m_themeService->currentTheme());
             // Phase C5: wire Reading-mode link-hover into the same
             // HoverPopover instance the editor uses. Prior to C5
             // Reading mode had no hover popover; wiki-link hover in
