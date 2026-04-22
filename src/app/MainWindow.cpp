@@ -222,6 +222,11 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     // scheme changes.
     m_themeService = new Corbomite::Core::ThemeService(
         KColorSchemeManager::instance(), this);
+    {
+        const QString persisted = CorbomiteSettings::self()->markoffTheme();
+        if (!persisted.isEmpty())
+            m_themeService->setActiveThemeByName(persisted);
+    }
     connect(CorbomiteSettings::self(), &KConfigSkeleton::configChanged,
             m_themeService, &Corbomite::Core::ThemeService::refreshSystemTheme);
 
