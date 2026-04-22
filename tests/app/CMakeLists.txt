@@ -38,3 +38,18 @@ target_link_libraries(tst_mainwindow_action_wiring PRIVATE
     Qt6::Test CorbomiteApp)
 set_tests_properties(tst_mainwindow_action_wiring PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Phase C7 Task 14 — pin the Cluster R hamburger Find/Replace dispatch
+# (Task 12) and MainWindow's edit_find_next/_previous/_replace QAction
+# routing into the active leaf (Task 13). Synthetic MarkdownView wrapper
+# in Source mode exercises the same code paths the MainWindow shell calls.
+add_executable(tst_markdownview_find_replace_dispatch
+    tst_markdownview_find_replace_dispatch.cpp)
+target_include_directories(tst_markdownview_find_replace_dispatch PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor)
+add_test(NAME tst_markdownview_find_replace_dispatch
+         COMMAND tst_markdownview_find_replace_dispatch)
+target_link_libraries(tst_markdownview_find_replace_dispatch PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core Markoff::Source Markoff::Core)
+set_tests_properties(tst_markdownview_find_replace_dispatch PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
