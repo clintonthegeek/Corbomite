@@ -114,6 +114,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/proxies/ProcessSpawner.h
     src/SystemThemeBuilder.cpp
     include/corbomite/core/SystemThemeBuilder.h
+    src/ThemeService.cpp
+    include/corbomite/core/ThemeService.h
 )
 set_target_properties(corbomite-core PROPERTIES
     POSITION_INDEPENDENT_CODE ON
