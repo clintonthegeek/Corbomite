@@ -7,6 +7,7 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets Network)
 find_package(KF6I18n REQUIRED)
 find_package(KF6CoreAddons REQUIRED)
 find_package(KF6Config REQUIRED)
+find_package(KF6ColorScheme REQUIRED)
 
 add_library(corbomite-core STATIC
     src/NoteMeta.cpp
@@ -111,6 +112,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/proxies/SecretStorage.h
     src/proxies/ProcessSpawner.cpp
     include/corbomite/core/proxies/ProcessSpawner.h
+    src/SystemThemeBuilder.cpp
+    include/corbomite/core/SystemThemeBuilder.h
 )
 set_target_properties(corbomite-core PROPERTIES
     POSITION_INDEPENDENT_CODE ON
@@ -126,7 +129,7 @@ target_include_directories(corbomite-core
 target_link_libraries(corbomite-core
     PUBLIC
         Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets Qt6::Network
-        KF6::SyntaxHighlighting KF6::I18n KF6::CoreAddons KF6::ConfigCore
+        KF6::SyntaxHighlighting KF6::I18n KF6::CoreAddons KF6::ConfigCore KF6::ColorScheme
     # Submodule / bundled deps are linked only in the in-tree BUILD
     # interface. They are not shipped as part of the installed Corbomite
     # package. Third-party plugins that link against an installed

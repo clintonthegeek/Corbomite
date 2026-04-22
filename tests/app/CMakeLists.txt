@@ -30,6 +30,14 @@ target_link_libraries(tst_theme_applier PRIVATE
 set_tests_properties(tst_theme_applier PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster R Task 17 — SystemThemeBuilder builds Markoff::Theme from KColorScheme.
+add_executable(tst_system_theme_builder tst_system_theme_builder.cpp)
+add_test(NAME tst_system_theme_builder COMMAND tst_system_theme_builder)
+target_link_libraries(tst_system_theme_builder PRIVATE
+    Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_system_theme_builder PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster V Task 2.8 — introspect the Cluster V Phase 2+3 KActionCollection
 # wiring (Format/Heading/Insert/Table/Fold/Edit-find actions, radio groups).
 add_executable(tst_mainwindow_action_wiring tst_mainwindow_action_wiring.cpp)
