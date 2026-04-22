@@ -2,21 +2,28 @@
 #include "SettingsDialog.h"
 #include "MomentFormatPreview.h"
 #include "PluginsPage.h"
+#include "corbomite/core/ThemeService.h"
 #include "corbomitesettings.h"
 #include <KLocalizedString>
-#include <QVBoxLayout>
+#include <KMessageBox>
+#include <QDir>
+#include <QFileDialog>
 #include <QFormLayout>
-#include <QSpinBox>
+#include <QPushButton>
 #include <QCheckBox>
 #include <QComboBox>
-#include <QLineEdit>
 #include <QDialogButtonBox>
-#include <QPushButton>
+#include <QLineEdit>
+#include <QSpinBox>
+#include <QStandardPaths>
+#include <QVBoxLayout>
 
 namespace Corbomite {
 
-SettingsDialog::SettingsDialog(PluginManager *plugins, QWidget *parent)
-    : KPageDialog(parent), m_plugins(plugins)
+SettingsDialog::SettingsDialog(PluginManager *plugins,
+                               Core::ThemeService *themeService,
+                               QWidget *parent)
+    : KPageDialog(parent), m_plugins(plugins), m_themeService(themeService)
 {
     setWindowTitle(i18n("Settings"));
     setFaceType(KPageDialog::List);
@@ -110,6 +117,54 @@ void SettingsDialog::setupAppearancePage()
     if (idx >= 0) theme->setCurrentIndex(idx);
     theme->setObjectName(QStringLiteral("theme"));
     layout->addRow(i18n("Theme:"), theme);
+
+    // C2 — Editor (Markoff) theme combobox + QOwnNotes import button.
+    if (m_themeService) {
+        auto *editorTheme = new QComboBox;
+        const auto names = m_themeService->availableThemeNames();
+        editorTheme->addItems(names);
+        editorTheme->setCurrentText(m_themeService->activeThemeName());
+        editorTheme->setObjectName(QStringLiteral("markoffTheme"));
+        connect(editorTheme, &QComboBox::currentTextChanged,
+                this, [this](const QString &name) {
+            if (m_themeService) m_themeService->setActiveThemeByName(name);
+            CorbomiteSettings::self()->setMarkoffTheme(name);
+            CorbomiteSettings::self()->save();
+        });
+        layout->addRow(i18n("Editor theme:"), editorTheme);
+
+        auto *importBtn = new QPushButton(i18n("Import QOwnNotes scheme…"));
+        connect(importBtn, &QPushButton::clicked, this, [this, editorTheme] {
+            const QString home = QDir::homePath();
+            const QString suggestedDir = home + QStringLiteral("/.config/PBE/QOwnNotes");
+            const QString path = QFileDialog::getOpenFileName(
+                this, i18n("Import QOwnNotes scheme"),
+                QDir(suggestedDir).exists() ? suggestedDir : home,
+                i18n("INI files (*.conf *.ini);;All files (*)"));
+            if (path.isEmpty()) return;
+
+            const auto theme = Markoff::Theme::importFromQOwnNotesIni(path);
+            if (!theme) {
+                KMessageBox::error(this,
+                    i18n("Could not parse %1 as a QOwnNotes scheme file.", path),
+                    i18n("Import failed"));
+                return;
+            }
+            if (!m_themeService) return;
+            m_themeService->addUserTheme(*theme);
+            // Refresh combobox preserving signal-blocking so we don't
+            // apply twice.
+            editorTheme->blockSignals(true);
+            editorTheme->clear();
+            editorTheme->addItems(m_themeService->availableThemeNames());
+            editorTheme->setCurrentText(theme->name);
+            editorTheme->blockSignals(false);
+            m_themeService->setActiveThemeByName(theme->name);
+            CorbomiteSettings::self()->setMarkoffTheme(theme->name);
+            CorbomiteSettings::self()->save();
+        });
+        layout->addRow(QString(), importBtn);
+    }
 
     auto item = addPage(page, i18n("Appearance"));
     item->setIcon(QIcon::fromTheme(QStringLiteral("preferences-desktop-theme")));

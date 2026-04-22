@@ -50,6 +50,10 @@
       <label>Color theme: light, dark, or system</label>
       <default>system</default>
     </entry>
+    <entry name="MarkoffTheme" type="String">
+      <label>Markoff editor theme name (built-in or user JSON; "Follow system" tracks KColorScheme)</label>
+      <default>Follow system</default>
+    </entry>
   </group>
 
   <group name="Templates">
