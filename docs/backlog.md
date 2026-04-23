@@ -135,6 +135,12 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 
 ## 3. Editor, Views, Workspace
 
+### Markoff Live block-math reveal: style-leak / phantom-hidden chars in revealed raw LaTeX
+- **Source:** discovered 2026-04-23 during C8 Phase-1 dogfood; user screenshot at /home/clinton/Pictures/Screenshots/Screenshot_20260423_190905.png
+- **Blocks:** nothing (canonical coherence unaffected — C8 handles that); purely a Live-view visual quality issue for block math
+- **Scope:** small-to-medium, needs diagnosis first
+- **Details:** When a block-math `$$...$$` region is revealed (ORC → raw expanded) in Live, the revealed LaTeX source renders with certain character ranges invisible/zero-width and others styled as heading blue-bold. Example: `$$\n\sqrt[3]{\frac{a+b}{c-d}} = \left(\frac{a+b}{c-d}\right)^{1/3}\n$$` renders with `\sqr`, ` = \le`, `ig`, `)^{` invisible, remainder split between blue-bold and gray. User confirmed 2026-04-23 that Ctrl+A re-collapses the region to its ORC and copies the full correct raw — so the characters ARE in the document, just mis-styled. Root cause likely one of: (1) `MarkdownTextItem::detectDecoratedRanges` misfires on LaTeX tokens (backslash-commands matched as markdown decorators); (2) highlighter span positions fail to remap correctly when block-math apply MERGES multiple paragraph blocks into one ORC and reveal SPLITS them back — `QSyntaxHighlighter::highlightBlock` block-level semantics don't survive that round-trip even with `adjustSpanOffsets`; (3) pre-existing decorated-range / heading-span leakage when a `$$...$$` block abuts an H2 heading. Distinct from the C8 canonical-coherence bugs — this is purely a local rendering / highlighter concern. Pick up as a normal task after C8 closes; easier to diagnose when canonical coherence is locked in and we can stop suspecting canonical desync.
+
 ### ~~Empty-state "New Tab" view~~ Done 2026-04-19 — `Corbomite::EmptyView` (`libs/core/src/EmptyView.cpp`) registered from `MainWindow` as viewType `"empty"` with Create-new-file / Go-to-file / Close buttons. `WorkspaceLeaf::setViewState` also falls back to `"empty"` when a factory is missing (absorbs Cluster G follow-up #2 "unknown-viewType fallback").
 
 ### ~~Unknown-viewType fallback view~~ Done 2026-04-19 — `WorkspaceLeaf::setViewState` now falls back to the registered `"empty"` view when a factory lookup misses (covered alongside Empty-state "New Tab" view above). Distinct `nD` vs `tD` visual treatment deferred until a consumer needs different copy.
