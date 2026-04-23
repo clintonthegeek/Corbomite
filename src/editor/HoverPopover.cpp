@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "HoverPopover.h"
 
-#include "corbomite/core/EmbedRegistry.h"
+#include <markoff/EmbedRegistry.h>
 #include "corbomite/core/MarkdownRenderChild.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/vault/Vault.h"
@@ -129,7 +129,7 @@ void HoverPopover::renderTarget(const QString &target)
     // owns math / mermaid / syntax-highlighting render via Phase 5's
     // built-in CodeBlockProcessorRegistry registrations.
     if (m_embedRenderer) {
-        Corbomite::Core::EmbedRequest req{path, subpath, nullptr, /*depth=*/1};
+        Markoff::EmbedRequest req{path, subpath, nullptr, /*depth=*/1};
         auto child = m_embedRenderer->render(req);
         if (child) {
             m_view->setPlainText(child->renderedText());

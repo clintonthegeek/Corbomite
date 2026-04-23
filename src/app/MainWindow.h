@@ -16,15 +16,17 @@ class QMenu;
 
 class KRecentFilesAction;
 
-namespace Corbomite::Core {
+namespace Markoff {
 class EmbedRegistry;
+}
+
+namespace Corbomite::Core {
 class MermaidRenderer;
 class VaultResourceProvider;
 class ThemeService;
 }
 
 namespace Corbomite::MarkoffAdapters {
-class EmbedRegistryAdapter;
 class LinkResolverAdapter;
 class MetadataCacheAdapter;
 class MetadataParserImpl;
@@ -199,17 +201,16 @@ private:
     // (and any future preview surfaces). Built once at MainWindow construction;
     // the per-vault resource adapter is rebuilt on each `onVaultOpened` and
     // released on `onVaultClosed`.
-    std::unique_ptr<Corbomite::Core::EmbedRegistry> m_embedRegistry;
+    // C4 Task 13: m_embedRegistry is now the canonical Markoff::EmbedRegistry
+    // (concrete, no adapter needed). EmbedRegistryAdapter removed; callers use
+    // m_embedRegistry directly as Markoff::EmbedRegistry.
+    std::unique_ptr<Markoff::EmbedRegistry> m_embedRegistry;
     std::unique_ptr<Markoff::Reading::EmbedRenderer> m_embedRenderer;
     std::unique_ptr<Corbomite::Core::VaultResourceProvider> m_popoverResources;
-    // Phase C1 DI-seam adapters. The raw Corbomite objects above stay as
-    // the authoritative storage; these adapters present them through the
-    // Markoff::* / Markoff::Vault::* interfaces ReadingView and
-    // EmbedRenderer now consume. Registry + mermaid built once at ctor;
-    // link-resolver + metadata-cache + parser adapters rebuilt on each
-    // vault open (they close over per-vault m_linkResolver / m_metadataCache).
-    std::unique_ptr<Corbomite::MarkoffAdapters::EmbedRegistryAdapter>
-        m_embedRegistryAdapter;
+    // Phase C1 DI-seam adapters. Registry adapter retired in C4 Task 13
+    // (m_embedRegistry is now Markoff::EmbedRegistry directly).
+    // Remaining adapters rebuilt on each vault open (they close over
+    // per-vault m_linkResolver / m_metadataCache).
     std::unique_ptr<Corbomite::Core::MermaidRenderer> m_mermaidRenderer;
     std::unique_ptr<Corbomite::MarkoffAdapters::LinkResolverAdapter>
         m_linkResolverAdapter;

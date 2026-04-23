@@ -36,7 +36,7 @@
 
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditorSuggestManager.h"
-#include "corbomite/core/EmbedRegistry.h"
+#include <markoff/EmbedRegistry.h>
 #include "corbomite/core/MermaidRenderer.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/View.h"
@@ -279,15 +279,12 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     m_hoverPopover = new HoverPopover(this);
     // Vault binding deferred to onVaultOpened — no vault exists yet.
 
-    m_embedRegistry = std::make_unique<Corbomite::Core::EmbedRegistry>();
-    m_embedRegistryAdapter =
-        std::make_unique<Corbomite::MarkoffAdapters::EmbedRegistryAdapter>(
-            m_embedRegistry.get());
+    m_embedRegistry = std::make_unique<Markoff::EmbedRegistry>();
     m_mermaidRenderer = std::make_unique<Corbomite::Core::MermaidRenderer>();
     m_embedRenderer = std::make_unique<Markoff::Reading::EmbedRenderer>(
-        m_embedRegistryAdapter.get(), /*cache=*/nullptr,
+        m_embedRegistry.get(), /*cache=*/nullptr,
         /*resources=*/nullptr);
-    Markoff::Reading::registerBuiltinEmbedFactories(*m_embedRegistryAdapter,
+    Markoff::Reading::registerBuiltinEmbedFactories(*m_embedRegistry,
                                                     *m_embedRenderer);
     m_hoverPopover->setEmbedRenderer(m_embedRenderer.get());
 
