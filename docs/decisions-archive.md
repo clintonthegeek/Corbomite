@@ -10,6 +10,73 @@ Conventions:
 
 ---
 
+## 2026-04-23 — Inline-ORC canonical coherence bug discovered; Phase C reopened for C8; Cluster X scouted.
+
+Phase C closed earlier the same day (C4 at `v0.9.0`). A post-closure dogfood session — user clicking inline math formulae in the `Parser Tests/Math.md` fixture — revealed that clicks corrupt the on-disk `.md` file via a canonical/local offset desync in the Live scene's per-block offset bridge. The on-disk file grows duplicate `$E = mc^2$` fragments and prose-captured-into-`$…$` delimiters with every click, and the canonical buffer is written verbatim to disk by `Vault::saveDocument`, permanently corrupting the vault.
+
+### Root cause
+
+Two interlocking bugs introduced by the Phase C3 canonical-bridge landing interacting with Live's pre-existing inline-ORC substitution model:
+
+1. **Presentation-plane leakage.** `MarkdownTextItem::updateReveal` and the checkbox-toggle path mutate the local `QTextDocument` to swap a `U+FFFC` glyph for its raw source text (and back on collapse). These are presentation transforms — canonical already holds the source form. But `updateReveal` does not block document signals during the swap. A `QTextCursor::setCharFormat` call triggers a spurious `contentsChange(pos, 1, 1)` whose `insertedText` is the `U+FFFC` itself; the outbound bridge dutifully writes that `U+FFFC` into the canonical buffer.
+
+2. **Offset-space conflation.** `SceneCoordinator::onLocalItemContentsChange` computes `canonicalOffset = entry.canonicalStart + localPos` — direct addition, no translation. Phase C3 §5.2 step 2 specifies this literally, having silently assumed the block's local `QTextDocument` is a verbatim mirror of canonical source positions. Inline substitution violates the assumption: a 10-char `$E = mc^2$` occupies 1 char as `U+FFFC`. After the first ORC in a block, every local position is `Σ(rawLen_i − 1)` short of the corresponding canonical position. Every outbound delta after the first ORC targets the wrong canonical offset.
+
+Combined: a click on the second `$E = mc^2$` in a paragraph (local 289, canonical ~298) pushes a delta at canonical 289, which lands inside the first `$E = mc^2$`. Canonical grows by 9 chars of duplicate LaTeX per click. `Editor::onCanonicalParseUpdated` detects `sceneOutOfSync` and rebuilds from the polluted canonical, making corruption visible within ~150 ms. `Vault::saveDocument` writes polluted bytes to disk on the next save.
+
+Evidence trace (preserved; abbreviated):
+
+```
+updateReveal Case3-expand glyphPos=289 rawLen=10 raw="$E = mc^2$" signalsBlocked=false
+onLocalItemContentsChange OUTBOUND localPos=289 canonicalOffset=289 removed=1 added=1 insertedText="<ORC>"
+MarkoffDocument::applyCanonicalDelta offset=289 removedLen=1 removedPeek="$" insertedLen=1 inserted="<ORC>" insertedContainsORC=true
+MarkoffDocument::applyCanonicalDelta DONE bufLen 2366->2366
+…
+onLocalItemContentsChange OUTBOUND localPos=289 canonicalOffset=289 removed=1 added=10 insertedText="$E = mc^2$"
+MarkoffDocument::applyCanonicalDelta offset=289 removedLen=1 removedPeek="<ORC>" insertedLen=10 inserted="$E = mc^2$"
+MarkoffDocument::applyCanonicalDelta DONE bufLen 2366->2375
+…
+Vault::saveDocument rel="Parser Tests/Math.md" bytes=2423 chars=2422 containsORC=false
+```
+
+### Response
+
+Brainstormed three ambition levels: (A) surgical fix only; (B) full Live-view content-model redesign; (C) surgical fix **plus** commit to a follow-on cluster that does the architectural redesign properly. Chose (C).
+
+User direction during brainstorm: block-level substitutions (display math, mermaid, eventually tables) are meant to become interactive `QGraphicsItem` widgets in the scene — "that's why we have created blocks." Inline substitutions (inline math, checkbox) participate in line flow and baseline alignment, so they stay as ORC in the `QTextDocument` forever, hardened by a proper translator.
+
+### Work scheduled
+
+**Layer 1 — Markoff Phase C work-unit C8 "Inline-ORC canonical coherence":**
+- Presentation vs content invariant codified. `PresentationScope` helper replaces scattered `blockSignals(true)` calls in `MarkdownTextItem`.
+- Substitution table + local↔canonical offset translator used by `SceneCoordinator` in both directions.
+- Outbound `insertedText` ORC expansion before the delta is pushed.
+- Debug `Q_ASSERT`s on `MarkoffDocument::applyCanonicalDelta` + canonical-buffer post-condition.
+- Terminal `Vault::saveDocument` guard refusing to write bytes containing `U+FFFC` (release-build too). New `NoteDocument::saveFailed` signal.
+- Regression tests pinning all the invariants.
+- Phase C reopens for C8 → `v0.9.1`. Specs drafted 2026-04-23 at:
+  - `libs/markoff-family/docs/specs/2026-04-23-inline-orc-canonical-coherence.md` (primary)
+  - `libs/markoff-family/docs/specs/2026-04-23-phase-c3-addendum-substitution-blind-spot.md` (addendum naming the broken Phase C3 assumption)
+
+**Layer 2 — Cluster X "Block-substitution widget promotion":**
+- Added to `plans/INDEX.md` as scouting. Blocked on C8 landing + regression tests green.
+- Goal: promote `$$…$$` and ` ```mermaid ` out of the text doc into `DisplayMathBlockItem` / `MermaidBlockItem` peer to `ImageBlockItem`. Enables true interactive widgets; reduces the inline-ORC translator's steady-state surface to just inline math + inline checkbox.
+- Out of scope: tables (separate refactor), inline renderers (stay ORC).
+- Scouting doc: `docs/superpowers/plans/2026-04-23-cluster-x-block-substitution-widgets-SCOUTING.md`.
+
+### Side effects
+
+`testvaults/starter-vault/Parser Tests/Math.md` and `Tables.md` were corrupted on disk during the dogfood reproduction. Clean versions will be restored as the first task after C8's guards land — so re-saving them doesn't just re-corrupt.
+
+### Cross-links
+
+- C8 primary spec: `libs/markoff-family/docs/specs/2026-04-23-inline-orc-canonical-coherence.md`
+- Phase C3 addendum: `libs/markoff-family/docs/specs/2026-04-23-phase-c3-addendum-substitution-blind-spot.md`
+- Cluster X scouting doc: `superpowers/plans/2026-04-23-cluster-x-block-substitution-widgets-SCOUTING.md`
+- `phase-c-status.md` activity log entry of same date.
+
+---
+
 ## 2026-04-23 — Markoff Phase C closed. C4 (Renderer unification) done end-to-end.
 
 The final Phase C work-unit shipped end-to-end across both repos in one autonomous session via subagent-driven development. Spec at `libs/markoff-family/docs/specs/2026-04-22-phase-c4-renderer-unification.md` (10 load-bearing decisions in §12); plan at `libs/markoff-family/docs/plans/2026-04-22-phase-c4-renderer-unification.md` (17 tasks across 5 phases: audit + widening, shared math renderer, mermaid-in-Live, Markoff closeout + tag, Corbomite-side adaptation); authoritative status in `libs/markoff-family/docs/phase-c-status.md` activity log. Tagged `v0.9.0`.
