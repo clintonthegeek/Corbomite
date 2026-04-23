@@ -24,6 +24,12 @@
 #include "PathNormalization.h"
 #include "Watcher.h"
 
+#include <QLoggingCategory>
+
+Q_LOGGING_CATEGORY(lcMathTraceVault, "markoff.math.trace")
+Q_LOGGING_CATEGORY(lcVaultSafety, "corbomite.vault.safety")
+#define lcMathTrace lcMathTraceVault
+
 namespace Corbomite {
 
 Vault::Vault(DataAdapter *adapter, QObject *parent)
@@ -615,8 +621,35 @@ bool Vault::saveDocument(NoteDocument *doc)
 
     // Write canonical UTF-8 bytes verbatim — no QTextDocumentWriter, no
     // format coercion. toMarkdown() is the MarkoffDocument's canonical source.
-    const QByteArray bytes = doc->markoff()->toMarkdown().toUtf8();
+    const QString markdown = doc->markoff()->toMarkdown();
+
+    // Terminal guard (C8 Task 5.4): the canonical buffer must never contain
+    // U+FFFC. If it does, a presentation-layer glyph leaked into the source
+    // of truth. Refuse the write, emit saveFailed, and leave disk untouched.
+    if (markdown.contains(QChar::ObjectReplacementCharacter)) {
+        qCCritical(lcVaultSafety,
+            "Vault::saveDocument REFUSED: canonical buffer contains U+FFFC "
+            "for rel=\"%s\" (chars=%lld). Aborting write; file unchanged.",
+            qUtf8Printable(rel), static_cast<long long>(markdown.size()));
+        Q_EMIT doc->saveFailed();
+        return false;
+    }
+
+    const QByteArray bytes = markdown.toUtf8();
     const QString abs = m_basePath + QLatin1Char('/') + rel;
+
+    {
+        const bool hasOrc = markdown.contains(QChar::ObjectReplacementCharacter);
+        QString preview = markdown.left(160);
+        preview.replace(QChar::ObjectReplacementCharacter, QStringLiteral("<ORC>"));
+        preview.replace(QLatin1Char('\n'), QStringLiteral("\\n"));
+        qCDebug(lcMathTrace).nospace()
+            << "Vault::saveDocument rel=\"" << rel << "\""
+            << " bytes=" << bytes.size()
+            << " chars=" << markdown.size()
+            << " containsORC=" << hasOrc
+            << " head=\"" << preview << "\"";
+    }
 
     // Stamp echo-suppression BEFORE the write so the watcher's mtime-based
     // ledger already holds this path when the OS notification arrives.
