@@ -9,6 +9,7 @@ class QStackedWidget;
 namespace Markoff {
 class Editor;
 class MarkdownView;
+class MermaidRenderer;
 }
 
 namespace Markoff::Source {
@@ -84,6 +85,12 @@ public:
     // ThemeService::currentTheme() to every constructed leaf and follows
     // future themeChanged emissions. Lifetime owned by the caller.
     void setThemeService(Core::ThemeService *service);
+
+    // C4 Task 14 — inject the host Mermaid renderer into both the Live leaf
+    // (eagerly constructed) and the Reading leaf (applied on lazy construction).
+    // Lifetime owned by the caller (typically MainWindow). Passing nullptr
+    // clears the renderer; both leaves fall back to DefaultMermaidRenderer.
+    void setMermaidRenderer(Markoff::MermaidRenderer *renderer);
 
     int currentLine() const;
     int currentColumn() const;
@@ -168,6 +175,9 @@ private:
 
     // C2 — theme service (lifetime owned by MainWindow).
     Core::ThemeService *m_themeService = nullptr;
+
+    // C4 Task 14 — mermaid renderer (lifetime owned by MainWindow).
+    Markoff::MermaidRenderer *m_mermaidRenderer = nullptr;
 
     // Completion state
     CompletionPopup *m_completionPopup = nullptr;

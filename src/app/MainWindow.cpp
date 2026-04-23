@@ -1025,6 +1025,9 @@ void MainWindow::propagateServicesToView(View *view)
 
         auto *editor = mv->editorWidget();
         if (editor) {
+            // C4 Task 14: inject Mermaid renderer into both Live and Reading leaves.
+            editor->setMermaidRenderer(m_mermaidRenderer.get());
+
             connect(editor, &NoteEditorWidget::linkActivated,
                     this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
             connect(editor, &NoteEditorWidget::cursorInfoChanged,

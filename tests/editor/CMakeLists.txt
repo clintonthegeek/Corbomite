@@ -116,6 +116,30 @@ set_tests_properties(tst_markdown_view PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+# C4 Task 14 — NoteEditorWidget mermaid renderer injection. Verifies that
+# setMermaidRenderer() propagates to the Live leaf (eagerly) and to the
+# Reading leaf (when lazily constructed on first ViewMode::Reading switch).
+# Also verifies that injecting after the Reading leaf exists updates it.
+add_executable(tst_mermaid_injection
+    tst_mermaid_injection.cpp
+)
+target_include_directories(tst_mermaid_injection PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_mermaid_injection PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    Markoff::Live
+    Markoff::Reading
+    Markoff::Core
+    Corbomite::Core
+)
+add_test(NAME tst_mermaid_injection COMMAND tst_mermaid_injection)
+set_tests_properties(tst_mermaid_injection PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 # Cluster J Phase 6 — HoverPopover renders rich content via EmbedRenderer.
 # The popover is part of CorbomiteApp, but the test only exercises a small
 # rendering surface; it pulls the .cpp/.h directly to keep link surface

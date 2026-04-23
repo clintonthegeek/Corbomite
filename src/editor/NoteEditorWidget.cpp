@@ -16,6 +16,7 @@
 #include <markoff/MarkdownView.h>
 #include <markoff/MarkdownDelta.h>
 #include <markoff/MarkoffDocument.h>
+#include <markoff/MermaidRenderer.h>
 #include <markoff/source/SourceEditor.h>
 #include <markoff/reading/ReadingView.h>
 
@@ -140,6 +141,19 @@ void NoteEditorWidget::applyThemeToAllLeaves()
     if (m_readingView)   m_readingView->setViewTheme(theme);
 }
 
+void NoteEditorWidget::setMermaidRenderer(Markoff::MermaidRenderer *renderer)
+{
+    m_mermaidRenderer = renderer;
+    // Live leaf is always constructed eagerly — inject immediately.
+    if (m_editor)
+        m_editor->setMermaidRenderer(renderer);
+    // Reading leaf is lazy; if already constructed, inject now.
+    // If not yet constructed, ensureWidgetConstructed will call
+    // setMermaidRenderer when it creates the ReadingView (see below).
+    if (m_readingView)
+        m_readingView->setMermaidRenderer(renderer);
+}
+
 NoteDocument *NoteEditorWidget::noteDocument() const
 {
     return m_doc;
@@ -190,6 +204,9 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
             m_readingIndex = m_stack->addWidget(m_readingView);
             if (m_themeService)
                 m_readingView->setViewTheme(m_themeService->currentTheme());
+            // C4 Task 14: inject mermaid renderer into late-constructed Reading leaf.
+            if (m_mermaidRenderer)
+                m_readingView->setMermaidRenderer(m_mermaidRenderer);
             // Phase C5: wire Reading-mode link-hover into the same
             // HoverPopover instance the editor uses. Prior to C5
             // Reading mode had no hover popover; wiki-link hover in
