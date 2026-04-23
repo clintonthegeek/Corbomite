@@ -41,6 +41,10 @@ Q_SIGNALS:
     void modificationChanged(bool modified);
     void saved();
 
+    /// Emitted when Vault::saveDocument aborts the write (e.g. canonical
+    /// buffer contains invalid bytes). The file on disk is unchanged.
+    void saveFailed();
+
 private:
     struct Private;
     std::unique_ptr<Private> d;
