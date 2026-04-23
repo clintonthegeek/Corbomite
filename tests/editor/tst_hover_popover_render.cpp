@@ -3,8 +3,8 @@
 //
 // These tests exercise HoverPopover with an in-memory
 // `Corbomite::Core::VaultResourceProvider` + a fully-built
-// `EmbedRegistry` populated by `registerBuiltinEmbedFactories`. They
-// verify that the popover (a) routes through the renderer when one is
+// `Markoff::EmbedRegistry` populated by `registerBuiltinEmbedFactories`.
+// They verify that the popover (a) routes through the renderer when one is
 // wired (b) gets the expanded markdown text into its embedded
 // ReadingView (c) survives subpath, image-shim, and nested-embed cases
 // without falling back to the raw-text fallback path.
@@ -18,8 +18,8 @@
 
 #include <optional>
 
-#include "corbomite/core/EmbedRegistry.h"
 #include "corbomite/core/VaultResourceProvider.h"
+#include "markoff/EmbedRegistry.h"
 #include "markoff/reading/EmbedRenderer.h"
 #include "corbomite/markoff_adapters/Adapters.h"
 #include "corbomite/storage/LinkResolver.h"
@@ -65,21 +65,18 @@ private:
 /// set (md / images / media stubs). Caller owns both.
 struct RenderHarness
 {
-    Corbomite::Core::EmbedRegistry registry;
-    Corbomite::MarkoffAdapters::EmbedRegistryAdapter registryAdapter;
+    Markoff::EmbedRegistry registry;
     Corbomite::LinkResolver linkResolver;
     Corbomite::MarkoffAdapters::MetadataParserImpl metadataParser;
     std::unique_ptr<Markoff::Reading::EmbedRenderer> renderer;
 
     explicit RenderHarness(Corbomite::Core::VaultResourceProvider *resources)
-        : registryAdapter(&registry)
-        , metadataParser(&linkResolver)
+        : metadataParser(&linkResolver)
     {
         renderer = std::make_unique<Markoff::Reading::EmbedRenderer>(
-            &registryAdapter, /*cache=*/nullptr, resources);
+            &registry, /*cache=*/nullptr, resources);
         renderer->setMetadataParser(&metadataParser);
-        Markoff::Reading::registerBuiltinEmbedFactories(registryAdapter,
-                                                        *renderer);
+        Markoff::Reading::registerBuiltinEmbedFactories(registry, *renderer);
     }
 };
 
@@ -139,10 +136,10 @@ void TstHoverPopoverRender::renderHandlesWikilinkSubpath()
     QVERIFY(popover.readingViewForTest() != nullptr);
 
     // Direct renderer probe — the EmbedRenderer must slice on `#B`.
-    Corbomite::Core::EmbedRequest req{QStringLiteral("Note.md"),
-                                      QStringLiteral("#B"),
-                                      &resources,
-                                      /*depth=*/1};
+    Markoff::EmbedRequest req{QStringLiteral("Note.md"),
+                              QStringLiteral("#B"),
+                              &resources,
+                              /*depth=*/1};
     auto child = h.renderer->render(req);
     QVERIFY(child);
     QVERIFY2(child->renderedText().contains(QStringLiteral("wanted slice")),
@@ -158,10 +155,10 @@ void TstHoverPopoverRender::renderExpandsImageEmbedToShim()
     // ordinary inline markdown.
     InMemoryResources resources;
     RenderHarness h(&resources);
-    Corbomite::Core::EmbedRequest req{QStringLiteral("logo.png"),
-                                      QString(),
-                                      &resources,
-                                      /*depth=*/1};
+    Markoff::EmbedRequest req{QStringLiteral("logo.png"),
+                              QString(),
+                              &resources,
+                              /*depth=*/1};
     auto child = h.renderer->render(req);
     QVERIFY(child);
     QCOMPARE(child->renderedText(), QStringLiteral("![](logo.png)"));
@@ -179,10 +176,10 @@ void TstHoverPopoverRender::renderExpandsNestedEmbed()
                       QStringLiteral("Inner body."));
     RenderHarness h(&resources);
 
-    Corbomite::Core::EmbedRequest req{QStringLiteral("Outer.md"),
-                                      QString(),
-                                      &resources,
-                                      /*depth=*/1};
+    Markoff::EmbedRequest req{QStringLiteral("Outer.md"),
+                              QString(),
+                              &resources,
+                              /*depth=*/1};
     auto child = h.renderer->render(req);
     QVERIFY(child);
     const QString text = child->renderedText();

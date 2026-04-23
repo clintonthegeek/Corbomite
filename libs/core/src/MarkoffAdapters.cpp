@@ -3,8 +3,6 @@
 
 #include "corbomite/markoff_adapters/Adapters.h"
 
-#include "corbomite/core/CodeBlockProcessorRegistry.h"
-#include "corbomite/core/EmbedRegistry.h"
 #include "corbomite/storage/CachedMetadata.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
@@ -81,72 +79,6 @@ convertCache(const Corbomite::CachedMetadata &src)
 }
 
 } // namespace
-
-// ---- EmbedRegistryAdapter -------------------------------------------
-
-EmbedRegistryAdapter::EmbedRegistryAdapter(Core::EmbedRegistry *inner)
-    : m_inner(inner)
-{
-}
-
-void EmbedRegistryAdapter::registerExtension(const QString &ext,
-                                             Markoff::EmbedFactory factory)
-{
-    if (m_inner) m_inner->registerExtension(ext, std::move(factory));
-}
-
-std::unique_ptr<Markoff::MarkdownRenderChild>
-EmbedRegistryAdapter::dispatch(const Markoff::EmbedRequest &req) const
-{
-    if (!m_inner) return nullptr;
-    return m_inner->dispatch(req);
-}
-
-// ---- CodeBlockRegistryAdapter ---------------------------------------
-
-CodeBlockRegistryAdapter::CodeBlockRegistryAdapter(
-    Core::CodeBlockProcessorRegistry *inner)
-    : m_inner(inner)
-{
-}
-
-void CodeBlockRegistryAdapter::registerLanguage(const QString &language,
-                                                Markoff::CodeBlockProcessor proc)
-{
-    if (!m_inner) return;
-    // Convert the Markoff-shaped lambda into Corbomite's shape.
-    Core::CodeBlockProcessorFn fn =
-        [proc = std::move(proc)](const QString &source, void *node,
-                                 const Core::CodeBlockContext & /*cctx*/) -> bool {
-            Markoff::CodeBlockContext mctx;
-            // Corbomite's ctx carries `sourcePath` + `resources` + `depth`;
-            // markoff-reading only reads sourcePath + language — language
-            // comes in via the dispatch param, not the ctx struct.
-            mctx.sourcePath = QString(); // not threaded through adapter
-            mctx.language = QString();
-            return proc(source, node, mctx);
-        };
-    m_inner->registerLanguage(language, std::move(fn));
-}
-
-bool CodeBlockRegistryAdapter::dispatch(const QString &language,
-                                        const QString &source,
-                                        void *node,
-                                        const Markoff::CodeBlockContext & /*ctx*/) const
-{
-    if (!m_inner) return false;
-    Core::CodeBlockContext cctx; // default-constructed; resources/depth unused
-    return m_inner->dispatch(language, source, node, cctx);
-}
-
-bool CodeBlockRegistryAdapter::hasLanguage(const QString &language) const
-{
-    // Corbomite's CodeBlockProcessorRegistry has no hasLanguage query in
-    // its public API; fall back to "unknown" for now. Markoff callers use
-    // this only for UI hints.
-    Q_UNUSED(language);
-    return m_inner != nullptr;
-}
 
 // ---- LinkResolverAdapter --------------------------------------------
 

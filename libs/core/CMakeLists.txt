@@ -55,12 +55,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/MarkdownRenderChild.h
     src/EmbedDepthGuard.cpp
     include/corbomite/core/EmbedDepthGuard.h
-    src/EmbedRegistry.cpp
-    include/corbomite/core/EmbedRegistry.h
     src/PostProcessorRegistry.cpp
     include/corbomite/core/PostProcessorRegistry.h
-    src/CodeBlockProcessorRegistry.cpp
-    include/corbomite/core/CodeBlockProcessorRegistry.h
     src/MarkoffAdapters.cpp
     include/corbomite/markoff_adapters/Adapters.h
     src/MermaidRenderer.cpp

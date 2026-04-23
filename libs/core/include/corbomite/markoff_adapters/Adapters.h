@@ -4,19 +4,19 @@
 #ifndef CORBOMITE_MARKOFF_ADAPTERS_H
 #define CORBOMITE_MARKOFF_ADAPTERS_H
 
-// Phase C1 DI-seam adapters. Corbomite's native types
-// (`Corbomite::Core::EmbedRegistry`, `Corbomite::Core::CodeBlockProcessorRegistry`,
-// `Corbomite::LinkResolver`, `Corbomite::MetadataCache`) keep their
-// richer Corbomite-flavored APIs. These wrappers present them through
-// the narrower `Markoff::*` / `Markoff::Vault::*` abstract interfaces
-// that `Markoff::Reading::ReadingView` accepts via its new setters.
+// Phase C1/C2 DI-seam adapters. These wrappers present Corbomite's
+// native vault and metadata types through the narrower `Markoff::*` /
+// `Markoff::Vault::*` abstract interfaces that
+// `Markoff::Reading::ReadingView` accepts via its new setters.
 //
-// Lifecycle: the adapter holds a non-owning pointer back to its
+// Phase C4 note: `EmbedRegistryAdapter` and `CodeBlockRegistryAdapter`
+// have been removed — consumers now use `Markoff::EmbedRegistry` and
+// `Markoff::CodeBlockProcessorRegistry` directly.
+//
+// Lifecycle: each adapter holds a non-owning pointer back to its
 // underlying Corbomite object. Caller keeps both alive for the same
 // lifetime window.
 
-#include <markoff/CodeBlockProcessorRegistry.h>
-#include <markoff/EmbedRegistry.h>
 #include <markoff/LinkResolver.h>
 #include <markoff/vault/MetadataCache.h>
 #include <markoff/vault/MetadataParser.h>
@@ -32,52 +32,7 @@ namespace Corbomite {
 class LinkResolver;
 class MetadataCache;
 
-namespace Core {
-class CodeBlockProcessorRegistry;
-class EmbedRegistry;
-} // namespace Core
-
 namespace MarkoffAdapters {
-
-/// Wraps `Corbomite::Core::EmbedRegistry` as a `Markoff::EmbedRegistry`.
-/// `dispatch` forwards to the native Corbomite registry; `registerExtension`
-/// forwards and discards the returned Handle (Markoff callers don't need
-/// the unregister path).
-class EmbedRegistryAdapter final : public Markoff::EmbedRegistry
-{
-public:
-    explicit EmbedRegistryAdapter(Core::EmbedRegistry *inner);
-
-    void registerExtension(const QString &ext,
-                           Markoff::EmbedFactory factory) override;
-    std::unique_ptr<Markoff::MarkdownRenderChild>
-    dispatch(const Markoff::EmbedRequest &req) const override;
-
-private:
-    Core::EmbedRegistry *m_inner;
-};
-
-/// Wraps `Corbomite::Core::CodeBlockProcessorRegistry` as a Markoff
-/// registry. Converts between the two `CodeBlockContext` shapes at the
-/// dispatch boundary (Corbomite's version carries resources + depth;
-/// Markoff's carries sourcePath + language).
-class CodeBlockRegistryAdapter final
-    : public Markoff::CodeBlockProcessorRegistry
-{
-public:
-    explicit CodeBlockRegistryAdapter(Core::CodeBlockProcessorRegistry *inner);
-
-    void registerLanguage(const QString &language,
-                          Markoff::CodeBlockProcessor proc) override;
-    bool dispatch(const QString &language,
-                  const QString &source,
-                  void *node,
-                  const Markoff::CodeBlockContext &ctx) const override;
-    bool hasLanguage(const QString &language) const override;
-
-private:
-    Core::CodeBlockProcessorRegistry *m_inner;
-};
 
 /// Wraps `Corbomite::LinkResolver` as a `Markoff::LinkResolver`.
 /// Corbomite's algorithm is a 6-step Obsidian-compatible search; Markoff's
