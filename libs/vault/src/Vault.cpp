@@ -26,9 +26,7 @@
 
 #include <QLoggingCategory>
 
-Q_LOGGING_CATEGORY(lcMathTraceVault, "markoff.math.trace")
 Q_LOGGING_CATEGORY(lcVaultSafety, "corbomite.vault.safety")
-#define lcMathTrace lcMathTraceVault
 
 namespace Corbomite {
 
@@ -637,19 +635,6 @@ bool Vault::saveDocument(NoteDocument *doc)
 
     const QByteArray bytes = markdown.toUtf8();
     const QString abs = m_basePath + QLatin1Char('/') + rel;
-
-    {
-        const bool hasOrc = markdown.contains(QChar::ObjectReplacementCharacter);
-        QString preview = markdown.left(160);
-        preview.replace(QChar::ObjectReplacementCharacter, QStringLiteral("<ORC>"));
-        preview.replace(QLatin1Char('\n'), QStringLiteral("\\n"));
-        qCDebug(lcMathTrace).nospace()
-            << "Vault::saveDocument rel=\"" << rel << "\""
-            << " bytes=" << bytes.size()
-            << " chars=" << markdown.size()
-            << " containsORC=" << hasOrc
-            << " head=\"" << preview << "\"";
-    }
 
     // Stamp echo-suppression BEFORE the write so the watcher's mtime-based
     // ledger already holds this path when the OS notification arrives.
