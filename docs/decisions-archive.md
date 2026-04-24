@@ -10,6 +10,34 @@ Conventions:
 
 ---
 
+## 2026-04-23 — Phase C8 (Inline-ORC canonical coherence) done end-to-end; Markoff v0.9.1.
+
+The inline-ORC canonical-coherence bug discovered earlier the same day
+is now fixed and pinned. Phase C8 landed per the implementation plan at
+`docs/superpowers/plans/2026-04-23-phase-c8-inline-orc-canonical-coherence.md`
+across ~26 commits spanning 7 phases plus the Phase-1 amendment and two
+mid-Phase-6 fixes. Markoff tagged `v0.9.1`. Submodule pin bumped.
+
+Two implementation gaps were caught by the Phase-6 regression suite and
+fixed immediately: Phase 1's `updateReveal` did not update
+`m_substitutions` on expand/collapse (fixed via `rebuildSubstitutionTable`
+helper called from both reveal cases); Phase 4's `restoreViewStateFromCanonical`
+used stale pre-delta canonical positions (fixed by shifting snapshot
+positions by `(inserted - removed)` after the splice in
+`SceneCoordinator::applyCanonicalDelta`).
+
+Pre-existing flake `tst_e2e_gui` surfaces during Phase 6 validation but
+reproduces at pre-C8 Markoff commit `4b0eb81` — confirmed not a C8
+regression.
+
+Full invariants + file list: see phase-c-status activity log entry of
+the same date.
+
+Cluster X expansion trigger satisfied — Phase C8 on master, regression
+tests green. Cluster X brainstorm scheduled for a dedicated session.
+Separate open item: block-math-reveal style-leak rendering bug
+discovered during C8 Phase-1 dogfood remains open in `docs/backlog.md` §3.
+
 ## 2026-04-23 — Inline-ORC canonical coherence bug discovered; Phase C reopened for C8; Cluster X scouted.
 
 Phase C closed earlier the same day (C4 at `v0.9.0`). A post-closure dogfood session — user clicking inline math formulae in the `Parser Tests/Math.md` fixture — revealed that clicks corrupt the on-disk `.md` file via a canonical/local offset desync in the Live scene's per-block offset bridge. The on-disk file grows duplicate `$E = mc^2$` fragments and prose-captured-into-`$…$` delimiters with every click, and the canonical buffer is written verbatim to disk by `Vault::saveDocument`, permanently corrupting the vault.

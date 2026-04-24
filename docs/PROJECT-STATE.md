@@ -2,13 +2,19 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines by offloading closeout prose to `decisions-archive.md`. Follow Ritual 2/3 in `CONTRIBUTING-OPS.md` after every meaningful work session.
 
-**Last updated:** 2026-04-23 — **Phase C reopened for C8 after dogfood found inline-ORC canonical-coherence bug.** Clicking inline math corrupts documents on disk via canonical/local offset desync in Live's per-block bridge. C8 spec + Phase C3 addendum drafted at `libs/markoff-family/docs/specs/2026-04-23-{inline-orc-canonical-coherence, phase-c3-addendum-substitution-blind-spot}.md`. Architectural follow-on **Cluster X** scouted (block-substitution widget promotion — blocked on C8). See `decisions-archive.md` entry 2026-04-23 #1 for full root-cause analysis + evidence. (Earlier the same day: Phase C closed with C4 at `v0.9.0`.)
+**Last updated:** 2026-04-23 — **Markoff Phase C closed (again); C8 shipped end-to-end at `v0.9.1`.** Inline-ORC canonical-coherence invariants pinned with 7 regression tests; Vault terminal ORC-guard in place. See `decisions-archive.md` entry 2026-04-23 #2 for full closeout.
 
 ---
 
 ## Current focus
 
-**Markoff Phase C reopened for work-unit C8 — Inline-ORC canonical coherence.** Post-closure dogfood found that every click on an inline math formula corrupts the document on disk. Root cause: Phase C3 §5.2's offset bridge silently assumed local `QTextDocument` positions = canonical positions, which inline ORC substitution violates. C8 establishes the presentation-vs-content invariant, adds a `PresentationScope` guard + local↔canonical substitution table + outbound ORC expansion + debug assertions + terminal `Vault::saveDocument` guard. Target tag `v0.9.1`. Cluster X (block-substitution widget promotion) scouted as the architectural follow-on; blocked on C8 landing.
+**Markoff Phase C closed (again).** C8 ("Inline-ORC canonical coherence")
+shipped end-to-end 2026-04-23, tag `v0.9.1`. Presentation-vs-content
+invariant established; every ORC-touching mutation guarded; local↔canonical
+translator live; terminal `Vault::saveDocument` refusal-on-ORC guard in
+place. Seven regression tests pin every invariant. Next: pick from
+backlog — natural candidate is Cluster X (block-substitution widget
+promotion), now unblocked.
 
 ---
 
