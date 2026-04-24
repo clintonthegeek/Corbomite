@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.19)
 project(Corbomite_CoreTests LANGUAGES CXX)
 enable_testing()
 find_package(Qt6 REQUIRED COMPONENTS Test)
+find_package(KDDockWidgets-qt6 2.0 REQUIRED)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -275,3 +276,13 @@ set_tests_properties(tst_proxy_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscr
 add_executable(tst_proxy_secrets_process tst_proxy_secrets_process.cpp)
 add_test(NAME tst_proxy_secrets_process COMMAND tst_proxy_secrets_process)
 target_link_libraries(tst_proxy_secrets_process PRIVATE Qt6::Test Corbomite::Core)
+
+# Cluster Y Phase 1: risk reducer — verify KDDW MainWindow embeds in KXmlGuiWindow
+add_executable(tst_workspace_embed_kxmlgui tst_workspace_embed_kxmlgui.cpp)
+add_test(NAME tst_workspace_embed_kxmlgui COMMAND tst_workspace_embed_kxmlgui)
+target_link_libraries(tst_workspace_embed_kxmlgui PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Core
+    KF6::XmlGui KF6::ConfigWidgets
+    KDAB::kddockwidgets)
+set_tests_properties(tst_workspace_embed_kxmlgui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

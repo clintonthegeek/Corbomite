@@ -38,6 +38,9 @@ find_package(KF6ColorScheme REQUIRED)
 find_package(KF6DBusAddons REQUIRED)
 find_package(KF6SyntaxHighlighting REQUIRED)
 
+find_package(KDDockWidgets-qt6 2.0 REQUIRED)
+message(STATUS "Found KDDockWidgets-qt6: ${KDDockWidgets-qt6_VERSION} at ${KDDockWidgets-qt6_DIR}")
+
 # Optional: qt6keychain for persistent SecretStorage backend. Auto-disables
 # when the package isn't installed; SecretStorage then falls back to an
 # in-process QHash (with a qCWarning noting secrets won't persist).

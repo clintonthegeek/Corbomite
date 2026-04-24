@@ -128,6 +128,7 @@ target_link_libraries(corbomite-core
     PUBLIC
         Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets Qt6::Network
         KF6::SyntaxHighlighting KF6::I18n KF6::CoreAddons KF6::ConfigCore KF6::ColorScheme
+        KDAB::kddockwidgets
     # Submodule / bundled deps are linked only in the in-tree BUILD
     # interface. They are not shipped as part of the installed Corbomite
     # package. Third-party plugins that link against an installed
