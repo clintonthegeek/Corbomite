@@ -49,11 +49,11 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** large
 - **Details:** Deferred (post-parity). No plan file. Full version-history plugin analogous to Obsidian's file-recovery core plugin; records per-save snapshots accessible from the per-view hamburger's "Open version history" slot. Cluster R already injected the disabled menu entry; this cluster makes it live.
 
-### Cluster U — File Explorer enhancements (right-click context menu + keyboard)
-- **Source:** [Cluster U scouting](superpowers/plans/2026-04-19-cluster-u-file-explorer-enhancements-SCOUTING.md); [audit addendum](obsidian-audit/addenda/2026-04-19-file-explorer-context-menu.md)
+### Cluster U — File Explorer enhancements (right-click context menu + keyboard + leaf-header breadcrumb)
+- **Source:** [Cluster U scouting](superpowers/plans/2026-04-19-cluster-u-file-explorer-enhancements-SCOUTING.md); [audit addendum](obsidian-audit/addenda/2026-04-19-file-explorer-context-menu.md); user-observation 2026-04-23 (leaf-header breadcrumb + inline rename)
 - **Blocks:** nothing hard; fills the top UX gap identified during Cluster R closeout
 - **Scope:** medium
-- **Details:** Scouting doc (2026-04-19). Cluster R's closeout audit identified the File Explorer right-click context menu as the top remaining UX gap vs Obsidian. The scouting doc proposes reusing Cluster R primitives (`FileManager` prompt modals, `Platform`, `PathUtils`, `MenuSectionHelper`) and may absorb the Cluster H follow-up residue for `EditorViewSpace` tab bar / `TextControl` / `CorbomiteMDI Sidebar`. Estimated 3–5 days once the scouting doc is expanded to a full plan.
+- **Details:** Scouting doc (2026-04-19). Cluster R's closeout audit identified the File Explorer right-click context menu as the top remaining UX gap vs Obsidian. The scouting doc proposes reusing Cluster R primitives (`FileManager` prompt modals, `Platform`, `PathUtils`, `MenuSectionHelper`) and may absorb the Cluster H follow-up residue for `EditorViewSpace` tab bar / `TextControl` / `CorbomiteMDI Sidebar`. Estimated 3–5 days once the scouting doc is expanded to a full plan. **Added 2026-04-23 — leaf-header breadcrumb + inline rename:** new `LeafHeaderBar` widget above every `WorkspaceLeaf`'s view content, rendering a vault-relative path where each folder segment is clickable (→ `VaultProxy::revealInExplorer(path)` / `FileExplorer::highlightPath()`) and the final filename segment becomes an inline-editable `QLineEdit` that commits via `FileManager::renameFile`. `revealInExplorer` needs to be added to `VaultProxy` (or `WorkspaceController`). Natural paired phase with §Right-click context menu since both want FileExplorer to accept external highlight calls.
 
 ### Cluster V — Editor & Workspace UI surfacing (surface-first — plan-needed, spec written)
 - **Source:** [Cluster V scouting](superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing-SCOUTING.md) + [spec](superpowers/specs/2026-04-20-cluster-v-editor-workspace-ui-surfacing-design.md)
@@ -73,6 +73,26 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** large (~8-12 days)
 - **Details:** Scouting doc (2026-04-20). Same audit as Cluster V; split out because canvas + graph need UX design, not just menu wiring. 8 phases: canvas Link/File node creation completeness, tool palette + switching, resize handles + snap-to-grid + multi-select highlight, group operations (Ctrl+G / colour / align), force-graph physics sliders + pin/unpin UI + filter UI, `GraphViewTab` 3 unconnected signals (open-in-new-tab / reveal / delete), embed registry consolidation (mermaid double-dispatch) + media-stub backlog, audit pass. Defer real PDF / audio / video renderers.
 
+### Cluster Y — Workspace migration onto KDDockWidgets (tab drag, tab pop-out, floating docks)
+- **Source:** user observation 2026-04-23 (Obsidian tab-drag / pop-out parity); local library at `~/src/KDDockWidgets`; also a system library in the build environment
+- **Blocks:** subsumes Cluster G follow-up #6 (`WorkspaceWindow` popout integration) and Cluster G follow-up #3 (`openLinkText` dispatcher); constrains Cluster Z (linked-views) because linked-leaves live very differently under a `DockRegistry` tree than under the current hand-rolled split tree
+- **Scope:** large (~2.5 weeks — 8 phases, substrate swap + plugin-API shape alignment)
+- **Status:** Scouting doc written 2026-04-23 at [`superpowers/plans/2026-04-23-cluster-y-workspace-kddockwidgets-SCOUTING.md`](superpowers/plans/2026-04-23-cluster-y-workspace-kddockwidgets-SCOUTING.md). Brainstorm decisions landed (approach B; opacity (ii); scope β; Y-first sequencing; popout geometry+maximize; zoom deferred). **writing-plans pending.**
+- **Details:** The current Cluster-G substrate — `libs/core/src/Workspace.cpp` + `WorkspaceLeaf.cpp` + `WorkspaceTabs.cpp` — is hand-rolled over `QSplitter` / `QTabWidget`. Cluster Y composes a `KDDW::MainWindow` as the central widget of our `KXmlGuiWindow` and composes a `KDDW::DockWidget` inside each `WorkspaceLeaf`. Corbomite keeps ownership of everything above the substrate — 16-char leaf ids, pinning, groupId, history, undo-close, view-state + ephemeral-state, and `.obsidian/workspace.json` serialization (byte-compat target; we do **not** use KDDW's `LayoutSaver` because it has no per-dock-blob API). KDDW owns splits, tabs, drag/drop, drop indicators, and floating windows. Scope β adds: class renames (`rootSplit` alias, new `WorkspaceRoot`/`WorkspaceContainer`/`WorkspaceFloating`; stub `WorkspaceSidedock` for schema compat), `getLeaf(mode, dir)` factory, `openLinkText` dispatcher, proxy surface additions (`getLeavesOfType`, `iterateAllLeaves`, `getActiveViewOfType`), and the full `rootSplit`/`leftSplit`/`rightSplit`/`floatingSplit` property surface. γ-scope events (menu events, hover-link, linked-pane sync, protocol handlers, workspaces.json, quick-preview) deferred to owner clusters — see scouting doc §9 "γ deferrals".
+
+### Cluster Z — Active-leaf tracking + linked views (Backlinks / Outlinks / LocalGraph / GraphView)
+- **Source:** user observation 2026-04-23 (Obsidian linked-view behaviour: Backlinks / Outlinks / LocalGraph open as main-area leaves pinned to a content leaf; GraphView highlights the active-leaf's document)
+- **Blocks:** fixes the "LocalGraph lives in sidebar" architectural divergence introduced in Cluster Q; natural sibling to Cluster M (Graph/Canvas audit, currently deferred)
+- **Scope:** medium-large (~1 week)
+- **Status:** plan-needed; **Y-first sequencing confirmed during Y brainstorm 2026-04-23.** Z brainstorm + plan happens after Y plan lands; Z executes on the KDDW substrate Y produces.
+- **Details:** Three distinct gaps observed:
+  1. **Active-leaf signal is under-wired.** `Workspace::activeLeafChanged` was shipped in Cluster G but existing main-area views (GraphView, Canvas) don't subscribe — so GraphView doesn't highlight the active-leaf's document in purple the way Obsidian does. Fix: those views react to the signal and re-render their "current doc" indicator; audit all views for the hook.
+  2. **LocalGraph / Backlinks / Outlinks belong in main-area leaves, not sidebars.** Cluster Q shipped them as right-sidebar plugins; Obsidian's model puts them in linked main-area leaves (optionally pinned beside the content leaf) and the sidebar is *one* possible host, not the default. Needs a "create as linked view" action that opens a plugin view as a linked leaf, not a docked sidebar panel.
+  3. **Linked-leaf lifecycle.** A linked leaf holds a binding to a peer content leaf; when the peer closes, the linked leaf closes too (or detaches, per UX choice). Needs a new `Workspace` API (`openLinkedLeaf(sourceLeaf, viewType)`), a `ViewRegistry` flag declaring a view as linkable, and a `workspace.json` serialization addition for the binding. Plugin API surfaces it via `WorkspaceController::openLinkedLeaf(...)`.
+- **Dependency on Y:** Y-first confirmed 2026-04-23. Linked-leaves become `KDDockWidgets::DockWidget`s bound by our own `groupId` field (KDDW has no native linked-pane concept; gap #3's API is Corbomite-specific). Z's `receiveSyncState` design rebuilds on KDDW's dock tree — building it on the hand-rolled substrate we're deleting would be wasted motion.
+- **γ parity contribution for Cluster Y:** Z delivers Cluster Y γ-scope deliverable "`active-leaf-change` linked-pane consumers (`receiveSyncState`)". See Y scouting doc §9.
+- **Next step:** produce scouting doc at `superpowers/plans/2026-04-23-cluster-z-linked-views-active-leaf-SCOUTING.md` after Y plan lands.
+
 ### Qutepart-Corbomite fork — Phases 3–8 (Source editor)
 - **Source:** [Fork plan](superpowers/plans/2026-04-15-qutepart-corbomite-fork.md); [spec](superpowers/specs/2026-04-15-qutepart-corbomite-fork-design.md)
 - **Blocks:** Cluster E Source-mode polish; Phase 3 unblocks find/replace API consumers
@@ -86,6 +106,7 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 ### Migrate remaining menu sites onto MenuSectionHelper
 - **Source:** Cluster H follow-up #2; [cluster-retros/cluster-r.md](cluster-retros/cluster-r.md)
 - **Blocks:** plugin mid-construction menu injection (Cluster H residue), plugin API 1.0
+- **γ parity contribution for Cluster Y:** This work delivers the γ-scope Workspace events `file-menu`, `leaf-menu`, `tab-group-menu`, `markdown-viewport-menu`, `url-menu` that Y explicitly defers. See Y scouting doc §9.
 - **Scope:** medium
 - **Details:** After Cluster R, three menu-construction sites remain un-migrated onto `MenuSectionHelper` + `MenuEventEmitter`: the `EditorViewSpace` tab bar, `TextControl`, and `CorbomiteMDI Sidebar`. `FileExplorerPanel` (now `src/plugins/file-explorer/`) is the canonical example. `CanvasScene` and the Markdown Editor view-header menu were migrated during Cluster R (P1/P3). The three remaining sites are mechanical one-by-one refactors; blocking for clean plugin mid-construction menu injection.
 
@@ -100,6 +121,7 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 ### Plugin-facing wrappers for hover/suggest surfaces
 - **Source:** Cluster H follow-up #6; [docs/PROJECT-STATE.md §Cluster H follow-ups](PROJECT-STATE.md)
 - **Blocks:** plugin API 1.0 surface completeness
+- **γ parity contribution for Cluster Y:** This work delivers the γ-scope Workspace event `hover-link` + the `registerHoverLinkSource` registration API that Y explicitly defers. See Y scouting doc §9.
 - **Scope:** medium
 - **Details:** `HoverLinkSourceRegistry`, `EditorSuggestManager`, `RibbonSlot`, and `MenuEventEmitter` still have no proxy equivalents in `PluginContext`. These are the remaining Cluster-H-originated surfaces that need plugin-facing wrappers before the plugin API can be considered complete. Build when the first plugin consumer demands them (Cluster N direction).
 
@@ -125,6 +147,33 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 
 ### ~~`CorbomiteConfigVersion.cmake`~~ Done 2026-04-19 — commit `1d4b3a9a` adds `write_basic_package_version_file` to the top-level `CMakeLists.txt` so version-constrained `find_package(Corbomite)` calls work.
 
+### `registerObsidianProtocolHandler` — `obsidian://` / `corbomite://` URL routing
+- **Source:** Cluster Y γ deferral 2026-04-23; Obsidian `Workspace.registerObsidianProtocolHandler` API
+- **Blocks:** plugin-API completeness (Obsidian plugins commonly register protocol handlers for "open-in-Corbomite from a browser" flows)
+- **γ parity contribution for Cluster Y:** delivers the γ-scope `registerObsidianProtocolHandler` API that Y explicitly defers. See Y scouting doc §9.
+- **Scope:** medium
+- **Details:** Post-parity cluster, no letter assigned yet. Obsidian exposes `Workspace.registerObsidianProtocolHandler(action, handler)` plus `unregisterObsidianProtocolHandler(action)`; throws on duplicate-register (never overwrites). Seven built-in handlers cited in the audit: `open`, `new`, `search`, `show-plugin`, `show-theme`, `show-release-notes`, `debug-info`. Corbomite implementation path: `KDBusService(Unique)` + `QDesktopServices::setUrlHandler` + a handler registry on `WorkspaceController`. Needs a decision on whether to handle only `obsidian://` (maximum compat) or also register `corbomite://` (clean separation). Build when first plugin consumer needs it or when we want browser-click-open functionality.
+
+### Workspaces core plugin (`workspaces.json` named-layout snapshots)
+- **Source:** Cluster Y γ deferral 2026-04-23; Obsidian's Workspaces core plugin
+- **Blocks:** feature parity with Obsidian's named-layout feature (the "save/load/rename workspace" dropdown in Obsidian's status bar)
+- **γ parity contribution for Cluster Y:** depends on Y delivering `getLayout()` / `setLayout(json)` / `changeLayout(json)` surface; once Y lands, this cluster is straightforward. See Y scouting doc §9.
+- **Scope:** medium
+- **Details:** Post-parity cluster, no letter assigned yet. Reads/writes `.obsidian/workspaces.json` mapping `{ "<workspace-name>": LayoutJson }`. UI: dropdown in status bar + rename + delete. Implementation plugs on top of Y's `Workspace::setLayout()` / `getLayout()` + an internal plugin at `src/plugins/workspaces/`. Blocked on Y landing first.
+
+### `quick-preview` debounced editor-content sync (Markoff integration)
+- **Source:** Cluster Y γ deferral 2026-04-23; Obsidian `Workspace.quick-preview` event
+- **Blocks:** live cross-pane preview (e.g. source-mode + preview-mode on the same file stay in sync without saving)
+- **γ parity contribution for Cluster Y:** delivers the γ-scope `quick-preview` Workspace event that Y explicitly defers. See Y scouting doc §9.
+- **Scope:** small-to-medium (Markoff-side work + Corbomite event emission)
+- **Details:** Obsidian's `quick-preview(file, unsavedContent)` fires on every debounced editor keystroke to peer preview panes on the same file. Corbomite analogue: `Markoff::Editor` (Live) + `Markoff::Source` emit a debounced "buffer-changed" signal; `Corbomite::Workspace` aggregates across leaves sharing a file and fans out via a `quickPreview(file, text)` signal on `WorkspaceController`. Currently unverified whether Corbomite has any analogue; if two leaves on the same file in source+preview don't stay synchronised mid-edit, this is the gap. Build when user complaint surfaces the missing behaviour or when a preview plugin needs it.
+
+### Per-window zoom persistence (Cluster V.2 companion)
+- **Source:** Cluster Y popout scope decision 2026-04-23 (zoom deferred)
+- **Blocks:** Obsidian `floating[].zoom` field faithful round-trip; UX polish on popout windows
+- **Scope:** small-to-medium
+- **Details:** Obsidian persists each popout window's zoom factor in `workspace.json` `floating[].zoom`. Corbomite's zoom is currently app-scoped via Cluster V / `ThemeService`; there is no per-window zoom infrastructure. Cluster Y ships popout-window persistence for geometry + maximize but explicitly defers zoom. Implementation path: per-`WorkspaceWindow` zoom-level state that cascades into Markoff leaves via a window-scoped `ZoomService`, overriding the app-global `ThemeService` value for that window only. Natural home: Cluster V.2 (editor/workspace debt cleanup) since V.2 already tracks `AutoSaveReactor::setDelayMs` wiring and other theme/zoom threads. Until then, popout windows restore at current app zoom with a known-missing field in `workspace.json`; round-trip is lossy for the zoom field only.
+
 ### Distro packaging path validation
 - **Source:** Cluster N retro §Discovered during execution; [cluster-retros/cluster-n.md](cluster-retros/cluster-n.md)
 - **Blocks:** first deb/rpm/flatpak/AppImage packaging effort
@@ -134,6 +183,12 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 ---
 
 ## 3. Editor, Views, Workspace
+
+### Extract heading / section into a new note
+- **Source:** user observation 2026-04-23 (Obsidian ellipses-menu parity; complement to "Merge entire file with…")
+- **Blocks:** nothing; straight ellipses-menu parity
+- **Scope:** small-to-medium (1–2 days)
+- **Details:** Right-click any heading in a `MarkdownView` (or hit the ellipses menu) → "Extract section to new note". Flow: resolve section span via `MetadataCache.headings` (shipped Cluster I) to get `[startOffset, endOffset)`; prompt for new filename (default = heading text, slugified); call `FileManager::createFile(newPath, sectionMarkdown)` (atomic write path shipped Q.0); replace the original section range with `[[newPath]]` via `FileManager::applyEdits` preserving surrounding whitespace. Natural home: MarkdownView hamburger menu (Cluster R specialisation layer) and Markoff editor context menu (once Markoff C6's `aboutToShowContextMenu` hook lands on Corbomite). Pairs with the "Merge entire file with…" action on the same menu.
 
 ### Markoff Live block-math reveal: style-leak / phantom-hidden chars in revealed raw LaTeX
 - **Source:** discovered 2026-04-23 during C8 Phase-1 dogfood; user screenshot at /home/clinton/Pictures/Screenshots/Screenshot_20260423_190905.png
