@@ -83,6 +83,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/LeafHistory.h
     src/Workspace.cpp
     include/corbomite/core/Workspace.h
+    src/WorkspaceActiveLeafRouter.cpp
+    include/corbomite/core/WorkspaceActiveLeafRouter.h
     src/WorkspaceWindow.cpp
     include/corbomite/core/WorkspaceWindow.h
     src/PluginMetaData.cpp

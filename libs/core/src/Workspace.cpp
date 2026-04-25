@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/ViewRegistry.h"
+#include "corbomite/core/WorkspaceActiveLeafRouter.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/WorkspaceWindow.h"
 
@@ -84,27 +85,11 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
         }
     });
 
-    // Focus-based active-leaf routing: when any widget in the application
-    // receives focus, walk up the parent chain to find the owning leaf and
-    // mark it active. Matches Obsidian's per-pane focus semantics so that
-    // "open note" routes to the pane the user is actually editing in.
-    if (auto *app = qApp) {
-        connect(app, &QApplication::focusChanged, this,
-                [this](QWidget *, QWidget *now) {
-            if (!now)
-                return;
-            QWidget *w = now;
-            while (w) {
-                for (auto *leaf : m_leaves) {
-                    if (leaf->widget() == w) {
-                        setActiveLeaf(leaf);
-                        return;
-                    }
-                }
-                w = w->parentWidget();
-            }
-        });
-    }
+    // Per-pane focus routing. Promoted from a Cluster G inline lambda to
+    // the named WorkspaceActiveLeafRouter class in Cluster Y Phase 6.1
+    // (no behaviour change). The router is parented to `this` so it dies
+    // with the workspace.
+    new WorkspaceActiveLeafRouter(this);
 }
 
 Workspace::~Workspace()
