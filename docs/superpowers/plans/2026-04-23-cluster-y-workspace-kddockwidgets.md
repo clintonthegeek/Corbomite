@@ -174,7 +174,7 @@ These are Obsidian-behaviour quirks Y must not regress. Each is a test-surfaced 
 
 ## Definition of Done
 
-- [ ] All 13 existing workspace tests pass (2–3 may be rewritten in Phase 4).
+- [ ] All 15 existing workspace tests pass (~10 ported to the new public API in Phase 4a; substrate-internal-poking tests dropped or rewritten in Phase 4b). See Phase 4a/4b for the test inventory.
 - [ ] All 6 new test files pass.
 - [ ] `tst_workspace_roundtrip_obsidian` passes byte-equivalence against 8 Obsidian fixtures (modulo unknown-key retention).
 - [ ] Manual QA checklist (Phase 8) complete: Wayland primary, X11 secondary.
@@ -1385,35 +1385,401 @@ In `materializeSplit` / `materializeTabs`, if the computed anchor `relativeTo` i
 
 ---
 
-# Phase 4 — Flip Workspace internals to KDDW substrate (~3–4 days, the big phase)
+# Phase 4 — Public API redesign + KDDW substrate flip (~5–6 days)
 
-**Goal:** Replace the hand-rolled tree internals of `Workspace` + `WorkspaceLeaf` with KDDW composition. Delete `WorkspaceTabs` + `WorkspaceSplit` widget classes. Keep `Workspace` + `WorkspaceLeaf` public APIs byte-identical. All 13 existing tests must pass (2–3 may need rewrites for internals-poking).
+**Goal:** Replace the hand-rolled tree internals of `Workspace` + `WorkspaceLeaf` with KDDW composition, **and** redesign the public API of those classes so it no longer leaks the substrate types being deleted (`WorkspaceTabs`, `WorkspaceSplit`, `WorkspaceItem`, `WorkspaceParent`).
 
-## Task 4.1: Grep for consumers of deleted internals
+## 2026-04-25 patch — under-audit caught at execution
 
-**Files:** none (investigation)
+When Phase 4 was first authored, the SCOUTING brainstorm (§3.2 "loosely opaque") and this plan's File-Structure block (line 25) both stated that `Workspace` + `WorkspaceLeaf` public signatures were "byte-identical to pre-flip." A grep at the start of execution showed otherwise:
 
-- [ ] **Step 1: Grep**
+- **`Workspace.h` public surface leaks the demoted types:** `mainRoot() → WorkspaceSplit*`, `createLeafInTabs(WorkspaceTabs*)`, `splitLeaf(...) → WorkspaceSplit*`, `activeTabs() → WorkspaceTabs*`, `findTabsById()`, `findOrCreateUnpinnedLeaf(WorkspaceTabs*)`. None of these are byte-identical-able when the types go away.
+- **`WorkspaceLeaf : public WorkspaceItem`** — base-class inheritance breaks when `WorkspaceItem` is deleted. The `parentItem() → WorkspaceParent*` accessor on `WorkspaceItem` is consumed by `View::onTabMenu`.
+- **Production callers of the demoted types (5 hits in 2 files, plan expected 0):** `libs/core/src/View.cpp:91` (close-siblings menu via `qobject_cast<WorkspaceTabs*>`); `src/app/MainWindow.cpp:1301` (Ctrl+Tab via `m_workspace->activeTabs()`); `src/app/MainWindow.cpp:1627–1639` (tab driver — connects `WorkspaceTabs::currentTabChanged` + `tabCloseRequested`).
+- **Test reach (10 of 15 files reference the types, plan expected 2–3).** `tst_workspace_integration.cpp` alone has 118 references — that is not "internals-poking," it is the public API surface as currently shipped.
+- **Phase 5+ already silently assumes the redesign happened.** The Task 5.1 / 5.3 / 6.2 test snippets construct `Workspace ws(QStringLiteral("test-vault"))` (vaultId-only constructor — current is `Workspace(ViewRegistry*, QObject*)`) and call `ws.createLeafInTabs(nullptr)` returning a leaf, with no Tabs argument anywhere. The downstream phases compile only after the API has been redesigned.
 
-```bash
-git grep -n "WorkspaceTabs\|WorkspaceSplit" libs/ src/ \
-  | grep -v -E "Workspace\.cpp|Workspace\.h|WorkspaceTabs\.h|WorkspaceSplit\.h|WorkspaceTabs\.cpp|WorkspaceSplit\.cpp|WorkspaceSerializer"
-```
+Root cause: the brainstorm chose the right strategy (demote `WorkspaceTabs` / `WorkspaceSplit` / `WorkspaceItem` / `WorkspaceParent` to internal types) but the plan never enumerated the public surface of the *staying* types to check what would leak. Function-name lists ("`mainRoot()` is preserved") aren't enough; type signatures are what carry the leak.
 
-Expected: zero hits outside `libs/core/src/Workspace.cpp`. If any hits elsewhere (e.g., a plugin reaches into `WorkspaceTabs`), file a blocker in the task's commit message and resolve before proceeding.
+**Restructure:** Phase 4 splits into two atomic, commutative sub-phases.
 
-- [ ] **Step 2: Grep for test reaches**
+- **Phase 4a — Public API redesign (substrate untouched, ~3 days).** New public API on `Workspace.h` + `WorkspaceLeaf.h` + `WorkspaceController.h` that does not name `WorkspaceTabs` / `WorkspaceSplit` / `WorkspaceItem` / `WorkspaceParent`. Substrate (`QSplitter` / `QTabWidget`) keeps working. View.cpp + MainWindow.cpp + 10 test files port to the new API. Behaviour does not change. Bisectable per-commit.
+- **Phase 4b — Substrate flip (KDDW underneath the new API, ~2–3 days).** The original Phase 4 substrate work, but actually atomic now: public API doesn't change, only internal representation. `WorkspaceLeaf` composes a `KDDW::DockWidget`; `Workspace` composes `KDDW::MainWindow`; tree ops delegate; serialize/deserialize delegate to `WorkspaceSerializer`; old `WorkspaceTabs.{h,cpp}` + `WorkspaceSplit.{h,cpp}` + `WorkspaceItem.{h,cpp}` + `WorkspaceParent.{h,cpp}` files deleted (now safe — no callers).
 
-```bash
-git grep -l "WorkspaceTabs\|WorkspaceSplit" libs/core/tests/
-```
+The two sub-phases must be done in this order. 4a alone is shippable (KDDW work deferred). 4b alone is *not* shippable (it'd require the public API to flip with the substrate, which is the original mistake).
 
-Expected: 2–3 files (`tst_workspace_tabs.cpp`, possibly `tst_workspace_tree.cpp`, possibly `tst_workspace_tabs_lifecycle.cpp`). Mark these as rewrite candidates.
+The day or two of slip vs the original 3–4 day estimate is the cost of the architectural-debt cleanup; we'd pay it eventually anyway when the next cluster touched the workspace surface.
 
-## Task 4.2: Rewrite WorkspaceLeaf to compose a DockWidget
+---
+
+# Phase 4a — Public API redesign (substrate untouched, ~3 days)
+
+**Goal:** Reshape `Workspace.h` + `WorkspaceLeaf.h` + `WorkspaceController.h` so they do not mention `WorkspaceTabs` / `WorkspaceSplit` / `WorkspaceItem` / `WorkspaceParent`. The `QSplitter` / `QTabWidget` substrate keeps working underneath unchanged. Port the 3 production sites (View.cpp, MainWindow.cpp Ctrl+Tab, MainWindow.cpp tab driver) and the 10 test files to the new API. Full ctest stays green at every commit (with the documented pre-existing flakes excepted).
+
+**At-end state:** `git grep -E "WorkspaceTabs|WorkspaceSplit|WorkspaceItem|WorkspaceParent" libs/core/include/ src/ tests/` returns hits **only** in `libs/core/src/` (the now-internal substrate). No public header, no production caller, and no test file mentions any of the four deleted types by name.
+
+## Task 4a.1: Design the new public API + get sign-off (~half day)
+
+**Files:** none (design exercise; result is a short proposal posted in conversation, not a separate file)
+
+This is a sign-off step. Do not touch code yet. Output is a list of new C++ signatures to be reviewed by the human partner before Task 4a.2 begins.
+
+- [ ] **Step 1: Re-read the current `Workspace.h` + `WorkspaceLeaf.h` + `WorkspaceItem.h` + `WorkspaceController.h` in full.** Note every public signature that mentions one of the four deleted types, plus every signature that takes `ViewRegistry*` (Phase 5+ test snippets construct `Workspace` with `vaultId` only — that constructor change is part of 4a too).
+
+- [ ] **Step 2: Re-read `View::onTabMenu` (libs/core/src/View.cpp:83-115ish), `MainWindow::createActions()` Ctrl+Tab block (~src/app/MainWindow.cpp:1284-), and `MainWindow`'s tab-driver lambda (~src/app/MainWindow.cpp:1615-1640).** Decide what shape of API would let those sites do their job without naming the substrate.
+
+- [ ] **Step 3: Sketch the replacement signatures.** A reasonable starting point (subject to sign-off — not load-bearing):
+
+  - `WorkspaceLeaf` — change base class from `WorkspaceItem` to `QObject`. Move `id()` + `static generateId()` from `WorkspaceItem` onto `WorkspaceLeaf` directly. Drop `parentItem()` from the public surface; replace its lone production caller with a `Workspace`-mediated query (see below).
+  - `Workspace::mainRoot() → WorkspaceSplit*` — **delete from public API.** Production callers: `MainWindow.cpp:1615` and `MainWindow.cpp:1620` reach `m_workspace->mainRoot()->widget()` to attach to the central layout; replace with a `Workspace::rootWidget()` method that returns the bare `QWidget*` (during 4a this is the existing `m_mainRoot->widget()`; in 4b it becomes the `KDDW::MainWindow*`).
+  - `Workspace::createLeafInTabs(WorkspaceTabs* parent)` → `Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)`. `nullptr` semantics: create a new tab group at root.
+  - `Workspace::splitLeaf(WorkspaceLeaf*, Qt::Orientation) → WorkspaceSplit*` → `Workspace::splitLeaf(WorkspaceLeaf*, Qt::Orientation) → WorkspaceLeaf*` (returns the *new* leaf — that is what every caller actually wants; the split container is implementation detail).
+  - `Workspace::activeTabs() → WorkspaceTabs*` — **delete from public API.** Replace with two single-purpose methods that production callers actually want: `Workspace::nextLeafInActiveGroup()` + `Workspace::previousLeafInActiveGroup()` (drives Ctrl+Tab / Ctrl+Shift+Tab in MainWindow). Group-handle abstraction not needed for the production callers.
+  - `Workspace::findTabsById(QString) → WorkspaceTabs*` — **delete from public API.** Search greps confirm no caller. (Verify in Step 4.)
+  - `Workspace::findOrCreateUnpinnedLeaf(WorkspaceTabs*)` → `Workspace::findOrCreateUnpinnedLeafInGroupOf(WorkspaceLeaf*)`. Same semantics, leaf-typed pivot.
+  - `View::onTabMenu` — replace the `qobject_cast<WorkspaceTabs*>(m_leaf->parentItem())` + `tabs->indexOf(...)` + `tabs->requestCloseTab/Others/ToRight(...)` chain with a Workspace-mediated surface. Cleanest is two new methods on `Workspace`: `int leafIndexInGroup(WorkspaceLeaf*)` (returns the position in the leaf's tab group) + `int leafCountInGroup(WorkspaceLeaf*)`, plus three close-helpers: `Workspace::closeLeaf(leaf)` (already exists), `Workspace::closeOtherLeavesInGroupOf(leaf)`, `Workspace::closeLeavesToRightOf(leaf)`. View.cpp then takes a `Workspace*` (it already has `m_leaf` which has access — verify or add accessor).
+  - `MainWindow.cpp:1627-1640` tab-driver lambda — replace direct `WorkspaceTabs::currentTabChanged` + `tabCloseRequested` connections with `Workspace`-emitted signals: `Workspace::groupActiveLeafChangedRequested(WorkspaceLeaf*)` (drives `setActiveLeaf`) + `Workspace::groupCloseLeafRequested(WorkspaceLeaf*)` (drives `closeLeaf`). The internal substrate (or KDDW after 4b) emits these; production code stops reaching into the substrate to subscribe.
+  - `Workspace` constructor — change from `Workspace(ViewRegistry*, QObject*)` to `Workspace(QString vaultId, ViewRegistry*, QObject*)` to match Phase 5+ test snippets (which use vaultId for unique-name namespacing in KDDW's `DockRegistry`). Existing `vaultId` storage already gets set somewhere — verify via grep; this may turn out to be a no-op signature change.
+  - `WorkspaceController` (plugin proxy) — knock-on parity questions. If `Workspace::mainRoot()` is gone from the public API, `WorkspaceController` doesn't need it (it doesn't expose it to plugins). If we add `nextLeafInActiveGroup` etc. to `Workspace`, we should consider exposing equivalents on the proxy. But this is not load-bearing for 4a — the proxy currently mirrors only the leaf-id-based subset. Note any recommended additions but do not block 4a on them.
+
+- [ ] **Step 4: Verify each "delete from public API" claim with a grep.** Specifically:
+
+  ```bash
+  git grep -n "mainRoot\|activeTabs\|findTabsById\|findOrCreateUnpinnedLeaf" libs/ src/ tests/
+  ```
+
+  Distinguish callers in `Workspace.cpp` itself (which can keep using internal access) from callers elsewhere. If a caller exists outside `Workspace.cpp` for a method we wanted to delete, either keep the method (with new signature) or design a replacement.
+
+- [ ] **Step 5: Surface the proposal to the human partner.** Post the new signatures in conversation, with a one-line justification per change. Wait for sign-off (or redirect) before starting Task 4a.2. **Do not skip this step.**
+
+## Task 4a.2: Reshape `WorkspaceItem` / `WorkspaceParent` headers to internal location
 
 **Files:**
-- Modify: `libs/core/include/Corbomite/core/WorkspaceLeaf.h`
+- Move: `libs/core/include/corbomite/core/WorkspaceItem.h` → `libs/core/src/internal/WorkspaceItem.h`
+- Move: `libs/core/include/corbomite/core/WorkspaceParent.h` → `libs/core/src/internal/WorkspaceParent.h`
+- Modify: every `#include` of those two headers across the tree
+
+- [ ] **Step 1: Create the internal directory + move the headers**
+
+  ```bash
+  mkdir -p libs/core/src/internal
+  git mv libs/core/include/corbomite/core/WorkspaceItem.h libs/core/src/internal/WorkspaceItem.h
+  git mv libs/core/include/corbomite/core/WorkspaceParent.h libs/core/src/internal/WorkspaceParent.h
+  ```
+
+- [ ] **Step 2: Update every include site**
+
+  ```bash
+  git grep -l "corbomite/core/WorkspaceItem.h\|corbomite/core/WorkspaceParent.h" libs/ src/ tests/
+  ```
+
+  Most hits will be in `libs/core/src/`. Update each `#include "corbomite/core/WorkspaceItem.h"` → `#include "internal/WorkspaceItem.h"` (relative to the file's containing dir; check actual relative paths). Public headers (`WorkspaceLeaf.h` notably) must lose their include of `WorkspaceItem.h` entirely — see Task 4a.3.
+
+- [ ] **Step 3: Update `libs/core/CMakeLists.txt`** — the headers no longer need to be installed as part of the public set. If `target_sources(... PUBLIC FILE_SET HEADERS ...)` enumerates them, drop. If not, no change needed.
+
+- [ ] **Step 4: Build + ctest**
+
+  ```bash
+  cmake --build build -j 10 && cd build && ctest --output-on-failure -j 10
+  ```
+
+  Expected: green. This is a pure file-move; no behaviour change.
+
+- [ ] **Step 5: Commit**
+
+  ```
+  cluster-y phase 4a: relocate WorkspaceItem/WorkspaceParent to internal headers
+  ```
+
+## Task 4a.3: Reshape `WorkspaceLeaf` inheritance — drop `: WorkspaceItem`, add `id()` directly
+
+**Files:**
+- Modify: `libs/core/include/corbomite/core/WorkspaceLeaf.h`
+- Modify: `libs/core/src/WorkspaceLeaf.cpp`
+- Modify: `libs/core/src/Workspace.cpp` (any place that used `WorkspaceLeaf` as a `WorkspaceItem*` polymorphically)
+- Modify: `libs/core/src/WorkspaceItem.cpp` if it had logic shared with leaves
+
+- [ ] **Step 1: In `WorkspaceLeaf.h`, change `class WorkspaceLeaf : public WorkspaceItem` → `class WorkspaceLeaf : public QObject`.** Remove `#include "corbomite/core/WorkspaceItem.h"`. Add `#include <QObject>`.
+
+- [ ] **Step 2: Add public `QString id() const` + `void setId(const QString&)` + `static QString generateId()` to `WorkspaceLeaf`.** Storage member `m_id` private. Move the implementations from `WorkspaceItem.cpp` into `WorkspaceLeaf.cpp` (or copy — `WorkspaceItem` still needs them too while it lives in internal/ and serves the substrate Tabs/Split tree).
+
+- [ ] **Step 3: Drop the public `widget()` and `serialize()` overrides of `WorkspaceItem`'s pure virtuals.** Either keep them as plain (non-override) methods on `WorkspaceLeaf` (the existing implementations in `WorkspaceLeaf.cpp` already match), or — since `WorkspaceItem`'s tree continues to exist internally — leave `WorkspaceLeaf` with a separate internal adapter that *does* inherit `WorkspaceItem`. The simpler path: keep `widget()` and `serialize()` as plain methods on `WorkspaceLeaf`; the substrate tree (`WorkspaceTabs::children()`) needs to continue holding leaf children via some `WorkspaceItem`-derived wrapper, but that wrapper can be a thin internal class. Decide based on what's least invasive — surface in conversation if non-obvious during execution.
+
+- [ ] **Step 4: Drop `WorkspaceLeaf::parentItem()` from the public API** if Step 3's design lets us. (Production caller View.cpp gets ported in Task 4a.5, so by 4a.5's commit nothing external depends on `parentItem()`.)
+
+- [ ] **Step 5: Build the in-tree library only (don't run tests yet — production callers still broken)**
+
+  ```bash
+  cmake --build build --target Corbomite_Core -j 10 2>&1 | head -60
+  ```
+
+  Expect either green or a small set of internal `Workspace.cpp` errors that Step 6 fixes.
+
+- [ ] **Step 6: Fix any internal compile errors** — `Workspace.cpp`'s deserialization tree walk may have used `WorkspaceLeaf*` polymorphically as `WorkspaceItem*`. Add explicit casts via the internal adapter, or refactor the local helpers (`findLeafInTree(WorkspaceItem*)` etc.) to take the internal adapter type.
+
+- [ ] **Step 7: Commit**
+
+  ```
+  cluster-y phase 4a: WorkspaceLeaf no longer inherits from WorkspaceItem
+  ```
+
+  Tests will be broken at this commit (production code in View.cpp + MainWindow.cpp still references the old API). This is intentional — Tasks 4a.4–4a.7 finish the wave. 4a.8 verifies green.
+
+## Task 4a.4: Reshape `Workspace` public method signatures
+
+**Files:**
+- Modify: `libs/core/include/corbomite/core/Workspace.h`
+- Modify: `libs/core/src/Workspace.cpp`
+
+- [ ] **Step 1: Header changes per the API design from Task 4a.1.** Delete forward decls for `WorkspaceItem` / `WorkspaceParent` / `WorkspaceSplit` / `WorkspaceTabs` (they are no longer named in any public signature). Rename the affected public methods per the agreed-on list. Add the new helpers (`rootWidget()`, `nextLeafInActiveGroup()`, `previousLeafInActiveGroup()`, `leafIndexInGroup(WorkspaceLeaf*)`, `leafCountInGroup(WorkspaceLeaf*)`, `closeOtherLeavesInGroupOf(WorkspaceLeaf*)`, `closeLeavesToRightOf(WorkspaceLeaf*)`). Add the new signals (`groupActiveLeafChangedRequested(WorkspaceLeaf*)`, `groupCloseLeafRequested(WorkspaceLeaf*)`).
+
+- [ ] **Step 2: `Workspace.cpp` — implement the new methods.** Most are thin wrappers over the existing private substrate helpers. Examples:
+
+  ```cpp
+  WorkspaceLeaf *Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)
+  {
+      WorkspaceTabs *tabs = sibling
+          ? qobject_cast<WorkspaceTabs *>(sibling->parentItem())
+          : findFirstTabs(m_mainRoot);
+      // ... existing createLeafInTabs body, calling internal API
+  }
+
+  WorkspaceLeaf *Workspace::splitLeaf(WorkspaceLeaf *source, Qt::Orientation orient)
+  {
+      WorkspaceSplit *newSplit = /* existing splitLeaf body */;
+      // Find the new leaf inside newSplit (the second child) and return it.
+      return /* the new leaf */;
+  }
+
+  QWidget *Workspace::rootWidget() const
+  {
+      return m_mainRoot ? m_mainRoot->widget() : nullptr;
+  }
+  ```
+
+- [ ] **Step 3: Wire the new signals.** Inside the existing private `WorkspaceTabs::currentTabChanged` / `tabCloseRequested` handling (or wherever the substrate produces the events), forward to the new public signals so MainWindow.cpp can subscribe to `Workspace` instead of `WorkspaceTabs`. The cleanest landing: in `Workspace`'s leaf-add path, connect once to the substrate's signals and re-emit. If the substrate doesn't currently emit through `Workspace`, add the connection plumbing here in 4a (it's tiny — KDDW will replace the substrate in 4b but the `Workspace`-side re-emit signature stays).
+
+- [ ] **Step 4: Build the library only**
+
+  ```bash
+  cmake --build build --target Corbomite_Core -j 10
+  ```
+
+  Expected: green for the library; tests + app still broken (Tasks 4a.5–4a.7).
+
+- [ ] **Step 5: Commit**
+
+  ```
+  cluster-y phase 4a: Workspace public API no longer names substrate types
+  ```
+
+## Task 4a.5: Port `View::onTabMenu` to the new Workspace surface
+
+**Files:**
+- Modify: `libs/core/src/View.cpp`
+
+- [ ] **Step 1: Locate the close-siblings menu block at View.cpp:83–~115.** Currently uses `qobject_cast<WorkspaceTabs *>(m_leaf->parentItem())` then `tabs->indexOf(m_leaf)`, `tabs->children().size()`, `tabs->requestCloseTab(idx)`, `tabs->requestCloseOthers(idx)`, `tabs->requestCloseToRight(idx)`.
+
+- [ ] **Step 2: Replace with `Workspace`-mediated calls.** View has `m_leaf` (a `WorkspaceLeaf*`); we need access to the owning `Workspace*`. Either:
+  - Add `Workspace *WorkspaceLeaf::workspace() const` accessor (via stored pointer or `qobject_cast<Workspace*>(parent())` if leaves are parented to Workspace) — preferred if simple.
+  - Or pass the Workspace when constructing the close-siblings menu via the existing menu-event chain.
+
+  Then:
+
+  ```cpp
+  if (!menu || !m_leaf) return;
+  auto *ws = m_leaf->workspace();
+  if (!ws) return;
+  const int myIdx = ws->leafIndexInGroup(m_leaf);
+  const int count = ws->leafCountInGroup(m_leaf);
+  if (myIdx < 0) return;
+
+  auto *aClose = menu->addAction(i18n("Close"));
+  QObject::connect(aClose, &QAction::triggered, ws,
+                   [ws, leaf = m_leaf] { ws->closeLeaf(leaf); });
+
+  if (count > 1) {
+      auto *aOthers = menu->addAction(i18n("Close Others"));
+      QObject::connect(aOthers, &QAction::triggered, ws,
+                       [ws, leaf = m_leaf] { ws->closeOtherLeavesInGroupOf(leaf); });
+
+      if (myIdx < count - 1) {
+          auto *aRight = menu->addAction(i18n("Close All to the Right"));
+          QObject::connect(aRight, &QAction::triggered, ws,
+                           [ws, leaf = m_leaf] { ws->closeLeavesToRightOf(leaf); });
+      }
+  }
+  ```
+
+- [ ] **Step 3: Drop the now-unused `#include "corbomite/core/WorkspaceTabs.h"` and `#include "corbomite/core/WorkspaceItem.h"` from View.cpp.**
+
+- [ ] **Step 4: Build**
+
+  ```bash
+  cmake --build build --target Corbomite_Core -j 10
+  ```
+
+- [ ] **Step 5: Commit**
+
+  ```
+  cluster-y phase 4a: View.cpp close-siblings menu uses Workspace surface
+  ```
+
+## Task 4a.6: Port `MainWindow.cpp` Ctrl+Tab + tab-driver to new Workspace surface
+
+**Files:**
+- Modify: `src/app/MainWindow.cpp`
+
+- [ ] **Step 1: Ctrl+Tab / Ctrl+Shift+Tab block at MainWindow.cpp:1284–~1320.** Currently:
+
+  ```cpp
+  auto *tabs = m_workspace->activeTabs();
+  if (tabs && tabs->childCount() > 1) {
+      int next = (tabs->currentTab() + 1) % tabs->childCount();
+      tabs->setCurrentTab(next);
+  }
+  ```
+
+  Replace with:
+
+  ```cpp
+  auto *next = m_workspace->nextLeafInActiveGroup();
+  if (next) m_workspace->setActiveLeaf(next);
+  ```
+
+  (Ctrl+Shift+Tab analogous via `previousLeafInActiveGroup()`.)
+
+- [ ] **Step 2: Tab-driver lambda at MainWindow.cpp:1615–1640.** Currently iterates `m_workspace->allLeaves()`, fetches `qobject_cast<WorkspaceTabs *>(leaf->parentItem())`, marks per-tabs `_mw_tabs_connected` property, and wires `WorkspaceTabs::currentTabChanged` + `tabCloseRequested`.
+
+  Replace the entire `for (auto *leaf : ...) { auto *tabs = ...; if (tabs && ...) { connect(...); }}` pattern with two top-level connections to the `Workspace` signals added in Task 4a.4:
+
+  ```cpp
+  // At Workspace setup time (one-shot, not per-leaf):
+  connect(m_workspace, &Workspace::groupActiveLeafChangedRequested,
+          this, [this](WorkspaceLeaf *leaf) {
+              m_workspace->setActiveLeaf(leaf);
+          });
+  connect(m_workspace, &Workspace::groupCloseLeafRequested,
+          this, [this](WorkspaceLeaf *leaf) {
+              m_workspace->closeLeaf(leaf);
+          });
+  ```
+
+  The `_mw_tabs_connected` property hack disappears (it existed because the per-leaf iteration could see the same Tabs multiple times; with Workspace-emitted signals we connect once at setup).
+
+  Keep the deferred-load service-propagation `_mw_leaf_connected` block (it's leaf-level, not Tabs-level — unaffected).
+
+- [ ] **Step 3: `mainRoot()->widget()` callers at MainWindow.cpp:1615 + 1620.** Replace `m_workspace->mainRoot()->widget()` with `m_workspace->rootWidget()`.
+
+- [ ] **Step 4: Drop `#include "corbomite/core/WorkspaceTabs.h"` from MainWindow.cpp.**
+
+- [ ] **Step 5: Build + run smoke test**
+
+  ```bash
+  cmake --build build -j 10 2>&1 | tail -40
+  ```
+
+- [ ] **Step 6: Commit**
+
+  ```
+  cluster-y phase 4a: MainWindow uses Workspace tab-driver signals + rootWidget
+  ```
+
+## Task 4a.7: Port the 10 test files to the new public API
+
+**Files:**
+- Modify: `tests/core/tst_workspace_integration.cpp` (118 refs — biggest port)
+- Modify: `tests/core/tst_workspace_tabs_lifecycle.cpp` (26 refs — likely behaviour tests, port not delete)
+- Modify: `tests/core/tst_workspace_session.cpp` (13 refs)
+- Modify: `tests/core/tst_workspace_tree.cpp` (9 refs)
+- Modify: `tests/core/tst_leaf_undo.cpp` (5 refs)
+- Modify: `tests/core/tst_workspace_serialize.cpp` (4 refs)
+- Modify: `tests/core/tst_workspace_window.cpp` (4 refs)
+- Modify: `tests/core/tst_workspace_deferred.cpp` (3 refs)
+- Modify: `tests/core/tst_proxy_workspace.cpp` (2 refs)
+- Modify: `tests/core/tst_workspace_tabs.cpp` (12 refs — probable delete-or-rewrite candidate)
+
+The first nine ports are mostly mechanical:
+
+- `m_workspace->createLeafInTabs(someTabs)` → `m_workspace->createLeafInGroupOf(someLeaf)`
+- `m_workspace->createLeafInTabs(nullptr)` → `m_workspace->createLeafInGroupOf(nullptr)` (signature change is leaf-typed param, semantics unchanged)
+- `m_workspace->splitLeaf(leaf, dir)->...` → `m_workspace->splitLeaf(leaf, dir)` returns the new leaf; rewrite to use the new return type
+- `m_workspace->mainRoot()->...` → use `m_workspace->rootWidget()` if walking widget tree; or rewrite test against behaviour rather than tree shape
+- `leaf->parentItem()` → `m_workspace->leafIndexInGroup(leaf)` + `m_workspace->leafCountInGroup(leaf)` for counting; or rewrite assertions in terms of `m_workspace->allLeaves()` if the test was just verifying topology
+- Test fixtures that used `WorkspaceTabs *t = ...; t->setCurrentTab(i); t->requestCloseTab(j);` etc. — rewrite to drive the Workspace signals (`emit m_workspace->groupActiveLeafChangedRequested(leaf)`) or call `Workspace::setActiveLeaf(leaf)` / `Workspace::closeLeaf(leaf)` directly.
+
+`tst_workspace_tabs.cpp` is the likely delete-or-rewrite candidate per the original Phase 4 plan. Examine first; if it is 90% `QTabBar`/`QStackedWidget` substrate poking, delete it (coverage migrates to `tst_workspace_dragdrop` in Phase 5). If it has behaviour assertions, port them.
+
+- [ ] **Step 1: Port the nine behaviour tests in priority order: tst_workspace_integration first** (it's the biggest and most likely to surface API design problems). Keep commits per-file or per-cluster-of-files for bisectability.
+
+- [ ] **Step 2: Decide tst_workspace_tabs.cpp's fate.**
+
+  ```bash
+  wc -l tests/core/tst_workspace_tabs.cpp
+  grep -c "QTabBar\|QStackedWidget" tests/core/tst_workspace_tabs.cpp
+  ```
+
+  If >50% substrate-poking: delete + drop from `tests/core/CMakeLists.txt`. Otherwise: port the behaviour assertions and remove substrate-poking lines.
+
+- [ ] **Step 3: After each test ports, run that test individually**
+
+  ```bash
+  cd build && ctest -R tst_workspace_integration --output-on-failure
+  ```
+
+- [ ] **Step 4: Commit per-file or per-batch**
+
+  ```
+  cluster-y phase 4a: port tst_workspace_<name> to new Workspace API
+  ```
+
+## Task 4a.8: Verify full ctest green + grep-clean public surface
+
+- [ ] **Step 1: Full ctest**
+
+  ```bash
+  cd build && ctest --output-on-failure -j 10 2>&1 | tail -40
+  ```
+
+  Expected: green except documented pre-existing flakes (tst_markoff_undo_grouping, tst_markoff_table_operations, tst_completion_popup, tst_quadtree, tst_benchmark_layout). If a pre-existing flake list has shifted (e.g., a markoff submodule bump fixed one), update PROJECT-STATE / backlog accordingly but do not block 4a closure on it.
+
+- [ ] **Step 2: Public surface grep**
+
+  ```bash
+  git grep -E "WorkspaceTabs|WorkspaceSplit|WorkspaceItem|WorkspaceParent" \
+      libs/core/include/ src/ tests/ \
+      | grep -v -E "WorkspaceSerializer|^libs/core/src/internal/"
+  ```
+
+  Expected: zero hits. (Hits inside `libs/core/src/` proper are fine — that's the substrate; it gets deleted in 4b.)
+
+- [ ] **Step 3: Confirm Phase 4a is shippable on its own.** Behaviour unchanged. KDDW dependency declared but not yet used by Workspace internals. The branch is releasable here if 4b were ever to slip.
+
+- [ ] **Step 4: 4a is closed when both Step 1 + Step 2 are clean.** Move to Phase 4b.
+
+---
+
+# Phase 4b — Substrate flip (KDDW underneath, ~2–3 days)
+
+**Goal:** Replace the `QSplitter` / `QTabWidget` substrate with `KDDW::MainWindow` + `KDDW::DockWidget`. Public API unchanged from Phase 4a. `WorkspaceTabs.{h,cpp}` + `WorkspaceSplit.{h,cpp}` files deleted; `WorkspaceItem.{h,cpp}` + `WorkspaceParent.{h,cpp}` deleted. All Phase-4a-ported tests stay green.
+
+## Task 4b.1: Re-grep for stragglers
+
+**Files:** none (sanity check)
+
+- [ ] **Step 1: Grep for the four deleted types outside their own files**
+
+  ```bash
+  git grep -n "WorkspaceTabs\|WorkspaceSplit\|WorkspaceItem\|WorkspaceParent" libs/ src/ tests/ \
+      | grep -v -E "WorkspaceSerializer|libs/core/src/(internal/|Workspace(Tabs|Split|Item|Parent)\.cpp|Workspace\.cpp)"
+  ```
+
+  Expected: zero. If any hit appears, finish 4a (Tasks 4a.5–4a.7 missed something).
+
+## Task 4b.2: Rewrite `WorkspaceLeaf` to compose a `KDDW::DockWidget`
+
+**Files:**
+- Modify: `libs/core/include/corbomite/core/WorkspaceLeaf.h`
 - Modify: `libs/core/src/WorkspaceLeaf.cpp`
 
 - [ ] **Step 1: Add `KDDW::DockWidget*` as an internal member**
@@ -1428,11 +1794,8 @@ Add to the class's private section (keep it package-private — plugins never in
 
 ```cpp
 private:
-    QString m_id;
-    QString m_vaultId;
     KDDockWidgets::QtWidgets::DockWidget *m_dockWidget = nullptr;
-    View *m_view = nullptr;
-    // ... existing private members (pinned, group, history, deferred, view state, eState) ...
+    // ... existing private members ...
 ```
 
 Add a package-private accessor:
@@ -1445,20 +1808,22 @@ public:
 
 - [ ] **Step 2: Constructor wires up DockWidget**
 
-In the .cpp, the constructor now takes a KDDW MainWindow pointer (or the Workspace's KDDW main window via accessor), and constructs the DockWidget:
+In the .cpp, the constructor constructs the DockWidget with a unique name namespaced by the owning `Workspace`'s vaultId:
 
 ```cpp
-WorkspaceLeaf::WorkspaceLeaf(QString id, QString vaultId, QObject *parent)
+WorkspaceLeaf::WorkspaceLeaf(ViewRegistry *registry, QObject *parent)
     : QObject(parent)
-    , m_id(std::move(id))
-    , m_vaultId(std::move(vaultId))
+    , m_registry(registry)
 {
-    const auto uniqueName = QStringLiteral("%1:%2").arg(m_vaultId, m_id);
-    m_dockWidget = new KDDockWidgets::QtWidgets::DockWidget(uniqueName);
-    // Title + icon are set by open() once the View is attached; meanwhile
-    // the cached {icon, title} from view-state drive the tab header.
+    m_id = generateId();
+    // The unique name is finalized when the leaf is parented to a Workspace
+    // (which knows the vaultId). For now, construct with leaf-id alone; rename
+    // via setUniqueName() when attached.
+    m_dockWidget = new KDDockWidgets::QtWidgets::DockWidget(m_id);
 }
 ```
+
+(Workspace's `createLeafInGroupOf` / `splitLeaf` paths call `m_dockWidget->setUniqueName({vaultId}:{leafId})` after construction.)
 
 - [ ] **Step 3: Rewrite `open(View *view)` to use `setGuestView`**
 
@@ -1475,7 +1840,6 @@ void WorkspaceLeaf::open(View *view)
         m_dockWidget->setGuestView(m_view);
         m_dockWidget->setTitle(m_view->title());
         m_dockWidget->setIcon(m_view->icon());
-        // Connect view's title-change + icon-change signals to the dock widget:
         connect(m_view, &View::titleChanged, m_dockWidget,
                 &KDDockWidgets::QtWidgets::DockWidget::setTitle);
         connect(m_view, &View::iconChanged, m_dockWidget,
@@ -1485,30 +1849,18 @@ void WorkspaceLeaf::open(View *view)
 }
 ```
 
-- [ ] **Step 4: Rewrite `focus()` to use `setAsCurrentTab`**
+- [ ] **Step 4: Rewrite focus / setAsCurrentTab path**
 
-```cpp
-void WorkspaceLeaf::focus()
-{
-    m_dockWidget->setAsCurrentTab();
-    if (m_view) m_view->setFocus();
-}
-```
+`WorkspaceLeaf` likely doesn't have an explicit `focus()` method — `setActiveLeaf` is on Workspace. The KDDW handoff happens at the Workspace level (Task 4b.3). For now, expose a package-private `setAsCurrentTab()` helper on WorkspaceLeaf that calls `m_dockWidget->setAsCurrentTab()`.
 
-- [ ] **Step 5: Rebuild; leave tests failing (expected)**
+- [ ] **Step 5: Rebuild; expect Workspace.cpp errors (they get fixed in Task 4b.3)**
 
-```bash
-cmake --build build -j 10 2>&1 | head -30
-```
+- [ ] **Step 6: Do not commit yet.** Phase 4b is atomic for Git purposes.
 
-Expected: compile errors from `Workspace.cpp` where it still uses the old `QTabWidget`/`QSplitter` paths. Those are Task 4.3–4.5's job.
-
-- [ ] **Step 6: Do not commit yet.** Phase 4 is atomic for Git purposes.
-
-## Task 4.3: Rewrite Workspace to compose a KDDW::MainWindow
+## Task 4b.3: Rewrite `Workspace` to compose a `KDDW::MainWindow`
 
 **Files:**
-- Modify: `libs/core/include/Corbomite/core/Workspace.h`
+- Modify: `libs/core/include/corbomite/core/Workspace.h`
 - Modify: `libs/core/src/Workspace.cpp`
 
 - [ ] **Step 1: Header additions**
@@ -1521,24 +1873,23 @@ public:
     KDDockWidgets::QtWidgets::MainWindow *kddwMainWindow() const { return m_kddwMain; }
 ```
 
-Delete the declarations of `WorkspaceItem`, `WorkspaceParent`, `WorkspaceSplit`, `WorkspaceTabs` forward classes from this header (they're deleted files).
+(Public API redesigned in 4a is unchanged.)
 
 - [ ] **Step 2: Constructor creates MainWindow**
 
+The constructor's existing init (ViewRegistry storage, undo stack, etc.) is preserved — these snippets are *additive*, not replacements. Add to the constructor body:
+
 ```cpp
-Workspace::Workspace(QString vaultId, QObject *parent)
-    : QObject(parent)
-    , m_vaultId(std::move(vaultId))
-{
-    m_kddwMain = new KDDockWidgets::QtWidgets::MainWindow(
-        QStringLiteral("corbomite:%1").arg(m_vaultId),
-        KDDockWidgets::MainWindowOption_None);
-    // m_kddwMain is owned by Qt's ownership via its eventual parent widget
-    // (set when MainWindow calls setCentralWidget(m_kddwMain))
+m_kddwMain = new KDDockWidgets::QtWidgets::MainWindow(
+    QStringLiteral("corbomite:%1").arg(m_vaultId),
+    KDDockWidgets::MainWindowOption_None,
+    /*parent=*/nullptr);
+wireKddwSignals();
+```
 
-    wireKddwSignals();
-}
+And the new private:
 
+```cpp
 void Workspace::wireKddwSignals()
 {
     auto *registry = KDDockWidgets::DockRegistry::self();
@@ -1547,8 +1898,6 @@ void Workspace::wireKddwSignals()
     connect(registry, &KDDockWidgets::DockRegistry::dockWidgetRemoved,
             this, &Workspace::onDockWidgetRemoved);
 
-    // Debounced save timer. Any of the signals above (+ tab-select + geometry)
-    // fires a 1s trailing-edge save of workspace.json.
     m_saveDebounce = new QTimer(this);
     m_saveDebounce->setSingleShot(true);
     m_saveDebounce->setInterval(1000);
@@ -1557,13 +1906,21 @@ void Workspace::wireKddwSignals()
 }
 ```
 
-- [ ] **Step 3: Rewrite `createLeafInTabs`**
+- [ ] **Step 3: Rewrite `Workspace::rootWidget()` to return the KDDW MainWindow**
 
 ```cpp
-WorkspaceLeaf *Workspace::createLeafInTabs(WorkspaceLeaf *sibling)
+QWidget *Workspace::rootWidget() const { return m_kddwMain; }
+```
+
+- [ ] **Step 4: Rewrite `createLeafInGroupOf` (the 4a-renamed `createLeafInTabs`)**
+
+```cpp
+WorkspaceLeaf *Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)
 {
-    auto *leaf = new WorkspaceLeaf(generateLeafId(), m_vaultId, this);
+    auto *leaf = new WorkspaceLeaf(m_registry, this);
     m_leavesById[leaf->id()] = leaf;
+    leaf->dockWidget()->setUniqueName(
+        QStringLiteral("%1:%2").arg(m_vaultId, leaf->id()));
 
     if (sibling) {
         sibling->dockWidget()->addDockWidgetAsTab(leaf->dockWidget());
@@ -1576,14 +1933,16 @@ WorkspaceLeaf *Workspace::createLeafInTabs(WorkspaceLeaf *sibling)
 }
 ```
 
-- [ ] **Step 4: Rewrite `splitLeaf`**
+- [ ] **Step 5: Rewrite `splitLeaf`**
 
 ```cpp
 WorkspaceLeaf *Workspace::splitLeaf(WorkspaceLeaf *source,
-                                      Qt::Orientation orientation)
+                                     Qt::Orientation orientation)
 {
-    auto *leaf = new WorkspaceLeaf(generateLeafId(), m_vaultId, this);
+    auto *leaf = new WorkspaceLeaf(m_registry, this);
     m_leavesById[leaf->id()] = leaf;
+    leaf->dockWidget()->setUniqueName(
+        QStringLiteral("%1:%2").arg(m_vaultId, leaf->id()));
 
     auto location = orientation == Qt::Horizontal
         ? KDDockWidgets::Location_OnRight
@@ -1595,16 +1954,13 @@ WorkspaceLeaf *Workspace::splitLeaf(WorkspaceLeaf *source,
 }
 ```
 
-- [ ] **Step 5: Rewrite `closeLeaf`**
+- [ ] **Step 6: Rewrite `closeLeaf`**
 
 ```cpp
 void Workspace::closeLeaf(WorkspaceLeaf *leaf)
 {
     if (!leaf) return;
-
-    // Capture into undo stack (existing semantics preserved)
-    captureUndoEntry(leaf);
-
+    captureUndoEntry(leaf);   // existing semantics preserved
     auto id = leaf->id();
     m_leavesById.remove(id);
     leaf->dockWidget()->deleteLater();
@@ -1614,7 +1970,15 @@ void Workspace::closeLeaf(WorkspaceLeaf *leaf)
 }
 ```
 
-- [ ] **Step 6: Rewrite `serialize()` / `deserialize()` to delegate**
+- [ ] **Step 7: Rewrite the Ctrl+Tab / close-siblings helpers (added in 4a) on the new substrate**
+
+- `nextLeafInActiveGroup()` / `previousLeafInActiveGroup()` — query KDDW's `Group` containing the active leaf's dock widget; iterate its `dockWidgets()` list.
+- `leafIndexInGroup(leaf)` / `leafCountInGroup(leaf)` — same query, return position / size.
+- `closeOtherLeavesInGroupOf(leaf)` / `closeLeavesToRightOf(leaf)` — iterate the group's dock widgets and call `closeLeaf` on the matching leaves.
+
+KDDW's `Group` accessor: `leaf->dockWidget()->group()` (verify exact method name in `~/src/KDDockWidgets/src/core/Group.h`).
+
+- [ ] **Step 8: Rewrite `serialize()` / `deserialize()` to delegate**
 
 ```cpp
 QJsonObject Workspace::serialize() const
@@ -1625,120 +1989,106 @@ QJsonObject Workspace::serialize() const
 void Workspace::deserialize(const QJsonObject &json)
 {
     WorkspaceSerializer::fromJson(json, m_kddwMain, this);
-    emit layoutReady();  // the new signal; see Task 6.1
+    emit layoutReady();  // the new signal; see Phase 6 Task 6.1
 }
 ```
 
-- [ ] **Step 7: Delete all code paths that reach into the (now-deleted) `WorkspaceTabs`/`WorkspaceSplit`.**
+- [ ] **Step 9: Wire the new tab-driver signals from KDDW.** The `groupActiveLeafChangedRequested` + `groupCloseLeafRequested` signals (added in 4a, currently re-emitted from `WorkspaceTabs`) now need to be re-emitted from KDDW's `Group::currentDockWidgetChanged` + `DockWidget::closeRequested` (verify signal names). Hook these in `onDockWidgetAdded` so newly-created KDDW dock widgets get the connection.
 
-Grep inside `Workspace.cpp` for any remaining reference:
+- [ ] **Step 10: Delete every code path that reaches into the (about-to-be-deleted) `WorkspaceTabs`/`WorkspaceSplit`/`WorkspaceItem`/`WorkspaceParent`.**
 
 ```bash
-git grep -n "WorkspaceTabs\|WorkspaceSplit" libs/core/src/Workspace.cpp
+git grep -n "WorkspaceTabs\|WorkspaceSplit\|WorkspaceItem\|WorkspaceParent" libs/core/src/Workspace.cpp
 ```
 
 Expected after this task: zero.
 
-- [ ] **Step 8: Rebuild — still failing at link (WorkspaceTabs/Split .o not found by now-deleted header references)**
+- [ ] **Step 11: Rebuild — still failing at link (deleted .o not yet declared deleted in CMake)**
 
-## Task 4.4: Delete WorkspaceTabs + WorkspaceSplit files
+## Task 4b.4: Delete `WorkspaceTabs` + `WorkspaceSplit` + `WorkspaceItem` + `WorkspaceParent`
 
 **Files:**
-- Delete: `libs/core/include/Corbomite/core/WorkspaceSplit.h`
-- Delete: `libs/core/include/Corbomite/core/WorkspaceTabs.h`
+- Delete: `libs/core/include/corbomite/core/WorkspaceSplit.h`
+- Delete: `libs/core/include/corbomite/core/WorkspaceTabs.h`
 - Delete: `libs/core/src/WorkspaceSplit.cpp`
 - Delete: `libs/core/src/WorkspaceTabs.cpp`
+- Delete: `libs/core/src/internal/WorkspaceItem.h` (relocated by 4a Task 4a.2)
+- Delete: `libs/core/src/internal/WorkspaceParent.h`
+- Delete: `libs/core/src/WorkspaceItem.cpp` (or wherever it lives)
+- Delete: `libs/core/src/WorkspaceParent.cpp` (if exists)
 - Modify: `libs/core/CMakeLists.txt`
 
-- [ ] **Step 1: Delete the four files**
+- [ ] **Step 1: Delete the files**
 
-```bash
-git rm libs/core/include/Corbomite/core/WorkspaceSplit.h \
-       libs/core/include/Corbomite/core/WorkspaceTabs.h \
-       libs/core/src/WorkspaceSplit.cpp \
-       libs/core/src/WorkspaceTabs.cpp
-```
+  ```bash
+  git rm libs/core/include/corbomite/core/WorkspaceSplit.h \
+         libs/core/include/corbomite/core/WorkspaceTabs.h \
+         libs/core/src/WorkspaceSplit.cpp \
+         libs/core/src/WorkspaceTabs.cpp \
+         libs/core/src/internal/WorkspaceItem.h \
+         libs/core/src/internal/WorkspaceParent.h \
+         libs/core/src/WorkspaceItem.cpp \
+         libs/core/src/WorkspaceParent.cpp
+  rmdir libs/core/src/internal 2>/dev/null || true
+  ```
 
 - [ ] **Step 2: Remove references from CMakeLists**
 
-Delete the two entries from `target_sources(Corbomite_Core PRIVATE ...)` in `libs/core/CMakeLists.txt`.
+Delete the entries from `target_sources(Corbomite_Core PRIVATE ...)` in `libs/core/CMakeLists.txt`.
 
 - [ ] **Step 3: Rebuild**
 
-```bash
-cmake --build build -j 10 2>&1 | tail -40
-```
+  ```bash
+  cmake --build build -j 10 2>&1 | tail -40
+  ```
 
-Expected: build succeeds or has only test-level errors (from Task 4.5 candidates).
+  Expected: build succeeds.
 
-## Task 4.5: Rewrite or drop widget-internals-poking tests
+## Task 4b.5: Drop or rewrite tests still poking at internals
 
-**Files:**
-- Modify: `libs/core/tests/tst_workspace_tabs.cpp` (rewrite OR delete)
-- Modify: `libs/core/tests/tst_workspace_tree.cpp` (possibly)
-- Modify: `libs/core/tests/CMakeLists.txt`
+Most tests were ported to the new public API in Phase 4a Task 4a.7, so they should pass unchanged here. Anything that still references the deleted types now will surface as a compile error.
 
-- [ ] **Step 1: Examine `tst_workspace_tabs.cpp`**
+- [ ] **Step 1: Build the test target**
 
-If the test is 90% `QTabBar` poking, delete it. Coverage migrates to `tst_workspace_dragdrop` (new, Task-Phase-4 afterwards) + `tst_workspace_integration` (existing). If it has valuable behaviour tests (e.g., "closing the last tab in a group dissolves the group"), rewrite those few and delete the rest.
+  ```bash
+  cmake --build build -j 10 2>&1 | tail -30
+  ```
 
-```bash
-cat libs/core/tests/tst_workspace_tabs.cpp | head -100
-```
+  If a test fails to compile because it referenced a deleted type that was missed in 4a.7, either port it now (small fixes) or delete it (if it was substrate-only). Surface in conversation if non-obvious.
 
-If clearly internals-poking, run:
+- [ ] **Step 2: Full ctest**
 
-```bash
-git rm libs/core/tests/tst_workspace_tabs.cpp
-```
+  ```bash
+  cd build && ctest --output-on-failure -j 10 2>&1 | tail -40
+  ```
 
-And remove its entry from `libs/core/tests/CMakeLists.txt`.
+  Expected: green (modulo documented pre-existing flakes).
 
-- [ ] **Step 2: Examine `tst_workspace_tree.cpp`**
-
-Likely passes unchanged (behaviour-level). Run:
-
-```bash
-cd build && ctest -R tst_workspace_tree --output-on-failure
-```
-
-If it fails because of internals, rewrite the one or two failing test methods.
-
-- [ ] **Step 3: Full ctest**
-
-```bash
-cd build && ctest --output-on-failure -j 10 2>&1 | tail -40
-```
-
-Expected: all green.
-
-## Task 4.6: Commit the atomic flip
+## Task 4b.6: Atomic flip commit
 
 - [ ] **Step 1: Verify green + grep-clean**
 
-```bash
-cd build && ctest --output-on-failure -j 10
-git grep -n "WorkspaceTabs\|WorkspaceSplit" libs/ src/
-```
+  ```bash
+  cd build && ctest --output-on-failure -j 10
+  git grep -n "WorkspaceTabs\|WorkspaceSplit\|WorkspaceItem\|WorkspaceParent" libs/ src/ tests/
+  ```
 
-Expected: ctest green; grep shows only `WorkspaceSerializer.cpp`'s internal use + `.git/` noise.
+  Expected: ctest green; grep shows only `WorkspaceSerializer.cpp`'s internal use (if any) + `.git/` noise.
 
 - [ ] **Step 2: Commit**
 
-```bash
-git add -A
-git commit -m "$(cat <<'EOF'
-cluster-y phase 4: flip Workspace substrate to KDDockWidgets
+  ```bash
+  git add -A
+  git commit -m "$(cat <<'EOF'
+cluster-y phase 4b: flip Workspace substrate to KDDockWidgets
 
 Atomic flip. Deletes libs/core/{include/Corbomite/core,src}/WorkspaceTabs.{h,cpp}
-and WorkspaceSplit.{h,cpp} as widget classes — their mechanics are now owned
-by KDDW's Group + Layout. WorkspaceLeaf internal storage composes a
-KDDW::DockWidget; Workspace internal storage composes a KDDW::MainWindow.
-Public API on Workspace + WorkspaceLeaf is byte-identical to pre-flip.
-
-tst_workspace_tabs rewritten/removed (widget-internals-poking — coverage
-migrates to tst_workspace_dragdrop + tst_workspace_integration).
-All other 12 pre-existing workspace tests pass unchanged.
+and WorkspaceSplit.{h,cpp} as widget classes, plus WorkspaceItem.{h,cpp} and
+WorkspaceParent.{h,cpp} (relocated to internal/ in Phase 4a, now removable).
+Their mechanics are owned by KDDW's Group + Layout. WorkspaceLeaf internal
+storage composes a KDDW::DockWidget; Workspace internal storage composes a
+KDDW::MainWindow. Public API on Workspace + WorkspaceLeaf is unchanged from
+Phase 4a (the redesign happened there, not here).
 
 Plugin API (WorkspaceController / WorkspaceProxy) untouched.
 All 8 internal plugins in src/plugins/ unaffected.
@@ -1746,7 +2096,7 @@ All 8 internal plugins in src/plugins/ unaffected.
 Next: Phase 5 completes WorkspaceWindow atop FloatingWindow.
 EOF
 )"
-```
+  ```
 
 ---
 
