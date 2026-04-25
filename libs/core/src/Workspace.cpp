@@ -17,7 +17,13 @@
 namespace Corbomite {
 
 Workspace::Workspace(ViewRegistry *registry, QObject *parent)
+    : Workspace(QString{}, registry, parent)
+{
+}
+
+Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     : QObject(parent)
+    , m_vaultId(std::move(vaultId))
     , m_registry(registry)
 {
     setupDefaultLayout();
@@ -60,9 +66,16 @@ void Workspace::requestCommand(const QString &commandId)
     Q_EMIT commandRequested(commandId);
 }
 
+QString Workspace::vaultId() const { return m_vaultId; }
+
 ViewRegistry *Workspace::viewRegistry() const { return m_registry; }
 
 WorkspaceSplit *Workspace::mainRoot() const { return m_mainRoot; }
+
+QWidget *Workspace::rootWidget() const
+{
+    return m_mainRoot ? m_mainRoot->widget() : nullptr;
+}
 
 WorkspaceLeaf *Workspace::activeLeaf() const { return m_activeLeaf; }
 
@@ -90,6 +103,9 @@ void Workspace::pushLastOpenFile(const QString &path)
 
 WorkspaceLeaf *Workspace::createLeafInTabs(WorkspaceTabs *parent)
 {
+    if (!parent)
+        return nullptr;
+    wireTabsSignalForwarding(parent);
     auto *leaf = new WorkspaceLeaf(m_registry);
     parent->addChild(leaf);
     connect(leaf, &WorkspaceLeaf::pinnedChanged, this, [this, leaf](bool) {
@@ -97,6 +113,22 @@ WorkspaceLeaf *Workspace::createLeafInTabs(WorkspaceTabs *parent)
     });
     Q_EMIT layoutChanged();
     return leaf;
+}
+
+WorkspaceLeaf *Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)
+{
+    WorkspaceTabs *tabs = sibling
+        ? qobject_cast<WorkspaceTabs *>(sibling->parentItem())
+        : findFirstTabs(m_mainRoot);
+    return tabs ? createLeafInTabs(tabs) : nullptr;
+}
+
+WorkspaceLeaf *Workspace::createLeafInActiveGroup()
+{
+    WorkspaceTabs *tabs = m_activeLeaf
+        ? qobject_cast<WorkspaceTabs *>(m_activeLeaf->parentItem())
+        : findFirstTabs(m_mainRoot);
+    return tabs ? createLeafInTabs(tabs) : nullptr;
 }
 
 void Workspace::closeLeaf(WorkspaceLeaf *leaf)
@@ -238,6 +270,7 @@ WorkspaceSplit *Workspace::splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direct
 
     auto *newTabs = new WorkspaceTabs(this);
     split->addChild(newTabs);
+    wireTabsSignalForwarding(newTabs);
 
     Q_EMIT layoutChanged();
     return split;
@@ -294,6 +327,7 @@ WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)
     auto *tabs = new WorkspaceTabs(this);
     win->addChild(tabs);
     tabs->addChild(leaf);
+    wireTabsSignalForwarding(tabs);
 
     m_windows.append(win);
     win->showWindow();
@@ -340,6 +374,72 @@ WorkspaceTabs *Workspace::activeTabs() const
     if (m_activeLeaf)
         return qobject_cast<WorkspaceTabs *>(m_activeLeaf->parentItem());
     return findFirstTabs(m_mainRoot);
+}
+
+WorkspaceLeaf *Workspace::nextLeafInActiveGroup() const
+{
+    auto *tabs = activeTabs();
+    if (!tabs || tabs->childCount() < 2)
+        return nullptr;
+    const int next = (tabs->currentTab() + 1) % tabs->childCount();
+    return tabs->leafAt(next);
+}
+
+WorkspaceLeaf *Workspace::previousLeafInActiveGroup() const
+{
+    auto *tabs = activeTabs();
+    if (!tabs || tabs->childCount() < 2)
+        return nullptr;
+    const int n = tabs->childCount();
+    const int prev = (tabs->currentTab() + n - 1) % n;
+    return tabs->leafAt(prev);
+}
+
+int Workspace::leafIndexInGroup(WorkspaceLeaf *leaf) const
+{
+    if (!leaf)
+        return -1;
+    auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
+    return tabs ? tabs->indexOf(leaf) : -1;
+}
+
+int Workspace::leafCountInGroup(WorkspaceLeaf *leaf) const
+{
+    if (!leaf)
+        return 0;
+    auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
+    return tabs ? tabs->childCount() : 0;
+}
+
+void Workspace::closeOtherLeavesInGroupOf(WorkspaceLeaf *leaf)
+{
+    if (!leaf)
+        return;
+    auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
+    if (!tabs)
+        return;
+    // Iterate from the back so earlier indices stay valid as we close.
+    for (int i = tabs->childCount() - 1; i >= 0; --i) {
+        auto *l = tabs->leafAt(i);
+        if (l && l != leaf)
+            closeLeaf(l);
+    }
+}
+
+void Workspace::closeLeavesToRightOf(WorkspaceLeaf *leaf)
+{
+    if (!leaf)
+        return;
+    auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
+    if (!tabs)
+        return;
+    const int pivot = tabs->indexOf(leaf);
+    if (pivot < 0)
+        return;
+    for (int i = tabs->childCount() - 1; i > pivot; --i) {
+        if (auto *l = tabs->leafAt(i))
+            closeLeaf(l);
+    }
 }
 
 WorkspaceLeaf *Workspace::findLeafById(const QString &id) const
@@ -390,6 +490,14 @@ WorkspaceLeaf *Workspace::findOrCreateUnpinnedLeaf(WorkspaceTabs *tabs)
             return leaf;
     }
     return createLeafInTabs(tabs);
+}
+
+WorkspaceLeaf *Workspace::findOrCreateUnpinnedLeafInGroupOf(WorkspaceLeaf *sibling)
+{
+    auto *tabs = sibling
+        ? qobject_cast<WorkspaceTabs *>(sibling->parentItem())
+        : findFirstTabs(m_mainRoot);
+    return tabs ? findOrCreateUnpinnedLeaf(tabs) : nullptr;
 }
 
 QJsonObject Workspace::serialize() const
@@ -535,6 +643,7 @@ WorkspaceItem *Workspace::deserializeNode(const QJsonObject &json)
 
     if (type == QStringLiteral("tabs")) {
         auto *tabs = new WorkspaceTabs(this);
+        wireTabsSignalForwarding(tabs);
         if (json.contains(QStringLiteral("id")))
             tabs->setId(json[QStringLiteral("id")].toString());
         if (json.contains(QStringLiteral("dimension")))
@@ -632,6 +741,28 @@ void Workspace::setupDefaultLayout()
 
     auto *tabs = new WorkspaceTabs(this);
     m_mainRoot->addChild(tabs);
+    wireTabsSignalForwarding(tabs);
+}
+
+void Workspace::wireTabsSignalForwarding(WorkspaceTabs *tabs)
+{
+    if (!tabs)
+        return;
+    static const char *kWiredProperty = "_ws_signals_wired";
+    if (tabs->property(kWiredProperty).toBool())
+        return;
+    tabs->setProperty(kWiredProperty, true);
+
+    connect(tabs, &WorkspaceTabs::currentTabChanged, this,
+            [this, tabs](int index) {
+        if (auto *leaf = tabs->leafAt(index))
+            Q_EMIT tabSelectRequested(leaf);
+    });
+    connect(tabs, &WorkspaceTabs::tabCloseRequested, this,
+            [this, tabs](int index) {
+        if (auto *leaf = tabs->leafAt(index))
+            Q_EMIT tabCloseRequested(leaf);
+    });
 }
 
 void Workspace::resetToDefaultLayout()
