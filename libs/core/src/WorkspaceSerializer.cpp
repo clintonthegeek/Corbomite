@@ -372,6 +372,11 @@ void materializeFloatingWindow(const WindowNode &w,
                 dw->dockWidget()->setFloatingGeometry(
                     QRect(w.x, w.y, w.width, w.height));
             }
+            if (w.maximize) {
+                if (auto *fw = dw->dockWidget()->floatingWindow();
+                    fw && fw->view())
+                    fw->view()->showMaximized();
+            }
             first = dw;
         } else {
             first->addDockWidgetAsTab(dw);
@@ -452,6 +457,15 @@ QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace * /*wor
             QJsonObject windowObj = renderSplit(floatingWindowAsSplit(fw));
             // Tag the node as a window rather than a split for round-trip clarity.
             windowObj[QStringLiteral("type")] = QStringLiteral("window");
+            // Stamp geometry + maximize from the live FloatingWindow so the
+            // workspace.json round-trip preserves popout-window placement.
+            const auto rect = fw->geometry();
+            windowObj[QStringLiteral("x")] = rect.x();
+            windowObj[QStringLiteral("y")] = rect.y();
+            windowObj[QStringLiteral("width")] = rect.width();
+            windowObj[QStringLiteral("height")] = rect.height();
+            if (fw->view() && fw->view()->isMaximized())
+                windowObj[QStringLiteral("maximize")] = true;
             windows.append(windowObj);
         }
         floating[QStringLiteral("children")] = windows;

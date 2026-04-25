@@ -292,4 +292,6 @@ target_link_libraries(tst_workspace_popout PRIVATE
     Qt6::Test Qt6::Widgets
     Corbomite::Core
     KDAB::kddockwidgets)
+target_include_directories(tst_workspace_popout PRIVATE
+    ${CMAKE_SOURCE_DIR}/libs/core/src)
 set_tests_properties(tst_workspace_popout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
