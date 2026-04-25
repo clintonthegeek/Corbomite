@@ -2,19 +2,20 @@
 
 > **Living document.** Single source of truth for "where we are right now" on the Obsidian-compatibility roadmap. Keep under 200 lines by offloading closeout prose to `decisions-archive.md`. Follow Ritual 2/3 in `CONTRIBUTING-OPS.md` after every meaningful work session.
 
-**Last updated:** 2026-04-25 — Cluster Y Phase 3 closed (WorkspaceSerializer round-trip against synthetic KDDW trees, 9 fixtures + malformed-JSON + orphan-recovery, 12 test cases, 10 commits `19469965..05da6a04`). Phase 4 next (flip Workspace internals to KDDW substrate).
+**Last updated:** 2026-04-25 — Cluster Y Phase 5 closed (popout windows atop KDDW FloatingWindow with geometry + maximize round-trip in workspace.json, 4 commits `d84db521..967e34a5`). Phase 6 next (WorkspaceActiveLeafRouter + remaining signals).
 
 ---
 
 ## Current focus
 
-**Cluster Y Phase 3 closed.** WorkspaceSerializer round-trips Obsidian-shape
-`workspace.json` against synthetic KDDW trees for 9 fixture shapes (single
-leaf, horizontal split, nested splits, stacked tabs, floating window,
-pinned+group, empty-default, unknown-keys, orphan-leaf recovery), with
-sidecar maps carrying leaf metadata that Phase 4 will move into
-WorkspaceLeaf. Next: Phase 4 (flip Workspace internals to KDDW substrate,
-~3-4 days).
+**Cluster Y Phase 5 closed.** `Workspace::popoutLeaf` calls KDDW's
+`setFloating(true)` on the leaf's DockWidget; close-window
+propagation reuses the existing per-leaf `isOpenChanged` watcher.
+WorkspaceSerializer reads geometry + maximize from the live
+FloatingWindow on emit and applies maximize via
+`view()->showMaximized()` on materialize. Four new test cases in
+`tst_workspace_popout.cpp`. Next: Phase 6 (WorkspaceActiveLeafRouter
++ layoutReady/resize/windowFrameChange signals, ~1-2 days).
 
 ---
 
@@ -49,7 +50,7 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 | V.2 | Editor/Workspace debt cleanup | [scouting](superpowers/plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md) | Scouting doc | Companion to V. Holds the fold-gutter coordinator wiring, 6× VaultConfig writer routing, persisted metadata cache loader, AutosaveReactor delay wiring, optional LRU upgrade, and post-V dead-code audit pass. ~4-5 days. Blocked on V landing. |
 | W | Canvas & Graph affordances | [scouting](superpowers/plans/2026-04-20-cluster-w-canvas-graph-affordances-SCOUTING.md) | Scouting doc | Added 2026-04-20 from same audit. Split from V because it needs UX design: canvas Link/File node creation, tool palette, resize handles + snap, group ops, force-graph physics + pin UI, GraphViewTab signal wiring. 8 phases, ~8-12 days. Coordinates with Cluster M (graph/canvas audit) and Cluster P (Graffodil). |
 | X | Block-substitution widget promotion | [scouting](superpowers/plans/2026-04-23-cluster-x-block-substitution-widgets-SCOUTING.md) | Scouting doc | Added 2026-04-23 after dogfood found inline-ORC canonical-coherence bug (Markoff Phase C work-unit C8 is the stop-gap). Lifts block display math (`$$…$$`) and mermaid fences out of Markoff's `QTextDocument`/ORC model into peer `QGraphicsItem`s modelled on `ImageBlockItem`. Inline math + inline checkbox stay ORC permanently (C8 translator handles them). Blocked on C8 landing + regression tests green. |
-| Y | Workspace migration onto KDDockWidgets | [full](superpowers/plans/2026-04-23-cluster-y-workspace-kddockwidgets.md) + [scouting](superpowers/plans/2026-04-23-cluster-y-workspace-kddockwidgets-SCOUTING.md) | In progress (phase 4) | Phases 1-3 landed 2026-04-23 → 2026-04-25. P1 KDDW-in-KXmlGuiWindow embed test (`fd336369`); P2 KDDW dependency declared (`f0913a51`); P3 WorkspaceSerializer round-trip against synthetic KDDW trees, 9 fixtures + 12 test cases (`19469965..05da6a04`). Approach B (KDDW hosts tree, Corbomite owns `.obsidian/workspace.json`, LayoutSaver unused), opacity (ii), scope β. Absorbs Cluster G follow-ups #3 + #6. γ-scope events deferred to owner clusters. ~2 weeks remaining (P4-P8). |
+| Y | Workspace migration onto KDDockWidgets | [full](superpowers/plans/2026-04-23-cluster-y-workspace-kddockwidgets.md) + [scouting](superpowers/plans/2026-04-23-cluster-y-workspace-kddockwidgets-SCOUTING.md) | In progress (phase 6) | Phases 1-5 landed 2026-04-23 → 2026-04-25. P1 KDDW-in-KXmlGuiWindow embed test (`fd336369`); P2 KDDW dependency declared (`f0913a51`); P3 WorkspaceSerializer round-trip against synthetic KDDW trees, 9 fixtures + 12 test cases (`19469965..05da6a04`); P4a/P4b leaf-typed Workspace API + substrate flip onto KDDW MainWindow/DockWidget (`38c935c6..89655ff8`); P5 popout windows atop FloatingWindow with geometry + maximize round-trip (`d84db521..967e34a5`). Approach B (KDDW hosts tree, Corbomite owns `.obsidian/workspace.json`, LayoutSaver unused), opacity (ii), scope β. Absorbs Cluster G follow-ups #3 + #6. γ-scope events deferred to owner clusters. ~3-4 days remaining (P6-P8). |
 | Z | Active-leaf tracking + linked views | — (brainstorm pending) | Plan-needed | Added 2026-04-23 from same dogfood. Three gaps: (1) `Workspace::activeLeafChanged` under-wired — GraphView/Canvas don't subscribe; (2) LocalGraph/Backlinks/Outlinks live in sidebars but belong in main-area linked leaves per Obsidian (architectural divergence from Cluster Q); (3) linked-leaf lifecycle (peer-close → linked-close) needs new `Workspace::openLinkedLeaf` API + `ViewRegistry` linkable-flag + `workspace.json` binding serialization. Constrained by Y sequencing. |
 
 ---
@@ -57,13 +58,14 @@ Status legend: `Not started` · `Plan-needed` (no cluster plan yet) · `Stub pla
 ## In-flight work items
 
 ### Cluster Y — Workspace migration onto KDDockWidgets
-- **Phase:** 4 of 8
-- **Last completed step:** Phase 3 closed 2026-04-25 — WorkspaceSerializer round-trip against synthetic KDDW trees (9 fixtures, 12 test cases, sidecar maps for stacked/leaf metadata, malformed-JSON fallback, orphan-leaf recovery).
-- **Next expected step:** Phase 4 — flip Workspace internals to KDDW substrate (`~3-4 days`); replaces in-tree `WorkspaceRoot`/`WorkspaceContainer` with KDDW MainWindow + DockWidget tree + WorkspaceLeaf wrappers.
+- **Phase:** 6 of 8
+- **Last completed step:** Phase 5 closed 2026-04-25 — popout windows via `setFloating(true)` + geometry + maximize round-trip in `workspace.json` (4 commits `d84db521..967e34a5`, 4 new tests in `tst_workspace_popout.cpp`).
+- **Next expected step:** Phase 6 — WorkspaceActiveLeafRouter + layoutReady/resize/windowFrameChange signals (`~1-2 days`); composes KDDW focus + `QApplication::focusChanged` into one `activeLeafChanged(WorkspaceLeaf*)` signal.
 - **Owner:** clinton@concernednetizen.com
 - **Date last touched:** 2026-04-25
 - **Open sub-questions:**
   - Quirky split-right behaviour observed during P3 (Cluster R hamburger): sometimes the open tab is duplicated (Obsidian-correct), sometimes a blank tab appears. Hard to pin down — may be vault layout corruption or a CommandRegistry dispatch race. Filed in `backlog.md`; expected to iron out as Phase 4+ wires the real Workspace through KDDW.
+  - WorkspaceWindow's standalone QWidget facade (`widget()`/`setWindowGeometry`/`showWindow`/`closeWindow`/`setMaximized`/`serialize()`) has no production callers post-5.4 — the renderer reads geometry from KDDW directly. Cleanup follow-up logged for Phase 6 or V.2.
 
 When work begins, each in-flight cluster gets a row here:
 

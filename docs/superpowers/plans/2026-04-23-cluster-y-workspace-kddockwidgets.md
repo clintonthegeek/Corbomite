@@ -2093,7 +2093,7 @@ EOF
 - Create: `libs/core/tests/tst_workspace_popout.cpp`
 - Modify: `libs/core/tests/CMakeLists.txt`
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 ```cpp
 // libs/core/tests/tst_workspace_popout.cpp
@@ -2125,7 +2125,7 @@ void TestWorkspacePopout::popoutLeaf_createsFloatingWindow()
 }
 ```
 
-- [ ] **Step 2: Run, expect fail**
+- [x] **Step 2: Run, expect fail**
 
 ```bash
 cmake --build build --target tst_workspace_popout -j 10
@@ -2139,7 +2139,7 @@ Expected fail: current `popoutLeaf()` is a stub.
 **Files:**
 - Modify: `libs/core/src/Workspace.cpp`
 
-- [ ] **Step 1: Implementation**
+- [x] **Step 1: Implementation**
 
 ```cpp
 bool Workspace::popoutLeaf(WorkspaceLeaf *leaf)
@@ -2153,18 +2153,18 @@ bool Workspace::popoutLeaf(WorkspaceLeaf *leaf)
 
 `setFloating(true)` causes KDDW to detach the DockWidget from its current parent and create a new FloatingWindow around it automatically.
 
-- [ ] **Step 2: Run test**
+- [x] **Step 2: Run test**
 
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ## Task 5.3: Test — close-window closes-children
 
 **Files:**
 - Modify: `tst_workspace_popout.cpp`, `Workspace.cpp`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```cpp
 void TestWorkspacePopout::closeFloatingWindow_closesChildrenLeaves()
@@ -2182,13 +2182,13 @@ void TestWorkspacePopout::closeFloatingWindow_closesChildrenLeaves()
 }
 ```
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 In `Workspace::wireKddwSignals()`, connect `KDDockWidgets::DockRegistry::floatingWindowChanged` (or equivalent — verify KDDW API) to a `Workspace::onFloatingWindowClosed(FloatingWindow*)` slot that walks the window's dock widgets, looks them up in `m_leavesById`, and emits `leafClosed`.
 
 Alternative more robust: connect per-FloatingWindow `destroyed` signals as they're created.
 
-- [ ] **Step 3: Verify, commit**
+- [x] **Step 3: Verify, commit**
 
 ## Task 5.4: Geometry + maximize persistence in WorkspaceWindow
 
@@ -2198,7 +2198,7 @@ Alternative more robust: connect per-FloatingWindow `destroyed` signals as they'
 - Modify: `libs/core/src/WorkspaceSerializer.cpp`
 - Modify: `libs/core/tests/tst_workspace_popout.cpp`
 
-- [ ] **Step 1: Complete `WorkspaceWindow`**
+- [x] **Step 1: Complete `WorkspaceWindow`**
 
 ```cpp
 // libs/core/include/Corbomite/core/WorkspaceWindow.h
@@ -2234,7 +2234,7 @@ private:
 } // namespace Corbomite
 ```
 
-- [ ] **Step 2: Implementation**
+- [x] **Step 2: Implementation**
 
 ```cpp
 // libs/core/src/WorkspaceWindow.cpp
@@ -2267,11 +2267,11 @@ bool WorkspaceWindow::isMaximized() const
 } // namespace Corbomite
 ```
 
-- [ ] **Step 3: Wire geometry into serializer**
+- [x] **Step 3: Wire geometry into serializer**
 
 In `WorkspaceSerializer.cpp` `renderFloating()` and `parseFloating()`, read/write `x`, `y`, `width`, `height`, `maximize`. On restore, after creating the `FloatingWindow`, set its geometry and (if maximized) call `window->setWindowState(Qt::WindowMaximized)`.
 
-- [ ] **Step 4: Test geometry + maximize round-trip**
+- [x] **Step 4: Test geometry + maximize round-trip**
 
 ```cpp
 void TestWorkspacePopout::restoreFloatingWindow_preservesGeometry()
@@ -2282,7 +2282,7 @@ void TestWorkspacePopout::restoreFloatingWindow_preservesGeometry()
 }
 ```
 
-- [ ] **Step 5: Run + commit**
+- [x] **Step 5: Run + commit**
 
 ---
 

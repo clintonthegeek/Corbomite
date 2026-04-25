@@ -10,6 +10,82 @@ Conventions:
 
 ---
 
+## 2026-04-25 — Cluster Y Phase 5 (popout windows atop KDDW FloatingWindow) done end-to-end.
+
+Phase 5 closes the popout-window contract: `Workspace::popoutLeaf` calls
+KDDW's `setFloating(true)` on the leaf's DockWidget, which detaches it
+into a fresh FloatingWindow; close-window propagation falls out of the
+existing per-leaf `DockWidget::isOpenChanged → tabCloseRequested → host
+→ closeLeaf → leafClosed` cascade with no new wiring; WorkspaceSerializer
+reads `x/y/width/height/maximize` from the live FloatingWindow on emit
+and applies maximize via `view()->showMaximized()` after
+`setFloatingGeometry()` on materialize. Four commits
+(`d84db521..967e34a5`) on master:
+
+1. **5.1** `tst_workspace_popout.cpp` failing test scaffold (4 slots,
+   3 QSKIP'd until 5.3/5.4) + CMake registration. Fixture-05's JSON
+   shape is reused verbatim — Phase 5 just lights up fields the
+   parser already read but the renderer dropped.
+2. **5.2** Replace the 4b `popoutLeaf` bookkeeping stub with
+   `leaf->dockWidget()->setFloating(true)`. The MainWindow-must-be-shown
+   precondition (per `materializeFloatingWindow`'s comment) is documented
+   in the production code path; tests `show()` the MainWindow explicitly.
+3. **5.3** Test-only: simulate the host's `tabCloseRequested → closeLeaf`
+   handshake, close the FloatingWindow, assert `leafClosed` fires +
+   the leaf is reaped (verified via `QPointer` null, since QSignalSpy
+   auto-nulls QObject pointers once `deleteLater` runs). The plan
+   called for new `DockRegistry::floatingWindowChanged` wiring; turned
+   out unnecessary because `wireLeafKddwSignals`'s per-leaf
+   `isOpenChanged` watcher already covers the float-close case.
+4. **5.4** `WorkspaceSerializer::toJson` stamps `x/y/width/height` +
+   `maximize` from `fw->geometry()` and `fw->view()->isMaximized()`;
+   `materializeFloatingWindow` calls `view()->showMaximized()` after
+   `setFloatingGeometry()` when the parsed `WindowNode::maximize` is
+   true. Two new test cases drive a real popout → JSON → fresh
+   MainWindow → assert geometry, plus a hand-rolled JSON payload for
+   the maximize path (offscreen platform makes a popout-then-maximize
+   round-trip unreliable; the contract being tested is materializer
+   honour, not QWindow round-trip).
+
+Plan adaptations from the as-written spec:
+
+- The plan called for a wholesale `WorkspaceWindow` rewrite to wrap
+  `KDDockWidgets::Core::FloatingWindow*` with `id()/geometry()/isMaximized()`
+  accessors. Skipped: the renderer reads geometry from
+  `DockRegistry::floatingWindows()` directly, not via WorkspaceWindow,
+  so wrapping is not required for the round-trip. WorkspaceWindow's
+  existing standalone QWidget facade (`widget()`, `setWindowGeometry`,
+  `showWindow`, `closeWindow`, `setMaximized`, `serialize()`) has no
+  production callers post-5.4 — only `tst_workspace_window.cpp`'s
+  standalone tests exercise it. Cleanup logged as a Phase 5 follow-up.
+- The plan called for new `Workspace::onFloatingWindowClosed` wiring
+  on `DockRegistry::floatingWindowChanged`. Not needed — the existing
+  per-leaf `DockWidget::isOpenChanged` watcher set up in
+  `wireLeafKddwSignals` already fires when a FloatingWindow closes.
+- The plan placed the new test at `libs/core/tests/tst_workspace_popout.cpp`;
+  the repo convention is `tests/core/`. Followed convention.
+- The plan referenced a `Workspace::scheduleSave()` method that doesn't
+  exist; popout emits `layoutChanged` like other tree-mutation paths,
+  and the host writes `workspace.json` via separate lifecycle hooks.
+
+Test results: full Corbomite ctest 281/286 + 4 new popout tests = green
+modulo 5 documented pre-existing flakes (`tst_markoff_undo_grouping`,
+`tst_markoff_table_operations`, `tst_completion_popup`,
+`tst_benchmark_layout`, `tst_e2e_gui` — last is the documented Phase 4b
+regression). Zero Phase 5 regressions.
+
+How to apply: when extending the popout/floating-window surface,
+prefer driving signals through the existing `DockWidget::isOpenChanged`
+chain rather than adding new `DockRegistry` watchers; geometry
+emission goes through the renderer block in `WorkspaceSerializer::toJson`.
+Phase 6 introduces the active-leaf router + `layoutReady`/`resize`/
+`windowFrameChange` signals; the WorkspaceWindow facade cleanup is
+the natural moment to revisit once those signals land.
+
+Next: Phase 6 (WorkspaceActiveLeafRouter, ~1-2 days).
+
+---
+
 ## 2026-04-25 — Cluster Y Phase 3 (WorkspaceSerializer round-trip against synthetic KDDW trees) done end-to-end.
 
 WorkspaceSerializer round-trip against synthetic KDDW trees, executed via

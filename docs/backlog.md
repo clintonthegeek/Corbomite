@@ -215,6 +215,12 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 
 ### ~~Unknown-viewType fallback view~~ Done 2026-04-19 — `WorkspaceLeaf::setViewState` now falls back to the registered `"empty"` view when a factory lookup misses (covered alongside Empty-state "New Tab" view above). Distinct `nD` vs `tD` visual treatment deferred until a consumer needs different copy.
 
+### `WorkspaceWindow` standalone facade cleanup
+- **Source:** Cluster Y Phase 5 closeout 2026-04-25 (`docs/decisions-archive.md`)
+- **Blocks:** nothing live; the bookkeeping is harmless
+- **Scope:** small
+- **Details:** Post-Phase-5, `Corbomite::WorkspaceWindow` is a Workspace bookkeeping shell: `popoutLeaf` records one in `m_windows`, `reparentToMain` deletes it, `windows()` exposes the list. But its standalone QWidget facade (`widget()` returning a `Qt::Window`-flagged QWidget, `setWindowGeometry`, `showWindow`, `closeWindow`, `setMaximized`, `serialize()`) is dead — production never reads from it (the WorkspaceSerializer reads geometry from `KDDockWidgets::Core::FloatingWindow*` directly via `DockRegistry`). Only `tests/core/tst_workspace_window.cpp` exercises the standalone shape. Two paths: (a) wrap the spawned `KDDockWidgets::Core::FloatingWindow*` and rewrite the standalone tests, (b) shrink WorkspaceWindow to id-only and delete the QWidget+serialize surface. Phase 6 (active-leaf router) is a natural moment because it'll already be handling FloatingWindow focus.
+
 ### Centralised `Workspace::openLinkText` dispatcher
 - **Source:** Cluster G follow-up #3; [docs/PROJECT-STATE.md §Cluster G follow-ups](PROJECT-STATE.md)
 - **Blocks:** faithful plugin API; Cluster R "Open linked view" submenu upgrade
