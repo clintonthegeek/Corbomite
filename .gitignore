@@ -46,6 +46,11 @@ testvaults/sweet-setup-obsidian-starter-vault.zip
 Testing/
 docs/archive/HandbookGraphDrawing.txt
 
-# Obsidian runtime workspace state (regenerated every session)
-testvaults/**/.obsidian/workspace.json
-testvaults/**/.obsidian/workspace
+# Obsidian runtime state (regenerated every session — caches, workspace, trash)
+testvaults/**/.obsidian/
+testvaults/**/.trash/
+
+# Local scratch vaults / scratch files inside fixture vaults
+testvaults/DevVault/
+testvaults/starter-vault/Parser Tests/
+testvaults/starter-vault/dfsfg.canvas
