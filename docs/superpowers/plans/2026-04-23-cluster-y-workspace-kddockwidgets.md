@@ -1438,7 +1438,7 @@ This is a sign-off step. Do not touch code yet. Output is a list of new C++ sign
   - `Workspace::findTabsById(QString) → WorkspaceTabs*` — **delete from public API.** Search greps confirm no caller. (Verify in Step 4.)
   - `Workspace::findOrCreateUnpinnedLeaf(WorkspaceTabs*)` → `Workspace::findOrCreateUnpinnedLeafInGroupOf(WorkspaceLeaf*)`. Same semantics, leaf-typed pivot.
   - `View::onTabMenu` — replace the `qobject_cast<WorkspaceTabs*>(m_leaf->parentItem())` + `tabs->indexOf(...)` + `tabs->requestCloseTab/Others/ToRight(...)` chain with a Workspace-mediated surface. Cleanest is two new methods on `Workspace`: `int leafIndexInGroup(WorkspaceLeaf*)` (returns the position in the leaf's tab group) + `int leafCountInGroup(WorkspaceLeaf*)`, plus three close-helpers: `Workspace::closeLeaf(leaf)` (already exists), `Workspace::closeOtherLeavesInGroupOf(leaf)`, `Workspace::closeLeavesToRightOf(leaf)`. View.cpp then takes a `Workspace*` (it already has `m_leaf` which has access — verify or add accessor).
-  - `MainWindow.cpp:1627-1640` tab-driver lambda — replace direct `WorkspaceTabs::currentTabChanged` + `tabCloseRequested` connections with `Workspace`-emitted signals: `Workspace::groupActiveLeafChangedRequested(WorkspaceLeaf*)` (drives `setActiveLeaf`) + `Workspace::groupCloseLeafRequested(WorkspaceLeaf*)` (drives `closeLeaf`). The internal substrate (or KDDW after 4b) emits these; production code stops reaching into the substrate to subscribe.
+  - `MainWindow.cpp:1627-1640` tab-driver lambda — replace direct `WorkspaceTabs::currentTabChanged` + `tabCloseRequested` connections with `Workspace`-emitted signals: `Workspace::tabSelectRequested(WorkspaceLeaf*)` (drives `setActiveLeaf`) + `Workspace::tabCloseRequested(WorkspaceLeaf*)` (drives `closeLeaf`). The internal substrate (or KDDW after 4b) emits these; production code stops reaching into the substrate to subscribe.
   - `Workspace` constructor — change from `Workspace(ViewRegistry*, QObject*)` to `Workspace(QString vaultId, ViewRegistry*, QObject*)` to match Phase 5+ test snippets (which use vaultId for unique-name namespacing in KDDW's `DockRegistry`). Existing `vaultId` storage already gets set somewhere — verify via grep; this may turn out to be a no-op signature change.
   - `WorkspaceController` (plugin proxy) — knock-on parity questions. If `Workspace::mainRoot()` is gone from the public API, `WorkspaceController` doesn't need it (it doesn't expose it to plugins). If we add `nextLeafInActiveGroup` etc. to `Workspace`, we should consider exposing equivalents on the proxy. But this is not load-bearing for 4a — the proxy currently mirrors only the leaf-id-based subset. Note any recommended additions but do not block 4a on them.
 
@@ -1491,39 +1491,106 @@ This is a sign-off step. Do not touch code yet. Output is a list of new C++ sign
   cluster-y phase 4a: relocate WorkspaceItem/WorkspaceParent to internal headers
   ```
 
-## Task 4a.3: Reshape `WorkspaceLeaf` inheritance — drop `: WorkspaceItem`, add `id()` directly
+## Task 4a.3: Reshape `WorkspaceLeaf` inheritance via `LeafSubstrateAdapter`
 
 **Files:**
 - Modify: `libs/core/include/corbomite/core/WorkspaceLeaf.h`
 - Modify: `libs/core/src/WorkspaceLeaf.cpp`
-- Modify: `libs/core/src/Workspace.cpp` (any place that used `WorkspaceLeaf` as a `WorkspaceItem*` polymorphically)
-- Modify: `libs/core/src/WorkspaceItem.cpp` if it had logic shared with leaves
+- Create: `libs/core/src/internal/LeafSubstrateAdapter.h` + `.cpp`
+- Modify: `libs/core/CMakeLists.txt` (add the adapter sources)
+- Modify: `libs/core/src/Workspace.cpp` (deserialize tree walk + createLeafInGroupOf + splitLeaf paths use the adapter)
+- Modify: `libs/core/src/WorkspaceTabs.cpp` (children are adapters now, not leaves)
+- Modify: `libs/core/src/WorkspaceSplit.cpp` (same)
 
-- [ ] **Step 1: In `WorkspaceLeaf.h`, change `class WorkspaceLeaf : public WorkspaceItem` → `class WorkspaceLeaf : public QObject`.** Remove `#include "corbomite/core/WorkspaceItem.h"`. Add `#include <QObject>`.
+**Design rationale (sign-off Q2 = option 1, 2026-04-25):** `WorkspaceLeaf : public WorkspaceItem` conflated leaf identity (a Workspace concept) with leaf positioning in the substrate tree (a substrate concept). Obsidian's data model stores `parent: WorkspaceParent` as a *field* on a leaf, not as a base class. The adapter pattern restores composition: `WorkspaceLeaf : public QObject` parents to `Workspace`; the substrate tree (`Tabs::children()` / `Split::children()`) holds `LeafSubstrateAdapter*` instances that wrap a non-owning `WorkspaceLeaf*` pointer and forward `widget()` / `serialize()` to the leaf. In Phase 4b the adapter is deleted along with `WorkspaceTabs` / `Split` / `Item`, and `KDDW::DockWidget` takes over the substrate-wrapper role — same pattern, different upstream library.
 
-- [ ] **Step 2: Add public `QString id() const` + `void setId(const QString&)` + `static QString generateId()` to `WorkspaceLeaf`.** Storage member `m_id` private. Move the implementations from `WorkspaceItem.cpp` into `WorkspaceLeaf.cpp` (or copy — `WorkspaceItem` still needs them too while it lives in internal/ and serves the substrate Tabs/Split tree).
+- [ ] **Step 1: Create `LeafSubstrateAdapter`**
 
-- [ ] **Step 3: Drop the public `widget()` and `serialize()` overrides of `WorkspaceItem`'s pure virtuals.** Either keep them as plain (non-override) methods on `WorkspaceLeaf` (the existing implementations in `WorkspaceLeaf.cpp` already match), or — since `WorkspaceItem`'s tree continues to exist internally — leave `WorkspaceLeaf` with a separate internal adapter that *does* inherit `WorkspaceItem`. The simpler path: keep `widget()` and `serialize()` as plain methods on `WorkspaceLeaf`; the substrate tree (`WorkspaceTabs::children()`) needs to continue holding leaf children via some `WorkspaceItem`-derived wrapper, but that wrapper can be a thin internal class. Decide based on what's least invasive — surface in conversation if non-obvious during execution.
+  ```cpp
+  // libs/core/src/internal/LeafSubstrateAdapter.h
+  // SPDX-License-Identifier: GPL-3.0-or-later
+  #pragma once
 
-- [ ] **Step 4: Drop `WorkspaceLeaf::parentItem()` from the public API** if Step 3's design lets us. (Production caller View.cpp gets ported in Task 4a.5, so by 4a.5's commit nothing external depends on `parentItem()`.)
+  #include "internal/WorkspaceItem.h"
 
-- [ ] **Step 5: Build the in-tree library only (don't run tests yet — production callers still broken)**
+  namespace Corbomite {
+
+  class WorkspaceLeaf;
+
+  /// Substrate-side wrapper that lets a WorkspaceLeaf participate in the
+  /// hand-rolled WorkspaceTabs/WorkspaceSplit tree without inheriting from
+  /// WorkspaceItem itself. Non-owning pointer to the leaf — leaf is parented
+  /// to Workspace; adapter is parented to its substrate container.
+  ///
+  /// Phase 4a only. Phase 4b deletes WorkspaceTabs/Split/Item entirely; the
+  /// KDDW DockWidget plays the equivalent substrate-wrapper role.
+  class LeafSubstrateAdapter final : public WorkspaceItem
+  {
+      Q_OBJECT
+  public:
+      explicit LeafSubstrateAdapter(WorkspaceLeaf *leaf, QObject *parent = nullptr);
+      ~LeafSubstrateAdapter() override;
+
+      WorkspaceLeaf *leaf() const { return m_leaf; }
+
+      // WorkspaceItem overrides — both forward to m_leaf.
+      QWidget *widget() override;
+      QJsonObject serialize() const override;
+
+  private:
+      WorkspaceLeaf *m_leaf;  // non-owning
+  };
+
+  } // namespace Corbomite
+  ```
+
+  `.cpp` is ~20 lines: ctor sets `setId(leaf->id())` so the adapter shares its leaf's id (substrate tree-walk operations that look up by id still find the right node); dtor is default; `widget()` returns `m_leaf->widget()`; `serialize()` returns `m_leaf->serialize()`.
+
+- [ ] **Step 2: In `WorkspaceLeaf.h`, change `class WorkspaceLeaf : public WorkspaceItem` → `class WorkspaceLeaf : public QObject`.** Remove `#include "corbomite/core/WorkspaceItem.h"`. Add `#include <QObject>` if not transitively present. Drop `widget() override` and `serialize() override` virtual decorations — they become plain methods (the adapter's overrides delegate to them).
+
+- [ ] **Step 3: Add public `QString id() const` + `void setId(const QString&)` + `static QString generateId()` to `WorkspaceLeaf`** (these were inherited from `WorkspaceItem`). Storage member `m_id` private. Implementations: copy from `WorkspaceItem.cpp` (the `WorkspaceItem` definitions stay — they still serve `WorkspaceTabs` / `Split` / `LeafSubstrateAdapter`).
+
+- [ ] **Step 4: Drop `WorkspaceLeaf::parentItem()` from the public API.** Production caller `View::onTabMenu` ports to `leaf->workspace()->leafIndexInGroup(leaf)` etc. in Task 4a.5; by then nothing external depends on `parentItem()`. Internal `Workspace.cpp` queries that need to know "what tab group contains this leaf?" use a private `Workspace::adapterForLeaf(leaf)` helper that walks the substrate tree finding the `LeafSubstrateAdapter` whose `leaf() == leaf`.
+
+- [ ] **Step 5: Update `Workspace::createLeafInGroupOf` (formerly `createLeafInTabs`)** — construct both the leaf and the adapter, parent leaf to `this` (Workspace), parent adapter to the target Tabs container:
+
+  ```cpp
+  WorkspaceLeaf *Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)
+  {
+      auto *leaf = new WorkspaceLeaf(m_registry, this);  // parented to Workspace
+      WorkspaceTabs *tabs = sibling
+          ? qobject_cast<WorkspaceTabs *>(adapterForLeaf(sibling)->parentItem())
+          : findFirstTabs(m_mainRoot);
+      auto *adapter = new LeafSubstrateAdapter(leaf, tabs);
+      tabs->addChild(adapter);
+      connect(leaf, &WorkspaceLeaf::pinnedChanged, this,
+              [this, leaf](bool) { propagatePinToGroup(leaf); });
+      Q_EMIT layoutChanged();
+      return leaf;
+  }
+  ```
+
+- [ ] **Step 6: Update `Workspace::splitLeaf` similarly** — the new leaf gets a fresh adapter; the existing leaf gets re-parented (its adapter migrates from the old `Tabs` to the new sibling-`Tabs` inside the new `Split`).
+
+- [ ] **Step 7: Update `Workspace::deserialize` tree walk** — when a `leaf` JSON node is encountered, construct `WorkspaceLeaf` parented to `this`, then construct `LeafSubstrateAdapter(leaf, /*parent=*/<containing Tabs>)` and add to the substrate tree. The existing `findLeafInTree`, `findTabsInTree`, `collectLeaves`, `collectAllItems` walks operate on the substrate tree of `WorkspaceItem*` and now encounter `LeafSubstrateAdapter*` where they expected `WorkspaceLeaf*` — rewrite each to unwrap via `qobject_cast<LeafSubstrateAdapter*>(node)->leaf()` when consuming a leaf result.
+
+- [ ] **Step 8: Add private `Workspace::adapterForLeaf(WorkspaceLeaf*) → LeafSubstrateAdapter*`** — single-use helper that walks the substrate tree finding the adapter whose `leaf()` matches. Used by `splitLeaf`, `closeLeaf`, the close-siblings family, and the new `leafIndexInGroup` / `leafCountInGroup` accessors.
+
+- [ ] **Step 9: Build the in-tree library**
 
   ```bash
   cmake --build build --target Corbomite_Core -j 10 2>&1 | head -60
   ```
 
-  Expect either green or a small set of internal `Workspace.cpp` errors that Step 6 fixes.
+  Expected: green except for the public-API methods that still need shape changes (Task 4a.4) and external callers (Tasks 4a.5–4a.7). Internal substrate is stable.
 
-- [ ] **Step 6: Fix any internal compile errors** — `Workspace.cpp`'s deserialization tree walk may have used `WorkspaceLeaf*` polymorphically as `WorkspaceItem*`. Add explicit casts via the internal adapter, or refactor the local helpers (`findLeafInTree(WorkspaceItem*)` etc.) to take the internal adapter type.
-
-- [ ] **Step 7: Commit**
+- [ ] **Step 10: Commit**
 
   ```
-  cluster-y phase 4a: WorkspaceLeaf no longer inherits from WorkspaceItem
+  cluster-y phase 4a: introduce LeafSubstrateAdapter; WorkspaceLeaf : QObject
   ```
 
-  Tests will be broken at this commit (production code in View.cpp + MainWindow.cpp still references the old API). This is intentional — Tasks 4a.4–4a.7 finish the wave. 4a.8 verifies green.
+  Tests broken at this commit (external callers still use old API). Intentional — Tasks 4a.4–4a.7 finish the wave; 4a.8 verifies green.
 
 ## Task 4a.4: Reshape `Workspace` public method signatures
 
@@ -1531,33 +1598,66 @@ This is a sign-off step. Do not touch code yet. Output is a list of new C++ sign
 - Modify: `libs/core/include/corbomite/core/Workspace.h`
 - Modify: `libs/core/src/Workspace.cpp`
 
-- [ ] **Step 1: Header changes per the API design from Task 4a.1.** Delete forward decls for `WorkspaceItem` / `WorkspaceParent` / `WorkspaceSplit` / `WorkspaceTabs` (they are no longer named in any public signature). Rename the affected public methods per the agreed-on list. Add the new helpers (`rootWidget()`, `nextLeafInActiveGroup()`, `previousLeafInActiveGroup()`, `leafIndexInGroup(WorkspaceLeaf*)`, `leafCountInGroup(WorkspaceLeaf*)`, `closeOtherLeavesInGroupOf(WorkspaceLeaf*)`, `closeLeavesToRightOf(WorkspaceLeaf*)`). Add the new signals (`groupActiveLeafChangedRequested(WorkspaceLeaf*)`, `groupCloseLeafRequested(WorkspaceLeaf*)`).
+**Note:** Tasks 4a.1's sign-off picked Q1 = (a) constructor takes `vaultId`; Q3 = (b) signals named `tabSelectRequested(WorkspaceLeaf*)` + `tabCloseRequested(WorkspaceLeaf*)` (matches `QTabBar` Qt convention).
 
-- [ ] **Step 2: `Workspace.cpp` — implement the new methods.** Most are thin wrappers over the existing private substrate helpers. Examples:
+- [ ] **Step 1: Header changes.** Delete forward decls for `WorkspaceItem` / `WorkspaceParent` / `WorkspaceSplit` / `WorkspaceTabs` (no longer named in any public signature). Apply the API design from Task 4a.1:
+
+  *Deletions:* `mainRoot()`, `activeTabs()`, `findTabsById()`, `findOrCreateUnpinnedLeaf(WorkspaceTabs*)`.
+
+  *Renames:* `createLeafInTabs(WorkspaceTabs*)` → `createLeafInGroupOf(WorkspaceLeaf *sibling)`; `splitLeaf` return type `WorkspaceSplit*` → `WorkspaceLeaf*` (the new leaf).
+
+  *Constructor:* `Workspace(ViewRegistry*, QObject*)` → `Workspace(QString vaultId, ViewRegistry*, QObject* = nullptr)`. Add `QString m_vaultId;` private storage. (Update all existing call sites: `MainWindow.cpp`, `tst_workspace_*`, `tst_proxy_workspace`, `tst_leaf_*`, `tst_vault_switch`. Most pass a literal vault id like `QStringLiteral("test-vault")`.)
+
+  *Additions:* `createLeafInActiveGroup() → WorkspaceLeaf*`; `rootWidget() → QWidget*`; `nextLeafInActiveGroup() → WorkspaceLeaf*`; `previousLeafInActiveGroup() → WorkspaceLeaf*`; `leafIndexInGroup(WorkspaceLeaf*) → int`; `leafCountInGroup(WorkspaceLeaf*) → int`; `closeOtherLeavesInGroupOf(WorkspaceLeaf*)`; `closeLeavesToRightOf(WorkspaceLeaf*)`; `findOrCreateUnpinnedLeafInGroupOf(WorkspaceLeaf*) → WorkspaceLeaf*`.
+
+  *New signals:* `void tabSelectRequested(WorkspaceLeaf*)`; `void tabCloseRequested(WorkspaceLeaf*)`.
+
+- [ ] **Step 2: `Workspace.cpp` implementations** — thin wrappers over existing private substrate helpers + the `LeafSubstrateAdapter` helper introduced in Task 4a.3. The `createLeafInGroupOf` body lives in 4a.3 Step 5 (already written); `splitLeaf` body lives in 4a.3 Step 6. New signatures:
 
   ```cpp
-  WorkspaceLeaf *Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)
-  {
-      WorkspaceTabs *tabs = sibling
-          ? qobject_cast<WorkspaceTabs *>(sibling->parentItem())
-          : findFirstTabs(m_mainRoot);
-      // ... existing createLeafInTabs body, calling internal API
-  }
-
-  WorkspaceLeaf *Workspace::splitLeaf(WorkspaceLeaf *source, Qt::Orientation orient)
-  {
-      WorkspaceSplit *newSplit = /* existing splitLeaf body */;
-      // Find the new leaf inside newSplit (the second child) and return it.
-      return /* the new leaf */;
-  }
-
   QWidget *Workspace::rootWidget() const
   {
       return m_mainRoot ? m_mainRoot->widget() : nullptr;
   }
+
+  WorkspaceLeaf *Workspace::createLeafInActiveGroup()
+  {
+      return createLeafInGroupOf(m_activeLeaf);  // nullptr falls back to root tabs
+  }
+
+  WorkspaceLeaf *Workspace::nextLeafInActiveGroup() const
+  {
+      if (!m_activeLeaf) return nullptr;
+      auto *tabs = qobject_cast<WorkspaceTabs *>(adapterForLeaf(m_activeLeaf)->parentItem());
+      if (!tabs || tabs->childCount() <= 1) return nullptr;
+      const int next = (tabs->currentTab() + 1) % tabs->childCount();
+      auto *adapter = qobject_cast<LeafSubstrateAdapter *>(tabs->leafAdapterAt(next));
+      return adapter ? adapter->leaf() : nullptr;
+  }
+  // previousLeafInActiveGroup analogous, with (currentTab() + count - 1) % count
   ```
 
-- [ ] **Step 3: Wire the new signals.** Inside the existing private `WorkspaceTabs::currentTabChanged` / `tabCloseRequested` handling (or wherever the substrate produces the events), forward to the new public signals so MainWindow.cpp can subscribe to `Workspace` instead of `WorkspaceTabs`. The cleanest landing: in `Workspace`'s leaf-add path, connect once to the substrate's signals and re-emit. If the substrate doesn't currently emit through `Workspace`, add the connection plumbing here in 4a (it's tiny — KDDW will replace the substrate in 4b but the `Workspace`-side re-emit signature stays).
+  Note `tabs->leafAt(int)` currently returns `WorkspaceLeaf*` directly — the adapter introduction means it now returns the adapter; either rename to `leafAdapterAt` and add an unwrap helper, or keep `leafAt` and have it unwrap internally. The latter is less churn — keep `leafAt` returning `WorkspaceLeaf*` (unwrap from the adapter inside `WorkspaceTabs::leafAt`).
+
+  `leafIndexInGroup` / `leafCountInGroup` / `closeOtherLeavesInGroupOf` / `closeLeavesToRightOf` similarly walk via `adapterForLeaf` + the substrate's children.
+
+  `findOrCreateUnpinnedLeafInGroupOf(WorkspaceLeaf *sibling)`: existing private `findOrCreateUnpinnedLeaf(WorkspaceTabs*)` body, but resolve the Tabs from `adapterForLeaf(sibling)->parentItem()`. Returns `createLeafInGroupOf(sibling)` if no unpinned member exists.
+
+- [ ] **Step 3: Wire the new tab signals.** In `createLeafInGroupOf` and `splitLeaf`, after constructing the substrate `Tabs` (or finding the existing one), connect once per substrate-Tabs to its `currentTabChanged(int)` and `tabCloseRequested(int)` signals; the lambda translates the index → leaf via the Tabs's `leafAt(idx)` (which unwraps from adapter — see Step 2 note) and re-emits `Workspace::tabSelectRequested(leaf)` / `Workspace::tabCloseRequested(leaf)`. Idempotency: use a `Tabs->property("_ws_signal_wired")` boolean guard so we don't double-connect. (KDDW substitution in 4b moves these connections from `WorkspaceTabs` to `KDDW::Group::currentDockWidgetChanged` + `KDDW::DockWidget::closeRequested` — same Workspace-side re-emit signature stays.)
+
+- [ ] **Step 4: Build the library only**
+
+  ```bash
+  cmake --build build --target Corbomite_Core -j 10
+  ```
+
+  Expected: green for the library; tests + app still broken (Tasks 4a.5–4a.7).
+
+- [ ] **Step 5: Commit**
+
+  ```
+  cluster-y phase 4a: Workspace public API no longer names substrate types
+  ```
 
 - [ ] **Step 4: Build the library only**
 
@@ -1655,11 +1755,11 @@ This is a sign-off step. Do not touch code yet. Output is a list of new C++ sign
 
   ```cpp
   // At Workspace setup time (one-shot, not per-leaf):
-  connect(m_workspace, &Workspace::groupActiveLeafChangedRequested,
+  connect(m_workspace, &Workspace::tabSelectRequested,
           this, [this](WorkspaceLeaf *leaf) {
               m_workspace->setActiveLeaf(leaf);
           });
-  connect(m_workspace, &Workspace::groupCloseLeafRequested,
+  connect(m_workspace, &Workspace::tabCloseRequested,
           this, [this](WorkspaceLeaf *leaf) {
               m_workspace->closeLeaf(leaf);
           });
@@ -1706,7 +1806,7 @@ The first nine ports are mostly mechanical:
 - `m_workspace->splitLeaf(leaf, dir)->...` → `m_workspace->splitLeaf(leaf, dir)` returns the new leaf; rewrite to use the new return type
 - `m_workspace->mainRoot()->...` → use `m_workspace->rootWidget()` if walking widget tree; or rewrite test against behaviour rather than tree shape
 - `leaf->parentItem()` → `m_workspace->leafIndexInGroup(leaf)` + `m_workspace->leafCountInGroup(leaf)` for counting; or rewrite assertions in terms of `m_workspace->allLeaves()` if the test was just verifying topology
-- Test fixtures that used `WorkspaceTabs *t = ...; t->setCurrentTab(i); t->requestCloseTab(j);` etc. — rewrite to drive the Workspace signals (`emit m_workspace->groupActiveLeafChangedRequested(leaf)`) or call `Workspace::setActiveLeaf(leaf)` / `Workspace::closeLeaf(leaf)` directly.
+- Test fixtures that used `WorkspaceTabs *t = ...; t->setCurrentTab(i); t->requestCloseTab(j);` etc. — rewrite to drive the Workspace signals (`emit m_workspace->tabSelectRequested(leaf)`) or call `Workspace::setActiveLeaf(leaf)` / `Workspace::closeLeaf(leaf)` directly.
 
 `tst_workspace_tabs.cpp` is the likely delete-or-rewrite candidate per the original Phase 4 plan. Examine first; if it is 90% `QTabBar`/`QStackedWidget` substrate poking, delete it (coverage migrates to `tst_workspace_dragdrop` in Phase 5). If it has behaviour assertions, port them.
 
@@ -1993,7 +2093,7 @@ void Workspace::deserialize(const QJsonObject &json)
 }
 ```
 
-- [ ] **Step 9: Wire the new tab-driver signals from KDDW.** The `groupActiveLeafChangedRequested` + `groupCloseLeafRequested` signals (added in 4a, currently re-emitted from `WorkspaceTabs`) now need to be re-emitted from KDDW's `Group::currentDockWidgetChanged` + `DockWidget::closeRequested` (verify signal names). Hook these in `onDockWidgetAdded` so newly-created KDDW dock widgets get the connection.
+- [ ] **Step 9: Wire the new tab-driver signals from KDDW.** The `tabSelectRequested` + `tabCloseRequested` signals (added in 4a, currently re-emitted from `WorkspaceTabs`) now need to be re-emitted from KDDW's `Group::currentDockWidgetChanged` + `DockWidget::closeRequested` (verify signal names). Hook these in `onDockWidgetAdded` so newly-created KDDW dock widgets get the connection.
 
 - [ ] **Step 10: Delete every code path that reaches into the (about-to-be-deleted) `WorkspaceTabs`/`WorkspaceSplit`/`WorkspaceItem`/`WorkspaceParent`.**
 
