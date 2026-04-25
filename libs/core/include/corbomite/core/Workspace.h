@@ -37,6 +37,23 @@ class Workspace : public QObject
 public:
     static constexpr int UndoCap = 10;
 
+    /// Where `getLeaf(...)` should place a newly-created leaf relative to the
+    /// currently active leaf. Mirrors the Obsidian `PaneType` shape that
+    /// plugin authors expect from `workspace.getLeaf(...)`.
+    /// - `Same`: return the active leaf (no creation) — fall back to a fresh
+    ///   leaf if there is no active one.
+    /// - `Tab`: new leaf in the active leaf's tab group.
+    /// - `Split`: new leaf in a sibling pane created by splitting the active
+    ///   leaf along `LeafDirection`.
+    /// - `Window`: new leaf in a freshly popped-out floating window.
+    enum class LeafMode { Same, Tab, Split, Window };
+    Q_ENUM(LeafMode)
+
+    /// Direction passed to `getLeaf(LeafMode::Split, ...)`. Other modes
+    /// ignore this argument.
+    enum class LeafDirection { Horizontal, Vertical };
+    Q_ENUM(LeafDirection)
+
     explicit Workspace(ViewRegistry *registry, QObject *parent = nullptr);
 
     /// Vault-scoped constructor. The `vaultId` identifies which vault this
@@ -95,6 +112,14 @@ public:
     /// state, history, pinned, group) into a new leaf in a new split sibling.
     /// The new leaf becomes active. Returns the new leaf, or nullptr on failure.
     WorkspaceLeaf *duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction);
+
+    /// Obsidian-shape leaf factory. Creates (or returns) a leaf positioned
+    /// relative to the active leaf as `mode` requests; `dir` only used for
+    /// `LeafMode::Split`. Mirrors `Workspace.getLeaf(...)` in the Obsidian
+    /// plugin API. Returns `nullptr` only if `mode == Window` and the popout
+    /// substrate refuses (should not occur in normal use).
+    WorkspaceLeaf *getLeaf(LeafMode mode,
+                            LeafDirection dir = LeafDirection::Horizontal);
 
     // Popout windows (full implementation in Phase 5)
     WorkspaceWindow *popoutLeaf(WorkspaceLeaf *leaf);
