@@ -76,6 +76,13 @@ add_test(NAME tst_cachedmetadatastore COMMAND tst_cachedmetadatastore)
 target_link_libraries(tst_cachedmetadatastore PRIVATE Qt6::Test Qt6::Core Qt6::Sql Corbomite::Storage Corbomite::Core)
 set_tests_properties(tst_cachedmetadatastore PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster V.2 Phase 3 — end-to-end round-trip via MetadataCache::open/close
+# (which wraps CachedMetadataStore::loadInto/persistFrom).
+add_executable(tst_cachedmetadatastore_e2e tst_cachedmetadatastore_e2e.cpp)
+add_test(NAME tst_cachedmetadatastore_e2e COMMAND tst_cachedmetadatastore_e2e)
+target_link_libraries(tst_cachedmetadatastore_e2e PRIVATE Qt6::Test Qt6::Core Qt6::Sql Corbomite::Storage Corbomite::Core)
+set_tests_properties(tst_cachedmetadatastore_e2e PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_metadatacache_signals tst_metadatacache_signals.cpp)
 add_test(NAME tst_metadatacache_signals COMMAND tst_metadatacache_signals)
 target_link_libraries(tst_metadatacache_signals PRIVATE Qt6::Test Qt6::Core Corbomite::Storage Corbomite::Core)
