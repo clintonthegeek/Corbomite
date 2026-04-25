@@ -114,8 +114,6 @@ add_library(corbomite-core STATIC
     include/corbomite/core/ThemeService.h
     src/WorkspaceSerializer.cpp
     src/WorkspaceSerializer.h
-    src/internal/LeafSubstrateAdapter.cpp
-    src/internal/LeafSubstrateAdapter.h
 )
 set_target_properties(corbomite-core PROPERTIES
     POSITION_INDEPENDENT_CODE ON
@@ -126,9 +124,7 @@ target_include_directories(corbomite-core
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${KDE_INSTALL_INCLUDEDIR}>
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/../storage/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../storage/include
 )
 target_link_libraries(corbomite-core
     PUBLIC
