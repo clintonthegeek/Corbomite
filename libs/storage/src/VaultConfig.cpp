@@ -99,6 +99,19 @@ bool VaultConfig::writeJson(const QString &fileName, const QJsonObject &obj) con
     return m_fs->writeBinary(configFilePath(fileName), serializeObsidianStyle(obj));
 }
 
+bool VaultConfig::mergeJson(const QString &fileName,
+                            const QJsonObject &updates) const
+{
+    QJsonObject merged;
+    if (auto existing = readJson(fileName)) {
+        merged = *existing;
+    }
+    for (auto it = updates.begin(); it != updates.end(); ++it) {
+        merged.insert(it.key(), it.value());
+    }
+    return writeJson(fileName, merged);
+}
+
 std::optional<QJsonObject> VaultConfig::readAppJson() const
 {
     return readJson(QStringLiteral("app.json"));

@@ -349,6 +349,74 @@ private Q_SLOTS:
                  QByteArray("{not json"));
         QVERIFY(!cfg.readAppJson().has_value());
     }
+
+    // --- mergeJson: round-trip with unknown-key preservation ---
+
+    void testMergeJsonPreservesUnknownKeys()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        FileSystemAdapter fs;
+        VaultConfig vc(&fs, dir.path());
+        QVERIFY(vc.ensureConfigDir());
+
+        QJsonObject existing;
+        existing.insert(QStringLiteral("theme"), QStringLiteral("light"));
+        existing.insert(QStringLiteral("obsidianMystery"), 42);
+        QVERIFY(vc.writeJson(QStringLiteral("appearance.json"), existing));
+
+        QJsonObject updates;
+        updates.insert(QStringLiteral("theme"), QStringLiteral("dark"));
+        QVERIFY(vc.mergeJson(QStringLiteral("appearance.json"), updates));
+
+        const auto result = vc.readJson(QStringLiteral("appearance.json"));
+        QVERIFY(result.has_value());
+        QCOMPARE(result->value(QStringLiteral("theme")).toString(),
+                 QStringLiteral("dark"));
+        QCOMPARE(result->value(QStringLiteral("obsidianMystery")).toInt(), 42);
+    }
+
+    void testMergeJsonCreatesFile()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        FileSystemAdapter fs;
+        VaultConfig vc(&fs, dir.path());
+        QVERIFY(vc.ensureConfigDir());
+
+        QJsonObject updates;
+        updates.insert(QStringLiteral("folder"), QStringLiteral("Daily"));
+        QVERIFY(vc.mergeJson(QStringLiteral("daily-notes.json"), updates));
+
+        const auto result = vc.readJson(QStringLiteral("daily-notes.json"));
+        QVERIFY(result.has_value());
+        QCOMPARE(result->size(), 1);
+        QCOMPARE(result->value(QStringLiteral("folder")).toString(),
+                 QStringLiteral("Daily"));
+    }
+
+    void testMergeJsonOverwritesKnownKeys()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        FileSystemAdapter fs;
+        VaultConfig vc(&fs, dir.path());
+        QVERIFY(vc.ensureConfigDir());
+
+        QJsonObject existing;
+        existing.insert(QStringLiteral("k1"), 1);
+        existing.insert(QStringLiteral("k2"), 2);
+        QVERIFY(vc.writeJson(QStringLiteral("templates.json"), existing));
+
+        QJsonObject updates;
+        updates.insert(QStringLiteral("k1"), 99);
+        QVERIFY(vc.mergeJson(QStringLiteral("templates.json"), updates));
+
+        const auto result = vc.readJson(QStringLiteral("templates.json"));
+        QVERIFY(result.has_value());
+        QCOMPARE(result->value(QStringLiteral("k1")).toInt(), 99);
+        QCOMPARE(result->value(QStringLiteral("k2")).toInt(), 2);
+    }
 };
 
 QTEST_APPLESS_MAIN(TestVaultConfig)

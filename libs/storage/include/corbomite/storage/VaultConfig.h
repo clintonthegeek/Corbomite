@@ -48,6 +48,15 @@ public:
     /// parent directory if needed.
     bool writeJson(const QString &fileName, const QJsonObject &obj) const;
 
+    /// Read `configDir()/fileName` (if it exists), update only the keys
+    /// present in `updates`, preserving every other key verbatim, and write
+    /// the merged object back. If the file does not exist, writes a fresh
+    /// file containing only `updates`. Returns true on write success.
+    ///
+    /// Use this when persisting Corbomite-owned settings to a vault config
+    /// file that may also contain Obsidian-authored keys we don't recognise.
+    bool mergeJson(const QString &fileName, const QJsonObject &updates) const;
+
     // --- Typed convenience (pass-through + light coercion) ---
 
     /// `.obsidian/app.json`. See VAULT-FORMAT.md §3 for known keys.
