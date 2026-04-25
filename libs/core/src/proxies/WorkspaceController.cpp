@@ -7,7 +7,6 @@
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "corbomite/core/WorkspaceTabs.h"
 
 #include <QFileInfo>
 #include <QJsonObject>
