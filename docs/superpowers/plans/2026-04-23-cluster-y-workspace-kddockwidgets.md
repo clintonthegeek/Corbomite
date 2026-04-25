@@ -1452,145 +1452,26 @@ This is a sign-off step. Do not touch code yet. Output is a list of new C++ sign
 
 - [ ] **Step 5: Surface the proposal to the human partner.** Post the new signatures in conversation, with a one-line justification per change. Wait for sign-off (or redirect) before starting Task 4a.2. **Do not skip this step.**
 
-## Task 4a.2: Reshape `WorkspaceItem` / `WorkspaceParent` headers to internal location
+## Task 4a.2: (DEFERRED to Phase 4b) Substrate header relocation
 
-**Files:**
-- Move: `libs/core/include/corbomite/core/WorkspaceItem.h` → `libs/core/src/internal/WorkspaceItem.h`
-- Move: `libs/core/include/corbomite/core/WorkspaceParent.h` → `libs/core/src/internal/WorkspaceParent.h`
-- Modify: every `#include` of those two headers across the tree
+**Sign-off pivot, 2026-04-25:** Same pivot as 4a.3 — header relocation to `libs/core/src/internal/` is deferred to Phase 4b alongside the substrate's deletion. See 4a.3's pivot rationale for the full reasoning. Substrate headers (`WorkspaceItem.h` / `WorkspaceParent.h` / `WorkspaceTabs.h` / `WorkspaceSplit.h` / `WorkspaceWindow.h`) stay at their current public location through 4a; they're public-but-unblessed because the new `Workspace.h` public method signatures (Task 4a.4) no longer reference them.
 
-- [ ] **Step 1: Create the internal directory + move the headers**
+**No code changes in 4a.2.** Skip directly to Task 4a.4. The grep-clean check at end of 4a (Task 4a.8) verifies no public method signatures on `Workspace.h` / `WorkspaceLeaf.h` reference the substrate types — that is the genuine architectural deliverable. The `#include` of the substrate headers from external code (tests + WorkspaceController.cpp internals) is permitted through 4a; 4b removes the headers entirely and external includes break-and-port at that point.
 
-  ```bash
-  mkdir -p libs/core/src/internal
-  git mv libs/core/include/corbomite/core/WorkspaceItem.h libs/core/src/internal/WorkspaceItem.h
-  git mv libs/core/include/corbomite/core/WorkspaceParent.h libs/core/src/internal/WorkspaceParent.h
-  ```
+## Task 4a.3: (DEFERRED to Phase 4b) `WorkspaceLeaf` inheritance + substrate header relocation
 
-- [ ] **Step 2: Update every include site**
+**Sign-off pivot, 2026-04-25:** Q2 originally picked option (1) — introduce `LeafSubstrateAdapter`, change `WorkspaceLeaf : public QObject` immediately. After investigating the consequences during execution, that pick was reversed in favour of **option (3) — defer the inheritance change to 4b**. Rationale:
 
-  ```bash
-  git grep -l "corbomite/core/WorkspaceItem.h\|corbomite/core/WorkspaceParent.h" libs/ src/ tests/
-  ```
+- The adapter approach exists to solve one specific problem: relocating `WorkspaceItem.h` / `WorkspaceParent.h` to `libs/core/src/internal/`. Without that goal, the adapter is unmotivated complexity.
+- Phase 4a's actual architectural goal is "no leaky public method signatures on `Workspace.h` / `WorkspaceLeaf.h`." That goal is achievable purely through method renames + retypes in Task 4a.4 — substrate headers can stay public-but-unblessed for the ~2-3 days until 4b deletes them entirely.
+- Cost comparison:
+  - Option (1): adapter file + ~15 Workspace.cpp tree-walk sites + ~6 WorkspaceTabs.cpp unwrap sites + parentItem() shim + 5-10 test runtime regressions to chase. Adapter exists for ~3 days then deleted in 4b.
+  - Option (3): zero substrate code changes. WorkspaceLeaf stays as `: WorkspaceItem` through 4a; the inheritance is dropped in 4b alongside the substrate's deletion (single commit, no transitional state).
+- "Most correct" was the lens. Option (1) was correctness-flavored only because of header relocation. Without that goal, option (3) produces cleaner git history and zero ephemeral complexity. Final correctness > ephemeral cleanliness.
 
-  Most hits will be in `libs/core/src/`. Update each `#include "corbomite/core/WorkspaceItem.h"` → `#include "internal/WorkspaceItem.h"` (relative to the file's containing dir; check actual relative paths). Public headers (`WorkspaceLeaf.h` notably) must lose their include of `WorkspaceItem.h` entirely — see Task 4a.3.
+**No code changes in 4a.3.** This task is intentionally a no-op; it survives in the plan as documentation of the pivot. Skip directly to Task 4a.4.
 
-- [ ] **Step 3: Update `libs/core/CMakeLists.txt`** — the headers no longer need to be installed as part of the public set. If `target_sources(... PUBLIC FILE_SET HEADERS ...)` enumerates them, drop. If not, no change needed.
-
-- [ ] **Step 4: Build + ctest**
-
-  ```bash
-  cmake --build build -j 10 && cd build && ctest --output-on-failure -j 10
-  ```
-
-  Expected: green. This is a pure file-move; no behaviour change.
-
-- [ ] **Step 5: Commit**
-
-  ```
-  cluster-y phase 4a: relocate WorkspaceItem/WorkspaceParent to internal headers
-  ```
-
-## Task 4a.3: Reshape `WorkspaceLeaf` inheritance via `LeafSubstrateAdapter`
-
-**Files:**
-- Modify: `libs/core/include/corbomite/core/WorkspaceLeaf.h`
-- Modify: `libs/core/src/WorkspaceLeaf.cpp`
-- Create: `libs/core/src/internal/LeafSubstrateAdapter.h` + `.cpp`
-- Modify: `libs/core/CMakeLists.txt` (add the adapter sources)
-- Modify: `libs/core/src/Workspace.cpp` (deserialize tree walk + createLeafInGroupOf + splitLeaf paths use the adapter)
-- Modify: `libs/core/src/WorkspaceTabs.cpp` (children are adapters now, not leaves)
-- Modify: `libs/core/src/WorkspaceSplit.cpp` (same)
-
-**Design rationale (sign-off Q2 = option 1, 2026-04-25):** `WorkspaceLeaf : public WorkspaceItem` conflated leaf identity (a Workspace concept) with leaf positioning in the substrate tree (a substrate concept). Obsidian's data model stores `parent: WorkspaceParent` as a *field* on a leaf, not as a base class. The adapter pattern restores composition: `WorkspaceLeaf : public QObject` parents to `Workspace`; the substrate tree (`Tabs::children()` / `Split::children()`) holds `LeafSubstrateAdapter*` instances that wrap a non-owning `WorkspaceLeaf*` pointer and forward `widget()` / `serialize()` to the leaf. In Phase 4b the adapter is deleted along with `WorkspaceTabs` / `Split` / `Item`, and `KDDW::DockWidget` takes over the substrate-wrapper role — same pattern, different upstream library.
-
-- [ ] **Step 1: Create `LeafSubstrateAdapter`**
-
-  ```cpp
-  // libs/core/src/internal/LeafSubstrateAdapter.h
-  // SPDX-License-Identifier: GPL-3.0-or-later
-  #pragma once
-
-  #include "internal/WorkspaceItem.h"
-
-  namespace Corbomite {
-
-  class WorkspaceLeaf;
-
-  /// Substrate-side wrapper that lets a WorkspaceLeaf participate in the
-  /// hand-rolled WorkspaceTabs/WorkspaceSplit tree without inheriting from
-  /// WorkspaceItem itself. Non-owning pointer to the leaf — leaf is parented
-  /// to Workspace; adapter is parented to its substrate container.
-  ///
-  /// Phase 4a only. Phase 4b deletes WorkspaceTabs/Split/Item entirely; the
-  /// KDDW DockWidget plays the equivalent substrate-wrapper role.
-  class LeafSubstrateAdapter final : public WorkspaceItem
-  {
-      Q_OBJECT
-  public:
-      explicit LeafSubstrateAdapter(WorkspaceLeaf *leaf, QObject *parent = nullptr);
-      ~LeafSubstrateAdapter() override;
-
-      WorkspaceLeaf *leaf() const { return m_leaf; }
-
-      // WorkspaceItem overrides — both forward to m_leaf.
-      QWidget *widget() override;
-      QJsonObject serialize() const override;
-
-  private:
-      WorkspaceLeaf *m_leaf;  // non-owning
-  };
-
-  } // namespace Corbomite
-  ```
-
-  `.cpp` is ~20 lines: ctor sets `setId(leaf->id())` so the adapter shares its leaf's id (substrate tree-walk operations that look up by id still find the right node); dtor is default; `widget()` returns `m_leaf->widget()`; `serialize()` returns `m_leaf->serialize()`.
-
-- [ ] **Step 2: In `WorkspaceLeaf.h`, change `class WorkspaceLeaf : public WorkspaceItem` → `class WorkspaceLeaf : public QObject`.** Remove `#include "corbomite/core/WorkspaceItem.h"`. Add `#include <QObject>` if not transitively present. Drop `widget() override` and `serialize() override` virtual decorations — they become plain methods (the adapter's overrides delegate to them).
-
-- [ ] **Step 3: Add public `QString id() const` + `void setId(const QString&)` + `static QString generateId()` to `WorkspaceLeaf`** (these were inherited from `WorkspaceItem`). Storage member `m_id` private. Implementations: copy from `WorkspaceItem.cpp` (the `WorkspaceItem` definitions stay — they still serve `WorkspaceTabs` / `Split` / `LeafSubstrateAdapter`).
-
-- [ ] **Step 4: Drop `WorkspaceLeaf::parentItem()` from the public API.** Production caller `View::onTabMenu` ports to `leaf->workspace()->leafIndexInGroup(leaf)` etc. in Task 4a.5; by then nothing external depends on `parentItem()`. Internal `Workspace.cpp` queries that need to know "what tab group contains this leaf?" use a private `Workspace::adapterForLeaf(leaf)` helper that walks the substrate tree finding the `LeafSubstrateAdapter` whose `leaf() == leaf`.
-
-- [ ] **Step 5: Update `Workspace::createLeafInGroupOf` (formerly `createLeafInTabs`)** — construct both the leaf and the adapter, parent leaf to `this` (Workspace), parent adapter to the target Tabs container:
-
-  ```cpp
-  WorkspaceLeaf *Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)
-  {
-      auto *leaf = new WorkspaceLeaf(m_registry, this);  // parented to Workspace
-      WorkspaceTabs *tabs = sibling
-          ? qobject_cast<WorkspaceTabs *>(adapterForLeaf(sibling)->parentItem())
-          : findFirstTabs(m_mainRoot);
-      auto *adapter = new LeafSubstrateAdapter(leaf, tabs);
-      tabs->addChild(adapter);
-      connect(leaf, &WorkspaceLeaf::pinnedChanged, this,
-              [this, leaf](bool) { propagatePinToGroup(leaf); });
-      Q_EMIT layoutChanged();
-      return leaf;
-  }
-  ```
-
-- [ ] **Step 6: Update `Workspace::splitLeaf` similarly** — the new leaf gets a fresh adapter; the existing leaf gets re-parented (its adapter migrates from the old `Tabs` to the new sibling-`Tabs` inside the new `Split`).
-
-- [ ] **Step 7: Update `Workspace::deserialize` tree walk** — when a `leaf` JSON node is encountered, construct `WorkspaceLeaf` parented to `this`, then construct `LeafSubstrateAdapter(leaf, /*parent=*/<containing Tabs>)` and add to the substrate tree. The existing `findLeafInTree`, `findTabsInTree`, `collectLeaves`, `collectAllItems` walks operate on the substrate tree of `WorkspaceItem*` and now encounter `LeafSubstrateAdapter*` where they expected `WorkspaceLeaf*` — rewrite each to unwrap via `qobject_cast<LeafSubstrateAdapter*>(node)->leaf()` when consuming a leaf result.
-
-- [ ] **Step 8: Add private `Workspace::adapterForLeaf(WorkspaceLeaf*) → LeafSubstrateAdapter*`** — single-use helper that walks the substrate tree finding the adapter whose `leaf()` matches. Used by `splitLeaf`, `closeLeaf`, the close-siblings family, and the new `leafIndexInGroup` / `leafCountInGroup` accessors.
-
-- [ ] **Step 9: Build the in-tree library**
-
-  ```bash
-  cmake --build build --target Corbomite_Core -j 10 2>&1 | head -60
-  ```
-
-  Expected: green except for the public-API methods that still need shape changes (Task 4a.4) and external callers (Tasks 4a.5–4a.7). Internal substrate is stable.
-
-- [ ] **Step 10: Commit**
-
-  ```
-  cluster-y phase 4a: introduce LeafSubstrateAdapter; WorkspaceLeaf : QObject
-  ```
-
-  Tests broken at this commit (external callers still use old API). Intentional — Tasks 4a.4–4a.7 finish the wave; 4a.8 verifies green.
+The substrate header relocation + WorkspaceLeaf inheritance change happen in **Phase 4b Task 4b.4** (substrate deletion), which is when `WorkspaceItem` / `WorkspaceParent` / `WorkspaceTabs` / `WorkspaceSplit` / `WorkspaceWindow`'s old shape are deleted entirely. `WorkspaceLeaf : public QObject` happens at the same commit (single-line inheritance change once `WorkspaceItem` is gone).
 
 ## Task 4a.4: Reshape `Workspace` public method signatures
 
@@ -1843,15 +1724,17 @@ The first nine ports are mostly mechanical:
 
   Expected: green except documented pre-existing flakes (tst_markoff_undo_grouping, tst_markoff_table_operations, tst_completion_popup, tst_quadtree, tst_benchmark_layout). If a pre-existing flake list has shifted (e.g., a markoff submodule bump fixed one), update PROJECT-STATE / backlog accordingly but do not block 4a closure on it.
 
-- [ ] **Step 2: Public surface grep**
+- [ ] **Step 2: Public-method-signature grep on `Workspace.h` + `WorkspaceLeaf.h`**
 
   ```bash
-  git grep -E "WorkspaceTabs|WorkspaceSplit|WorkspaceItem|WorkspaceParent" \
-      libs/core/include/ src/ tests/ \
-      | grep -v -E "WorkspaceSerializer|^libs/core/src/internal/"
+  grep -E "WorkspaceTabs|WorkspaceSplit|WorkspaceItem|WorkspaceParent|WorkspaceWindow" \
+      libs/core/include/corbomite/core/Workspace.h \
+      libs/core/include/corbomite/core/WorkspaceLeaf.h
   ```
 
-  Expected: zero hits. (Hits inside `libs/core/src/` proper are fine — that's the substrate; it gets deleted in 4b.)
+  Expected: zero hits. (Per the 4a.2/4a.3 pivot: substrate headers stay public-but-unblessed through 4a; the architectural deliverable is that the *primary public types* — `Workspace` and `WorkspaceLeaf` — don't reference the demoted types in any method signature, member declaration, or include. Inheritance leakage on `WorkspaceLeaf : WorkspaceItem` is permitted through 4a; cleaned up in 4b alongside substrate deletion.)
+
+  Also OK in 4a: substrate `#include`s from external code (`tests/core/`, `WorkspaceController.cpp`, etc.) where they continue to need direct substrate access. 4b's substrate deletion forces those callers to re-port at that point.
 
 - [ ] **Step 3: Confirm Phase 4a is shippable on its own.** Behaviour unchanged. KDDW dependency declared but not yet used by Workspace internals. The branch is releasable here if 4b were ever to slip.
 
