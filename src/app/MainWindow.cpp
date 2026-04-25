@@ -6,8 +6,6 @@
 #include <markoff/Editor.h>
 #include <markoff/source/SourceEditor.h>
 #include "corbomite/core/Workspace.h"
-#include "corbomite/core/WorkspaceSplit.h"
-#include "corbomite/core/WorkspaceTabs.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditableFileView.h"
@@ -736,10 +734,8 @@ void MainWindow::openFileInWorkspace(const QString &relativePath)
         }
     }
 
-    auto *tabs = m_workspace->activeTabs();
-    if (!tabs) return;
-
-    auto *leaf = m_workspace->createLeafInTabs(tabs);
+    auto *leaf = m_workspace->createLeafInActiveGroup();
+    if (!leaf) return;
 
     QString ext = QFileInfo(relativePath).suffix().toLower();
     QString type = m_viewRegistry->getTypeByExtension(ext);
@@ -1281,7 +1277,7 @@ void MainWindow::setupActions()
                   QStringLiteral("view-preview"),
                   NoteEditorWidget::ViewMode::Reading);
 
-    // Tab shortcuts — use Workspace's WorkspaceTabs
+    // Tab shortcuts
     auto *closeTab = ac->addAction(QStringLiteral("tab_close"));
     closeTab->setText(i18n("Close Tab"));
     closeTab->setIcon(QIcon::fromTheme(QStringLiteral("tab-close")));
@@ -1298,11 +1294,8 @@ void MainWindow::setupActions()
     ac->setDefaultShortcut(nextTab, QKeySequence(Qt::CTRL | Qt::Key_Tab));
     connect(nextTab, &QAction::triggered, this, [this]() {
         if (!m_workspace) return;
-        auto *tabs = m_workspace->activeTabs();
-        if (tabs && tabs->childCount() > 1) {
-            int next = (tabs->currentTab() + 1) % tabs->childCount();
-            tabs->setCurrentTab(next);
-        }
+        if (auto *next = m_workspace->nextLeafInActiveGroup())
+            m_workspace->setActiveLeaf(next);
     });
 
     auto *prevTab = ac->addAction(QStringLiteral("tab_prev"));
@@ -1310,12 +1303,8 @@ void MainWindow::setupActions()
     ac->setDefaultShortcut(prevTab, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Tab));
     connect(prevTab, &QAction::triggered, this, [this]() {
         if (!m_workspace) return;
-        auto *tabs = m_workspace->activeTabs();
-        if (tabs && tabs->childCount() > 1) {
-            int prev = tabs->currentTab() - 1;
-            if (prev < 0) prev = tabs->childCount() - 1;
-            tabs->setCurrentTab(prev);
-        }
+        if (auto *prev = m_workspace->previousLeafInActiveGroup())
+            m_workspace->setActiveLeaf(prev);
     });
 
     auto *splitRight = ac->addAction(QStringLiteral("split_right"));
@@ -1612,33 +1601,25 @@ void MainWindow::setupEditor()
     m_workspaceContainer = new QWidget(m_centralStack);
     auto *wsLayout = new QVBoxLayout(m_workspaceContainer);
     wsLayout->setContentsMargins(0, 0, 0, 0);
-    wsLayout->addWidget(m_workspace->mainRoot()->widget());
+    wsLayout->addWidget(m_workspace->rootWidget());
     m_centralStack->addWidget(m_workspaceContainer);
 
-    // Keep the container, tab signals, and service propagation in sync.
+    // Workspace re-emits substrate tab signals through its own surface so
+    // we don't have to subscribe per-Tabs container. Wire once.
+    connect(m_workspace, &Workspace::tabSelectRequested, this,
+            [this](WorkspaceLeaf *leaf) { m_workspace->setActiveLeaf(leaf); });
+    connect(m_workspace, &Workspace::tabCloseRequested, this,
+            [this](WorkspaceLeaf *leaf) { m_workspace->closeLeaf(leaf); });
+
+    // Keep the container in sync with re-parented root widgets, and wire
+    // per-leaf service propagation.
     connect(m_workspace, &Workspace::layoutChanged, this, [this]() {
-        auto *rootWidget = m_workspace->mainRoot()->widget();
-        if (rootWidget->parentWidget() != m_workspaceContainer) {
+        auto *rootWidget = m_workspace->rootWidget();
+        if (rootWidget && rootWidget->parentWidget() != m_workspaceContainer) {
             m_workspaceContainer->layout()->addWidget(rootWidget);
         }
 
         for (auto *leaf : m_workspace->allLeaves()) {
-            // Wire tab container signals (once per container)
-            auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
-            if (tabs && !tabs->property("_mw_tabs_connected").toBool()) {
-                tabs->setProperty("_mw_tabs_connected", true);
-                connect(tabs, &WorkspaceTabs::currentTabChanged, this,
-                        [this, tabs](int index) {
-                    if (auto *l = tabs->leafAt(index))
-                        m_workspace->setActiveLeaf(l);
-                });
-                connect(tabs, &WorkspaceTabs::tabCloseRequested, this,
-                        [this, tabs](int index) {
-                    if (auto *l = tabs->leafAt(index))
-                        m_workspace->closeLeaf(l);
-                });
-            }
-
             // Wire deferred-load service propagation (once per leaf)
             if (!leaf->property("_mw_leaf_connected").toBool()) {
                 leaf->setProperty("_mw_leaf_connected", true);
@@ -1659,9 +1640,8 @@ void MainWindow::setupEditor()
     connect(m_workspace, &Workspace::layoutChanged, this, [this]() {
         if (!m_app || !m_app->isOpen()) return;
         if (!m_workspace->allLeaves().isEmpty()) return;
-        auto *tabs = m_workspace->activeTabs();
-        if (!tabs) return;
-        auto *leaf = m_workspace->createLeafInTabs(tabs);
+        auto *leaf = m_workspace->createLeafInActiveGroup();
+        if (!leaf) return;
         QJsonObject vs;
         vs[QStringLiteral("type")] = QStringLiteral("empty");
         leaf->setViewState(vs);
@@ -2285,9 +2265,8 @@ void MainWindow::openGraphView()
 {
     if (!m_app->isOpen() || !m_searchIndex || !m_workspace) return;
 
-    auto *tabs = m_workspace->activeTabs();
-    if (!tabs) return;
-    auto *leaf = m_workspace->createLeafInTabs(tabs);
+    auto *leaf = m_workspace->createLeafInActiveGroup();
+    if (!leaf) return;
 
     QJsonObject viewState;
     viewState[QStringLiteral("type")] = QStringLiteral("graph");

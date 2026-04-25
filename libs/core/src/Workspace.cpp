@@ -84,8 +84,20 @@ void Workspace::setActiveLeaf(WorkspaceLeaf *leaf)
     if (m_activeLeaf == leaf)
         return;
     m_activeLeaf = leaf;
-    if (leaf)
+    if (leaf) {
         leaf->updateActiveTime();
+        // Make the substrate raise the leaf's tab so the visible UI
+        // matches the new active state. No-op if the tab is already
+        // current. Without this, callers like Ctrl+Tab navigation would
+        // update the active-leaf pointer but leave the user staring at
+        // the old tab. (Phase 4b: this becomes
+        // dockWidget()->setAsCurrentTab().)
+        if (auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem())) {
+            const int idx = tabs->indexOf(leaf);
+            if (idx >= 0 && idx != tabs->currentTab())
+                tabs->setCurrentTab(idx);
+        }
+    }
     Q_EMIT activeLeafChanged(leaf);
 }
 
