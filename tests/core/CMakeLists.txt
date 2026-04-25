@@ -285,6 +285,15 @@ target_compile_definitions(tst_workspace_serializer PRIVATE
     CORBOMITE_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 set_tests_properties(tst_workspace_serializer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster Y Phase 6: layoutReady gate + WorkspaceActiveLeafRouter
+add_executable(tst_workspace_active_leaf_router tst_workspace_active_leaf_router.cpp)
+add_test(NAME tst_workspace_active_leaf_router COMMAND tst_workspace_active_leaf_router)
+target_link_libraries(tst_workspace_active_leaf_router PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Core
+    KDAB::kddockwidgets)
+set_tests_properties(tst_workspace_active_leaf_router PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster Y Phase 5: popout leaves atop KDDW FloatingWindow
 add_executable(tst_workspace_popout tst_workspace_popout.cpp)
 add_test(NAME tst_workspace_popout COMMAND tst_workspace_popout)

@@ -160,6 +160,14 @@ void Workspace::setActiveLeaf(WorkspaceLeaf *leaf)
 {
     if (m_activeLeaf == leaf)
         return;
+    // Layout-ready gate: while a workspace.json load is in flight, KDDW's
+    // own substrate emits cascading isCurrentTabChanged signals that route
+    // back through the host (tabSelectRequested → setActiveLeaf). Suppress
+    // those so consumers see exactly one activeLeafChanged once the load
+    // settles. Programmatic callers during a load (e.g. tests) can still
+    // force-set m_activeLeaf directly inside Workspace.
+    if (!m_layoutReady)
+        return;
     m_activeLeaf = leaf;
     if (leaf) {
         leaf->updateActiveTime();
@@ -169,6 +177,17 @@ void Workspace::setActiveLeaf(WorkspaceLeaf *leaf)
     }
     Q_EMIT activeLeafChanged(leaf);
 }
+
+void Workspace::setLayoutReady(bool ready)
+{
+    if (m_layoutReady == ready)
+        return;
+    m_layoutReady = ready;
+    if (ready)
+        Q_EMIT layoutReady();
+}
+
+bool Workspace::isLayoutReady() const { return m_layoutReady; }
 
 QStringList Workspace::lastOpenFiles() const { return m_lastOpenFiles; }
 
@@ -616,6 +635,13 @@ void collectLeafObjects(const QJsonObject &node,
 
 void Workspace::deserialize(const QJsonObject &json)
 {
+    // Suppress activeLeafChanged emissions while we materialize the layout;
+    // KDDW's own substrate signals (isCurrentTabChanged) would otherwise
+    // route back through host wiring and fire activeLeafChanged once per
+    // dock-widget creation. The gate is lifted below once the active leaf
+    // has been resolved, with `layoutReady()` emitted exactly once.
+    setLayoutReady(false);
+
     // Drop existing leaves; KDDW MainWindow reused.
     qDeleteAll(m_leaves);
     m_leaves.clear();
@@ -701,28 +727,41 @@ void Workspace::deserialize(const QJsonObject &json)
         m_activeLeaf->loadIfDeferred();
 
     Q_EMIT layoutChanged();
+    setLayoutReady(true);
+
+    // Layout settled: fire one activeLeafChanged for the resolved active
+    // leaf so consumers that subscribed before the load (or that wait on
+    // layoutReady) see exactly one signal for the post-load state. The
+    // ping-through-null hop forces setActiveLeaf past its identity gate.
+    if (auto *target = m_activeLeaf) {
+        m_activeLeaf = nullptr;
+        setActiveLeaf(target);
+    }
 }
 
 void Workspace::readWorkspaceJson(const QString &vaultPath)
 {
     QString path = vaultPath + QStringLiteral("/.obsidian/workspace.json");
     QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) {
+    auto installDefaultAndReady = [this]() {
+        // Force a false → true gate transition even on the no-vault fallback
+        // so layoutReady fires exactly once for downstream consumers.
+        setLayoutReady(false);
         resetToDefaultLayout();
-        // Spec: default layout must have at least one leaf with an active leaf.
         auto *leaf = createLeafInActiveGroup();
+        setLayoutReady(true);
         if (leaf)
             setActiveLeaf(leaf);
+    };
+    if (!f.open(QIODevice::ReadOnly)) {
+        installDefaultAndReady();
         return;
     }
 
     QJsonParseError err;
     QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
     if (err.error != QJsonParseError::NoError) {
-        resetToDefaultLayout();
-        auto *leaf = createLeafInActiveGroup();
-        if (leaf)
-            setActiveLeaf(leaf);
+        installDefaultAndReady();
         return;
     }
 

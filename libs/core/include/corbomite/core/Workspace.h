@@ -59,6 +59,14 @@ public:
     WorkspaceLeaf *activeLeaf() const;
     void setActiveLeaf(WorkspaceLeaf *leaf);
 
+    /// Layout-ready gate. Default `true` for freshly-constructed workspaces;
+    /// flipped `false` while a workspace.json load is in flight to suppress
+    /// activeLeafChanged cascades during materialization, then back to `true`
+    /// (with `layoutReady` emitted). Mirrors Obsidian's `Workspace.layoutReady`
+    /// invariant — see `docs/obsidian-audit/domains/workspace.md §"layout-ready"`.
+    void setLayoutReady(bool ready);
+    bool isLayoutReady() const;
+
     QStringList lastOpenFiles() const;
     void setLastOpenFiles(const QStringList &files);
     void pushLastOpenFile(const QString &path);
@@ -148,6 +156,10 @@ public:
 Q_SIGNALS:
     void activeLeafChanged(WorkspaceLeaf *leaf);
     void layoutChanged();
+    /// Emitted on every `false → true` transition of the layout-ready gate
+    /// (typically at the end of `deserialize`/`readWorkspaceJson`), once
+    /// the workspace is safe to consume `activeLeafChanged` from.
+    void layoutReady();
     void leafClosed(WorkspaceLeaf *leaf);
     void revealDockViewRequested(const QString &slug);
     void commandRequested(const QString &commandId);
@@ -182,6 +194,7 @@ private:
     QHash<WorkspaceLeaf *, QString> m_tabGroupOf;
 
     WorkspaceLeaf *m_activeLeaf = nullptr;
+    bool m_layoutReady = true;
     QVector<WorkspaceWindow *> m_windows;
     QVector<UndoEntry> m_undoHistory;
     QStringList m_lastOpenFiles;
