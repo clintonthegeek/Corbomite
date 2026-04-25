@@ -53,6 +53,18 @@ Run tests:
 cd build && ctest --output-on-failure -j 10
 ```
 
+### Dependencies
+
+Corbomite requires these system libraries at build time:
+
+- Qt 6.8+ (`Core Widgets DBus Sql Svg PrintSupport`)
+- ECM 6.0+ (`extra-cmake-modules`)
+- KDE Frameworks 6 (`CoreAddons I18n XmlGui WidgetsAddons IconThemes Config ConfigWidgets ColorScheme DBusAddons SyntaxHighlighting`)
+- **KDDockWidgets 2.0+** (`kddockwidgets-qt6` on Arch/Manjaro; provides tab-drag, split, and floating-window substrate)
+- tree-sitter (vendored in `libs/markoff-parser/`)
+- jkqtmathtext (vendored at `libs/jkqtmathtext/`)
+- Optional: `qt6keychain` for persistent SecretStorage (auto-disables if absent)
+
 ### Dev Build Isolation
 
 Always configure with `-DCORBOMITE_DEV_BUILD=ON` so dev builds use isolated config/data directories and don't interfere with any installed release version.
