@@ -286,3 +286,16 @@ target_link_libraries(tst_workspace_embed_kxmlgui PRIVATE
     KF6::XmlGui KF6::ConfigWidgets
     KDAB::kddockwidgets)
 set_tests_properties(tst_workspace_embed_kxmlgui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster Y Phase 3: WorkspaceSerializer round-trip against synthetic KDDW trees
+add_executable(tst_workspace_serializer tst_workspace_serializer.cpp)
+add_test(NAME tst_workspace_serializer COMMAND tst_workspace_serializer)
+target_link_libraries(tst_workspace_serializer PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Core
+    KDAB::kddockwidgets)
+target_include_directories(tst_workspace_serializer PRIVATE
+    ${CMAKE_SOURCE_DIR}/libs/core/src)
+target_compile_definitions(tst_workspace_serializer PRIVATE
+    CORBOMITE_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+set_tests_properties(tst_workspace_serializer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

@@ -112,6 +112,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/SystemThemeBuilder.h
     src/ThemeService.cpp
     include/corbomite/core/ThemeService.h
+    src/WorkspaceSerializer.cpp
+    src/WorkspaceSerializer.h
 )
 set_target_properties(corbomite-core PROPERTIES
     POSITION_INDEPENDENT_CODE ON
