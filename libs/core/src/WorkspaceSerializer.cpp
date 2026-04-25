@@ -3,6 +3,7 @@
 
 #include "WorkspaceSerializer.h"
 
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonObject>
 
@@ -14,6 +15,15 @@
 namespace Corbomite::WorkspaceSerializer {
 
 namespace {
+
+// Phase 3 workaround: stackedness stored as a sidecar map keyed by
+// first-leaf-id of the tabs group.  Phase 4 replaces this with a
+// WorkspaceLeaf-carried flag once Workspace owns the leaf model.
+QHash<QString, bool> &stackedSidecar()
+{
+    static QHash<QString, bool> map;
+    return map;
+}
 
 // Internal types — not exported.  Mirror Obsidian's node types (split, tabs,
 // leaf, window) for serialization only.  They do NOT own widgets.
@@ -64,6 +74,9 @@ TabsNode parseTabs(const QJsonObject &o)
     n.stacked = o.value(QStringLiteral("stacked")).toBool(false);
     for (auto v : o.value(QStringLiteral("children")).toArray()) {
         n.children.append(parseLeaf(v.toObject()));
+    }
+    if (n.stacked && !n.children.isEmpty()) {
+        stackedSidecar().insert(n.children.first().id, true);
     }
     return n;
 }
@@ -154,6 +167,10 @@ SplitNode walkKddwTreeSimple(KDDockWidgets::QtWidgets::MainWindow *main)
         l.icon = QStringLiteral("lucide-file");
         l.title = QStringLiteral("New tab");
         onlyTabs.children.append(l);
+    }
+    if (!onlyTabs.children.isEmpty()
+        && stackedSidecar().value(onlyTabs.children.first().id, false)) {
+        onlyTabs.stacked = true;
     }
 
     root.tabsChildren.append(onlyTabs);

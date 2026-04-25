@@ -34,6 +34,7 @@ private slots:
     void fixture01_singleLeaf_roundTrip_isShapeEquivalent();
     void fixture02_horizontalSplit_twoDockWidgetsSideBySide();
     void fixture03_nestedSplits_threeDockWidgetsInCorrectGroups();
+    void fixture04_stackedTabs_preservesStackedFlag();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -133,6 +134,31 @@ void TestWorkspaceSerializer::fixture03_nestedSplits_threeDockWidgetsInCorrectGr
 
     // Three side-by-side leaves => three KDDW Groups (none tabbed together).
     QCOMPARE(registry->groups().size(), 3);
+}
+
+void TestWorkspaceSerializer::fixture04_stackedTabs_preservesStackedFlag()
+{
+    auto jsonIn = readFixture(QStringLiteral("04-stacked-tabs.json"));
+    QVERIFY(!jsonIn.isEmpty());
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f04"), KDDockWidgets::MainWindowOption_None);
+
+    Corbomite::WorkspaceSerializer::fromJson(jsonIn, mainWindow.get(), nullptr);
+
+    auto *registry = KDDockWidgets::DockRegistry::self();
+    QCOMPARE(registry->dockwidgets().size(), 3);
+    // All three leaves tab into a single Group.
+    QCOMPARE(registry->groups().size(), 1);
+
+    auto jsonOut = Corbomite::WorkspaceSerializer::toJson(mainWindow.get(), nullptr);
+    auto tabsOut = jsonOut.value(QStringLiteral("main"))
+                       .toObject()
+                       .value(QStringLiteral("children"))
+                       .toArray()
+                       .first()
+                       .toObject();
+    QCOMPARE(tabsOut.value(QStringLiteral("type")).toString(), QStringLiteral("tabs"));
+    QCOMPARE(tabsOut.value(QStringLiteral("stacked")).toBool(), true);
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)
