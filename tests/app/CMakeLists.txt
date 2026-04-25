@@ -55,6 +55,18 @@ target_link_libraries(tst_mainwindow_action_wiring PRIVATE
 set_tests_properties(tst_mainwindow_action_wiring PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster V.2 Phase 2 — pin the round-trip semantics of the three
+# VaultConfig::mergeJson calls MainWindow::applyVaultPortableSettings()
+# performs (appearance / daily-notes / templates JSON). Exercising the
+# dispatcher would require a full MainWindow Qt loop; this test pins the
+# wire-format and unknown-key-preservation guarantees instead.
+add_executable(tst_mainwindow_settings_apply tst_mainwindow_settings_apply.cpp)
+add_test(NAME tst_mainwindow_settings_apply COMMAND tst_mainwindow_settings_apply)
+target_link_libraries(tst_mainwindow_settings_apply PRIVATE
+    Qt6::Test Corbomite::Storage)
+set_tests_properties(tst_mainwindow_settings_apply PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Phase C7 Task 14 — pin the Cluster R hamburger Find/Replace dispatch
 # (Task 12) and MainWindow's edit_find_next/_previous/_replace QAction
 # routing into the active leaf (Task 13). Synthetic MarkdownView wrapper

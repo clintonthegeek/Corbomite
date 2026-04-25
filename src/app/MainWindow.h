@@ -112,6 +112,7 @@ protected:
 private:
     void setupActions();
     void applyTheme();
+    void applyVaultPortableSettings();
     void setupSidebars();
     void setupStatusBar();
     void setupEditor();

@@ -93,6 +93,7 @@
 #include <QVBoxLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QTextCursor>
 #include <QTabBar>
 #include <QScrollBar>
@@ -2424,9 +2425,62 @@ void MainWindow::applyTheme()
     if (idx.isValid()) mgr->activateScheme(idx);
 }
 
+void MainWindow::applyVaultPortableSettings()
+{
+    if (!m_vaultObj || !m_vaultObj->isLoaded()) {
+        return; // No vault open — nothing to persist.
+    }
+    auto *settings = CorbomiteSettings::self();
+    FileSystemAdapter fs; // stateless; cheap to construct
+    VaultConfig vc(&fs, m_vaultObj->basePath());
+    if (!vc.ensureConfigDir()) {
+        return; // Vault not writable — silently skip; toast is V.future scope.
+    }
+
+    // appearance.json — theme key.
+    {
+        QJsonObject upd;
+        const QString theme = settings->theme();
+        if (!theme.isEmpty()) {
+            upd.insert(QStringLiteral("theme"), theme);
+        }
+        if (!upd.isEmpty()) {
+            vc.mergeJson(QStringLiteral("appearance.json"), upd);
+        }
+    }
+
+    // daily-notes.json — folder, format, template (Obsidian's daily-notes
+    // plugin keys).
+    {
+        QJsonObject upd;
+        const QString folder = settings->dailyNoteFolder();
+        const QString format = settings->dailyNoteDateFormat();
+        const QString tmpl = settings->dailyNoteTemplate();
+        if (!folder.isEmpty()) upd.insert(QStringLiteral("folder"), folder);
+        if (!format.isEmpty()) upd.insert(QStringLiteral("format"), format);
+        if (!tmpl.isEmpty())   upd.insert(QStringLiteral("template"), tmpl);
+        if (!upd.isEmpty()) {
+            vc.mergeJson(QStringLiteral("daily-notes.json"), upd);
+        }
+    }
+
+    // templates.json — folder key.
+    {
+        QJsonObject upd;
+        const QString folder = settings->templateFolder();
+        if (!folder.isEmpty()) {
+            upd.insert(QStringLiteral("folder"), folder);
+        }
+        if (!upd.isEmpty()) {
+            vc.mergeJson(QStringLiteral("templates.json"), upd);
+        }
+    }
+}
+
 void MainWindow::onSettingsApplied()
 {
     applyTheme();
+    applyVaultPortableSettings();
     // Future appliers (V.2 autosave-delay etc.) hook here.
 }
 
