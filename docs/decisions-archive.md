@@ -10,6 +10,104 @@ Conventions:
 
 ---
 
+## 2026-04-25 — Cluster Y Phase 3 (WorkspaceSerializer round-trip against synthetic KDDW trees) done end-to-end.
+
+WorkspaceSerializer round-trip against synthetic KDDW trees, executed via
+`superpowers:executing-plans` directly on master across 10 commits
+(`19469965..05da6a04`). Shipped: `libs/core/src/WorkspaceSerializer.{h,cpp}`
+(private; consumed by tests via `target_include_directories(... PRIVATE
+libs/core/src)` — kept out of `include/` because Phase 4 will replace
+`walkKddwTreeSimple` with a real Workspace-driven walker). Round-trip
+works for 9 fixture shapes (single leaf, 2-child horizontal split, nested
+splits, stacked tabs, floating window, pinned+group, empty-default,
+unknown-keys, orphan-leaf recovery) plus a malformed-JSON test, 12 test
+cases total in `tests/core/tst_workspace_serializer.cpp`.
+
+Plan adaptations from the as-written spec: `corbomite_add_test(... DATA_DIR
+...)` helper doesn't exist (used direct `add_executable` +
+`target_compile_definitions(... CORBOMITE_TEST_FIXTURE_DIR=...)` instead,
+matching `tests/core/CMakeLists.txt` convention); KDDW headers live under
+`kddockwidgets/qtwidgets/` not `kddockwidgets/` (KDDW 2.4 frontend split);
+`KDDockWidgets::initFrontend(FrontendType::QtWidgets)` required in
+`initTestCase()`; tests live in `tests/core/` not `libs/core/tests/`. The
+plan's `MainWindow::dockWidgets()` and `mainWindow->dockByName()` calls
+don't match the real API — those accessors live on
+`KDDockWidgets::DockRegistry::self()` (no `Core::` namespace prefix
+despite the header sitting under `kddockwidgets/core/`); tests use
+`registry->dockwidgets().size()` (lowercase 'w') and
+`registry->groups().size()` to assert structural shape. Cleanup runs
+`KDDockWidgets::DockRegistry::self()->clear()` between cases for
+isolation. The `setAsCurrentTab()` lookup uses
+`KDDockWidgets::Core::DockWidget::byName(...)` (returns
+`Core::DockWidget*`).
+
+Two architectural workarounds carry forward to Phase 4 (both signposted
+in code comments):
+
+(1) **Sidecar maps** for round-trip metadata that the KDDW layout itself
+doesn't carry — `stackedSidecar` (keyed by first-leaf-id of the tabs
+group) for the Obsidian "stacked tabs" flag; `leafSidecar` (keyed by
+leaf id) for pinned/group/viewType/icon/title/state/unknownKeys. Phase 4
+retires both by reading from the live `WorkspaceLeaf` model. The pattern
+generalizes: parse* records full node shape into the sidecar; the
+walkKddw* helpers consult the sidecar by id when emitting toJson, falling
+back to placeholder values for unknown ids (production code path post-P4
+won't need the fallback because the Workspace will own ground-truth
+metadata for every leaf).
+
+(2) **Floating-window construction quirk** — `setFloating(true)` is a
+no-op on a freshly-constructed never-attached DockWidget; we dock the
+first leaf into the host MainWindow as a transient hold, then
+`setFloating(true)` detaches it into a fresh FloatingWindow. Also
+requires the MainWindow already be `show()`-n; production callers
+(Workspace) satisfy this trivially, tests must call `mainWindow->show()`
+before `fromJson`. Both `setFloating` and `setFloatingGeometry` live on
+`Core::DockWidget`, reached from `QtWidgets::DockWidget` via `dw->dockWidget()`
+(the `DockWidgetViewInterface::dockWidget()` accessor).
+
+**Orphan-leaf recovery:** when a previous sibling in a split fails to
+materialize (empty tabs node), `anchorForNext` stays null and KDDW
+gracefully falls back to docking at the MainWindow root; we log via
+`corbomite.workspace.serializer` category and force the fallback location
+to `Location_OnRight` for a predictable spot.
+
+**Malformed-JSON path:** wrong-typed or empty `main` (and a parsed
+root-split with no children) installs a single default-empty-leaf dock
+widget rather than leaving the workspace blank.
+
+**Unknown-key retention:** `LeafNode::unknownKeys: QJsonObject` captures
+any keys outside the known set (`id`/`type`/`state`/`pinned`/`group`)
+at parseLeaf time; renderLeaf merges them back. Phase 4 should extend the
+same pattern to TabsNode, SplitNode, WindowNode and the workspace.json
+top level.
+
+**Recursion shape:** `materializeSplit` + `materializeTabs` cooperate
+via a `placeChild` lambda: first child anchors at `baseLocation`
+(`Location_OnLeft` for the root); subsequent children of a horizontal
+split land `Location_OnRight` relative to the previous sibling's first
+DockWidget; vertical splits use `Location_OnBottom`. Returns the first
+DockWidget of each subtree as the anchor for the next sibling.
+
+Full Corbomite ctest 283/288 — 5 pre-existing flakes only
+(`tst_markoff_undo_grouping`, `tst_markoff_table_operations`,
+`tst_completion_popup`, `tst_quadtree`, `tst_benchmark_layout`); confirmed
+pre-existing by stashing the WorkspaceSerializer changes and re-running.
+
+New backlog entry: split-right hamburger sometimes duplicates the open
+tab (Obsidian-correct behaviour) and sometimes opens a blank tab. Hard
+to pin down — possibly vault-layout-corruption from a prior session, or a
+CommandRegistry dispatch race, or the in-tree (pre-Y) Workspace's split
+logic itself diverging from Obsidian's leaf-cloning semantics. Expected
+to iron out under Phase 4+ when the real Workspace routes through KDDW.
+
+Next: Phase 4 (flip Workspace internals to KDDW substrate, ~3-4 days).
+How to apply: when extending the serializer, prefer adding to the
+parse/render pair + sidecar map over wiring KDDW-specific accessors
+directly; Phase 4 will collapse the sidecars into WorkspaceLeaf-resident
+state and the parse/render pair stays.
+
+---
+
 ## 2026-04-23 — Phase C8 (Inline-ORC canonical coherence) done end-to-end; Markoff v0.9.1.
 
 The inline-ORC canonical-coherence bug discovered earlier the same day

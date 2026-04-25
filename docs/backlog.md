@@ -199,6 +199,12 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Details:** Suspected Qt-platform interaction, not Corbomite code. Tab drag was recently working on the user's environment (per Cluster G era). Could have regressed with: (a) a Qt6 version bump, (b) a KWin protocol change, (c) a recent commit that injected a non-popup widget into the drag path. Possible workaround: reimplement tab reorder via custom mouse-event handling rather than relying on QTabBar's built-in drag (which is what Cluster Y will deliver anyway via KDDW). For now, X11-secondary user can use `QT_QPA_PLATFORM=xcb ./build-dev/bin/Corbomite` to confirm-or-deny it's Wayland-specific.
 - **Cluster Y interaction:** when Cluster Y Phase 4 lands, `QTabBar` is replaced by KDDW's `Stack` + `TabBar`, which have their own drag implementation. If KDDW's drag works on Wayland (likely — KDDW is widely used on Wayland), Cluster Y closes this incidentally. Until then, file as a known Wayland-only regression.
 
+### Hamburger "Split right" / "Split down" — duplicated-vs-blank new leaf is non-deterministic
+- **Source:** user observation 2026-04-25 during Cluster Y Phase 3 manual QA.
+- **Blocks:** nothing hard; UX correctness.
+- **Scope:** unknown — needs diagnosis. Likely ironed out under Cluster Y Phase 4+ when the Workspace itself routes through KDDW.
+- **Details:** With dispatch wiring fixed (§3 entry above, commit `69504a03`), invoking the per-view hamburger "…" → "Split right" / "Split down" sometimes opens the *current* tab as a peer (Obsidian-correct: same file shown twice, useful for split-screen review of one document) and sometimes opens an empty/blank tab. Hard to pin down a reproducer; user suspects either vault layout corruption from a prior session, a race in `Workspace::duplicateLeaf` (the slot the KAction triggers), or that the in-tree (pre-Y) Workspace's split logic itself diverges from Obsidian's leaf-cloning semantics. Defer diagnosis until Cluster Y Phase 4 lands and the real Workspace routes through the KDDW substrate; many split-related quirks are expected to fall out then.
+
 ### Markoff Live block-math reveal: style-leak / phantom-hidden chars in revealed raw LaTeX
 - **Source:** discovered 2026-04-23 during C8 Phase-1 dogfood; user screenshot at /home/clinton/Pictures/Screenshots/Screenshot_20260423_190905.png
 - **Blocks:** nothing (canonical coherence unaffected — C8 handles that); purely a Live-view visual quality issue for block math
