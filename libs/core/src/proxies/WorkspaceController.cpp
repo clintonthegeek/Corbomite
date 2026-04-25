@@ -66,9 +66,7 @@ bool WorkspaceController::openFile(const QString &relativePath)
         }
     }
 
-    auto *tabs = m_workspace->activeTabs();
-    if (!tabs) return false;
-    auto *leaf = m_workspace->createLeafInTabs(tabs);
+    auto *leaf = m_workspace->createLeafInActiveGroup();
     if (!leaf) return false;
 
     QString type;
