@@ -10,6 +10,104 @@ Conventions:
 
 ---
 
+## 2026-04-25 — Cluster Y Phase 7 (`getLeaf` factory + `openLinkText` dispatcher + WorkspaceController plugin-shape additions + WorkspaceContainer/Root/Floating/Sidedock stubs) done end-to-end.
+
+Phase 7 lands the plugin-API-shape-alignment deliverables. Five commits
+(`076a8346..bd1b50aa`) on master, one per task, in dependency order
+(enums → getLeaf → openLinkText → proxy additions → container stubs):
+
+  - `076a8346` — 7.1 LeafMode + LeafDirection enums + `getLeaf` decl
+  - `1ab53402` — 7.2 `Workspace::getLeaf` impl + 5 mode tests
+  - `bcd54fba` — 7.3 `Workspace::openLinkText` dispatcher + 4 tests
+  - `0252f539` — 7.4 5 `WorkspaceController` additions + 5 proxy tests
+  - `bd1b50aa` — 7.5 4 stub container classes + accessors + 5 tests
+
+**Design decision (LinkResolverFn injection seam, deviating from plan
+pseudocode).** The cluster plan §7.3 had `auto resolved =
+m_vault->resolveLink(path, source)` followed by `m_vault->createFile`
+on miss. That direct-call shape would invert the dep direction —
+Cluster Q.0 (2026-04-17) made `libs/vault → libs/core` the canonical
+direction, with `libs/core` PRIVATE-linking `Corbomite::Storage` (so
+`LinkResolver` is reachable but `Vault`/`MetadataCache`/`FileManager`
+which orchestrate resolution are not). Three options surveyed: (a)
+move `openLinkText` up to a vault-layer class, (b) pass an already-
+resolved path/subpath in (caller-resolves), (c) inject a resolver
+function on `Workspace`. Picked (c): `Workspace::setLinkResolver(
+std::function<QString(path, source)>)` with identity default. Option
+(a) would have changed which header plugins reach (`WorkspaceController`
+in `libs/core/include/...` is the existing plugin facade; moving the
+method elsewhere would require a parallel facade in vault). Option
+(b) pushes link parsing onto every caller — a dozen+ existing
+`openFileInWorkspace` sites in MainWindow + plugin code. Option (c)
+matches the audit's noted Pass-2 spec topic ("openLinkText resolution"
+in `docs/obsidian-audit/domains/workspace.md`) as a separable concern,
+keeps the Obsidian-shape API surface compatible from this commit
+forward, and the production wiring lands in a follow-up that injects
+a Vault+MetadataCache+create-if-missing lambda from MainWindow setup
+(or is absorbed into the pending Cluster Z linked-leaf brainstorm).
+
+**WorkspaceController string-mode encoding.** `openLinkText` + `getLeaf`
+on the proxy take string `mode` ("split" / "tab" / "window" / "same")
++ string `direction` ("horizontal" / "vertical") matching JS-plugin
+shapes; internal `parseLeafMode` / `parseLeafDirection` map to the
+enum. Unrecognised modes fall back to `LeafMode::Tab` — Obsidian's
+`getLeaf(true)` shorthand semantic. `viewTypeOfLeaf` consults
+`view->getViewType()` for live leaves and falls back to the cached
+state's `"type"` key for deferred ones, so "of type" matches survive
+lazy materialisation.
+
+**Container stubs.** `WorkspaceContainer` is the id+direction base;
+`WorkspaceRoot` defaults `"horizontal"`, owns id `"root"`, and is
+constructed in the primary `Workspace` ctor (parented). `WorkspaceFloating`
+holds a `QList<WorkspaceWindow*>`, synced from `popoutLeaf` /
+`reparentToMain`; the existing `Workspace::windows()` accessor still
+mirrors the same data. `WorkspaceSidedock` ships with `Side {Left,Right}`,
+collapsed flag, size — but `Workspace::leftSplit()` and `rightSplit()`
+return `nullptr` because Corbomite sidebars still live in
+`CorbomiteMDI`. Plugin code that walks `workspace.rootSplit() /
+floatingSplit()` works today; code that walks `leftSplit() / rightSplit()`
+gets `nullptr` and should null-check (mirroring Obsidian shape; the
+return-shape itself ships now so a future sidebar-migration cluster
+doesn't break the API).
+
+**Test architecture.** 19 new test cases across 3 files. `tst_workspace_factory`
+(new file, 9 cases) covers all 5 `getLeaf` modes + 4 `openLinkText`
+behaviours (simple, with-heading, with-eState-opts, with-resolver).
+`tst_workspace_containers` (new file, 5 cases) covers root present /
+sides nullptr / floating round-trip on popout+reparent / direction
+change signal / sidedock setters. `tst_proxy_workspace` (extended,
+5 new cases) covers all 5 proxy additions. Existing `StubView` in
+`tst_proxy_workspace.cpp` returns hardcoded `"stub"` from getViewType
+regardless of registry key + ignores ephemeralState — added a typed
+`MarkdownStubView` for the new tests so live `view->getViewType()`
+actually reports `"markdown"` and ephemeralState round-trips. The
+proxy fixture's `makeRegistry` now uses `MarkdownStubView` for its
+"markdown" registration; existing tests are unaffected (they don't
+inspect viewType) but the change is visible in the diff.
+
+**Test verification.** Targeted: `ctest -R "tst_workspace_containers|tst_workspace_factory|tst_proxy_workspace"` 3/3 pass. Full Corbomite ctest -j 10: 284/289 pass. The 5 failures (`tst_markoff_undo_grouping`, `tst_markoff_table_operations`, `tst_e2e_gui`, `tst_completion_popup`, `tst_benchmark_layout`) all live in the pre-existing known-flaky list in `docs/backlog.md §10 Stability` or originate in the Markoff submodule — none are introduced by Phase 7.
+
+**Carry-forward follow-up:** real `LinkResolverFn` wiring to
+Vault+MetadataCache+create-if-missing. Gets logged in Phase 8 closeout.
+
+**Cluster Y status post-7:** 7 of 8 phases done. Phase 8 (verification
++ retro + closeout) is the only remaining work, ~2 days. Approach B
+(KDDW hosts tree, Corbomite owns `.obsidian/workspace.json`,
+LayoutSaver unused), opacity (ii), scope β all hold.
+
+How to apply: when extending the plugin-facing `WorkspaceController`,
+mirror the Obsidian JS-plugin string-arg shape on the proxy and the
+typed-enum shape on `Workspace`, with a parser helper at the seam.
+When adding a `Workspace`-level operation that conceptually requires
+a `Vault`, prefer `std::function`-based DI over inverting the
+dep direction. When future Phase 7-style "shape-alignment" work
+surfaces in other clusters, write the test first, register a typed
+stub view that round-trips both state and ephemeralState (the View
+base no-ops both — easy to silently fail), and verify with
+`ctest -R <pattern>` before claiming the deliverable.
+
+---
+
 ## 2026-04-25 — Cluster Y Phase 6 (layoutReady gate + WorkspaceActiveLeafRouter + resize/windowFrameChange) done end-to-end.
 
 Phase 6 lands the active-leaf signal-shaping + the two missing
