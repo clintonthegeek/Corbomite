@@ -1,0 +1,33 @@
+{
+  "main": {
+    "id": "aaaaaaaaaaaaaaaa",
+    "type": "split",
+    "direction": "horizontal",
+    "children": [
+      {
+        "id": "bbbbbbbbbbbbbbbb",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "cccccccccccccccc",
+            "type": "leaf",
+            "state": { "type": "empty", "state": {}, "icon": "", "title": "" }
+          }
+        ]
+      },
+      {
+        "id": "dddddddddddddddd",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "eeeeeeeeeeeeeeee",
+            "type": "leaf",
+            "state": { "type": "empty", "state": {}, "icon": "", "title": "" }
+          }
+        ]
+      }
+    ]
+  },
+  "active": "cccccccccccccccc",
+  "lastOpenFiles": []
+}

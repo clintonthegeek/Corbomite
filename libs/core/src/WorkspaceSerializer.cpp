@@ -160,6 +160,97 @@ SplitNode walkKddwTreeSimple(KDDockWidgets::QtWidgets::MainWindow *main)
     return root;
 }
 
+// Translate an Obsidian split direction + position to a KDDW Location.
+// "horizontal" = left↔right siblings; "vertical" = top↔bottom siblings.
+KDDockWidgets::Location directionToKddwLocation(const QString &direction,
+                                                bool firstInParent)
+{
+    if (firstInParent) {
+        // Anchor placement; the first child of the root split has no sibling
+        // to relate to, so we place it on the left (KDDW grows the layout
+        // outward from this anchor).
+        return KDDockWidgets::Location_OnLeft;
+    }
+    return direction == QStringLiteral("horizontal")
+        ? KDDockWidgets::Location_OnRight
+        : KDDockWidgets::Location_OnBottom;
+}
+
+// Materialize one TabsNode: create N DockWidgets; the first becomes a new
+// container (placed at `location` relative to `relativeTo` if set, otherwise
+// docked into `main` directly); subsequent leaves are tabbed onto the first.
+// Returns the first DockWidget, which downstream callers use as the anchor
+// for further sibling placements.
+KDDockWidgets::QtWidgets::DockWidget *
+materializeTabs(const TabsNode &tabs,
+                KDDockWidgets::QtWidgets::MainWindow *main,
+                KDDockWidgets::QtWidgets::DockWidget *relativeTo,
+                KDDockWidgets::Location location)
+{
+    KDDockWidgets::QtWidgets::DockWidget *first = nullptr;
+    for (const auto &leaf : tabs.children) {
+        auto *dw = new KDDockWidgets::QtWidgets::DockWidget(leaf.id);
+        if (!first) {
+            main->addDockWidget(dw, location, relativeTo);
+            first = dw;
+        } else {
+            first->addDockWidgetAsTab(dw);
+        }
+    }
+    if (first && tabs.currentTab > 0 && tabs.currentTab < tabs.children.size()) {
+        if (auto *current = KDDockWidgets::Core::DockWidget::byName(
+                tabs.children[tabs.currentTab].id)) {
+            current->setAsCurrentTab();
+        }
+    }
+    return first;
+}
+
+// Forward declaration — materializeSplit recurses on itself.
+KDDockWidgets::QtWidgets::DockWidget *
+materializeSplit(const SplitNode &split,
+                 KDDockWidgets::QtWidgets::MainWindow *main,
+                 KDDockWidgets::QtWidgets::DockWidget *relativeTo,
+                 KDDockWidgets::Location baseLocation);
+
+KDDockWidgets::QtWidgets::DockWidget *
+materializeSplit(const SplitNode &split,
+                 KDDockWidgets::QtWidgets::MainWindow *main,
+                 KDDockWidgets::QtWidgets::DockWidget *relativeTo,
+                 KDDockWidgets::Location baseLocation)
+{
+    bool first = true;
+    KDDockWidgets::QtWidgets::DockWidget *anchorForNext = relativeTo;
+    KDDockWidgets::QtWidgets::DockWidget *firstAnchor = nullptr;
+
+    auto placeChild = [&](auto &&placeFn) {
+        auto loc = first
+            ? baseLocation
+            : directionToKddwLocation(split.direction, /*firstInParent=*/false);
+        auto *placed = placeFn(loc, anchorForNext);
+        if (placed) {
+            if (!firstAnchor) firstAnchor = placed;
+            anchorForNext = placed;
+        }
+        first = false;
+    };
+
+    for (const auto &childTabs : split.tabsChildren) {
+        placeChild([&](KDDockWidgets::Location loc,
+                       KDDockWidgets::QtWidgets::DockWidget *rel) {
+            return materializeTabs(childTabs, main, rel, loc);
+        });
+    }
+    for (const auto &childSplit : split.splitChildren) {
+        placeChild([&](KDDockWidgets::Location loc,
+                       KDDockWidgets::QtWidgets::DockWidget *rel) {
+            return materializeSplit(childSplit, main, rel, loc);
+        });
+    }
+
+    return firstAnchor;
+}
+
 } // namespace
 
 void fromJson(const QJsonObject &json,
@@ -168,15 +259,8 @@ void fromJson(const QJsonObject &json,
 {
     auto mainObj = json.value(QStringLiteral("main")).toObject();
     auto rootSplit = parseSplit(mainObj);
-
-    // Phase 3 Task 3.3: simplest case — one split, one tabs, N leaves.
-    // Later tasks generalize to nested splits + tabs.
-    for (const auto &tabs : rootSplit.tabsChildren) {
-        for (const auto &leaf : tabs.children) {
-            auto *dw = new KDDockWidgets::QtWidgets::DockWidget(leaf.id);
-            main->addDockWidget(dw, KDDockWidgets::Location_OnRight);
-        }
-    }
+    materializeSplit(rootSplit, main, /*relativeTo*/ nullptr,
+                     KDDockWidgets::Location_OnLeft);
 }
 
 QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace * /*workspace*/)

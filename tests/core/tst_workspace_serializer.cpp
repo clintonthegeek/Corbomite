@@ -32,6 +32,7 @@ private slots:
 
     void fixture01_singleLeaf_fromJson_createsOneDockWidget();
     void fixture01_singleLeaf_roundTrip_isShapeEquivalent();
+    void fixture02_horizontalSplit_twoDockWidgetsSideBySide();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -88,6 +89,30 @@ void TestWorkspaceSerializer::fixture01_singleLeaf_roundTrip_isShapeEquivalent()
              mainIn.value(QStringLiteral("type")).toString());
     QCOMPARE(mainOut.value(QStringLiteral("children")).toArray().size(),
              mainIn.value(QStringLiteral("children")).toArray().size());
+}
+
+void TestWorkspaceSerializer::fixture02_horizontalSplit_twoDockWidgetsSideBySide()
+{
+    auto json = readFixture(QStringLiteral("02-two-leaf-split-horizontal.json"));
+    QVERIFY(!json.isEmpty());
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f02"), KDDockWidgets::MainWindowOption_None);
+
+    Corbomite::WorkspaceSerializer::fromJson(json, mainWindow.get(), nullptr);
+
+    auto *registry = KDDockWidgets::DockRegistry::self();
+    QCOMPARE(registry->dockwidgets().size(), 2);
+
+    auto *dw1 = registry->dockByName(QStringLiteral("cccccccccccccccc"));
+    auto *dw2 = registry->dockByName(QStringLiteral("eeeeeeeeeeeeeeee"));
+    QVERIFY(dw1);
+    QVERIFY(dw2);
+
+    // Side-by-side splits create two separate KDDW Groups (one per leaf).
+    // Tabbed leaves would share a Group and report isTabbed() == true.
+    QCOMPARE(dw1->isTabbed(), false);
+    QCOMPARE(dw2->isTabbed(), false);
+    QCOMPARE(registry->groups().size(), 2);
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)
