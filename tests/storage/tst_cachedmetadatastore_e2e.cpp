@@ -43,7 +43,7 @@ private Q_SLOTS:
     // End-to-end: open MetadataCache against a fresh DB, populate via the
     // real rebuildVault path (the same call site MainWindow::onVaultOpened
     // uses), close (which persists), reopen, and verify the snapshot was
-    // restored. This is the integration gate for the Phase 6 wiring; the
+    // restored. This is the integration gate for the Phase 3 wiring; the
     // unit-level loadInto/persistFrom round-trip is covered by
     // tst_cachedmetadatastore.cpp.
     void testRealVaultRoundTrip()
