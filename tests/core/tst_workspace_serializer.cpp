@@ -35,6 +35,7 @@ private slots:
     void fixture02_horizontalSplit_twoDockWidgetsSideBySide();
     void fixture03_nestedSplits_threeDockWidgetsInCorrectGroups();
     void fixture04_stackedTabs_preservesStackedFlag();
+    void fixture05_floatingWindow_createsFloatingWindow();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -159,6 +160,29 @@ void TestWorkspaceSerializer::fixture04_stackedTabs_preservesStackedFlag()
                        .toObject();
     QCOMPARE(tabsOut.value(QStringLiteral("type")).toString(), QStringLiteral("tabs"));
     QCOMPARE(tabsOut.value(QStringLiteral("stacked")).toBool(), true);
+}
+
+void TestWorkspaceSerializer::fixture05_floatingWindow_createsFloatingWindow()
+{
+    auto jsonIn = readFixture(QStringLiteral("05-floating-window.json"));
+    QVERIFY(!jsonIn.isEmpty());
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f05"), KDDockWidgets::MainWindowOption_None);
+    mainWindow->show();
+
+    Corbomite::WorkspaceSerializer::fromJson(jsonIn, mainWindow.get(), nullptr);
+
+    auto *registry = KDDockWidgets::DockRegistry::self();
+    QCOMPARE(registry->dockwidgets().size(), 2);
+    auto floats = registry->floatingWindows();
+    QCOMPARE(floats.size(), 1);
+
+    // Round-trip: the output JSON should carry a "floating" object whose
+    // children array has one entry (the single floating window).
+    auto jsonOut = Corbomite::WorkspaceSerializer::toJson(mainWindow.get(), nullptr);
+    auto floatingOut = jsonOut.value(QStringLiteral("floating")).toObject();
+    QVERIFY(!floatingOut.isEmpty());
+    QCOMPARE(floatingOut.value(QStringLiteral("children")).toArray().size(), 1);
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)

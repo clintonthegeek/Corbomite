@@ -1,0 +1,51 @@
+{
+  "main": {
+    "id": "main1111aaaaaaaa",
+    "type": "split",
+    "direction": "vertical",
+    "children": [
+      {
+        "id": "mtabs111aaaaaaa",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "mleaf11aaaaaaaa",
+            "type": "leaf",
+            "state": { "type": "empty", "state": {} }
+          }
+        ]
+      }
+    ]
+  },
+  "floating": {
+    "id": "floating1aaaaaaa",
+    "type": "floating",
+    "children": [
+      {
+        "id": "win11111aaaaaaaa",
+        "type": "window",
+        "direction": "vertical",
+        "x": 100,
+        "y": 100,
+        "width": 800,
+        "height": 600,
+        "maximize": false,
+        "children": [
+          {
+            "id": "ftabs111aaaaaaa",
+            "type": "tabs",
+            "children": [
+              {
+                "id": "fleaf11aaaaaaaa",
+                "type": "leaf",
+                "state": { "type": "empty", "state": {} }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "active": "mleaf11aaaaaaaa",
+  "lastOpenFiles": []
+}

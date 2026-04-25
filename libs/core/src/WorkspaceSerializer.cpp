@@ -9,6 +9,8 @@
 
 #include <kddockwidgets/KDDockWidgets.h>
 #include <kddockwidgets/core/DockRegistry.h>
+#include <kddockwidgets/core/DockWidget.h>
+#include <kddockwidgets/core/FloatingWindow.h>
 #include <kddockwidgets/qtwidgets/DockWidget.h>
 #include <kddockwidgets/qtwidgets/MainWindow.h>
 
@@ -50,6 +52,13 @@ struct SplitNode {
     QList<SplitNode> splitChildren;
     QList<TabsNode> tabsChildren;
     // Variant-like: a node has EITHER splitChildren OR tabsChildren, not both.
+};
+
+struct WindowNode {
+    QString id;
+    int x = 0, y = 0, width = 0, height = 0;
+    bool maximize = false;
+    SplitNode content;
 };
 
 LeafNode parseLeaf(const QJsonObject &o)
@@ -97,6 +106,21 @@ SplitNode parseSplit(const QJsonObject &o)
         }
     }
     return n;
+}
+
+WindowNode parseWindow(const QJsonObject &o)
+{
+    WindowNode w;
+    w.id = o.value(QStringLiteral("id")).toString();
+    w.x = o.value(QStringLiteral("x")).toInt(0);
+    w.y = o.value(QStringLiteral("y")).toInt(0);
+    w.width = o.value(QStringLiteral("width")).toInt(0);
+    w.height = o.value(QStringLiteral("height")).toInt(0);
+    w.maximize = o.value(QStringLiteral("maximize")).toBool(false);
+    // The window node carries the same children shape as a split node:
+    // either tabs or nested splits beneath it.
+    w.content = parseSplit(o);
+    return w;
 }
 
 QJsonObject renderLeaf(const LeafNode &n)
@@ -161,6 +185,9 @@ SplitNode walkKddwTreeSimple(KDDockWidgets::QtWidgets::MainWindow *main)
     Q_UNUSED(main);
     auto *registry = KDDockWidgets::DockRegistry::self();
     for (auto *dw : registry->dockwidgets()) {
+        // Skip docks living in a floating window — those are emitted under
+        // the top-level "floating" key, not the main-area split tree.
+        if (dw->floatingWindow() != nullptr) continue;
         LeafNode l;
         l.id = dw->uniqueName();
         l.viewType = QStringLiteral("empty");
@@ -268,6 +295,62 @@ materializeSplit(const SplitNode &split,
     return firstAnchor;
 }
 
+// Materialize a floating window: create the leaves of its first tabs child,
+// float the first leaf at the given geometry, then tab the rest onto it.
+// Phase 3 only handles the single-tabs case; nested splits inside floating
+// windows would extend this similarly to materializeSplit.
+//
+// KDDW won't materialize a FloatingWindow for a freshly constructed,
+// never-attached DockWidget because the dock has no prior layout.  We dock
+// the first leaf into the supplied MainWindow as a momentary hold, then
+// setFloating(true) detaches it into a fresh FloatingWindow.  Requires the
+// MainWindow be already shown — without a realized window KDDW won't
+// allocate the FloatingWindow at all.  Production callers (Workspace) will
+// always satisfy this since the main window is shown at app start; tests
+// must call mainWindow->show() before fromJson if they care about
+// floating-window construction.
+void materializeFloatingWindow(const WindowNode &w,
+                               KDDockWidgets::QtWidgets::MainWindow *main)
+{
+    if (w.content.tabsChildren.isEmpty()) return;
+    const auto &tabs = w.content.tabsChildren.first();
+    if (tabs.children.isEmpty()) return;
+
+    KDDockWidgets::QtWidgets::DockWidget *first = nullptr;
+    for (const auto &leaf : tabs.children) {
+        auto *dw = new KDDockWidgets::QtWidgets::DockWidget(leaf.id);
+        if (!first) {
+            main->addDockWidget(dw, KDDockWidgets::Location_OnRight);
+            dw->dockWidget()->setFloating(true);
+            if (w.width > 0 && w.height > 0) {
+                dw->dockWidget()->setFloatingGeometry(
+                    QRect(w.x, w.y, w.width, w.height));
+            }
+            first = dw;
+        } else {
+            first->addDockWidgetAsTab(dw);
+        }
+    }
+}
+
+// Build a SplitNode that mirrors the layout of a single floating window.
+// Phase 3: collapse the floating window's contents into one tabs child
+// (matching walkKddwTreeSimple's main-area approximation).
+SplitNode floatingWindowAsSplit(KDDockWidgets::Core::FloatingWindow *fw)
+{
+    SplitNode root;
+    root.direction = QStringLiteral("vertical");
+    TabsNode tabs;
+    for (auto *dw : fw->dockWidgets()) {
+        LeafNode l;
+        l.id = dw->uniqueName();
+        l.viewType = QStringLiteral("empty");
+        tabs.children.append(l);
+    }
+    root.tabsChildren.append(tabs);
+    return root;
+}
+
 } // namespace
 
 void fromJson(const QJsonObject &json,
@@ -278,12 +361,38 @@ void fromJson(const QJsonObject &json,
     auto rootSplit = parseSplit(mainObj);
     materializeSplit(rootSplit, main, /*relativeTo*/ nullptr,
                      KDDockWidgets::Location_OnLeft);
+
+    auto floatingObj = json.value(QStringLiteral("floating")).toObject();
+    for (auto v : floatingObj.value(QStringLiteral("children")).toArray()) {
+        auto childObj = v.toObject();
+        if (childObj.value(QStringLiteral("type")).toString()
+            == QStringLiteral("window")) {
+            materializeFloatingWindow(parseWindow(childObj), main);
+        }
+    }
 }
 
 QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace * /*workspace*/)
 {
     QJsonObject out;
     out[QStringLiteral("main")] = renderSplit(walkKddwTreeSimple(main));
+
+    auto *registry = KDDockWidgets::DockRegistry::self();
+    auto fws = registry->floatingWindows();
+    if (!fws.isEmpty()) {
+        QJsonObject floating;
+        floating[QStringLiteral("type")] = QStringLiteral("floating");
+        QJsonArray windows;
+        for (auto *fw : fws) {
+            QJsonObject windowObj = renderSplit(floatingWindowAsSplit(fw));
+            // Tag the node as a window rather than a split for round-trip clarity.
+            windowObj[QStringLiteral("type")] = QStringLiteral("window");
+            windows.append(windowObj);
+        }
+        floating[QStringLiteral("children")] = windows;
+        out[QStringLiteral("floating")] = floating;
+    }
+
     // "active" and "lastOpenFiles" added in later tasks.
     return out;
 }
