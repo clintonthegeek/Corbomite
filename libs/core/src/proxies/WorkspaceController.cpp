@@ -134,4 +134,79 @@ void WorkspaceController::revealDockView(const QString &slug)
     m_workspace->revealDockView(slug);
 }
 
+namespace {
+
+QString viewTypeOfLeaf(WorkspaceLeaf *leaf)
+{
+    if (!leaf) return {};
+    if (auto *view = leaf->view()) return view->getViewType();
+    // Deferred leaves keep `type` in the cached view-state.
+    return leaf->getViewState().value(QStringLiteral("type")).toString();
+}
+
+Workspace::LeafMode parseLeafMode(const QString &mode)
+{
+    if (mode == QLatin1String("split"))  return Workspace::LeafMode::Split;
+    if (mode == QLatin1String("window")) return Workspace::LeafMode::Window;
+    if (mode == QLatin1String("same"))   return Workspace::LeafMode::Same;
+    // Default ("tab" or unrecognised) → Tab. Mirrors Obsidian's
+    // `getLeaf(true|"tab")` shorthand.
+    return Workspace::LeafMode::Tab;
+}
+
+Workspace::LeafDirection parseLeafDirection(const QString &dir)
+{
+    return dir == QLatin1String("vertical")
+        ? Workspace::LeafDirection::Vertical
+        : Workspace::LeafDirection::Horizontal;
+}
+
+} // namespace
+
+QStringList WorkspaceController::getLeavesOfType(const QString &viewType) const
+{
+    QStringList out;
+    if (!m_workspace || viewType.isEmpty()) return out;
+    for (auto *leaf : m_workspace->allLeaves()) {
+        if (viewTypeOfLeaf(leaf) == viewType)
+            out.append(leaf->id());
+    }
+    return out;
+}
+
+void WorkspaceController::iterateAllLeaves(
+    std::function<void(const QString &leafId)> cb) const
+{
+    if (!m_workspace || !cb) return;
+    for (auto *leaf : m_workspace->allLeaves())
+        cb(leaf->id());
+}
+
+QString WorkspaceController::getActiveViewOfType(const QString &viewType) const
+{
+    if (!m_workspace || viewType.isEmpty()) return {};
+    auto *leaf = m_workspace->activeLeaf();
+    if (!leaf) return {};
+    return viewTypeOfLeaf(leaf) == viewType ? leaf->id() : QString{};
+}
+
+bool WorkspaceController::openLinkText(const QString &linktext,
+                                        const QString &source,
+                                        const QString &mode,
+                                        const QJsonObject &opts)
+{
+    if (!m_workspace) return false;
+    return m_workspace->openLinkText(linktext, source,
+                                      parseLeafMode(mode), opts);
+}
+
+QString WorkspaceController::getLeaf(const QString &mode,
+                                      const QString &direction)
+{
+    if (!m_workspace) return {};
+    auto *leaf = m_workspace->getLeaf(parseLeafMode(mode),
+                                       parseLeafDirection(direction));
+    return leaf ? leaf->id() : QString{};
+}
+
 } // namespace Corbomite

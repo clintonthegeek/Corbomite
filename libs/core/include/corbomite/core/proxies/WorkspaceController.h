@@ -2,8 +2,12 @@
 #pragma once
 
 #include <Qt>
+#include <QJsonObject>
 #include <QObject>
 #include <QString>
+#include <QStringList>
+
+#include <functional>
 
 namespace Corbomite {
 
@@ -63,6 +67,43 @@ public:
     /// resolves `slug` → tool view id `<slug>_panel` and raises it. Used
     /// by the `<plugin>:open` commands from Cluster R Task 3.1.
     void revealDockView(const QString &slug);
+
+    // --- Cluster Y Phase 7.4 — Obsidian-shape additions ---
+
+    /// Stable leaf ids for every leaf currently hosting a view of
+    /// `viewType`. Includes deferred leaves whose cached state carries
+    /// `viewType` (Obsidian counts those as "of type"). Order matches the
+    /// Workspace's insertion-ordered iteration.
+    QStringList getLeavesOfType(const QString &viewType) const;
+
+    /// Invoke `cb` once per leaf in the workspace, passing the leaf id.
+    /// DFS-order walk; mirrors `Workspace.iterateAllLeaves(cb)` from the
+    /// Obsidian plugin API. No-op if the workspace is null or `cb` empty.
+    void iterateAllLeaves(std::function<void(const QString &leafId)> cb) const;
+
+    /// Leaf id of the active leaf if its view type matches `viewType`,
+    /// else empty. Used by plugins that need to interrogate the active
+    /// view only when it is one of their own (e.g. `BasesView`).
+    QString getActiveViewOfType(const QString &viewType) const;
+
+    /// Open `linktext` in a leaf chosen per `mode`. String-mode argument
+    /// for plugin parity:
+    ///   - "split"  → `Workspace::LeafMode::Split`
+    ///   - "tab"    → `Workspace::LeafMode::Tab`
+    ///   - "window" → `Workspace::LeafMode::Window`
+    ///   - "same"   → `Workspace::LeafMode::Same`
+    /// Direction defaults to horizontal when `mode == "split"`. Delegates
+    /// to `Workspace::openLinkText`. Returns true on success.
+    bool openLinkText(const QString &linktext,
+                       const QString &source,
+                       const QString &mode,
+                       const QJsonObject &opts = {});
+
+    /// Obsidian-shape leaf factory exposed to plugins. Same string-mode
+    /// + direction encoding as `openLinkText`. Returns the new leaf's id,
+    /// or empty on failure.
+    QString getLeaf(const QString &mode,
+                     const QString &direction = QStringLiteral("horizontal"));
 
 Q_SIGNALS:
     /// Emitted when the active leaf changes — `relativePath` is the
