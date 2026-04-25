@@ -2297,7 +2297,7 @@ void TestWorkspacePopout::restoreFloatingWindow_preservesGeometry()
 - Create: `libs/core/src/WorkspaceActiveLeafRouter.cpp`
 - Modify: `libs/core/CMakeLists.txt`
 
-- [ ] **Step 1: Header**
+- [x] **Step 1: Header**
 
 ```cpp
 // libs/core/include/Corbomite/core/WorkspaceActiveLeafRouter.h
@@ -2343,7 +2343,7 @@ private:
 } // namespace Corbomite
 ```
 
-- [ ] **Step 2: Implementation**
+- [x] **Step 2: Implementation**
 
 ```cpp
 // libs/core/src/WorkspaceActiveLeafRouter.cpp
@@ -2397,7 +2397,7 @@ void WorkspaceActiveLeafRouter::onFocusChanged(QWidget * /*old*/, QWidget *now)
 } // namespace Corbomite
 ```
 
-- [ ] **Step 3: Wire into Workspace**
+- [x] **Step 3: Wire into Workspace**
 
 Add a member + construct in `Workspace::Workspace`. Forward `setActiveLeaf(leaf)` to the router. Connect the router's `activeLeafChanged` to the `Workspace::activeLeafChanged` signal.
 
@@ -2407,7 +2407,7 @@ Add a member + construct in `Workspace::Workspace`. Forward `setActiveLeaf(leaf)
 - Create: `libs/core/tests/tst_workspace_active_leaf_router.cpp`
 - Modify: `libs/core/tests/CMakeLists.txt`
 
-- [ ] **Step 1: Test file**
+- [x] **Step 1: Test file**
 
 ```cpp
 // libs/core/tests/tst_workspace_active_leaf_router.cpp
@@ -2461,11 +2461,11 @@ QTEST_MAIN(TestWorkspaceActiveLeafRouter)
 #include "tst_workspace_active_leaf_router.moc"
 ```
 
-- [ ] **Step 2: Run + iterate**
+- [x] **Step 2: Run + iterate**
 
 Expected: all three pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ## Task 6.3: Emit `layoutReady`, `resize`, `windowFrameChange`
 
@@ -2473,7 +2473,7 @@ Expected: all three pass.
 - Modify: `libs/core/include/Corbomite/core/Workspace.h`
 - Modify: `libs/core/src/Workspace.cpp`
 
-- [ ] **Step 1: Add signals**
+- [x] **Step 1: Add signals**
 
 In `Workspace.h`:
 
@@ -2485,7 +2485,7 @@ signals:
     void windowFrameChange();
 ```
 
-- [ ] **Step 2: Emit `layoutReady`**
+- [x] **Step 2: Emit `layoutReady`**
 
 At the end of `Workspace::deserialize()`:
 
@@ -2500,7 +2500,7 @@ void Workspace::deserialize(const QJsonObject &json)
 
 Also emit when Corbomite boots with no `workspace.json` (default tree) — after `fromJson` with `{}`.
 
-- [ ] **Step 3: Emit `resize`**
+- [x] **Step 3: Emit `resize`**
 
 Install an event filter on the `KDDW::MainWindow` that emits `Workspace::resize()` on `QEvent::Resize`:
 
@@ -2516,11 +2516,11 @@ bool Workspace::eventFilter(QObject *obj, QEvent *ev)
 
 In constructor: `m_kddwMain->installEventFilter(this);`
 
-- [ ] **Step 4: Emit `windowFrameChange`**
+- [x] **Step 4: Emit `windowFrameChange`**
 
 Connect to `KDDockWidgets::DockRegistry::floatingWindowCreated/floatingWindowDestroyed` signals (or the KDDW-equivalent) and emit `Workspace::windowFrameChange()` on each.
 
-- [ ] **Step 5: Add minimal tests + commit**
+- [x] **Step 5: Add minimal tests + commit**
 
 ---
 

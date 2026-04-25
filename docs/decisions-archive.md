@@ -10,6 +10,107 @@ Conventions:
 
 ---
 
+## 2026-04-25 — Cluster Y Phase 6 (layoutReady gate + WorkspaceActiveLeafRouter + resize/windowFrameChange) done end-to-end.
+
+Phase 6 lands the active-leaf signal-shaping + the two missing
+plugin-API parity signals. Three commits (`f065ed12..24b489cc`) on
+master, in dependency order (gate → router class → new signals):
+
+**Design decision (Hybrid).** Pre-execution research surfaced three
+viable shapes for the planned `WorkspaceActiveLeafRouter`:
+(A) plan-strict — router owns `m_activeLeaf` + `m_layoutReady`, and
+Workspace forwards `setActiveLeaf` to it; (B) hybrid — Workspace owns
+state, router is a one-way focus adapter; (C) minimal — no class at
+all, gate + signals directly on Workspace. Picked (B). The audit
+(`docs/obsidian-audit/domains/workspace.md §"layout-ready"`) treats
+identity-gate + layoutReady-gate as Workspace invariants; Cluster Z's
+known consumers (Backlinks/Outlinks/LocalGraph/GraphView) and Phase 7's
+`getLeaf`/`openLinkText` are router-blind. (A) would have churned 23
+internal `m_activeLeaf` reads in Workspace.cpp without a downstream
+benefit; (C) loses the named-class cosmetic the plan wants. (B)
+extracts Cluster G's inline `QApplication::focusChanged` lambda
+(Workspace.cpp:91-107) into a class without rewiring state ownership.
+
+**6.2 — layoutReady gate** (`f065ed12`). Workspace gains
+`isLayoutReady()`/`setLayoutReady(bool)`/`layoutReady()` Q_SIGNAL.
+`m_layoutReady` defaults true (no consumer expects pre-load
+suppression); `deserialize` brackets work with `setLayoutReady(false)`
+at entry and `setLayoutReady(true)` at exit, then re-emits
+`activeLeafChanged` via a ping-through-null hop on the resolved active
+leaf so consumers that subscribe before the load see exactly one
+signal for the post-load state. `readWorkspaceJson`'s no-vault and
+malformed-JSON fallback paths force a false → true transition so
+`layoutReady` fires for those paths too. Six new test cases:
+default-true, identity gate, suppression while !ready,
+suppressed-then-fires-once-ready, false→true emits once, same-value
+no-op.
+
+**6.1 — WorkspaceActiveLeafRouter class** (`c6688d72`). New header
+`libs/core/include/corbomite/core/WorkspaceActiveLeafRouter.h` + impl;
+both registered in `libs/core/CMakeLists.txt` SOURCES. The class is a
+one-way adapter — its only API is the constructor; `onFocusChanged`
+is a private slot. Workspace's ctor instantiates one parented to
+itself, replacing the inline lambda. The router walks the focused
+widget's parent chain and calls `Workspace::setActiveLeaf` when it
+finds a matching leaf — no behaviour change from Cluster G's lambda.
+One new test case: `focusInsideLeafWidgetMarksLeafActive` proves the
+end-to-end flow on a KDDW DockWidget child.
+
+**6.3 — resize + windowFrameChange signals** (`24b489cc`). Workspace
+gains a protected `eventFilter` override that watches its own
+`m_kddwMain` for `QEvent::Resize` and re-emits as `Workspace::resize()`.
+`popoutLeaf` emits `windowFrameChange()` after spawning the
+FloatingWindow, plus connects `QObject::destroyed` on the new
+FloatingWindow so close-via-X also emits; `reparentToMain` emits on
+window deletion. KDDW's DockRegistry has no signals (just register/
+unregister methods), so the per-FloatingWindow destroy hook is the
+correct level for fan-out — verified by reading
+`/usr/include/kddockwidgets-qt6/kddockwidgets/core/DockRegistry.h`.
+Two new test cases: `resizeOnMainWindowEmitsResizeSignal` and
+`popoutAndReparentEmitWindowFrameChange`.
+
+Plan adaptations from the as-written spec:
+
+- The plan's Task 6.1 sketch had the router own `m_activeLeaf` +
+  `m_layoutReady` + the identity gate, with `Workspace::setActiveLeaf`
+  forwarding to it. Picked Hybrid (B) instead — see design decision
+  above.
+- Plan's Task 6.2 test snippets called `ws.createLeafInTabs(nullptr)`,
+  `Workspace(QStringLiteral("..."))`, `ws.emitLayoutReady()`,
+  `ws.findLeafByDockName(...)` — all non-existent post-4a. Used the
+  real API: `createLeafInActiveGroup`, `Workspace(QString,
+  ViewRegistry*)`, `setLayoutReady(true)`, `findLeafById` is unused
+  (the router walks via `widget()` pointer-equality, same as the
+  Cluster G lambda did).
+- Plan's Task 6.3 windowFrameChange suggested
+  `DockRegistry::floatingWindowChanged` "(or equivalent — verify
+  KDDW API)". The KDDW API has no such signal; per-FloatingWindow
+  `QObject::destroyed` covers the destroy half, and `popoutLeaf` /
+  `reparentToMain` cover the create + reparent halves. KDDW's
+  internal `registerFloatingWindow`/`unregisterFloatingWindow` are
+  private to its module.
+- Header path is lower-case `corbomite/core/`, not `Corbomite/core/`.
+- Tests live in `tests/core/`, not `libs/core/tests/`.
+
+Test results: full Corbomite ctest 281/286 + 9 new router tests =
+green modulo 5 documented pre-existing flakes
+(`tst_markoff_undo_grouping`, `tst_markoff_table_operations`,
+`tst_completion_popup`, `tst_benchmark_layout`, `tst_e2e_gui` — last
+is the documented Phase 4b regression). Zero Phase 6 regressions.
+
+How to apply: when a future cluster adds a new Workspace event,
+prefer extending Workspace::setActiveLeaf or the eventFilter rather
+than threading state through the router — the router stays as a
+focus adapter. When adding plugin-API parity signals, KDDW's surface
+is sparse on signals; per-controller `QObject::destroyed` + emit-at-
+caller pairs cover most lifecycle events.
+
+Next: Phase 7 (`getLeaf` factory + `openLinkText` dispatcher + proxy
+surface, ~2 days). Phase 7 is the last meaty phase before Phase 8
+class renames + cluster closeout.
+
+---
+
 ## 2026-04-25 — Cluster Y Phase 5 (popout windows atop KDDW FloatingWindow) done end-to-end.
 
 Phase 5 closes the popout-window contract: `Workspace::popoutLeaf` calls
