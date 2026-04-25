@@ -8,6 +8,7 @@
 #include <QJsonArray>
 #include <QMenu>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QVBoxLayout>
@@ -82,7 +83,16 @@ void WorkspaceTabs::setCurrentTab(int index)
     if (index < 0 || index >= m_children.size())
         return;
     m_currentTab = index;
-    m_tabBar->setCurrentIndex(index);
+    // Programmatic API: don't echo into QTabBar::currentChanged ->
+    // onTabBarCurrentChanged -> currentTabChanged. The currentTabChanged
+    // signal models user-initiated tab clicks; programmatic callers (e.g.
+    // Workspace::setActiveLeaf, WorkspaceTabs::addChild's first-child
+    // bootstrap) update the visible state directly without re-entering the
+    // active-leaf cascade with a half-built leaf.
+    {
+        const QSignalBlocker blocker(m_tabBar);
+        m_tabBar->setCurrentIndex(index);
+    }
     m_stack->setCurrentIndex(index);
 }
 
@@ -137,7 +147,16 @@ void WorkspaceTabs::addChild(WorkspaceItem *child, int index)
         return;
 
     int idx = m_children.indexOf(child);
-    m_tabBar->insertTab(idx, tabIconForLeaf(leaf), tabTextForLeaf(leaf));
+    // QTabBar::insertTab on an empty tab bar implicitly sets currentIndex
+    // from -1 to 0 and emits currentChanged. That would fire
+    // onTabBarCurrentChanged -> currentTabChanged -> Workspace::tabSelectRequested
+    // -> setActiveLeaf for a half-constructed leaf (caller hasn't set
+    // viewState yet). Suppress; the explicit setCurrentTab(0) below
+    // installs the matching internal/visual state without emitting.
+    {
+        const QSignalBlocker blocker(m_tabBar);
+        m_tabBar->insertTab(idx, tabIconForLeaf(leaf), tabTextForLeaf(leaf));
+    }
 
     connect(leaf, &WorkspaceLeaf::viewChanged, this, [this, child]() {
         int i = m_children.indexOf(child);
