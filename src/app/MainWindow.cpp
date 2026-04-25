@@ -2445,7 +2445,10 @@ void MainWindow::applyVaultPortableSettings()
             upd.insert(QStringLiteral("theme"), theme);
         }
         if (!upd.isEmpty()) {
-            vc.mergeJson(QStringLiteral("appearance.json"), upd);
+            if (!vc.mergeJson(QStringLiteral("appearance.json"), upd)) {
+                qWarning() << "applyVaultPortableSettings: failed to write"
+                           << "appearance.json";
+            }
         }
     }
 
@@ -2460,7 +2463,10 @@ void MainWindow::applyVaultPortableSettings()
         if (!format.isEmpty()) upd.insert(QStringLiteral("format"), format);
         if (!tmpl.isEmpty())   upd.insert(QStringLiteral("template"), tmpl);
         if (!upd.isEmpty()) {
-            vc.mergeJson(QStringLiteral("daily-notes.json"), upd);
+            if (!vc.mergeJson(QStringLiteral("daily-notes.json"), upd)) {
+                qWarning() << "applyVaultPortableSettings: failed to write"
+                           << "daily-notes.json";
+            }
         }
     }
 
@@ -2472,7 +2478,10 @@ void MainWindow::applyVaultPortableSettings()
             upd.insert(QStringLiteral("folder"), folder);
         }
         if (!upd.isEmpty()) {
-            vc.mergeJson(QStringLiteral("templates.json"), upd);
+            if (!vc.mergeJson(QStringLiteral("templates.json"), upd)) {
+                qWarning() << "applyVaultPortableSettings: failed to write"
+                           << "templates.json";
+            }
         }
     }
 }
