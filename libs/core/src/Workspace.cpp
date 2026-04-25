@@ -3,7 +3,9 @@
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/WorkspaceActiveLeafRouter.h"
+#include "corbomite/core/WorkspaceFloating.h"
 #include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomite/core/WorkspaceRoot.h"
 #include "corbomite/core/WorkspaceWindow.h"
 
 #include <kddockwidgets/Config.h>
@@ -96,6 +98,11 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     // Workspace::resize() so plugins can hook layout-size changes the
     // same way Obsidian's `Workspace.on("resize")` works.
     m_kddwMain->installEventFilter(this);
+
+    // Phase 7.5: Obsidian-shape root + floating containers. Bookkeeping
+    // shells; the actual KDDW MainWindow remains the substrate.
+    m_rootSplit = new WorkspaceRoot(QStringLiteral("root"), this);
+    m_floating = new WorkspaceFloating(this);
 }
 
 bool Workspace::eventFilter(QObject *watched, QEvent *event)
@@ -494,6 +501,7 @@ WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)
 
     auto *win = new WorkspaceWindow(this);
     m_windows.append(win);
+    if (m_floating) m_floating->addWindow(win);
     Q_EMIT layoutChanged();
     Q_EMIT windowFrameChange();
     return win;
@@ -504,6 +512,7 @@ void Workspace::reparentToMain(WorkspaceWindow *window)
     if (!window)
         return;
     m_windows.removeOne(window);
+    if (m_floating) m_floating->removeWindow(window);
     delete window;
     Q_EMIT layoutChanged();
     Q_EMIT windowFrameChange();

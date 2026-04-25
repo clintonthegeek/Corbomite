@@ -19,7 +19,10 @@ class MainWindow;
 namespace Corbomite {
 
 class ViewRegistry;
+class WorkspaceFloating;
 class WorkspaceLeaf;
+class WorkspaceRoot;
+class WorkspaceSidedock;
 class WorkspaceWindow;
 
 struct UndoEntry {
@@ -206,6 +209,18 @@ public:
     // Package-private — used by WorkspaceSerializer to drive the substrate.
     KDDockWidgets::QtWidgets::MainWindow *kddwMainWindow() const { return m_kddwMain; }
 
+    /// Obsidian-shape container accessors (Cluster Y Phase 7.5). The root
+    /// split holds the central tab/split tree. The two sidedock accessors
+    /// return `nullptr` until a future cluster migrates the
+    /// CorbomiteMDI-resident sidebars into the Workspace tree — having
+    /// the API here means plugin code that walks the workspace shape
+    /// from Obsidian compiles. `floatingSplit` is the popout-window
+    /// container; its `windows()` mirrors `Workspace::windows()`.
+    WorkspaceRoot *rootSplit() const { return m_rootSplit; }
+    WorkspaceSidedock *leftSplit() const { return nullptr; }
+    WorkspaceSidedock *rightSplit() const { return nullptr; }
+    WorkspaceFloating *floatingSplit() const { return m_floating; }
+
 Q_SIGNALS:
     void activeLeafChanged(WorkspaceLeaf *leaf);
     void layoutChanged();
@@ -263,6 +278,8 @@ private:
     QVector<UndoEntry> m_undoHistory;
     QStringList m_lastOpenFiles;
     LinkResolverFn m_linkResolver;
+    WorkspaceRoot *m_rootSplit = nullptr;
+    WorkspaceFloating *m_floating = nullptr;
 };
 
 } // namespace Corbomite

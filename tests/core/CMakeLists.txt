@@ -294,6 +294,15 @@ target_link_libraries(tst_workspace_factory PRIVATE
     KDAB::kddockwidgets)
 set_tests_properties(tst_workspace_factory PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster Y Phase 7.5: WorkspaceContainer/Root/Floating/Sidedock + Workspace accessors
+add_executable(tst_workspace_containers tst_workspace_containers.cpp)
+add_test(NAME tst_workspace_containers COMMAND tst_workspace_containers)
+target_link_libraries(tst_workspace_containers PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Core
+    KDAB::kddockwidgets)
+set_tests_properties(tst_workspace_containers PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster Y Phase 6: layoutReady gate + WorkspaceActiveLeafRouter
 add_executable(tst_workspace_active_leaf_router tst_workspace_active_leaf_router.cpp)
 add_test(NAME tst_workspace_active_leaf_router COMMAND tst_workspace_active_leaf_router)
