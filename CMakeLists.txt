@@ -113,7 +113,7 @@ configure_file(src/app/corbomiteui.rc.in
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${_xmlgui_rcfile}
     PROPERTIES QT_RESOURCE_ALIAS ${_xmlgui_rcfile})
 
-qt_add_resources(Corbomite "xmlgui"
+qt_add_resources(CorbomiteApp "xmlgui"
     PREFIX "${_xmlgui_prefix}"
     FILES ${CMAKE_CURRENT_BINARY_DIR}/${_xmlgui_rcfile}
 )

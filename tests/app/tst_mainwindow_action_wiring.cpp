@@ -9,6 +9,9 @@
 
 #include <KActionCollection>
 
+#include <corbomite/core/Command.h>
+#include <corbomite/core/Workspace.h>
+
 #include "app/CorbomiteApp.h"
 #include "app/MainWindow.h"
 
@@ -179,6 +182,40 @@ private slots:
         // toggle_fold gates on blockKind == Heading.
         auto *toggleFold = ac->action(QStringLiteral("toggle_fold"));
         QVERIFY(toggleFold && toggleFold->isEnabled());
+    }
+
+    // Bug #1 (filed 2026-04-24, commit 9fb2fe47) — per-view hamburger
+    // menu "Split right" / "Split down" entries dispatch via the
+    // CommandRegistry, but split_right / split_down were only wired
+    // as KActionCollection actions in setupActions(), so executeById
+    // returned false silently. Fix registers commands that delegate
+    // to the KAction's trigger() (preserving the vault-open gate).
+    void hamburgerSplitDispatchesCreateNewLeaf()
+    {
+        CorbomiteApp app;
+        MainWindow w(&app);
+        QVERIFY(app.openVault(
+            QStringLiteral("/home/clinton/dev/Corbomite/testvaults/DevVault")));
+        QTest::qWait(100);
+
+        auto *cmds = w.commandRegistry();
+        QVERIFY(cmds);
+        QVERIFY2(cmds->findCommand(QStringLiteral("split_right")),
+                 "split_right must be registered so hamburger dispatch works");
+        QVERIFY2(cmds->findCommand(QStringLiteral("split_down")),
+                 "split_down must be registered so hamburger dispatch works");
+
+        auto *ws = w.findChild<Corbomite::Workspace*>();
+        QVERIFY(ws);
+
+        const int before = ws->allLeaves().size();
+        QVERIFY(cmds->executeById(QStringLiteral("split_right")));
+        QTest::qWait(50);
+        QCOMPARE(ws->allLeaves().size(), before + 1);
+
+        QVERIFY(cmds->executeById(QStringLiteral("split_down")));
+        QTest::qWait(50);
+        QCOMPARE(ws->allLeaves().size(), before + 2);
     }
 
     void editorActionsAreDisabledWithoutActiveMarkdownView()

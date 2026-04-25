@@ -273,6 +273,39 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
         m_commandRegistry->addCommand(addProp);
     }
 
+    // Bug #1 (2026-04-24, commit 9fb2fe47) — per-view hamburger menus
+    // ("…" overflow in view headers) dispatch `split_right`/`split_down`
+    // through m_commandRegistry, but these ids only lived in
+    // KActionCollection (wired in setupActions()). executeById returned
+    // false silently. Bridge the two surfaces here by registering
+    // CommandRegistry entries whose checkCallback delegates to the
+    // KAction's trigger() — keeps a single source of truth for the
+    // vault-open gate applied by updateVaultActions().
+    {
+        const auto bindToAction = [this](const QString &id,
+                                         const QString &label,
+                                         const QString &icon) {
+            Command c;
+            c.id = id;
+            c.name = label;
+            c.icon = icon;
+            c.checkCallback = [this, id](bool checking) -> bool {
+                auto *ac = actionCollection();
+                auto *act = ac ? ac->action(id) : nullptr;
+                if (!act || !act->isEnabled()) return false;
+                if (!checking) act->trigger();
+                return true;
+            };
+            m_commandRegistry->addCommand(c);
+        };
+        bindToAction(QStringLiteral("split_right"),
+                     i18n("Split Right"),
+                     QStringLiteral("view-split-left-right"));
+        bindToAction(QStringLiteral("split_down"),
+                     i18n("Split Down"),
+                     QStringLiteral("view-split-top-bottom"));
+    }
+
     m_menuEvents = new MenuEventEmitter(this);
     m_hoverSources = new HoverLinkSourceRegistry(this);
     m_hoverSources->registerBuiltins();

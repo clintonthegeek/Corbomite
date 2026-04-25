@@ -81,6 +81,7 @@ public:
     /// when propagateServicesToView hasn't fired yet under offscreen.
     Vault *vaultObj() const { return m_vaultObj; }
     FileManager *fileManager() const { return m_fileManager; }
+    CommandRegistry *commandRegistry() const { return m_commandRegistry; }
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
