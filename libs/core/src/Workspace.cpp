@@ -261,7 +261,7 @@ void Workspace::undoCloseLeaf()
     Q_EMIT layoutChanged();
 }
 
-WorkspaceSplit *Workspace::splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction)
+WorkspaceLeaf *Workspace::splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction)
 {
     if (!leaf || !leaf->parentItem())
         return nullptr;
@@ -284,8 +284,10 @@ WorkspaceSplit *Workspace::splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direct
     split->addChild(newTabs);
     wireTabsSignalForwarding(newTabs);
 
+    auto *newLeaf = createLeafInTabs(newTabs);
+
     Q_EMIT layoutChanged();
-    return split;
+    return newLeaf;
 }
 
 WorkspaceLeaf *Workspace::duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction)
@@ -300,17 +302,7 @@ WorkspaceLeaf *Workspace::duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation dir
     bool wasPinned = leaf->pinned();
     QString grp = leaf->group();
 
-    auto *split = splitLeaf(leaf, direction);
-    if (!split)
-        return nullptr;
-
-    // splitLeaf appends the new empty tabs as split's last child.
-    auto *newTabs = qobject_cast<WorkspaceTabs *>(
-        split->childAt(split->childCount() - 1));
-    if (!newTabs)
-        return nullptr;
-
-    auto *newLeaf = createLeafInTabs(newTabs);
+    auto *newLeaf = splitLeaf(leaf, direction);
     if (!newLeaf)
         return nullptr;
 

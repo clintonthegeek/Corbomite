@@ -51,9 +51,7 @@ public:
     QString vaultId() const;
 
     ViewRegistry *viewRegistry() const;
-    WorkspaceSplit *mainRoot() const;
-    /// Bare central widget of the workspace; replaces `mainRoot()->widget()`
-    /// for callers that just need the widget, not the substrate node.
+    /// Bare central widget of the workspace.
     QWidget *rootWidget() const;
 
     WorkspaceLeaf *activeLeaf() const;
@@ -64,23 +62,24 @@ public:
     void pushLastOpenFile(const QString &path);
 
     // Tree operations
-    WorkspaceLeaf *createLeafInTabs(WorkspaceTabs *parent);
 
     /// Create a new leaf in the same tab group as `sibling`. Pass `nullptr`
     /// to create a new leaf in the active group (or the first group at root
-    /// if no leaf is active). Replaces `createLeafInTabs(WorkspaceTabs*)`
-    /// for callers that don't have a substrate Tabs handle.
+    /// if no leaf is active).
     WorkspaceLeaf *createLeafInGroupOf(WorkspaceLeaf *sibling);
 
-    /// Atomic version of the historical idiom
-    /// `createLeafInTabs(activeTabs())` — most callers want this.
-    /// Returns nullptr if there is no active group (no leaves at all).
+    /// Create a new leaf in the active group; nullptr if there is no active
+    /// group (no leaves at all).
     WorkspaceLeaf *createLeafInActiveGroup();
 
     void closeLeaf(WorkspaceLeaf *leaf);
     bool canUndoCloseLeaf() const;
     void undoCloseLeaf();
-    WorkspaceSplit *splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction);
+
+    /// Split `leaf`'s pane along `direction`, creating a new sibling pane
+    /// holding a fresh empty leaf which is returned. Returns nullptr if
+    /// `leaf` is not currently parented in a splittable position.
+    WorkspaceLeaf *splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction);
 
     /// Obsidian-shape user-facing split: clone `leaf`'s view state (+ ephemeral
     /// state, history, pinned, group) into a new leaf in a new split sibling.
@@ -93,9 +92,7 @@ public:
     QVector<WorkspaceWindow *> windows() const;
 
     // Find nodes
-    WorkspaceTabs *activeTabs() const;
     WorkspaceLeaf *findLeafById(const QString &id) const;
-    WorkspaceTabs *findTabsById(const QString &id) const;
     QVector<WorkspaceLeaf *> allLeaves() const;
 
     /// Tab-group navigation. `nextLeafInActiveGroup` returns the leaf
@@ -123,9 +120,7 @@ public:
     // Linked-pane group propagation
     void propagatePinToGroup(WorkspaceLeaf *leaf);
     QVector<WorkspaceLeaf *> groupMembers(const QString &groupId) const;
-    WorkspaceLeaf *findOrCreateUnpinnedLeaf(WorkspaceTabs *tabs);
 
-    /// Sibling-typed rename of `findOrCreateUnpinnedLeaf(WorkspaceTabs*)`.
     /// Returns the first unpinned leaf in `sibling`'s tab group, or
     /// creates a new leaf there if all are pinned.
     WorkspaceLeaf *findOrCreateUnpinnedLeafInGroupOf(WorkspaceLeaf *sibling);
@@ -173,6 +168,19 @@ Q_SIGNALS:
     void tabCloseRequested(WorkspaceLeaf *leaf);
 
 private:
+    // ------------------------------------------------------------------
+    // Internal substrate access (Phase 4b will retire these along with
+    // WorkspaceTabs / WorkspaceSplit / WorkspaceItem / WorkspaceParent).
+    // None of these are part of the public Workspace surface; they exist
+    // because Workspace.cpp's existing tree-walk implementation still
+    // needs handles to the substrate types until KDDW takes over.
+    // ------------------------------------------------------------------
+    WorkspaceSplit *mainRoot() const;
+    WorkspaceLeaf *createLeafInTabs(WorkspaceTabs *parent);
+    WorkspaceTabs *activeTabs() const;
+    WorkspaceTabs *findTabsById(const QString &id) const;
+    WorkspaceLeaf *findOrCreateUnpinnedLeaf(WorkspaceTabs *tabs);
+
     /// Remove an empty WorkspaceTabs from its parent split, and collapse the
     /// split itself into its sole remaining child if that leaves the split
     /// with only one child. Matches Obsidian's "close last tab in a split
