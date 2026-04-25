@@ -381,6 +381,68 @@ WorkspaceLeaf *Workspace::duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation dir
     return newLeaf;
 }
 
+void Workspace::setLinkResolver(LinkResolverFn resolver)
+{
+    m_linkResolver = std::move(resolver);
+}
+
+bool Workspace::openLinkText(const QString &linktext,
+                              const QString &source,
+                              LeafMode mode,
+                              const QJsonObject &opts)
+{
+    // Split linktext into <path>(#heading|^block)? — Obsidian-style.
+    // Anchor is the first occurrence of either delimiter.
+    int hashIdx = linktext.indexOf(QLatin1Char('#'));
+    int caretIdx = linktext.indexOf(QLatin1Char('^'));
+    int anchorIdx = -1;
+    if (hashIdx >= 0 && caretIdx >= 0)
+        anchorIdx = std::min(hashIdx, caretIdx);
+    else if (hashIdx >= 0)
+        anchorIdx = hashIdx;
+    else if (caretIdx >= 0)
+        anchorIdx = caretIdx;
+
+    QString path;
+    QString subpath;
+    if (anchorIdx >= 0) {
+        path = linktext.left(anchorIdx);
+        subpath = linktext.mid(anchorIdx);
+    } else {
+        path = linktext;
+    }
+
+    // Run the installed resolver (if any). Empty result preserves input.
+    if (m_linkResolver) {
+        const QString resolved = m_linkResolver(path, source);
+        if (!resolved.isEmpty())
+            path = resolved;
+    }
+
+    auto *leaf = getLeaf(mode);
+    if (!leaf)
+        return false;
+
+    QJsonObject viewState;
+    viewState[QStringLiteral("type")] = QStringLiteral("markdown");
+    QJsonObject stateObj;
+    stateObj[QStringLiteral("file")] = path;
+    viewState[QStringLiteral("state")] = stateObj;
+    leaf->setViewState(viewState);
+
+    if (opts.contains(QStringLiteral("eState"))) {
+        leaf->setEphemeralState(
+            opts.value(QStringLiteral("eState")).toObject());
+    } else if (!subpath.isEmpty()) {
+        QJsonObject derived;
+        derived[QStringLiteral("subpath")] = subpath;
+        leaf->setEphemeralState(derived);
+    }
+
+    setActiveLeaf(leaf);
+    return true;
+}
+
 WorkspaceLeaf *Workspace::getLeaf(LeafMode mode, LeafDirection dir)
 {
     auto *active = m_activeLeaf;

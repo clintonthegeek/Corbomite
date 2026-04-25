@@ -4,6 +4,7 @@
 // Cluster Y Phase 7: Obsidian-shape Workspace::getLeaf(mode, dir)
 // factory and Workspace::openLinkText(...) dispatcher.
 
+#include <QJsonObject>
 #include <QPointer>
 #include <QTest>
 
@@ -11,11 +12,40 @@
 #include <kddockwidgets/qtwidgets/DockWidget.h>
 #include <kddockwidgets/qtwidgets/MainWindow.h>
 
+#include "corbomite/core/View.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 
 using namespace Corbomite;
+
+// Stub View that simply round-trips state and ephemeral state. Tests that
+// inspect viewState/ephemeralState after `setViewState` need this — the
+// `View` base returns empty for both. Registered as "markdown" so the tests
+// can call `Workspace::openLinkText` (which hard-codes that view-type).
+class StubMarkdownView : public View
+{
+    Q_OBJECT
+public:
+    using View::View;
+    QString getViewType() const override { return QStringLiteral("markdown"); }
+    QString getDisplayText() const override { return QStringLiteral("Stub"); }
+    QJsonObject getState() const override { return m_state; }
+    void setState(const QJsonObject &s) override { m_state = s; }
+    QJsonObject getEphemeralState() const override { return m_eState; }
+    void setEphemeralState(const QJsonObject &s) override { m_eState = s; }
+private:
+    QJsonObject m_state;
+    QJsonObject m_eState;
+};
+
+namespace {
+void registerStubMarkdown(ViewRegistry &registry)
+{
+    registry.registerView(QStringLiteral("markdown"),
+        [](WorkspaceLeaf *leaf) -> View * { return new StubMarkdownView(leaf); });
+}
+} // namespace
 
 class TestWorkspaceFactory : public QObject
 {
@@ -26,6 +56,11 @@ private Q_SLOTS:
     void getLeaf_tabMode_createsSiblingTab();
     void getLeaf_splitMode_createsSibling();
     void getLeaf_windowMode_createsFloating();
+
+    void openLinkText_simpleLink_setsViewState();
+    void openLinkText_withHeading_capturesSubpathInEphemeralState();
+    void openLinkText_withEStateOpts_overridesDerivedSubpath();
+    void openLinkText_withResolver_resolvesPathBeforeOpen();
 };
 
 void TestWorkspaceFactory::getLeaf_sameMode_returnsActive()
@@ -107,6 +142,91 @@ void TestWorkspaceFactory::getLeaf_windowMode_createsFloating()
     const int floatsAfter =
         KDDockWidgets::DockRegistry::self()->floatingWindows().size();
     QCOMPARE(floatsAfter, floatsBefore + 1);
+}
+
+void TestWorkspaceFactory::openLinkText_simpleLink_setsViewState()
+{
+    ViewRegistry registry;
+    registerStubMarkdown(registry);
+    Workspace ws(QStringLiteral("test-vault-openlink-simple"), &registry);
+
+    QVERIFY(ws.openLinkText(QStringLiteral("MyNote"), QString{},
+                             Workspace::LeafMode::Tab));
+
+    auto *leaf = ws.activeLeaf();
+    QVERIFY(leaf);
+    const auto vs = leaf->getViewState();
+    QCOMPARE(vs.value(QStringLiteral("type")).toString(),
+              QStringLiteral("markdown"));
+    QCOMPARE(vs.value(QStringLiteral("state")).toObject()
+                 .value(QStringLiteral("file")).toString(),
+              QStringLiteral("MyNote"));
+    QVERIFY(leaf->getEphemeralState().isEmpty());
+}
+
+void TestWorkspaceFactory::openLinkText_withHeading_capturesSubpathInEphemeralState()
+{
+    ViewRegistry registry;
+    registerStubMarkdown(registry);
+    Workspace ws(QStringLiteral("test-vault-openlink-heading"), &registry);
+
+    QVERIFY(ws.openLinkText(QStringLiteral("Note#Section"), QString{},
+                             Workspace::LeafMode::Tab));
+
+    auto *leaf = ws.activeLeaf();
+    QVERIFY(leaf);
+    const auto vs = leaf->getViewState();
+    QCOMPARE(vs.value(QStringLiteral("state")).toObject()
+                 .value(QStringLiteral("file")).toString(),
+              QStringLiteral("Note"));
+    const auto eState = leaf->getEphemeralState();
+    QCOMPARE(eState.value(QStringLiteral("subpath")).toString(),
+              QStringLiteral("#Section"));
+}
+
+void TestWorkspaceFactory::openLinkText_withEStateOpts_overridesDerivedSubpath()
+{
+    ViewRegistry registry;
+    registerStubMarkdown(registry);
+    Workspace ws(QStringLiteral("test-vault-openlink-estate"), &registry);
+
+    QJsonObject opts;
+    QJsonObject eState;
+    eState[QStringLiteral("scroll")] = 42;
+    opts[QStringLiteral("eState")] = eState;
+
+    QVERIFY(ws.openLinkText(QStringLiteral("Note#Heading"), QString{},
+                             Workspace::LeafMode::Tab, opts));
+
+    auto *leaf = ws.activeLeaf();
+    QVERIFY(leaf);
+    const auto leafEState = leaf->getEphemeralState();
+    // opts.eState wins over the heading-derived subpath.
+    QVERIFY(!leafEState.contains(QStringLiteral("subpath")));
+    QCOMPARE(leafEState.value(QStringLiteral("scroll")).toInt(), 42);
+}
+
+void TestWorkspaceFactory::openLinkText_withResolver_resolvesPathBeforeOpen()
+{
+    ViewRegistry registry;
+    registerStubMarkdown(registry);
+    Workspace ws(QStringLiteral("test-vault-openlink-resolver"), &registry);
+
+    ws.setLinkResolver([](const QString &path, const QString &source) {
+        Q_UNUSED(source);
+        return path == QStringLiteral("Note")
+            ? QStringLiteral("folder/Note.md")
+            : path;
+    });
+
+    QVERIFY(ws.openLinkText(QStringLiteral("Note"), QString{},
+                             Workspace::LeafMode::Tab));
+
+    auto *leaf = ws.activeLeaf();
+    QVERIFY(leaf);
+    QCOMPARE(leaf->getViewState().value(QStringLiteral("state")).toObject()
+                  .value(QStringLiteral("file")).toString(),
+              QStringLiteral("folder/Note.md"));
 }
 
 QTEST_MAIN(TestWorkspaceFactory)

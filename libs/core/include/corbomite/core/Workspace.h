@@ -8,6 +8,8 @@
 #include <QStringList>
 #include <QVector>
 
+#include <functional>
+
 #include "corbomite/core/LeafHistory.h"
 
 namespace KDDockWidgets::QtWidgets {
@@ -120,6 +122,32 @@ public:
     /// substrate refuses (should not occur in normal use).
     WorkspaceLeaf *getLeaf(LeafMode mode,
                             LeafDirection dir = LeafDirection::Horizontal);
+
+    /// Resolver hook signature for `openLinkText`. Takes the unparsed
+    /// path-only portion of a link (after stripping `#heading` / `^block`)
+    /// + the source file's vault-relative path, and returns the
+    /// vault-relative path to actually open. An empty return preserves the
+    /// input verbatim — this is the default identity behaviour. Real
+    /// resolution (Obsidian's `getFirstLinkpathDest` + create-if-missing
+    /// fallback) requires a `MetadataCache` + `Vault` + `FileManager`,
+    /// which live above libs/core; production callers (MainWindow / vault
+    /// layer) install a lambda here.
+    using LinkResolverFn =
+        std::function<QString(const QString &path, const QString &source)>;
+    void setLinkResolver(LinkResolverFn resolver);
+
+    /// Obsidian-shape link dispatcher. Parses `[[linktext]]` — separates
+    /// the path component from a `#heading` / `^blockid` subpath; runs the
+    /// installed link resolver (if any) over the path; calls `getLeaf` for
+    /// the requested mode; sets the leaf's view-state to
+    /// `{type: "markdown", state: {file: <resolved>}}`; sets ephemeral
+    /// state from `opts["eState"]` if present, else from the parsed
+    /// subpath; focuses the leaf via `setActiveLeaf`. Returns true on
+    /// success.
+    bool openLinkText(const QString &linktext,
+                       const QString &source,
+                       LeafMode mode,
+                       const QJsonObject &opts = {});
 
     // Popout windows (full implementation in Phase 5)
     WorkspaceWindow *popoutLeaf(WorkspaceLeaf *leaf);
@@ -234,6 +262,7 @@ private:
     QVector<WorkspaceWindow *> m_windows;
     QVector<UndoEntry> m_undoHistory;
     QStringList m_lastOpenFiles;
+    LinkResolverFn m_linkResolver;
 };
 
 } // namespace Corbomite
