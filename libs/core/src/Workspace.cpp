@@ -381,6 +381,33 @@ WorkspaceLeaf *Workspace::duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation dir
     return newLeaf;
 }
 
+WorkspaceLeaf *Workspace::getLeaf(LeafMode mode, LeafDirection dir)
+{
+    auto *active = m_activeLeaf;
+    switch (mode) {
+    case LeafMode::Same:
+        return active ? active : createLeafInActiveGroup();
+    case LeafMode::Tab:
+        return createLeafInGroupOf(active);
+    case LeafMode::Split: {
+        if (!active)
+            return createLeafInActiveGroup();
+        const auto orient = dir == LeafDirection::Horizontal
+            ? Qt::Horizontal
+            : Qt::Vertical;
+        return splitLeaf(active, orient);
+    }
+    case LeafMode::Window: {
+        auto *leaf = createLeafInActiveGroup();
+        if (!leaf)
+            return nullptr;
+        popoutLeaf(leaf);
+        return leaf;
+    }
+    }
+    return nullptr;
+}
+
 WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)
 {
     if (!leaf || !leaf->dockWidget())
