@@ -7,6 +7,8 @@
 #include <QJsonArray>
 #include <QJsonObject>
 
+#include <QLoggingCategory>
+
 #include <kddockwidgets/KDDockWidgets.h>
 #include <kddockwidgets/core/DockRegistry.h>
 #include <kddockwidgets/core/DockWidget.h>
@@ -15,6 +17,8 @@
 #include <kddockwidgets/qtwidgets/MainWindow.h>
 
 namespace Corbomite::WorkspaceSerializer {
+
+Q_LOGGING_CATEGORY(lcWorkspaceSerializer, "corbomite.workspace.serializer")
 
 namespace {
 
@@ -302,6 +306,17 @@ materializeSplit(const SplitNode &split,
         auto loc = first
             ? baseLocation
             : directionToKddwLocation(split.direction, /*firstInParent=*/false);
+        // Orphan recovery: if a previous sibling failed to materialize
+        // (e.g. an empty tabs node in the input JSON), anchorForNext is
+        // null; KDDW's addDockWidget treats a null relativeTo as "dock to
+        // the main window root", which is the safe fallback.  Log it so a
+        // surprising layout doesn't go unnoticed.
+        if (!first && !anchorForNext) {
+            qCWarning(lcWorkspaceSerializer)
+                << "orphaned child in split" << split.id
+                << "— previous sibling produced no anchor; re-homing to root";
+            loc = KDDockWidgets::Location_OnRight;
+        }
         auto *placed = placeFn(loc, anchorForNext);
         if (placed) {
             if (!firstAnchor) firstAnchor = placed;

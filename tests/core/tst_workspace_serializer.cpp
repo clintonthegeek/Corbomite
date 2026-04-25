@@ -40,6 +40,7 @@ private slots:
     void fixture07_emptyJson_producesDefaultTree();
     void fixture08_unknownKeys_preservedVerbatim();
     void malformedJson_fallsBackToDefaultTree();
+    void fixture09_orphanLeaf_reHomedToRoot();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -265,6 +266,22 @@ void TestWorkspaceSerializer::malformedJson_fallsBackToDefaultTree()
 
     auto *registry = KDDockWidgets::DockRegistry::self();
     QCOMPARE(registry->dockwidgets().size(), 1);
+}
+
+void TestWorkspaceSerializer::fixture09_orphanLeaf_reHomedToRoot()
+{
+    auto json = readFixture(QStringLiteral("09-orphan-leaf.json"));
+    QVERIFY(!json.isEmpty());
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f09"), KDDockWidgets::MainWindowOption_None);
+
+    // First sibling is an empty tabs node; the orphan leaf in the second
+    // sibling should be re-homed to the MainWindow root rather than crash.
+    Corbomite::WorkspaceSerializer::fromJson(json, mainWindow.get(), nullptr);
+
+    auto *registry = KDDockWidgets::DockRegistry::self();
+    QCOMPARE(registry->dockwidgets().size(), 1);
+    QVERIFY(registry->dockByName(QStringLiteral("orphan1aaaaaaaaa")) != nullptr);
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)

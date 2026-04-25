@@ -1,0 +1,27 @@
+{
+  "main": {
+    "id": "rootorphan111111",
+    "type": "split",
+    "direction": "horizontal",
+    "children": [
+      {
+        "id": "emptytabsaaaaaaa",
+        "type": "tabs",
+        "children": []
+      },
+      {
+        "id": "secondtabs1aaaaa",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "orphan1aaaaaaaaa",
+            "type": "leaf",
+            "state": { "type": "empty", "state": {} }
+          }
+        ]
+      }
+    ]
+  },
+  "active": "orphan1aaaaaaaaa",
+  "lastOpenFiles": []
+}
