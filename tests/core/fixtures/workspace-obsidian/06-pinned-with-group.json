@@ -1,0 +1,24 @@
+{
+  "main": {
+    "id": "aaaaaaaaaaaaaaaa",
+    "type": "split",
+    "direction": "vertical",
+    "children": [
+      {
+        "id": "bbbbbbbbbbbbbbbb",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "pinned1aaaaaaaaa",
+            "type": "leaf",
+            "pinned": true,
+            "group": "pinned-group-id",
+            "state": { "type": "empty", "state": {} }
+          }
+        ]
+      }
+    ]
+  },
+  "active": "pinned1aaaaaaaaa",
+  "lastOpenFiles": []
+}

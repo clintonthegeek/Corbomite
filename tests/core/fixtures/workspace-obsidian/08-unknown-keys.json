@@ -1,0 +1,23 @@
+{
+  "main": {
+    "id": "aaaaaaaaaaaaaaaa",
+    "type": "split",
+    "direction": "vertical",
+    "children": [
+      {
+        "id": "bbbbbbbbbbbbbbbb",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "unk111aaaaaaaaaa",
+            "type": "leaf",
+            "state": { "type": "empty", "state": {} },
+            "obsidianInternal": { "someField": 42 }
+          }
+        ]
+      }
+    ]
+  },
+  "active": "unk111aaaaaaaaaa",
+  "lastOpenFiles": []
+}

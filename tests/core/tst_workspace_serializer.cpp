@@ -36,6 +36,9 @@ private slots:
     void fixture03_nestedSplits_threeDockWidgetsInCorrectGroups();
     void fixture04_stackedTabs_preservesStackedFlag();
     void fixture05_floatingWindow_createsFloatingWindow();
+    void fixture06_pinnedWithGroup_preservesBoth();
+    void fixture07_emptyJson_producesDefaultTree();
+    void fixture08_unknownKeys_preservedVerbatim();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -183,6 +186,67 @@ void TestWorkspaceSerializer::fixture05_floatingWindow_createsFloatingWindow()
     auto floatingOut = jsonOut.value(QStringLiteral("floating")).toObject();
     QVERIFY(!floatingOut.isEmpty());
     QCOMPARE(floatingOut.value(QStringLiteral("children")).toArray().size(), 1);
+}
+
+void TestWorkspaceSerializer::fixture06_pinnedWithGroup_preservesBoth()
+{
+    auto jsonIn = readFixture(QStringLiteral("06-pinned-with-group.json"));
+    QVERIFY(!jsonIn.isEmpty());
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f06"), KDDockWidgets::MainWindowOption_None);
+
+    Corbomite::WorkspaceSerializer::fromJson(jsonIn, mainWindow.get(), nullptr);
+    auto jsonOut = Corbomite::WorkspaceSerializer::toJson(mainWindow.get(), nullptr);
+
+    auto leaf = jsonOut.value(QStringLiteral("main"))
+                    .toObject()
+                    .value(QStringLiteral("children"))
+                    .toArray()
+                    .first()
+                    .toObject()
+                    .value(QStringLiteral("children"))
+                    .toArray()
+                    .first()
+                    .toObject();
+    QCOMPARE(leaf.value(QStringLiteral("pinned")).toBool(), true);
+    QCOMPARE(leaf.value(QStringLiteral("group")).toString(),
+             QStringLiteral("pinned-group-id"));
+}
+
+void TestWorkspaceSerializer::fixture07_emptyJson_producesDefaultTree()
+{
+    auto json = readFixture(QStringLiteral("07-empty.json"));
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f07"), KDDockWidgets::MainWindowOption_None);
+
+    Corbomite::WorkspaceSerializer::fromJson(json, mainWindow.get(), nullptr);
+
+    auto *registry = KDDockWidgets::DockRegistry::self();
+    QCOMPARE(registry->dockwidgets().size(), 1);
+}
+
+void TestWorkspaceSerializer::fixture08_unknownKeys_preservedVerbatim()
+{
+    auto jsonIn = readFixture(QStringLiteral("08-unknown-keys.json"));
+    QVERIFY(!jsonIn.isEmpty());
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f08"), KDDockWidgets::MainWindowOption_None);
+
+    Corbomite::WorkspaceSerializer::fromJson(jsonIn, mainWindow.get(), nullptr);
+    auto jsonOut = Corbomite::WorkspaceSerializer::toJson(mainWindow.get(), nullptr);
+
+    auto leaf = jsonOut.value(QStringLiteral("main"))
+                    .toObject()
+                    .value(QStringLiteral("children"))
+                    .toArray()
+                    .first()
+                    .toObject()
+                    .value(QStringLiteral("children"))
+                    .toArray()
+                    .first()
+                    .toObject();
+    auto obsidianInternal = leaf.value(QStringLiteral("obsidianInternal")).toObject();
+    QCOMPARE(obsidianInternal.value(QStringLiteral("someField")).toInt(), 42);
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)

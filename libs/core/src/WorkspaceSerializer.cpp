@@ -27,6 +27,10 @@ QHash<QString, bool> &stackedSidecar()
     return map;
 }
 
+// Forward declaration; LeafNode is defined below.
+struct LeafNode;
+QHash<QString, LeafNode> &leafSidecar();
+
 // Internal types — not exported.  Mirror Obsidian's node types (split, tabs,
 // leaf, window) for serialization only.  They do NOT own widgets.
 struct LeafNode {
@@ -37,7 +41,14 @@ struct LeafNode {
     QJsonObject state;
     bool pinned = false;
     QString group;
+    QJsonObject unknownKeys;
 };
+
+QHash<QString, LeafNode> &leafSidecar()
+{
+    static QHash<QString, LeafNode> map;
+    return map;
+}
 
 struct TabsNode {
     QString id;
@@ -63,6 +74,10 @@ struct WindowNode {
 
 LeafNode parseLeaf(const QJsonObject &o)
 {
+    static const QSet<QString> known = {
+        QStringLiteral("id"), QStringLiteral("type"), QStringLiteral("state"),
+        QStringLiteral("pinned"), QStringLiteral("group"),
+    };
     LeafNode n;
     n.id = o.value(QStringLiteral("id")).toString();
     auto stateObj = o.value(QStringLiteral("state")).toObject();
@@ -72,6 +87,12 @@ LeafNode parseLeaf(const QJsonObject &o)
     n.state = stateObj.value(QStringLiteral("state")).toObject();
     n.pinned = o.value(QStringLiteral("pinned")).toBool(false);
     n.group = o.value(QStringLiteral("group")).toString();
+    for (auto it = o.begin(); it != o.end(); ++it) {
+        if (!known.contains(it.key())) {
+            n.unknownKeys.insert(it.key(), it.value());
+        }
+    }
+    leafSidecar().insert(n.id, n);
     return n;
 }
 
@@ -136,6 +157,9 @@ QJsonObject renderLeaf(const LeafNode &n)
     o[QStringLiteral("state")] = state;
     if (n.pinned) o[QStringLiteral("pinned")] = true;
     if (!n.group.isEmpty()) o[QStringLiteral("group")] = n.group;
+    for (auto it = n.unknownKeys.begin(); it != n.unknownKeys.end(); ++it) {
+        o.insert(it.key(), it.value());
+    }
     return o;
 }
 
@@ -188,11 +212,18 @@ SplitNode walkKddwTreeSimple(KDDockWidgets::QtWidgets::MainWindow *main)
         // Skip docks living in a floating window — those are emitted under
         // the top-level "floating" key, not the main-area split tree.
         if (dw->floatingWindow() != nullptr) continue;
-        LeafNode l;
-        l.id = dw->uniqueName();
-        l.viewType = QStringLiteral("empty");
-        l.icon = QStringLiteral("lucide-file");
-        l.title = QStringLiteral("New tab");
+        const QString id = dw->uniqueName();
+        // Phase 3 sidecar lookup recovers pinned/group/unknownKeys/etc that
+        // were captured at parseLeaf time but have no representation in the
+        // KDDW layout itself.  Phase 4 reads these from the live
+        // WorkspaceLeaf instead.
+        LeafNode l = leafSidecar().value(id, LeafNode{});
+        if (l.id.isEmpty()) {
+            l.id = id;
+            l.viewType = QStringLiteral("empty");
+            l.icon = QStringLiteral("lucide-file");
+            l.title = QStringLiteral("New tab");
+        }
         onlyTabs.children.append(l);
     }
     if (!onlyTabs.children.isEmpty()
@@ -357,6 +388,15 @@ void fromJson(const QJsonObject &json,
               KDDockWidgets::QtWidgets::MainWindow *main,
               Workspace * /*workspace*/)
 {
+    if (!json.contains(QStringLiteral("main"))) {
+        // Empty / missing-main JSON => default tree: one empty leaf in a
+        // single tabs node inside a vertical root split.
+        auto *dw = new KDDockWidgets::QtWidgets::DockWidget(
+            QStringLiteral("default-empty-leaf"));
+        main->addDockWidget(dw, KDDockWidgets::Location_OnLeft);
+        return;
+    }
+
     auto mainObj = json.value(QStringLiteral("main")).toObject();
     auto rootSplit = parseSplit(mainObj);
     materializeSplit(rootSplit, main, /*relativeTo*/ nullptr,
