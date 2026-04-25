@@ -3,6 +3,8 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/View.h"
 #include "corbomite/core/ViewRegistry.h"
+#include "corbomite/core/Workspace.h"
+#include "corbomite/core/WorkspaceParent.h"
 
 #include <QDateTime>
 #include <QVBoxLayout>
@@ -28,6 +30,20 @@ WorkspaceLeaf::~WorkspaceLeaf()
 QWidget *WorkspaceLeaf::widget() { return m_widget; }
 
 View *WorkspaceLeaf::view() const { return m_view; }
+
+Workspace *WorkspaceLeaf::workspace() const
+{
+    // Walk up the substrate parent chain (Tabs → Split → ... → root Split).
+    // Every substrate node is QObject-parented to the owning Workspace at
+    // construction time (`new WorkspaceTabs(this)` etc. inside Workspace's
+    // implementation), so the first node we encounter whose QObject parent
+    // qobject_casts to Workspace is the answer.
+    for (WorkspaceItem *node = parentItem(); node; node = node->parentItem()) {
+        if (auto *ws = qobject_cast<Workspace *>(node->parent()))
+            return ws;
+    }
+    return nullptr;
+}
 
 ViewRegistry *WorkspaceLeaf::registry() const { return m_registry; }
 

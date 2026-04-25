@@ -12,6 +12,7 @@ namespace Corbomite {
 class MenuEventEmitter;
 class View;
 class ViewRegistry;
+class Workspace;
 
 class WorkspaceLeaf : public WorkspaceItem
 {
@@ -26,6 +27,13 @@ public:
 
     View *view() const;
     ViewRegistry *registry() const;
+
+    /// The Workspace that owns this leaf. Walks up the substrate parent
+    /// chain to find the Workspace that the containing Tabs / Split was
+    /// QObject-parented to at construction. Returns nullptr if the leaf
+    /// is not yet attached to a Workspace's tree (e.g. test fixtures
+    /// that construct a leaf in isolation).
+    Workspace *workspace() const;
 
     void open(View *newView);
 

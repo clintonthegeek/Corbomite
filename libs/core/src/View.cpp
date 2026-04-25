@@ -3,9 +3,8 @@
 #include "corbomite/core/View.h"
 #include "corbomite/core/Component.h"
 #include "corbomite/core/MenuSectionHelper.h"
+#include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "corbomite/core/WorkspaceParent.h"
-#include "corbomite/core/WorkspaceTabs.h"
 
 #include <KLocalizedString>
 #include <QAction>
@@ -84,34 +83,39 @@ void View::onTabMenu(QMenu *menu)
 {
     // Default: the canonical Close / Close Others / Close All to the
     // Right / Close All menu (audit: views.md §1 tab context). Subclasses
-    // can override to customise or suppress. The leaf must live under a
-    // WorkspaceTabs for the close-siblings semantics to apply; otherwise
-    // no items are added.
+    // can override to customise or suppress. The leaf must be attached to
+    // a Workspace's tab group for the close-siblings semantics to apply;
+    // otherwise no items are added.
     if (!menu || !m_leaf) return;
-    auto *tabs = qobject_cast<WorkspaceTabs *>(m_leaf->parentItem());
-    if (!tabs) return;
-    const int myIdx = tabs->indexOf(m_leaf);
-    const int count = tabs->children().size();
+    auto *ws = m_leaf->workspace();
+    if (!ws) return;
+    const int myIdx = ws->leafIndexInGroup(m_leaf);
+    const int count = ws->leafCountInGroup(m_leaf);
     if (myIdx < 0) return;
 
+    auto *leaf = m_leaf;
+
     auto *aClose = menu->addAction(i18n("Close"));
-    QObject::connect(aClose, &QAction::triggered, tabs,
-                     [tabs, myIdx] { tabs->requestCloseTab(myIdx); });
+    QObject::connect(aClose, &QAction::triggered, ws,
+                     [ws, leaf] { ws->closeLeaf(leaf); });
 
     if (count > 1) {
         auto *aOthers = menu->addAction(i18n("Close Others"));
-        QObject::connect(aOthers, &QAction::triggered, tabs,
-                         [tabs, myIdx] { tabs->requestCloseOthers(myIdx); });
+        QObject::connect(aOthers, &QAction::triggered, ws,
+                         [ws, leaf] { ws->closeOtherLeavesInGroupOf(leaf); });
 
         if (myIdx < count - 1) {
             auto *aRight = menu->addAction(i18n("Close All to the Right"));
-            QObject::connect(aRight, &QAction::triggered, tabs,
-                             [tabs, myIdx] { tabs->requestCloseToRight(myIdx); });
+            QObject::connect(aRight, &QAction::triggered, ws,
+                             [ws, leaf] { ws->closeLeavesToRightOf(leaf); });
         }
 
         auto *aAll = menu->addAction(i18n("Close All"));
-        QObject::connect(aAll, &QAction::triggered, tabs,
-                         [tabs] { tabs->requestCloseAll(); });
+        QObject::connect(aAll, &QAction::triggered, ws,
+                         [ws, leaf] {
+            ws->closeOtherLeavesInGroupOf(leaf);
+            ws->closeLeaf(leaf);
+        });
     }
 }
 void View::onResize() {}
