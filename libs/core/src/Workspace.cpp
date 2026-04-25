@@ -366,13 +366,17 @@ WorkspaceLeaf *Workspace::duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation dir
 
 WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)
 {
-    // Phase 5 (Task 5.2) replaces this stub with KDDW's setFloating(true) +
-    // FloatingWindow handling. For 4b we keep the existing Workspace contract
-    // — return a non-null WorkspaceWindow recorded in m_windows — without
-    // moving the leaf. Existing tests verify the bookkeeping (windows().size()),
-    // not the substrate behaviour.
-    if (!leaf)
+    if (!leaf || !leaf->dockWidget())
         return nullptr;
+
+    // Detach the leaf's DockWidget into a fresh KDDW FloatingWindow. KDDW
+    // requires the host MainWindow be realised (shown) before it will spawn
+    // a FloatingWindow; production callers always satisfy that since the
+    // host shows MainWindow at app start. Tests must show() the MainWindow
+    // explicitly — see materializeFloatingWindow in WorkspaceSerializer for
+    // the corresponding serializer-side note.
+    leaf->dockWidget()->setFloating(true);
+
     auto *win = new WorkspaceWindow(this);
     m_windows.append(win);
     Q_EMIT layoutChanged();
