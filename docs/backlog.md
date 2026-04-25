@@ -61,11 +61,7 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** medium (~5-7 days)
 - **Details:** Scope narrowed via brainstorm 2026-04-20 from the 8-phase scouting doc down to 6 surface-first phases: dead app-shell actions (Find / zoom / About / theme / trash / `editor_toggle_mode` with `Ctrl+E`), Markoff menu surfacing (Format / Heading with `Ctrl+1..6` / Insert / Table / Edit Find-Replace / View Fold) with new `View::zoomIn/Out/Reset` virtuals + `Editor::cursorInTable` + `ActionId::SetHeading1..6`, fold actions (gutter click-to-fold deferred to V.2), ReadingView interactions (click-to-fold + `linkHovered → HoverPopover` + `codeBlockProcessorRegistry` dispatch), Workspace power-features (Ctrl+\ / Ctrl+Shift+\ / popout / link / Ctrl+Shift+T), Search UI (regex + match-case toggles) + toast-surfacing for 5 swallowed-error sites. Next: writing-plans → executing-plans.
 
-### Cluster V.2 — Editor/Workspace debt cleanup (scouting doc)
-- **Source:** [Cluster V.2 scouting](superpowers/plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md)
-- **Blocks:** nothing hard; activates only after Cluster V lands
-- **Scope:** medium (~4-5 days)
-- **Details:** Companion to Cluster V holding everything V deferred under the "surface-first" framing agreed 2026-04-20. Six phases: (1) ~~fold-gutter click-to-fold — complete `FoldGutter::paint()` + wire Markoff-internal coordinator~~ **absorbed into Markoff Phase C C7 on 2026-04-20** (fold-gutter lives in `Markoff::Source`/`Markoff::Live` now); (2) 6× `VaultConfig` writer routing (`writeAppJson`, `writeAppearanceJson`, `writeCommunityPlugins`, `writeHotkeys`, `writeDailyNotesJson`, `writeTemplatesJson`) paired with their SettingsDialog apply-handlers via a new merge-unknown-keys helper (reuse Cluster S bookmarks precedent); (3) `CachedMetadataStore::loadInto`/`saveFrom` hookup at `MainWindow::openVault`/`closeVault` for fast cold-start; (4) Autosave delay spinbox wired into `AutosaveReactor::setDelayMs` via the `MainWindow::onSettingsApplied` dispatcher Cluster V introduces; (5) optional LRU-reopen upgrade from single-LIFO to multi-entry list; (6) post-V dead-code audit pass. Expand to full plan after V lands. With phase (1) absorbed by Markoff C7, V.2 effectively shrinks by one phase.
+### ~~Cluster V.2 — Editor/Workspace debt cleanup~~ Done 2026-04-25 — Closed across 5 phases (7 commits `6f737933..bb12fbbd`). Shipped: `VaultConfig::mergeJson` unknown-key-preserving helper (Phase 1); `MainWindow::applyVaultPortableSettings` persisting Appearance / Daily Notes / Templates kcfg keys to `.obsidian/*.json` (Phase 2); end-to-end CachedMetadataStore round-trip verification — wiring itself was already in place (Phase 3, surprise caught during audit); `applyAutosaveDelay` applier hooked into the `onSettingsApplied` dispatcher (Phase 4); `WorkspaceWindow` standalone QWidget facade deletion, class shrinks to identity token (Phase 5a). 5b/5c kcfg + SHARED-SYMBOLS sweeps found no orphans. 6 carry-forwards landed under §3 below + new entries: 3 unwired `VaultConfig` writers (blocked on UI), vault-level cache fingerprint, 4 no-op settings keys, `WorkspaceWindow` identity-token review (Cluster Z scope), fold-gutter click-to-fold (deferred per user direction 2026-04-25), LRU multi-entry reopen (deferred until demand). Retro at [`cluster-retros/cluster-v2.md`](cluster-retros/cluster-v2.md).
 
 ### Cluster W — Canvas & Graph affordances
 - **Source:** [Cluster W scouting](superpowers/plans/2026-04-20-cluster-w-canvas-graph-affordances-SCOUTING.md)
@@ -212,11 +208,7 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 
 ### ~~Unknown-viewType fallback view~~ Done 2026-04-19 — `WorkspaceLeaf::setViewState` now falls back to the registered `"empty"` view when a factory lookup misses (covered alongside Empty-state "New Tab" view above). Distinct `nD` vs `tD` visual treatment deferred until a consumer needs different copy.
 
-### `WorkspaceWindow` standalone facade cleanup
-- **Source:** Cluster Y Phase 5 closeout 2026-04-25 (`docs/decisions-archive.md`)
-- **Blocks:** nothing live; the bookkeeping is harmless
-- **Scope:** small
-- **Details:** Post-Phase-5, `Corbomite::WorkspaceWindow` is a Workspace bookkeeping shell: `popoutLeaf` records one in `m_windows`, `reparentToMain` deletes it, `windows()` exposes the list. But its standalone QWidget facade (`widget()` returning a `Qt::Window`-flagged QWidget, `setWindowGeometry`, `showWindow`, `closeWindow`, `setMaximized`, `serialize()`) is dead — production never reads from it (the WorkspaceSerializer reads geometry from `KDDockWidgets::Core::FloatingWindow*` directly via `DockRegistry`). Only `tests/core/tst_workspace_window.cpp` exercises the standalone shape. Two paths: (a) wrap the spawned `KDDockWidgets::Core::FloatingWindow*` and rewrite the standalone tests, (b) shrink WorkspaceWindow to id-only and delete the QWidget+serialize surface. Phase 6 (active-leaf router) is a natural moment because it'll already be handling FloatingWindow focus.
+### ~~`WorkspaceWindow` standalone facade cleanup~~ Done 2026-04-25 — Cluster V.2 Phase 5a (`bb12fbbd`) deleted the standalone QWidget facade entirely (option b): `widget()`, `setWindowGeometry`, `showWindow`, `closeWindow`, `setMaximized`, `serialize`, the `eventFilter` override, and the `m_widget` / geometry / `m_maximized` members all gone. Class shrinks to identity token (`id()`/`setId()`) sufficient for `popoutLeaf` contract. `tests/core/tst_workspace_window.cpp` deleted entirely; coverage already in `tst_workspace_containers.cpp` + `tst_workspace_popout.cpp`. Test count 291 → 290. **Follow-up — identity-token review:** post-deletion, `WorkspaceWindow` is a thin wrapper around `QString m_id` that could plausibly be replaced by routing the id directly through `popoutLeaf` and a separate map; out of scope for V.2, natural home is Cluster Z (linked views + active-leaf).
 
 ### ~~Centralised `Workspace::openLinkText` dispatcher~~ Done 2026-04-25 — `Workspace::openLinkText(linktext, source, mode, opts)` shipped in Cluster Y P7.3 (`bcd54fba`) with an injectable `LinkResolverFn` seam (identity default to preserve the Q.0 `libs/vault → libs/core` dep direction; libs/core can reach `LinkResolver` via storage but not Vault/MetadataCache/FileManager). `WorkspaceController::openLinkText` proxy surface ships in P7.4. **Carry-forward follow-up below:** real `LinkResolverFn` wiring to Vault+MetadataCache+create-if-missing.
 
@@ -254,6 +246,24 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
   2. **Finish `ReadingSearchAdapter`.** Per-section `ExtraSelection` plumbing through ReadingView's recycling pipeline. Tracked as post-C7 follow-up in `libs/markoff-family/docs/phase-c-status.md`.
   3. **Host-side lift**: new Corbomite work — `SearchBar` child of `NoteEditorWidget`, single controller per doc, adapter-swap on `setViewMode`. Not captured in any existing plan.
 - **Natural slot:** fold (1) into C2 or C4 when one of those forces an `Editor.cpp` pass; pair (2) + (3) into a follow-up Corbomite cluster (or a Markoff C8) once (1) lands. Until then, acceptable to ship no persistence.
+
+### 3 unwired `VaultConfig` writers (blocked on matching SettingsDialog page)
+- **Source:** Cluster V.2 Phase 2 closeout 2026-04-25 (`cluster-retros/cluster-v2.md`); originally V.2 scouting doc
+- **Blocks:** nothing live; vault-portable settings completeness for `.obsidian/{app,community-plugins,hotkeys}.json`
+- **Scope:** small per writer (Phase 2 wiring shape repeats; `VaultConfig::mergeJson` helper is in place)
+- **Details:** V.2 Phase 2 wired 3 of the originally-scoped 6 `VaultConfig` writers — Appearance, Daily Notes, Templates — because those are the only ones with matching SettingsDialog pages today. The remaining three (`writeAppJson`, `writeCommunityPlugins`, `writeHotkeys`) lack UI surfaces; wiring them now would be premature. Each will be wired by whichever future cluster adds the matching UI. The `MainWindow::applyVaultPortableSettings()` dispatcher is the right place to hang the new appliers; `VaultConfig::mergeJson(filename, updates)` is the canonical primitive (preserves unknown keys). For `hotkeys.json` specifically, see also §5 "`.obsidian/hotkeys.json` load/save".
+
+### Vault-level cache fingerprint (`.obsidian/app.json` mtime gate)
+- **Source:** Cluster V.2 closeout 2026-04-25 (`cluster-retros/cluster-v2.md`)
+- **Blocks:** nothing; cold-start optimisation only
+- **Scope:** small
+- **Details:** Future cold-start optimisation: gate per-file MetadataCache rebuild on a vault-level fingerprint (e.g. `.obsidian/app.json` mtime + vault-root mtime). File-level mtime checks already short-circuit re-parses on warm starts, so this is optimisation territory not correctness debt. Pick up if a cold-open profiling pass shows it dominating.
+
+### No-op settings keys (`LineNumbers`, `LineWrap`, `PromptDelete`, `TabSize`)
+- **Source:** Cluster V.2 Phase 5b sweep 2026-04-25 (`cluster-retros/cluster-v2.md`)
+- **Blocks:** nothing; UX correctness (toggling the keys has no behavioural effect today)
+- **Scope:** small (depends per key on whether the consumer wiring is small or large)
+- **Details:** SettingsDialog reads/writes 4 kcfg keys with no consumer outside SettingsDialog: `LineNumbers`, `LineWrap`, `PromptDelete`, `TabSize`. Toggling them flips the kcfg value but nothing else — they're effectively dead from the user's perspective. Two paths per key: (a) wire the consumer (e.g. `TabSize` → `Markoff::Source::SourceEditor`; `LineNumbers` / `LineWrap` → likewise; `PromptDelete` → FileManager delete confirmation), or (b) remove from kcfg + UI to stop misleading users. Phase 5b found these but didn't act since the call is per-key. Pick up alongside whatever cluster surfaces a real consumer for one of them.
 
 ### Editor theme selector only applies to Source mode
 - **Source:** user observation 2026-04-22 during Markoff Phase C C2 dogfood; noted while kicking off C4.

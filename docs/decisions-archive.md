@@ -10,6 +10,78 @@ Conventions:
 
 ---
 
+## 2026-04-25 — Cluster V.2 closed (Editor/Workspace debt cleanup)
+
+Cluster V.2 closed across 5 phases — 7 commits `6f737933..bb12fbbd` —
+the non-user-visible debt that Cluster V deferred under the
+surface-first framing. What shipped:
+
+- **Phase 1** (`6f737933`). `VaultConfig::mergeJson(fileName, updates)`
+  — generic helper that round-trips `.obsidian/*.json` while preserving
+  unknown keys. 3 unit tests (round-trip + create-if-absent +
+  overwrite-known).
+- **Phase 2** (`775738b5`, follow-up fix `a872dfc6`).
+  `MainWindow::applyVaultPortableSettings()` persists Appearance / Daily
+  Notes / Templates kcfg keys to `.obsidian/{appearance,daily-notes,
+  templates}.json` on every SettingsDialog apply. Each section guards
+  on non-empty values; bails early if no vault is loaded or
+  `ensureConfigDir` fails. The fix added `qWarning` on `mergeJson`
+  failure (toasts deferred). 2 persistence-layer integration tests.
+- **Phase 3** (`b9b3f2a6`, comment fix `66c9802e`).
+  `tst_cachedmetadatastore_e2e` — round-trip survives a real-vault
+  open / `rebuildVault` / close / reopen cycle. **Surprise:** the
+  scouting doc claimed `CachedMetadataStore::loadInto`/`saveFrom` had
+  zero callers, but inspection found `MetadataCache::open(dbPath)`
+  already invoking them via `MainWindow::onVaultOpened` (likely landed
+  silently during Cluster Y absorption). Phase 3 reduced from a wiring
+  task to a verification e2e test.
+- **Phase 4** (`8b317a19`). `MainWindow::applyAutosaveDelay()` —
+  4-line applier hooked into the `onSettingsApplied()` dispatcher
+  Cluster V introduced. Dispatcher is now `applyTheme();
+  applyVaultPortableSettings(); applyAutosaveDelay();` — the
+  future-appliers comment retired. The applier is correct by
+  inspection; kcfg-round-trip covered by `tst_mainwindow_settings_apply`.
+- **Phase 5a** (`bb12fbbd`). Deleted dead `Corbomite::WorkspaceWindow`
+  standalone QWidget facade — 6 named methods (`widget`,
+  `setWindowGeometry`, `showWindow`, `closeWindow`, `setMaximized`,
+  `serialize`) plus `eventFilter` override + members. Class shrinks to
+  identity token (`id()`/`setId()`) sufficient for `popoutLeaf`
+  contract. `tests/core/tst_workspace_window.cpp` deleted entirely
+  (option b in the backlog entry); coverage already in
+  `tst_workspace_containers.cpp` + `tst_workspace_popout.cpp`. Test
+  count 291 → 290.
+- **Phase 5b skipped.** kcfg orphan sweep found no orphans, but
+  identified 4 SettingsDialog-only kcfg keys (`LineNumbers`,
+  `LineWrap`, `PromptDelete`, `TabSize`) that read/write fine but have
+  no consumer outside SettingsDialog — effectively no-op. Logged as
+  carry-forward.
+- **Phase 5c skipped.** `docs/obsidian-audit/SHARED-SYMBOLS.md` had zero
+  references to any deleted facade method.
+
+**Carry-forwards** (6, all queued in `backlog.md`): 3 unwired
+`VaultConfig` writers (`writeAppJson`, `writeCommunityPlugins`,
+`writeHotkeys`, each blocked on its UI page existing); vault-level
+cache fingerprint (cold-start optimisation, not correctness debt); 4
+no-op settings keys; `WorkspaceWindow` identity-token review (Cluster
+Z scope); fold-gutter click-to-fold (deferred for the Markoff QA
+cycle, per user direction); LRU multi-entry reopen (deferred until
+demand).
+
+**Patterns harvested.** `VaultConfig::mergeJson` is now the canonical
+primitive for unknown-key-preservation when round-tripping vault
+config — Cluster S's bookmarks.json round-trip and SessionManager's
+root-level stash both predate the helper; future writers should use
+`mergeJson` directly. The `MainWindow::onSettingsApplied()` dispatcher
+pattern (Cluster V) scaled to 3 appliers without strain; new appliers
+slot in as one line.
+
+Full ctest 285/290 — only the 5 pre-existing flakes
+(`tst_markoff_undo_grouping`, `tst_markoff_table_operations`,
+`tst_e2e_gui`, `tst_completion_popup`, `tst_benchmark_layout`). Retro
+at [`cluster-retros/cluster-v2.md`](cluster-retros/cluster-v2.md).
+
+---
+
 ## 2026-04-25 — Cluster Y closed (Phase 8 verification + closeout). Workspace substrate is KDDockWidgets.
 
 Cluster Y closed across 8 phases — 43 commits `fd336369..bd1b50aa` over
