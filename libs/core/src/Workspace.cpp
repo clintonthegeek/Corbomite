@@ -9,6 +9,7 @@
 #include <kddockwidgets/Config.h>
 #include <kddockwidgets/KDDockWidgets.h>
 #include <kddockwidgets/core/DockWidget.h>
+#include <kddockwidgets/core/FloatingWindow.h>
 #include <kddockwidgets/qtwidgets/DockWidget.h>
 #include <kddockwidgets/qtwidgets/MainWindow.h>
 
@@ -90,6 +91,18 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     // (no behaviour change). The router is parented to `this` so it dies
     // with the workspace.
     new WorkspaceActiveLeafRouter(this);
+
+    // Phase 6.3: re-emit the host MainWindow's QEvent::Resize as
+    // Workspace::resize() so plugins can hook layout-size changes the
+    // same way Obsidian's `Workspace.on("resize")` works.
+    m_kddwMain->installEventFilter(this);
+}
+
+bool Workspace::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_kddwMain && event && event->type() == QEvent::Resize)
+        Q_EMIT resize();
+    return QObject::eventFilter(watched, event);
 }
 
 Workspace::~Workspace()
@@ -381,9 +394,19 @@ WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)
     // the corresponding serializer-side note.
     leaf->dockWidget()->setFloating(true);
 
+    // Phase 6.3: re-emit floating-window topology changes as
+    // windowFrameChange so plugins can react. Hook destroy on the
+    // FloatingWindow KDDW just spawned, then signal the create.
+    if (auto *fw = leaf->dockWidget()->dockWidget()->floatingWindow()) {
+        connect(fw, &QObject::destroyed, this, [this]() {
+            Q_EMIT windowFrameChange();
+        });
+    }
+
     auto *win = new WorkspaceWindow(this);
     m_windows.append(win);
     Q_EMIT layoutChanged();
+    Q_EMIT windowFrameChange();
     return win;
 }
 
@@ -394,6 +417,7 @@ void Workspace::reparentToMain(WorkspaceWindow *window)
     m_windows.removeOne(window);
     delete window;
     Q_EMIT layoutChanged();
+    Q_EMIT windowFrameChange();
 }
 
 QVector<WorkspaceWindow *> Workspace::windows() const { return m_windows; }

@@ -160,6 +160,14 @@ Q_SIGNALS:
     /// (typically at the end of `deserialize`/`readWorkspaceJson`), once
     /// the workspace is safe to consume `activeLeafChanged` from.
     void layoutReady();
+    /// Emitted whenever the host's KDDW MainWindow widget receives a
+    /// QEvent::Resize. Mirrors Obsidian's `Workspace.on("resize")`.
+    void resize();
+    /// Emitted whenever the floating-window topology changes — a popout
+    /// creates a new FloatingWindow, or a FloatingWindow is destroyed
+    /// (close-via-X or `reparentToMain`). Mirrors Obsidian's
+    /// `Workspace.on("window-frame-change")`.
+    void windowFrameChange();
     void leafClosed(WorkspaceLeaf *leaf);
     void revealDockViewRequested(const QString &slug);
     void commandRequested(const QString &commandId);
@@ -172,6 +180,9 @@ Q_SIGNALS:
     /// Re-emission of "the user clicked the X on this leaf's tab" from the
     /// substrate. Hosts call closeLeaf in response.
     void tabCloseRequested(WorkspaceLeaf *leaf);
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void registerLeaf(WorkspaceLeaf *leaf);

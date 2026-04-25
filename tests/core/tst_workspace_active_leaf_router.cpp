@@ -30,6 +30,8 @@ private Q_SLOTS:
     void setLayoutReadyFalseToTrueEmitsLayoutReadyOnce();
     void setLayoutReadySameValueIsNoOp();
     void focusInsideLeafWidgetMarksLeafActive();
+    void resizeOnMainWindowEmitsResizeSignal();
+    void popoutAndReparentEmitWindowFrameChange();
 };
 
 void TestWorkspaceActiveLeafRouter::layoutReadyDefaultsTrueAfterConstruction()
@@ -137,6 +139,39 @@ void TestWorkspaceActiveLeafRouter::focusInsideLeafWidgetMarksLeafActive()
     QApplication::processEvents();
 
     QTRY_COMPARE(ws.activeLeaf(), second);
+}
+
+void TestWorkspaceActiveLeafRouter::resizeOnMainWindowEmitsResizeSignal()
+{
+    ViewRegistry registry;
+    Workspace ws(QStringLiteral("test-vault-resize"), &registry);
+    ws.kddwMainWindow()->show();
+
+    QSignalSpy spy(&ws, &Workspace::resize);
+    ws.kddwMainWindow()->resize(640, 480);
+    QApplication::processEvents();
+    ws.kddwMainWindow()->resize(800, 600);
+    QApplication::processEvents();
+
+    QVERIFY(spy.count() >= 1);
+}
+
+void TestWorkspaceActiveLeafRouter::popoutAndReparentEmitWindowFrameChange()
+{
+    ViewRegistry registry;
+    Workspace ws(QStringLiteral("test-vault-windowframe"), &registry);
+    ws.kddwMainWindow()->show();
+
+    auto *leaf = ws.createLeafInActiveGroup();
+    QVERIFY(leaf);
+
+    QSignalSpy spy(&ws, &Workspace::windowFrameChange);
+    auto *win = ws.popoutLeaf(leaf);
+    QVERIFY(win);
+    QCOMPARE(spy.count(), 1);
+
+    ws.reparentToMain(win);
+    QCOMPARE(spy.count(), 2);
 }
 
 QTEST_MAIN(TestWorkspaceActiveLeafRouter)
