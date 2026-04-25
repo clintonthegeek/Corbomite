@@ -53,6 +53,12 @@ public:
     /// the merged object back. If the file does not exist, writes a fresh
     /// file containing only `updates`. Returns true on write success.
     ///
+    /// Top-level merge only — if a key in `updates` holds a nested object,
+    /// the entire existing value is replaced wholesale, not deep-merged.
+    /// Callers writing into files with nested unknown sub-keys (e.g.
+    /// `app.json`'s plugin sub-objects) must read+merge at the relevant
+    /// depth themselves before passing the update.
+    ///
     /// Use this when persisting Corbomite-owned settings to a vault config
     /// file that may also contain Obsidian-authored keys we don't recognise.
     bool mergeJson(const QString &fileName, const QJsonObject &updates) const;

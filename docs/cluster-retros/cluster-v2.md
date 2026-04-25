@@ -1,7 +1,7 @@
 # Cluster V.2 — Editor/Workspace debt cleanup (retro)
 
 **Closed:** 2026-04-25
-**Plan:** [`superpowers/plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md`](../superpowers/plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md)
+**Plan:** [`superpowers/plans/archive/2026-04-25-cluster-v2-debt-cleanup.md`](../superpowers/plans/archive/2026-04-25-cluster-v2-debt-cleanup.md) + [`scouting`](../superpowers/plans/archive/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md)
 **Companion to:** [Cluster V](cluster-v.md)
 
 ## Outcome
