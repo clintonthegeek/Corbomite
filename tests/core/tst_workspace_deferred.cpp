@@ -1,10 +1,7 @@
 // tests/core/tst_workspace_deferred.cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
-#include <QTabBar>
 #include "corbomite/core/Workspace.h"
-#include "corbomite/core/WorkspaceSplit.h"
-#include "corbomite/core/WorkspaceTabs.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/ViewRegistry.h"
 
@@ -33,17 +30,6 @@ private Q_SLOTS:
 
         QCOMPARE(leaf.cachedIcon(), QStringLiteral("my-icon"));
         QCOMPARE(leaf.cachedTitle(), QStringLiteral("My Title"));
-    }
-
-    void tabBarShowsCachedTitle()
-    {
-        ViewRegistry registry;
-        WorkspaceTabs tabs;
-        auto *leaf = new WorkspaceLeaf(&registry);
-        leaf->setDeferred(true, QStringLiteral("doc"), QStringLiteral("Cached Title"));
-        tabs.addChild(leaf);
-
-        QCOMPARE(tabs.tabBar()->tabText(0), QStringLiteral("Cached Title"));
     }
 
     void loadIfDeferredClearsFlag()

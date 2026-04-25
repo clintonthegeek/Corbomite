@@ -6,8 +6,6 @@
 #include <QJsonDocument>
 #include <QTemporaryDir>
 #include "corbomite/core/Workspace.h"
-#include "corbomite/core/WorkspaceSplit.h"
-#include "corbomite/core/WorkspaceTabs.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/ViewRegistry.h"
 
@@ -33,13 +31,8 @@ private Q_SLOTS:
         ViewRegistry registry;
         Workspace ws(&registry);
 
-        auto *tabs = ws.mainRoot()->childCount() > 0
-            ? qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0))
-            : nullptr;
-        QVERIFY(tabs != nullptr);
-
-        auto *leaf = new WorkspaceLeaf(&registry);
-        tabs->addChild(leaf);
+        auto *leaf = ws.createLeafInActiveGroup();
+        QVERIFY(leaf);
         ws.setActiveLeaf(leaf);
 
         QJsonObject json = ws.serialize();
@@ -47,7 +40,7 @@ private Q_SLOTS:
 
         Workspace ws2(&registry);
         ws2.deserialize(json);
-        QCOMPARE(ws2.mainRoot()->childCount(), 1);
+        QCOMPARE(ws2.allLeaves().size(), 1);
     }
 
     void obsidianSchemaShape()
@@ -79,7 +72,7 @@ private Q_SLOTS:
 
         Workspace ws2(&registry);
         ws2.readWorkspaceJson(vaultPath);
-        QVERIFY(ws2.mainRoot() != nullptr);
+        QVERIFY(ws2.rootWidget() != nullptr);
     }
 
     void lastOpenFilesRoundTrip()
@@ -100,11 +93,10 @@ private Q_SLOTS:
         ViewRegistry registry;
         Workspace ws(&registry);
 
-        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
-        auto *leaf1 = new WorkspaceLeaf(&registry);
-        auto *leaf2 = new WorkspaceLeaf(&registry);
-        tabs->addChild(leaf1);
-        tabs->addChild(leaf2);
+        auto *leaf1 = ws.createLeafInActiveGroup();
+        QVERIFY(leaf1);
+        auto *leaf2 = ws.createLeafInGroupOf(leaf1);
+        QVERIFY(leaf2);
         ws.setActiveLeaf(leaf2);
 
         QJsonObject json = ws.serialize();

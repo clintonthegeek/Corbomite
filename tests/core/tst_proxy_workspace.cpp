@@ -8,8 +8,6 @@
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "corbomite/core/WorkspaceSplit.h"
-#include "corbomite/core/WorkspaceTabs.h"
 #include "corbomite/core/proxies/WorkspaceController.h"
 
 using namespace Corbomite;
@@ -203,9 +201,7 @@ void TestProxyWorkspace::goToLineDispatchesToActiveEditableFileView()
     Workspace workspace(registry);
     WorkspaceController ctrl(&workspace);
 
-    auto *tabs = workspace.activeTabs();
-    QVERIFY(tabs);
-    auto *leaf = workspace.createLeafInTabs(tabs);
+    auto *leaf = workspace.createLeafInActiveGroup();
     QVERIFY(leaf);
     QJsonObject viewState;
     viewState[QStringLiteral("type")] = QStringLiteral("stub-editable");

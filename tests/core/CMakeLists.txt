@@ -169,16 +169,6 @@ add_executable(tst_leaf_history tst_leaf_history.cpp)
 add_test(NAME tst_leaf_history COMMAND tst_leaf_history)
 target_link_libraries(tst_leaf_history PRIVATE Qt6::Test Corbomite::Core)
 
-add_executable(tst_workspace_tree tst_workspace_tree.cpp)
-add_test(NAME tst_workspace_tree COMMAND tst_workspace_tree)
-target_link_libraries(tst_workspace_tree PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
-set_tests_properties(tst_workspace_tree PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-add_executable(tst_workspace_tabs tst_workspace_tabs.cpp)
-add_test(NAME tst_workspace_tabs COMMAND tst_workspace_tabs)
-target_link_libraries(tst_workspace_tabs PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
-set_tests_properties(tst_workspace_tabs PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
 add_executable(tst_workspace_serialize tst_workspace_serialize.cpp)
 add_test(NAME tst_workspace_serialize COMMAND tst_workspace_serialize)
 target_link_libraries(tst_workspace_serialize PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
@@ -208,11 +198,6 @@ add_executable(tst_workspace_session tst_workspace_session.cpp)
 add_test(NAME tst_workspace_session COMMAND tst_workspace_session)
 target_link_libraries(tst_workspace_session PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_workspace_session PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-add_executable(tst_workspace_tabs_lifecycle tst_workspace_tabs_lifecycle.cpp)
-add_test(NAME tst_workspace_tabs_lifecycle COMMAND tst_workspace_tabs_lifecycle)
-target_link_libraries(tst_workspace_tabs_lifecycle PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
-set_tests_properties(tst_workspace_tabs_lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_leaf_service_propagation tst_leaf_service_propagation.cpp)
 add_test(NAME tst_leaf_service_propagation COMMAND tst_leaf_service_propagation)

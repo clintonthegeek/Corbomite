@@ -3,8 +3,6 @@
 #include <QTest>
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceWindow.h"
-#include "corbomite/core/WorkspaceSplit.h"
-#include "corbomite/core/WorkspaceTabs.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/ViewRegistry.h"
 
@@ -41,14 +39,12 @@ private Q_SLOTS:
         ViewRegistry registry;
         Workspace ws(&registry);
 
-        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
-        auto *leaf = new WorkspaceLeaf(&registry);
-        tabs->addChild(leaf);
+        auto *leaf = ws.createLeafInActiveGroup();
+        QVERIFY(leaf);
         ws.setActiveLeaf(leaf);
 
         auto *win = ws.popoutLeaf(leaf);
         QVERIFY(win != nullptr);
-        QCOMPARE(tabs->childCount(), 0);
         QCOMPARE(ws.windows().size(), 1);
     }
 
@@ -57,16 +53,16 @@ private Q_SLOTS:
         ViewRegistry registry;
         Workspace ws(&registry);
 
-        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
-        auto *leaf = new WorkspaceLeaf(&registry);
-        tabs->addChild(leaf);
+        auto *leaf = ws.createLeafInActiveGroup();
+        QVERIFY(leaf);
         ws.setActiveLeaf(leaf);
 
         auto *win = ws.popoutLeaf(leaf);
+        QVERIFY(win);
         ws.reparentToMain(win);
 
         QCOMPARE(ws.windows().size(), 0);
-        QVERIFY(tabs->childCount() > 0);
+        QVERIFY(!ws.allLeaves().isEmpty());
     }
 };
 

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
 #include "corbomite/core/Workspace.h"
-#include "corbomite/core/WorkspaceSplit.h"
-#include "corbomite/core/WorkspaceTabs.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/ViewRegistry.h"
 
@@ -26,9 +24,8 @@ private Q_SLOTS:
         ViewRegistry registry;
         Workspace ws(&registry);
 
-        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
-        auto *leaf = new WorkspaceLeaf(&registry);
-        tabs->addChild(leaf);
+        auto *leaf = ws.createLeafInActiveGroup();
+        QVERIFY(leaf);
         ws.setActiveLeaf(leaf);
 
         ws.closeLeaf(leaf);
@@ -40,16 +37,16 @@ private Q_SLOTS:
         ViewRegistry registry;
         Workspace ws(&registry);
 
-        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
-        auto *leaf = new WorkspaceLeaf(&registry);
-        tabs->addChild(leaf);
+        auto *leaf = ws.createLeafInActiveGroup();
+        QVERIFY(leaf);
         ws.setActiveLeaf(leaf);
 
+        const int beforeClose = ws.allLeaves().size();
         ws.closeLeaf(leaf);
-        QCOMPARE(tabs->childCount(), 0);
+        QCOMPARE(ws.allLeaves().size(), beforeClose - 1);
 
         ws.undoCloseLeaf();
-        QCOMPARE(tabs->childCount(), 1);
+        QCOMPARE(ws.allLeaves().size(), beforeClose);
     }
 
     void undoCapAt10()
@@ -57,11 +54,9 @@ private Q_SLOTS:
         ViewRegistry registry;
         Workspace ws(&registry);
 
-        auto *tabs = qobject_cast<WorkspaceTabs *>(ws.mainRoot()->childAt(0));
-
         for (int i = 0; i < 12; ++i) {
-            auto *leaf = new WorkspaceLeaf(&registry);
-            tabs->addChild(leaf);
+            auto *leaf = ws.createLeafInActiveGroup();
+            QVERIFY(leaf);
             ws.setActiveLeaf(leaf);
             ws.closeLeaf(leaf);
         }
