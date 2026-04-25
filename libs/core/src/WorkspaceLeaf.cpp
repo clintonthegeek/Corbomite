@@ -4,45 +4,76 @@
 #include "corbomite/core/View.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/Workspace.h"
-#include "corbomite/core/WorkspaceParent.h"
+
+#include <kddockwidgets/KDDockWidgets.h>
+#include <kddockwidgets/core/DockWidget.h>
+#include <kddockwidgets/qtwidgets/DockWidget.h>
 
 #include <QDateTime>
-#include <QVBoxLayout>
+#include <QRandomGenerator>
 
 namespace Corbomite {
 
+namespace {
+void ensureKddwInit()
+{
+    static bool initialized = false;
+    if (initialized) return;
+    initialized = true;
+    KDDockWidgets::initFrontend(KDDockWidgets::FrontendType::QtWidgets);
+}
+} // namespace
+
 WorkspaceLeaf::WorkspaceLeaf(ViewRegistry *registry, QObject *parent)
-    : WorkspaceItem(parent)
-    , m_widget(new QWidget)
+    : QObject(parent)
+    , m_id(generateId())
     , m_registry(registry)
 {
-    auto *layout = new QVBoxLayout(m_widget);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
+    // KDDW DockWidget construction needs an initialized frontend. Tests
+    // sometimes construct a WorkspaceLeaf in isolation (no enclosing
+    // Workspace), so don't rely on Workspace's ensureKddwInit having run.
+    ensureKddwInit();
+    // The unique name is finalized when the leaf is parented to a Workspace
+    // (which knows the vaultId): Workspace::createLeafInGroupOf renames via
+    // setUniqueName({vaultId}:{leafId}). Plain leaf-id is unique enough for
+    // tests that construct a leaf in isolation.
+    m_dockWidget = new KDDockWidgets::QtWidgets::DockWidget(m_id);
 }
 
 WorkspaceLeaf::~WorkspaceLeaf()
 {
     closeCurrentView();
-    delete m_widget;
+    // The owning Workspace clears m_dockWidget via dropDockWidget() in its
+    // destructor before tearing down the KDDW MainWindow (which would
+    // double-free leaves that are still QObject-children of Workspace and
+    // thus get cleaned up by ~QObject after KDDW already disposed their
+    // dock widgets). For independent leaves (constructed without an
+    // enclosing Workspace), m_dockWidget is non-null and we own it.
+    delete m_dockWidget;
 }
 
-QWidget *WorkspaceLeaf::widget() { return m_widget; }
+QString WorkspaceLeaf::id() const { return m_id; }
+
+void WorkspaceLeaf::setId(const QString &id) { m_id = id; }
+
+QString WorkspaceLeaf::generateId()
+{
+    static const char chars[] = "0123456789abcdef";
+    QString result;
+    result.reserve(16);
+    auto *rng = QRandomGenerator::global();
+    for (int i = 0; i < 16; ++i)
+        result.append(QLatin1Char(chars[rng->bounded(16)]));
+    return result;
+}
+
+QWidget *WorkspaceLeaf::widget() { return m_dockWidget; }
 
 View *WorkspaceLeaf::view() const { return m_view; }
 
 Workspace *WorkspaceLeaf::workspace() const
 {
-    // Walk up the substrate parent chain (Tabs → Split → ... → root Split).
-    // Every substrate node is QObject-parented to the owning Workspace at
-    // construction time (`new WorkspaceTabs(this)` etc. inside Workspace's
-    // implementation), so the first node we encounter whose QObject parent
-    // qobject_casts to Workspace is the answer.
-    for (WorkspaceItem *node = parentItem(); node; node = node->parentItem()) {
-        if (auto *ws = qobject_cast<Workspace *>(node->parent()))
-            return ws;
-    }
-    return nullptr;
+    return qobject_cast<Workspace *>(parent());
 }
 
 ViewRegistry *WorkspaceLeaf::registry() const { return m_registry; }
@@ -52,8 +83,11 @@ void WorkspaceLeaf::open(View *newView)
     closeCurrentView();
     m_view = newView;
     if (m_view) {
-        m_view->open(m_widget);
-        m_widget->layout()->addWidget(m_view);
+        // View::open(QWidget*) historically took the leaf's content widget
+        // as a "host" hint. With KDDW underneath, the View itself is the
+        // dock widget's guest, so there's no separate host container.
+        m_view->open(nullptr);
+        m_dockWidget->setWidget(m_view);
     }
     Q_EMIT viewChanged(m_view);
 }
@@ -62,11 +96,23 @@ void WorkspaceLeaf::closeCurrentView()
 {
     if (m_view) {
         m_view->close();
-        if (m_widget && m_widget->layout())
-            m_widget->layout()->removeWidget(m_view);
+        // QtWidgets::setWidget(nullptr) is documented forbidden, but the Core
+        // API setGuestView(nullptr) accepts a null shared_ptr and properly
+        // teaches KDDW that the dock widget no longer has a guest. Without
+        // this, a subsequent open() -> setWidget(newView) call would trip on
+        // KDDW's stale guest reference (the old QWidget was reparented away
+        // and queued for deleteLater, but KDDW still tracks it).
+        if (m_dockWidget && m_dockWidget->dockWidget())
+            m_dockWidget->dockWidget()->setGuestView(nullptr);
         m_view->deleteLater();
         m_view = nullptr;
     }
+}
+
+void WorkspaceLeaf::setAsCurrentTab()
+{
+    if (m_dockWidget)
+        m_dockWidget->setAsCurrentTab();
 }
 
 QJsonObject WorkspaceLeaf::getViewState() const

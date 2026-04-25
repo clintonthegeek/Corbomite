@@ -495,6 +495,11 @@ Clusters to-do → Plugin API / extension surfaces → Editor / Views / Workspac
 - **Scope:** small
 - **Details:** Timeout under offscreen QPA + cold cache; the 1500 ms gate is already permissive but still flakes. Pre-existing. The most likely fix is raising the timeout threshold or measuring the benchmark relative to a calibration run rather than against an absolute constant.
 
+### `tst_e2e_gui::testCloseTab` — KDDW tab-close signal not externally drivable (Cluster Y P4b regression)
+- **Source:** Surfaced during Cluster Y Phase 4b atomic flip 2026-04-25
+- **Blocks:** nothing critical; the test method emits `QTabBar::tabCloseRequested(idx)` directly on KDDW's tab bar. Pre-4b that signal flowed through `WorkspaceTabs::onTabBarCloseRequested` into `Workspace::tabCloseRequested -> closeLeaf`. Post-4b, KDDW intercepts the X-button click via its own internal event path, not via re-emitting the QTabBar signal, so an externally-emitted `tabCloseRequested(idx)` no longer triggers the chain.
+- **Scope:** small. Fix options: (a) update the test to drive the close via the user-visible KDDW affordance (synthetic mouse click on the X, or `dockWidget->close()`); or (b) wire an additional handler on KDDW's tab bar inside Workspace that mirrors the legacy semantics. Option (a) is cleaner — the test was already coupling to substrate internals.
+
 ---
 
 *(A and B follow-up sweep 2026-04-19: grep found no deferred/follow-up items specific to Clusters A or B beyond what is already captured above — A is fully not-started and appears only in "Recent decisions" context; B's deferred Phase 3b wiring is captured in §1 Cluster B above.)*

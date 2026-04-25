@@ -81,14 +81,6 @@ add_library(corbomite-core STATIC
     include/corbomite/core/WorkspaceLeaf.h
     src/LeafHistory.cpp
     include/corbomite/core/LeafHistory.h
-    src/WorkspaceItem.cpp
-    include/corbomite/core/WorkspaceItem.h
-    src/WorkspaceParent.cpp
-    include/corbomite/core/WorkspaceParent.h
-    src/WorkspaceSplit.cpp
-    include/corbomite/core/WorkspaceSplit.h
-    src/WorkspaceTabs.cpp
-    include/corbomite/core/WorkspaceTabs.h
     src/Workspace.cpp
     include/corbomite/core/Workspace.h
     src/WorkspaceWindow.cpp

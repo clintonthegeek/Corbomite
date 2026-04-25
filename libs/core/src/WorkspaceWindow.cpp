@@ -3,14 +3,29 @@
 #include "corbomite/core/WorkspaceWindow.h"
 
 #include <QCloseEvent>
-#include <QJsonArray>
+#include <QEvent>
+#include <QRandomGenerator>
 #include <QVBoxLayout>
 #include <QWidget>
 
 namespace Corbomite {
 
+namespace {
+QString generateId()
+{
+    static const char chars[] = "0123456789abcdef";
+    QString result;
+    result.reserve(16);
+    auto *rng = QRandomGenerator::global();
+    for (int i = 0; i < 16; ++i)
+        result.append(QLatin1Char(chars[rng->bounded(16)]));
+    return result;
+}
+} // namespace
+
 WorkspaceWindow::WorkspaceWindow(QObject *parent)
-    : WorkspaceParent(parent)
+    : QObject(parent)
+    , m_id(generateId())
     , m_widget(new QWidget(nullptr, Qt::Window))
 {
     auto *layout = new QVBoxLayout(m_widget);
@@ -22,6 +37,9 @@ WorkspaceWindow::~WorkspaceWindow()
 {
     delete m_widget;
 }
+
+QString WorkspaceWindow::id() const { return m_id; }
+void WorkspaceWindow::setId(const QString &id) { m_id = id; }
 
 QWidget *WorkspaceWindow::widget() { return m_widget; }
 
@@ -48,11 +66,6 @@ void WorkspaceWindow::showWindow()
         m_widget->showMaximized();
     else
         m_widget->show();
-
-    for (auto *child : m_children) {
-        if (auto *w = child->widget())
-            m_widget->layout()->addWidget(w);
-    }
 }
 
 void WorkspaceWindow::closeWindow()
@@ -68,13 +81,13 @@ bool WorkspaceWindow::eventFilter(QObject *obj, QEvent *event)
         closeWindow();
         return true;
     }
-    return WorkspaceParent::eventFilter(obj, event);
+    return QObject::eventFilter(obj, event);
 }
 
 QJsonObject WorkspaceWindow::serialize() const
 {
     QJsonObject json;
-    json[QStringLiteral("id")] = id();
+    json[QStringLiteral("id")] = m_id;
     json[QStringLiteral("type")] = QStringLiteral("window");
     json[QStringLiteral("x")] = m_x;
     json[QStringLiteral("y")] = m_y;
@@ -82,12 +95,6 @@ QJsonObject WorkspaceWindow::serialize() const
     json[QStringLiteral("height")] = m_height;
     if (m_maximized)
         json[QStringLiteral("maximize")] = true;
-
-    QJsonArray children;
-    for (const auto *child : m_children)
-        children.append(child->serialize());
-    json[QStringLiteral("children")] = children;
-
     return json;
 }
 

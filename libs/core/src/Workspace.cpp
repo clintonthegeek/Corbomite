@@ -3,18 +3,54 @@
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "corbomite/core/WorkspaceSplit.h"
-#include "corbomite/core/WorkspaceTabs.h"
 #include "corbomite/core/WorkspaceWindow.h"
+
+#include <kddockwidgets/Config.h>
+#include <kddockwidgets/KDDockWidgets.h>
+#include <kddockwidgets/core/DockWidget.h>
+#include <kddockwidgets/qtwidgets/DockWidget.h>
+#include <kddockwidgets/qtwidgets/MainWindow.h>
 
 #include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QRandomGenerator>
+#include <QSignalBlocker>
 #include <QWidget>
 
 namespace Corbomite {
+
+namespace {
+
+QString uniqueNameFor(const QString &vaultId, const QString &leafId)
+{
+    return vaultId.isEmpty()
+        ? leafId
+        : QStringLiteral("%1:%2").arg(vaultId, leafId);
+}
+
+void ensureKddwInit()
+{
+    static bool initialized = false;
+    if (initialized) return;
+    initialized = true;
+    KDDockWidgets::initFrontend(KDDockWidgets::FrontendType::QtWidgets);
+}
+
+QString generateTabGroupId()
+{
+    static const char chars[] = "0123456789abcdef";
+    QString result;
+    result.reserve(16);
+    auto *rng = QRandomGenerator::global();
+    for (int i = 0; i < 16; ++i)
+        result.append(QLatin1Char(chars[rng->bounded(16)]));
+    return result;
+}
+
+} // namespace
 
 Workspace::Workspace(ViewRegistry *registry, QObject *parent)
     : Workspace(QString{}, registry, parent)
@@ -26,7 +62,27 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     , m_vaultId(std::move(vaultId))
     , m_registry(registry)
 {
-    setupDefaultLayout();
+    ensureKddwInit();
+
+    const QString mainName = QStringLiteral("corbomite:%1")
+        .arg(m_vaultId.isEmpty() ? QStringLiteral("default") : m_vaultId);
+    m_kddwMain = new KDDockWidgets::QtWidgets::MainWindow(
+        mainName, KDDockWidgets::MainWindowOption_None,
+        /*parent=*/nullptr);
+    // The host (e.g. CorbomiteMDI::MainWindow) reparents m_kddwMain into its
+    // own central widget hierarchy, so Qt's parent cleanup may destroy the
+    // KDDW MainWindow before Workspace's destructor runs. When that happens
+    // every leaf's m_dockWidget becomes dangling — release them before
+    // ~WorkspaceLeaf's `delete m_dockWidget` attempts a double-free.
+    connect(m_kddwMain, &QObject::destroyed, this, [this]() {
+        m_kddwMain = nullptr;
+        for (auto *leaf : m_leaves)
+            leaf->releaseDockWidget();
+        for (auto *child : children()) {
+            if (auto *leaf = qobject_cast<WorkspaceLeaf *>(child))
+                leaf->releaseDockWidget();
+        }
+    });
 
     // Focus-based active-leaf routing: when any widget in the application
     // receives focus, walk up the parent chain to find the owning leaf and
@@ -35,11 +91,11 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     if (auto *app = qApp) {
         connect(app, &QApplication::focusChanged, this,
                 [this](QWidget *, QWidget *now) {
-            if (!now || !m_mainRoot)
+            if (!now)
                 return;
             QWidget *w = now;
             while (w) {
-                for (auto *leaf : allLeaves()) {
+                for (auto *leaf : m_leaves) {
                     if (leaf->widget() == w) {
                         setActiveLeaf(leaf);
                         return;
@@ -53,7 +109,33 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
 
 Workspace::~Workspace()
 {
-    destroyTree();
+    // Snapshot-then-clear before deleting: leaf destruction triggers KDDW
+    // DockWidget destructors which emit signals (isOpenChanged etc.) that
+    // run lambdas re-entering Workspace state (m_leaves iteration in the
+    // focus router). If m_leaves still contains the half-destructed leaf
+    // pointers during qDeleteAll, those lambdas read freed memory.
+    QVector<WorkspaceLeaf *> leavesCopy = m_leaves;
+    m_leaves.clear();
+    m_leavesById.clear();
+    m_tabGroupOf.clear();
+    m_activeLeaf = nullptr;
+    qDeleteAll(leavesCopy);
+
+    // Closed-but-pending leaves (closeLeaf path: deleteLater scheduled but
+    // not yet processed) are still QObject children of `this`. Detach
+    // their dock widgets before deleting the KDDW MainWindow — otherwise
+    // ~MainWindow disposes of the docked widgets and ~QObject's own child
+    // cleanup later double-frees them through ~WorkspaceLeaf's
+    // `delete m_dockWidget`.
+    for (auto *child : children()) {
+        if (auto *leaf = qobject_cast<WorkspaceLeaf *>(child))
+            leaf->releaseDockWidget();
+    }
+
+    delete m_kddwMain;
+    m_kddwMain = nullptr;
+    qDeleteAll(m_windows);
+    m_windows.clear();
 }
 
 void Workspace::revealDockView(const QString &slug)
@@ -70,12 +152,7 @@ QString Workspace::vaultId() const { return m_vaultId; }
 
 ViewRegistry *Workspace::viewRegistry() const { return m_registry; }
 
-WorkspaceSplit *Workspace::mainRoot() const { return m_mainRoot; }
-
-QWidget *Workspace::rootWidget() const
-{
-    return m_mainRoot ? m_mainRoot->widget() : nullptr;
-}
+QWidget *Workspace::rootWidget() const { return m_kddwMain; }
 
 WorkspaceLeaf *Workspace::activeLeaf() const { return m_activeLeaf; }
 
@@ -86,17 +163,9 @@ void Workspace::setActiveLeaf(WorkspaceLeaf *leaf)
     m_activeLeaf = leaf;
     if (leaf) {
         leaf->updateActiveTime();
-        // Make the substrate raise the leaf's tab so the visible UI
-        // matches the new active state. No-op if the tab is already
-        // current. Without this, callers like Ctrl+Tab navigation would
-        // update the active-leaf pointer but leave the user staring at
-        // the old tab. (Phase 4b: this becomes
-        // dockWidget()->setAsCurrentTab().)
-        if (auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem())) {
-            const int idx = tabs->indexOf(leaf);
-            if (idx >= 0 && idx != tabs->currentTab())
-                tabs->setCurrentTab(idx);
-        }
+        // Make the substrate raise the leaf's tab so the visible UI matches.
+        // No-op if the tab is already current.
+        leaf->setAsCurrentTab();
     }
     Q_EMIT activeLeafChanged(leaf);
 }
@@ -113,39 +182,93 @@ void Workspace::pushLastOpenFile(const QString &path)
         m_lastOpenFiles.removeLast();
 }
 
-WorkspaceLeaf *Workspace::createLeafInTabs(WorkspaceTabs *parent)
+void Workspace::registerLeaf(WorkspaceLeaf *leaf)
 {
-    if (!parent)
-        return nullptr;
-    wireTabsSignalForwarding(parent);
-    auto *leaf = new WorkspaceLeaf(m_registry);
-    parent->addChild(leaf);
+    if (!leaf || !leaf->dockWidget())
+        return;
+    auto *qtDw = leaf->dockWidget();
+    // Re-namespace the dock widget's unique name now that we know the vault.
+    if (auto *core = qtDw->dockWidget())
+        core->setUniqueName(uniqueNameFor(m_vaultId, leaf->id()));
+
+    m_leaves.append(leaf);
+    m_leavesById.insert(leaf->id(), leaf);
+
     connect(leaf, &WorkspaceLeaf::pinnedChanged, this, [this, leaf](bool) {
         propagatePinToGroup(leaf);
     });
-    Q_EMIT layoutChanged();
-    return leaf;
+    wireLeafKddwSignals(leaf);
+}
+
+void Workspace::unregisterLeaf(WorkspaceLeaf *leaf)
+{
+    if (!leaf)
+        return;
+    m_leaves.removeOne(leaf);
+    m_leavesById.remove(leaf->id());
+    m_tabGroupOf.remove(leaf);
+}
+
+void Workspace::wireLeafKddwSignals(WorkspaceLeaf *leaf)
+{
+    auto *dw = leaf->dockWidget();
+    if (!dw)
+        return;
+
+    // Re-emit "user clicked this tab" as Workspace::tabSelectRequested(leaf).
+    // Programmatic setAsCurrentTab also triggers this, but setActiveLeaf's
+    // m_activeLeaf == leaf early-return guards against feedback loops.
+    connect(dw, &KDDockWidgets::QtWidgets::DockWidget::isCurrentTabChanged,
+            this, [this, leaf](bool isCurrent) {
+        if (isCurrent && m_leavesById.contains(leaf->id()))
+            Q_EMIT tabSelectRequested(leaf);
+    });
+
+    // Re-emit "user closed this tab" as Workspace::tabCloseRequested(leaf).
+    // Hosts (MainWindow) call closeLeaf in response.
+    connect(dw, &KDDockWidgets::QtWidgets::DockWidget::isOpenChanged,
+            this, [this, leaf](bool isOpen) {
+        if (!isOpen && m_leavesById.contains(leaf->id()))
+            Q_EMIT tabCloseRequested(leaf);
+    });
 }
 
 WorkspaceLeaf *Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)
 {
-    WorkspaceTabs *tabs = sibling
-        ? qobject_cast<WorkspaceTabs *>(sibling->parentItem())
-        : findFirstTabs(m_mainRoot);
-    return tabs ? createLeafInTabs(tabs) : nullptr;
+    auto *leaf = new WorkspaceLeaf(m_registry, this);
+    registerLeaf(leaf);
+    // Block signals on the new dock widget across the addDockWidget call:
+    // KDDW marks the freshly-docked widget as the current tab and emits
+    // isCurrentTabChanged(true), which would cascade through
+    // wireLeafKddwSignals -> tabSelectRequested -> MainWindow ->
+    // setActiveLeaf BEFORE the caller (e.g. openFileInWorkspace) has set
+    // viewState on the leaf. The result would be an activeFileChanged
+    // emission with empty path, blanking sidebar panels (BUG-20260425).
+    {
+        const QSignalBlocker blocker(leaf->dockWidget());
+        if (sibling && sibling->dockWidget()) {
+            sibling->dockWidget()->dockWidget()->addDockWidgetAsTab(
+                leaf->dockWidget()->dockWidget());
+            // Inherit the sibling's tab group identity.
+            m_tabGroupOf.insert(leaf, m_tabGroupOf.value(sibling, QString{}));
+        } else {
+            m_kddwMain->addDockWidget(leaf->dockWidget(),
+                                       KDDockWidgets::Location_OnRight);
+            m_tabGroupOf.insert(leaf, generateTabGroupId());
+        }
+    }
+    Q_EMIT layoutChanged();
+    return leaf;
 }
 
 WorkspaceLeaf *Workspace::createLeafInActiveGroup()
 {
-    WorkspaceTabs *tabs = m_activeLeaf
-        ? qobject_cast<WorkspaceTabs *>(m_activeLeaf->parentItem())
-        : findFirstTabs(m_mainRoot);
-    return tabs ? createLeafInTabs(tabs) : nullptr;
+    return createLeafInGroupOf(m_activeLeaf);
 }
 
 void Workspace::closeLeaf(WorkspaceLeaf *leaf)
 {
-    if (!leaf)
+    if (!leaf || !m_leavesById.contains(leaf->id()))
         return;
 
     UndoEntry entry;
@@ -155,78 +278,21 @@ void Workspace::closeLeaf(WorkspaceLeaf *leaf)
     entry.leafHistory = leaf->history();
     entry.pinned = leaf->pinned();
     entry.group = leaf->group();
-
-    if (auto *parent = leaf->parentItem()) {
-        entry.parentId = parent->id();
-        if (auto *grandparent = parent->parentItem())
-            entry.rootId = grandparent->id();
-    }
-
     m_undoHistory.prepend(entry);
     if (m_undoHistory.size() > UndoCap)
         m_undoHistory.removeLast();
-
-    auto *parentTabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
 
     if (m_activeLeaf == leaf)
         m_activeLeaf = nullptr;
 
     Q_EMIT leafClosed(leaf);
+    unregisterLeaf(leaf);
+    leaf->deleteLater();   // ~WorkspaceLeaf disposes its DockWidget
 
-    if (parentTabs) {
-        parentTabs->removeChild(leaf, true);
-        if (parentTabs->childCount() > 0 && !m_activeLeaf) {
-            setActiveLeaf(parentTabs->currentLeaf());
-        } else if (parentTabs->childCount() == 0) {
-            // Empty tabs container: collapse it out of the tree. If its
-            // parent split is left with a single child, promote that child
-            // in place of the split (Obsidian "split back out" semantics).
-            collapseEmptyTabs(parentTabs);
-        }
-    } else {
-        delete leaf;
-    }
+    if (!m_activeLeaf && !m_leaves.isEmpty())
+        setActiveLeaf(m_leaves.first());
 
     Q_EMIT layoutChanged();
-}
-
-void Workspace::collapseEmptyTabs(WorkspaceTabs *tabs)
-{
-    if (!tabs || tabs->childCount() != 0)
-        return;
-
-    auto *parentSplit = qobject_cast<WorkspaceSplit *>(tabs->parentItem());
-    if (!parentSplit) {
-        // Orphan tabs — just delete it.
-        delete tabs;
-        return;
-    }
-
-    // Never let the main root become empty — it always carries at least one
-    // tabs container (the default layout). If the main root is the parent
-    // and it only has this one empty tabs, leave a fresh empty tabs in place
-    // rather than deleting it outright.
-    if (parentSplit == m_mainRoot && parentSplit->childCount() == 1) {
-        return; // keep the empty tabs as the default layout
-    }
-
-    parentSplit->removeChild(tabs, /*deleteChild=*/true);
-
-    // If the parent split is now down to one child, promote that child up
-    // one level (collapse the split itself). This is what gives users the
-    // "close right pane -> left pane reclaims the full area" behaviour.
-    if (parentSplit->childCount() == 1 && parentSplit != m_mainRoot) {
-        auto *soleChild = parentSplit->childAt(0);
-        auto *grandparent = qobject_cast<WorkspaceSplit *>(parentSplit->parentItem());
-        if (grandparent) {
-            int idx = grandparent->indexOf(parentSplit);
-            parentSplit->removeChild(soleChild, /*deleteChild=*/false);
-            grandparent->removeChild(parentSplit, /*deleteChild=*/true);
-            grandparent->addChild(soleChild, idx);
-        }
-    } else if (parentSplit == m_mainRoot && parentSplit->childCount() == 1) {
-        // mainRoot with one child is fine — mainRoot is a permanent fixture.
-    }
 }
 
 bool Workspace::canUndoCloseLeaf() const { return !m_undoHistory.isEmpty(); }
@@ -235,25 +301,14 @@ void Workspace::undoCloseLeaf()
 {
     if (m_undoHistory.isEmpty())
         return;
-
     UndoEntry entry = m_undoHistory.takeFirst();
 
-    WorkspaceTabs *targetTabs = nullptr;
-    if (!entry.parentId.isEmpty())
-        targetTabs = findTabsById(entry.parentId);
-    if (!targetTabs)
-        targetTabs = activeTabs();
-    if (!targetTabs)
-        targetTabs = findFirstTabs(m_mainRoot);
-    if (!targetTabs)
+    auto *leaf = createLeafInActiveGroup();
+    if (!leaf)
         return;
-
-    auto *leaf = new WorkspaceLeaf(m_registry);
     leaf->setId(entry.leafId);
     leaf->setPinned(entry.pinned);
     leaf->setGroup(entry.group);
-    targetTabs->addChild(leaf);
-
     if (!entry.state.isEmpty())
         leaf->setViewState(entry.state);
 
@@ -261,41 +316,32 @@ void Workspace::undoCloseLeaf()
     Q_EMIT layoutChanged();
 }
 
-WorkspaceLeaf *Workspace::splitLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction)
+WorkspaceLeaf *Workspace::splitLeaf(WorkspaceLeaf *source, Qt::Orientation direction)
 {
-    if (!leaf || !leaf->parentItem())
+    if (!source || !source->dockWidget())
         return nullptr;
-
-    auto *parentTabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
-    auto *grandparent = parentTabs ? parentTabs->parentItem() : nullptr;
-    if (!grandparent)
-        return nullptr;
-
-    auto *split = new WorkspaceSplit(this);
-    split->setDirection(direction);
-
-    int parentIndex = grandparent->indexOf(parentTabs);
-    grandparent->removeChild(parentTabs);
-    grandparent->addChild(split, parentIndex);
-
-    split->addChild(parentTabs);
-
-    auto *newTabs = new WorkspaceTabs(this);
-    split->addChild(newTabs);
-    wireTabsSignalForwarding(newTabs);
-
-    auto *newLeaf = createLeafInTabs(newTabs);
-
+    auto *leaf = new WorkspaceLeaf(m_registry, this);
+    registerLeaf(leaf);
+    auto location = direction == Qt::Horizontal
+        ? KDDockWidgets::Location_OnRight
+        : KDDockWidgets::Location_OnBottom;
+    {
+        const QSignalBlocker blocker(leaf->dockWidget());
+        source->dockWidget()->dockWidget()->addDockWidgetToContainingWindow(
+            leaf->dockWidget()->dockWidget(), location,
+            source->dockWidget()->dockWidget());
+    }
+    // Splits put the new leaf in a fresh tab group.
+    m_tabGroupOf.insert(leaf, generateTabGroupId());
     Q_EMIT layoutChanged();
-    return newLeaf;
+    return leaf;
 }
 
 WorkspaceLeaf *Workspace::duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation direction)
 {
-    if (!leaf || !leaf->parentItem())
+    if (!leaf)
         return nullptr;
 
-    // Snapshot before structural mutation.
     QJsonObject state = leaf->getViewState();
     QJsonObject eState = leaf->getEphemeralState();
     LeafHistory hist = leaf->history();
@@ -320,21 +366,15 @@ WorkspaceLeaf *Workspace::duplicateLeaf(WorkspaceLeaf *leaf, Qt::Orientation dir
 
 WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)
 {
+    // Phase 5 (Task 5.2) replaces this stub with KDDW's setFloating(true) +
+    // FloatingWindow handling. For 4b we keep the existing Workspace contract
+    // — return a non-null WorkspaceWindow recorded in m_windows — without
+    // moving the leaf. Existing tests verify the bookkeeping (windows().size()),
+    // not the substrate behaviour.
     if (!leaf)
         return nullptr;
-
-    auto *oldParent = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
-    if (oldParent)
-        oldParent->removeChild(leaf);
-
     auto *win = new WorkspaceWindow(this);
-    auto *tabs = new WorkspaceTabs(this);
-    win->addChild(tabs);
-    tabs->addChild(leaf);
-    wireTabsSignalForwarding(tabs);
-
     m_windows.append(win);
-    win->showWindow();
     Q_EMIT layoutChanged();
     return win;
 }
@@ -343,29 +383,6 @@ void Workspace::reparentToMain(WorkspaceWindow *window)
 {
     if (!window)
         return;
-
-    // Find target in main tree before touching the window tree.
-    // activeTabs() follows m_activeLeaf which may be inside the window —
-    // always anchor to the main root to avoid reparenting back into the
-    // window's inner tabs right before they are destroyed.
-    auto *targetTabs = findFirstTabs(m_mainRoot);
-    if (!targetTabs)
-        return;
-
-    QVector<WorkspaceLeaf *> leaves;
-    collectLeaves(window, leaves);
-
-    // Clear active leaf if it lives in this window.
-    if (m_activeLeaf && leaves.contains(m_activeLeaf))
-        m_activeLeaf = nullptr;
-
-    for (auto *leaf : leaves) {
-        if (auto *parent = qobject_cast<WorkspaceParent *>(leaf->parentItem()))
-            parent->removeChild(leaf);
-        targetTabs->addChild(leaf);
-    }
-
-    window->closeWindow();
     m_windows.removeOne(window);
     delete window;
     Q_EMIT layoutChanged();
@@ -373,94 +390,92 @@ void Workspace::reparentToMain(WorkspaceWindow *window)
 
 QVector<WorkspaceWindow *> Workspace::windows() const { return m_windows; }
 
-WorkspaceTabs *Workspace::activeTabs() const
+namespace {
+QVector<WorkspaceLeaf *> tabSiblings(const QHash<WorkspaceLeaf *, QString> &tabGroupOf,
+                                     const QVector<WorkspaceLeaf *> &leaves,
+                                     WorkspaceLeaf *leaf)
 {
-    if (m_activeLeaf)
-        return qobject_cast<WorkspaceTabs *>(m_activeLeaf->parentItem());
-    return findFirstTabs(m_mainRoot);
+    QVector<WorkspaceLeaf *> result;
+    if (!leaf)
+        return result;
+    QString gid = tabGroupOf.value(leaf);
+    if (gid.isEmpty())
+        return result;
+    for (auto *l : leaves) {
+        if (tabGroupOf.value(l) == gid)
+            result.append(l);
+    }
+    return result;
 }
+} // namespace
 
 WorkspaceLeaf *Workspace::nextLeafInActiveGroup() const
 {
-    auto *tabs = activeTabs();
-    if (!tabs || tabs->childCount() < 2)
+    auto group = tabSiblings(m_tabGroupOf, m_leaves, m_activeLeaf);
+    if (group.size() < 2)
         return nullptr;
-    const int next = (tabs->currentTab() + 1) % tabs->childCount();
-    return tabs->leafAt(next);
+    int idx = group.indexOf(m_activeLeaf);
+    if (idx < 0)
+        return nullptr;
+    return group[(idx + 1) % group.size()];
 }
 
 WorkspaceLeaf *Workspace::previousLeafInActiveGroup() const
 {
-    auto *tabs = activeTabs();
-    if (!tabs || tabs->childCount() < 2)
+    auto group = tabSiblings(m_tabGroupOf, m_leaves, m_activeLeaf);
+    if (group.size() < 2)
         return nullptr;
-    const int n = tabs->childCount();
-    const int prev = (tabs->currentTab() + n - 1) % n;
-    return tabs->leafAt(prev);
+    int idx = group.indexOf(m_activeLeaf);
+    if (idx < 0)
+        return nullptr;
+    int n = group.size();
+    return group[(idx + n - 1) % n];
 }
 
 int Workspace::leafIndexInGroup(WorkspaceLeaf *leaf) const
 {
-    if (!leaf)
-        return -1;
-    auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
-    return tabs ? tabs->indexOf(leaf) : -1;
+    auto group = tabSiblings(m_tabGroupOf, m_leaves, leaf);
+    return group.indexOf(leaf);
 }
 
 int Workspace::leafCountInGroup(WorkspaceLeaf *leaf) const
 {
-    if (!leaf)
-        return 0;
-    auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
-    return tabs ? tabs->childCount() : 0;
+    return tabSiblings(m_tabGroupOf, m_leaves, leaf).size();
 }
 
 void Workspace::closeOtherLeavesInGroupOf(WorkspaceLeaf *leaf)
 {
-    if (!leaf)
-        return;
-    auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
-    if (!tabs)
-        return;
-    // Iterate from the back so earlier indices stay valid as we close.
-    for (int i = tabs->childCount() - 1; i >= 0; --i) {
-        auto *l = tabs->leafAt(i);
-        if (l && l != leaf)
-            closeLeaf(l);
+    auto group = tabSiblings(m_tabGroupOf, m_leaves, leaf);
+    QVector<WorkspaceLeaf *> targets;
+    for (auto *l : group) {
+        if (l != leaf)
+            targets.append(l);
     }
+    for (auto *l : targets)
+        closeLeaf(l);
 }
 
 void Workspace::closeLeavesToRightOf(WorkspaceLeaf *leaf)
 {
-    if (!leaf)
-        return;
-    auto *tabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem());
-    if (!tabs)
-        return;
-    const int pivot = tabs->indexOf(leaf);
+    auto group = tabSiblings(m_tabGroupOf, m_leaves, leaf);
+    int pivot = group.indexOf(leaf);
     if (pivot < 0)
         return;
-    for (int i = tabs->childCount() - 1; i > pivot; --i) {
-        if (auto *l = tabs->leafAt(i))
-            closeLeaf(l);
-    }
+    QVector<WorkspaceLeaf *> targets;
+    for (int i = pivot + 1; i < group.size(); ++i)
+        targets.append(group[i]);
+    for (auto *l : targets)
+        closeLeaf(l);
 }
 
 WorkspaceLeaf *Workspace::findLeafById(const QString &id) const
 {
-    return findLeafInTree(m_mainRoot, id);
-}
-
-WorkspaceTabs *Workspace::findTabsById(const QString &id) const
-{
-    return findTabsInTree(m_mainRoot, id);
+    return m_leavesById.value(id);
 }
 
 QVector<WorkspaceLeaf *> Workspace::allLeaves() const
 {
-    QVector<WorkspaceLeaf *> result;
-    collectLeaves(m_mainRoot, result);
-    return result;
+    return m_leaves;
 }
 
 QVector<WorkspaceLeaf *> Workspace::groupMembers(const QString &groupId) const
@@ -468,7 +483,7 @@ QVector<WorkspaceLeaf *> Workspace::groupMembers(const QString &groupId) const
     QVector<WorkspaceLeaf *> result;
     if (groupId.isEmpty())
         return result;
-    for (auto *leaf : allLeaves()) {
+    for (auto *leaf : m_leaves) {
         if (leaf->group() == groupId)
             result.append(leaf);
     }
@@ -486,35 +501,71 @@ void Workspace::propagatePinToGroup(WorkspaceLeaf *leaf)
     }
 }
 
-WorkspaceLeaf *Workspace::findOrCreateUnpinnedLeaf(WorkspaceTabs *tabs)
-{
-    for (int i = 0; i < tabs->childCount(); ++i) {
-        auto *leaf = tabs->leafAt(i);
-        if (leaf && !leaf->pinned())
-            return leaf;
-    }
-    return createLeafInTabs(tabs);
-}
-
 WorkspaceLeaf *Workspace::findOrCreateUnpinnedLeafInGroupOf(WorkspaceLeaf *sibling)
 {
-    auto *tabs = sibling
-        ? qobject_cast<WorkspaceTabs *>(sibling->parentItem())
-        : findFirstTabs(m_mainRoot);
-    return tabs ? findOrCreateUnpinnedLeaf(tabs) : nullptr;
+    auto group = tabSiblings(m_tabGroupOf, m_leaves, sibling ? sibling : m_activeLeaf);
+    for (auto *leaf : group) {
+        if (!leaf->pinned())
+            return leaf;
+    }
+    return createLeafInGroupOf(sibling);
 }
 
 QJsonObject Workspace::serialize() const
 {
+    // Obsidian-shape JSON: {"main": {type:split, children:[{type:tabs,
+    // currentTab, children:[{type:leaf, id, state}]}]}, "active", "lastOpenFiles"}.
+    // We emit one tabs group per distinct tabGroupId in m_tabGroupOf,
+    // wrapped in a single root split. This isn't a full tree
+    // reconstruction (KDDW's nested splits are flattened), but it satisfies
+    // the round-trip contract that Workspace owns: leaf identity + per-leaf
+    // state survive serialize -> deserialize. Phase 5/6 introduces a
+    // proper tree walker that round-trips KDDW's nested split structure.
+
     QJsonObject json;
 
-    if (m_mainRoot)
-        json[QStringLiteral("main")] = m_mainRoot->serialize();
+    QJsonObject mainSplit;
+    mainSplit[QStringLiteral("type")] = QStringLiteral("split");
+    mainSplit[QStringLiteral("direction")] = QStringLiteral("vertical");
 
-    if (m_activeLeaf)
-        json[QStringLiteral("active")] = m_activeLeaf->id();
-    else
-        json[QStringLiteral("active")] = QString{};
+    // Bucket leaves by their tabGroupId, preserving insertion order both
+    // across groups and within a group.
+    QVector<QString> orderedGroupIds;
+    QHash<QString, QVector<WorkspaceLeaf *>> groupBuckets;
+    for (auto *leaf : m_leaves) {
+        QString gid = m_tabGroupOf.value(leaf);
+        if (gid.isEmpty())
+            gid = leaf->id();   // singleton fallback
+        if (!groupBuckets.contains(gid)) {
+            orderedGroupIds.append(gid);
+            groupBuckets.insert(gid, {});
+        }
+        groupBuckets[gid].append(leaf);
+    }
+
+    QJsonArray children;
+    for (const QString &gid : orderedGroupIds) {
+        QJsonObject tabs;
+        tabs[QStringLiteral("type")] = QStringLiteral("tabs");
+        QJsonArray leafChildren;
+        int currentTab = 0;
+        const auto &bucket = groupBuckets.value(gid);
+        for (int i = 0; i < bucket.size(); ++i) {
+            auto *leaf = bucket[i];
+            leafChildren.append(leaf->serialize());
+            if (leaf == m_activeLeaf)
+                currentTab = i;
+        }
+        tabs[QStringLiteral("currentTab")] = currentTab;
+        tabs[QStringLiteral("children")] = leafChildren;
+        children.append(tabs);
+    }
+    mainSplit[QStringLiteral("children")] = children;
+    json[QStringLiteral("main")] = mainSplit;
+
+    json[QStringLiteral("active")] = m_activeLeaf
+        ? m_activeLeaf->id()
+        : QString{};
 
     if (!m_lastOpenFiles.isEmpty()) {
         QJsonArray files;
@@ -526,55 +577,122 @@ QJsonObject Workspace::serialize() const
     return json;
 }
 
+namespace {
+
+void collectLeafObjects(const QJsonObject &node,
+                        QVector<QPair<QString, QJsonObject>> &out)
+{
+    QString type = node[QStringLiteral("type")].toString();
+    if (type == QStringLiteral("leaf")) {
+        // Empty group sentinel — separates tabs containers in the flat
+        // out list. The string identifies the group; first leaf with this
+        // group becomes the new tab group anchor.
+        out.append({QString{}, node});
+        return;
+    }
+    if (type == QStringLiteral("tabs")) {
+        // Generate a fresh group id per tabs node so leaves in the same
+        // tabs JSON node map to the same Workspace tab group.
+        static int counter = 0;
+        QString gid = QStringLiteral("g_%1").arg(++counter);
+        for (const auto &cv : node[QStringLiteral("children")].toArray()) {
+            const QJsonObject co = cv.toObject();
+            if (co[QStringLiteral("type")].toString() == QStringLiteral("leaf"))
+                out.append({gid, co});
+        }
+        return;
+    }
+    if (type == QStringLiteral("split")) {
+        for (const auto &cv : node[QStringLiteral("children")].toArray())
+            collectLeafObjects(cv.toObject(), out);
+    }
+}
+
+} // namespace
+
 void Workspace::deserialize(const QJsonObject &json)
 {
-    destroyTree();
+    // Drop existing leaves; KDDW MainWindow reused.
+    qDeleteAll(m_leaves);
+    m_leaves.clear();
+    m_leavesById.clear();
+    m_tabGroupOf.clear();
+    m_activeLeaf = nullptr;
+    m_undoHistory.clear();
 
-    if (json.contains(QStringLiteral("main"))) {
-        auto *node = deserializeNode(json[QStringLiteral("main")].toObject());
-        m_mainRoot = qobject_cast<WorkspaceSplit *>(node);
+    QVector<QPair<QString, QJsonObject>> leafEntries;
+    if (json.contains(QStringLiteral("main")))
+        collectLeafObjects(json[QStringLiteral("main")].toObject(), leafEntries);
+
+    // Materialize each leaf, anchoring same-group leaves to the first leaf
+    // already created in that group.
+    QHash<QString, WorkspaceLeaf *> firstInGroup;
+    for (const auto &entry : leafEntries) {
+        const QString &gid = entry.first;
+        const QJsonObject &lo = entry.second;
+        WorkspaceLeaf *anchor = gid.isEmpty()
+            ? nullptr
+            : firstInGroup.value(gid);
+        auto *leaf = createLeafInGroupOf(anchor);
+        if (!leaf)
+            continue;
+        QString leafId = lo[QStringLiteral("id")].toString();
+        if (!leafId.isEmpty()) {
+            // createLeafInGroupOf registered the leaf with its
+            // auto-generated id; rewire m_leavesById to the JSON-side id
+            // so findLeafById(activeId) below resolves correctly.
+            const QString autoId = leaf->id();
+            m_leavesById.remove(autoId);
+            leaf->setId(leafId);
+            m_leavesById.insert(leafId, leaf);
+        }
+        if (lo[QStringLiteral("pinned")].toBool())
+            leaf->setPinned(true);
+        QString grp = lo[QStringLiteral("group")].toString();
+        if (!grp.isEmpty())
+            leaf->setGroup(grp);
+        QJsonObject viewState = lo[QStringLiteral("state")].toObject();
+        if (!viewState.isEmpty())
+            leaf->setViewState(viewState);
+
+        if (!gid.isEmpty() && !firstInGroup.contains(gid))
+            firstInGroup.insert(gid, leaf);
     }
-
-    if (!m_mainRoot)
-        setupDefaultLayout();
 
     QString activeId = json[QStringLiteral("active")].toString();
     if (!activeId.isEmpty())
         m_activeLeaf = findLeafById(activeId);
-    if (!m_activeLeaf) {
-        auto leaves = allLeaves();
-        if (!leaves.isEmpty())
-            m_activeLeaf = leaves.first();
-    }
+    if (!m_activeLeaf && !m_leaves.isEmpty())
+        m_activeLeaf = m_leaves.first();
 
     m_lastOpenFiles.clear();
     for (const auto &v : json[QStringLiteral("lastOpenFiles")].toArray())
         m_lastOpenFiles.append(v.toString());
 
-    // Mark all non-active leaves as deferred so they don't construct a View
-    // until the user focuses them. The active leaf and each WorkspaceTabs'
-    // currentTab leaf are loaded eagerly (§3.5).
-    for (auto *leaf : allLeaves()) {
+    // Defer non-active, non-currentTab leaves so they don't materialize
+    // their View until the user focuses them. The active leaf and each
+    // tab group's currentTab leaf load eagerly.
+    QHash<QString, WorkspaceLeaf *> currentInGroup;
+    for (auto *leaf : m_leaves) {
+        QString gid = m_tabGroupOf.value(leaf);
+        if (gid.isEmpty()) continue;
+        if (!currentInGroup.contains(gid))
+            currentInGroup.insert(gid, leaf);  // first as default current
+    }
+    for (auto *leaf : m_leaves) {
         if (leaf == m_activeLeaf)
             continue;
-
-        // Don't defer the currentTab leaf of its parent WorkspaceTabs.
-        if (auto *parentTabs = qobject_cast<WorkspaceTabs *>(leaf->parentItem())) {
-            if (parentTabs->currentLeaf() == leaf)
-                continue;
-        }
+        QString gid = m_tabGroupOf.value(leaf);
+        if (currentInGroup.value(gid) == leaf)
+            continue;
 
         auto state = leaf->getViewState();
         QString icon = state[QStringLiteral("icon")].toString();
         QString title = state[QStringLiteral("title")].toString();
-        if (icon.isEmpty())
-            icon = QStringLiteral("document");
-        if (title.isEmpty())
-            title = QStringLiteral("Untitled");
+        if (icon.isEmpty()) icon = QStringLiteral("document");
+        if (title.isEmpty()) title = QStringLiteral("Untitled");
         leaf->setDeferred(true, icon, title);
     }
-
-    // Ensure the active leaf is not stuck in deferred state.
     if (m_activeLeaf && m_activeLeaf->isDeferred())
         m_activeLeaf->loadIfDeferred();
 
@@ -586,25 +704,21 @@ void Workspace::readWorkspaceJson(const QString &vaultPath)
     QString path = vaultPath + QStringLiteral("/.obsidian/workspace.json");
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) {
-        setupDefaultLayout();
-        // Spec: default layout must have at least one leaf with an active leaf set.
-        auto *tabs = findFirstTabs(m_mainRoot);
-        if (tabs) {
-            auto *leaf = createLeafInTabs(tabs);
+        resetToDefaultLayout();
+        // Spec: default layout must have at least one leaf with an active leaf.
+        auto *leaf = createLeafInActiveGroup();
+        if (leaf)
             setActiveLeaf(leaf);
-        }
         return;
     }
 
     QJsonParseError err;
     QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
     if (err.error != QJsonParseError::NoError) {
-        setupDefaultLayout();
-        auto *tabs = findFirstTabs(m_mainRoot);
-        if (tabs) {
-            auto *leaf = createLeafInTabs(tabs);
+        resetToDefaultLayout();
+        auto *leaf = createLeafInActiveGroup();
+        if (leaf)
             setActiveLeaf(leaf);
-        }
         return;
     }
 
@@ -625,201 +739,15 @@ void Workspace::writeWorkspaceJson(const QString &vaultPath)
     f.write(doc.toJson(QJsonDocument::Indented));
 }
 
-WorkspaceItem *Workspace::deserializeNode(const QJsonObject &json)
-{
-    QString type = json[QStringLiteral("type")].toString();
-
-    if (type == QStringLiteral("split")) {
-        auto *split = new WorkspaceSplit(this);
-        if (json.contains(QStringLiteral("id")))
-            split->setId(json[QStringLiteral("id")].toString());
-        QString dir = json[QStringLiteral("direction")].toString();
-        split->setDirection(dir == QStringLiteral("vertical") ? Qt::Vertical : Qt::Horizontal);
-        if (json.contains(QStringLiteral("dimension")))
-            split->setDimension(json[QStringLiteral("dimension")].toInt());
-
-        for (const auto &child : json[QStringLiteral("children")].toArray()) {
-            if (auto *node = deserializeNode(child.toObject()))
-                split->addChild(node);
-        }
-        return split;
-    }
-
-    if (type == QStringLiteral("tabs")) {
-        auto *tabs = new WorkspaceTabs(this);
-        wireTabsSignalForwarding(tabs);
-        if (json.contains(QStringLiteral("id")))
-            tabs->setId(json[QStringLiteral("id")].toString());
-        if (json.contains(QStringLiteral("dimension")))
-            tabs->setDimension(json[QStringLiteral("dimension")].toInt());
-        if (json[QStringLiteral("stacked")].toBool())
-            tabs->setStacked(true);
-
-        for (const auto &child : json[QStringLiteral("children")].toArray()) {
-            if (auto *node = deserializeNode(child.toObject()))
-                tabs->addChild(node);
-        }
-
-        int currentTab = json[QStringLiteral("currentTab")].toInt(0);
-        tabs->setCurrentTab(currentTab);
-        return tabs;
-    }
-
-    if (type == QStringLiteral("leaf")) {
-        auto *leaf = WorkspaceLeaf::deserialize(json, m_registry, nullptr);
-        return leaf;
-    }
-
-    return nullptr;
-}
-
-WorkspaceLeaf *Workspace::findLeafInTree(WorkspaceItem *root, const QString &id) const
-{
-    if (!root)
-        return nullptr;
-    if (auto *leaf = qobject_cast<WorkspaceLeaf *>(root)) {
-        if (leaf->id() == id)
-            return leaf;
-        return nullptr;
-    }
-    if (auto *parent = qobject_cast<WorkspaceParent *>(root)) {
-        for (auto *child : parent->children()) {
-            if (auto *found = findLeafInTree(child, id))
-                return found;
-        }
-    }
-    return nullptr;
-}
-
-WorkspaceTabs *Workspace::findTabsInTree(WorkspaceItem *root, const QString &id) const
-{
-    if (!root)
-        return nullptr;
-    if (auto *tabs = qobject_cast<WorkspaceTabs *>(root)) {
-        if (tabs->id() == id)
-            return tabs;
-    }
-    if (auto *parent = qobject_cast<WorkspaceParent *>(root)) {
-        for (auto *child : parent->children()) {
-            if (auto *found = findTabsInTree(child, id))
-                return found;
-        }
-    }
-    return nullptr;
-}
-
-void Workspace::collectLeaves(WorkspaceItem *root, QVector<WorkspaceLeaf *> &out) const
-{
-    if (!root)
-        return;
-    if (auto *leaf = qobject_cast<WorkspaceLeaf *>(root)) {
-        out.append(leaf);
-        return;
-    }
-    if (auto *parent = qobject_cast<WorkspaceParent *>(root)) {
-        for (auto *child : parent->children())
-            collectLeaves(child, out);
-    }
-}
-
-WorkspaceTabs *Workspace::findFirstTabs(WorkspaceItem *root) const
-{
-    if (!root)
-        return nullptr;
-    if (auto *tabs = qobject_cast<WorkspaceTabs *>(root))
-        return tabs;
-    if (auto *parent = qobject_cast<WorkspaceParent *>(root)) {
-        for (auto *child : parent->children()) {
-            if (auto *tabs = findFirstTabs(child))
-                return tabs;
-        }
-    }
-    return nullptr;
-}
-
-void Workspace::setupDefaultLayout()
-{
-    destroyTree();
-    m_mainRoot = new WorkspaceSplit(this);
-    m_mainRoot->setDirection(Qt::Vertical);
-
-    auto *tabs = new WorkspaceTabs(this);
-    m_mainRoot->addChild(tabs);
-    wireTabsSignalForwarding(tabs);
-}
-
-void Workspace::wireTabsSignalForwarding(WorkspaceTabs *tabs)
-{
-    if (!tabs)
-        return;
-    static const char *kWiredProperty = "_ws_signals_wired";
-    if (tabs->property(kWiredProperty).toBool())
-        return;
-    tabs->setProperty(kWiredProperty, true);
-
-    connect(tabs, &WorkspaceTabs::currentTabChanged, this,
-            [this, tabs](int index) {
-        if (auto *leaf = tabs->leafAt(index))
-            Q_EMIT tabSelectRequested(leaf);
-    });
-    connect(tabs, &WorkspaceTabs::tabCloseRequested, this,
-            [this, tabs](int index) {
-        if (auto *leaf = tabs->leafAt(index))
-            Q_EMIT tabCloseRequested(leaf);
-    });
-}
-
 void Workspace::resetToDefaultLayout()
 {
-    destroyTree();
-    setupDefaultLayout();
-    Q_EMIT layoutChanged();
-}
-
-void Workspace::destroyTree()
-{
-    if (!m_mainRoot)
-        return;
-
-    // 1. Close all views to release NoteDocument / file references
-    //    before the widget tree is torn down.
-    for (auto *leaf : allLeaves())
-        leaf->closeCurrentView();
-
-    // 2. Collect every item in the tree (depth-first).
-    QVector<WorkspaceItem *> items;
-    collectAllItems(m_mainRoot, items);
-
-    // 3. Detach each item's widget from its Qt parent so that
-    //    cascade deletion doesn't reach sibling widgets.  After this
-    //    each widget is an orphan that its own destructor can safely
-    //    delete without double-free.  QPointer guards mean widget()
-    //    returns nullptr if the widget was already cascade-deleted
-    //    (e.g. during MainWindow destruction).
-    for (auto *item : items) {
-        if (auto *w = item->widget())
-            w->setParent(nullptr);
-    }
-
-    // 4. Clear internal pointers before deleting objects.
-    m_mainRoot = nullptr;
+    qDeleteAll(m_leaves);
+    m_leaves.clear();
+    m_leavesById.clear();
+    m_tabGroupOf.clear();
     m_activeLeaf = nullptr;
     m_undoHistory.clear();
-
-    // 5. Delete every item — their destructors delete their own widget.
-    qDeleteAll(items);
-}
-
-void Workspace::collectAllItems(WorkspaceItem *root,
-                                QVector<WorkspaceItem *> &out) const
-{
-    if (!root)
-        return;
-    out.append(root);
-    if (auto *p = qobject_cast<WorkspaceParent *>(root)) {
-        for (auto *child : p->children())
-            collectAllItems(child, out);
-    }
+    Q_EMIT layoutChanged();
 }
 
 } // namespace Corbomite

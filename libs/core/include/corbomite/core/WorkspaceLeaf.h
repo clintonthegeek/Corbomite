@@ -3,9 +3,15 @@
 #pragma once
 
 #include <QJsonObject>
+#include <QObject>
 #include <QPointer>
+#include <QString>
+
 #include "corbomite/core/LeafHistory.h"
-#include "corbomite/core/WorkspaceItem.h"
+
+namespace KDDockWidgets::QtWidgets {
+class DockWidget;
+}
 
 namespace Corbomite {
 
@@ -14,7 +20,7 @@ class View;
 class ViewRegistry;
 class Workspace;
 
-class WorkspaceLeaf : public WorkspaceItem
+class WorkspaceLeaf : public QObject
 {
     Q_OBJECT
 
@@ -22,17 +28,21 @@ public:
     explicit WorkspaceLeaf(ViewRegistry *registry, QObject *parent = nullptr);
     ~WorkspaceLeaf() override;
 
-    QWidget *widget() override;
-    QJsonObject serialize() const override;
+    QString id() const;
+    void setId(const QString &id);
+    static QString generateId();
+
+    QWidget *widget();
+    QJsonObject serialize() const;
 
     View *view() const;
     ViewRegistry *registry() const;
 
-    /// The Workspace that owns this leaf. Walks up the substrate parent
-    /// chain to find the Workspace that the containing Tabs / Split was
-    /// QObject-parented to at construction. Returns nullptr if the leaf
-    /// is not yet attached to a Workspace's tree (e.g. test fixtures
-    /// that construct a leaf in isolation).
+    /// The Workspace that owns this leaf. After Phase 4b leaves are
+    /// QObject-parented directly to the owning Workspace at construction
+    /// (the substrate-walk path is gone), so this is just a parent
+    /// qobject_cast. Returns nullptr if the leaf is unattached (e.g. test
+    /// fixtures).
     Workspace *workspace() const;
 
     void open(View *newView);
@@ -85,14 +95,27 @@ public:
     Corbomite::MenuEventEmitter *menuEventEmitter() const { return m_menuEmitter; }
     void setMenuEventEmitter(Corbomite::MenuEventEmitter *e) { m_menuEmitter = e; }
 
+    // Package-private; do not include this header from outside libs/core.
+    // Used by Workspace + WorkspaceSerializer to drive the KDDW substrate.
+    KDDockWidgets::QtWidgets::DockWidget *dockWidget() const { return m_dockWidget; }
+    void setAsCurrentTab();
+
+    /// Workspace calls this in its destructor before tearing down the
+    /// owning KDDW MainWindow, to suppress the leaf's `delete m_dockWidget`
+    /// in ~WorkspaceLeaf. The MainWindow's destructor disposes of every
+    /// docked DockWidget, so leaves left as Qt-children of the Workspace
+    /// (e.g. closeLeaf'd ones still pending deleteLater) would otherwise
+    /// double-free during ~QObject's child cleanup.
+    void releaseDockWidget() { m_dockWidget = nullptr; }
+
 Q_SIGNALS:
     void viewChanged(View *newView);
     void pinnedChanged(bool pinned);
     void groupChanged(const QString &group);
 
 private:
-
-    QPointer<QWidget> m_widget;
+    QString m_id;
+    KDDockWidgets::QtWidgets::DockWidget *m_dockWidget = nullptr;
     QPointer<View> m_view;
     ViewRegistry *m_registry;
 
