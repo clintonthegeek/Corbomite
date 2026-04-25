@@ -113,6 +113,7 @@ private:
     void setupActions();
     void applyTheme();
     void applyVaultPortableSettings();
+    void applyAutosaveDelay();
     void setupSidebars();
     void setupStatusBar();
     void setupEditor();

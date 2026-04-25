@@ -63,7 +63,7 @@ set_tests_properties(tst_mainwindow_action_wiring PROPERTIES
 add_executable(tst_mainwindow_settings_apply tst_mainwindow_settings_apply.cpp)
 add_test(NAME tst_mainwindow_settings_apply COMMAND tst_mainwindow_settings_apply)
 target_link_libraries(tst_mainwindow_settings_apply PRIVATE
-    Qt6::Test Corbomite::Storage)
+    Qt6::Test Corbomite::Storage CorbomiteApp)
 set_tests_properties(tst_mainwindow_settings_apply PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 

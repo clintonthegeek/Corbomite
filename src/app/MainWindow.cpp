@@ -2486,11 +2486,18 @@ void MainWindow::applyVaultPortableSettings()
     }
 }
 
+void MainWindow::applyAutosaveDelay()
+{
+    if (!m_autosave) return;
+    const int ms = CorbomiteSettings::self()->autoSaveDelayMs();
+    m_autosave->setDelayMs(ms);
+}
+
 void MainWindow::onSettingsApplied()
 {
     applyTheme();
     applyVaultPortableSettings();
-    // Future appliers (V.2 autosave-delay etc.) hook here.
+    applyAutosaveDelay();
 }
 
 } // namespace Corbomite

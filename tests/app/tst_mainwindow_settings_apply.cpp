@@ -14,6 +14,7 @@
 
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/VaultConfig.h"
+#include "corbomitesettings.h"
 
 using namespace Corbomite;
 
@@ -93,6 +94,20 @@ private Q_SLOTS:
                  QStringLiteral("dark"));
         QCOMPARE(result->value(QStringLiteral("accentColor")).toString(),
                  QStringLiteral("#ff8800"));
+    }
+
+    // Cluster V.2 Phase 4 — pin the kcfg getter/setter round-trip for the
+    // Editor/AutoSaveDelayMs key. The applier itself
+    // (MainWindow::applyAutosaveDelay) is one line of dispatch
+    // (m_autosave->setDelayMs(ms)) which is correct by inspection; this
+    // confirms the kcfg side of the chain works.
+    void autosaveDelayKcfgRoundTrip()
+    {
+        auto *s = CorbomiteSettings::self();
+        const int prev = s->autoSaveDelayMs();
+        s->setAutoSaveDelayMs(7500);
+        QCOMPARE(s->autoSaveDelayMs(), 7500);
+        s->setAutoSaveDelayMs(prev); // restore — kcfg state is process-global
     }
 };
 
