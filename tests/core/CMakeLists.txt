@@ -284,3 +284,12 @@ target_include_directories(tst_workspace_serializer PRIVATE
 target_compile_definitions(tst_workspace_serializer PRIVATE
     CORBOMITE_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 set_tests_properties(tst_workspace_serializer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster Y Phase 5: popout leaves atop KDDW FloatingWindow
+add_executable(tst_workspace_popout tst_workspace_popout.cpp)
+add_test(NAME tst_workspace_popout COMMAND tst_workspace_popout)
+target_link_libraries(tst_workspace_popout PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Core
+    KDAB::kddockwidgets)
+set_tests_properties(tst_workspace_popout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
