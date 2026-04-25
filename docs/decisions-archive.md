@@ -10,6 +10,117 @@ Conventions:
 
 ---
 
+## 2026-04-25 — Cluster Y closed (Phase 8 verification + closeout). Workspace substrate is KDDockWidgets.
+
+Cluster Y closed across 8 phases — 43 commits `fd336369..bd1b50aa` over
+2026-04-23 → 2026-04-25, ~3 days dispatch-to-closeout. The hand-rolled
+`QSplitter`/`QTabWidget`-over-recursion `Workspace` substrate is gone;
+`KDDockWidgets::QtWidgets::MainWindow` + `DockWidget` compose
+`Workspace` + `WorkspaceLeaf` underneath. Corbomite retains ownership of
+everything *above* the substrate — 16-char leaf ids, pinning, groupId,
+history, undo-close, view-state + ephemeral-state, and the
+`.obsidian/workspace.json` byte-compat round-trip via Corbomite-owned
+`WorkspaceSerializer` (LayoutSaver explicitly unused — no per-dock-blob
+API). Approach **B**, opacity **(ii)**, scope **β**.
+
+**Phase 8 verification.** Clean rebuild from scratch (`rm -rf build &&
+cmake -B build -DCORBOMITE_DEV_BUILD=ON && cmake --build build -j 10`)
+green. Full ctest -j 10: **284/289 pass**; 5 failures
+(`tst_markoff_undo_grouping`, `tst_markoff_table_operations`,
+`tst_e2e_gui`, `tst_completion_popup`, `tst_benchmark_layout`) are all
+in the pre-existing known-flaky set (3 in backlog §10, 2 in Markoff
+submodule's `phase-c-status.md`). Zero Cluster Y regressions.
+Workspace-related tests (18/18) green including the 8-fixture
+serializer round-trip in `tst_workspace_serializer`. Plugin regression
+(15/15) green. Manual QA on Wayland deferred to user — none of the
+automated suites can exercise tab-drag-between-panes /
+drag-to-floating-window / vault-switch-reparent visually. Items to
+walk: Obsidian-fixture vault-layout-restore parity, drag-tab-between-panes,
+drag-to-pane-edge split-creation, drag-off-application
+floating-window creation, drag-back re-dock, close-all-tabs pane
+dissolution, Ctrl+Shift+T undo-close, close-floating-window cascading
+leaf-close, second-vault-open ghost-dock check, sidebar
+(Backlinks/Outlinks/LocalGraph) unaffected by KDDW central-widget swap.
+
+**Absorbed follow-ups.** Cluster G #3 (`openLinkText` dispatcher) closed
+via P7.3 (`bcd54fba`). Cluster G #6 (`WorkspaceWindow` popout
+integration) closed via P5 (`d84db521..967e34a5`).
+
+**Carry-forward follow-ups (5).** All landed in `docs/backlog.md`:
+(1) Real `LinkResolverFn` wiring on `Workspace` — `setLinkResolver(...)`
+exists with identity default; production `MainWindow` setup or
+Cluster Z brainstorm should install a Vault+MetadataCache+create-if-
+missing lambda. (2) `tst_e2e_gui::testCloseTab` close-flow assertions
+skipped — KDDW's tab-close signal isn't externally drivable from
+synthetic events; needs a custom test helper or KDDW upstream API
+(already in backlog §10). (3) `WorkspaceWindow` standalone QWidget
+facade dead-code cleanup — `widget()`/`setWindowGeometry`/`showWindow`/
+`closeWindow`/`setMaximized`/`serialize()` survive but production
+reads from KDDW `FloatingWindow*` directly via `DockRegistry` (already
+in backlog §3). (4) Wayland tab-drag-reorder regression hypothesized
+closed by P4b (substrate is no longer `QTabBar`); manual QA pending.
+(5) Hamburger split-right "duplicate-vs-blank" quirk hypothesized
+closed by P7's `getLeaf(LeafMode::Split, …)` factory routing; manual
+QA pending.
+
+**γ-scope deferrals (not Y debt).** `file-menu`/`leaf-menu`/
+`tab-group-menu`/`markdown-viewport-menu`/`url-menu` Workspace events,
+`hover-link` event + `registerHoverLinkSource`, `active-leaf-change`
+linked-pane consumers (`receiveSyncState`), `quick-preview` debounced
+sync, `registerObsidianProtocolHandler`, Workspaces core plugin
+(`workspaces.json` named layouts) — all explicitly γ-scope per
+scouting doc §9, all routed to owner clusters or backlog (R, H#6,
+Z, three new backlog entries).
+
+**Architectural notes.** (1) The "atomic substrate flip" pattern works:
+Phase 4 split into 4a (API additions, no substrate touch) + 4b
+(substrate swap in one commit, all consumers already on the new
+shape) was the right call — Q2 pivot doc (`1fc3ca3c`) records the
+rationale. (2) Header-by-header public-surface audit when demoting a
+type (per the `feedback_substrate_swap_audit` memory): function-name
+lists hide signature leaks; `b39477e0` deleted six methods that
+nominally returned `WorkspaceTabs*` even though the function-name list
+never mentioned the return type. (3) Dep-direction-preserving DI beats
+moving the operation up the layer cake: `LinkResolverFn` injection on
+`Workspace` keeps `libs/core → libs/vault` clean while landing the
+Obsidian-shape `openLinkText` API at its expected location. (4)
+Hybrid focus-router beats both pure router and pure Workspace
+ownership: Workspace owns `m_activeLeaf` + emit; router owns gate +
+identity-check + vault-switch suppression — both extremes pulled
+state across boundaries that didn't pay off. (5) Stub-then-extend for
+view-type-aware tests: Phase 7's pre-existing `StubView` returned
+hardcoded "stub" `getViewType()` regardless of registry key; the new
+`MarkdownStubView` round-trips both `getViewType()` and
+ephemeralState — when adding tests that assert view-type behaviour,
+register a typed stub upfront because the View base no-ops both
+methods, which silently passes generic stubs through.
+
+**Unblocks.** Cluster Z (linked views + active-leaf tracking) — Z was
+sequenced after Y because linked-leaves sit very differently under a
+KDDW `DockRegistry` tree than under the hand-rolled split tree. With
+Y closed, Z brainstorm + writing-plans can begin. Cluster R "Open in
+new window" hamburger slot now activates. Cluster S "Open linked
+view" submenu can upgrade from interim plugin `:open` dispatch to
+real `openLinkText` once carry-forward #1 (real `LinkResolverFn`
+wiring) lands.
+
+How to apply: when the next cluster needs to wire link resolution
+end-to-end, install a Vault+MetadataCache+create-if-missing lambda via
+`Workspace::setLinkResolver(...)` from `MainWindow` startup (or
+absorb into Cluster Z scope); audit `WorkspaceController::openLinkText`
+callers to confirm the resolver runs; don't push resolution back into
+libs/core. When the next cluster swaps a substrate, follow Y's pattern
+— additive API in phase N-1, atomic substrate flip in phase N as the
+smallest possible single commit, all consumers already migrated to
+the new API surface in N-1. When a future cluster needs to demote a
+public type, do a header-by-header audit of every `.h` in the public
+include path, not a function-name grep.
+
+Retro at `cluster-retros/cluster-y.md`. Plan + scouting moved to
+`superpowers/plans/archive/`.
+
+---
+
 ## 2026-04-25 — Cluster Y Phase 7 (`getLeaf` factory + `openLinkText` dispatcher + WorkspaceController plugin-shape additions + WorkspaceContainer/Root/Floating/Sidedock stubs) done end-to-end.
 
 Phase 7 lands the plugin-API-shape-alignment deliverables. Five commits
