@@ -6,10 +6,12 @@
 // slots are populated in 5.3 (close-window propagation) and 5.4
 // (geometry + maximize round-trip).
 
+#include <QPointer>
 #include <QSignalSpy>
 #include <QTest>
 
 #include <kddockwidgets/core/DockRegistry.h>
+#include <kddockwidgets/core/FloatingWindow.h>
 #include <kddockwidgets/qtwidgets/DockWidget.h>
 #include <kddockwidgets/qtwidgets/MainWindow.h>
 
@@ -58,7 +60,34 @@ void TestWorkspacePopout::popoutLeaf_createsFloatingWindow()
 
 void TestWorkspacePopout::closeFloatingWindow_closesChildrenLeaves()
 {
-    QSKIP("Wired up in Phase 5.3");
+    ViewRegistry registry;
+    Workspace ws(QStringLiteral("test-vault-popout-close"), &registry);
+    ws.kddwMainWindow()->show();
+
+    // Wire the host-side handshake: in production MainWindow connects
+    // Workspace::tabCloseRequested -> Workspace::closeLeaf so the close-flow
+    // can hook save-prompts on dirty files. The test simulates that here.
+    QObject::connect(&ws, &Workspace::tabCloseRequested, &ws,
+                     [&ws](WorkspaceLeaf *l) { ws.closeLeaf(l); });
+
+    auto *leaf = ws.createLeafInActiveGroup();
+    QVERIFY(leaf);
+    ws.popoutLeaf(leaf);
+    QVERIFY(leaf->dockWidget()->isFloating());
+
+    auto floats = KDDockWidgets::DockRegistry::self()->floatingWindows();
+    QVERIFY(!floats.isEmpty());
+
+    QPointer<WorkspaceLeaf> leafPtr(leaf);
+    QSignalSpy leafClosedSpy(&ws, &Workspace::leafClosed);
+    floats.first()->view()->close();
+
+    // closeLeaf emits leafClosed and then schedules deleteLater on the leaf;
+    // QTRY_COMPARE runs the event loop so the delete actually happens. The
+    // QPointer-null check verifies the leaf was reaped, not just signalled.
+    QTRY_COMPARE(leafClosedSpy.count(), 1);
+    QTRY_VERIFY(leafPtr.isNull());
+    QVERIFY(ws.allLeaves().isEmpty());
 }
 
 void TestWorkspacePopout::restoreFloatingWindow_preservesGeometry()
