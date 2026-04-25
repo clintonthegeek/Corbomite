@@ -388,17 +388,27 @@ void fromJson(const QJsonObject &json,
               KDDockWidgets::QtWidgets::MainWindow *main,
               Workspace * /*workspace*/)
 {
-    if (!json.contains(QStringLiteral("main"))) {
-        // Empty / missing-main JSON => default tree: one empty leaf in a
-        // single tabs node inside a vertical root split.
+    auto installDefault = [&]() {
+        // Default tree: one empty leaf in a single tabs node inside a
+        // vertical root split.
         auto *dw = new KDDockWidgets::QtWidgets::DockWidget(
             QStringLiteral("default-empty-leaf"));
         main->addDockWidget(dw, KDDockWidgets::Location_OnLeft);
+    };
+
+    auto mainObj = json.value(QStringLiteral("main")).toObject();
+    if (mainObj.isEmpty()) {
+        // Missing 'main', or 'main' present but the wrong type — fall back
+        // to the default tree rather than crash.
+        installDefault();
         return;
     }
 
-    auto mainObj = json.value(QStringLiteral("main")).toObject();
     auto rootSplit = parseSplit(mainObj);
+    if (rootSplit.tabsChildren.isEmpty() && rootSplit.splitChildren.isEmpty()) {
+        installDefault();
+        return;
+    }
     materializeSplit(rootSplit, main, /*relativeTo*/ nullptr,
                      KDDockWidgets::Location_OnLeft);
 

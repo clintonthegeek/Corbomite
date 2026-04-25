@@ -39,6 +39,7 @@ private slots:
     void fixture06_pinnedWithGroup_preservesBoth();
     void fixture07_emptyJson_producesDefaultTree();
     void fixture08_unknownKeys_preservedVerbatim();
+    void malformedJson_fallsBackToDefaultTree();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -247,6 +248,23 @@ void TestWorkspaceSerializer::fixture08_unknownKeys_preservedVerbatim()
                     .toObject();
     auto obsidianInternal = leaf.value(QStringLiteral("obsidianInternal")).toObject();
     QCOMPARE(obsidianInternal.value(QStringLiteral("someField")).toInt(), 42);
+}
+
+void TestWorkspaceSerializer::malformedJson_fallsBackToDefaultTree()
+{
+    // 'main' present but the wrong type (an integer rather than an object).
+    // Should not crash; serializer falls back to the default empty tree.
+    QJsonObject broken;
+    broken[QStringLiteral("main")] = 42;
+    broken[QStringLiteral("garbage")] = true;
+
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-broken"), KDDockWidgets::MainWindowOption_None);
+
+    Corbomite::WorkspaceSerializer::fromJson(broken, mainWindow.get(), nullptr);
+
+    auto *registry = KDDockWidgets::DockRegistry::self();
+    QCOMPARE(registry->dockwidgets().size(), 1);
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)
