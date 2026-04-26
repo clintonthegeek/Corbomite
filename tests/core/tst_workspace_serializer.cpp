@@ -129,6 +129,7 @@ void TestWorkspaceSerializer::fixture03_nestedSplits_threeDockWidgetsInCorrectGr
     QVERIFY(!json.isEmpty());
     auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
         QStringLiteral("test-f03"), KDDockWidgets::MainWindowOption_None);
+    mainWindow->show();
 
     Corbomite::WorkspaceSerializer::fromJson(json, mainWindow.get(), nullptr);
 
@@ -137,9 +138,34 @@ void TestWorkspaceSerializer::fixture03_nestedSplits_threeDockWidgetsInCorrectGr
     QVERIFY(registry->dockByName(QStringLiteral("leaf01aaaaaaaaaa")));
     QVERIFY(registry->dockByName(QStringLiteral("leaf02aaaaaaaaaa")));
     QVERIFY(registry->dockByName(QStringLiteral("leaf03aaaaaaaaaa")));
-
-    // Three side-by-side leaves => three KDDW Groups (none tabbed together).
     QCOMPARE(registry->groups().size(), 3);
+
+    // Round-trip shape: outer split has two children — one tabs (with leaf01)
+    // and one inner split (with two tabs holding leaf02 and leaf03).
+    auto out = Corbomite::WorkspaceSerializer::toJson(mainWindow.get(), nullptr);
+    auto outerChildren = out.value(QStringLiteral("main")).toObject()
+                            .value(QStringLiteral("children")).toArray();
+    QCOMPARE(outerChildren.size(), 2);
+
+    bool sawOuterTabs = false;
+    bool sawInnerSplit = false;
+    for (const auto &v : outerChildren) {
+        auto obj = v.toObject();
+        auto type = obj.value(QStringLiteral("type")).toString();
+        if (type == QStringLiteral("tabs"))
+            sawOuterTabs = true;
+        if (type == QStringLiteral("split")) {
+            sawInnerSplit = true;
+            auto innerChildren = obj.value(QStringLiteral("children")).toArray();
+            QCOMPARE(innerChildren.size(), 2);
+            for (const auto &vv : innerChildren) {
+                QCOMPARE(vv.toObject().value(QStringLiteral("type")).toString(),
+                         QStringLiteral("tabs"));
+            }
+        }
+    }
+    QVERIFY(sawOuterTabs);
+    QVERIFY(sawInnerSplit);
 }
 
 void TestWorkspaceSerializer::fixture04_stackedTabs_preservesStackedFlag()

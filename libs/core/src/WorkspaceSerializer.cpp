@@ -5,11 +5,13 @@
 
 #include <QHash>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 
 #include <QLoggingCategory>
 
 #include <kddockwidgets/KDDockWidgets.h>
+#include <kddockwidgets/LayoutSaver.h>
 #include <kddockwidgets/core/DockRegistry.h>
 #include <kddockwidgets/core/DockWidget.h>
 #include <kddockwidgets/core/FloatingWindow.h>
@@ -193,49 +195,112 @@ QJsonObject renderSplit(const SplitNode &n)
     return o;
 }
 
-// Walk the KDDW MainWindow tree to produce a SplitNode.  Phase 3 Task 3.3
-// only needs the simple case: one split, one tabs, N leaves.  Workspace*
-// integration (which would supply real ids + viewType + icon + title) lands
-// in later phases; for now we emit placeholders.
-SplitNode walkKddwTreeSimple(KDDockWidgets::QtWidgets::MainWindow *main)
+// Build a LeafNode for a dock widget identified by uniqueName, falling back
+// to the sidecar (and finally to a placeholder) when state isn't available.
+// Phase 4 (workspace=non-null) wires this through Workspace::findLeafById.
+LeafNode buildLeafNode(const QString &uniqueName)
+{
+    LeafNode l = leafSidecar().value(uniqueName, LeafNode{});
+    if (l.id.isEmpty()) {
+        l.id = uniqueName;
+        l.viewType = QStringLiteral("empty");
+        l.icon = QStringLiteral("lucide-file");
+        l.title = QStringLiteral("New tab");
+    }
+    return l;
+}
+
+// Walk a KDDW LayoutSaver-shape `layout` node recursively. The schema is
+// documented in docs/superpowers/specs/2026-04-26-kddw-layoutsaver-shape.md.
+// Container nodes have isContainer=true + orientation + children;
+// leaf nodes carry a guestId pointing into the sibling `frames` dict.
+//
+// orientation maps to Qt::Orientation values: Horizontal=1, Vertical=2.
+// Obsidian's "vertical" split == top/bottom siblings == Qt::Vertical (2).
+//
+// Returns either a SplitNode or a TabsNode wrapped in a holder; the caller
+// distinguishes by checking which of `out.tabsChildren`/`out.splitChildren`
+// the function appended to. We use two helpers to avoid that ambiguity.
+void walkLayoutNode(const QJsonObject &layoutNode,
+                    const QJsonObject &frames,
+                    SplitNode &parent);
+
+void walkLayoutContainer(const QJsonObject &containerNode,
+                         const QJsonObject &frames,
+                         SplitNode &out)
+{
+    const int orient = containerNode.value(QStringLiteral("orientation")).toInt();
+    out.direction = (orient == 2)
+        ? QStringLiteral("vertical")
+        : QStringLiteral("horizontal");
+    const auto children = containerNode.value(QStringLiteral("children")).toArray();
+    for (const auto &v : children)
+        walkLayoutNode(v.toObject(), frames, out);
+}
+
+void walkLayoutNode(const QJsonObject &layoutNode,
+                    const QJsonObject &frames,
+                    SplitNode &parent)
+{
+    if (layoutNode.value(QStringLiteral("isContainer")).toBool()) {
+        SplitNode child;
+        walkLayoutContainer(layoutNode, frames, child);
+        parent.splitChildren.append(child);
+        return;
+    }
+    // Leaf-of-tree (group reference). Resolve the frame via guestId.
+    const QString guestId = layoutNode.value(QStringLiteral("guestId")).toString();
+    const QJsonObject frame = frames.value(guestId).toObject();
+    TabsNode tabs;
+    tabs.currentTab = frame.value(QStringLiteral("currentTabIndex")).toInt(0);
+    const auto frameDws = frame.value(QStringLiteral("dockWidgets")).toArray();
+    for (const auto &v : frameDws)
+        tabs.children.append(buildLeafNode(v.toString()));
+    if (!tabs.children.isEmpty()
+        && stackedSidecar().value(tabs.children.first().id, false)) {
+        tabs.stacked = true;
+    }
+    parent.tabsChildren.append(tabs);
+}
+
+// Locate this MainWindow's entry in a LayoutSaver JSON dump.
+QJsonObject findMainWindowEntry(const QJsonObject &saverRoot,
+                                const QString &mainUniqueName)
+{
+    const auto mws = saverRoot.value(QStringLiteral("mainWindows")).toArray();
+    for (const auto &v : mws) {
+        auto obj = v.toObject();
+        if (obj.value(QStringLiteral("uniqueName")).toString() == mainUniqueName)
+            return obj;
+    }
+    return {};
+}
+
+// Walk the KDDW MainWindow tree by parsing LayoutSaver::serializeLayout()
+// JSON output. Replaces the Phase 3 flat walker. Schema reference:
+// docs/superpowers/specs/2026-04-26-kddw-layoutsaver-shape.md.
+SplitNode walkLayoutSaverTree(KDDockWidgets::QtWidgets::MainWindow *main,
+                               const QJsonObject &saverRoot)
 {
     SplitNode root;
-    root.id = QStringLiteral("aaaaaaaaaaaaaaaa");
     root.direction = QStringLiteral("vertical");
 
-    TabsNode onlyTabs;
-    onlyTabs.id = QStringLiteral("bbbbbbbbbbbbbbbb");
-
-    // Use DockRegistry as the source of truth for live dock widgets in this
-    // process.  Phase 3 Task 3.3 walks the registry directly; tests isolate
-    // by clearing the registry between cases.  Phase 4 will walk the live
-    // KDDW layout tree on the supplied MainWindow instead.
-    Q_UNUSED(main);
-    auto *registry = KDDockWidgets::DockRegistry::self();
-    for (auto *dw : registry->dockwidgets()) {
-        // Skip docks living in a floating window — those are emitted under
-        // the top-level "floating" key, not the main-area split tree.
-        if (dw->floatingWindow() != nullptr) continue;
-        const QString id = dw->uniqueName();
-        // Phase 3 sidecar lookup recovers pinned/group/unknownKeys/etc that
-        // were captured at parseLeaf time but have no representation in the
-        // KDDW layout itself.  Phase 4 reads these from the live
-        // WorkspaceLeaf instead.
-        LeafNode l = leafSidecar().value(id, LeafNode{});
-        if (l.id.isEmpty()) {
-            l.id = id;
-            l.viewType = QStringLiteral("empty");
-            l.icon = QStringLiteral("lucide-file");
-            l.title = QStringLiteral("New tab");
-        }
-        onlyTabs.children.append(l);
+    if (!main) return root;
+    const QJsonObject mwEntry = findMainWindowEntry(saverRoot, main->uniqueName());
+    if (mwEntry.isEmpty()) {
+        qCWarning(lcWorkspaceSerializer)
+            << "no LayoutSaver entry for MainWindow" << main->uniqueName();
+        return root;
     }
-    if (!onlyTabs.children.isEmpty()
-        && stackedSidecar().value(onlyTabs.children.first().id, false)) {
-        onlyTabs.stacked = true;
-    }
+    const QJsonObject msl = mwEntry.value(QStringLiteral("multiSplitterLayout"))
+                                    .toObject();
+    const QJsonObject frames = msl.value(QStringLiteral("frames")).toObject();
+    const QJsonObject rootLayout = msl.value(QStringLiteral("layout")).toObject();
+    if (rootLayout.isEmpty()) return root;
 
-    root.tabsChildren.append(onlyTabs);
+    // The root is itself a container; copy its orientation+children into
+    // `root` rather than nesting an additional split level.
+    walkLayoutContainer(rootLayout, frames, root);
     return root;
 }
 
@@ -445,7 +510,11 @@ void fromJson(const QJsonObject &json,
 QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace * /*workspace*/)
 {
     QJsonObject out;
-    out[QStringLiteral("main")] = renderSplit(walkKddwTreeSimple(main));
+    KDDockWidgets::LayoutSaver saver;
+    const QJsonObject saverRoot =
+        QJsonDocument::fromJson(saver.serializeLayout()).object();
+
+    out[QStringLiteral("main")] = renderSplit(walkLayoutSaverTree(main, saverRoot));
 
     auto *registry = KDDockWidgets::DockRegistry::self();
     auto fws = registry->floatingWindows();
