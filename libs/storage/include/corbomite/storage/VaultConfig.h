@@ -36,6 +36,14 @@ public:
     static QByteArray serializeObsidianStyle(const QJsonDocument &doc);
     static QByteArray serializeObsidianStyle(const QJsonObject &obj);
 
+    /// Translate Corbomite's KConfig `Appearance/Theme` token (one of
+    /// `system` / `light` / `dark`) into the value vocabulary Obsidian uses
+    /// inside `.obsidian/appearance.json` (`""` for follow-OS, `moonstone`
+    /// for light, `obsidian` for dark; arbitrary CSS-theme names pass
+    /// through verbatim). Without this translation the file is technically
+    /// "round-tripped" but means different things to each tool.
+    static QString obsidianAppearanceTheme(const QString &corbomiteTheme);
+
     VaultConfig(DataAdapter *fs, const QString &vaultRoot);
 
     /// Ensure `.obsidian/` exists; returns true on success.

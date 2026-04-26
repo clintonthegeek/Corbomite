@@ -54,6 +54,23 @@ QByteArray VaultConfig::serializeObsidianStyle(const QJsonObject &obj)
     return serializeObsidianStyle(QJsonDocument(obj));
 }
 
+QString VaultConfig::obsidianAppearanceTheme(const QString &corbomiteTheme)
+{
+    if (corbomiteTheme.isEmpty()
+        || corbomiteTheme == QLatin1String("system")) {
+        // Obsidian's "follow OS" sentinel is the empty string.
+        return {};
+    }
+    if (corbomiteTheme == QLatin1String("light")) {
+        return QStringLiteral("moonstone");
+    }
+    if (corbomiteTheme == QLatin1String("dark")) {
+        return QStringLiteral("obsidian");
+    }
+    // Anything else is a custom CSS-theme name — pass through unchanged.
+    return corbomiteTheme;
+}
+
 VaultConfig::VaultConfig(DataAdapter *fs, const QString &vaultRoot)
     : m_fs(fs), m_vaultRoot(vaultRoot)
 {

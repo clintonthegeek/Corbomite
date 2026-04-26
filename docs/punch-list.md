@@ -19,7 +19,7 @@
 - [x] [core][metadata] `resolveSubpath` block-id case-sensitivity — lowercase both sides — `libs/core/src/LinkUtils.cpp:121-155` — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Notable concerns / suspected bugs"
 - [x] [vault] Folder rename loses descendants (recursive walk + per-descendant `renamed` emission missing) — `libs/vault/src/Vault.cpp:337-373` — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
 - [ ] [vault] `FileManager::renameFile` rewrites markdown-style links and full-path forms; should use `MetadataCache` snapshot as source-of-truth — `libs/vault/src/FileManager.cpp:148-216` — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
-- [ ] [settings] `appearance.json` `theme` value vocabulary mismatch — write `"obsidian"`/`"moonstone"` not `"system"`/`"light"`/`"dark"` — see [settings.md](audit-2026-04-26/settings.md) §"On-disk schema compatibility matrix (per-file)"
+- [x] [settings] `appearance.json` `theme` value vocabulary mismatch — write `"obsidian"`/`"moonstone"` not `"system"`/`"light"`/`"dark"` — see [settings.md](audit-2026-04-26/settings.md) §"On-disk schema compatibility matrix (per-file)"
 - [ ] [settings][plugin] Wire `core-plugins.json` and `community-plugins.json` to `PluginManager` so toggle state transfers Corbomite ⇄ Obsidian — see [settings.md](audit-2026-04-26/settings.md) §"On-disk schema compatibility matrix (per-file)"
 - [ ] [vault] `Vault::create` doesn't case-insensitively collision-check — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
 - [ ] [vault] `CaseSensitivityProbe` is dead code (no callers) — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"

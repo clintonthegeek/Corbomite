@@ -2437,10 +2437,14 @@ void MainWindow::applyVaultPortableSettings()
         return; // Vault not writable — silently skip; toast is V.future scope.
     }
 
-    // appearance.json — theme key.
+    // appearance.json — theme key. Translate Corbomite's
+    // system/light/dark vocabulary into Obsidian's "/moonstone/obsidian
+    // (or pass through a custom CSS theme name). Without translation a
+    // shared vault sees the value differently in each tool.
     {
         QJsonObject upd;
-        const QString theme = settings->theme();
+        const QString theme = VaultConfig::obsidianAppearanceTheme(
+            settings->theme());
         if (!theme.isEmpty()) {
             upd.insert(QStringLiteral("theme"), theme);
         }

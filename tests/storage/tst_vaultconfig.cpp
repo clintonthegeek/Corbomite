@@ -417,6 +417,35 @@ private Q_SLOTS:
         QCOMPARE(result->value(QStringLiteral("k1")).toInt(), 99);
         QCOMPARE(result->value(QStringLiteral("k2")).toInt(), 2);
     }
+    // Regression: appearance.json `theme` value vocabulary must match
+    // Obsidian. Corbomite stores its KConfig theme as
+    // "system"/"light"/"dark"; Obsidian writes "obsidian"/"moonstone"/""
+    // (empty string = follow system). Without translation, a vault edited
+    // by both tools sees the appearance.json `theme` value mean different
+    // things in each.
+    void obsidianAppearanceTheme_mapsCorbomiteTokens()
+    {
+        QCOMPARE(VaultConfig::obsidianAppearanceTheme(QStringLiteral("light")),
+                 QStringLiteral("moonstone"));
+        QCOMPARE(VaultConfig::obsidianAppearanceTheme(QStringLiteral("dark")),
+                 QStringLiteral("obsidian"));
+        // "system" → empty (Obsidian's "follow OS" sentinel).
+        QCOMPARE(VaultConfig::obsidianAppearanceTheme(QStringLiteral("system")),
+                 QString());
+        // Empty input → empty (follow OS).
+        QCOMPARE(VaultConfig::obsidianAppearanceTheme(QString()),
+                 QString());
+    }
+
+    void obsidianAppearanceTheme_passesThroughCustomCssThemes()
+    {
+        // Custom CSS-theme names that aren't one of Corbomite's three
+        // tokens must pass through verbatim — Obsidian uses arbitrary
+        // theme-name strings here when the user picked a community theme.
+        QCOMPARE(VaultConfig::obsidianAppearanceTheme(
+                     QStringLiteral("Catppuccin")),
+                 QStringLiteral("Catppuccin"));
+    }
 };
 
 QTEST_APPLESS_MAIN(TestVaultConfig)
