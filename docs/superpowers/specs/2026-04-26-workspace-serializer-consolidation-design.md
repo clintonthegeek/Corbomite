@@ -156,7 +156,7 @@ The `MainWindow::saveSessionState` / `openVaultAt` paths are exercised end-to-en
 | **P1 #4** — `m_unknownRoot` `left`/`right`/`floating` write-through | Not a serializer-fidelity bug; it's a **sidedock-modeling gap**. Corbomite has no internal model for `WorkspaceSidedock` (the audit lists this as Phase 7.5 stubs returning nullptr at `Workspace.h:220-221`). Fixing it correctly requires either translating Obsidian's `left`/`right` subtree into Corbomite's `CorbomiteMDI::Sidebar` state and back (large), or adding a "dirty bit" to detect Corbomite-side sidebar mutations and selectively drop the keys (smaller). Both are independent of the serializer consolidation. | "Decide `left`/`right`/`floating` JSON write-through policy in `SessionManager::doSave`. Three options: (A) drop on save; (B) pass through unmodified unless Corbomite mutated sidebar state; (C) translate to/from `CorbomiteMDI::Sidebar`. Recommend B with a sidebar-dirty bit. Audit ref: `workspace.md` §"High severity" #4 + Layout JSON compat table row `left`/`right`." |
 | **`m_tabGroupOf` lag-after-drag** (audit #1) | Now solvable thanks to public `Layout::groups()`. Either: (a) refresh `m_tabGroupOf` from `Layout::groups()` on demand (cache); (b) delete `m_tabGroupOf` and derive group membership from KDDW each call. Either way is a separate refactor of the consumers (`nextLeafInActiveGroup`, `closeOtherLeavesInGroupOf`, etc.) and not the serializer's concern. The serializer reads `Layout::groups()` directly so it's unaffected by the lag. | "Repurpose `m_tabGroupOf` against live `Layout::groups()` (cache or eliminate). Update `Workspace.h:267-271` comment claiming KDDW has no public Group enumeration API. Audit ref: `workspace.md` §"High severity" #1." |
 | **`stacked` per-tab-group bit storage** (if KDDW lacks a native one) | Resolved during impl: either KDDW exposes a per-`Group` "stacked" mode (check `core/Group.h`) and we read/write directly, or we add `WorkspaceLeaf::m_stacked` (a per-tab-group flag carried on the first leaf of the group, mirroring today's `stackedSidecar` shape but colocated). Decision deferred to impl phase. | (folded into impl plan) |
-| **Audit doc addendum** | Write `docs/obsidian-audit/addenda/2026-04-XX-kddw-public-enumeration.md` documenting the corrected KDDW API surface (`Layout::groups()`, `rootItem()`, `Group::currentTabIndex()`, `LayoutSaver`). Read-only correction; the audit doc itself stays frozen. | (folded into impl plan as final task) |
+| **Audit doc addendum** | Write `docs/obsidian-audit/addenda/<implementation-date>-kddw-public-enumeration.md` documenting the corrected KDDW API surface (`Layout::groups()`, `rootItem()`, `Group::currentTabIndex()`, `LayoutSaver`). Read-only correction; the audit doc itself stays frozen. | (folded into impl plan as final task) |
 
 ---
 
@@ -191,7 +191,7 @@ The `MainWindow::saveSessionState` / `openVaultAt` paths are exercised end-to-en
 - `docs/punch-list.md` — mark #1, #2, #3 done; add deferred-follow-up entries from the table above.
 
 **Created:**
-- `docs/obsidian-audit/addenda/2026-04-XX-kddw-public-enumeration.md` (audit correction).
+- `docs/obsidian-audit/addenda/<date-when-created>-kddw-public-enumeration.md` (audit correction; created during implementation).
 
 **Untouched:**
 - `src/app/SessionManager.{h,cpp}` — no API change. `setWorkspaceLayout(mainJson, activeLeafId)` continues to be the seam.
