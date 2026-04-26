@@ -294,6 +294,29 @@ void SQLiteIndex::writeRowsFromCache(const QString &path, const CachedMetadata &
         }
     }
 
+    // Frontmatter wikilinks/markdown-links — declared in YAML keys like
+    // `related: "[[Foo]]"`. Without indexing these, backlinksFor and
+    // search miss every link expressed in frontmatter. They're stored as
+    // link_type='wiki' (the underlying syntax is still a wikilink/md-link;
+    // the source is the YAML, not the body).
+    if (cache.frontmatterLinks) {
+        for (const FrontmatterLinkCache &link : *cache.frontmatterLinks) {
+            QString targetPath;
+            QString subpath;
+            splitTarget(link.link, targetPath, subpath);
+            q.prepare(QStringLiteral(
+                "INSERT OR IGNORE INTO links(source_path, target_path, link_type, display_text, subpath) "
+                "VALUES(?, ?, 'wiki', ?, ?)"));
+            q.addBindValue(path);
+            q.addBindValue(targetPath);
+            q.addBindValue(link.displayText.has_value()
+                               ? link.displayText.value()
+                               : QVariant(QMetaType(QMetaType::QString)));
+            q.addBindValue(subpath);
+            q.exec();
+        }
+    }
+
     // Tag rows. CachedMetadata's TagCache.tag includes the leading `#`
     // (mirrors Obsidian's shape). We store it verbatim.
     if (cache.tags) {

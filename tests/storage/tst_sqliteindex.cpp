@@ -277,6 +277,42 @@ private Q_SLOTS:
         QCOMPARE(outlinks.at(0).linkType, QStringLiteral("wiki"));
     }
 
+    // Regression: SQLiteIndex was inserting cache.links and cache.embeds
+    // but not cache.frontmatterLinks — so a note declaring `related:
+    // "[[Foo]]"` in YAML would have its frontmatter wikilink invisible to
+    // backlinksFor / outlinksFor / search. Index them as link_type='wiki'
+    // (they *are* wikilinks; just declared in YAML rather than body).
+    void testFrontmatterLinkExtraction()
+    {
+        QTemporaryDir tmp;
+        const QString vault = tmp.path() + "/vault";
+        QDir().mkpath(vault);
+
+        SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.setVaultRoot(vault);
+
+        LinkResolver resolver;
+        MetadataCache cache(resolver);
+        index.setMetadataCache(&cache);
+        QSignalSpy finished(&cache, &MetadataCache::indexFinished);
+
+        auto f = writeNote(vault, "source.md",
+            "---\n"
+            "related: \"[[Target Note]]\"\n"
+            "---\n"
+            "Body without inline links.\n");
+        seed(cache, resolver, "source.md", f.bytes, f.mtimeMs, &finished);
+
+        auto outlinks = index.outlinksFor(QStringLiteral("source.md"));
+        QCOMPARE(outlinks.size(), 1);
+        QCOMPARE(outlinks.at(0).targetPath, QStringLiteral("Target Note"));
+
+        auto backlinks = index.backlinksFor(QStringLiteral("Target Note"));
+        QCOMPARE(backlinks.size(), 1);
+        QCOMPARE(backlinks.at(0).sourcePath, QStringLiteral("source.md"));
+    }
+
     void testWikiLinkWithAlias()
     {
         QTemporaryDir tmp;

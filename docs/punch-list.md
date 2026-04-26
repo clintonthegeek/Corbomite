@@ -24,7 +24,7 @@
 - [x] [vault] `Vault::create` doesn't case-insensitively collision-check — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
 - [x] [vault] `CaseSensitivityProbe` is dead code (no callers) — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
 - [x] [parsing] `processFrontMatter` cannot strip an emptied frontmatter block — see [parsing.md](audit-2026-04-26/parsing.md) §"Notable concerns / suspected bugs"
-- [ ] [metadata] `SQLiteIndex` doesn't write `frontmatterLinks` rows (SQL backlinks miss every link declared in `related: "[[Foo]]"`) — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
+- [x] [metadata] `SQLiteIndex` doesn't write `frontmatterLinks` rows (SQL backlinks miss every link declared in `related: "[[Foo]]"`) — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
 - [ ] [metadata] `drainOnePath` only re-resolves `cache.links` (embeds + frontmatterLinks stay raw) — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
 - [x] [metadata] `LinkResolver` step 4 dot-relative path with extension fails for folders named `2026.04` — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
 - [x] [metadata][parsing] `collectFrontmatterLinks` grabs only the first wikilink per string leaf — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
