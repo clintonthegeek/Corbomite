@@ -1,4 +1,7 @@
-# Phase C8 — Inline-ORC Canonical Coherence Implementation Plan
+# Cluster G — Markoff Phase C8: Inline-ORC Canonical Coherence
+
+> **Re-lettered 2026-04-26.** This plan's body still references "Phase C8" — that's fine, it's the Markoff-side work-unit. From the Corbomite tracking POV, this is **Cluster G** (in-flight at reset time). Was: `2026-04-23-phase-c8-inline-orc-canonical-coherence.md`.
+
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

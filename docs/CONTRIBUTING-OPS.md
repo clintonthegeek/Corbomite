@@ -10,17 +10,18 @@ If you're a fresh agent / human starting a session, read **Ritual 1** first and 
 
 ## Ritual 1 — Session start
 
-Goal: in <5 minutes, know what's going on, what to do next, and what to verify.
+Goal: in <5 minutes, know what's going on, what to do next, and what to verify. Two tracks (punch list + strategic clusters) — both must be checked.
 
 1. **Read `CLAUDE.md`** (project root). Confirms build/test commands and points at the long-term-state files.
-2. **Read `docs/PROJECT-STATE.md` top-to-bottom.** This is the single source of truth for current focus, in-flight work, and open questions.
-3. **Read the cluster plan(s) for the current focus.** Linked from PROJECT-STATE roadmap. Read all 15 sections (they're short individually) of any plan you'll touch.
-4. **Read audit-doc sections cited in the plan you'll touch.** The plan's "Audit references" section names them. Don't skim — these are the specs you're implementing against.
-5. **Read any addenda touching the same domain.** `docs/obsidian-audit/addenda/` — look for files dated after the plan you're working on, or filenames matching the cluster's domain.
-6. **Glance at recent git commits.** `git log --oneline -10`. Catches any work the project-state file may not yet reflect (Ritual 2 may have been skipped). If you see a discrepancy, prefer git reality and update PROJECT-STATE before doing anything else.
-7. **State the situation back to the human in one sentence.** "Per PROJECT-STATE, current focus is `<cluster>` at phase `<N>`, last touched `<date>`; next expected step is `<step>`. Confirm or redirect?" — wait for confirmation before starting work. If PROJECT-STATE says "Idle", ask which cluster to start on.
+2. **Read `docs/PROJECT-STATE.md` top-to-bottom** (~30 lines). Names current focus across both tracks.
+3. **Skim `docs/punch-list.md` P0 section.** Anything new at the top since you last looked? P0s are silent vault-format-corruption risks — by default, drain them before resuming cluster work unless PROJECT-STATE says otherwise.
+4. **If picking up strategic-cluster work, read the cluster plan(s) for the current focus.** Linked from PROJECT-STATE.
+5. **If picking up a punch-list item, read the audit sub-report it cites.** Each punch-list line ends with `see audit-2026-04-26/<domain>.md §"section"` — that section has the full analysis + suggested fix sketch.
+6. **Read audit-doc sections cited in the plan or punch-list item.** Don't skim — these are the specs you're implementing against. Look at `docs/obsidian-audit/addenda/` for any addenda dated after the audit/plan you're using.
+7. **Glance at recent git commits.** `git log --oneline -10`. Catches work PROJECT-STATE may not yet reflect (Ritual 2 may have been skipped). If you see a discrepancy, prefer git reality and update PROJECT-STATE before doing anything else.
+8. **State the situation back to the human in one sentence.** "Per PROJECT-STATE, current focus is `<track>: <cluster-or-punch-item>`, last touched `<date>`; next step is `<step>`. Confirm or redirect?" — wait for confirmation before starting work. If PROJECT-STATE says "Idle", ask which track to start on (recommend punch-list P0s by default).
 
-**Do NOT** start work without a confirmed focus. **Do NOT** silently start a different cluster than PROJECT-STATE indicates without updating PROJECT-STATE first.
+**Do NOT** start work without a confirmed focus. **Do NOT** silently start a different cluster or punch-list item than PROJECT-STATE indicates without updating PROJECT-STATE first.
 
 ---
 
@@ -220,8 +221,12 @@ Edge cases:
 
 ---
 
-## Backlog hygiene (`docs/backlog.md`)
+## Punch-list hygiene (`docs/punch-list.md`)
 
-- When a backlog item is closed, **strike it through** (`~~text~~`) with a one-line closure note + date in the Details block. Do not delete — the crossed-out entry preserves the "why did we deprioritise X?" trail for the current quarter.
-- Quarterly (or whenever `backlog.md` exceeds 500 lines), move all struck-through items to `docs/decisions-archive.md` under a `## Backlog roll-up YYYY-MM-DD` header.
-- New backlog entries follow the schema defined at the top of `backlog.md`.
+> Replaces the legacy `backlog.md` (retired 2026-04-26 in the tracking reset; archived at `docs/archive-2026-04-26/backlog.md`).
+
+- When a punch-list item is closed by a commit, **mark the checkbox `[x]`** with a `(YYYY-MM-DD #commit-shortsha)` suffix. Do **not** delete — the closed entry preserves the audit→fix trail.
+- New punch-list items go under their severity bucket (P0 most urgent, P6 least). One-line entries only. Format: `- [ ] Pn [domain] short title — file.cpp:line — see audit-YYYY-MM-DD/<domain>.md §"section"`. Match existing entries.
+- When discovering a new gap mid-cluster: if it's a single-fix item, add it to the punch list under the appropriate severity bucket and continue. If it's a multi-phase initiative, create a new cluster stub plan under `docs/superpowers/plans/` and add a row to `INDEX.md`.
+- When the punch list exceeds ~150 active items, propose splitting into per-domain files (`docs/punch-list/<domain>.md`) — flag it in PROJECT-STATE Open questions, don't act unilaterally.
+- After running a fresh audit cycle that supersedes the prior one (e.g. another `docs/audit-YYYY-MM-DD/` is created): roll the closed (`[x]`) entries to `docs/decisions-archive.md` under a `## Punch-list roll-up YYYY-MM-DD` header, regenerate the active-items list from the new audit, update the file's "Last refreshed" date.

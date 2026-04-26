@@ -1,4 +1,7 @@
-# Cluster V — Editor & Workspace UI Surfacing — Implementation Plan
+# Cluster I — Editor & Workspace UI Surfacing
+
+> **Re-lettered 2026-04-26 (was Cluster V).** Body still references "Cluster V"; that's the legacy letter. New tracking letter is **I**. In-flight at reset time; phases not yet executed.
+
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >

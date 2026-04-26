@@ -1,34 +1,36 @@
 ## Long-term project state
 
-> **Read this section first if you are starting a new session.** Corbomite is in the middle of a multi-cluster Obsidian-compatibility roadmap. State persists across sessions in dedicated files; do not infer status from conversation context.
+> **Read this section first if you are starting a new session.** Corbomite tracks work across **two parallel tracks**: a flat severity-ranked **punch list** of small fixes, and **strategic clusters** for multi-phase coordinated initiatives. State persists across sessions in dedicated files; do not infer status from conversation context.
+>
+> **Tracking system was reset 2026-04-26** after a comprehensive audit. Pre-reset cluster lettering (legacy A–Y) lives in `docs/superpowers/plans/archive/` + `docs/decisions-archive.md`. New post-reset lettering started fresh at A.
 
-**Single source of truth for "where we are":** [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md). Read it at session start. It tracks current focus, in-flight cluster work, recent decisions, and open questions.
+**Single source of truth for "where we are":** [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md). ~30 lines — read in 30 seconds at session start. Names current focus across both tracks.
 
-**Operational rituals (how to start a session, mark phase done, mark cluster done):** [`docs/CONTRIBUTING-OPS.md`](docs/CONTRIBUTING-OPS.md). Three checklists. Follow them — they are not advice.
+**Punch list (small fixes, severity P0–P6):** [`docs/punch-list.md`](docs/punch-list.md). Flat single file. Top of file is P0; pick from top. Mark `[x]` when committed; do not delete. **P0/P1 items are mostly silent vault-format-corruption risks — drain before strategic-cluster work unless explicitly redirected.**
 
-**Cluster plans (one per work cluster) + parallel long-term internal refactors:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). INDEX is the table of contents over active plans; closed-cluster plans live under `plans/archive/` and are linked from INDEX.
+**Strategic cluster plans:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). Table of contents over the 10 active clusters (A–J at reset). Closed-cluster plans live under `plans/archive/` and are linked from INDEX.
 
-**Unified backlog (map):** [`docs/backlog.md`](docs/backlog.md). Every deferred follow-up, not-started cluster, and known-flaky test, grouped by theme. Read before picking up new work.
+**Audit (canonical task source — derived 2026-04-26):** [`docs/audit-2026-04-26/`](docs/audit-2026-04-26/). 14 per-domain sub-reports + synthesis README + 58-item priority list. Punch-list and audit-derived clusters all trace back here. Frozen snapshot — re-run audit cycle to refresh.
+
+**Operational rituals (session start, phase done, cluster done):** [`docs/CONTRIBUTING-OPS.md`](docs/CONTRIBUTING-OPS.md). Checklists, not advice.
 
 **Decisions archive (journal):** [`docs/decisions-archive.md`](docs/decisions-archive.md). Append-only closeout summaries + rolled-off decisions. Consult for *why* a prior call was made — not at session start.
 
-**Archive directories are frozen.** `docs/archive/`, `docs/superpowers/plans/archive/`, and `docs/superpowers/specs/archive/` contain closed work. Don't follow links into them for live tasks.
+**Archive directories are frozen.** `docs/archive/`, `docs/archive-2026-04-26/`, `docs/superpowers/plans/archive/`, and `docs/superpowers/specs/archive/` contain closed/pre-reset work. Don't follow links into them for live tasks.
 
-**Parallel internal refactors** (not cluster-numbered, run alongside parity work): the **Qutepart-Corbomite fork** at [`docs/superpowers/plans/2026-04-15-qutepart-corbomite-fork.md`](docs/superpowers/plans/2026-04-15-qutepart-corbomite-fork.md) (8-phase shaping of vendored `qutepart-cpp` into our permanent Source-mode widget at `libs/qutepart-corbomite/`; Phase 1 unblocks Cluster E). See PROJECT-STATE §"Parallel long-term internal refactors" for status.
-
-**Reverse-engineered Obsidian audit (canonical reference, read-only except via addenda):** [`docs/obsidian-audit/`](docs/obsidian-audit/). Pass 1 taxonomy + 15 Pass 2 domain docs + 5 Pass 3 synthesis docs (`FEATURE-MATRIX.md`, `VAULT-FORMAT.md`, `GAP-ANALYSIS.md`, `PLUGIN-API-SKETCH.md`, `SHARED-SYMBOLS.md`). ~94k words of distilled spec. New facts discovered during implementation go in `docs/obsidian-audit/addenda/`, never as edits to the audit docs.
+**Reverse-engineered Obsidian audit (canonical reference, read-only except via addenda):** [`docs/obsidian-audit/`](docs/obsidian-audit/). Pass 1 taxonomy + 15 Pass 2 domain docs + 5 Pass 3 synthesis docs. ~94k words of distilled spec. New facts discovered during implementation go in `docs/obsidian-audit/addenda/`, never as edits to the audit docs.
 
 **Local KDE source (do not clone from invent.kde.org):** `~/src/kde/src/<repo>` is checked out for kate, kdevelop, kio, kconfig, kparts, kxmlgui, kwidgetsaddons, ktexteditor, krunner, baloo, okular, poppler, qtkeychain, sonnet (and more). Cluster plans reference these by absolute local path.
 
-**Do not regrow `PROJECT-STATE.md`.** When a cluster or phase closes, write **at most 3 sentences** in `PROJECT-STATE.md` §Current focus (replacing the previous top entry) and the **full** closeout paragraph into `docs/decisions-archive.md` under a new dated H2 header. The `**Previously:** …` cascade pattern is banned. If you find yourself writing a `Previously:` paragraph in `PROJECT-STATE.md`, you are writing in the wrong file.
+**Do not regrow `PROJECT-STATE.md`.** Slim is non-negotiable. When a cluster or phase closes, write at most 3 sentences in PROJECT-STATE §Current focus (replacing the previous top entry) and the full closeout paragraph into `decisions-archive.md` under a new dated H2 header. The `**Previously:** …` cascade pattern is banned.
 
 **Session-start ritual (TL;DR — full version in `CONTRIBUTING-OPS.md`):**
-1. Read `docs/PROJECT-STATE.md` top-to-bottom.
-2. If picking up new work (not continuing a live cluster), skim `docs/backlog.md` for candidates.
-3. Read the cluster plan(s) for the current focus.
-4. Read audit-doc sections cited in the plan.
+1. Read `docs/PROJECT-STATE.md` top-to-bottom (~30 lines).
+2. Skim `docs/punch-list.md` P0 section. Anything flagged urgent? If yes, drain those before resuming cluster work.
+3. If continuing strategic-cluster work: read the cluster plan(s) for the current focus.
+4. Read audit-doc sections cited in the plan or punch-list item.
 5. Glance at `git log --oneline -10`.
-6. State the situation back: "Per PROJECT-STATE, current focus is X, last touched Y; next step is Z. Confirm or redirect?" — wait for confirmation before working.
+6. State the situation back: "Per PROJECT-STATE, current focus is X (track: punch-list/cluster), last touched Y; next step is Z. Confirm or redirect?" — wait for confirmation before working.
 
 ---
 
