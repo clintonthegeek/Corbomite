@@ -250,11 +250,25 @@ bool Vault::process(TFile *f, const ProcessMutator &mutator)
     return modify(f, next);
 }
 
+// Reject when `rel` collides with any existing entry case-insensitively.
+// Required for vault-portability: the same vault on a case-insensitive FS
+// (HFS+, exFAT, Windows NTFS default) would resolve `Note.md` and `note.md`
+// to the same file on disk, but std::unordered_map<QString, …> compares
+// case-sensitively. Without this scan create() would happily write a second
+// file that races with or stomps the first.
+bool Vault::existsCaseInsensitive(const QString &rel) const
+{
+    for (const auto &kv : m_fileMap) {
+        if (kv.first.compare(rel, Qt::CaseInsensitive) == 0) return true;
+    }
+    return false;
+}
+
 TFile *Vault::create(const QString &path, const QByteArray &body)
 {
     if (!m_adapter) return nullptr;
     const QString rel = VaultPaths::normalize(path);
-    if (m_fileMap.count(rel)) return nullptr;
+    if (existsCaseInsensitive(rel)) return nullptr;
 
     const QString abs = m_basePath + QLatin1Char('/') + rel;
     if (!m_adapter->mkpath(QFileInfo(abs).absolutePath())) return nullptr;
@@ -317,7 +331,7 @@ TFolder *Vault::createFolder(const QString &path)
 {
     if (!m_adapter) return nullptr;
     const QString rel = VaultPaths::normalize(path);
-    if (m_fileMap.count(rel)) return nullptr;
+    if (existsCaseInsensitive(rel)) return nullptr;
     const QString abs = m_basePath + QLatin1Char('/') + rel;
     if (!m_adapter->mkpath(abs)) return nullptr;
 

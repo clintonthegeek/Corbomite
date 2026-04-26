@@ -21,7 +21,7 @@
 - [ ] [vault] `FileManager::renameFile` rewrites markdown-style links and full-path forms; should use `MetadataCache` snapshot as source-of-truth — `libs/vault/src/FileManager.cpp:148-216` — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
 - [x] [settings] `appearance.json` `theme` value vocabulary mismatch — write `"obsidian"`/`"moonstone"` not `"system"`/`"light"`/`"dark"` — see [settings.md](audit-2026-04-26/settings.md) §"On-disk schema compatibility matrix (per-file)"
 - [ ] [settings][plugin] Wire `core-plugins.json` and `community-plugins.json` to `PluginManager` so toggle state transfers Corbomite ⇄ Obsidian — see [settings.md](audit-2026-04-26/settings.md) §"On-disk schema compatibility matrix (per-file)"
-- [ ] [vault] `Vault::create` doesn't case-insensitively collision-check — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
+- [x] [vault] `Vault::create` doesn't case-insensitively collision-check — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
 - [ ] [vault] `CaseSensitivityProbe` is dead code (no callers) — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
 - [ ] [parsing] `processFrontMatter` cannot strip an emptied frontmatter block — see [parsing.md](audit-2026-04-26/parsing.md) §"Notable concerns / suspected bugs"
 - [ ] [metadata] `SQLiteIndex` doesn't write `frontmatterLinks` rows (SQL backlinks miss every link declared in `related: "[[Foo]]"`) — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"

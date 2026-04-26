@@ -19,6 +19,7 @@ private slots:
     void createEmitsCreated();
     void createFolderCreatesDir();
     void createRejectsExisting();
+    void createRejectsCaseDifferingExisting();
 };
 
 void TestVaultCreate::createCreatesFile()
@@ -86,6 +87,30 @@ void TestVaultCreate::createRejectsExisting()
     vault.load(dir.path());
 
     QCOMPARE(vault.create(QStringLiteral("a.md"), QByteArray("y")),
+             static_cast<Corbomite::TFile *>(nullptr));
+}
+
+// Regression: Vault::create only checked m_fileMap.count(rel) (case-
+// sensitive). On case-insensitive filesystems (HFS+, exFAT, default Windows
+// NTFS, …) `Note.md` and `note.md` collide on disk but pass the in-memory
+// check — `create()` would happily try to write the second one, racing with
+// or stomping the first. Obsidian rejects the create regardless of FS
+// case-sensitivity to keep vaults portable across machines.
+void TestVaultCreate::createRejectsCaseDifferingExisting()
+{
+    QTemporaryDir dir;
+    QFile f(dir.path() + "/Note.md");
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("x");
+    f.close();
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    QCOMPARE(vault.create(QStringLiteral("note.md"), QByteArray("y")),
+             static_cast<Corbomite::TFile *>(nullptr));
+    QCOMPARE(vault.create(QStringLiteral("NOTE.md"), QByteArray("y")),
              static_cast<Corbomite::TFile *>(nullptr));
 }
 

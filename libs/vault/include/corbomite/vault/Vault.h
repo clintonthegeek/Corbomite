@@ -170,6 +170,11 @@ public:
     void resolveExternalReload(NoteDocument *doc, const QString &resolvedContent);
 
 private:
+    /// Returns true when any tracked path matches `rel` case-insensitively.
+    /// Used by create()/createFolder() to keep vaults portable across
+    /// case-(in)sensitive filesystems.
+    bool existsCaseInsensitive(const QString &rel) const;
+
     DataAdapter *m_adapter;
     QString      m_basePath;
     bool         m_loaded = false;
