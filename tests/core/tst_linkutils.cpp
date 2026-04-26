@@ -149,6 +149,22 @@ private Q_SLOTS:
         QVERIFY(r.startOffset >= 0);
     }
 
+    // Regression: block-id lookup must be case-insensitive — Obsidian
+    // resolves `[[Note#^MyBlock]]` against a definition `^myblock` (and
+    // vice versa). LinkUtils.cpp:121 used QString::indexOf default
+    // (case-sensitive), silently missing case-mismatched links.
+    void resolveSubpath_blockCaseInsensitive()
+    {
+        const QString src = QStringLiteral(
+            "# Title\n\nParagraph ending in a marker. ^myblock\n\nNext.\n");
+        auto doc = Markoff::Document::fromMarkdown(src);
+        QVERIFY(doc);
+        // Link uses MyBlock (mixed-case); source has lowercase ^myblock.
+        const auto r = resolveSubpath(*doc, src, QStringLiteral("#^MyBlock"));
+        QCOMPARE(r.kind, SubpathResolution::Kind::Block);
+        QVERIFY(r.startOffset >= 0);
+    }
+
     void resolveSubpath_blockNoMatch()
     {
         const QString src = QStringLiteral("# Title\n\nNo block markers here.\n");

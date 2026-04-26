@@ -118,7 +118,11 @@ SubpathResolution resolveSubpath(const Markoff::Document &doc,
         // or at line start. Obsidian matches on a word-boundary basis.
         static const QRegularExpression markerReTemplate(
             QStringLiteral("(?:^|\\s)(\\^[A-Za-z0-9_-]+)"));
-        const int needleStart = source.indexOf(marker);
+        // Block-id lookup is case-insensitive: Obsidian resolves
+        // `[[Note#^MyBlock]]` against a `^myblock` definition (and vice
+        // versa). Default QString::indexOf is case-sensitive — match would
+        // silently miss otherwise.
+        const int needleStart = source.indexOf(marker, 0, Qt::CaseInsensitive);
         if (needleStart < 0) return {};
 
         const QList<int> lineStarts = computeLineStarts(source);
