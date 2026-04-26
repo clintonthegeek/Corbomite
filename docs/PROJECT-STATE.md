@@ -13,7 +13,7 @@ Most P0/P1 punch-list items are **silent vault-format corruption risks**. Drain 
 
 ## Current focus
 
-**P0 punch-list drained** (2026-04-26). All 15 P0 silent-corruption items closed. 49 items remain across P1–P6; next pick from top of P1 (workspace.json round-trip) unless redirected.
+**P1 #1–#3 (workspace serializer consolidation) done** (2026-04-26). Single hybrid writer (KDDW LayoutSaver JSON for split topology + Workspace for leaf payload) at `libs/core/src/WorkspaceSerializer.cpp`; `Workspace::serialize`/`deserialize` are thin forwarders. 18 fixtures cover the contract. P1 #4 (`m_unknownRoot` left/right write-through) and the `m_tabGroupOf` lag-after-drag follow-up remain in P1; next pick from top of P1 unless redirected.
 
 ## Active strategic clusters (snapshot)
 
@@ -34,6 +34,7 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Recent decisions
 
+- **2026-04-26 — Workspace serializer consolidation done.** P1 #1, #2, #3 closed. `Workspace::serialize`/`deserialize` delegate to `WorkspaceSerializer::toJson`/`fromJson`. KDDW `LayoutSaver::serializeLayout()` JSON drives split topology; `Workspace::findLeafById` drives per-leaf state; the two join on `DockWidget::uniqueName`. Per-group `currentTab` round-trips via `Core::Group::currentTabIndex()`. Audit addendum [`obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md`](obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md) corrects the stale "no public Group enumeration API" claim. Spec: [`specs/2026-04-26-workspace-serializer-consolidation-design.md`](superpowers/specs/2026-04-26-workspace-serializer-consolidation-design.md). Plan: [`plans/2026-04-26-workspace-serializer-consolidation.md`](superpowers/plans/2026-04-26-workspace-serializer-consolidation.md).
 - **2026-04-26 — P0 sweep complete.** All 15 P0 silent-corruption items closed. Last two: `FileManager::renameFile` rewritten to drive surgical edits from MetadataCache positions (covers markdown-style + full-path + frontmatter link forms via a single `rewriteLinkLiteral` helper); `PluginManager` ⇄ `.obsidian/{core,community}-plugins.json` cross-app sync landed per [`specs/2026-04-26-plugin-enable-state-cross-app-compromise.md`](superpowers/specs/2026-04-26-plugin-enable-state-cross-app-compromise.md) — JSON wins on vault-open, KConfig authoritative thereafter, dual-write gated by `X-Obsidian-Id` (manifest field + 7-entry internal alias dict).
 - **2026-04-26 — Tracking system reset.** Audit produced 58 punch-list items + 6 audit-derived clusters (A–F). 4 in-flight plans re-lettered (G–J). 8 SCOUTING/one-shot plans archived. `backlog.md` retired. PROJECT-STATE slimmed. Old state at `docs/archive-2026-04-26/`. See [`docs/audit-2026-04-26/README.md`](audit-2026-04-26/README.md) for the audit synthesis.
 
@@ -44,4 +45,4 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Last touched
 
-2026-04-26 — tracking reset. No code changes since `72d53c4d` (cluster-v2 fixup post-review).
+2026-04-26 — workspace serializer consolidation (P1 #1-#3). See decisions-archive for the full closeout.

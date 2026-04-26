@@ -293,10 +293,12 @@ private:
     // Leaf indexes. `m_leaves` is insertion-ordered for stable iteration;
     // `m_leavesById` is the O(1) findLeafById index;
     // `m_tabGroupOf` carries the opaque tab-group identifier per leaf —
-    // KDDW exposes no public Group enumeration API, so Workspace tracks
-    // tab grouping itself. Phase 6's WorkspaceActiveLeafRouter resyncs
-    // group membership after user-initiated drag-tab-to-other-group;
-    // until then the model lags those moves.
+    // a cache of group membership populated at leaf-create / serializer-
+    // restore time. Lags user-initiated drag-tab-to-other-group; KDDW 2.4
+    // exposes Layout::groups() + Group::dockWidgets() for live enumeration,
+    // so a follow-up can refresh m_tabGroupOf on demand or eliminate it.
+    // Tracking: docs/punch-list.md (post-consolidation entry). API
+    // reference: docs/obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md.
     QVector<WorkspaceLeaf *> m_leaves;
     QHash<QString, WorkspaceLeaf *> m_leavesById;
     QHash<WorkspaceLeaf *, QString> m_tabGroupOf;

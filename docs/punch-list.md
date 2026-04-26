@@ -31,10 +31,11 @@
 
 ## P1 — Workspace.json round-trip fixes
 
-- [ ] [workspace] Consolidate `Workspace::serialize` and `WorkspaceSerializer::toJson` into one writer — see [workspace.md](audit-2026-04-26/workspace.md) §"Notable concerns / suspected bugs"
-- [ ] [workspace] Implement nested-split round-trip so opening + saving an Obsidian-authored layout doesn't degrade — see [workspace.md](audit-2026-04-26/workspace.md) §"Top gaps"
-- [ ] [workspace] Per-group `currentTab` instead of conflated global active-leaf-index — see [workspace.md](audit-2026-04-26/workspace.md) §"Top gaps"
-- [ ] [workspace] Stop blind write-through of `left`/`right` `m_unknownRoot` subtree in `SessionManager` — match Obsidian shape or omit — see [workspace.md](audit-2026-04-26/workspace.md) §"Top gaps"
+- [x] [workspace] Consolidate `Workspace::serialize` and `WorkspaceSerializer::toJson` into one writer — see [workspace.md](audit-2026-04-26/workspace.md) §"Notable concerns / suspected bugs"
+- [x] [workspace] Implement nested-split round-trip so opening + saving an Obsidian-authored layout doesn't degrade — see [workspace.md](audit-2026-04-26/workspace.md) §"Top gaps"
+- [x] [workspace] Per-group `currentTab` instead of conflated global active-leaf-index — see [workspace.md](audit-2026-04-26/workspace.md) §"Top gaps"
+- [ ] [workspace] Stop blind write-through of `left`/`right` `m_unknownRoot` subtree in `SessionManager` — match Obsidian shape or omit — see [workspace.md](audit-2026-04-26/workspace.md) §"Top gaps". Spec for the deferred decision: [`specs/2026-04-26-workspace-serializer-consolidation-design.md`](superpowers/specs/2026-04-26-workspace-serializer-consolidation-design.md) §Deferred follow-ups. Three options to pick from: (A) drop on save; (B) pass through unmodified unless Corbomite mutated sidebar state (recommended); (C) translate to/from `CorbomiteMDI::Sidebar`.
+- [ ] [workspace] Repurpose `m_tabGroupOf` against live `Layout::groups()` (cache or eliminate). Update `Workspace.h:267-271` comment claiming KDDW has no public Group enumeration API. Audit: [workspace.md](audit-2026-04-26/workspace.md) §"High severity" #1 — now solvable via the public KDDW API documented in [`obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md`](obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md)
 - [ ] [workspace] Popout window leak — add `m_windows.removeOne(window)` to the X-close path — see [workspace.md](audit-2026-04-26/workspace.md) §"Top gaps"
 - [ ] [workspace] `m_tabGroupOf` lags user drags — see [workspace.md](audit-2026-04-26/workspace.md) §"Top gaps"
 - [ ] [workspace] `undoCloseLeaf` loses original parent + leafHistory + eState — see [workspace.md](audit-2026-04-26/workspace.md) §"Top gaps"

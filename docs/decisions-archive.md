@@ -10,6 +10,69 @@ Conventions:
 
 ---
 
+## 2026-04-26 — Workspace serializer consolidation (P1 #1, #2, #3)
+
+`Workspace::serialize` and `WorkspaceSerializer::toJson` consolidated
+into one hybrid writer. KDDW provides split topology + per-group
+`currentTab` via `LayoutSaver::serializeLayout()` JSON +
+`Layout::groups()`; Workspace provides leaf payload via
+`findLeafById()` + `WorkspaceLeaf::serialize()`. The two views are
+joined on `KDDockWidgets::Core::DockWidget::uniqueName()`, which
+`Workspace::registerLeaf` namespaces as `<vaultId>:<leafId>`.
+
+`Workspace::serialize`/`deserialize` are now thin forwarders to
+`WorkspaceSerializer::{toJson,fromJson}`; the post-load defer/active-
+leaf logic stays in `Workspace`. The defer logic now reads per-group
+`currentTab` from the live `Layout::groups()` rather than synthesizing
+it from "first leaf in group", so the deferred set is accurate
+per-group.
+
+Sidecar maps (`leafSidecar`, `stackedSidecar` in `WorkspaceSerializer.cpp`)
+retained as test-only fallback when `workspace=nullptr`; production-path
+unknown leaf keys live on `WorkspaceLeaf::m_unknownLeafKeys` and stacked
+lives on `Workspace::m_stackedGroups` keyed by tab-group id (KDDW lacks
+a per-Group stacked accessor, so the bit is advisory but round-trips
+losslessly).
+
+Materializer now always sets `currentTab` even when index=0, because
+KDDW makes the most-recently-added tab current — which would otherwise
+be the trailing leaf rather than the leaf at index 0.
+
+`tst_workspace_session` got a per-test cleanup that deletes accumulated
+`Workspace`s + clears `DockRegistry`, since `LayoutSaver` consults
+process-global state and collides on duplicate "corbomite:default"
+MainWindow names.
+
+Test fixture coverage:
+- 9 existing fixtures (workspace=nullptr) — shape round-trip preserved.
+- 3 new workspace-non-null fixtures: `12-nested-with-state` (pinned/group
+  + nested splits), `08b-unknownKeys` (forward-compat), `04b-stacked`
+  (stacked bit).
+- 3 new feature fixtures: `11-per-group-currenttab`, `13-popout-nested-split`,
+  `14-defer-set` (per-group currentTab respected by defer).
+- Strengthened fixture03 round-trip assertion (nested split shape).
+
+Audit addendum filed:
+[`docs/obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md`](obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md)
+correcting the audit's stale claim that KDDW lacks public Group
+enumeration. KDDW 2.4 ships `Layout::groups()`, `Layout::rootItem()`,
+`Group::currentTabIndex()`, `Group::dockWidgets()`, `LayoutSaver::
+serializeLayout()` etc. all public.
+
+KDDW LayoutSaver JSON schema captured at
+[`docs/superpowers/specs/2026-04-26-kddw-layoutsaver-shape.md`](superpowers/specs/2026-04-26-kddw-layoutsaver-shape.md)
+since it's not documented in headers.
+
+P1 #4 (`m_unknownRoot` left/right write-through) deferred — sidedock
+modeling is out of scope for serializer fidelity. The `m_tabGroupOf`
+lag-after-drag follow-up similarly punted; both tracked as new P1
+punch-list entries.
+
+Spec: [`docs/superpowers/specs/2026-04-26-workspace-serializer-consolidation-design.md`](superpowers/specs/2026-04-26-workspace-serializer-consolidation-design.md)
+Plan: [`docs/superpowers/plans/2026-04-26-workspace-serializer-consolidation.md`](superpowers/plans/2026-04-26-workspace-serializer-consolidation.md)
+
+---
+
 ## 2026-04-25 — Cluster V.2 closed (Editor/Workspace debt cleanup)
 
 Cluster V.2 closed across 5 phases — 7 commits `6f737933..bb12fbbd` —
