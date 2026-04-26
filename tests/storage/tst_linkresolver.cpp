@@ -218,6 +218,33 @@ private Q_SLOTS:
         QCOMPARE(result.path, QStringLiteral("b/a.md"));
     }
 
+    // Regression: dot-relative resolution was deciding whether to append `.md`
+    // by `path.contains('.')`. A folder name with a dot in it (e.g.
+    // `2026.04/notes`) tripped that check, so the link `[[../2026.04/notes]]`
+    // would look up `2026.04/notes` (no extension) instead of
+    // `2026.04/notes.md` and silently fail.
+    void resolveDotRelativeIntoDotNamedFolder()
+    {
+        LinkResolver r;
+        r.setVaultPaths({QStringLiteral("2026.04/notes.md"),
+                         QStringLiteral("src/index.md")});
+        const auto result = r.resolve(QStringLiteral("src/index.md"),
+                                      QStringLiteral("../2026.04/notes"));
+        QVERIFY(result.resolved);
+        QCOMPARE(result.path, QStringLiteral("2026.04/notes.md"));
+    }
+
+    // Same bug class for rooted lookup ("/2026.04/notes" should also resolve).
+    void resolveRootedIntoDotNamedFolder()
+    {
+        LinkResolver r;
+        r.setVaultPaths({QStringLiteral("2026.04/notes.md")});
+        const auto result = r.resolve(QStringLiteral("src/index.md"),
+                                      QStringLiteral("/2026.04/notes"));
+        QVERIFY(result.resolved);
+        QCOMPARE(result.path, QStringLiteral("2026.04/notes.md"));
+    }
+
     // --- unresolved miss ---
 
     void unresolvedBasenameReturnsEmpty()

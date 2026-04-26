@@ -117,9 +117,19 @@ ResolvedLink LinkResolver::resolve(const QString &sourcePath,
     }
 
     // --- Step 5 pre-check: leading '/' = rooted absolute ---
+    // Helper: append `.md` only when the *final segment* lacks an extension.
+    // A whole-path `contains('.')` check would mis-fire for vaults with
+    // dot-named folders like `2026.04/notes` — finding the dot in the
+    // folder, skipping the `.md` append, and then missing in lookup.
+    auto appendMdIfFinalSegmentHasNoExt = [](QString &p) {
+        const int slash = p.lastIndexOf(QLatin1Char('/'));
+        const QStringView tail = QStringView(p).mid(slash + 1);
+        if (!tail.contains(QLatin1Char('.'))) p += QStringLiteral(".md");
+    };
+
     if (linktext.startsWith(QLatin1Char('/'))) {
         QString rooted = linktext.mid(1);
-        if (!rooted.contains(QLatin1Char('.'))) rooted += QStringLiteral(".md");
+        appendMdIfFinalSegmentHasNoExt(rooted);
         auto hit = m_exactLowerToActual.find(rooted.toLower());
         if (hit != m_exactLowerToActual.end()) {
             r.path = hit.value();
@@ -139,7 +149,7 @@ ResolvedLink LinkResolver::resolve(const QString &sourcePath,
     if (isDotRelative || hasSlash) {
         const QString sourceFolder = folderOf(sourcePath);
         QString resolved = resolveRelative(sourceFolder, linktext);
-        if (!resolved.contains(QLatin1Char('.'))) resolved += QStringLiteral(".md");
+        appendMdIfFinalSegmentHasNoExt(resolved);
 
         auto hit = m_exactLowerToActual.find(resolved.toLower());
         if (hit != m_exactLowerToActual.end()) {
