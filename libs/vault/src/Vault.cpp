@@ -370,6 +370,35 @@ bool Vault::rename(TAbstractFile *f, const QString &newPath)
     TAbstractFile *raw = node.get();
     m_fileMap.emplace(newRel, std::move(node));
     Q_EMIT renamed(raw, oldRel);
+
+    // Folder rename: descendants in m_fileMap still hold stale paths
+    // (Vault::rename only moves the renamed node itself). Walk them, fix
+    // the map keys + node->path, migrate read-cache entries, and emit
+    // per-descendant `renamed` so plugins listening for moves (link
+    // rewriters, MetadataCache invalidators, file watchers) can react.
+    if (dynamic_cast<TFolder *>(raw)) {
+        const QString oldPrefix = oldRel + QLatin1Char('/');
+        const QString newPrefix = newRel + QLatin1Char('/');
+        std::vector<QString> oldDescPaths;
+        oldDescPaths.reserve(m_fileMap.size());
+        for (const auto &kv : m_fileMap) {
+            if (kv.first.startsWith(oldPrefix)) oldDescPaths.push_back(kv.first);
+        }
+        for (const QString &oldDesc : oldDescPaths) {
+            auto descIt = m_fileMap.find(oldDesc);
+            if (descIt == m_fileMap.end()) continue;
+            std::unique_ptr<TAbstractFile> dnode = std::move(descIt->second);
+            m_fileMap.erase(descIt);
+            const QString newDesc = newPrefix + oldDesc.mid(oldPrefix.size());
+            dnode->setPath(newDesc);
+            if (m_readCache.contains(oldDesc)) {
+                m_readCache.insert(newDesc, m_readCache.take(oldDesc));
+            }
+            TAbstractFile *draw = dnode.get();
+            m_fileMap.emplace(newDesc, std::move(dnode));
+            Q_EMIT renamed(draw, oldDesc);
+        }
+    }
     return true;
 }
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
+#include <QDir>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QFile>
@@ -18,6 +19,8 @@ private slots:
     void removeDeletesFileAndFireSignal();
     void removeTombstonesHandle();
     void copyDuplicatesFile();
+    void renameFolderUpdatesDescendantPaths();
+    void renameFolderEmitsRenamedForEachDescendant();
 };
 
 void TestVaultRenameRemove::renameUpdatesPathAndFireSignal()
@@ -99,6 +102,75 @@ void TestVaultRenameRemove::copyDuplicatesFile()
     QVERIFY(vault.copy(tf, QStringLiteral("b.md")));
     QVERIFY(QFileInfo::exists(dir.path() + "/b.md"));
     QVERIFY(QFileInfo::exists(dir.path() + "/a.md"));
+}
+
+// Regression: renaming a folder must also update every descendant's path in
+// m_fileMap (and on the TFile/TFolder nodes themselves). Previously only
+// the folder itself moved, leaving descendants with stale paths — lookups
+// by new path returned nullptr and lookups by old path returned the moved
+// node, both of which are wrong.
+void TestVaultRenameRemove::renameFolderUpdatesDescendantPaths()
+{
+    QTemporaryDir dir;
+    QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("alpha/sub")));
+    {
+        QFile f1(dir.path() + "/alpha/note.md");
+        QVERIFY(f1.open(QIODevice::WriteOnly));
+        f1.write("x");
+    }
+    {
+        QFile f2(dir.path() + "/alpha/sub/deep.md");
+        QVERIFY(f2.open(QIODevice::WriteOnly));
+        f2.write("y");
+    }
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *folder = vault.getFolderByPath(QStringLiteral("alpha"));
+    QVERIFY(folder);
+    QVERIFY(vault.rename(folder, QStringLiteral("beta")));
+
+    QVERIFY2(vault.getFileByPath(QStringLiteral("beta/note.md")),
+             "direct descendant must be reachable at new path");
+    QVERIFY2(vault.getFileByPath(QStringLiteral("beta/sub/deep.md")),
+             "transitive descendant must be reachable at new path");
+    QVERIFY2(!vault.getFileByPath(QStringLiteral("alpha/note.md")),
+             "old descendant path must no longer resolve");
+    QVERIFY2(!vault.getFileByPath(QStringLiteral("alpha/sub/deep.md")),
+             "old transitive descendant path must no longer resolve");
+    QVERIFY2(vault.getFolderByPath(QStringLiteral("beta/sub")),
+             "sub-folder must be reachable at new path");
+}
+
+void TestVaultRenameRemove::renameFolderEmitsRenamedForEachDescendant()
+{
+    QTemporaryDir dir;
+    QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("alpha")));
+    {
+        QFile f1(dir.path() + "/alpha/one.md");
+        QVERIFY(f1.open(QIODevice::WriteOnly));
+        f1.write("x");
+    }
+    {
+        QFile f2(dir.path() + "/alpha/two.md");
+        QVERIFY(f2.open(QIODevice::WriteOnly));
+        f2.write("y");
+    }
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *folder = vault.getFolderByPath(QStringLiteral("alpha"));
+    QVERIFY(folder);
+    QSignalSpy spy(&vault, &Corbomite::Vault::renamed);
+    QVERIFY(vault.rename(folder, QStringLiteral("beta")));
+
+    // Folder itself + 2 descendants = 3 emissions. Plugins (notably link-
+    // updaters) listen on renamed and miss descendant moves otherwise.
+    QCOMPARE(spy.count(), 3);
 }
 
 QTEST_MAIN(TestVaultRenameRemove)
