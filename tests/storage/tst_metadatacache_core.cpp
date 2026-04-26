@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QSignalSpy>
 #include <QTest>
 
 #include <QByteArray>
@@ -312,6 +313,47 @@ private Q_SLOTS:
                  QStringList({QStringLiteral("a.md"),
                               QStringLiteral("b.md"),
                               QStringLiteral("c.md")}));
+    }
+
+    // Regression: drainOnePath only re-resolved cache.links —
+    // cache.frontmatterLinks were never resolved at all because
+    // collectFrontmatterLinks doesn't run the resolver itself. After
+    // indexing, frontmatter wikilinks must hold the resolver-mapped paths
+    // so backlinks/search/the graph see consistent state with body links.
+    // (Embeds parse via Markoff's "image" path and currently lose their
+    // target on `![[…]]` syntax — separate issue, see embed-parser
+    // follow-up.)
+    void testDrainResolvesFrontmatterLinks()
+    {
+        LinkResolver resolver = makeResolver({
+            QStringLiteral("source.md"),
+            QStringLiteral("Target.md"),
+        });
+        MetadataCache cache(resolver);
+
+        QSignalSpy resolved(&cache, &MetadataCache::linksResolvedFor);
+
+        cache.onFileChanged(QStringLiteral("source.md"),
+            QByteArray(
+                "---\n"
+                "related: \"[[Target]]\"\n"
+                "---\n"
+                "[[Target]]\n"
+            ), 100);
+        waitForFileCount(cache, 1);
+        QTRY_VERIFY_WITH_TIMEOUT(resolved.count() >= 1, 5000);
+
+        auto got = cache.getFileCache(QStringLiteral("source.md"));
+        QVERIFY(got.has_value());
+
+        QVERIFY(got->links.has_value());
+        QVERIFY(!got->links->isEmpty());
+        QCOMPARE(got->links->at(0).link, QStringLiteral("Target.md"));
+
+        QVERIFY(got->frontmatterLinks.has_value());
+        QVERIFY(!got->frontmatterLinks->isEmpty());
+        QCOMPARE(got->frontmatterLinks->at(0).link,
+                 QStringLiteral("Target.md"));
     }
 
     // 14. Zero-byte file is still tracked with a hash (the empty-SHA-256).

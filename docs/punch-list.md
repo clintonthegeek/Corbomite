@@ -25,7 +25,7 @@
 - [x] [vault] `CaseSensitivityProbe` is dead code (no callers) — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
 - [x] [parsing] `processFrontMatter` cannot strip an emptied frontmatter block — see [parsing.md](audit-2026-04-26/parsing.md) §"Notable concerns / suspected bugs"
 - [x] [metadata] `SQLiteIndex` doesn't write `frontmatterLinks` rows (SQL backlinks miss every link declared in `related: "[[Foo]]"`) — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
-- [ ] [metadata] `drainOnePath` only re-resolves `cache.links` (embeds + frontmatterLinks stay raw) — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
+- [x] [metadata] `drainOnePath` only re-resolves `cache.links` (embeds + frontmatterLinks stay raw) — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
 - [x] [metadata] `LinkResolver` step 4 dot-relative path with extension fails for folders named `2026.04` — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
 - [x] [metadata][parsing] `collectFrontmatterLinks` grabs only the first wikilink per string leaf — see [metadata.md](audit-2026-04-26/metadata.md) §"Notable concerns / suspected bugs"
 
@@ -59,6 +59,7 @@
 - [ ] [editor-markdown] `setFoldedHeadingLines` doesn't invalidate when line count changes (folds against wrong target) — see [editor-markdown.md](audit-2026-04-26/editor-markdown.md) §"Top suspected bugs"
 - [ ] [editor-markdown] Checkbox-click-to-toggle missing in Reading and broken in Live — see [editor-markdown.md](audit-2026-04-26/editor-markdown.md) §"Top gaps"
 - [ ] [bases][parsing] User-keyed dicts inside `.base` (`properties`/`formulas`/`summaries`) still alphabetise on round-trip — `BasesQuery::properties`/`formulas`/`summaryFormulas` are `QHash` (unstable order). Switch to insertion-ordered containers + track parse order; follow-up to the P0 top-level fix
+- [ ] [parsing][editor-markdown] Markoff parses `![[…]]` via tree-sitter's `image` node (target = "", displayText = `[Target]`), losing the embed target. Detect `![[…]]` shape in MarkoffParser before the standard image-node path and emit a true `LinkInfo::Embed` with target extracted; uncovered while writing tst_metadatacache_core.cpp testDrainResolvesFrontmatterLinks (the embed slot was empty so the embed-resolution branch of drainOnePath isn't unit-covered)
 
 ## P3 — Plugin extension surface (individual items; coordinated proxy work in Cluster B)
 

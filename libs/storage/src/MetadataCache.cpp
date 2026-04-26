@@ -367,29 +367,37 @@ void MetadataCache::drainOnePath()
     auto pathIt = m_pathToFileEntry.constFind(path);
     if (pathIt != m_pathToFileEntry.constEnd() && !pathIt->hash.isEmpty()) {
         auto cacheIt = m_hashToCache.find(pathIt->hash);
-        if (cacheIt != m_hashToCache.end() && cacheIt->links) {
-            for (LinkCache &link : *cacheIt->links) {
-                // The `link.link` field is the already-resolved
-                // "path#subpath" string; to re-resolve, treat the part
-                // before the first '#' as the raw target.
-                QString rawTarget = link.link;
+        if (cacheIt != m_hashToCache.end()) {
+            // The `.link` field is a "path#subpath" string; re-resolution
+            // splits at the first `#`, asks the resolver about the raw
+            // target, and rewrites only when resolved (preserving raw
+            // pass-through for misses). Same logic for body links, embeds,
+            // and frontmatter links — frontmatter links specifically
+            // collectFrontmatterLinks() doesn't run the resolver itself, so
+            // this is the *only* place they ever get resolved.
+            auto reresolve = [&](QString &linkStr) {
+                QString rawTarget = linkStr;
                 QString subpath;
-                int hashIdx = rawTarget.indexOf(QLatin1Char('#'));
+                const int hashIdx = rawTarget.indexOf(QLatin1Char('#'));
                 if (hashIdx >= 0) {
                     subpath = rawTarget.mid(hashIdx);
                     rawTarget = rawTarget.left(hashIdx);
                 }
                 ResolvedLink resolved = m_resolver.resolve(path, rawTarget);
                 if (resolved.resolved) {
-                    link.link = resolved.path + resolved.subpath;
+                    linkStr = resolved.path + resolved.subpath;
                 }
-                // If not resolved, leave as-is (pass-through preserved).
+            };
+            if (cacheIt->links) {
+                for (LinkCache &link : *cacheIt->links) reresolve(link.link);
             }
-            // TODO: also re-resolve embeds + frontmatterLinks. For Phase 4
-            // the `links` vector is sufficient to exercise the ordering +
-            // debounce semantics; resolution fidelity for embeds and
-            // frontmatterLinks is a Phase 4.1 follow-up (or moves into
-            // Phase 5 when parsing goes onto a worker thread).
+            if (cacheIt->embeds) {
+                for (LinkCache &link : *cacheIt->embeds) reresolve(link.link);
+            }
+            if (cacheIt->frontmatterLinks) {
+                for (FrontmatterLinkCache &fml : *cacheIt->frontmatterLinks)
+                    reresolve(fml.link);
+            }
         }
     }
 
