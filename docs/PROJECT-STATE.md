@@ -13,7 +13,7 @@ Most P0/P1 punch-list items are **silent vault-format corruption risks**. Drain 
 
 ## Current focus
 
-**Idle** at reset (2026-04-26). Awaiting human direction on which track to start: punch-list P0 sweep, or one of the active strategic clusters.
+**P0 punch-list drained** (2026-04-26). All 15 P0 silent-corruption items closed. 49 items remain across P1–P6; next pick from top of P1 (workspace.json round-trip) unless redirected.
 
 ## Active strategic clusters (snapshot)
 
@@ -34,6 +34,7 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Recent decisions
 
+- **2026-04-26 — P0 sweep complete.** All 15 P0 silent-corruption items closed. Last two: `FileManager::renameFile` rewritten to drive surgical edits from MetadataCache positions (covers markdown-style + full-path + frontmatter link forms via a single `rewriteLinkLiteral` helper); `PluginManager` ⇄ `.obsidian/{core,community}-plugins.json` cross-app sync landed per [`specs/2026-04-26-plugin-enable-state-cross-app-compromise.md`](superpowers/specs/2026-04-26-plugin-enable-state-cross-app-compromise.md) — JSON wins on vault-open, KConfig authoritative thereafter, dual-write gated by `X-Obsidian-Id` (manifest field + 7-entry internal alias dict).
 - **2026-04-26 — Tracking system reset.** Audit produced 58 punch-list items + 6 audit-derived clusters (A–F). 4 in-flight plans re-lettered (G–J). 8 SCOUTING/one-shot plans archived. `backlog.md` retired. PROJECT-STATE slimmed. Old state at `docs/archive-2026-04-26/`. See [`docs/audit-2026-04-26/README.md`](audit-2026-04-26/README.md) for the audit synthesis.
 
 ## Open questions

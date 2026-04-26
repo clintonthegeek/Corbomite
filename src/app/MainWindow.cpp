@@ -2132,7 +2132,16 @@ void MainWindow::onVaultOpened(const QString &path)
     // available when a restored leaf instantiates. Hosted-view attachment
     // still rides the pluginLoaded signal that enablePlugin emits below.
     rewirePluginCoreServices();
-    if (auto *pm = m_app->pluginManager()) pm->loadEnabledStateFromConfig();
+    if (auto *pm = m_app->pluginManager()) {
+        // Bind a vault-scoped VaultConfig so enable/disable mirrors into
+        // .obsidian/{core,community}-plugins.json for plugins with an
+        // Obsidian counterpart (X-Obsidian-Id manifest field or internal
+        // alias dict). Lifetime cleared in onVaultClosed.
+        m_pluginVaultConfig =
+            std::make_unique<VaultConfig>(m_fsAdapter.get(), path);
+        pm->setVaultConfig(m_pluginVaultConfig.get());
+        pm->loadEnabledStateFromConfig();
+    }
 
     if (m_sessionManager->hasLoadedSession()) {
         QJsonObject wsLayout = m_sessionManager->workspaceLayout();
@@ -2203,7 +2212,11 @@ void MainWindow::onVaultClosed()
         }
         // Lifecycle teardown — keep persisted enabled-state intact.
         for (const QString &id : loadedIds) pm->disablePlugin(id, /*persist=*/false);
+        // Detach vault-scoped JSON sync so subsequent toggles don't write
+        // into the now-closed vault's .obsidian directory.
+        pm->setVaultConfig(nullptr);
     }
+    m_pluginVaultConfig.reset();
 
     saveSessionState();
 

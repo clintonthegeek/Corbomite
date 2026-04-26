@@ -39,6 +39,13 @@ public:
     /// The host accepts plugins declaring a level <= CORBOMITE_PLUGIN_API_LEVEL.
     int apiLevel() const;
 
+    /// X-Obsidian-Id — the Obsidian-side plugin slug this Corbomite plugin
+    /// shadows for cross-app enable-state sync. Empty when the plugin has
+    /// no Obsidian counterpart (Corbomite-only) and isn't covered by the
+    /// internal alias dictionary in PluginManager. See
+    /// `docs/superpowers/specs/2026-04-26-plugin-enable-state-cross-app-compromise.md`.
+    QString obsidianId() const;
+
     void setOrigin(Origin o) { m_origin = o; }
     Origin origin() const { return m_origin; }
 

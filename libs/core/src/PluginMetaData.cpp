@@ -47,4 +47,11 @@ int PluginMetaData::apiLevel() const
         .toInt(1);
 }
 
+QString PluginMetaData::obsidianId() const
+{
+    return m_base.rawData()
+        .value(QStringLiteral("X-Obsidian-Id"))
+        .toString();
+}
+
 } // namespace Corbomite

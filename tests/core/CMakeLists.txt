@@ -239,6 +239,12 @@ target_link_libraries(tst_plugin_manager_lifecycle PRIVATE
     Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Vault KF6::CoreAddons KF6::ConfigCore)
 set_tests_properties(tst_plugin_manager_lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_plugin_manager_obsidian_sync tst_plugin_manager_obsidian_sync.cpp)
+add_test(NAME tst_plugin_manager_obsidian_sync COMMAND tst_plugin_manager_obsidian_sync)
+target_link_libraries(tst_plugin_manager_obsidian_sync PRIVATE
+    Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage Corbomite::Vault KF6::CoreAddons KF6::ConfigCore)
+set_tests_properties(tst_plugin_manager_obsidian_sync PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_proxy_metadata tst_proxy_metadata.cpp)
 add_test(NAME tst_proxy_metadata COMMAND tst_proxy_metadata)
 target_link_libraries(tst_proxy_metadata PRIVATE Qt6::Test Corbomite::Core Corbomite::Storage)

@@ -2,6 +2,7 @@
 #include "corbomite/vault/PluginManager.h"
 
 #include "corbomite/core/PluginApi.h"
+#include "corbomite/storage/VaultConfig.h"
 #include "corbomite/vault/Plugin.h"
 #include "corbomite/vault/PluginContext.h"
 #include "corbomite/vault/PluginPermissionGrantDialog.h"
@@ -12,8 +13,10 @@
 #include <KSharedConfig>
 
 #include <QDebug>
+#include <QHash>
 #include <QJsonObject>
 #include <QStandardPaths>
+#include <QStringList>
 
 namespace Corbomite {
 
@@ -30,6 +33,25 @@ QString defaultUserPath()
 {
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
          + QStringLiteral("/corbomite/plugins");
+}
+
+/// Hard-coded mapping for the 8 in-tree internal plugins shipped at
+/// Cluster Q close. Used as a fallback when the plugin's manifest does
+/// not declare X-Obsidian-Id. Covers the canonical Corbomite plugin slugs.
+/// See `docs/superpowers/specs/2026-04-26-plugin-enable-state-cross-app-compromise.md`.
+const QHash<QString, QString> &internalAliasDict()
+{
+    static const QHash<QString, QString> aliases = {
+        {QStringLiteral("corbomite_backlinks"),    QStringLiteral("backlink")},
+        {QStringLiteral("corbomite_outline"),      QStringLiteral("outline")},
+        {QStringLiteral("corbomite_tag-pane"),     QStringLiteral("tag-pane")},
+        {QStringLiteral("corbomite_word-count"),   QStringLiteral("word-count")},
+        {QStringLiteral("corbomite_random-note"),  QStringLiteral("random-note")},
+        {QStringLiteral("corbomite_filerecovery"), QStringLiteral("file-recovery")},
+        {QStringLiteral("corbomite_starred"),      QStringLiteral("bookmarks")},
+        // corbomite_note-stats has no Obsidian counterpart — intentionally absent.
+    };
+    return aliases;
 }
 
 } // namespace
@@ -81,6 +103,20 @@ void PluginManager::setPromptHandler(PromptFn fn)
 void PluginManager::setContextConfigurator(ContextConfigurator fn)
 {
     m_contextConfigurator = std::move(fn);
+}
+
+void PluginManager::setVaultConfig(VaultConfig *vcfg)
+{
+    m_vaultConfig = vcfg;
+}
+
+QString PluginManager::obsidianIdFor(const QString &corbomiteId) const
+{
+    if (const auto *info = pluginById(corbomiteId)) {
+        const QString fromManifest = info->metaData.obsidianId();
+        if (!fromManifest.isEmpty()) return fromManifest;
+    }
+    return internalAliasDict().value(corbomiteId);
 }
 
 QVersionNumber PluginManager::appVersion() const
@@ -268,6 +304,23 @@ void PluginManager::loadEnabledStateFromConfig()
 {
     if (!m_config) return;
     KConfigGroup grp(m_config, QStringLiteral("Plugins"));
+
+    // Overlay vault-side state first: if `.obsidian/core-plugins.json` or
+    // `community-plugins.json` exists for an Obsidian-mapped plugin, that
+    // state wins on vault-open. Plugins lacking an Obsidian counterpart
+    // are unaffected. See spec §2 ("JSON wins on vault-open").
+    QJsonObject coreState;
+    QStringList communityList;
+    bool communityFilePresent = false;
+    if (m_vaultConfig) {
+        if (auto core = m_vaultConfig->readCorePlugins())
+            coreState = core->raw;
+        if (auto comm = m_vaultConfig->readCommunityPlugins()) {
+            communityList = *comm;
+            communityFilePresent = true;
+        }
+    }
+
     for (auto &info : m_plugins) {
         const QString id = info.metaData.base().pluginId();
         // Embedded metadata via Q_PLUGIN_METADATA flattens KPlugin's
@@ -277,7 +330,21 @@ void PluginManager::loadEnabledStateFromConfig()
         // metadata-declared EnabledByDefault flag.
         const bool defaultOn = info.metaData.trusted()
             || info.metaData.base().isEnabledByDefault();
-        const bool enabled = grp.readEntry(id + QStringLiteral("Enabled"), defaultOn);
+        bool enabled = grp.readEntry(id + QStringLiteral("Enabled"), defaultOn);
+
+        const QString obsId = obsidianIdFor(id);
+        if (!obsId.isEmpty()) {
+            if (info.metaData.trusted()) {
+                if (coreState.contains(obsId))
+                    enabled = coreState.value(obsId).toBool();
+            } else if (communityFilePresent) {
+                // community-plugins.json is presence-encoded. Only override
+                // when the file existed; a missing file means "no Obsidian
+                // opinion", keep KConfig.
+                enabled = communityList.contains(obsId);
+            }
+        }
+
         if (enabled) enablePlugin(id);
     }
 }
@@ -304,10 +371,32 @@ void PluginManager::saveGrantedPermissions(const QString &id,
 
 void PluginManager::writeEnabledState(const QString &id, bool enabled)
 {
-    if (!m_config) return;
-    KConfigGroup grp(m_config, QStringLiteral("Plugins"));
-    grp.writeEntry(id + QStringLiteral("Enabled"), enabled);
-    grp.sync();
+    if (m_config) {
+        KConfigGroup grp(m_config, QStringLiteral("Plugins"));
+        grp.writeEntry(id + QStringLiteral("Enabled"), enabled);
+        grp.sync();
+    }
+
+    // Mirror to .obsidian/{core,community}-plugins.json for plugins with
+    // an Obsidian counterpart. Skipped silently when no VaultConfig is
+    // attached or no mapping exists. See spec §4 ("dual-write on toggle").
+    if (!m_vaultConfig) return;
+    const QString obsId = obsidianIdFor(id);
+    if (obsId.isEmpty()) return;
+
+    const auto *info = pluginById(id);
+    if (!info) return;
+    if (info->metaData.trusted()) {
+        VaultConfig::CorePlugins cur =
+            m_vaultConfig->readCorePlugins().value_or(VaultConfig::CorePlugins{});
+        cur.raw.insert(obsId, enabled);
+        m_vaultConfig->writeCorePlugins(cur);
+    } else {
+        QStringList cur = m_vaultConfig->readCommunityPlugins().value_or(QStringList{});
+        cur.removeAll(obsId);
+        if (enabled) cur.append(obsId);
+        m_vaultConfig->writeCommunityPlugins(cur);
+    }
 }
 
 } // namespace Corbomite

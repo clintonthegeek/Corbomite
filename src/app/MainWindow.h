@@ -41,6 +41,7 @@ namespace Corbomite {
 class FileSystemAdapter;
 class Vault;
 class FileManager;
+class VaultConfig;
 class CorbomiteApp;
 class Workspace;
 class WorkspaceLeaf;
@@ -172,6 +173,11 @@ private:
     // Phase 10 deletes VaultModel. Owned by `this` (QObject parent).
     std::unique_ptr<FileSystemAdapter> m_fsAdapter;
     Vault *m_vaultObj = nullptr;
+    // Vault-scoped VaultConfig — bound to PluginManager for the lifetime
+    // of the open vault so enable/disable round-trips through
+    // .obsidian/{core,community}-plugins.json. Built per-vault-open in
+    // onVaultOpened, cleared in onVaultClosed.
+    std::unique_ptr<VaultConfig> m_pluginVaultConfig;
     FileManager *m_fileManager = nullptr;
     Workspace *m_workspace = nullptr;
     // Stable QWidget wrapper for the Workspace widget tree; owned by

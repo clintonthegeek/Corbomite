@@ -17,6 +17,7 @@ namespace Corbomite {
 
 class Plugin;
 class PluginContext;
+class VaultConfig;
 
 /// Owns the lifecycle of all Corbomite plugins (built-in + community).
 ///
@@ -103,6 +104,23 @@ public:
     void setConfig(KSharedConfig::Ptr config);
     KSharedConfig::Ptr config() const { return m_config; }
 
+    /// Bind a VaultConfig (lifetime ≥ this PluginManager). When set,
+    /// enable/disable mirror their state into `.obsidian/core-plugins.json`
+    /// or `.obsidian/community-plugins.json` for plugins that have an
+    /// Obsidian-counterpart ID (declared via `X-Obsidian-Id` manifest
+    /// field, or covered by the internal alias dictionary). Pass `nullptr`
+    /// on vault close to detach. See spec
+    /// `docs/superpowers/specs/2026-04-26-plugin-enable-state-cross-app-compromise.md`.
+    void setVaultConfig(VaultConfig *vcfg);
+    VaultConfig *vaultConfig() const { return m_vaultConfig; }
+
+    /// Resolve a Corbomite plugin id to its Obsidian counterpart slug.
+    /// Honours `X-Obsidian-Id` manifest field first, falls back to a
+    /// hard-coded alias dictionary covering the in-tree internal plugins
+    /// shipped at Cluster Q close. Returns an empty string for
+    /// Corbomite-only plugins that have neither.
+    QString obsidianIdFor(const QString &corbomiteId) const;
+
     using FactoryFn = std::function<Plugin *(const PluginMetaData &)>;
     /// When set, enablePlugin bypasses KPluginFactory and calls this instead.
     /// Used by tests to inject synthesised Plugin instances. Production code
@@ -145,6 +163,7 @@ private:
     QList<PluginInfo> m_plugins;
     QHash<QString, LoadState> m_loadState;
     KSharedConfig::Ptr m_config;
+    VaultConfig *m_vaultConfig = nullptr; // non-owning; set per-vault by host
     FactoryFn m_factoryOverride;
     PromptFn  m_promptHandler;
     ContextConfigurator m_contextConfigurator;
