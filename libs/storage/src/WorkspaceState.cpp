@@ -2,40 +2,12 @@
 #include "corbomite/storage/WorkspaceState.h"
 
 #include "corbomite/storage/DataAdapter.h"
+#include "corbomite/storage/VaultConfig.h"
 
 #include <QJsonDocument>
 #include <QJsonParseError>
 
 namespace Corbomite {
-
-namespace {
-
-// Serialise using Obsidian's 2-space indent + no trailing newline (matches
-// the VaultConfig format).
-QByteArray serializeObsidianStyle(const QJsonObject &obj)
-{
-    const QJsonDocument doc(obj);
-    const QByteArray indented = doc.toJson(QJsonDocument::Indented);
-
-    QByteArray out;
-    out.reserve(indented.size());
-    for (int i = 0; i < indented.size(); ) {
-        const bool atLineStart = (i == 0 || indented[i - 1] == '\n');
-        if (atLineStart && indented[i] == ' ') {
-            int spaces = 0;
-            while (i + spaces < indented.size() && indented[i + spaces] == ' ') ++spaces;
-            out.append(QByteArray(spaces / 2, ' '));
-            i += spaces;
-        } else {
-            out.append(indented[i]);
-            ++i;
-        }
-    }
-    while (out.endsWith('\n')) out.chop(1);
-    return out;
-}
-
-} // namespace
 
 std::optional<WorkspaceState> WorkspaceState::load(DataAdapter *fs, const QString &path)
 {
@@ -53,7 +25,7 @@ std::optional<WorkspaceState> WorkspaceState::load(DataAdapter *fs, const QStrin
 bool WorkspaceState::save(DataAdapter *fs, const QString &path) const
 {
     if (!fs) return false;
-    return fs->writeBinary(path, serializeObsidianStyle(m_root));
+    return fs->writeBinary(path, VaultConfig::serializeObsidianStyle(m_root));
 }
 
 QJsonObject WorkspaceState::main() const

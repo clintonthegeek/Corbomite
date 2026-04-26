@@ -13,22 +13,24 @@ namespace {
 
 constexpr auto kConfigDirName = "/.obsidian";
 
-// Serialise a JSON object using Obsidian's exact format:
-//   JSON.stringify(obj, undefined, 2) — 2-space indent, no trailing newline.
-// Qt's QJsonDocument::Indented produces 4-space indent, so we post-process.
-QByteArray serializeObsidianStyle(const QJsonObject &obj)
+QString joinConfigPath(const QString &vaultRoot, const QString &tail)
 {
-    // QJsonDocument::Indented emits 4-space indent; we squeeze to 2-space
-    // by replacing leading runs of 4 spaces at line starts with 2 spaces.
-    // This preserves key order (QJsonObject is insertion-ordered for the
-    // keys it was built with — QJsonObject internally sorts alphabetically,
-    // but Qt 6 preserves parse order via the document's internal ordering.
-    // For our purposes, any consistent order is acceptable per VAULT-FORMAT
-    // §1 "tolerate any key order on read").
-    const QJsonDocument doc(obj);
+    QString base = vaultRoot;
+    if (base.endsWith(QLatin1Char('/'))) base.chop(1);
+    return base + QString::fromLatin1(kConfigDirName) + QLatin1Char('/') + tail;
+}
+
+} // namespace
+
+// Serialise using `JSON.stringify(value, undefined, 2)` — 2-space indent, no
+// trailing newline. Qt's QJsonDocument::Indented emits 4-space indent, so we
+// squeeze leading runs of spaces at line starts. Key order follows whatever
+// QJsonObject preserved from construction/parse — VAULT-FORMAT §1 tolerates
+// any order on read, but we still avoid reordering on write.
+QByteArray VaultConfig::serializeObsidianStyle(const QJsonDocument &doc)
+{
     const QByteArray indented = doc.toJson(QJsonDocument::Indented);
 
-    // Squeeze 4-space indents to 2-space.
     QByteArray out;
     out.reserve(indented.size());
     for (int i = 0; i < indented.size(); ) {
@@ -47,14 +49,10 @@ QByteArray serializeObsidianStyle(const QJsonObject &obj)
     return out;
 }
 
-QString joinConfigPath(const QString &vaultRoot, const QString &tail)
+QByteArray VaultConfig::serializeObsidianStyle(const QJsonObject &obj)
 {
-    QString base = vaultRoot;
-    if (base.endsWith(QLatin1Char('/'))) base.chop(1);
-    return base + QString::fromLatin1(kConfigDirName) + QLatin1Char('/') + tail;
+    return serializeObsidianStyle(QJsonDocument(obj));
 }
-
-} // namespace
 
 VaultConfig::VaultConfig(DataAdapter *fs, const QString &vaultRoot)
     : m_fs(fs), m_vaultRoot(vaultRoot)

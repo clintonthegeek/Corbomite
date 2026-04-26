@@ -3,6 +3,7 @@
 
 #include <optional>
 
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QString>
 #include <QStringList>
@@ -26,6 +27,15 @@ class DataAdapter;
 class VaultConfig
 {
 public:
+    /// Serialise a JSON document using Obsidian's exact wire format:
+    /// `JSON.stringify(value, undefined, 2)` — 2-space indent, UTF-8, no
+    /// trailing newline. Shared by every Corbomite writer that targets a
+    /// `.obsidian/*.json` file so plugin-side and built-in writers agree
+    /// byte-for-byte (avoids diff churn when vaults are shared with
+    /// Obsidian).
+    static QByteArray serializeObsidianStyle(const QJsonDocument &doc);
+    static QByteArray serializeObsidianStyle(const QJsonObject &obj);
+
     VaultConfig(DataAdapter *fs, const QString &vaultRoot);
 
     /// Ensure `.obsidian/` exists; returns true on success.

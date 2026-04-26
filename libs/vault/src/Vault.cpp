@@ -8,6 +8,7 @@
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/TFolder.h"
 #include "corbomite/storage/DataAdapter.h"
+#include "corbomite/storage/VaultConfig.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -456,8 +457,7 @@ bool Vault::writeConfigJson(const QString &name, const QJsonValue &value)
     else if (value.isArray())  doc = QJsonDocument(value.toArray());
     else return false;
 
-    const QByteArray body = doc.toJson(QJsonDocument::Indented);
-    return m_adapter->writeBinary(abs, body);
+    return m_adapter->writeBinary(abs, VaultConfig::serializeObsidianStyle(doc));
 }
 
 bool Vault::deleteConfigJson(const QString &name)
