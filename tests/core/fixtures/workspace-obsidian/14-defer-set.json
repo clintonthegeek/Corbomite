@@ -1,0 +1,31 @@
+{
+  "main": {
+    "id": "f14rootaaaaaaaaa",
+    "type": "split",
+    "direction": "horizontal",
+    "children": [
+      {
+        "id": "f14tabsAaaaaaaaa",
+        "type": "tabs",
+        "currentTab": 1,
+        "children": [
+          { "id": "f14A1aaaaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } },
+          { "id": "f14A2aaaaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } },
+          { "id": "f14A3aaaaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+        ]
+      },
+      {
+        "id": "f14tabsBaaaaaaaa",
+        "type": "tabs",
+        "currentTab": 0,
+        "children": [
+          { "id": "f14B1aaaaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } },
+          { "id": "f14B2aaaaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } },
+          { "id": "f14B3aaaaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+        ]
+      }
+    ]
+  },
+  "active": "f14A2aaaaaaaaaaa",
+  "lastOpenFiles": []
+}

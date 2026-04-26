@@ -50,6 +50,7 @@ private slots:
     void fixture12_nestedWithState_workspaceRoundTrip();
     void fixture08b_unknownKeys_workspaceRoundTrip();
     void fixture04b_stacked_workspaceRoundTrip();
+    void fixture14_deferSet_perGroupCurrentTabRespected();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -469,6 +470,35 @@ void TestWorkspaceSerializer::fixture04b_stacked_workspaceRoundTrip()
     QCOMPARE(tabsOut.value(QStringLiteral("type")).toString(),
              QStringLiteral("tabs"));
     QCOMPARE(tabsOut.value(QStringLiteral("stacked")).toBool(), true);
+}
+
+void TestWorkspaceSerializer::fixture14_deferSet_perGroupCurrentTabRespected()
+{
+    auto jsonIn = readFixture(QStringLiteral("14-defer-set.json"));
+    QVERIFY(!jsonIn.isEmpty());
+
+    Corbomite::ViewRegistry registry;
+    Corbomite::Workspace workspace(QStringLiteral("test-vault-14"), &registry);
+    auto *kddwMain = qobject_cast<KDDockWidgets::QtWidgets::MainWindow *>(
+        workspace.rootWidget());
+    QVERIFY(kddwMain);
+    kddwMain->show();
+
+    workspace.deserialize(jsonIn);
+
+    // Active is A2 (group A's currentTab=1). Group B's currentTab=0 = B1.
+    // Expected non-deferred: A2 (active), B1 (currentTab in B).
+    // Expected deferred: A1, A3, B2, B3.
+    auto isDeferred = [&](const QString &id) {
+        auto *l = workspace.findLeafById(id);
+        return l && l->isDeferred();
+    };
+    QCOMPARE(isDeferred(QStringLiteral("f14A2aaaaaaaaaaa")), false);
+    QCOMPARE(isDeferred(QStringLiteral("f14B1aaaaaaaaaaa")), false);
+    QCOMPARE(isDeferred(QStringLiteral("f14A1aaaaaaaaaaa")), true);
+    QCOMPARE(isDeferred(QStringLiteral("f14A3aaaaaaaaaaa")), true);
+    QCOMPARE(isDeferred(QStringLiteral("f14B2aaaaaaaaaaa")), true);
+    QCOMPARE(isDeferred(QStringLiteral("f14B3aaaaaaaaaaa")), true);
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)
