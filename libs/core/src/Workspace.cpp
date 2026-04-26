@@ -41,6 +41,11 @@ void ensureKddwInit()
     if (initialized) return;
     initialized = true;
     KDDockWidgets::initFrontend(KDDockWidgets::FrontendType::QtWidgets);
+    auto &cfg = KDDockWidgets::Config::self();
+    cfg.setFlags(cfg.flags()
+                 | KDDockWidgets::Config::Flag_AlwaysShowTabs
+                 | KDDockWidgets::Config::Flag_AllowReorderTabs
+                 | KDDockWidgets::Config::Flag_TabsHaveCloseButton);
 }
 
 QString generateTabGroupId()

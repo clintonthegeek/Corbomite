@@ -64,6 +64,9 @@ public:
     QWidget *containerWidget() const;
     WorkspaceLeaf *leaf() const;
 
+Q_SIGNALS:
+    void displayTextChanged();
+
 protected:
     virtual void onOpen();
     virtual void onClose();

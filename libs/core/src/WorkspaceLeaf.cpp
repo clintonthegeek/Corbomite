@@ -5,6 +5,7 @@
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/Workspace.h"
 
+#include <kddockwidgets/Config.h>
 #include <kddockwidgets/KDDockWidgets.h>
 #include <kddockwidgets/core/DockWidget.h>
 #include <kddockwidgets/qtwidgets/DockWidget.h>
@@ -21,6 +22,11 @@ void ensureKddwInit()
     if (initialized) return;
     initialized = true;
     KDDockWidgets::initFrontend(KDDockWidgets::FrontendType::QtWidgets);
+    auto &cfg = KDDockWidgets::Config::self();
+    cfg.setFlags(cfg.flags()
+                 | KDDockWidgets::Config::Flag_AlwaysShowTabs
+                 | KDDockWidgets::Config::Flag_AllowReorderTabs
+                 | KDDockWidgets::Config::Flag_TabsHaveCloseButton);
 }
 } // namespace
 
@@ -88,6 +94,11 @@ void WorkspaceLeaf::open(View *newView)
         // dock widget's guest, so there's no separate host container.
         m_view->open(nullptr);
         m_dockWidget->setWidget(m_view);
+        m_dockWidget->setTitle(m_view->getDisplayText());
+        connect(m_view, &View::displayTextChanged, m_dockWidget, [this]() {
+            if (m_view && m_dockWidget)
+                m_dockWidget->setTitle(m_view->getDisplayText());
+        });
     }
     Q_EMIT viewChanged(m_view);
 }

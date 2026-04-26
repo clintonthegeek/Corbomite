@@ -32,6 +32,7 @@ bool FileView::loadFile(NoteDocument *file)
         m_file = nullptr;
         return false;
     }
+    Q_EMIT displayTextChanged();
     return true;
 }
 
