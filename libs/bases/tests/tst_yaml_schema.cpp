@@ -126,6 +126,89 @@ private Q_SLOTS:
         QVERIFY(!out.contains(QStringLiteral("limit:")));
     }
 
+    // Regression: emitMap previously iterated QVariantMap (alphabetical), so
+    // every save shuffled top-level keys (filters/formulas/properties/views)
+    // out of canonical doc shape. Round-trip a fully-populated `.base` and
+    // confirm the canonical doc-order (filters → formulas → properties →
+    // summaries → views) survives.
+    void testTopLevelKeyOrderPreserved()
+    {
+        const QString src = QStringLiteral(
+            "filters:\n"
+            "  and:\n"
+            "    - 'true'\n"
+            "formulas:\n"
+            "  prio: \"note.urgent\"\n"
+            "properties:\n"
+            "  note.status:\n"
+            "    displayName: Status\n"
+            "summaries:\n"
+            "  total: \"values.count()\"\n"
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n"
+            "newItemFolder: \"Inbox\"\n");
+        auto q = BasesQuery::fromString(src);
+        const QString out = q->toString();
+
+        const int filtersPos       = out.indexOf(QStringLiteral("filters:"));
+        const int formulasPos      = out.indexOf(QStringLiteral("formulas:"));
+        const int propertiesPos    = out.indexOf(QStringLiteral("properties:"));
+        const int summariesPos     = out.indexOf(QStringLiteral("summaries:"));
+        const int viewsPos         = out.indexOf(QStringLiteral("views:"));
+        const int newItemFolderPos = out.indexOf(QStringLiteral("newItemFolder:"));
+
+        QVERIFY2(filtersPos >= 0,       "filters: present");
+        QVERIFY2(formulasPos >= 0,      "formulas: present");
+        QVERIFY2(propertiesPos >= 0,    "properties: present");
+        QVERIFY2(summariesPos >= 0,     "summaries: present");
+        QVERIFY2(viewsPos >= 0,         "views: present");
+        QVERIFY2(newItemFolderPos >= 0, "newItemFolder: present");
+
+        QVERIFY2(filtersPos < formulasPos,
+                 "filters must precede formulas (canonical order)");
+        QVERIFY2(formulasPos < propertiesPos,
+                 "formulas must precede properties");
+        QVERIFY2(propertiesPos < summariesPos,
+                 "properties must precede summaries");
+        QVERIFY2(summariesPos < viewsPos,
+                 "summaries must precede views");
+        // newItemFolder ('n') alphabetises between formulas and properties,
+        // but canonically belongs after views. This catches the bug a purely
+        // f/f/p/s/v order would miss (since those keys happen to be in
+        // alphabetical sequence).
+        QVERIFY2(viewsPos < newItemFolderPos,
+                 "newItemFolder must come after views (canonical), not "
+                 "alphabetically between formulas and properties");
+    }
+
+    // Regression: per-view config alphabetised too — so a user-authored view
+    // with `type` / `name` / `filters` / `order` ended up `filters` / `name`
+    // / `order` / `type`. Confirm canonical view-shape (type → name → ...)
+    // survives a round-trip.
+    void testViewConfigKeyOrderPreserved()
+    {
+        const QString src = QStringLiteral(
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n"
+            "    limit: 10\n"
+            "    order:\n"
+            "      - file.name\n");
+        auto q = BasesQuery::fromString(src);
+        const QString out = q->toString();
+
+        const int typePos  = out.indexOf(QStringLiteral("type:"));
+        const int namePos  = out.indexOf(QStringLiteral("name:"));
+        const int limitPos = out.indexOf(QStringLiteral("limit:"));
+        const int orderPos = out.indexOf(QStringLiteral("order:"));
+
+        QVERIFY(typePos >= 0 && namePos >= 0 && limitPos >= 0 && orderPos >= 0);
+        QVERIFY2(typePos < namePos, "type must precede name");
+        QVERIFY2(namePos < orderPos || namePos < limitPos,
+                 "name must precede order/limit");
+    }
+
     void testSortRoundTrip()
     {
         const QString src = QStringLiteral(

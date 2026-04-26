@@ -3,6 +3,9 @@
 
 #include "markoff-parser/YamlValue.h"
 
+#include <QHash>
+#include <QSet>
+#include <QStringList>
 #include <QVariantList>
 
 namespace Corbomite::Bases {
@@ -75,7 +78,29 @@ void emitScalar(QString &out, const QVariant &v, int indent)
     }
 }
 
-void emitList(QString &out, const QVariantList &xs, int indent)
+// Iterate `m`'s keys in `keyOrder` first (skipping any not present in `m`),
+// then any remaining keys in `m`'s natural (alphabetical) order. Returns the
+// concatenated list, used to drive emit order without losing keys that the
+// caller didn't explicitly enumerate (e.g. unrecognizedData).
+QStringList orderedKeys(const QVariantMap &m, const QStringList &keyOrder)
+{
+    QStringList out;
+    out.reserve(m.size());
+    QSet<QString> placed;
+    for (const QString &k : keyOrder) {
+        if (m.contains(k) && !placed.contains(k)) {
+            out.append(k);
+            placed.insert(k);
+        }
+    }
+    for (auto it = m.constBegin(); it != m.constEnd(); ++it) {
+        if (!placed.contains(it.key())) out.append(it.key());
+    }
+    return out;
+}
+
+void emitList(QString &out, const QVariantList &xs, int indent,
+              const QStringList &itemKeyOrder = {})
 {
     if (xs.isEmpty()) { out.append(QStringLiteral("[]")); return; }
     const QString pad(indent, QLatin1Char(' '));
@@ -88,14 +113,14 @@ void emitList(QString &out, const QVariantList &xs, int indent)
             // then nested under `indent+2`.
             bool first = true;
             const auto m = v.toMap();
-            for (auto it = m.constBegin(); it != m.constEnd(); ++it) {
+            for (const QString &key : orderedKeys(m, itemKeyOrder)) {
                 if (!first) {
                     out.append(QLatin1Char('\n'));
                     out.append(QString(indent + 2, QLatin1Char(' ')));
                 }
                 first = false;
-                out.append(it.key()).append(QStringLiteral(": "));
-                emitValue(out, it.value(), indent + 2);
+                out.append(key).append(QStringLiteral(": "));
+                emitValue(out, m.value(key), indent + 2);
             }
         } else if (v.typeId() == QMetaType::QVariantList) {
             emitList(out, v.toList(), indent + 2);
@@ -105,20 +130,26 @@ void emitList(QString &out, const QVariantList &xs, int indent)
     }
 }
 
-void emitMap(QString &out, const QVariantMap &m, int indent)
+void emitMap(QString &out, const QVariantMap &m, int indent,
+             const QStringList &keyOrder = {},
+             const QHash<QString, QStringList> &nestedItemOrder = {})
 {
     const QString pad(indent, QLatin1Char(' '));
     bool first = true;
-    for (auto it = m.constBegin(); it != m.constEnd(); ++it) {
+    for (const QString &key : orderedKeys(m, keyOrder)) {
         if (!first) out.append(QLatin1Char('\n'));
         first = false;
-        out.append(pad).append(it.key()).append(QStringLiteral(":"));
-        const QVariant &v = it.value();
+        out.append(pad).append(key).append(QStringLiteral(":"));
+        const QVariant &v = m.value(key);
         if (v.typeId() == QMetaType::QVariantMap) {
             out.append(QLatin1Char('\n'));
             emitMap(out, v.toMap(), indent + 2);
         } else if (v.typeId() == QMetaType::QVariantList) {
-            emitList(out, v.toList(), indent + 2);
+            // Per-key item key-order lookup lets the caller dictate the
+            // canonical shape of map items inside specific lists (e.g.
+            // `views:` items use BasesViewConfig's canonical order).
+            emitList(out, v.toList(), indent + 2,
+                     nestedItemOrder.value(key));
         } else {
             out.append(QLatin1Char(' '));
             emitScalar(out, v, indent);
@@ -242,6 +273,33 @@ std::unique_ptr<BasesQuery> BasesQuery::fromString(const QString &text, QString 
 
 QString BasesQuery::toString() const
 {
+    // Top-level emission order matches the canonical .base shape from the
+    // Obsidian docs (filters → formulas → properties → summaries → views,
+    // then newItem* afterwards). Prevents diff churn that the alphabetical
+    // QVariantMap iteration would otherwise cause on every save.
+    static const QStringList kRootOrder = {
+        QStringLiteral("filters"),
+        QStringLiteral("formulas"),
+        QStringLiteral("properties"),
+        QStringLiteral("summaries"),
+        QStringLiteral("views"),
+        QStringLiteral("newItemFolder"),
+        QStringLiteral("newItemTemplate"),
+    };
+    // Per-view canonical order — type/name first because that's how the
+    // Obsidian docs (and every Obsidian-authored fixture) start each view.
+    // Unknown view-level keys (BasesViewConfig::unrecognizedData) follow.
+    static const QStringList kViewOrder = {
+        QStringLiteral("type"),
+        QStringLiteral("name"),
+        QStringLiteral("filters"),
+        QStringLiteral("limit"),
+        QStringLiteral("groupBy"),
+        QStringLiteral("sort"),
+        QStringLiteral("order"),
+        QStringLiteral("summaries"),
+    };
+
     QVariantMap root;
 
     if (filters) root.insert(QStringLiteral("filters"), filters->serialize());
@@ -279,13 +337,17 @@ QString BasesQuery::toString() const
     if (newItemFolder) root.insert(QStringLiteral("newItemFolder"), *newItemFolder);
     if (newItemTemplate) root.insert(QStringLiteral("newItemTemplate"), *newItemTemplate);
 
-    // Preserve unrecognizedData at end for forward-compat round-trip.
+    // Preserve unrecognizedData at end for forward-compat round-trip. Keys
+    // not named in kRootOrder land after the canonical keys via
+    // orderedKeys()'s natural-order tail.
     for (auto it = unrecognizedData.constBegin(); it != unrecognizedData.constEnd(); ++it) {
         if (!root.contains(it.key())) root.insert(it.key(), it.value());
     }
 
     QString out;
-    emitMap(out, root, 0);
+    emitMap(out, root, 0, kRootOrder,
+            {{ QStringLiteral("views"), kViewOrder }});
+
     if (!out.isEmpty()) out.append(QLatin1Char('\n'));
     return out;
 }

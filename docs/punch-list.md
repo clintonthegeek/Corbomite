@@ -15,7 +15,7 @@
 
 - [x] [vault][parsing] `processFrontMatter` reorders YAML keys alphabetically on every metadata edit — `libs/vault/src/FileManager.cpp:138-143` — see [parsing.md](audit-2026-04-26/parsing.md) §"Frontmatter round-trip risks (CRITICAL)"
 - [x] [vault][settings] Two parallel `.obsidian/*.json` writers diverge on indent (Bookmarks plugin writes 4-space; route `Vault::writeConfigJson` through `VaultConfig::serializeObsidianStyle`) — `libs/vault/src/Vault.cpp` vs `VaultConfig::serializeObsidianStyle` — see [settings.md](audit-2026-04-26/settings.md) §"On-disk schema compatibility matrix (per-file)"
-- [ ] [bases][parsing] `.base` YAML emitter alphabetises keys (same root cause as frontmatter sort) — `libs/bases/src/BasesQuery.cpp:108-127` — see [bases.md](audit-2026-04-26/bases.md) §"On-disk `.base` format compatibility"
+- [x] [bases][parsing] `.base` YAML emitter alphabetises keys (same root cause as frontmatter sort) — `libs/bases/src/BasesQuery.cpp:108-127` — see [bases.md](audit-2026-04-26/bases.md) §"On-disk `.base` format compatibility" *(top-level + per-view canonical order; user-keyed dicts still alphabetise — see follow-up)*
 - [ ] [core][metadata] `resolveSubpath` block-id case-sensitivity — lowercase both sides — `libs/core/src/LinkUtils.cpp:121-155` — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Notable concerns / suspected bugs"
 - [ ] [vault] Folder rename loses descendants (recursive walk + per-descendant `renamed` emission missing) — `libs/vault/src/Vault.cpp:337-373` — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
 - [ ] [vault] `FileManager::renameFile` rewrites markdown-style links and full-path forms; should use `MetadataCache` snapshot as source-of-truth — `libs/vault/src/FileManager.cpp:148-216` — see [vault.md](audit-2026-04-26/vault.md) §"Notable concerns / suspected bugs"
@@ -58,6 +58,7 @@
 - [ ] [views] Open file deleted externally orphans leaf; `FileView::setState` swallows missing-file silently — see [views.md](audit-2026-04-26/views.md) §"Top suspected bugs"
 - [ ] [editor-markdown] `setFoldedHeadingLines` doesn't invalidate when line count changes (folds against wrong target) — see [editor-markdown.md](audit-2026-04-26/editor-markdown.md) §"Top suspected bugs"
 - [ ] [editor-markdown] Checkbox-click-to-toggle missing in Reading and broken in Live — see [editor-markdown.md](audit-2026-04-26/editor-markdown.md) §"Top gaps"
+- [ ] [bases][parsing] User-keyed dicts inside `.base` (`properties`/`formulas`/`summaries`) still alphabetise on round-trip — `BasesQuery::properties`/`formulas`/`summaryFormulas` are `QHash` (unstable order). Switch to insertion-ordered containers + track parse order; follow-up to the P0 top-level fix
 
 ## P3 — Plugin extension surface (individual items; coordinated proxy work in Cluster B)
 
