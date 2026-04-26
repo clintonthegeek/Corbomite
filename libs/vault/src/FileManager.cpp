@@ -18,6 +18,8 @@
 #include <markoff-parser/YamlValue.h>
 
 #include <QFileInfo>
+#include <QSet>
+#include <QStringList>
 #include <QVariant>
 #include <QWidget>
 
@@ -73,16 +75,24 @@ QVariantMap yamlMapToVariantMap(const Markoff::YamlValue &yaml)
     return out;
 }
 
-// Apply mutations from `map` onto the YamlValue tree, preserving unchanged
-// keys. Missing keys in `map` are dropped; new keys in `map` are added.
-void applyVariantMapToYaml(const QVariantMap &map, Markoff::YamlValue &yaml)
+// Apply mutations from `map` onto the YamlValue tree in `keyOrder`, preserving
+// unchanged keys. Missing keys in `map` are dropped; keys present in `map` but
+// absent from `keyOrder` are skipped (callers must extend the order list).
+// Iterating `keyOrder` rather than `map` directly is required because
+// QVariantMap is sorted alphabetically, which would otherwise reshuffle every
+// frontmatter write — see FileManager::processFrontMatter for the assembled
+// order (original keys first, then new keys).
+void applyVariantMapToYaml(const QVariantMap &map,
+                           const QStringList &keyOrder,
+                           Markoff::YamlValue &yaml)
 {
     // Remove keys absent from the map.
     for (const QString &k : yaml.keys()) {
         if (!map.contains(k)) yaml.remove(k);
     }
-    for (auto it = map.cbegin(); it != map.cend(); ++it) {
-        const QString &key = it.key();
+    for (const QString &key : keyOrder) {
+        auto it = map.constFind(key);
+        if (it == map.cend()) continue;
         const QVariant &val = it.value();
         switch (val.typeId()) {
         case QMetaType::Bool:
@@ -135,11 +145,33 @@ bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
             ? Markoff::YamlValue::emptyMap()
             : current.clone();
 
+        // Capture pre-mutation key order so the rebuilt frontmatter preserves
+        // it. QVariantMap is sorted alphabetically, so the mutator-facing map
+        // can't carry order on its own.
+        const QStringList originalKeys = working.keys();
+
         QVariantMap map = yamlMapToVariantMap(working);
         mut(map);
+
+        QStringList keyOrder;
+        keyOrder.reserve(map.size());
+        QSet<QString> placed;
+        for (const QString &k : originalKeys) {
+            if (map.contains(k) && !placed.contains(k)) {
+                keyOrder.append(k);
+                placed.insert(k);
+            }
+        }
+        for (auto it = map.cbegin(); it != map.cend(); ++it) {
+            if (!placed.contains(it.key())) {
+                keyOrder.append(it.key());
+                placed.insert(it.key());
+            }
+        }
+
         // Rebuild a fresh map to avoid partial-update state from `working`.
         Markoff::YamlValue next = Markoff::YamlValue::emptyMap();
-        applyVariantMapToYaml(map, next);
+        applyVariantMapToYaml(map, keyOrder, next);
 
         return doc->withFrontmatter(next).toUtf8();
     });

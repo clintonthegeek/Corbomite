@@ -16,6 +16,8 @@ private slots:
     void mutatesExistingFrontMatter();
     void preservesBodyVerbatim();
     void noopOnNonMarkdown();
+    void preservesKeyOrderOnMutation();
+    void appendsNewKeysAfterOriginalOrder();
 };
 
 namespace {
@@ -107,6 +109,67 @@ void TestFileManagerFrontmatter::noopOnNonMarkdown()
     auto *tf = vault.getFileByPath(QStringLiteral("a.canvas"));
     QVERIFY(tf);
     QCOMPARE(fm.processFrontMatter(tf, [](QVariantMap &) {}), false);
+}
+
+// Regression: processFrontMatter must preserve the original key order of the
+// frontmatter block on mutation. Round-tripping through QVariantMap (sorted
+// QMap) reorders keys alphabetically on every save, causing diff churn for
+// vaults shared with Obsidian (which preserves insertion order).
+void TestFileManagerFrontmatter::preservesKeyOrderOnMutation()
+{
+    QTemporaryDir dir;
+    // Anti-alphabetical order: title, tags, aliases.
+    writeFile(dir.path() + "/a.md",
+              "---\ntitle: T\ntags:\n  - one\naliases:\n  - A\n---\nbody\n");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    Corbomite::FileManager fm(&vault, nullptr);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    QVERIFY(fm.processFrontMatter(tf, [](QVariantMap &m) {
+        m.insert(QStringLiteral("title"), QStringLiteral("T2"));
+    }));
+
+    const QString after = QString::fromUtf8(readFileAll(dir.path() + "/a.md"));
+    const int titlePos = after.indexOf(QStringLiteral("title:"));
+    const int tagsPos = after.indexOf(QStringLiteral("tags:"));
+    const int aliasesPos = after.indexOf(QStringLiteral("aliases:"));
+    QVERIFY(titlePos >= 0 && tagsPos >= 0 && aliasesPos >= 0);
+    QVERIFY2(titlePos < tagsPos, "title must precede tags (original order)");
+    QVERIFY2(tagsPos < aliasesPos, "tags must precede aliases (original order)");
+}
+
+// Regression: keys added by the mutator must be appended *after* the
+// original keys, not interleaved alphabetically.
+void TestFileManagerFrontmatter::appendsNewKeysAfterOriginalOrder()
+{
+    QTemporaryDir dir;
+    writeFile(dir.path() + "/a.md",
+              "---\ntitle: T\nzebra: Z\n---\nbody\n");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    Corbomite::FileManager fm(&vault, nullptr);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    QVERIFY(fm.processFrontMatter(tf, [](QVariantMap &m) {
+        // "alpha" sorts before existing keys; without an order-preserving
+        // pass it would land first in the output.
+        m.insert(QStringLiteral("alpha"), QStringLiteral("A"));
+    }));
+
+    const QString after = QString::fromUtf8(readFileAll(dir.path() + "/a.md"));
+    const int titlePos = after.indexOf(QStringLiteral("title:"));
+    const int zebraPos = after.indexOf(QStringLiteral("zebra:"));
+    const int alphaPos = after.indexOf(QStringLiteral("alpha:"));
+    QVERIFY(titlePos >= 0 && zebraPos >= 0 && alphaPos >= 0);
+    QVERIFY2(titlePos < zebraPos, "title must precede zebra (original order)");
+    QVERIFY2(zebraPos < alphaPos, "alpha (new) must come after originals");
 }
 
 QTEST_MAIN(TestFileManagerFrontmatter)
