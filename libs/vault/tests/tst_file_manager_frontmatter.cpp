@@ -18,6 +18,7 @@ private slots:
     void noopOnNonMarkdown();
     void preservesKeyOrderOnMutation();
     void appendsNewKeysAfterOriginalOrder();
+    void emptiedFrontmatterStripsBlockEntirely();
 };
 
 namespace {
@@ -170,6 +171,32 @@ void TestFileManagerFrontmatter::appendsNewKeysAfterOriginalOrder()
     QVERIFY(titlePos >= 0 && zebraPos >= 0 && alphaPos >= 0);
     QVERIFY2(titlePos < zebraPos, "title must precede zebra (original order)");
     QVERIFY2(zebraPos < alphaPos, "alpha (new) must come after originals");
+}
+
+// Regression: when the mutator empties the map (deletes the last key), the
+// frontmatter block must be stripped entirely. Markoff::Document::withFrontmatter
+// emits `---\n\n---\n` for an empty map; Obsidian instead removes the block.
+// Round-trip parity requires Corbomite to drop the now-empty fence too.
+void TestFileManagerFrontmatter::emptiedFrontmatterStripsBlockEntirely()
+{
+    QTemporaryDir dir;
+    writeFile(dir.path() + "/a.md", "---\nonly: key\n---\nbody\n");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    Corbomite::FileManager fm(&vault, nullptr);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    QVERIFY(fm.processFrontMatter(tf, [](QVariantMap &m) {
+        m.remove(QStringLiteral("only"));
+    }));
+
+    const QByteArray after = readFileAll(dir.path() + "/a.md");
+    QVERIFY2(!after.contains("---"),
+             "fence must be gone when mutator emptied the map");
+    QVERIFY(after.contains("body"));
 }
 
 QTEST_MAIN(TestFileManagerFrontmatter)

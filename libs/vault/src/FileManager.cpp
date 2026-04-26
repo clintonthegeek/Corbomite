@@ -173,7 +173,13 @@ bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
         Markoff::YamlValue next = Markoff::YamlValue::emptyMap();
         applyVariantMapToYaml(map, keyOrder, next);
 
-        return doc->withFrontmatter(next).toUtf8();
+        // If the mutator emptied the map, strip the frontmatter block
+        // entirely. withFrontmatter(emptyMap) emits a `---\n\n---\n` shell;
+        // Obsidian removes the fence when the value is empty — passing a
+        // default-constructed (null) YamlValue takes the strip branch.
+        const Markoff::YamlValue out =
+            map.isEmpty() ? Markoff::YamlValue() : next;
+        return doc->withFrontmatter(out).toUtf8();
     });
 }
 
