@@ -1,0 +1,41 @@
+{
+  "main": {
+    "id": "f12rootaaaaaaaaa",
+    "type": "split",
+    "direction": "horizontal",
+    "children": [
+      {
+        "id": "f12tabsAaaaaaaaa",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "f12leafA1aaaaaaa",
+            "type": "leaf",
+            "state": { "type": "empty", "state": {} },
+            "pinned": true,
+            "group": "linked-pair-1"
+          }
+        ]
+      },
+      {
+        "id": "f12tabsBaaaaaaaaa",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "f12leafB1aaaaaaa",
+            "type": "leaf",
+            "state": { "type": "empty", "state": {} },
+            "group": "linked-pair-1"
+          },
+          {
+            "id": "f12leafB2aaaaaaa",
+            "type": "leaf",
+            "state": { "type": "empty", "state": {} }
+          }
+        ]
+      }
+    ]
+  },
+  "active": "f12leafA1aaaaaaa",
+  "lastOpenFiles": []
+}

@@ -61,6 +61,8 @@ QString generateTabGroupId()
 
 } // namespace
 
+QString Workspace::freshTabGroupId() { return generateTabGroupId(); }
+
 Workspace::Workspace(ViewRegistry *registry, QObject *parent)
     : Workspace(QString{}, registry, parent)
 {
@@ -293,6 +295,38 @@ WorkspaceLeaf *Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)
 WorkspaceLeaf *Workspace::createLeafInActiveGroup()
 {
     return createLeafInGroupOf(m_activeLeaf);
+}
+
+WorkspaceLeaf *Workspace::createLeafUnplaced(const QString &leafId)
+{
+    auto *leaf = new WorkspaceLeaf(m_registry, this);
+    if (!leafId.isEmpty())
+        leaf->setId(leafId);
+    registerLeaf(leaf);
+    // No docking, no tab-group assignment — the serializer drives those.
+    return leaf;
+}
+
+void Workspace::setTabGroupOf(WorkspaceLeaf *leaf, const QString &tabGroupId)
+{
+    if (!leaf) return;
+    m_tabGroupOf.insert(leaf, tabGroupId.isEmpty() ? generateTabGroupId() : tabGroupId);
+}
+
+QString Workspace::tabGroupIdOf(WorkspaceLeaf *leaf) const
+{
+    return m_tabGroupOf.value(leaf);
+}
+
+bool Workspace::isTabGroupStacked(const QString &tabGroupId) const
+{
+    return m_stackedGroups.value(tabGroupId, false);
+}
+
+void Workspace::setTabGroupStacked(const QString &tabGroupId, bool stacked)
+{
+    if (stacked) m_stackedGroups.insert(tabGroupId, true);
+    else m_stackedGroups.remove(tabGroupId);
 }
 
 void Workspace::closeLeaf(WorkspaceLeaf *leaf)

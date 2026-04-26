@@ -3,10 +3,14 @@
 
 #include "WorkspaceSerializer.h"
 
+#include "corbomite/core/Workspace.h"
+#include "corbomite/core/WorkspaceLeaf.h"
+
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSignalBlocker>
 
 #include <QLoggingCategory>
 
@@ -195,11 +199,55 @@ QJsonObject renderSplit(const SplitNode &n)
     return o;
 }
 
-// Build a LeafNode for a dock widget identified by uniqueName, falling back
-// to the sidecar (and finally to a placeholder) when state isn't available.
-// Phase 4 (workspace=non-null) wires this through Workspace::findLeafById.
-LeafNode buildLeafNode(const QString &uniqueName)
+// Strip the `<vaultId>:` prefix from a DockWidget unique-name to recover
+// the WorkspaceLeaf id (Workspace::registerLeaf installs it via
+// uniqueNameFor at Workspace.cpp:31-36).
+QString stripVaultPrefix(const QString &uniqueName, const QString &vaultId)
 {
+    if (vaultId.isEmpty()) return uniqueName;
+    const QString prefix = vaultId + QChar(':');
+    return uniqueName.startsWith(prefix)
+        ? uniqueName.mid(prefix.size())
+        : uniqueName;
+}
+
+// Build a LeafNode for a dock widget identified by uniqueName.
+// - When `workspace` is non-null, the leaf state comes from the live
+//   WorkspaceLeaf (looked up via findLeafById with vault prefix stripped).
+//   The serialized leaf JSON is parsed back into LeafNode shape so the
+//   render pipeline downstream is uniform.
+// - When `workspace` is null (test path), falls back to the in-process
+//   leafSidecar map populated during parseLeaf.
+LeafNode buildLeafNode(const QString &uniqueName,
+                       Corbomite::Workspace *workspace)
+{
+    if (workspace) {
+        const QString stripped = stripVaultPrefix(uniqueName, workspace->vaultId());
+        if (auto *wl = workspace->findLeafById(stripped)) {
+            const QJsonObject obj = wl->serialize();
+            LeafNode n;
+            n.id = obj.value(QStringLiteral("id")).toString();
+            const auto stateObj = obj.value(QStringLiteral("state")).toObject();
+            n.viewType = stateObj.value(QStringLiteral("type")).toString();
+            n.icon = stateObj.value(QStringLiteral("icon")).toString();
+            n.title = stateObj.value(QStringLiteral("title")).toString();
+            n.state = stateObj.value(QStringLiteral("state")).toObject();
+            n.pinned = obj.value(QStringLiteral("pinned")).toBool(false);
+            n.group = obj.value(QStringLiteral("group")).toString();
+            // Anything else on the live serialize() output came from
+            // m_unknownLeafKeys; capture for the renderLeaf merge.
+            static const QSet<QString> known = {
+                QStringLiteral("id"), QStringLiteral("type"),
+                QStringLiteral("state"), QStringLiteral("pinned"),
+                QStringLiteral("group"),
+            };
+            for (auto it = obj.begin(); it != obj.end(); ++it) {
+                if (!known.contains(it.key()))
+                    n.unknownKeys.insert(it.key(), it.value());
+            }
+            return n;
+        }
+    }
     LeafNode l = leafSidecar().value(uniqueName, LeafNode{});
     if (l.id.isEmpty()) {
         l.id = uniqueName;
@@ -217,17 +265,15 @@ LeafNode buildLeafNode(const QString &uniqueName)
 //
 // orientation maps to Qt::Orientation values: Horizontal=1, Vertical=2.
 // Obsidian's "vertical" split == top/bottom siblings == Qt::Vertical (2).
-//
-// Returns either a SplitNode or a TabsNode wrapped in a holder; the caller
-// distinguishes by checking which of `out.tabsChildren`/`out.splitChildren`
-// the function appended to. We use two helpers to avoid that ambiguity.
 void walkLayoutNode(const QJsonObject &layoutNode,
                     const QJsonObject &frames,
-                    SplitNode &parent);
+                    SplitNode &parent,
+                    Corbomite::Workspace *workspace);
 
 void walkLayoutContainer(const QJsonObject &containerNode,
                          const QJsonObject &frames,
-                         SplitNode &out)
+                         SplitNode &out,
+                         Corbomite::Workspace *workspace)
 {
     const int orient = containerNode.value(QStringLiteral("orientation")).toInt();
     out.direction = (orient == 2)
@@ -235,16 +281,17 @@ void walkLayoutContainer(const QJsonObject &containerNode,
         : QStringLiteral("horizontal");
     const auto children = containerNode.value(QStringLiteral("children")).toArray();
     for (const auto &v : children)
-        walkLayoutNode(v.toObject(), frames, out);
+        walkLayoutNode(v.toObject(), frames, out, workspace);
 }
 
 void walkLayoutNode(const QJsonObject &layoutNode,
                     const QJsonObject &frames,
-                    SplitNode &parent)
+                    SplitNode &parent,
+                    Corbomite::Workspace *workspace)
 {
     if (layoutNode.value(QStringLiteral("isContainer")).toBool()) {
         SplitNode child;
-        walkLayoutContainer(layoutNode, frames, child);
+        walkLayoutContainer(layoutNode, frames, child, workspace);
         parent.splitChildren.append(child);
         return;
     }
@@ -255,10 +302,21 @@ void walkLayoutNode(const QJsonObject &layoutNode,
     tabs.currentTab = frame.value(QStringLiteral("currentTabIndex")).toInt(0);
     const auto frameDws = frame.value(QStringLiteral("dockWidgets")).toArray();
     for (const auto &v : frameDws)
-        tabs.children.append(buildLeafNode(v.toString()));
-    if (!tabs.children.isEmpty()
-        && stackedSidecar().value(tabs.children.first().id, false)) {
-        tabs.stacked = true;
+        tabs.children.append(buildLeafNode(v.toString(), workspace));
+
+    // stacked: production path reads from Workspace; tests fall back to
+    // the in-process stackedSidecar populated during parseTabs.
+    if (!tabs.children.isEmpty()) {
+        if (workspace) {
+            if (auto *wl = workspace->findLeafById(
+                    stripVaultPrefix(frameDws.first().toString(),
+                                      workspace->vaultId()))) {
+                tabs.stacked = workspace->isTabGroupStacked(
+                    workspace->tabGroupIdOf(wl));
+            }
+        } else if (stackedSidecar().value(tabs.children.first().id, false)) {
+            tabs.stacked = true;
+        }
     }
     parent.tabsChildren.append(tabs);
 }
@@ -279,14 +337,15 @@ QJsonObject findMainWindowEntry(const QJsonObject &saverRoot,
 // Walk a KDDW multiSplitterLayout sub-object (either main or floating
 // window's) and return a SplitNode tree. Caller has already located the
 // correct entry in the LayoutSaver dump.
-SplitNode walkMultiSplitterLayout(const QJsonObject &msl)
+SplitNode walkMultiSplitterLayout(const QJsonObject &msl,
+                                   Corbomite::Workspace *workspace)
 {
     SplitNode root;
     root.direction = QStringLiteral("vertical");
     const QJsonObject frames = msl.value(QStringLiteral("frames")).toObject();
     const QJsonObject rootLayout = msl.value(QStringLiteral("layout")).toObject();
     if (rootLayout.isEmpty()) return root;
-    walkLayoutContainer(rootLayout, frames, root);
+    walkLayoutContainer(rootLayout, frames, root, workspace);
     return root;
 }
 
@@ -294,7 +353,8 @@ SplitNode walkMultiSplitterLayout(const QJsonObject &msl)
 // JSON output. Replaces the Phase 3 flat walker. Schema reference:
 // docs/superpowers/specs/2026-04-26-kddw-layoutsaver-shape.md.
 SplitNode walkLayoutSaverTree(KDDockWidgets::QtWidgets::MainWindow *main,
-                               const QJsonObject &saverRoot)
+                               const QJsonObject &saverRoot,
+                               Corbomite::Workspace *workspace)
 {
     SplitNode root;
     root.direction = QStringLiteral("vertical");
@@ -306,7 +366,8 @@ SplitNode walkLayoutSaverTree(KDDockWidgets::QtWidgets::MainWindow *main,
         return root;
     }
     return walkMultiSplitterLayout(
-        mwEntry.value(QStringLiteral("multiSplitterLayout")).toObject());
+        mwEntry.value(QStringLiteral("multiSplitterLayout")).toObject(),
+        workspace);
 }
 
 // Locate `fw`'s entry in a LayoutSaver JSON dump by searching for a frame
@@ -371,27 +432,73 @@ void dockBesideOrInto(KDDockWidgets::QtWidgets::DockWidget *dw,
     }
 }
 
+// Apply parsed leaf-payload state onto a Workspace-owned leaf. Centralized
+// to keep the workspace-non-null path consistent across main and floating
+// materialization.
+void applyLeafPayload(Corbomite::WorkspaceLeaf *wl, const LeafNode &leaf)
+{
+    if (!wl) return;
+    if (leaf.pinned) wl->setPinned(true);
+    if (!leaf.group.isEmpty()) wl->setGroup(leaf.group);
+    if (!leaf.viewType.isEmpty()) {
+        QJsonObject viewState;
+        viewState[QStringLiteral("type")] = leaf.viewType;
+        if (!leaf.state.isEmpty())
+            viewState[QStringLiteral("state")] = leaf.state;
+        if (!leaf.icon.isEmpty())
+            viewState[QStringLiteral("icon")] = leaf.icon;
+        if (!leaf.title.isEmpty())
+            viewState[QStringLiteral("title")] = leaf.title;
+        wl->setViewState(viewState);
+    }
+    wl->setUnknownLeafKeys(leaf.unknownKeys);
+}
+
 // Materialize one TabsNode: create N DockWidgets; the first becomes a new
 // container (placed at `location` relative to `relativeTo` if set, otherwise
 // docked into `main` directly); subsequent leaves are tabbed onto the first.
 // Returns the first DockWidget, which downstream callers use as the anchor
 // for further sibling placements.
+//
+// When `workspace` is non-null, leaves are constructed via
+// Workspace::createLeafUnplaced so they're registered with persistent ids
+// and their state survives. Tab-group bookkeeping is updated post-dock.
 KDDockWidgets::QtWidgets::DockWidget *
 materializeTabs(const TabsNode &tabs,
                 KDDockWidgets::QtWidgets::MainWindow *main,
                 KDDockWidgets::QtWidgets::DockWidget *relativeTo,
-                KDDockWidgets::Location location)
+                KDDockWidgets::Location location,
+                Corbomite::Workspace *workspace)
 {
     KDDockWidgets::QtWidgets::DockWidget *first = nullptr;
+    QString tabGroupId;
     for (const auto &leaf : tabs.children) {
-        auto *dw = new KDDockWidgets::QtWidgets::DockWidget(leaf.id);
-        if (!first) {
-            dockBesideOrInto(dw, location, relativeTo, main);
-            first = dw;
+        KDDockWidgets::QtWidgets::DockWidget *dw = nullptr;
+        Corbomite::WorkspaceLeaf *wl = nullptr;
+        if (workspace) {
+            wl = workspace->createLeafUnplaced(leaf.id);
+            dw = wl->dockWidget();
         } else {
-            first->addDockWidgetAsTab(dw);
+            dw = new KDDockWidgets::QtWidgets::DockWidget(leaf.id);
+        }
+        {
+            QSignalBlocker block(dw);
+            if (!first) {
+                dockBesideOrInto(dw, location, relativeTo, main);
+                first = dw;
+                if (workspace)
+                    tabGroupId = Corbomite::Workspace::freshTabGroupId();
+            } else {
+                first->addDockWidgetAsTab(dw);
+            }
+        }
+        if (workspace && wl) {
+            workspace->setTabGroupOf(wl, tabGroupId);
+            applyLeafPayload(wl, leaf);
         }
     }
+    if (workspace && !tabGroupId.isEmpty() && tabs.stacked)
+        workspace->setTabGroupStacked(tabGroupId, true);
     if (first && tabs.currentTab > 0 && tabs.currentTab < tabs.children.size()) {
         if (auto *current = KDDockWidgets::Core::DockWidget::byName(
                 tabs.children[tabs.currentTab].id)) {
@@ -406,13 +513,15 @@ KDDockWidgets::QtWidgets::DockWidget *
 materializeSplit(const SplitNode &split,
                  KDDockWidgets::QtWidgets::MainWindow *main,
                  KDDockWidgets::QtWidgets::DockWidget *relativeTo,
-                 KDDockWidgets::Location baseLocation);
+                 KDDockWidgets::Location baseLocation,
+                 Corbomite::Workspace *workspace);
 
 KDDockWidgets::QtWidgets::DockWidget *
 materializeSplit(const SplitNode &split,
                  KDDockWidgets::QtWidgets::MainWindow *main,
                  KDDockWidgets::QtWidgets::DockWidget *relativeTo,
-                 KDDockWidgets::Location baseLocation)
+                 KDDockWidgets::Location baseLocation,
+                 Corbomite::Workspace *workspace)
 {
     bool first = true;
     KDDockWidgets::QtWidgets::DockWidget *anchorForNext = relativeTo;
@@ -444,13 +553,13 @@ materializeSplit(const SplitNode &split,
     for (const auto &childTabs : split.tabsChildren) {
         placeChild([&](KDDockWidgets::Location loc,
                        KDDockWidgets::QtWidgets::DockWidget *rel) {
-            return materializeTabs(childTabs, main, rel, loc);
+            return materializeTabs(childTabs, main, rel, loc, workspace);
         });
     }
     for (const auto &childSplit : split.splitChildren) {
         placeChild([&](KDDockWidgets::Location loc,
                        KDDockWidgets::QtWidgets::DockWidget *rel) {
-            return materializeSplit(childSplit, main, rel, loc);
+            return materializeSplit(childSplit, main, rel, loc, workspace);
         });
     }
 
@@ -490,6 +599,18 @@ void removeFirstLeaf(SplitNode &node, const QString &id)
         removeFirstLeaf(s, id);
 }
 
+// Find the LeafNode in `node` whose id matches; returns nullptr when not
+// present. Used to recover the anchor's parsed payload after trimming.
+const LeafNode *findLeafNodeById(const SplitNode &node, const QString &id)
+{
+    for (const auto &t : node.tabsChildren)
+        for (const auto &l : t.children)
+            if (l.id == id) return &l;
+    for (const auto &s : node.splitChildren)
+        if (auto *r = findLeafNodeById(s, id)) return r;
+    return nullptr;
+}
+
 // Materialize a floating window. Strategy:
 //   1. DFS-locate the first leaf id in the tree.
 //   2. Dock it into `main` momentarily, then setFloating(true) — that's
@@ -507,12 +628,21 @@ void removeFirstLeaf(SplitNode &node, const QString &id)
 // tests must call mainWindow->show() before fromJson if they care about
 // floating-window construction.
 void materializeFloatingWindow(const WindowNode &w,
-                               KDDockWidgets::QtWidgets::MainWindow *main)
+                               KDDockWidgets::QtWidgets::MainWindow *main,
+                               Corbomite::Workspace *workspace)
 {
     const QString firstLeafId = findFirstLeafId(w.content);
     if (firstLeafId.isEmpty()) return;
 
-    auto *first = new KDDockWidgets::QtWidgets::DockWidget(firstLeafId);
+    KDDockWidgets::QtWidgets::DockWidget *first = nullptr;
+    Corbomite::WorkspaceLeaf *firstWl = nullptr;
+    if (workspace) {
+        firstWl = workspace->createLeafUnplaced(firstLeafId);
+        first = firstWl->dockWidget();
+    } else {
+        first = new KDDockWidgets::QtWidgets::DockWidget(firstLeafId);
+    }
+
     main->addDockWidget(first, KDDockWidgets::Location_OnRight);
     first->dockWidget()->setFloating(true);
     if (w.width > 0 && w.height > 0) {
@@ -525,11 +655,19 @@ void materializeFloatingWindow(const WindowNode &w,
             fw->view()->showMaximized();
     }
 
+    if (workspace && firstWl) {
+        const QString anchorTabGroupId = Corbomite::Workspace::freshTabGroupId();
+        workspace->setTabGroupOf(firstWl, anchorTabGroupId);
+        if (auto *ln = findLeafNodeById(w.content, firstLeafId))
+            applyLeafPayload(firstWl, *ln);
+    }
+
     SplitNode trimmed = w.content;
     removeFirstLeaf(trimmed, firstLeafId);
     if (trimmed.tabsChildren.isEmpty() && trimmed.splitChildren.isEmpty())
         return;
-    materializeSplit(trimmed, main, first, KDDockWidgets::Location_OnRight);
+    materializeSplit(trimmed, main, first, KDDockWidgets::Location_OnRight,
+                     workspace);
 }
 
 // Build a SplitNode that mirrors the layout of a single floating window
@@ -537,12 +675,14 @@ void materializeFloatingWindow(const WindowNode &w,
 // Falls back to a flat tabs node when the LayoutSaver entry can't be
 // located (defensive — should not happen for a live FloatingWindow).
 SplitNode floatingWindowAsSplit(KDDockWidgets::Core::FloatingWindow *fw,
-                                const QJsonObject &saverRoot)
+                                const QJsonObject &saverRoot,
+                                Corbomite::Workspace *workspace)
 {
     const QJsonObject entry = findFloatingWindowEntry(saverRoot, fw);
     if (!entry.isEmpty()) {
         return walkMultiSplitterLayout(
-            entry.value(QStringLiteral("multiSplitterLayout")).toObject());
+            entry.value(QStringLiteral("multiSplitterLayout")).toObject(),
+            workspace);
     }
     qCWarning(lcWorkspaceSerializer)
         << "no LayoutSaver entry for FloatingWindow; falling back to flat shape";
@@ -563,14 +703,22 @@ SplitNode floatingWindowAsSplit(KDDockWidgets::Core::FloatingWindow *fw,
 
 void fromJson(const QJsonObject &json,
               KDDockWidgets::QtWidgets::MainWindow *main,
-              Workspace * /*workspace*/)
+              Workspace *workspace)
 {
     auto installDefault = [&]() {
         // Default tree: one empty leaf in a single tabs node inside a
         // vertical root split.
-        auto *dw = new KDDockWidgets::QtWidgets::DockWidget(
-            QStringLiteral("default-empty-leaf"));
-        main->addDockWidget(dw, KDDockWidgets::Location_OnLeft);
+        if (workspace) {
+            auto *wl = workspace->createLeafUnplaced(
+                QStringLiteral("default-empty-leaf"));
+            main->addDockWidget(wl->dockWidget(),
+                                 KDDockWidgets::Location_OnLeft);
+            workspace->setTabGroupOf(wl, QString{});
+        } else {
+            auto *dw = new KDDockWidgets::QtWidgets::DockWidget(
+                QStringLiteral("default-empty-leaf"));
+            main->addDockWidget(dw, KDDockWidgets::Location_OnLeft);
+        }
     };
 
     auto mainObj = json.value(QStringLiteral("main")).toObject();
@@ -587,26 +735,26 @@ void fromJson(const QJsonObject &json,
         return;
     }
     materializeSplit(rootSplit, main, /*relativeTo*/ nullptr,
-                     KDDockWidgets::Location_OnLeft);
+                     KDDockWidgets::Location_OnLeft, workspace);
 
     auto floatingObj = json.value(QStringLiteral("floating")).toObject();
     for (auto v : floatingObj.value(QStringLiteral("children")).toArray()) {
         auto childObj = v.toObject();
         if (childObj.value(QStringLiteral("type")).toString()
             == QStringLiteral("window")) {
-            materializeFloatingWindow(parseWindow(childObj), main);
+            materializeFloatingWindow(parseWindow(childObj), main, workspace);
         }
     }
 }
 
-QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace * /*workspace*/)
+QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace *workspace)
 {
     QJsonObject out;
     KDDockWidgets::LayoutSaver saver;
     const QJsonObject saverRoot =
         QJsonDocument::fromJson(saver.serializeLayout()).object();
 
-    out[QStringLiteral("main")] = renderSplit(walkLayoutSaverTree(main, saverRoot));
+    out[QStringLiteral("main")] = renderSplit(walkLayoutSaverTree(main, saverRoot, workspace));
 
     auto *registry = KDDockWidgets::DockRegistry::self();
     auto fws = registry->floatingWindows();
@@ -616,7 +764,7 @@ QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace * /*wor
         QJsonArray windows;
         for (auto *fw : fws) {
             QJsonObject windowObj =
-                renderSplit(floatingWindowAsSplit(fw, saverRoot));
+                renderSplit(floatingWindowAsSplit(fw, saverRoot, workspace));
             // Tag the node as a window rather than a split for round-trip clarity.
             windowObj[QStringLiteral("type")] = QStringLiteral("window");
             // Stamp geometry + maximize from the live FloatingWindow so the

@@ -61,6 +61,12 @@ public:
     QString group() const;
     void setGroup(const QString &group);
 
+    /// Round-tripped verbatim by serialize() so vault-format bumps in
+    /// Obsidian don't lose data on Corbomite save. Populated during
+    /// fromJson with any leaf-level keys the parser didn't recognize.
+    QJsonObject unknownLeafKeys() const;
+    void setUnknownLeafKeys(const QJsonObject &keys);
+
     // Deferred loading
     bool isDeferred() const;
     void setDeferred(bool deferred, const QString &icon = {}, const QString &title = {});
@@ -121,6 +127,7 @@ private:
 
     bool m_pinned = false;
     QString m_group;
+    QJsonObject m_unknownLeafKeys;
     bool m_deferred = false;
     QString m_cachedIcon;
     QString m_cachedTitle;

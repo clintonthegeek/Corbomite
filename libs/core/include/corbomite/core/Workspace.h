@@ -209,6 +209,35 @@ public:
     // Package-private — used by WorkspaceSerializer to drive the substrate.
     KDDockWidgets::QtWidgets::MainWindow *kddwMainWindow() const { return m_kddwMain; }
 
+    /// Create + register a leaf with the given persistent id but do NOT
+    /// dock it. The serializer drives placement explicitly during
+    /// fromJson so it can route nested splits and floating-window
+    /// attachments correctly. Caller is responsible for: (1) docking the
+    /// leaf's KDDW dock widget at the desired location; (2) updating the
+    /// tab-group bookkeeping via setTabGroupOf.
+    WorkspaceLeaf *createLeafUnplaced(const QString &leafId);
+
+    /// Set the opaque tab-group id this leaf belongs to. Called by the
+    /// serializer after dock placement. Generates a fresh id when the
+    /// caller passes an empty string.
+    void setTabGroupOf(WorkspaceLeaf *leaf, const QString &tabGroupId);
+
+    /// Generate a fresh 16-hex-char tab-group id. Exposed for the
+    /// serializer; production callers use setTabGroupOf with an empty
+    /// string instead.
+    static QString freshTabGroupId();
+
+    /// Whether the tab group named `tabGroupId` is rendered in stacked
+    /// (all-tabs-side-by-side) mode. Round-tripped verbatim through
+    /// workspace.json. Currently advisory — KDDW lacks a stacked-rendering
+    /// hook — but the bit preserves the user's intent across save+load.
+    bool isTabGroupStacked(const QString &tabGroupId) const;
+    void setTabGroupStacked(const QString &tabGroupId, bool stacked);
+
+    /// Read m_tabGroupOf for a leaf. Used by the serializer to look up
+    /// the live tab-group id on the write side.
+    QString tabGroupIdOf(WorkspaceLeaf *leaf) const;
+
     /// Obsidian-shape container accessors (Cluster Y Phase 7.5). The root
     /// split holds the central tab/split tree. The two sidedock accessors
     /// return `nullptr` until a future cluster migrates the
@@ -271,6 +300,7 @@ private:
     QVector<WorkspaceLeaf *> m_leaves;
     QHash<QString, WorkspaceLeaf *> m_leavesById;
     QHash<WorkspaceLeaf *, QString> m_tabGroupOf;
+    QHash<QString, bool> m_stackedGroups;
 
     WorkspaceLeaf *m_activeLeaf = nullptr;
     bool m_layoutReady = true;

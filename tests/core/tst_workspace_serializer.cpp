@@ -19,6 +19,10 @@
 // Included via private path — serializer is not in the public API
 #include "WorkspaceSerializer.h"
 
+#include "corbomite/core/ViewRegistry.h"
+#include "corbomite/core/Workspace.h"
+#include "corbomite/core/WorkspaceLeaf.h"
+
 class TestWorkspaceSerializer : public QObject
 {
     Q_OBJECT
@@ -43,6 +47,9 @@ private slots:
     void fixture09_orphanLeaf_reHomedToRoot();
     void fixture11_perGroupCurrentTab_roundtrips();
     void fixture13_popoutNestedSplit_roundtrips();
+    void fixture12_nestedWithState_workspaceRoundTrip();
+    void fixture08b_unknownKeys_workspaceRoundTrip();
+    void fixture04b_stacked_workspaceRoundTrip();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -364,6 +371,104 @@ void TestWorkspaceSerializer::fixture13_popoutNestedSplit_roundtrips()
         QCOMPARE(v.toObject().value(QStringLiteral("type")).toString(),
                  QStringLiteral("tabs"));
     }
+}
+
+void TestWorkspaceSerializer::fixture12_nestedWithState_workspaceRoundTrip()
+{
+    auto jsonIn = readFixture(QStringLiteral("12-nested-with-state.json"));
+    QVERIFY(!jsonIn.isEmpty());
+
+    Corbomite::ViewRegistry registry;
+    Corbomite::Workspace workspace(QStringLiteral("test-vault-12"), &registry);
+    auto *kddwMain = qobject_cast<KDDockWidgets::QtWidgets::MainWindow *>(
+        workspace.rootWidget());
+    QVERIFY(kddwMain);
+    kddwMain->show();
+
+    Corbomite::WorkspaceSerializer::fromJson(jsonIn, kddwMain, &workspace);
+
+    auto *leafA1 = workspace.findLeafById(QStringLiteral("f12leafA1aaaaaaa"));
+    auto *leafB1 = workspace.findLeafById(QStringLiteral("f12leafB1aaaaaaa"));
+    auto *leafB2 = workspace.findLeafById(QStringLiteral("f12leafB2aaaaaaa"));
+    QVERIFY(leafA1); QVERIFY(leafB1); QVERIFY(leafB2);
+
+    QCOMPARE(leafA1->pinned(), true);
+    QCOMPARE(leafA1->group(), QStringLiteral("linked-pair-1"));
+    QCOMPARE(leafB1->group(), QStringLiteral("linked-pair-1"));
+
+    auto jsonOut = Corbomite::WorkspaceSerializer::toJson(kddwMain, &workspace);
+    auto outChildren = jsonOut.value(QStringLiteral("main")).toObject()
+                              .value(QStringLiteral("children")).toArray();
+    QCOMPARE(outChildren.size(), 2);
+
+    bool sawA1 = false, sawB1 = false;
+    for (const auto &v : outChildren) {
+        auto tabs = v.toObject();
+        for (const auto &lv : tabs.value(QStringLiteral("children")).toArray()) {
+            auto leaf = lv.toObject();
+            const QString id = leaf.value(QStringLiteral("id")).toString();
+            if (id == QStringLiteral("f12leafA1aaaaaaa")) {
+                sawA1 = true;
+                QCOMPARE(leaf.value(QStringLiteral("pinned")).toBool(), true);
+                QCOMPARE(leaf.value(QStringLiteral("group")).toString(),
+                         QStringLiteral("linked-pair-1"));
+            }
+            if (id == QStringLiteral("f12leafB1aaaaaaa")) {
+                sawB1 = true;
+                QCOMPARE(leaf.value(QStringLiteral("group")).toString(),
+                         QStringLiteral("linked-pair-1"));
+            }
+        }
+    }
+    QVERIFY(sawA1);
+    QVERIFY(sawB1);
+}
+
+void TestWorkspaceSerializer::fixture08b_unknownKeys_workspaceRoundTrip()
+{
+    auto jsonIn = readFixture(QStringLiteral("08-unknown-keys.json"));
+    QVERIFY(!jsonIn.isEmpty());
+
+    Corbomite::ViewRegistry registry;
+    Corbomite::Workspace workspace(QStringLiteral("test-vault-08b"), &registry);
+    auto *kddwMain = qobject_cast<KDDockWidgets::QtWidgets::MainWindow *>(
+        workspace.rootWidget());
+    QVERIFY(kddwMain);
+    kddwMain->show();
+
+    Corbomite::WorkspaceSerializer::fromJson(jsonIn, kddwMain, &workspace);
+    auto jsonOut = Corbomite::WorkspaceSerializer::toJson(kddwMain, &workspace);
+
+    auto leaf = jsonOut.value(QStringLiteral("main")).toObject()
+                       .value(QStringLiteral("children")).toArray()
+                       .first().toObject()
+                       .value(QStringLiteral("children")).toArray()
+                       .first().toObject();
+    auto obsidianInternal = leaf.value(QStringLiteral("obsidianInternal")).toObject();
+    QCOMPARE(obsidianInternal.value(QStringLiteral("someField")).toInt(), 42);
+}
+
+void TestWorkspaceSerializer::fixture04b_stacked_workspaceRoundTrip()
+{
+    auto jsonIn = readFixture(QStringLiteral("04-stacked-tabs.json"));
+    QVERIFY(!jsonIn.isEmpty());
+
+    Corbomite::ViewRegistry registry;
+    Corbomite::Workspace workspace(QStringLiteral("test-vault-04b"), &registry);
+    auto *kddwMain = qobject_cast<KDDockWidgets::QtWidgets::MainWindow *>(
+        workspace.rootWidget());
+    QVERIFY(kddwMain);
+    kddwMain->show();
+
+    Corbomite::WorkspaceSerializer::fromJson(jsonIn, kddwMain, &workspace);
+    auto jsonOut = Corbomite::WorkspaceSerializer::toJson(kddwMain, &workspace);
+
+    auto tabsOut = jsonOut.value(QStringLiteral("main")).toObject()
+                          .value(QStringLiteral("children")).toArray()
+                          .first().toObject();
+    QCOMPARE(tabsOut.value(QStringLiteral("type")).toString(),
+             QStringLiteral("tabs"));
+    QCOMPARE(tabsOut.value(QStringLiteral("stacked")).toBool(), true);
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)

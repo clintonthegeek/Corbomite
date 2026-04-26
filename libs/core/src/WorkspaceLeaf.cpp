@@ -204,6 +204,15 @@ void WorkspaceLeaf::setGroup(const QString &group)
     Q_EMIT groupChanged(m_group);
 }
 
+// --- Unknown leaf keys ---
+
+QJsonObject WorkspaceLeaf::unknownLeafKeys() const { return m_unknownLeafKeys; }
+
+void WorkspaceLeaf::setUnknownLeafKeys(const QJsonObject &keys)
+{
+    m_unknownLeafKeys = keys;
+}
+
 // --- Deferred ---
 
 bool WorkspaceLeaf::isDeferred() const { return m_deferred; }
@@ -337,6 +346,10 @@ QJsonObject WorkspaceLeaf::serialize() const
         json[QStringLiteral("pinned")] = true;
     if (!m_group.isEmpty())
         json[QStringLiteral("group")] = m_group;
+
+    // Round-trip Obsidian's unknown leaf keys (forward-compat).
+    for (auto it = m_unknownLeafKeys.begin(); it != m_unknownLeafKeys.end(); ++it)
+        json.insert(it.key(), it.value());
 
     return json;
 }
