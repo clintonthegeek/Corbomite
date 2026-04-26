@@ -212,40 +212,42 @@ void collectFrontmatterLinks(const QJsonValue &v,
 
     const QString s = v.toString();
 
-    // Wiki-link: [[target]] or [[target|display]]
+    // Wiki-link: [[target]] or [[target|display]] — capture every match in
+    // the leaf, not just the first. `related: "see [[A]] and [[B]]"` should
+    // yield two link records.
     static const QRegularExpression wikiRe(
         QStringLiteral(R"(\[\[([^|\]]+)(?:\|([^\]]*))?\]\])"));
-    {
-        auto m = wikiRe.match(s);
-        if (m.hasMatch()) {
-            FrontmatterLinkCache fml;
-            fml.link = m.captured(1);
-            fml.original = m.captured(0);
-            const QString disp = m.captured(2);
-            if (!disp.isEmpty())
-                fml.displayText = disp;
-            fml.key = keyPath;
-            out.append(fml);
-            return;
-        }
+    auto wit = wikiRe.globalMatch(s);
+    while (wit.hasNext()) {
+        const auto m = wit.next();
+        FrontmatterLinkCache fml;
+        fml.link = m.captured(1);
+        fml.original = m.captured(0);
+        const QString disp = m.captured(2);
+        if (!disp.isEmpty())
+            fml.displayText = disp;
+        fml.key = keyPath;
+        out.append(fml);
     }
 
-    // Markdown-link: [display](target)
+    // Markdown-link: [display](target). Run the markdown regex over the
+    // *original* string too — a leaf with both a wikilink and a markdown
+    // link should yield both. (Intentional: the wikilink matches don't
+    // remove text from `s`, so a `[Display](target)` that happens to sit
+    // beside a wikilink is still picked up.)
     static const QRegularExpression mdRe(
         QStringLiteral(R"(\[([^\]]*)\]\(([^)]+)\))"));
-    {
-        auto m = mdRe.match(s);
-        if (m.hasMatch()) {
-            FrontmatterLinkCache fml;
-            fml.link = m.captured(2);
-            fml.original = m.captured(0);
-            const QString disp = m.captured(1);
-            if (!disp.isEmpty())
-                fml.displayText = disp;
-            fml.key = keyPath;
-            out.append(fml);
-            return;
-        }
+    auto mit = mdRe.globalMatch(s);
+    while (mit.hasNext()) {
+        const auto m = mit.next();
+        FrontmatterLinkCache fml;
+        fml.link = m.captured(2);
+        fml.original = m.captured(0);
+        const QString disp = m.captured(1);
+        if (!disp.isEmpty())
+            fml.displayText = disp;
+        fml.key = keyPath;
+        out.append(fml);
     }
 }
 

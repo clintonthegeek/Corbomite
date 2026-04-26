@@ -190,6 +190,29 @@ private Q_SLOTS:
                                 QStringLiteral("nested.key")}));
     }
 
+    // Regression: collectFrontmatterLinks only captured the first wikilink
+    // per string leaf — `related: "see [[A]] and [[B]]"` lost B (and any
+    // markdown-link in the same leaf was always lost when a wikilink came
+    // first). Switch the regex matcher to globalMatch and iterate.
+    void testParseFrontmatterLinksMultiplePerLeaf()
+    {
+        LinkResolver resolver;
+        ParsedNote r = MetadataParser::parse(
+            md("---\n"
+               "summary: \"see [[Note A]] and [[Note B|B]] plus [Markdown](Note C.md)\"\n"
+               "---\n"),
+            QStringLiteral("n.md"), resolver);
+        QVERIFY(r.cache.frontmatterLinks.has_value());
+        QCOMPARE(r.cache.frontmatterLinks->size(), 3);
+        QSet<QString> targets;
+        for (const FrontmatterLinkCache &f : *r.cache.frontmatterLinks)
+            targets.insert(f.link);
+        QCOMPARE(targets,
+                 (QSet<QString>{QStringLiteral("Note A"),
+                                QStringLiteral("Note B"),
+                                QStringLiteral("Note C.md")}));
+    }
+
     // 10. BlockId syntax.
     void testParseBlockIdSyntax()
     {
