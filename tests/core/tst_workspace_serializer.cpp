@@ -41,6 +41,7 @@ private slots:
     void fixture08_unknownKeys_preservedVerbatim();
     void malformedJson_fallsBackToDefaultTree();
     void fixture09_orphanLeaf_reHomedToRoot();
+    void fixture11_perGroupCurrentTab_roundtrips();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -308,6 +309,33 @@ void TestWorkspaceSerializer::fixture09_orphanLeaf_reHomedToRoot()
     auto *registry = KDDockWidgets::DockRegistry::self();
     QCOMPARE(registry->dockwidgets().size(), 1);
     QVERIFY(registry->dockByName(QStringLiteral("orphan1aaaaaaaaa")) != nullptr);
+}
+
+void TestWorkspaceSerializer::fixture11_perGroupCurrentTab_roundtrips()
+{
+    auto jsonIn = readFixture(QStringLiteral("11-per-group-currenttab.json"));
+    QVERIFY(!jsonIn.isEmpty());
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f11"), KDDockWidgets::MainWindowOption_None);
+    mainWindow->show();
+
+    Corbomite::WorkspaceSerializer::fromJson(jsonIn, mainWindow.get(), nullptr);
+    auto jsonOut = Corbomite::WorkspaceSerializer::toJson(mainWindow.get(), nullptr);
+
+    auto children = jsonOut.value(QStringLiteral("main")).toObject()
+                          .value(QStringLiteral("children")).toArray();
+    QCOMPARE(children.size(), 2);
+
+    // Group A should report currentTab = 2; group B should report 1.
+    QSet<int> seen;
+    for (const auto &v : children) {
+        auto tabs = v.toObject();
+        QCOMPARE(tabs.value(QStringLiteral("type")).toString(),
+                 QStringLiteral("tabs"));
+        seen.insert(tabs.value(QStringLiteral("currentTab")).toInt());
+    }
+    QVERIFY(seen.contains(2));
+    QVERIFY(seen.contains(1));
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)
