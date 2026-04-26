@@ -8,6 +8,7 @@
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/TFolder.h"
 #include "corbomite/storage/DataAdapter.h"
+#include "corbomite/storage/CaseSensitivityProbe.h"
 #include "corbomite/storage/VaultConfig.h"
 
 #include <QDateTime>
@@ -75,10 +76,20 @@ void Vault::load(const QString &basePath)
 {
     unload();
     m_basePath = QDir::cleanPath(basePath);
+    // Probe the underlying filesystem's case-sensitivity once at load. The
+    // `create()`/`createFolder()` collision check is always case-insensitive
+    // (vault-portable semantics, matching Obsidian); this flag is exposed
+    // separately so plugins / future Corbomite paths can warn when a vault
+    // contains case-collisions that *will* break on a different FS.
+    m_caseSensitiveFs = m_adapter
+        ? CaseSensitivityProbe::isCaseSensitive(m_adapter, m_basePath)
+        : true;
     buildTree();
     if (m_watcher) m_watcher->start(m_basePath);
     m_loaded = true;
 }
+
+bool Vault::isCaseSensitiveFilesystem() const { return m_caseSensitiveFs; }
 
 void Vault::unload()
 {

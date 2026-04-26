@@ -19,6 +19,7 @@ private slots:
     void isEmptyTrueWhenOnlyRoot();
     void unloadClearsTree();
     void getNameIsBasenameOfBasePath();
+    void caseSensitiveFsProbedAtLoad();
 };
 
 namespace {
@@ -106,6 +107,20 @@ void TestVaultSkeleton::getNameIsBasenameOfBasePath()
     Corbomite::Vault vault(&fs);
     vault.load(dir.path());
     QCOMPARE(vault.getName(), QFileInfo(dir.path()).fileName());
+}
+
+// Vault::load probes the underlying filesystem's case-sensitivity once and
+// exposes it via isCaseSensitiveFilesystem(). The probe writes a temp file
+// + checks the lowercase form for visibility — value is FS-dependent, but
+// the call must succeed and not crash. (CI runs on case-sensitive Linux,
+// so we additionally assert true here.)
+void TestVaultSkeleton::caseSensitiveFsProbedAtLoad()
+{
+    QTemporaryDir dir;
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    QVERIFY(vault.isCaseSensitiveFilesystem());
 }
 
 QTEST_MAIN(TestVaultSkeleton)

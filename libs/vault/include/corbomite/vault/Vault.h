@@ -169,6 +169,14 @@ public:
     /// undo stack and the dirty flag.
     void resolveExternalReload(NoteDocument *doc, const QString &resolvedContent);
 
+    /// Returns true when the underlying filesystem the loaded vault sits on
+    /// distinguishes file names by case (Linux ext4 etc. → true; macOS HFS+,
+    /// exFAT, default Windows NTFS → false). Probed once at load via
+    /// `CaseSensitivityProbe`; conservatively true if no vault is loaded.
+    /// Plugins / settings UI can use this to warn about case-collisions
+    /// that are silent on an insensitive FS but break on a sensitive one.
+    bool isCaseSensitiveFilesystem() const;
+
 private:
     /// Returns true when any tracked path matches `rel` case-insensitively.
     /// Used by create()/createFolder() to keep vaults portable across
@@ -178,6 +186,7 @@ private:
     DataAdapter *m_adapter;
     QString      m_basePath;
     bool         m_loaded = false;
+    bool         m_caseSensitiveFs = true;
 
     // Owned; keyed by NFC-normalized path. "/" is always present after load.
     // std::unordered_map (not QHash) because QHash requires value-copyable
