@@ -21,7 +21,11 @@
 #include <QSet>
 #include <QStringList>
 #include <QVariant>
+#include <QVector>
 #include <QWidget>
+
+#include <algorithm>
+#include <optional>
 
 namespace Corbomite {
 
@@ -129,6 +133,176 @@ void applyVariantMapToYaml(const QVariantMap &map,
     }
 }
 
+// ---------------------------------------------------------------------------
+// Surgical link rewriting for renameFile.
+//
+// Given the source slice of a complete link literal (`[[..]]`, `![[..]]`,
+// `[..](..)`, `![..](..)`) that points to oldPath, build the equivalent
+// literal pointing to newPath while preserving form (wiki vs markdown,
+// embed vs not), alias text, and subpath.
+//
+// Returns an empty string when the form is unrecognised or the user-written
+// target doesn't match a known oldPath shape — caller treats that as
+// "skip this rewrite". Callers must verify the literal references the
+// rename target before invoking; this function trusts that contract.
+// ---------------------------------------------------------------------------
+
+QString stripExtIfMd(const QString &p)
+{
+    return p.endsWith(QStringLiteral(".md"))
+        ? p.left(p.size() - 3)
+        : p;
+}
+
+QString basenameOf(const QString &p)
+{
+    const int slash = p.lastIndexOf(QLatin1Char('/'));
+    return slash < 0 ? p : p.mid(slash + 1);
+}
+
+// Translate the user-written target text (without subpath/alias decoration
+// — just the path/name part) for newPath. Returns empty if the form
+// doesn't match any expected shape.
+//
+// URL-percent-decoding is intentionally NOT performed: a markdown URL like
+// `[F](My%20File.md)` will fall through. Tracked as a follow-up; same
+// pattern as Phase 5's deferred work in the original FileManager comments.
+QString translateTarget(const QString &userTarget,
+                        const QString &oldPath, const QString &newPath)
+{
+    const bool hadExt = userTarget.endsWith(QStringLiteral(".md"));
+    const QString stem = stripExtIfMd(userTarget);
+
+    const QString oldStem = stripExtIfMd(oldPath);
+    const QString newStem = stripExtIfMd(newPath);
+    const QString oldBase = basenameOf(oldStem);
+    const QString newBase = basenameOf(newStem);
+
+    QString translated;
+    if (stem == oldBase) {
+        // user wrote bare basename: "Foo"
+        translated = newBase;
+    } else if (stem == oldStem) {
+        // user wrote full vault path: "folder/Foo"
+        translated = newStem;
+    } else if (stem.endsWith(QLatin1Char('/') + oldBase)) {
+        // user wrote a partial path that disambiguates by basename
+        // (e.g. "subfolder/Foo" where the resolver picked oldPath).
+        // Replace just the basename portion.
+        translated = stem.left(stem.size() - oldBase.size()) + newBase;
+    } else {
+        return QString();
+    }
+
+    return hadExt ? translated + QStringLiteral(".md") : translated;
+}
+
+// Take a complete link literal (caller-trusted to reference oldPath) and
+// return its rewritten form. Returns empty on any unrecognised input.
+QString rewriteLinkLiteral(const QString &literal,
+                           const QString &oldPath, const QString &newPath)
+{
+    // Wiki / embed form: optional `!` + `[[ <inner> ]]`
+    const QString embedPrefix = QStringLiteral("![[");
+    const QString wikiPrefix  = QStringLiteral("[[");
+    const QString wikiSuffix  = QStringLiteral("]]");
+
+    auto rebuildWiki = [&](const QString &prefix, int innerStart) -> QString {
+        if (!literal.endsWith(wikiSuffix)) return QString();
+        const QString inner = literal.mid(innerStart,
+            literal.size() - innerStart - wikiSuffix.size());
+
+        // <target>[#<sub>][|<display>]
+        QString target = inner;
+        QString subAlias;
+        const int hashIdx = target.indexOf(QLatin1Char('#'));
+        const int pipeIdx = target.indexOf(QLatin1Char('|'));
+        const int splitAt = (hashIdx < 0)
+            ? pipeIdx
+            : (pipeIdx < 0 ? hashIdx : std::min(hashIdx, pipeIdx));
+        if (splitAt >= 0) {
+            subAlias = target.mid(splitAt);
+            target = target.left(splitAt);
+        }
+        const QString newTarget = translateTarget(target, oldPath, newPath);
+        if (newTarget.isEmpty()) return QString();
+        return prefix + newTarget + subAlias + wikiSuffix;
+    };
+
+    if (literal.startsWith(embedPrefix))
+        return rebuildWiki(embedPrefix, embedPrefix.size());
+    if (literal.startsWith(wikiPrefix))
+        return rebuildWiki(wikiPrefix, wikiPrefix.size());
+
+    // Markdown / image form: optional `!` + `[<label>](<url>)`
+    auto rebuildMarkdown = [&](int labelStart) -> QString {
+        // Walk to matching `]` at top level (no nesting expected for the
+        // forms cache produces, but be defensive).
+        const int labelEnd = literal.indexOf(QLatin1Char(']'), labelStart);
+        if (labelEnd < 0) return QString();
+        if (labelEnd + 1 >= literal.size()
+            || literal.at(labelEnd + 1) != QLatin1Char('('))
+            return QString();
+        if (!literal.endsWith(QLatin1Char(')'))) return QString();
+
+        const QString prefix = literal.left(labelStart); // "[" or "![" — actually the leading "[" or "!["
+        const QString label  = literal.mid(labelStart, labelEnd - labelStart);
+        const int urlStart = labelEnd + 2;
+        const int urlEnd = literal.size() - 1;
+        QString url = literal.mid(urlStart, urlEnd - urlStart);
+
+        // Split out subpath fragment
+        QString sub;
+        const int hashIdx = url.indexOf(QLatin1Char('#'));
+        if (hashIdx >= 0) {
+            sub = url.mid(hashIdx);
+            url = url.left(hashIdx);
+        }
+
+        const QString newUrl = translateTarget(url, oldPath, newPath);
+        if (newUrl.isEmpty()) return QString();
+        return prefix + label + QStringLiteral("](") + newUrl + sub
+             + QStringLiteral(")");
+    };
+
+    if (literal.startsWith(QStringLiteral("![")))
+        return rebuildMarkdown(2); // skip "!["
+    if (literal.startsWith(QLatin1Char('[')))
+        return rebuildMarkdown(1); // skip "["
+    return QString();
+}
+
+// Strip the optional `#subpath` suffix from a resolved link path so it
+// can be compared against a vault-relative file path.
+QString linkPathWithoutSubpath(const QString &linkPath)
+{
+    const int hash = linkPath.indexOf(QLatin1Char('#'));
+    return hash < 0 ? linkPath : linkPath.left(hash);
+}
+
+struct LinkRewrite
+{
+    int start = 0;
+    int end = 0; // exclusive
+    QString replacement;
+};
+
+// Apply rewrites to body. Sorts internally by start descending so each
+// edit's offsets remain valid across application.
+QByteArray applyRewrites(const QByteArray &body, QVector<LinkRewrite> rewrites)
+{
+    std::sort(rewrites.begin(), rewrites.end(),
+              [](const LinkRewrite &a, const LinkRewrite &b) {
+                  return a.start > b.start;
+              });
+    QString s = QString::fromUtf8(body);
+    for (const LinkRewrite &r : rewrites) {
+        if (r.start < 0 || r.end > s.size() || r.start > r.end) continue;
+        s.replace(r.start, r.end - r.start, r.replacement);
+    }
+    return s.toUtf8();
+}
+
 } // namespace
 
 bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
@@ -221,6 +395,11 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
                     if (matchesOld(l.link)) { refs = true; break; }
                 }
             }
+            if (!refs && cm->frontmatterLinks) {
+                for (const auto &fml : *cm->frontmatterLinks) {
+                    if (matchesOld(fml.link)) { refs = true; break; }
+                }
+            }
             if (refs) sources.append(src);
         }
     }
@@ -233,18 +412,68 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
         auto *sf = m_vault->getFileByPath(src);
         ++done;
         if (!sf) { Q_EMIT linkUpdateProgress(done, total); continue; }
+
+        // Snapshot the cache once per source — drainOnePath has already run
+        // by the time we got here (renameFile is invoked synchronously from
+        // user input, well after indexFinished).
+        const auto cm = m_cache ? m_cache->getFileCache(src) : std::optional<CachedMetadata>{};
+
         m_vault->process(sf, [&](const QByteArray &body) -> QByteArray {
-            QString s = QString::fromUtf8(body);
-            // Phase 5 slice: [[oldBase]] → [[newBase]] and [[oldBase| → [[newBase|.
-            // Subpath preservation + markdown-link rewrite + alias handling
-            // land as follow-ups (see spec §11).
-            s.replace(QStringLiteral("[[") + oldBase + QStringLiteral("]]"),
-                      QStringLiteral("[[") + newBase + QStringLiteral("]]"));
-            s.replace(QStringLiteral("[[") + oldBase + QStringLiteral("|"),
-                      QStringLiteral("[[") + newBase + QStringLiteral("|"));
-            s.replace(QStringLiteral("[[") + oldBase + QStringLiteral("#"),
-                      QStringLiteral("[[") + newBase + QStringLiteral("#"));
-            return s.toUtf8();
+            if (!cm.has_value()) return body;
+
+            QVector<LinkRewrite> rewrites;
+            const QString text = QString::fromUtf8(body);
+
+            auto pushBodyRewrite = [&](const LinkCache &lc) {
+                if (linkPathWithoutSubpath(lc.link) != oldPath) return;
+                const int s = lc.position.start.offset;
+                const int e = lc.position.end.offset;
+                if (s < 0 || e > text.size() || s >= e) return;
+                const QString slice = text.mid(s, e - s);
+                const QString rebuilt = rewriteLinkLiteral(slice, oldPath, newPath);
+                if (rebuilt.isEmpty()) return;
+                rewrites.push_back({s, e, rebuilt});
+            };
+
+            if (cm->links) {
+                for (const LinkCache &lc : *cm->links) pushBodyRewrite(lc);
+            }
+            if (cm->embeds) {
+                for (const LinkCache &lc : *cm->embeds) pushBodyRewrite(lc);
+            }
+
+            // Frontmatter links: no source positions in cache, so search
+            // each entry's `original` literal inside the frontmatter span,
+            // advancing the search offset past each match so duplicates
+            // resolve to distinct positions.
+            if (cm->frontmatterLinks && cm->frontmatterPosition) {
+                const int fmStart = cm->frontmatterPosition->start.offset;
+                const int fmEnd = cm->frontmatterPosition->end.offset;
+                int searchFrom = fmStart;
+                for (const FrontmatterLinkCache &fml : *cm->frontmatterLinks) {
+                    if (linkPathWithoutSubpath(fml.link) != oldPath) {
+                        // Even unaffected entries consume their span so the
+                        // next search starts past them.
+                        const int idx = text.indexOf(fml.original, searchFrom);
+                        if (idx >= 0 && idx < fmEnd)
+                            searchFrom = idx + static_cast<int>(fml.original.size());
+                        continue;
+                    }
+                    const int idx = text.indexOf(fml.original, searchFrom);
+                    if (idx < 0 || idx >= fmEnd) continue;
+                    const QString rebuilt =
+                        rewriteLinkLiteral(fml.original, oldPath, newPath);
+                    if (rebuilt.isEmpty()) {
+                        searchFrom = idx + static_cast<int>(fml.original.size());
+                        continue;
+                    }
+                    const int matchEnd = idx + static_cast<int>(fml.original.size());
+                    rewrites.push_back({idx, matchEnd, rebuilt});
+                    searchFrom = matchEnd;
+                }
+            }
+
+            return applyRewrites(body, rewrites);
         });
         Q_EMIT linkUpdateProgress(done, total);
     }
