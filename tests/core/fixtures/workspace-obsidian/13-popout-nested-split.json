@@ -1,0 +1,46 @@
+{
+  "main": {
+    "id": "f13mainaaaaaaaaa",
+    "type": "split",
+    "direction": "vertical",
+    "children": [
+      {
+        "id": "f13mtabsaaaaaaaa",
+        "type": "tabs",
+        "children": [
+          { "id": "f13mleafaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+        ]
+      }
+    ]
+  },
+  "floating": {
+    "id": "f13floatingaaaaa",
+    "type": "floating",
+    "children": [
+      {
+        "id": "f13winaaaaaaaaaa",
+        "type": "window",
+        "direction": "horizontal",
+        "x": 100, "y": 100, "width": 800, "height": 600, "maximize": false,
+        "children": [
+          {
+            "id": "f13ltabsaaaaaaaa",
+            "type": "tabs",
+            "children": [
+              { "id": "f13lleafaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+            ]
+          },
+          {
+            "id": "f13rtabsaaaaaaaa",
+            "type": "tabs",
+            "children": [
+              { "id": "f13rleafaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "active": "f13mleafaaaaaaaa",
+  "lastOpenFiles": []
+}

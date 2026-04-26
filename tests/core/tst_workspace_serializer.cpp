@@ -42,6 +42,7 @@ private slots:
     void malformedJson_fallsBackToDefaultTree();
     void fixture09_orphanLeaf_reHomedToRoot();
     void fixture11_perGroupCurrentTab_roundtrips();
+    void fixture13_popoutNestedSplit_roundtrips();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -336,6 +337,33 @@ void TestWorkspaceSerializer::fixture11_perGroupCurrentTab_roundtrips()
     }
     QVERIFY(seen.contains(2));
     QVERIFY(seen.contains(1));
+}
+
+void TestWorkspaceSerializer::fixture13_popoutNestedSplit_roundtrips()
+{
+    auto jsonIn = readFixture(QStringLiteral("13-popout-nested-split.json"));
+    QVERIFY(!jsonIn.isEmpty());
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f13"), KDDockWidgets::MainWindowOption_None);
+    mainWindow->show();
+
+    Corbomite::WorkspaceSerializer::fromJson(jsonIn, mainWindow.get(), nullptr);
+
+    auto *registry = KDDockWidgets::DockRegistry::self();
+    QCOMPARE(registry->dockwidgets().size(), 3);
+    QCOMPARE(registry->floatingWindows().size(), 1);
+
+    auto jsonOut = Corbomite::WorkspaceSerializer::toJson(mainWindow.get(), nullptr);
+    auto floatingOut = jsonOut.value(QStringLiteral("floating")).toObject()
+                              .value(QStringLiteral("children")).toArray();
+    QCOMPARE(floatingOut.size(), 1);
+    auto win = floatingOut.first().toObject();
+    auto winChildren = win.value(QStringLiteral("children")).toArray();
+    QCOMPARE(winChildren.size(), 2);
+    for (const auto &v : winChildren) {
+        QCOMPARE(v.toObject().value(QStringLiteral("type")).toString(),
+                 QStringLiteral("tabs"));
+    }
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)
