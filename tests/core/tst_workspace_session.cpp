@@ -52,6 +52,8 @@
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 
+#include <kddockwidgets/core/DockRegistry.h>
+
 using namespace Corbomite;
 
 // ---------------------------------------------------------------------------
@@ -119,6 +121,20 @@ class TstWorkspaceSession : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    // Per-test cleanup: tear down any Workspaces parented to this test
+    // object before the next test runs. Each Workspace owns a KDDW
+    // MainWindow whose name is "corbomite:<vaultId>"; without explicit
+    // cleanup, accumulated MainWindows with the same default name confuse
+    // KDDW's global DockRegistry and LayoutSaver returns empty layouts.
+    void cleanup()
+    {
+        qDeleteAll(findChildren<Workspace *>(QString(),
+                                              Qt::FindDirectChildrenOnly));
+        qDeleteAll(findChildren<ViewRegistry *>(QString(),
+                                                 Qt::FindDirectChildrenOnly));
+        KDDockWidgets::DockRegistry::self()->clear();
+    }
+
     // [C1a] serialize() root has "main" key
     void serializeHasMainKey()
     {

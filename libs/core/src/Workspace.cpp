@@ -7,6 +7,11 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/WorkspaceRoot.h"
 #include "corbomite/core/WorkspaceWindow.h"
+#include "WorkspaceSerializer.h"
+
+#include <kddockwidgets/core/Group.h>
+#include <kddockwidgets/core/Layout.h>
+#include <kddockwidgets/core/MainWindow.h>
 
 #include <kddockwidgets/Config.h>
 #include <kddockwidgets/KDDockWidgets.h>
@@ -682,185 +687,81 @@ WorkspaceLeaf *Workspace::findOrCreateUnpinnedLeafInGroupOf(WorkspaceLeaf *sibli
 
 QJsonObject Workspace::serialize() const
 {
-    // Obsidian-shape JSON: {"main": {type:split, children:[{type:tabs,
-    // currentTab, children:[{type:leaf, id, state}]}]}, "active", "lastOpenFiles"}.
-    // We emit one tabs group per distinct tabGroupId in m_tabGroupOf,
-    // wrapped in a single root split. This isn't a full tree
-    // reconstruction (KDDW's nested splits are flattened), but it satisfies
-    // the round-trip contract that Workspace owns: leaf identity + per-leaf
-    // state survive serialize -> deserialize. Phase 5/6 introduces a
-    // proper tree walker that round-trips KDDW's nested split structure.
-
-    QJsonObject json;
-
-    QJsonObject mainSplit;
-    mainSplit[QStringLiteral("type")] = QStringLiteral("split");
-    mainSplit[QStringLiteral("direction")] = QStringLiteral("vertical");
-
-    // Bucket leaves by their tabGroupId, preserving insertion order both
-    // across groups and within a group.
-    QVector<QString> orderedGroupIds;
-    QHash<QString, QVector<WorkspaceLeaf *>> groupBuckets;
-    for (auto *leaf : m_leaves) {
-        QString gid = m_tabGroupOf.value(leaf);
-        if (gid.isEmpty())
-            gid = leaf->id();   // singleton fallback
-        if (!groupBuckets.contains(gid)) {
-            orderedGroupIds.append(gid);
-            groupBuckets.insert(gid, {});
-        }
-        groupBuckets[gid].append(leaf);
-    }
-
-    QJsonArray children;
-    for (const QString &gid : orderedGroupIds) {
-        QJsonObject tabs;
-        tabs[QStringLiteral("type")] = QStringLiteral("tabs");
-        QJsonArray leafChildren;
-        int currentTab = 0;
-        const auto &bucket = groupBuckets.value(gid);
-        for (int i = 0; i < bucket.size(); ++i) {
-            auto *leaf = bucket[i];
-            leafChildren.append(leaf->serialize());
-            if (leaf == m_activeLeaf)
-                currentTab = i;
-        }
-        tabs[QStringLiteral("currentTab")] = currentTab;
-        tabs[QStringLiteral("children")] = leafChildren;
-        children.append(tabs);
-    }
-    mainSplit[QStringLiteral("children")] = children;
-    json[QStringLiteral("main")] = mainSplit;
-
+    // Delegates to WorkspaceSerializer (which walks LayoutSaver JSON for
+    // tree topology + per-leaf state from this Workspace via findLeafById).
+    // Active-leaf id and lastOpenFiles are appended here since they live
+    // on Workspace, not in the layout substrate.
+    QJsonObject json = WorkspaceSerializer::toJson(
+        m_kddwMain, const_cast<Workspace *>(this));
     json[QStringLiteral("active")] = m_activeLeaf
         ? m_activeLeaf->id()
         : QString{};
-
     if (!m_lastOpenFiles.isEmpty()) {
         QJsonArray files;
         for (const auto &f : m_lastOpenFiles)
             files.append(f);
         json[QStringLiteral("lastOpenFiles")] = files;
     }
-
     return json;
 }
 
-namespace {
-
-void collectLeafObjects(const QJsonObject &node,
-                        QVector<QPair<QString, QJsonObject>> &out)
-{
-    QString type = node[QStringLiteral("type")].toString();
-    if (type == QStringLiteral("leaf")) {
-        // Empty group sentinel — separates tabs containers in the flat
-        // out list. The string identifies the group; first leaf with this
-        // group becomes the new tab group anchor.
-        out.append({QString{}, node});
-        return;
-    }
-    if (type == QStringLiteral("tabs")) {
-        // Generate a fresh group id per tabs node so leaves in the same
-        // tabs JSON node map to the same Workspace tab group.
-        static int counter = 0;
-        QString gid = QStringLiteral("g_%1").arg(++counter);
-        for (const auto &cv : node[QStringLiteral("children")].toArray()) {
-            const QJsonObject co = cv.toObject();
-            if (co[QStringLiteral("type")].toString() == QStringLiteral("leaf"))
-                out.append({gid, co});
-        }
-        return;
-    }
-    if (type == QStringLiteral("split")) {
-        for (const auto &cv : node[QStringLiteral("children")].toArray())
-            collectLeafObjects(cv.toObject(), out);
-    }
-}
-
-} // namespace
-
 void Workspace::deserialize(const QJsonObject &json)
 {
-    // Suppress activeLeafChanged emissions while we materialize the layout;
-    // KDDW's own substrate signals (isCurrentTabChanged) would otherwise
-    // route back through host wiring and fire activeLeafChanged once per
-    // dock-widget creation. The gate is lifted below once the active leaf
-    // has been resolved, with `layoutReady()` emitted exactly once.
+    // Suppress activeLeafChanged emissions while we materialize the layout.
     setLayoutReady(false);
 
-    // Drop existing leaves; KDDW MainWindow reused.
     qDeleteAll(m_leaves);
     m_leaves.clear();
     m_leavesById.clear();
     m_tabGroupOf.clear();
+    m_stackedGroups.clear();
     m_activeLeaf = nullptr;
     m_undoHistory.clear();
 
-    QVector<QPair<QString, QJsonObject>> leafEntries;
-    if (json.contains(QStringLiteral("main")))
-        collectLeafObjects(json[QStringLiteral("main")].toObject(), leafEntries);
+    // Parse + materialize the tree (main + floating). All Workspace-side
+    // bookkeeping (m_leaves / m_leavesById / m_tabGroupOf / m_stackedGroups)
+    // is populated by the serializer's createLeafUnplaced+setTabGroupOf
+    // path.
+    WorkspaceSerializer::fromJson(json, m_kddwMain, this);
 
-    // Materialize each leaf, anchoring same-group leaves to the first leaf
-    // already created in that group.
-    QHash<QString, WorkspaceLeaf *> firstInGroup;
-    for (const auto &entry : leafEntries) {
-        const QString &gid = entry.first;
-        const QJsonObject &lo = entry.second;
-        WorkspaceLeaf *anchor = gid.isEmpty()
-            ? nullptr
-            : firstInGroup.value(gid);
-        auto *leaf = createLeafInGroupOf(anchor);
-        if (!leaf)
-            continue;
-        QString leafId = lo[QStringLiteral("id")].toString();
-        if (!leafId.isEmpty()) {
-            // createLeafInGroupOf registered the leaf with its
-            // auto-generated id; rewire m_leavesById to the JSON-side id
-            // so findLeafById(activeId) below resolves correctly.
-            const QString autoId = leaf->id();
-            m_leavesById.remove(autoId);
-            leaf->setId(leafId);
-            m_leavesById.insert(leafId, leaf);
-        }
-        if (lo[QStringLiteral("pinned")].toBool())
-            leaf->setPinned(true);
-        QString grp = lo[QStringLiteral("group")].toString();
-        if (!grp.isEmpty())
-            leaf->setGroup(grp);
-        QJsonObject viewState = lo[QStringLiteral("state")].toObject();
-        if (!viewState.isEmpty())
-            leaf->setViewState(viewState);
-
-        if (!gid.isEmpty() && !firstInGroup.contains(gid))
-            firstInGroup.insert(gid, leaf);
-    }
-
+    // Resolve active leaf.
     QString activeId = json[QStringLiteral("active")].toString();
     if (!activeId.isEmpty())
         m_activeLeaf = findLeafById(activeId);
     if (!m_activeLeaf && !m_leaves.isEmpty())
         m_activeLeaf = m_leaves.first();
 
+    // Hydrate lastOpenFiles.
     m_lastOpenFiles.clear();
     for (const auto &v : json[QStringLiteral("lastOpenFiles")].toArray())
         m_lastOpenFiles.append(v.toString());
 
     // Defer non-active, non-currentTab leaves so they don't materialize
-    // their View until the user focuses them. The active leaf and each
-    // tab group's currentTab leaf load eagerly.
+    // their View until the user focuses them. Per-group currentTab is
+    // now read from the live KDDW Group rather than synthesized from
+    // "first leaf in group", so the deferred set is more accurate than
+    // pre-consolidation.
     QHash<QString, WorkspaceLeaf *> currentInGroup;
-    for (auto *leaf : m_leaves) {
-        QString gid = m_tabGroupOf.value(leaf);
-        if (gid.isEmpty()) continue;
-        if (!currentInGroup.contains(gid))
-            currentInGroup.insert(gid, leaf);  // first as default current
+    auto *coreMain = m_kddwMain ? m_kddwMain->mainWindow() : nullptr;
+    if (auto *layout = coreMain ? coreMain->layout() : nullptr) {
+        for (auto *grp : layout->groups()) {
+            if (grp->dockWidgetCount() == 0) continue;
+            int idx = grp->currentTabIndex();
+            if (idx < 0 || idx >= grp->dockWidgetCount()) idx = 0;
+            const QString uniqueName = grp->dockWidgetAt(idx)->uniqueName();
+            const QString stripped = m_vaultId.isEmpty()
+                ? uniqueName
+                : (uniqueName.startsWith(m_vaultId + QChar(':'))
+                    ? uniqueName.mid(m_vaultId.size() + 1)
+                    : uniqueName);
+            if (auto *leaf = findLeafById(stripped))
+                currentInGroup.insert(m_tabGroupOf.value(leaf), leaf);
+        }
     }
     for (auto *leaf : m_leaves) {
-        if (leaf == m_activeLeaf)
-            continue;
-        QString gid = m_tabGroupOf.value(leaf);
-        if (currentInGroup.value(gid) == leaf)
-            continue;
+        if (leaf == m_activeLeaf) continue;
+        const QString gid = m_tabGroupOf.value(leaf);
+        if (currentInGroup.value(gid) == leaf) continue;
 
         auto state = leaf->getViewState();
         QString icon = state[QStringLiteral("icon")].toString();
@@ -875,10 +776,8 @@ void Workspace::deserialize(const QJsonObject &json)
     Q_EMIT layoutChanged();
     setLayoutReady(true);
 
-    // Layout settled: fire one activeLeafChanged for the resolved active
-    // leaf so consumers that subscribed before the load (or that wait on
-    // layoutReady) see exactly one signal for the post-load state. The
-    // ping-through-null hop forces setActiveLeaf past its identity gate.
+    // Ping-through-null forces setActiveLeaf past its identity gate so
+    // exactly one activeLeafChanged fires for the post-load state.
     if (auto *target = m_activeLeaf) {
         m_activeLeaf = nullptr;
         setActiveLeaf(target);

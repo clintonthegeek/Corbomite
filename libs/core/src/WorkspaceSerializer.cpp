@@ -499,11 +499,20 @@ materializeTabs(const TabsNode &tabs,
     }
     if (workspace && !tabGroupId.isEmpty() && tabs.stacked)
         workspace->setTabGroupStacked(tabGroupId, true);
-    if (first && tabs.currentTab > 0 && tabs.currentTab < tabs.children.size()) {
-        if (auto *current = KDDockWidgets::Core::DockWidget::byName(
-                tabs.children[tabs.currentTab].id)) {
+
+    // KDDW makes the most-recently-added tab current. We always need to
+    // explicitly select tabs.currentTab — even when it's 0 — because the
+    // last leaf added (the trailing one in the loop) becomes current
+    // otherwise.
+    if (first && !tabs.children.isEmpty()) {
+        int idx = tabs.currentTab;
+        if (idx < 0 || idx >= tabs.children.size()) idx = 0;
+        const QString leafId = tabs.children[idx].id;
+        const QString uniqueName = (workspace && !workspace->vaultId().isEmpty())
+            ? QStringLiteral("%1:%2").arg(workspace->vaultId(), leafId)
+            : leafId;
+        if (auto *current = KDDockWidgets::Core::DockWidget::byName(uniqueName))
             current->setAsCurrentTab();
-        }
     }
     return first;
 }
