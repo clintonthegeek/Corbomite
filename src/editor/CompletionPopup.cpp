@@ -21,8 +21,12 @@ public:
     {
         m_pattern = pattern;
         m_prepared = FuzzyMatcher::prepareQuery(pattern);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
         beginFilterChange();
         endFilterChange();
+#else
+        invalidateFilter();
+#endif
         sort(0);
     }
 
