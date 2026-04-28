@@ -18,6 +18,7 @@
 #include "corbomite/core/proxies/CodeBlockRegistrar.h"
 #include "corbomite/core/proxies/StatusBarRegistrar.h"
 #include "corbomite/core/proxies/LucideIconRegistrar.h"
+#include "corbomite/core/proxies/DecorationProviderRegistrar.h"
 #include "corbomite/vault/PluginDataStore.h"
 #include "corbomite/vault/proxies/FileManagerProxy.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
@@ -51,6 +52,7 @@ PluginContext::~PluginContext()
     delete m_codeBlockRegistrar;
     delete m_statusBarRegistrar;
     delete m_lucideIconRegistrar;
+    delete m_decorationRegistrar;
 }
 
 void PluginContext::setExtensionRegistries(
@@ -61,7 +63,8 @@ void PluginContext::setExtensionRegistries(
     Markoff::EmbedRegistry *embeds,
     Markoff::CodeBlockProcessorRegistry *codeBlocks,
     StatusBarRegistry *statusBar,
-    LucideIconRegistry *lucideIcons)
+    LucideIconRegistry *lucideIcons,
+    DecorationProviderRegistry *decorations)
 {
     m_hoverLinkSourceRegistry = hoverLinkSources;
     m_editorSuggestManager = editorSuggests;
@@ -71,6 +74,7 @@ void PluginContext::setExtensionRegistries(
     m_codeBlockRegistry = codeBlocks;
     m_statusBarRegistry = statusBar;
     m_lucideIconRegistry = lucideIcons;
+    m_decorationRegistry = decorations;
 }
 
 void PluginContext::setCoreServices(Vault *v, FileManager *fm,
@@ -267,6 +271,16 @@ LucideIconRegistrar *PluginContext::icons() const
             m_lucideIconRegistry, m_meta.base().pluginId());
     }
     return m_lucideIconRegistrar;
+}
+
+DecorationProviderRegistrar *PluginContext::editorExtensions() const
+{
+    if (!hasPermission(QLatin1String(kUiEditor)) || !m_decorationRegistry) return nullptr;
+    if (!m_decorationRegistrar) {
+        m_decorationRegistrar = new DecorationProviderRegistrar(
+            m_decorationRegistry, m_meta.base().pluginId());
+    }
+    return m_decorationRegistrar;
 }
 
 KConfigGroup PluginContext::config()

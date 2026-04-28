@@ -10,6 +10,7 @@
 #include "corbomite/core/proxies/RibbonRegistrar.h"
 #include "corbomite/core/proxies/StatusBarRegistrar.h"
 #include "corbomite/core/proxies/LucideIconRegistrar.h"
+#include "corbomite/core/proxies/DecorationProviderRegistrar.h"
 #include "corbomite/vault/PluginContext.h"
 
 #include <QJsonObject>
@@ -178,6 +179,20 @@ void Plugin::removeIcon(const QString &localName)
 {
     if (!m_context) return;
     if (auto *r = m_context->icons()) r->removeIcon(localName);
+}
+
+QString Plugin::registerEditorExtension(const QString &localId,
+                                            DecorationProvider *provider)
+{
+    if (!m_context) return {};
+    auto *r = m_context->editorExtensions();
+    return r ? r->registerProvider(localId, provider) : QString{};
+}
+
+void Plugin::unregisterEditorExtension(const QString &localId)
+{
+    if (!m_context) return;
+    if (auto *r = m_context->editorExtensions()) r->unregisterProvider(localId);
 }
 
 } // namespace Corbomite

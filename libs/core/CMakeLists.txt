@@ -133,6 +133,11 @@ add_library(corbomite-core STATIC
     include/corbomite/core/proxies/LucideIconRegistrar.h
     src/MarkdownRenderer.cpp
     include/corbomite/core/MarkdownRenderer.h
+    include/corbomite/core/Decoration.h
+    src/DecorationProviderRegistry.cpp
+    include/corbomite/core/DecorationProviderRegistry.h
+    src/proxies/DecorationProviderRegistrar.cpp
+    include/corbomite/core/proxies/DecorationProviderRegistrar.h
     include/corbomite/core/PluginPermissions.h
     src/SystemThemeBuilder.cpp
     include/corbomite/core/SystemThemeBuilder.h

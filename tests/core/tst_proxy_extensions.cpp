@@ -11,6 +11,9 @@
 #include "corbomite/core/StatusBarRegistry.h"
 #include "corbomite/core/LucideIconRegistry.h"
 #include "corbomite/core/MarkdownRenderer.h"
+#include "corbomite/core/Decoration.h"
+#include "corbomite/core/DecorationProviderRegistry.h"
+#include "corbomite/core/proxies/DecorationProviderRegistrar.h"
 #include "corbomite/core/proxies/CodeBlockRegistrar.h"
 #include "corbomite/core/proxies/EditorSuggestRegistrar.h"
 #include "corbomite/core/proxies/EmbedRegistrar.h"
@@ -109,6 +112,11 @@ private slots:
     // MarkdownRenderer::render
     void renderAttachesReadingViewAndCompletesFuture();
     void renderHandlesNullParent();
+
+    // DecorationProviderRegistry / DecorationProviderRegistrar
+    void decorationRegistrarPrefixesAndCleansOnDestroy();
+    void decorationRejectsCollisionAndEmptyId();
+    void decorationProvidersReturnedInRegistrationOrder();
 };
 
 namespace {
@@ -379,6 +387,64 @@ void TestProxyExtensions::renderHandlesNullParent()
                                           QString(),
                                           &lifetime);
     QVERIFY(fut.isFinished());
+}
+
+// ---- DecorationProviderRegistry / DecorationProviderRegistrar ----
+
+namespace {
+
+class StubDecorationProvider : public DecorationProvider
+{
+public:
+    QList<Decoration> produceDecorations(const QString &, const QString &) override
+    { return {}; }
+};
+
+} // namespace
+
+void TestProxyExtensions::decorationRegistrarPrefixesAndCleansOnDestroy()
+{
+    auto &r = DecorationProviderRegistry::instance();
+    r.clearForTesting();
+    StubDecorationProvider provider;
+    {
+        DecorationProviderRegistrar reg(&r, QStringLiteral("plug-a"));
+        const QString id = reg.registerProvider(QStringLiteral("highlights"),
+                                                  &provider);
+        QCOMPARE(id, QStringLiteral("plug-a:highlights"));
+        QVERIFY(r.hasProvider(QStringLiteral("plug-a:highlights")));
+    }
+    QVERIFY(!r.hasProvider(QStringLiteral("plug-a:highlights")));
+    r.clearForTesting();
+}
+
+void TestProxyExtensions::decorationRejectsCollisionAndEmptyId()
+{
+    auto &r = DecorationProviderRegistry::instance();
+    r.clearForTesting();
+    StubDecorationProvider p1, p2;
+    DecorationProviderRegistrar reg(&r, QStringLiteral("plug-a"));
+    QCOMPARE(reg.registerProvider(QStringLiteral("dec"), &p1),
+             QStringLiteral("plug-a:dec"));
+    QVERIFY(reg.registerProvider(QStringLiteral("dec"), &p2).isEmpty());
+    QVERIFY(reg.registerProvider(QString(), &p2).isEmpty());
+    r.clearForTesting();
+}
+
+void TestProxyExtensions::decorationProvidersReturnedInRegistrationOrder()
+{
+    auto &r = DecorationProviderRegistry::instance();
+    r.clearForTesting();
+    StubDecorationProvider p1, p2, p3;
+    r.registerProvider(QStringLiteral("a"), &p1);
+    r.registerProvider(QStringLiteral("b"), &p2);
+    r.registerProvider(QStringLiteral("c"), &p3);
+    auto list = r.providers();
+    QCOMPARE(list.size(), 3);
+    QCOMPARE(list.at(0), &p1);
+    QCOMPARE(list.at(1), &p2);
+    QCOMPARE(list.at(2), &p3);
+    r.clearForTesting();
 }
 
 QTEST_MAIN(TestProxyExtensions)

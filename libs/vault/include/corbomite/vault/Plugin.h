@@ -23,6 +23,7 @@ namespace Corbomite {
 class PluginContext;
 class MainWindow;
 class EditorSuggest;
+class DecorationProvider;
 
 /// Abstract base for all Corbomite plugins (built-in and community).
 ///
@@ -135,6 +136,21 @@ public:
     /// namespaced full name on success, empty string on failure.
     QString addIcon(const QString &localName, const QByteArray &svg);
     void removeIcon(const QString &localName);
+
+    /// `ui.editor` — register a decoration provider (the Cluster B
+    /// shape of `registerEditorExtension`; see Cluster E for the full
+    /// EditorExtension ABI). Returns the namespaced full id on
+    /// success, empty string on failure. Caller retains ownership
+    /// of `provider`.
+    ///
+    /// Note: registry-side dispatch into the editor render path is a
+    /// Cluster B follow-up. Today the registry stores registrations
+    /// but Markoff does not yet consult them — the verb's API shape
+    /// is stable, but rendered decorations will not appear until the
+    /// follow-up lands.
+    QString registerEditorExtension(const QString &localId,
+                                       DecorationProvider *provider);
+    void unregisterEditorExtension(const QString &localId);
 
 protected:
     /// Override point — called inside load(ctx) before Component::load().
