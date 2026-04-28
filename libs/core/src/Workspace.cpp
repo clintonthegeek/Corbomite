@@ -382,6 +382,19 @@ void Workspace::setTabGroupStacked(const QString &tabGroupId, bool stacked)
     else m_stackedGroups.remove(tabGroupId);
 }
 
+void Workspace::detachLeavesOfType(const QString &type)
+{
+    if (type.isEmpty()) return;
+    // Snapshot first — closeLeaf mutates m_leaves while we iterate.
+    QVector<WorkspaceLeaf *> toClose;
+    for (auto *leaf : m_leaves) {
+        const QString leafType = leaf->getViewState()
+            .value(QStringLiteral("type")).toString();
+        if (leafType == type) toClose.append(leaf);
+    }
+    for (auto *leaf : toClose) closeLeaf(leaf);
+}
+
 void Workspace::closeLeaf(WorkspaceLeaf *leaf)
 {
     if (!leaf || !m_leavesById.contains(leaf->id()))

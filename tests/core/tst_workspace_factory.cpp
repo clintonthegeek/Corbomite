@@ -64,6 +64,8 @@ private Q_SLOTS:
     void openLinkText_withHeading_capturesSubpathInEphemeralState();
     void openLinkText_withEStateOpts_overridesDerivedSubpath();
     void openLinkText_withResolver_resolvesPathBeforeOpen();
+
+    void detachLeavesOfType_closesMatchingLeavesOnly();
 };
 
 void TestWorkspaceFactory::getLeaf_sameMode_returnsActive()
@@ -285,6 +287,65 @@ void TestWorkspaceFactory::openLinkText_withResolver_resolvesPathBeforeOpen()
     QCOMPARE(leaf->getViewState().value(QStringLiteral("state")).toObject()
                   .value(QStringLiteral("file")).toString(),
               QStringLiteral("folder/Note.md"));
+}
+
+namespace {
+class StubPluginView : public View
+{
+    Q_OBJECT
+public:
+    using View::View;
+    QString getViewType() const override { return QStringLiteral("plugin-view"); }
+    QString getDisplayText() const override { return QStringLiteral("Plug"); }
+    QJsonObject getState() const override { return {}; }
+    void setState(const QJsonObject &) override {}
+};
+} // namespace
+
+void TestWorkspaceFactory::detachLeavesOfType_closesMatchingLeavesOnly()
+{
+    // Mirrors Obsidian's app.workspace.detachLeavesOfType, used by the host
+    // on plugin disable to evict any leaves owned by the disabling plugin.
+    ViewRegistry registry;
+    registerStubMarkdown(registry);
+    registry.registerView(QStringLiteral("plugin-view"),
+        [](WorkspaceLeaf *leaf) -> View * { return new StubPluginView(leaf); });
+
+    Workspace ws(QStringLiteral("test-vault-detach"), &registry);
+
+    auto *md = ws.createLeafInActiveGroup();
+    QVERIFY(md);
+    md->setViewState(QJsonObject{
+        {QStringLiteral("type"), QStringLiteral("markdown")},
+        {QStringLiteral("state"), QJsonObject{}}});
+
+    auto *plug = ws.createLeafInActiveGroup();
+    QVERIFY(plug);
+    plug->setViewState(QJsonObject{
+        {QStringLiteral("type"), QStringLiteral("plugin-view")},
+        {QStringLiteral("state"), QJsonObject{}}});
+
+    QCOMPARE(ws.allLeaves().size(), 2);
+
+    // Detaching a type no leaf reports is a no-op.
+    ws.detachLeavesOfType(QStringLiteral("nonexistent"));
+    QCOMPARE(ws.allLeaves().size(), 2);
+
+    // Detaching "plugin-view" closes only the plugin leaf — the markdown
+    // leaf survives.
+    ws.detachLeavesOfType(QStringLiteral("plugin-view"));
+    QCOMPARE(ws.allLeaves().size(), 1);
+    QCOMPARE(ws.allLeaves().first()->getViewState()
+                  .value(QStringLiteral("type")).toString(),
+              QStringLiteral("markdown"));
+
+    // Empty string is a guarded no-op.
+    ws.detachLeavesOfType(QString{});
+    QCOMPARE(ws.allLeaves().size(), 1);
+
+    // Detaching the surviving type wipes the workspace.
+    ws.detachLeavesOfType(QStringLiteral("markdown"));
+    QCOMPARE(ws.allLeaves().size(), 0);
 }
 
 QTEST_MAIN(TestWorkspaceFactory)

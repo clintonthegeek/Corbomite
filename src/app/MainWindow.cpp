@@ -22,6 +22,7 @@
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/FileManager.h"
 #include "corbomite/vault/Plugin.h"
+#include "corbomite/core/proxies/ViewRegistrar.h"
 #include "corbomite/vault/PluginContext.h"
 #include "corbomite/vault/PluginManager.h"
 #include "corbomite/storage/LinkResolver.h"
@@ -253,6 +254,21 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
                 this, &MainWindow::hostPluginView);
         connect(pm, &Corbomite::PluginManager::pluginUnloading,
                 this, &MainWindow::releasePluginView);
+        // Detach any workspace leaves whose view type was registered by
+        // the unloading plugin, before its ViewRegistrar destructor
+        // unregisters the factories. Mirrors Obsidian's
+        // detachLeavesOfType invocation in plugin teardown.
+        connect(pm, &Corbomite::PluginManager::pluginUnloading,
+                this, [this, pm](const QString &id) {
+            if (!m_workspace) return;
+            const auto *info = pm->pluginById(id);
+            if (!info || !info->context) return;
+            auto *views = info->context->views();
+            if (!views) return;
+            const QStringList types = views->registeredTypes();
+            for (const QString &type : types)
+                m_workspace->detachLeavesOfType(type);
+        });
 
         QStringList stale;
         for (int i = 0; i < pm->pluginCount(); ++i) {

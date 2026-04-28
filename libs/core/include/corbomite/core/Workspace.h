@@ -108,6 +108,13 @@ public:
     bool canUndoCloseLeaf() const;
     void undoCloseLeaf();
 
+    /// Close every leaf whose current view-type matches `type`, including
+    /// deferred leaves whose persisted state declares the type. Mirrors
+    /// Obsidian's `app.workspace.detachLeavesOfType(viewType)` invocation
+    /// site — used by the host on plugin disable to evict any leaves the
+    /// disabling plugin would have owned.
+    void detachLeavesOfType(const QString &type);
+
     /// Split `leaf`'s pane along `direction`, creating a new sibling pane
     /// holding a fresh empty leaf which is returned. Returns nullptr if
     /// `leaf` is not in a splittable position.

@@ -32,6 +32,11 @@ public:
     void registerExtensions(const QStringList &extensions, const QString &type);
     void unregisterView(const QString &type);
 
+    /// View types still registered through this proxy. Used by the host on
+    /// plugin disable to drive `Workspace::detachLeavesOfType` for each
+    /// type the plugin owned, before unregister-on-destruction kicks in.
+    QStringList registeredTypes() const { return m_registeredTypes; }
+
 private:
     // QPointer so destructor can safely skip cleanup when the host
     // ViewRegistry has already been destroyed (e.g. under the Cluster Q
