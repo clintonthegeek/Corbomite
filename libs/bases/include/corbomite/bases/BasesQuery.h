@@ -23,6 +23,14 @@ public:
     QHash<QString, Formula> formulas;            ///< name -> formula.
     QHash<QString, Formula> summaryFormulas;
     QHash<PropertyId, PropertyConfig> properties;
+    /// Insertion order of the user-keyed dicts above. Tracked at parse time
+    /// so `toString()` can emit each block in its source order rather than
+    /// QVariantMap's alphabetical sort. Without these the round-trip
+    /// reorders user-authored .base files on every save (audit:
+    /// `bases.md` §"On-disk `.base` format compatibility").
+    QStringList formulaOrder;
+    QStringList summaryFormulaOrder;
+    std::vector<PropertyId> propertyOrder;
     std::optional<QString> newItemFolder;
     std::optional<QString> newItemTemplate;
     QVariantMap unrecognizedData;                ///< forward-compat.

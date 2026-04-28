@@ -11,9 +11,7 @@ Work flows through **two parallel tracks**. Both must be checked at session star
 
 Most P0/P1 punch-list items are **silent vault-format corruption risks**. Drain them before strategic-cluster work unless explicitly redirected.
 
-## Current focus
-
-**P1 block fully drained** (2026-04-27). Last three P1 punch-list items closed: `ItemView::addAction` prepend (one-line `insertWidget(0, btn)` in `libs/core/src/ItemView.cpp`); `MenuEventEmitter::fileMenu` source discriminator (added Obsidian's `(source, leaf?)` payload + `FileMenuSource::*` constants + typed `MenuInjector::FileMenuHandler`); and `undoCloseLeaf` state restore (capture KDDW sibling id at close → resolve to `createLeafInGroupOf` on undo; restore `eState` + `leafHistory`; rekey `m_leavesById` + KDDW unique-name to the restored leaf id). P1 list now empty. Next: P2 drain (footnotes, callouts, FileExplorer F2/Delete dialogs, external-rename title refresh, `![[…]]` embed parsing, `.base` user-keyed dict ordering, etc.) — Mermaid-theme still deferred pending Rust mmdr changes.
+**P2 partial drain** (2026-04-27, second autonomous session of the day). Two P2 items closed: external-rename title refresh (`NoteDocument::setRelativePath` + `pathChanged` signal; `Vault::rename`/folder-rename/watcher paths rekey `m_docs` + notify; `FileView::loadFile` subscribes and re-emits `displayTextChanged` so the tab caption refreshes via the existing `WorkspaceLeaf` wire) and `.base` user-keyed dict round-trip (companion `propertyOrder`/`formulaOrder`/`summaryFormulaOrder` lists tracked at parse time; `emitMap` extended with a fourth `nestedKeyOrder` arg so `properties:`/`formulas:`/`summaries:` blocks emit in source order rather than alphabetical). Open P2 items: footnotes, callouts, HoverPopover Mod-pinning, FileExplorer F2/Delete dialogs, `![[…]]` embed parsing, live-preview off-by-one, `writeBackup` vault leak, externally-deleted leaf orphaning, fold-target invalidation on line-count change, checkbox-click toggle (Reading + Live), reading-mode `setCursorLine`, Mermaid-theme (still deferred).
 
 ## Active strategic clusters (snapshot)
 
@@ -45,4 +43,4 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Last touched
 
-2026-04-27 — P1 #8-#10 drained: `undoCloseLeaf` state restore + `fileMenu` source discriminator + `ItemView::addAction` prepend. See decisions-archive for the full closeout.
+2026-04-27 — P2 sweep: external-rename title refresh + `.base` user-keyed dict ordering. See decisions-archive for the full closeout.

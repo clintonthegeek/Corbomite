@@ -10,6 +10,20 @@ Conventions:
 
 ---
 
+## 2026-04-27 — P2 sweep: rename-title + .base user-keyed-dict ordering
+
+Two P2 punch-list items closed in a single autonomous session, no UI testing required.
+
+**Title not refreshed on external rename** (`libs/core/{include/corbomite/core/{NoteDocument.h,FileView.h},src/{NoteDocument.cpp,FileView.cpp}}`, `libs/vault/src/Vault.cpp`): `NoteDocument` was a leaf data carrier — its `relativePath` was set at construction and never moved, so `Vault::rename` left every cached doc holding a stale path and the audit's predicted "tab caption stays stale until the leaf is reloaded" bug shipped. Added a `setRelativePath` setter that emits a new `pathChanged(oldRelativePath)` signal. Vault's three rename paths (programmatic single-file `Vault::rename`, programmatic folder-rename descendant loop, and watcher-driven `onExternalRenamed`) now `m_docs.take(oldRel)` → `m_docs.insert(newRel, doc)` → `doc->setRelativePath(newRel)`. `FileView::loadFile` connects to the doc's `pathChanged` (held in `m_pathChangedConn`, severed before unload to prevent a stale-pointer cross-doc fire) and re-emits `displayTextChanged`. The dock-widget tab caption then refreshes through `WorkspaceLeaf::open`'s existing `View::displayTextChanged → m_dockWidget->setTitle` wire — no host-side changes needed. Three vault regressions cover programmatic single-file rename + cache rekey + folder-descendant propagation; two FileView regressions cover the displayTextChanged re-emission and the unsubscribe-on-loadFile-other-doc path.
+
+**`.base` user-keyed dict round-trip alphabetisation** (`libs/bases/{include/corbomite/bases/BasesQuery.h,src/BasesQuery.cpp}`): `BasesQuery::properties`/`formulas`/`summaryFormulas` are `QHash`-backed; `toString()` spilled them through `QVariantMap` (alphabetical) so user-authored ordering was clobbered on every save, even though the P0 top-level + view-level canonical-order fix was already in. Added insertion-order companion lists (`QStringList formulaOrder`, `QStringList summaryFormulaOrder`, `std::vector<PropertyId> propertyOrder`) populated during `fromString`. The legacy `display` → `properties.displayName` migration also pushes onto `propertyOrder` for keys it adds. `emitMap` got a fourth `nestedKeyOrder = QHash<QString, QStringList>{}` arg paralleling the existing `nestedItemOrder`; the recursive submap call passes `nestedKeyOrder.value(key)` so `properties:`/`formulas:`/`summaries:` blocks honour the recorded order. Three regressions: properties, formulas, summaries — each verifies a scrambled (zeta/alpha/mike) authored order survives round-trip un-sorted.
+
+Test verification: 42 vault/view/notedocument/workspace tests pass green; 1 bases test passes (`tst_bases_yaml_schema`). Full-suite results unchanged from prior session — same four pre-existing failures (`tst_markoff_undo_grouping`, `tst_markoff_table_operations`, `tst_completion_popup`, `tst_benchmark_layout`-timeout), none touch any file in this commit.
+
+Files: `libs/core/include/corbomite/core/NoteDocument.h`, `libs/core/src/NoteDocument.cpp`, `libs/core/include/corbomite/core/FileView.h`, `libs/core/src/FileView.cpp`, `libs/vault/src/Vault.cpp`, `libs/bases/include/corbomite/bases/BasesQuery.h`, `libs/bases/src/BasesQuery.cpp`, `libs/vault/tests/tst_vault_rename_remove.cpp`, `tests/core/tst_fileview_setState.cpp`, `libs/bases/tests/tst_yaml_schema.cpp`, `docs/PROJECT-STATE.md`, `docs/punch-list.md`.
+
+---
+
 ## 2026-04-27 — P1 #8-#10: undoCloseLeaf state restore + fileMenu source discriminator + ItemView addAction prepend
 
 The last three P1 punch-list items closed in a single autonomous session, no UI testing required. Three items, three areas, all in `libs/core`.

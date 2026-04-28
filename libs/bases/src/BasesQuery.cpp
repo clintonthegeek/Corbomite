@@ -132,7 +132,8 @@ void emitList(QString &out, const QVariantList &xs, int indent,
 
 void emitMap(QString &out, const QVariantMap &m, int indent,
              const QStringList &keyOrder = {},
-             const QHash<QString, QStringList> &nestedItemOrder = {})
+             const QHash<QString, QStringList> &nestedItemOrder = {},
+             const QHash<QString, QStringList> &nestedKeyOrder = {})
 {
     const QString pad(indent, QLatin1Char(' '));
     bool first = true;
@@ -143,7 +144,14 @@ void emitMap(QString &out, const QVariantMap &m, int indent,
         const QVariant &v = m.value(key);
         if (v.typeId() == QMetaType::QVariantMap) {
             out.append(QLatin1Char('\n'));
-            emitMap(out, v.toMap(), indent + 2);
+            // Per-key submap key order lets the caller preserve user-
+            // authored insertion order for `properties:`/`formulas:`/
+            // `summaries:` blocks even though the underlying QVariantMap
+            // sorts alphabetically. Without this, every save reshuffles
+            // user-keyed dicts (audit: bases.md §"On-disk `.base` format
+            // compatibility").
+            emitMap(out, v.toMap(), indent + 2,
+                    nestedKeyOrder.value(key));
         } else if (v.typeId() == QMetaType::QVariantList) {
             // Per-key item key-order lookup lets the caller dictate the
             // canonical shape of map items inside specific lists (e.g.
@@ -211,10 +219,14 @@ std::unique_ptr<BasesQuery> BasesQuery::fromString(const QString &text, QString 
             q->filters = parseFilter(v);
         } else if (k == QLatin1String("formulas") && v.isMap()) {
             v.forEach([&q](const QString &fname, const Markoff::YamlValue &fv) {
+                if (!q->formulas.contains(fname))
+                    q->formulaOrder.append(fname);
                 q->formulas.insert(fname, Formula(fv.asString()));
             });
         } else if (k == QLatin1String("summaries") && v.isMap()) {
             v.forEach([&q](const QString &fname, const Markoff::YamlValue &fv) {
+                if (!q->summaryFormulas.contains(fname))
+                    q->summaryFormulaOrder.append(fname);
                 q->summaryFormulas.insert(fname, Formula(fv.asString()));
             });
         } else if (k == QLatin1String("properties") && v.isMap()) {
@@ -223,7 +235,10 @@ std::unique_ptr<BasesQuery> BasesQuery::fromString(const QString &text, QString 
                 if (pv.isMap()) {
                     pc.displayName = pv.get(QStringLiteral("displayName")).asString();
                 }
-                q->properties.insert(parsePropertyId(pk), pc);
+                const PropertyId id = parsePropertyId(pk);
+                if (!q->properties.contains(id))
+                    q->propertyOrder.push_back(id);
+                q->properties.insert(id, pc);
             });
         } else if (k == QLatin1String("display") && v.isMap()) {
             // Legacy key — migrate into properties[*].displayName.
@@ -257,6 +272,7 @@ std::unique_ptr<BasesQuery> BasesQuery::fromString(const QString &text, QString 
             PropertyConfig pc;
             pc.displayName = it.value().toString();
             q->properties.insert(id, pc);
+            q->propertyOrder.push_back(id);
         } else {
             if (pit->displayName.isEmpty()) pit->displayName = it.value().toString();
         }
@@ -344,9 +360,26 @@ QString BasesQuery::toString() const
         if (!root.contains(it.key())) root.insert(it.key(), it.value());
     }
 
+    // Per-key ordering for the user-keyed dicts. Tracked at parse time in
+    // formulaOrder/summaryFormulaOrder/propertyOrder so round-trip
+    // preserves the author's insertion order rather than alphabetising.
+    QHash<QString, QStringList> nestedKeyOrder;
+    if (!propertyOrder.empty()) {
+        QStringList propKeys;
+        propKeys.reserve(int(propertyOrder.size()));
+        for (const PropertyId &id : propertyOrder)
+            propKeys.append(buildPropertyId(id));
+        nestedKeyOrder.insert(QStringLiteral("properties"), propKeys);
+    }
+    if (!formulaOrder.isEmpty())
+        nestedKeyOrder.insert(QStringLiteral("formulas"), formulaOrder);
+    if (!summaryFormulaOrder.isEmpty())
+        nestedKeyOrder.insert(QStringLiteral("summaries"), summaryFormulaOrder);
+
     QString out;
     emitMap(out, root, 0, kRootOrder,
-            {{ QStringLiteral("views"), kViewOrder }});
+            {{ QStringLiteral("views"), kViewOrder }},
+            nestedKeyOrder);
 
     if (!out.isEmpty()) out.append(QLatin1Char('\n'));
     return out;

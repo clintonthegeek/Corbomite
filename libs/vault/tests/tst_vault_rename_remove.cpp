@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QFileInfo>
 
+#include "corbomite/core/NoteDocument.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/TFolder.h"
@@ -21,6 +22,9 @@ private slots:
     void copyDuplicatesFile();
     void renameFolderUpdatesDescendantPaths();
     void renameFolderEmitsRenamedForEachDescendant();
+    void renameNotifiesOpenNoteDocument();
+    void renameRekeysNoteDocumentCache();
+    void renameFolderNotifiesDescendantNoteDocuments();
 };
 
 void TestVaultRenameRemove::renameUpdatesPathAndFireSignal()
@@ -171,6 +175,93 @@ void TestVaultRenameRemove::renameFolderEmitsRenamedForEachDescendant()
     // Folder itself + 2 descendants = 3 emissions. Plugins (notably link-
     // updaters) listen on renamed and miss descendant moves otherwise.
     QCOMPARE(spy.count(), 3);
+}
+
+void TestVaultRenameRemove::renameNotifiesOpenNoteDocument()
+{
+    // Audit: views.md §"Top suspected bugs" — title not refreshed on
+    // external rename. Vault::rename must update an open NoteDocument's
+    // relativePath and emit pathChanged so FileView subclasses can refresh
+    // their tab caption from name().
+    QTemporaryDir dir;
+    QFile f(dir.path() + "/old.md");
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("x");
+    f.close();
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *doc = vault.openDocument(QStringLiteral("old.md"));
+    QVERIFY(doc);
+    QCOMPARE(doc->name(), QStringLiteral("old"));
+    QSignalSpy pathSpy(doc, &Corbomite::NoteDocument::pathChanged);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("old.md"));
+    QVERIFY(tf);
+    QVERIFY(vault.rename(tf, QStringLiteral("new.md")));
+
+    QCOMPARE(pathSpy.count(), 1);
+    QCOMPARE(pathSpy.at(0).at(0).toString(), QStringLiteral("old.md"));
+    QCOMPARE(doc->relativePath(), QStringLiteral("new.md"));
+    QCOMPARE(doc->name(), QStringLiteral("new"));
+}
+
+void TestVaultRenameRemove::renameRekeysNoteDocumentCache()
+{
+    // After rename, cachedDocument(newPath) must resolve to the same
+    // NoteDocument and cachedDocument(oldPath) must resolve to nullptr —
+    // otherwise reopening the file in the same vault session creates a
+    // duplicate doc with a stale path.
+    QTemporaryDir dir;
+    QFile f(dir.path() + "/foo.md");
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("x");
+    f.close();
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *doc = vault.openDocument(QStringLiteral("foo.md"));
+    QVERIFY(doc);
+    auto *tf = vault.getFileByPath(QStringLiteral("foo.md"));
+    QVERIFY(vault.rename(tf, QStringLiteral("bar.md")));
+
+    QCOMPARE(vault.cachedDocument(QStringLiteral("bar.md")), doc);
+    QCOMPARE(vault.cachedDocument(QStringLiteral("foo.md")),
+             static_cast<Corbomite::NoteDocument *>(nullptr));
+}
+
+void TestVaultRenameRemove::renameFolderNotifiesDescendantNoteDocuments()
+{
+    // Folder rename must propagate setRelativePath to every cached
+    // NoteDocument under the renamed prefix; otherwise descendants keep a
+    // stale relativePath and views holding them show the wrong name.
+    QTemporaryDir dir;
+    QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("alpha")));
+    {
+        QFile f(dir.path() + "/alpha/note.md");
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("x");
+    }
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *doc = vault.openDocument(QStringLiteral("alpha/note.md"));
+    QVERIFY(doc);
+    QSignalSpy spy(doc, &Corbomite::NoteDocument::pathChanged);
+
+    auto *folder = vault.getFolderByPath(QStringLiteral("alpha"));
+    QVERIFY(folder);
+    QVERIFY(vault.rename(folder, QStringLiteral("beta")));
+
+    QCOMPARE(spy.count(), 1);
+    QCOMPARE(doc->relativePath(), QStringLiteral("beta/note.md"));
+    QCOMPARE(vault.cachedDocument(QStringLiteral("beta/note.md")), doc);
 }
 
 QTEST_MAIN(TestVaultRenameRemove)

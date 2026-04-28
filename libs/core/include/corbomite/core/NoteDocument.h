@@ -23,6 +23,12 @@ public:
     QString relativePath() const;
     QString name() const;
 
+    /// Update the document's vault-relative path. Used by `Vault::rename`
+    /// to keep an open NoteDocument in sync with on-disk renames so views
+    /// holding the document can refresh their title/tab caption. Emits
+    /// `pathChanged(oldRelativePath)` when the path actually changes.
+    void setRelativePath(const QString &relativePath);
+
     QString markdown() const;
     void    setMarkdown(const QString &text);
 
@@ -44,6 +50,13 @@ Q_SIGNALS:
     /// Emitted when Vault::saveDocument aborts the write (e.g. canonical
     /// buffer contains invalid bytes). The file on disk is unchanged.
     void saveFailed();
+
+    /// Emitted after `setRelativePath` mutates the cached path. Carries
+    /// the previous relative path so listeners (typically FileView
+    /// subclasses) can refresh title/header chrome and any per-path UI
+    /// state. Mirrors Obsidian's `vault.on("rename")` propagation that
+    /// FileView.onload subscribes to.
+    void pathChanged(const QString &oldRelativePath);
 
 private:
     struct Private;

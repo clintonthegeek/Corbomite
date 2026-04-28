@@ -53,6 +53,15 @@ QString NoteDocument::relativePath() const
     return d->relativePath;
 }
 
+void NoteDocument::setRelativePath(const QString &relativePath)
+{
+    if (d->relativePath == relativePath)
+        return;
+    const QString oldPath = d->relativePath;
+    d->relativePath = relativePath;
+    Q_EMIT pathChanged(oldPath);
+}
+
 QString NoteDocument::name() const
 {
     // Strip leading path, strip .md suffix. Preserve existing semantics.

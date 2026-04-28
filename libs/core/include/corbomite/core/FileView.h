@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QMetaObject>
+
 #include "corbomite/core/ItemView.h"
 
 namespace Corbomite {
@@ -33,6 +35,12 @@ protected:
     NoteDocument *m_file = nullptr;
     bool m_navigation = true;
     bool m_allowNoFile = false;
+
+private:
+    // Subscription to NoteDocument::pathChanged for the currently loaded
+    // file. Bound in loadFile, severed before unload so a stale pointer
+    // can't fire across documents.
+    QMetaObject::Connection m_pathChangedConn;
 };
 
 } // namespace Corbomite

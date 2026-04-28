@@ -19,6 +19,9 @@ NoteDocument *FileView::file() const { return m_file; }
 bool FileView::loadFile(NoteDocument *file)
 {
     if (m_file) {
+        if (m_pathChangedConn)
+            disconnect(m_pathChangedConn);
+        m_pathChangedConn = {};
         onUnloadFile(m_file);
         m_file = nullptr;
     }
@@ -32,6 +35,16 @@ bool FileView::loadFile(NoteDocument *file)
         m_file = nullptr;
         return false;
     }
+    // Mirror Obsidian's `FileView.onload` subscription to `vault.on('rename')`.
+    // When the open file is renamed (programmatic or external), the cached
+    // NoteDocument's relativePath shifts and `pathChanged` fires; re-emit
+    // `displayTextChanged` so the leaf's tab caption refreshes from the new
+    // `name()`. Audit: views.md §"Top suspected bugs" — title not refreshed
+    // on external rename.
+    m_pathChangedConn = connect(file, &NoteDocument::pathChanged,
+                                  this, [this](const QString &) {
+        Q_EMIT displayTextChanged();
+    });
     Q_EMIT displayTextChanged();
     return true;
 }

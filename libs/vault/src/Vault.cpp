@@ -392,6 +392,16 @@ bool Vault::rename(TAbstractFile *f, const QString &newPath)
         m_readCache.insert(newRel, m_readCache.take(oldRel));
     }
 
+    // Open NoteDocument for the renamed file: rekey the cache and notify
+    // the document so views holding it (FileView subclasses) can refresh
+    // their title/header. Mirrors Obsidian's vault.on('rename') →
+    // FileView.onload propagation. Folder renames are handled per-
+    // descendant in the loop below.
+    if (auto *doc = m_docs.take(oldRel)) {
+        m_docs.insert(newRel, doc);
+        doc->setRelativePath(newRel);
+    }
+
     TAbstractFile *raw = node.get();
     m_fileMap.emplace(newRel, std::move(node));
     Q_EMIT renamed(raw, oldRel);
@@ -418,6 +428,10 @@ bool Vault::rename(TAbstractFile *f, const QString &newPath)
             dnode->setPath(newDesc);
             if (m_readCache.contains(oldDesc)) {
                 m_readCache.insert(newDesc, m_readCache.take(oldDesc));
+            }
+            if (auto *descDoc = m_docs.take(oldDesc)) {
+                m_docs.insert(newDesc, descDoc);
+                descDoc->setRelativePath(newDesc);
             }
             TAbstractFile *draw = dnode.get();
             m_fileMap.emplace(newDesc, std::move(dnode));
@@ -878,7 +892,12 @@ void Vault::onExternalRenamed(const QString &oldRel, const QString &newRel)
     auto node = std::move(it->second);
     m_fileMap.erase(it);
     m_readCache.remove(oldR);
-    if (auto *doc = m_docs.take(oldR)) m_docs.insert(newR, doc);
+    if (auto *doc = m_docs.take(oldR)) {
+        m_docs.insert(newR, doc);
+        // Notify views holding the doc that its path moved (used by
+        // FileView subclasses to refresh their title chrome).
+        doc->setRelativePath(newR);
+    }
     node->setPath(newR);
     TAbstractFile *raw = node.get();
     m_fileMap.emplace(newR, std::move(node));

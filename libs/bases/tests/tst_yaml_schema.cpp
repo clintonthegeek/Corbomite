@@ -209,6 +209,69 @@ private Q_SLOTS:
                  "name must precede order/limit");
     }
 
+    void testPropertyOrderPreservedNotAlphabetised()
+    {
+        // Audit: bases.md §"On-disk `.base` format compatibility" — user-
+        // keyed dicts (properties/formulas/summaries) used to alphabetise
+        // on round-trip because their backing QHash spilled into a
+        // QVariantMap (alphabetical). Insertion order is now tracked so
+        // round-trip preserves the author's source ordering.
+        const QString src = QStringLiteral(
+            "properties:\n"
+            "  note.zeta:\n"
+            "    displayName: Z\n"
+            "  note.alpha:\n"
+            "    displayName: A\n"
+            "  note.mike:\n"
+            "    displayName: M\n");
+        auto q = BasesQuery::fromString(src);
+        const QString out = q->toString();
+
+        const int zetaPos  = out.indexOf(QStringLiteral("note.zeta:"));
+        const int alphaPos = out.indexOf(QStringLiteral("note.alpha:"));
+        const int mikePos  = out.indexOf(QStringLiteral("note.mike:"));
+
+        QVERIFY(zetaPos >= 0 && alphaPos >= 0 && mikePos >= 0);
+        QVERIFY2(zetaPos < alphaPos,
+                 "zeta must precede alpha (insertion order, not alphabetical)");
+        QVERIFY2(alphaPos < mikePos,
+                 "alpha must precede mike (insertion order, not alphabetical)");
+    }
+
+    void testFormulaOrderPreservedNotAlphabetised()
+    {
+        const QString src = QStringLiteral(
+            "formulas:\n"
+            "  zoo: \"1\"\n"
+            "  apple: \"2\"\n"
+            "  middle: \"3\"\n");
+        auto q = BasesQuery::fromString(src);
+        const QString out = q->toString();
+
+        const int zooPos    = out.indexOf(QStringLiteral("zoo:"));
+        const int applePos  = out.indexOf(QStringLiteral("apple:"));
+        const int middlePos = out.indexOf(QStringLiteral("middle:"));
+
+        QVERIFY(zooPos >= 0 && applePos >= 0 && middlePos >= 0);
+        QVERIFY2(zooPos < applePos, "zoo must precede apple");
+        QVERIFY2(applePos < middlePos, "apple must precede middle");
+    }
+
+    void testSummaryOrderPreservedNotAlphabetised()
+    {
+        const QString src = QStringLiteral(
+            "summaries:\n"
+            "  zsum: \"1\"\n"
+            "  asum: \"2\"\n");
+        auto q = BasesQuery::fromString(src);
+        const QString out = q->toString();
+
+        const int zPos = out.indexOf(QStringLiteral("zsum:"));
+        const int aPos = out.indexOf(QStringLiteral("asum:"));
+        QVERIFY(zPos >= 0 && aPos >= 0);
+        QVERIFY2(zPos < aPos, "zsum must precede asum");
+    }
+
     void testSortRoundTrip()
     {
         const QString src = QStringLiteral(

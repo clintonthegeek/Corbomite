@@ -8,6 +8,7 @@
 // Tests are written from spec claims only.
 
 #include <QTest>
+#include <QSignalSpy>
 #include <QWidget>
 #include <QJsonObject>
 #include "corbomite/core/FileView.h"
@@ -274,6 +275,44 @@ private Q_SLOTS:
     // 13. setState round-trip: getState() after setState() returns the
     //     same relative path that was set.
     // ------------------------------------------------------------------
+    void renameReEmitsDisplayTextChanged()
+    {
+        // Audit: views.md §"Top suspected bugs" — title not refreshed on
+        // external rename of open file. FileView must subscribe to the
+        // loaded NoteDocument's pathChanged and re-emit displayTextChanged
+        // so the leaf's tab caption refreshes from the new name().
+        NoteDocument doc(QStringLiteral("/vault"),
+                         QStringLiteral("notes/old.md"));
+        StubFileView view(nullptr);
+        view.loadFile(&doc);
+
+        QSignalSpy spy(&view, &FileView::displayTextChanged);
+        doc.setRelativePath(QStringLiteral("notes/new.md"));
+
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(view.getDisplayText(), QStringLiteral("new"));
+    }
+
+    void renameDoesNotFireForUnloadedFile()
+    {
+        // After loadFile(other), the path-changed subscription on the
+        // previous doc must be severed.
+        NoteDocument first(QStringLiteral("/vault"),
+                           QStringLiteral("a.md"));
+        NoteDocument second(QStringLiteral("/vault"),
+                            QStringLiteral("b.md"));
+        StubFileView view(nullptr);
+        view.loadFile(&first);
+        view.loadFile(&second);
+
+        QSignalSpy spy(&view, &FileView::displayTextChanged);
+        first.setRelativePath(QStringLiteral("renamed-a.md"));
+        QCOMPARE(spy.count(), 0);
+
+        second.setRelativePath(QStringLiteral("renamed-b.md"));
+        QCOMPARE(spy.count(), 1);
+    }
+
     void setStateRoundTrip()
     {
         ViewRegistry registry;
