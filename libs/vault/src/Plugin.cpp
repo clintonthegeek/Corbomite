@@ -9,6 +9,7 @@
 #include "corbomite/core/proxies/PostProcessorRegistrar.h"
 #include "corbomite/core/proxies/RibbonRegistrar.h"
 #include "corbomite/core/proxies/StatusBarRegistrar.h"
+#include "corbomite/core/proxies/LucideIconRegistrar.h"
 #include "corbomite/vault/PluginContext.h"
 
 #include <QJsonObject>
@@ -164,6 +165,19 @@ bool Plugin::removeStatusBarItem(const QString &localId)
     if (!m_context) return false;
     auto *r = m_context->statusBar();
     return r ? r->removeItem(localId) : false;
+}
+
+QString Plugin::addIcon(const QString &localName, const QByteArray &svg)
+{
+    if (!m_context) return {};
+    auto *r = m_context->icons();
+    return r ? r->addIcon(localName, svg) : QString{};
+}
+
+void Plugin::removeIcon(const QString &localName)
+{
+    if (!m_context) return;
+    if (auto *r = m_context->icons()) r->removeIcon(localName);
 }
 
 } // namespace Corbomite

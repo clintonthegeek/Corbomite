@@ -9,6 +9,7 @@
 #include "corbomite/core/PostProcessorRegistry.h"
 #include "corbomite/core/RibbonHandle.h"
 #include "corbomite/core/StatusBarRegistry.h"
+#include "corbomite/core/LucideIconRegistry.h"
 #include "corbomite/core/proxies/CodeBlockRegistrar.h"
 #include "corbomite/core/proxies/EditorSuggestRegistrar.h"
 #include "corbomite/core/proxies/EmbedRegistrar.h"
@@ -16,6 +17,7 @@
 #include "corbomite/core/proxies/PostProcessorRegistrar.h"
 #include "corbomite/core/proxies/RibbonRegistrar.h"
 #include "corbomite/core/proxies/StatusBarRegistrar.h"
+#include "corbomite/core/proxies/LucideIconRegistrar.h"
 
 #include <markoff/CodeBlockProcessorRegistry.h>
 #include <markoff/EmbedRegistry.h>
@@ -97,7 +99,19 @@ private slots:
     void statusBarPrefixesIdAndAdds();
     void statusBarDestructorRemovesAll();
     void statusBarHandlesNullRegistry();
+
+    // LucideIconRegistry / LucideIconRegistrar
+    void lucideAddIconStoresUnderName();
+    void lucideRegistrarPrefixesAndCleansOnDestroy();
+    void lucideRejectsInvalidSvg();
 };
+
+namespace {
+constexpr auto kSampleSvg =
+    R"(<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" )"
+    R"(viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">)"
+    R"(<circle cx="12" cy="12" r="10"/></svg>)";
+} // namespace
 
 // ---- HoverLinkSourceRegistrar ----
 
@@ -299,6 +313,43 @@ void TestProxyExtensions::statusBarHandlesNullRegistry()
     auto *label = new QLabel();
     QVERIFY(reg.addItem(QStringLiteral("x"), label).isEmpty());
     delete label; // we still own it because addItem refused
+}
+
+// ---- LucideIconRegistry / LucideIconRegistrar ----
+
+void TestProxyExtensions::lucideAddIconStoresUnderName()
+{
+    auto &r = LucideIconRegistry::instance();
+    r.clearForTesting();
+    r.addIcon(QStringLiteral("circle"), QByteArray(kSampleSvg));
+    QVERIFY(r.hasIcon(QStringLiteral("circle")));
+    QVERIFY(!r.get(QStringLiteral("circle")).isNull());
+    r.clearForTesting();
+}
+
+void TestProxyExtensions::lucideRegistrarPrefixesAndCleansOnDestroy()
+{
+    auto &r = LucideIconRegistry::instance();
+    r.clearForTesting();
+    {
+        LucideIconRegistrar reg(&r, QStringLiteral("plug-a"));
+        const QString name = reg.addIcon(QStringLiteral("circle"),
+                                            QByteArray(kSampleSvg));
+        QCOMPARE(name, QStringLiteral("plug-a:circle"));
+        QVERIFY(r.hasIcon(QStringLiteral("plug-a:circle")));
+    }
+    QVERIFY(!r.hasIcon(QStringLiteral("plug-a:circle")));
+    r.clearForTesting();
+}
+
+void TestProxyExtensions::lucideRejectsInvalidSvg()
+{
+    auto &r = LucideIconRegistry::instance();
+    r.clearForTesting();
+    LucideIconRegistrar reg(&r, QStringLiteral("plug-a"));
+    QVERIFY(reg.addIcon(QStringLiteral("bad"), QByteArray("not valid svg")).isEmpty());
+    QVERIFY(!r.hasIcon(QStringLiteral("plug-a:bad")));
+    r.clearForTesting();
 }
 
 QTEST_MAIN(TestProxyExtensions)

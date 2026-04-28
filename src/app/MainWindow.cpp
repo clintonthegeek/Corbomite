@@ -48,6 +48,7 @@
 #include "canvas/CanvasFileView.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/StatusBarRegistry.h"
+#include "corbomite/core/LucideIconRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/VaultResourceProvider.h"
@@ -851,7 +852,8 @@ void MainWindow::rewirePluginCoreServices()
                                        m_ribbonToolBar,
                                        m_embedRegistry.get(),
                                        m_pluginCodeBlocks.get(),
-                                       m_statusBarRegistry);
+                                       m_statusBarRegistry,
+                                       &Corbomite::LucideIconRegistry::instance());
         if (m_vaultObj && m_vaultObj->isLoaded()) {
             const QString dir = m_vaultObj->basePath()
                               + QLatin1Char('/') + m_vaultObj->configDir()
@@ -873,7 +875,8 @@ void MainWindow::rewirePluginCoreServices()
                 m_suggestManager, m_pluginPostProcessors.get(),
                 m_ribbonToolBar, m_embedRegistry.get(),
                 m_pluginCodeBlocks.get(),
-                m_statusBarRegistry);
+                m_statusBarRegistry,
+                &Corbomite::LucideIconRegistry::instance());
             if (m_vaultObj && m_vaultObj->isLoaded()) {
                 const QString dir = m_vaultObj->basePath()
                                   + QLatin1Char('/') + m_vaultObj->configDir()

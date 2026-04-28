@@ -127,6 +127,10 @@ add_library(corbomite-core STATIC
     include/corbomite/core/StatusBarRegistry.h
     src/proxies/StatusBarRegistrar.cpp
     include/corbomite/core/proxies/StatusBarRegistrar.h
+    src/LucideIconRegistry.cpp
+    include/corbomite/core/LucideIconRegistry.h
+    src/proxies/LucideIconRegistrar.cpp
+    include/corbomite/core/proxies/LucideIconRegistrar.h
     include/corbomite/core/PluginPermissions.h
     src/SystemThemeBuilder.cpp
     include/corbomite/core/SystemThemeBuilder.h

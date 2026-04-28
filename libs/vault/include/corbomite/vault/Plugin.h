@@ -131,6 +131,11 @@ public:
     QString addStatusBarItem(const QString &localId, QWidget *widget);
     bool removeStatusBarItem(const QString &localId);
 
+    /// `ui.icons` — register a Lucide-style icon by name. Returns the
+    /// namespaced full name on success, empty string on failure.
+    QString addIcon(const QString &localName, const QByteArray &svg);
+    void removeIcon(const QString &localName);
+
 protected:
     /// Override point — called inside load(ctx) before Component::load().
     virtual void onLoad(PluginContext *ctx) { Q_UNUSED(ctx); }
