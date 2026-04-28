@@ -4,11 +4,14 @@
 #include "PluginsPage.h"
 #include "corbomite/core/ThemeService.h"
 #include "corbomitesettings.h"
+#include <KActionCollection>
 #include <KLocalizedString>
 #include <KMessageBox>
+#include <KShortcutsEditor>
 #include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QLabel>
 #include <QPushButton>
 #include <QCheckBox>
 #include <QComboBox>
@@ -22,8 +25,12 @@ namespace Corbomite {
 
 SettingsDialog::SettingsDialog(PluginManager *plugins,
                                Core::ThemeService *themeService,
+                               KActionCollection *actions,
                                QWidget *parent)
-    : KPageDialog(parent), m_plugins(plugins), m_themeService(themeService)
+    : KPageDialog(parent),
+      m_plugins(plugins),
+      m_themeService(themeService),
+      m_actions(actions)
 {
     setWindowTitle(i18n("Settings"));
     setFaceType(KPageDialog::List);
@@ -33,6 +40,7 @@ SettingsDialog::SettingsDialog(PluginManager *plugins,
     setupFilesPage();
     setupAppearancePage();
     setupDailyNotesPage();
+    setupHotkeysPage();
     setupPluginsPage();
 
     connect(this, &QDialog::accepted, this, &SettingsDialog::applySettings);
@@ -212,6 +220,42 @@ void SettingsDialog::setupPluginsPage()
     auto *page = new PluginsPage(m_plugins);
     auto *item = addPage(page, i18n("Plugins"));
     item->setIcon(QIcon::fromTheme(QStringLiteral("preferences-plugin")));
+}
+
+void SettingsDialog::setupHotkeysPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    if (m_actions) {
+        // KShortcutsEditor embeds inline; the standalone KShortcutsDialog
+        // wraps the same widget but doesn't fit KPageDialog's
+        // single-instance navigation. Reset target stays on Default;
+        // changes commit on apply via the editor's own save/undo.
+        auto *editor = new KShortcutsEditor(
+            m_actions,
+            page,
+            KShortcutsEditor::AllActions,
+            KShortcutsEditor::LetterShortcutsAllowed);
+        layout->addWidget(editor);
+        // KShortcutsEditor edits in-memory; commit on dialog accept,
+        // discard on cancel (the matching XMLGUI rc-file save happens at
+        // host level when actions persist).
+        connect(this, &QDialog::accepted, editor, &KShortcutsEditor::save);
+        connect(this, &QDialog::rejected, editor, &KShortcutsEditor::undo);
+    } else {
+        auto *empty = new QLabel(
+            i18n("No action collection available — open a vault to "
+                 "configure shortcuts."),
+            page);
+        empty->setWordWrap(true);
+        layout->addWidget(empty);
+        layout->addStretch();
+    }
+
+    auto *item = addPage(page, i18n("Hotkeys"));
+    item->setIcon(QIcon::fromTheme(QStringLiteral("configure-shortcuts")));
 }
 
 void SettingsDialog::applySettings()

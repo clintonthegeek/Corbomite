@@ -3,6 +3,8 @@
 
 #include <KPageDialog>
 
+class KActionCollection;
+
 namespace Corbomite {
 
 class PluginManager;
@@ -17,6 +19,7 @@ class SettingsDialog : public KPageDialog {
 public:
     explicit SettingsDialog(PluginManager *plugins = nullptr,
                             Core::ThemeService *themeService = nullptr,
+                            KActionCollection *actions = nullptr,
                             QWidget *parent = nullptr);
 
 private:
@@ -25,10 +28,12 @@ private:
     void setupAppearancePage();
     void setupDailyNotesPage();
     void setupPluginsPage();
+    void setupHotkeysPage();
     void applySettings();
 
     PluginManager *m_plugins;
     Core::ThemeService *m_themeService;
+    KActionCollection *m_actions;
 };
 
 } // namespace Corbomite
