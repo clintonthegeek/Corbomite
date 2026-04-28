@@ -258,9 +258,17 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
         // the unloading plugin, before its ViewRegistrar destructor
         // unregisters the factories. Mirrors Obsidian's
         // detachLeavesOfType invocation in plugin teardown.
+        // Skipped during shutdown: MainWindow's destructor deletes
+        // m_vaultObj before disabling plugins, so by the time this
+        // lambda fires from inside ~MainWindow the leaves' FileViews
+        // hold dangling NoteDocument pointers that would crash on
+        // getViewState. The active-vault gate keeps the runtime path
+        // (user disables a plugin via Settings while a vault is open)
+        // working; teardown doesn't need detach because every leaf
+        // is about to die anyway.
         connect(pm, &Corbomite::PluginManager::pluginUnloading,
                 this, [this, pm](const QString &id) {
-            if (!m_workspace) return;
+            if (!m_workspace || !m_vaultObj) return;
             const auto *info = pm->pluginById(id);
             if (!info || !info->context) return;
             auto *views = info->context->views();
