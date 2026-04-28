@@ -103,7 +103,7 @@
 - [x] [plugin][core] Move permission tokens from `PluginContext.cpp:21-32` to `corbomite/core/PluginPermissions.h` with `inline constexpr auto` constants — Cluster B Phase 0.
 - [ ] [plugin] Document the `apiLevel: 1` ABI before first third-party plugin release — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
 - [ ] [plugin] Document the `X-Corbomite-DockArea`/`DockIcon`/`DockTitle` extension to manifest format — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
-- [ ] [core] MomentFormatter missing tokens (`Y`, `Q`, `gg`/`gggg`, `e`/`E`, `k`/`kk`, `Z`/`ZZ`, locale shortcuts) — vault templates render literal characters — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top gaps"
+- [x] [core] MomentFormatter missing tokens — added `Y` (year, no padding), `Q` (quarter 1-4), `gg`/`gggg` (locale week year, mapped onto Qt's ISO `weekNumber` out-param), `E` (ISO day-of-week 1-7), `e` (locale day-of-week 0-6 via `(qDow - locale.firstDayOfWeek + 7) % 7`), `k`/`kk` (hour 1-24 with midnight → 24), `Z`/`ZZ` (timezone offset `+HH:MM` / `+HHMM` from `QDateTime::offsetFromUtc`), and the moment-en locale shortcuts `LT/LTS/L/l/LL/ll/LLL/lll/LLLL/llll` (each routed through a recursive `format()` call against the literal moment-en sub-format). Tests: 9 new cases in `tst_momentformatter` (`testYearWithSign`/`testQuarter`/`testWeekYearGgGggg`/`testIsoDayOfWeekE`/`testLocaleDayOfWeekE`/`testHourKkk`/`testTimezoneOffsetZ`/`testLocaleShortcuts`/`testEscapedNewTokensStayLiteral`). Adjusted two pre-existing tests whose "literal pass-through" / "unknown token" probes used letters that are now recognized tokens. — `libs/core/src/MomentFormatter.cpp:115-340`
 
 ---
 

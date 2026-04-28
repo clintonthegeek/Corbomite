@@ -6,6 +6,8 @@
 #include <QtCore/QStringList>
 #include <QtCore/QTime>
 
+#include <cstdlib>
+
 namespace Corbomite {
 
 namespace {
@@ -129,6 +131,14 @@ bool dispatchToken(const QString &src,
         return true;
     };
 
+    // Helper: format a Moment-en sub-template (used by the locale shortcuts).
+    // We use the literal moment-js en defaults rather than QLocale's
+    // dateFormat()/timeFormat(), since vault templates are authored against
+    // moment's published shorthand semantics.
+    auto emitLocaleSubFormat = [&](const QString &fmt) {
+        out.append(MomentFormatter::format(dt, fmt, locale));
+    };
+
     // Longest-match-first. 4-char tokens.
     if (matches("YYYY")) {
         out.append(locale.toString(dt, QStringLiteral("yyyy")));
@@ -147,6 +157,23 @@ bool dispatchToken(const QString &src,
         out.append(locale.toString(dt, QStringLiteral("dddd")));
         consumed = 4; return true;
     }
+    if (matches("gggg")) {
+        // Locale week year, 4-digit. Qt's weekNumber sets the
+        // out-param to the year that owns the ISO week — adequate for
+        // en/ISO-aligned locales (the audit-noted use case).
+        int weekYear = 0;
+        dt.date().weekNumber(&weekYear);
+        out.append(QString::number(weekYear).rightJustified(4, QLatin1Char('0')));
+        consumed = 4; return true;
+    }
+    if (matches("LLLL")) {
+        emitLocaleSubFormat(QStringLiteral("dddd, MMMM D, YYYY h:mm A"));
+        consumed = 4; return true;
+    }
+    if (matches("llll")) {
+        emitLocaleSubFormat(QStringLiteral("ddd, MMM D, YYYY h:mm A"));
+        consumed = 4; return true;
+    }
     // 3-char tokens.
     if (matches("MMM")) {
         out.append(locale.toString(dt, QStringLiteral("MMM")));
@@ -162,6 +189,18 @@ bool dispatchToken(const QString &src,
     }
     if (matches("SSS")) {
         out.append(locale.toString(dt, QStringLiteral("zzz")));
+        consumed = 3; return true;
+    }
+    if (matches("LLL")) {
+        emitLocaleSubFormat(QStringLiteral("MMMM D, YYYY h:mm A"));
+        consumed = 3; return true;
+    }
+    if (matches("lll")) {
+        emitLocaleSubFormat(QStringLiteral("MMM D, YYYY h:mm A"));
+        consumed = 3; return true;
+    }
+    if (matches("LTS")) {
+        emitLocaleSubFormat(QStringLiteral("h:mm:ss A"));
         consumed = 3; return true;
     }
 
@@ -221,8 +260,45 @@ bool dispatchToken(const QString &src,
         out.append(QString::number(dt.time().msec() / 10).rightJustified(2, QLatin1Char('0')));
         consumed = 2; return true;
     }
+    if (matches("kk")) {
+        // Hour 1-24 padded; midnight is 24, not 00.
+        int h = dt.time().hour();
+        if (h == 0) h = 24;
+        out.append(QString::number(h).rightJustified(2, QLatin1Char('0')));
+        consumed = 2; return true;
+    }
+    if (matches("gg")) {
+        int weekYear = 0;
+        dt.date().weekNumber(&weekYear);
+        out.append(QString::number(weekYear % 100).rightJustified(2, QLatin1Char('0')));
+        consumed = 2; return true;
+    }
+    if (matches("ZZ")) {
+        // Timezone offset compact: +0700 / -0530.
+        const int seconds = dt.offsetFromUtc();
+        const QChar sign = seconds < 0 ? QLatin1Char('-') : QLatin1Char('+');
+        const int absSec = std::abs(seconds);
+        const int hh = absSec / 3600;
+        const int mm = (absSec % 3600) / 60;
+        out.append(sign);
+        out.append(QString::number(hh).rightJustified(2, QLatin1Char('0')));
+        out.append(QString::number(mm).rightJustified(2, QLatin1Char('0')));
+        consumed = 2; return true;
+    }
+    if (matches("LL")) {
+        emitLocaleSubFormat(QStringLiteral("MMMM D, YYYY"));
+        consumed = 2; return true;
+    }
+    if (matches("ll")) {
+        emitLocaleSubFormat(QStringLiteral("MMM D, YYYY"));
+        consumed = 2; return true;
+    }
+    if (matches("LT")) {
+        emitLocaleSubFormat(QStringLiteral("h:mm A"));
+        consumed = 2; return true;
+    }
 
-    // 1-char tokens. We don't have `Y` (Moment: year with sign) — skip.
+    // 1-char tokens.
     if (matches("M")) {
         out.append(locale.toString(dt, QStringLiteral("M")));
         consumed = 1; return true;
@@ -280,6 +356,59 @@ bool dispatchToken(const QString &src,
     }
     if (matches("x")) {
         out.append(QString::number(dt.toMSecsSinceEpoch()));
+        consumed = 1; return true;
+    }
+    if (matches("Y")) {
+        // Moment: "Year (with year sign)". For years <= 9999 this is just
+        // the unpadded year; we don't emit a `+` for in-range positives.
+        out.append(QString::number(dt.date().year()));
+        consumed = 1; return true;
+    }
+    if (matches("Q")) {
+        // Quarter 1-4. Months 1-3 → Q1, 4-6 → Q2, etc.
+        out.append(QString::number((dt.date().month() - 1) / 3 + 1));
+        consumed = 1; return true;
+    }
+    if (matches("E")) {
+        // Day of week ISO: Mon=1, Sun=7. Qt's QDate::dayOfWeek matches.
+        out.append(QString::number(dt.date().dayOfWeek()));
+        consumed = 1; return true;
+    }
+    if (matches("e")) {
+        // Day of week locale-aware, 0-based with locale's first-day-of-week
+        // as 0. Qt: locale.firstDayOfWeek returns Qt::Monday=1..Sunday=7;
+        // QDate::dayOfWeek is also 1..7. Compute (qDow - first + 7) % 7.
+        const int qDow = dt.date().dayOfWeek();
+        const int first = static_cast<int>(locale.firstDayOfWeek());
+        out.append(QString::number((qDow - first + 7) % 7));
+        consumed = 1; return true;
+    }
+    if (matches("k")) {
+        // Hour 1-24 unpadded; midnight is 24.
+        int h = dt.time().hour();
+        if (h == 0) h = 24;
+        out.append(QString::number(h));
+        consumed = 1; return true;
+    }
+    if (matches("Z")) {
+        // Timezone offset with colon: +07:00 / -05:30.
+        const int seconds = dt.offsetFromUtc();
+        const QChar sign = seconds < 0 ? QLatin1Char('-') : QLatin1Char('+');
+        const int absSec = std::abs(seconds);
+        const int hh = absSec / 3600;
+        const int mm = (absSec % 3600) / 60;
+        out.append(sign);
+        out.append(QString::number(hh).rightJustified(2, QLatin1Char('0')));
+        out.append(QLatin1Char(':'));
+        out.append(QString::number(mm).rightJustified(2, QLatin1Char('0')));
+        consumed = 1; return true;
+    }
+    if (matches("L")) {
+        emitLocaleSubFormat(QStringLiteral("MM/DD/YYYY"));
+        consumed = 1; return true;
+    }
+    if (matches("l")) {
+        emitLocaleSubFormat(QStringLiteral("M/D/YYYY"));
         consumed = 1; return true;
     }
 

@@ -34,12 +34,14 @@ private Q_SLOTS:
     {
         Corbomite::MomentFormatPreview w;
         w.setSampleDate(QDateTime(QDate(2026, 4, 15), QTime(14, 30)));
-        w.setFormatString(QStringLiteral("ZZ"));
+        // `???` has no Moment-token characters at all (post-Y/Q/Z/L/etc.
+        // additions, ZZ is now a recognized timezone-offset token).
+        w.setFormatString(QStringLiteral("???"));
 
         auto *label = w.findChild<QLabel *>();
         QVERIFY(label != nullptr);
         // Unknown tokens pass through verbatim per MomentFormatter spec.
-        QCOMPARE(label->text(), QStringLiteral("ZZ"));
+        QCOMPARE(label->text(), QStringLiteral("???"));
     }
 
     void testPreviewWithSampleDateOverride()
