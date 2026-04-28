@@ -1139,6 +1139,28 @@ void MainWindow::propagateServicesToView(View *view)
 
     if (auto *bv = qobject_cast<Corbomite::Bases::BasesView *>(view)) {
         bv->setServices(m_vaultObj, m_metadataCache, m_fileManager);
+        // Bases Phase 2 — `this` in formulas should track the active leaf's
+        // file. Subscribe to Workspace::activeLeafChanged and re-resolve
+        // through the live Vault on each transition; also seed once with
+        // whatever leaf is currently active.
+        if (m_workspace && m_vaultObj) {
+            auto refresh = [this, bv](WorkspaceLeaf *leaf) {
+                if (!leaf || !m_vaultObj) {
+                    bv->setCurrentFile(nullptr);
+                    return;
+                }
+                const QJsonObject vs = leaf->getViewState();
+                const QString path = vs.value(QStringLiteral("state"))
+                                          .toObject()
+                                          .value(QStringLiteral("file"))
+                                          .toString();
+                bv->setCurrentFile(path.isEmpty()
+                                       ? nullptr
+                                       : m_vaultObj->getFileByPath(path));
+            };
+            connect(m_workspace, &Workspace::activeLeafChanged, bv, refresh);
+            refresh(m_workspace->activeLeaf());
+        }
         return;
     }
 

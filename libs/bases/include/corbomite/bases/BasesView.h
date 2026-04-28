@@ -15,6 +15,7 @@ class QTableView;
 namespace Corbomite {
 class FileManager;
 class MetadataCache;
+class TFile;
 class Vault;
 class WorkspaceLeaf;
 }  // namespace Corbomite
@@ -54,6 +55,13 @@ public:
     BasesQuery *query() const { return m_query.get(); }
     BasesViewConfig *activeView() const { return m_activeView; }
     void setActiveView(const QString &name);
+
+    /// Set the file `this` refers to inside `.base` formula expressions —
+    /// host wires this to `Workspace::activeLeafChanged` so the table
+    /// re-runs when the user switches notes. Re-uses BasesView's existing
+    /// QueryController; no debouncing on this side (controller already
+    /// debounces).
+    void setCurrentFile(Corbomite::TFile *file);
 
 private Q_SLOTS:
     void onHeaderClicked(int column);

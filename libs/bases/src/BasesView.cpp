@@ -119,6 +119,11 @@ void BasesView::setActiveView(const QString &name)
     if (m_controller) m_controller->setViewConfig(m_activeView);
 }
 
+void BasesView::setCurrentFile(Corbomite::TFile *file)
+{
+    if (m_controller) m_controller->setCurrentFile(file);
+}
+
 void BasesView::populateViewSelector()
 {
     QSignalBlocker _(m_viewSelector);

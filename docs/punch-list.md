@@ -94,7 +94,7 @@
 - [ ] [plugin][rendering] Page Preview plugin — registry is built; tiny plugin-shaped popover orchestrator closes the loop — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
 - [ ] [rendering] PDF view + `![[file.pdf]]` embed — biggest single rendering-domain capability gap — see [rendering.md](audit-2026-04-26/rendering.md) §"Top gaps"
 - [ ] [rendering][editor-markdown] Paste-from-HTML → Markdown (`htmlToMarkdown` analogue / Turndown port) — see [rendering.md](audit-2026-04-26/rendering.md) §"Top gaps"
-- [ ] [bases][workspace] Bases Phase 2 — wire `QueryController::setCurrentFile` to workspace `file-open` so `this` actually works (UI surfaces are Cluster D) — `libs/bases/src/QueryController.cpp:51-55` — see [bases.md](audit-2026-04-26/bases.md) §"Notable concerns / suspected bugs"
+- [x] [bases][workspace] Bases Phase 2 — `BasesView` got a public `setCurrentFile(TFile *)` that forwards to its `QueryController`. `MainWindow::propagateServicesToView` now connects each `BasesView` to `Workspace::activeLeafChanged`, resolves the new active leaf's file via `m_vaultObj->getFileByPath(state.file)`, and pushes it into the controller — also seeds once with the currently-active leaf at wire-up time. `this` formulas now re-evaluate when the user switches notes. — `libs/bases/{include/corbomite/bases/BasesView.h:60-66,src/BasesView.cpp:122-125}`, `src/app/MainWindow.cpp:1140-1163`
 - [ ] [settings][ui-bundle] Hotkeys page — invoke `KShortcutsDialog` from `SettingsDialog` (optional `hotkeys.json` ⇄ `KSharedConfig` bridge) — see [settings.md](audit-2026-04-26/settings.md) §"End-user settings UI parity"
 - [ ] [ui-bundle] About page — see [ui-bundle.md](audit-2026-04-26/ui-bundle.md) §"Top gaps"
 
