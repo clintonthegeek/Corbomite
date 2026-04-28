@@ -10,6 +10,8 @@
 
 #include <KToolBar>
 
+#include "corbomite/core/RibbonHandle.h"
+
 class QAction;
 
 namespace Corbomite {
@@ -26,7 +28,7 @@ namespace Corbomite {
 ///
 /// Not managed by KXMLGUI. Actions are added programmatically and do
 /// not appear in Settings → Configure Toolbars.
-class RibbonToolBar : public KToolBar {
+class RibbonToolBar : public KToolBar, public RibbonHandle {
     Q_OBJECT
 
 public:
@@ -40,9 +42,9 @@ public:
     Handle addRibbonIcon(const Handle &id,
                          const QIcon &icon,
                          const QString &title,
-                         std::function<void()> onActivated);
+                         std::function<void()> onActivated) override;
 
-    bool removeRibbonIcon(const Handle &id);
+    bool removeRibbonIcon(const Handle &id) override;
     int iconCount() const;
     bool hasIcon(const Handle &id) const;
 

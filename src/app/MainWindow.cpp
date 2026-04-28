@@ -35,6 +35,8 @@
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include <markoff/EmbedRegistry.h>
+#include <markoff/CodeBlockProcessorRegistry.h>
+#include "corbomite/core/PostProcessorRegistry.h"
 #include "corbomite/core/MermaidRenderer.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/View.h"
@@ -327,6 +329,10 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     m_tagSuggest = new TagSuggest(nullptr);
     m_suggestManager->registerSuggest(m_wikiSuggest);
     m_suggestManager->registerSuggest(m_tagSuggest);
+
+    // Cluster B Phase 1 — host-wide plugin extension registries.
+    m_pluginPostProcessors = std::make_unique<Corbomite::Core::PostProcessorRegistry>();
+    m_pluginCodeBlocks = std::make_unique<Markoff::CodeBlockProcessorRegistry>();
 
     updateVaultActions();
     resize(1200, 800);
@@ -839,6 +845,11 @@ void MainWindow::rewirePluginCoreServices()
                               m_searchIndex, m_workspace, m_commandRegistry,
                               m_viewRegistry, m_menuEvents,
                               nullptr /* QNetworkAccessManager */);
+        ctx->setExtensionRegistries(m_hoverSources, m_suggestManager,
+                                       m_pluginPostProcessors.get(),
+                                       m_ribbonToolBar,
+                                       m_embedRegistry.get(),
+                                       m_pluginCodeBlocks.get());
         if (m_vaultObj && m_vaultObj->isLoaded()) {
             const QString dir = m_vaultObj->basePath()
                               + QLatin1Char('/') + m_vaultObj->configDir()
@@ -856,6 +867,10 @@ void MainWindow::rewirePluginCoreServices()
             info.context->setCoreServices(m_vaultObj, m_fileManager,
                 m_metadataCache, m_searchIndex, m_workspace, m_commandRegistry,
                 m_viewRegistry, m_menuEvents, nullptr);
+            info.context->setExtensionRegistries(m_hoverSources,
+                m_suggestManager, m_pluginPostProcessors.get(),
+                m_ribbonToolBar, m_embedRegistry.get(),
+                m_pluginCodeBlocks.get());
             if (m_vaultObj && m_vaultObj->isLoaded()) {
                 const QString dir = m_vaultObj->basePath()
                                   + QLatin1Char('/') + m_vaultObj->configDir()

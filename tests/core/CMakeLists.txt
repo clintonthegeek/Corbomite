@@ -259,6 +259,11 @@ add_test(NAME tst_proxy_ui COMMAND tst_proxy_ui)
 target_link_libraries(tst_proxy_ui PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_proxy_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_proxy_extensions tst_proxy_extensions.cpp)
+add_test(NAME tst_proxy_extensions COMMAND tst_proxy_extensions)
+target_link_libraries(tst_proxy_extensions PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_proxy_extensions PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_proxy_secrets_process tst_proxy_secrets_process.cpp)
 add_test(NAME tst_proxy_secrets_process COMMAND tst_proxy_secrets_process)
 target_link_libraries(tst_proxy_secrets_process PRIVATE Qt6::Test Corbomite::Core)

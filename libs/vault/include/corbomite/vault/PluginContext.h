@@ -12,11 +12,21 @@
 
 class QNetworkAccessManager;
 
+namespace Markoff {
+class EmbedRegistry;
+class CodeBlockProcessorRegistry;
+} // namespace Markoff
+
 namespace Corbomite {
+
+namespace Core {
+class PostProcessorRegistry;
+} // namespace Core
 
 class PluginDataStore;
 
-// Forward decls — core service types (passed in via setCoreServices).
+// Forward decls — core service types (passed in via setCoreServices /
+// setExtensionRegistries).
 class Vault;
 class FileManager;
 class MetadataCache;
@@ -25,6 +35,9 @@ class Workspace;
 class CommandRegistry;
 class ViewRegistry;
 class MenuEventEmitter;
+class HoverLinkSourceRegistry;
+class EditorSuggestManager;
+class RibbonHandle;
 
 // Forward decls — proxy types (owned by PluginContext, lazy-constructed).
 class VaultProxy;
@@ -37,6 +50,12 @@ class ViewRegistrar;
 class MenuInjector;
 class SecretStorage;
 class ProcessSpawner;
+class HoverLinkSourceRegistrar;
+class EditorSuggestRegistrar;
+class PostProcessorRegistrar;
+class RibbonRegistrar;
+class EmbedRegistrar;
+class CodeBlockRegistrar;
 
 /// Handed to `Plugin::onLoad()`. Lifetime equals the plugin's load span.
 ///
@@ -66,6 +85,15 @@ public:
                          MenuEventEmitter *menus,
                          QNetworkAccessManager *network);
 
+    /// Install the Cluster B host-side extension registries. Optional —
+    /// any null pointer makes the corresponding accessor return nullptr.
+    void setExtensionRegistries(HoverLinkSourceRegistry *hoverLinkSources,
+                                  EditorSuggestManager *editorSuggests,
+                                  Corbomite::Core::PostProcessorRegistry *postProcessors,
+                                  RibbonHandle *ribbon,
+                                  Markoff::EmbedRegistry *embeds,
+                                  Markoff::CodeBlockProcessorRegistry *codeBlocks);
+
     // Metadata accessors
     const PluginMetaData &metaData() const { return m_meta; }
     const QSet<QString>  &grantedPermissions() const { return m_granted; }
@@ -84,6 +112,13 @@ public:
     QNetworkAccessManager *network() const;         // "network"
     SecretStorage         *secrets() const;         // "secrets"
     ProcessSpawner        *process() const;         // "process"
+
+    HoverLinkSourceRegistrar *hoverLinkSources() const; // "ui.rendering"
+    EditorSuggestRegistrar   *editorSuggests() const;   // "ui.editor"
+    PostProcessorRegistrar   *postProcessors() const;   // "ui.rendering"
+    RibbonRegistrar          *ribbon() const;           // "ui.commands"
+    EmbedRegistrar           *embeds() const;           // "ui.rendering"
+    CodeBlockRegistrar       *codeBlocks() const;       // "ui.rendering"
 
     /// Per-plugin KConfig group. Returns an empty group if "config" is ungranted.
     KConfigGroup config();
@@ -113,6 +148,12 @@ private:
     mutable MenuInjector        *m_menuInjector = nullptr;
     mutable SecretStorage       *m_secretStorage = nullptr;
     mutable ProcessSpawner      *m_processSpawner = nullptr;
+    mutable HoverLinkSourceRegistrar *m_hoverLinkRegistrar = nullptr;
+    mutable EditorSuggestRegistrar   *m_editorSuggestRegistrar = nullptr;
+    mutable PostProcessorRegistrar   *m_postProcessorRegistrar = nullptr;
+    mutable RibbonRegistrar          *m_ribbonRegistrar = nullptr;
+    mutable EmbedRegistrar           *m_embedRegistrar = nullptr;
+    mutable CodeBlockRegistrar       *m_codeBlockRegistrar = nullptr;
 
     // Plugin-data.json persistence
     QString                                  m_pluginDataDir;
@@ -128,6 +169,12 @@ private:
     ViewRegistry          *m_viewRegistry = nullptr;
     MenuEventEmitter      *m_menuEmitter = nullptr;
     QNetworkAccessManager *m_network = nullptr;
+    HoverLinkSourceRegistry *m_hoverLinkSourceRegistry = nullptr;
+    EditorSuggestManager    *m_editorSuggestManager = nullptr;
+    Corbomite::Core::PostProcessorRegistry *m_postProcessorRegistry = nullptr;
+    RibbonHandle            *m_ribbonHandle = nullptr;
+    Markoff::EmbedRegistry  *m_embedRegistry = nullptr;
+    Markoff::CodeBlockProcessorRegistry *m_codeBlockRegistry = nullptr;
 };
 
 } // namespace Corbomite

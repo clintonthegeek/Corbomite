@@ -2,17 +2,27 @@
 #pragma once
 
 #include "corbomite/core/Component.h"
+#include "corbomite/core/HoverLinkSource.h"
+#include "corbomite/core/PostProcessorRegistry.h"
+
+#include <markoff/EmbedRegistry.h>
+#include <markoff/CodeBlockProcessorRegistry.h>
+
+#include <functional>
 
 #include <QJsonObject>
 #include <QObject>
 
+class QIcon;
 class QWidget;
+class QString;
 namespace KTextEditor { class ConfigPage; }
 
 namespace Corbomite {
 
 class PluginContext;
 class MainWindow;
+class EditorSuggest;
 
 /// Abstract base for all Corbomite plugins (built-in and community).
 ///
@@ -74,6 +84,44 @@ public:
 
     /// KConfig page factory. Default returns nullptr.
     virtual KTextEditor::ConfigPage *configPage(int number, QWidget *parent);
+
+    // ---- Cluster B Phase 1 — plugin extension verbs --------------------
+    // Convenience wrappers over the per-registrar proxies on PluginContext.
+    // Each verb is gated on the corresponding permission token; calls
+    // before load() (or after unload()) silently return false / do nothing.
+
+    /// `ui.rendering` — register a hover-link source.
+    bool registerHoverLinkSource(HoverLinkSource &source);
+    void unregisterHoverLinkSource(const QString &localId);
+
+    /// `ui.editor` — register an editor-suggest dispatcher.
+    void registerEditorSuggest(EditorSuggest *suggester);
+    void unregisterEditorSuggest(EditorSuggest *suggester);
+
+    /// `ui.rendering` — register a markdown post-processor.
+    /// Returns the registration handle (id == 0 indicates failure).
+    Corbomite::Core::PostProcessorRegistry::Handle
+    registerMarkdownPostProcessor(int priority,
+                                    Corbomite::Core::PostProcessorFn fn);
+    void unregisterMarkdownPostProcessor(
+        Corbomite::Core::PostProcessorRegistry::Handle handle);
+
+    /// `ui.commands` — add a ribbon icon. Returns the namespaced full id
+    /// on success, empty string on failure.
+    QString addRibbonIcon(const QString &localId,
+                            const QIcon &icon,
+                            const QString &title,
+                            std::function<void()> onActivated);
+    bool removeRibbonIcon(const QString &localId);
+
+    /// `ui.rendering` — register an embed factory by file extension.
+    bool registerEmbed(const QString &ext, Markoff::EmbedFactory factory);
+    void unregisterEmbed(const QString &ext);
+
+    /// `ui.rendering` — register a code-block processor by language tag.
+    bool registerMarkdownCodeBlockProcessor(const QString &lang,
+                                              Markoff::CodeBlockProcessor proc);
+    void unregisterMarkdownCodeBlockProcessor(const QString &lang);
 
 protected:
     /// Override point — called inside load(ctx) before Component::load().

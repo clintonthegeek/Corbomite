@@ -10,6 +10,12 @@
 #include "corbomite/core/proxies/SecretStorage.h"
 #include "corbomite/core/proxies/ViewRegistrar.h"
 #include "corbomite/core/proxies/WorkspaceController.h"
+#include "corbomite/core/proxies/HoverLinkSourceRegistrar.h"
+#include "corbomite/core/proxies/EditorSuggestRegistrar.h"
+#include "corbomite/core/proxies/PostProcessorRegistrar.h"
+#include "corbomite/core/proxies/RibbonRegistrar.h"
+#include "corbomite/core/proxies/EmbedRegistrar.h"
+#include "corbomite/core/proxies/CodeBlockRegistrar.h"
 #include "corbomite/vault/PluginDataStore.h"
 #include "corbomite/vault/proxies/FileManagerProxy.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
@@ -35,6 +41,28 @@ PluginContext::~PluginContext()
     delete m_menuInjector;
     delete m_secretStorage;
     delete m_processSpawner;
+    delete m_hoverLinkRegistrar;
+    delete m_editorSuggestRegistrar;
+    delete m_postProcessorRegistrar;
+    delete m_ribbonRegistrar;
+    delete m_embedRegistrar;
+    delete m_codeBlockRegistrar;
+}
+
+void PluginContext::setExtensionRegistries(
+    HoverLinkSourceRegistry *hoverLinkSources,
+    EditorSuggestManager *editorSuggests,
+    Corbomite::Core::PostProcessorRegistry *postProcessors,
+    RibbonHandle *ribbon,
+    Markoff::EmbedRegistry *embeds,
+    Markoff::CodeBlockProcessorRegistry *codeBlocks)
+{
+    m_hoverLinkSourceRegistry = hoverLinkSources;
+    m_editorSuggestManager = editorSuggests;
+    m_postProcessorRegistry = postProcessors;
+    m_ribbonHandle = ribbon;
+    m_embedRegistry = embeds;
+    m_codeBlockRegistry = codeBlocks;
 }
 
 void PluginContext::setCoreServices(Vault *v, FileManager *fm,
@@ -156,6 +184,61 @@ ProcessSpawner *PluginContext::process() const
     if (!hasPermission(QLatin1String(kProcess))) return nullptr;
     if (!m_processSpawner) m_processSpawner = new ProcessSpawner(m_meta.base().pluginId());
     return m_processSpawner;
+}
+
+HoverLinkSourceRegistrar *PluginContext::hoverLinkSources() const
+{
+    if (!hasPermission(QLatin1String(kUiRendering)) || !m_hoverLinkSourceRegistry) return nullptr;
+    if (!m_hoverLinkRegistrar) {
+        m_hoverLinkRegistrar = new HoverLinkSourceRegistrar(
+            m_hoverLinkSourceRegistry, m_meta.base().pluginId());
+    }
+    return m_hoverLinkRegistrar;
+}
+
+EditorSuggestRegistrar *PluginContext::editorSuggests() const
+{
+    if (!hasPermission(QLatin1String(kUiEditor)) || !m_editorSuggestManager) return nullptr;
+    if (!m_editorSuggestRegistrar) {
+        m_editorSuggestRegistrar = new EditorSuggestRegistrar(m_editorSuggestManager);
+    }
+    return m_editorSuggestRegistrar;
+}
+
+PostProcessorRegistrar *PluginContext::postProcessors() const
+{
+    if (!hasPermission(QLatin1String(kUiRendering)) || !m_postProcessorRegistry) return nullptr;
+    if (!m_postProcessorRegistrar) {
+        m_postProcessorRegistrar = new PostProcessorRegistrar(m_postProcessorRegistry);
+    }
+    return m_postProcessorRegistrar;
+}
+
+RibbonRegistrar *PluginContext::ribbon() const
+{
+    if (!hasPermission(QLatin1String(kUiCommands)) || !m_ribbonHandle) return nullptr;
+    if (!m_ribbonRegistrar) {
+        m_ribbonRegistrar = new RibbonRegistrar(m_ribbonHandle, m_meta.base().pluginId());
+    }
+    return m_ribbonRegistrar;
+}
+
+EmbedRegistrar *PluginContext::embeds() const
+{
+    if (!hasPermission(QLatin1String(kUiRendering)) || !m_embedRegistry) return nullptr;
+    if (!m_embedRegistrar) {
+        m_embedRegistrar = new EmbedRegistrar(m_embedRegistry);
+    }
+    return m_embedRegistrar;
+}
+
+CodeBlockRegistrar *PluginContext::codeBlocks() const
+{
+    if (!hasPermission(QLatin1String(kUiRendering)) || !m_codeBlockRegistry) return nullptr;
+    if (!m_codeBlockRegistrar) {
+        m_codeBlockRegistrar = new CodeBlockRegistrar(m_codeBlockRegistry);
+    }
+    return m_codeBlockRegistrar;
 }
 
 KConfigGroup PluginContext::config()

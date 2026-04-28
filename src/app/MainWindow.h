@@ -18,12 +18,14 @@ class KRecentFilesAction;
 
 namespace Markoff {
 class EmbedRegistry;
+class CodeBlockProcessorRegistry;
 }
 
 namespace Corbomite::Core {
 class MermaidRenderer;
 class VaultResourceProvider;
 class ThemeService;
+class PostProcessorRegistry;
 }
 
 namespace Corbomite::MarkoffAdapters {
@@ -232,6 +234,14 @@ private:
     TagSuggest *m_tagSuggest = nullptr;
     RibbonToolBar *m_ribbonToolBar = nullptr;
     RibbonStateController *m_ribbonState = nullptr;
+
+    // Cluster B Phase 1 — host-wide plugin extension registries.
+    // PostProcessor and CodeBlockProcessor are functional registries that
+    // plugins can register against; ReadingView dispatch wiring is a
+    // post-Cluster-B follow-up (registrations are stored but not yet
+    // consumed during render).
+    std::unique_ptr<Corbomite::Core::PostProcessorRegistry> m_pluginPostProcessors;
+    std::unique_ptr<Markoff::CodeBlockProcessorRegistry> m_pluginCodeBlocks;
 
     // Cluster Q (Tasks 13-20) — tool views hosting plugin createView()
     // output. Keyed by plugin id; the value is the QWidget the

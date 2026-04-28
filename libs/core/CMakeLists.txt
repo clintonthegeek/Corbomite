@@ -110,6 +110,20 @@ add_library(corbomite-core STATIC
     include/corbomite/core/proxies/SecretStorage.h
     src/proxies/ProcessSpawner.cpp
     include/corbomite/core/proxies/ProcessSpawner.h
+    src/proxies/HoverLinkSourceRegistrar.cpp
+    include/corbomite/core/proxies/HoverLinkSourceRegistrar.h
+    src/proxies/EditorSuggestRegistrar.cpp
+    include/corbomite/core/proxies/EditorSuggestRegistrar.h
+    src/proxies/PostProcessorRegistrar.cpp
+    include/corbomite/core/proxies/PostProcessorRegistrar.h
+    src/proxies/RibbonRegistrar.cpp
+    include/corbomite/core/proxies/RibbonRegistrar.h
+    include/corbomite/core/RibbonHandle.h
+    src/proxies/EmbedRegistrar.cpp
+    include/corbomite/core/proxies/EmbedRegistrar.h
+    src/proxies/CodeBlockRegistrar.cpp
+    include/corbomite/core/proxies/CodeBlockRegistrar.h
+    include/corbomite/core/PluginPermissions.h
     src/SystemThemeBuilder.cpp
     include/corbomite/core/SystemThemeBuilder.h
     src/ThemeService.cpp
