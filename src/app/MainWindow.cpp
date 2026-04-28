@@ -50,6 +50,9 @@
 #include "corbomite/core/StatusBarRegistry.h"
 #include "corbomite/core/LucideIconRegistry.h"
 #include "corbomite/core/DecorationProviderRegistry.h"
+#include "corbomite/core/ProtocolHandlerRegistry.h"
+
+#include <QDesktopServices>
 #include "corbomite/core/MenuEventEmitter.h"
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/VaultResourceProvider.h"
@@ -336,6 +339,14 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     // Cluster B Phase 1 — host-wide plugin extension registries.
     m_pluginPostProcessors = std::make_unique<Corbomite::Core::PostProcessorRegistry>();
     m_pluginCodeBlocks = std::make_unique<Markoff::CodeBlockProcessorRegistry>();
+
+    // Cluster B Phase 3.2 — wire corbomite:// URL routing through
+    // QDesktopServices. obsidian:// is opt-in via Settings (deferred
+    // follow-up: persist the toggle and call setUrlHandler on toggle).
+    QDesktopServices::setUrlHandler(
+        QStringLiteral("corbomite"),
+        &Corbomite::ProtocolHandlerRegistry::instance(),
+        "dispatch");
 
     updateVaultActions();
     resize(1200, 800);
@@ -855,7 +866,8 @@ void MainWindow::rewirePluginCoreServices()
                                        m_pluginCodeBlocks.get(),
                                        m_statusBarRegistry,
                                        &Corbomite::LucideIconRegistry::instance(),
-                                       &Corbomite::DecorationProviderRegistry::instance());
+                                       &Corbomite::DecorationProviderRegistry::instance(),
+                                       &Corbomite::ProtocolHandlerRegistry::instance());
         if (m_vaultObj && m_vaultObj->isLoaded()) {
             const QString dir = m_vaultObj->basePath()
                               + QLatin1Char('/') + m_vaultObj->configDir()
@@ -879,7 +891,8 @@ void MainWindow::rewirePluginCoreServices()
                 m_pluginCodeBlocks.get(),
                 m_statusBarRegistry,
                 &Corbomite::LucideIconRegistry::instance(),
-                &Corbomite::DecorationProviderRegistry::instance());
+                &Corbomite::DecorationProviderRegistry::instance(),
+                &Corbomite::ProtocolHandlerRegistry::instance());
             if (m_vaultObj && m_vaultObj->isLoaded()) {
                 const QString dir = m_vaultObj->basePath()
                                   + QLatin1Char('/') + m_vaultObj->configDir()

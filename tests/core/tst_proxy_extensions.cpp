@@ -14,6 +14,8 @@
 #include "corbomite/core/Decoration.h"
 #include "corbomite/core/DecorationProviderRegistry.h"
 #include "corbomite/core/proxies/DecorationProviderRegistrar.h"
+#include "corbomite/core/ProtocolHandlerRegistry.h"
+#include "corbomite/core/proxies/ProtocolHandlerRegistrar.h"
 #include "corbomite/core/proxies/CodeBlockRegistrar.h"
 #include "corbomite/core/proxies/EditorSuggestRegistrar.h"
 #include "corbomite/core/proxies/EmbedRegistrar.h"
@@ -117,6 +119,11 @@ private slots:
     void decorationRegistrarPrefixesAndCleansOnDestroy();
     void decorationRejectsCollisionAndEmptyId();
     void decorationProvidersReturnedInRegistrationOrder();
+
+    // ProtocolHandlerRegistry / ProtocolHandlerRegistrar
+    void protocolDispatchInvokesHandler();
+    void protocolRegistrarPrefixesAndCleansOnDestroy();
+    void protocolRejectsCollisionAndEmptyAction();
 };
 
 namespace {
@@ -444,6 +451,49 @@ void TestProxyExtensions::decorationProvidersReturnedInRegistrationOrder()
     QCOMPARE(list.at(0), &p1);
     QCOMPARE(list.at(1), &p2);
     QCOMPARE(list.at(2), &p3);
+    r.clearForTesting();
+}
+
+// ---- ProtocolHandlerRegistry / ProtocolHandlerRegistrar ----
+
+void TestProxyExtensions::protocolDispatchInvokesHandler()
+{
+    auto &r = ProtocolHandlerRegistry::instance();
+    r.clearForTesting();
+    QString receivedQuery;
+    r.registerHandler(QStringLiteral("foo"),
+                          [&receivedQuery](const QUrl &url) {
+                              receivedQuery = url.query();
+                          });
+    r.dispatch(QUrl(QStringLiteral("corbomite://foo?bar=baz")));
+    QCOMPARE(receivedQuery, QStringLiteral("bar=baz"));
+    r.clearForTesting();
+}
+
+void TestProxyExtensions::protocolRegistrarPrefixesAndCleansOnDestroy()
+{
+    auto &r = ProtocolHandlerRegistry::instance();
+    r.clearForTesting();
+    {
+        ProtocolHandlerRegistrar reg(&r, QStringLiteral("plug-a"));
+        const QString action = reg.registerHandler(QStringLiteral("act"),
+                                                       [](const QUrl &) {});
+        QCOMPARE(action, QStringLiteral("plug-a.act"));
+        QVERIFY(r.hasHandler(QStringLiteral("plug-a.act")));
+    }
+    QVERIFY(!r.hasHandler(QStringLiteral("plug-a.act")));
+    r.clearForTesting();
+}
+
+void TestProxyExtensions::protocolRejectsCollisionAndEmptyAction()
+{
+    auto &r = ProtocolHandlerRegistry::instance();
+    r.clearForTesting();
+    ProtocolHandlerRegistrar reg(&r, QStringLiteral("plug-a"));
+    QCOMPARE(reg.registerHandler(QStringLiteral("a"), [](const QUrl &) {}),
+             QStringLiteral("plug-a.a"));
+    QVERIFY(reg.registerHandler(QStringLiteral("a"), [](const QUrl &) {}).isEmpty());
+    QVERIFY(reg.registerHandler(QString(), [](const QUrl &) {}).isEmpty());
     r.clearForTesting();
 }
 

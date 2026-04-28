@@ -11,7 +11,10 @@
 #include "corbomite/core/proxies/StatusBarRegistrar.h"
 #include "corbomite/core/proxies/LucideIconRegistrar.h"
 #include "corbomite/core/proxies/DecorationProviderRegistrar.h"
+#include "corbomite/core/proxies/ProtocolHandlerRegistrar.h"
 #include "corbomite/vault/PluginContext.h"
+
+#include <QUrl>
 
 #include <QJsonObject>
 #include <QWidget>
@@ -193,6 +196,20 @@ void Plugin::unregisterEditorExtension(const QString &localId)
 {
     if (!m_context) return;
     if (auto *r = m_context->editorExtensions()) r->unregisterProvider(localId);
+}
+
+QString Plugin::registerObsidianProtocolHandler(
+    const QString &localAction, std::function<void(const QUrl &)> handler)
+{
+    if (!m_context) return {};
+    auto *r = m_context->protocols();
+    return r ? r->registerHandler(localAction, std::move(handler)) : QString{};
+}
+
+void Plugin::unregisterObsidianProtocolHandler(const QString &localAction)
+{
+    if (!m_context) return;
+    if (auto *r = m_context->protocols()) r->unregisterHandler(localAction);
 }
 
 } // namespace Corbomite

@@ -19,6 +19,7 @@
 #include "corbomite/core/proxies/StatusBarRegistrar.h"
 #include "corbomite/core/proxies/LucideIconRegistrar.h"
 #include "corbomite/core/proxies/DecorationProviderRegistrar.h"
+#include "corbomite/core/proxies/ProtocolHandlerRegistrar.h"
 #include "corbomite/vault/PluginDataStore.h"
 #include "corbomite/vault/proxies/FileManagerProxy.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
@@ -53,6 +54,7 @@ PluginContext::~PluginContext()
     delete m_statusBarRegistrar;
     delete m_lucideIconRegistrar;
     delete m_decorationRegistrar;
+    delete m_protocolRegistrar;
 }
 
 void PluginContext::setExtensionRegistries(
@@ -64,7 +66,8 @@ void PluginContext::setExtensionRegistries(
     Markoff::CodeBlockProcessorRegistry *codeBlocks,
     StatusBarRegistry *statusBar,
     LucideIconRegistry *lucideIcons,
-    DecorationProviderRegistry *decorations)
+    DecorationProviderRegistry *decorations,
+    ProtocolHandlerRegistry *protocolHandlers)
 {
     m_hoverLinkSourceRegistry = hoverLinkSources;
     m_editorSuggestManager = editorSuggests;
@@ -75,6 +78,7 @@ void PluginContext::setExtensionRegistries(
     m_statusBarRegistry = statusBar;
     m_lucideIconRegistry = lucideIcons;
     m_decorationRegistry = decorations;
+    m_protocolRegistry = protocolHandlers;
 }
 
 void PluginContext::setCoreServices(Vault *v, FileManager *fm,
@@ -281,6 +285,16 @@ DecorationProviderRegistrar *PluginContext::editorExtensions() const
             m_decorationRegistry, m_meta.base().pluginId());
     }
     return m_decorationRegistrar;
+}
+
+ProtocolHandlerRegistrar *PluginContext::protocols() const
+{
+    if (!hasPermission(QLatin1String(kProtocol)) || !m_protocolRegistry) return nullptr;
+    if (!m_protocolRegistrar) {
+        m_protocolRegistrar = new ProtocolHandlerRegistrar(
+            m_protocolRegistry, m_meta.base().pluginId());
+    }
+    return m_protocolRegistrar;
 }
 
 KConfigGroup PluginContext::config()

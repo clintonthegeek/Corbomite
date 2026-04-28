@@ -16,6 +16,7 @@
 class QIcon;
 class QWidget;
 class QString;
+class QUrl;
 namespace KTextEditor { class ConfigPage; }
 
 namespace Corbomite {
@@ -151,6 +152,15 @@ public:
     QString registerEditorExtension(const QString &localId,
                                        DecorationProvider *provider);
     void unregisterEditorExtension(const QString &localId);
+
+    /// `protocol` — register a handler for `corbomite://<pluginId>.<action>`
+    /// URLs (and `obsidian://...` if the user opted in via Settings).
+    /// Returns the namespaced full action on success, empty string on
+    /// failure.
+    QString registerObsidianProtocolHandler(
+        const QString &localAction,
+        std::function<void(const QUrl &)> handler);
+    void unregisterObsidianProtocolHandler(const QString &localAction);
 
 protected:
     /// Override point — called inside load(ctx) before Component::load().

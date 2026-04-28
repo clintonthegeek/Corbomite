@@ -41,6 +41,7 @@ class RibbonHandle;
 class StatusBarRegistry;
 class LucideIconRegistry;
 class DecorationProviderRegistry;
+class ProtocolHandlerRegistry;
 
 // Forward decls — proxy types (owned by PluginContext, lazy-constructed).
 class VaultProxy;
@@ -62,6 +63,7 @@ class CodeBlockRegistrar;
 class StatusBarRegistrar;
 class LucideIconRegistrar;
 class DecorationProviderRegistrar;
+class ProtocolHandlerRegistrar;
 
 /// Handed to `Plugin::onLoad()`. Lifetime equals the plugin's load span.
 ///
@@ -101,7 +103,8 @@ public:
                                   Markoff::CodeBlockProcessorRegistry *codeBlocks,
                                   StatusBarRegistry *statusBar,
                                   LucideIconRegistry *lucideIcons,
-                                  DecorationProviderRegistry *decorations);
+                                  DecorationProviderRegistry *decorations,
+                                  ProtocolHandlerRegistry *protocolHandlers);
 
     // Metadata accessors
     const PluginMetaData &metaData() const { return m_meta; }
@@ -131,6 +134,7 @@ public:
     StatusBarRegistrar       *statusBar() const;        // "ui.statusbar"
     LucideIconRegistrar      *icons() const;            // "ui.icons"
     DecorationProviderRegistrar *editorExtensions() const; // "ui.editor"
+    ProtocolHandlerRegistrar    *protocols() const;          // "protocol"
 
     /// Per-plugin KConfig group. Returns an empty group if "config" is ungranted.
     KConfigGroup config();
@@ -169,6 +173,7 @@ private:
     mutable StatusBarRegistrar       *m_statusBarRegistrar = nullptr;
     mutable LucideIconRegistrar      *m_lucideIconRegistrar = nullptr;
     mutable DecorationProviderRegistrar *m_decorationRegistrar = nullptr;
+    mutable ProtocolHandlerRegistrar    *m_protocolRegistrar = nullptr;
 
     // Plugin-data.json persistence
     QString                                  m_pluginDataDir;
@@ -193,6 +198,7 @@ private:
     StatusBarRegistry       *m_statusBarRegistry = nullptr;
     LucideIconRegistry      *m_lucideIconRegistry = nullptr;
     DecorationProviderRegistry *m_decorationRegistry = nullptr;
+    ProtocolHandlerRegistry *m_protocolRegistry = nullptr;
 };
 
 } // namespace Corbomite

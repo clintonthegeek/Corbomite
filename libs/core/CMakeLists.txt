@@ -138,6 +138,10 @@ add_library(corbomite-core STATIC
     include/corbomite/core/DecorationProviderRegistry.h
     src/proxies/DecorationProviderRegistrar.cpp
     include/corbomite/core/proxies/DecorationProviderRegistrar.h
+    src/ProtocolHandlerRegistry.cpp
+    include/corbomite/core/ProtocolHandlerRegistry.h
+    src/proxies/ProtocolHandlerRegistrar.cpp
+    include/corbomite/core/proxies/ProtocolHandlerRegistrar.h
     include/corbomite/core/PluginPermissions.h
     src/SystemThemeBuilder.cpp
     include/corbomite/core/SystemThemeBuilder.h
