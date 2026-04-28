@@ -9,14 +9,19 @@
 #include "markoff/reading/ReadingView.h"
 
 #include <QApplication>
+#include <QCursor>
+#include <QEnterEvent>
 #include <QGraphicsDropShadowEffect>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QVBoxLayout>
+#include <QWidget>
 
 namespace Corbomite {
 
 namespace {
 constexpr int kHoverDelayMs = 300;   // audit: ui-bundle.md §7
+constexpr int kGracePeriodMs = 500;  // audit: ui-bundle.md §HoverPopover #3
 constexpr int kPopoverWidth = 380;
 constexpr int kPopoverMaxHeight = 280;
 
@@ -35,6 +40,22 @@ void splitTarget(const QString &raw, QString *path, QString *subpath)
         *path = raw;
         subpath->clear();
     }
+}
+
+// True when `point` (global screen coords) falls inside `popover`'s frame
+// or the frame of any descendant. Walks the parent chain from the widget
+// returned by `QApplication::widgetAt` so child widgets (the embedded
+// ReadingView, scroll bars, etc.) count as "inside".
+bool cursorIsOverPopover(const QWidget *popover, const QPoint &globalPos)
+{
+    if (!popover || !popover->isVisible()) return false;
+    if (popover->frameGeometry().contains(globalPos)) return true;
+    const QWidget *under = QApplication::widgetAt(globalPos);
+    while (under) {
+        if (under == popover) return true;
+        under = under->parentWidget();
+    }
+    return false;
 }
 } // namespace
 
@@ -67,9 +88,20 @@ HoverPopover::HoverPopover(QWidget *parent)
     m_delayTimer.setSingleShot(true);
     m_delayTimer.setInterval(kHoverDelayMs);
     connect(&m_delayTimer, &QTimer::timeout, this, &HoverPopover::showNow);
+
+    m_graceTimer.setSingleShot(true);
+    m_graceTimer.setInterval(kGracePeriodMs);
+    connect(&m_graceTimer, &QTimer::timeout, this,
+            &HoverPopover::onGraceTimeout);
 }
 
-HoverPopover::~HoverPopover() = default;
+HoverPopover::~HoverPopover()
+{
+    if (m_appFilterInstalled && qApp) {
+        qApp->removeEventFilter(this);
+        m_appFilterInstalled = false;
+    }
+}
 
 void HoverPopover::setVault(Vault *vault)
 {
@@ -89,28 +121,111 @@ Markoff::Reading::ReadingView *HoverPopover::readingViewForTest() const
 void HoverPopover::scheduleShow(const QString &target, const QPoint &anchor)
 {
     if (target.isEmpty()) {
-        cancel();
+        linkHoverEnded();
         return;
     }
+
+    // "Cursor returned to link" hint — same target, popover already up.
+    // Stop grace timer (if running) and stay; don't re-render.
+    if ((m_state == State::Visible || m_state == State::Pinned)
+        && target == m_currentTarget) {
+        m_graceTimer.stop();
+        return;
+    }
+
+    // Different target while shown — replacement wins (Q3 = A: even when
+    // pinned, a new hover spawns a new popover; the previous one is
+    // dropped). Hide current, re-enter Pending with the new (t, a).
     m_pendingTarget = target;
     m_pendingAnchor = anchor;
-    m_delayTimer.start();
+    if (m_state == State::Visible || m_state == State::Pinned) {
+        enterState(State::Hidden);
+    }
+    enterState(State::Pending);
 }
 
 void HoverPopover::cancel()
 {
-    m_delayTimer.stop();
     m_pendingTarget.clear();
-    if (isVisible()) hide();
+    enterState(State::Hidden);
+}
+
+void HoverPopover::linkHoverEnded()
+{
+    switch (m_state) {
+    case State::Hidden:
+        return;
+    case State::Pending:
+        m_pendingTarget.clear();
+        enterState(State::Hidden);
+        return;
+    case State::Visible:
+        // Start the grace timer instead of hiding immediately. Lets the
+        // cursor cross the gap from source link to popover without the
+        // popover tearing down mid-traverse.
+        if (!m_graceTimer.isActive()) m_graceTimer.start();
+        return;
+    case State::Pinned:
+        // Pinned popovers ignore link-hover-end — only Esc, outside
+        // click, or replacement dismisses them.
+        return;
+    }
+}
+
+void HoverPopover::enterState(State next)
+{
+    if (m_state == next) return;
+    const State prev = m_state;
+    m_state = next;
+
+    switch (next) {
+    case State::Hidden:
+        m_delayTimer.stop();
+        m_graceTimer.stop();
+        if (prev == State::Pinned) applyPinnedAccent(false);
+        if (isVisible()) hide();
+        m_currentTarget.clear();
+        if (m_appFilterInstalled && qApp) {
+            qApp->removeEventFilter(this);
+            m_appFilterInstalled = false;
+        }
+        break;
+    case State::Pending:
+        m_graceTimer.stop();
+        if (prev == State::Pinned) applyPinnedAccent(false);
+        if (isVisible()) hide();
+        m_delayTimer.start();
+        break;
+    case State::Visible:
+        m_delayTimer.stop();
+        // Filter is already installed if we came from Pinned; install on
+        // the Pending → Visible transition.
+        if (!m_appFilterInstalled && qApp) {
+            qApp->installEventFilter(this);
+            m_appFilterInstalled = true;
+        }
+        if (prev == State::Pinned) applyPinnedAccent(false);
+        break;
+    case State::Pinned:
+        m_graceTimer.stop();
+        applyPinnedAccent(true);
+        break;
+    }
 }
 
 void HoverPopover::showNow()
 {
-    if (m_pendingTarget.isEmpty()) return;
-    renderTarget(m_pendingTarget);
+    if (m_state != State::Pending) return;
+    if (m_pendingTarget.isEmpty()) {
+        enterState(State::Hidden);
+        return;
+    }
+    m_currentTarget = m_pendingTarget;
+    renderTarget(m_currentTarget);
     move(m_pendingAnchor);
     show();
     raise();
+    enterState(State::Visible);
 }
 
 void HoverPopover::renderTarget(const QString &target)
@@ -152,10 +267,39 @@ void HoverPopover::renderTarget(const QString &target)
     m_view->setPlainText(doc->markdown());
 }
 
+void HoverPopover::onGraceTimeout()
+{
+    if (m_state != State::Visible) return;
+    if (cursorIsOverPopover(this, QCursor::pos())) {
+        // Safety net: if the cursor sits inside us but enterEvent didn't
+        // fire (synthetic-event paths), keep visible.
+        return;
+    }
+    enterState(State::Hidden);
+}
+
+void HoverPopover::applyPinnedAccent(bool on)
+{
+    if (on) {
+        setStyleSheet(QStringLiteral("QFrame { border: 2px solid %1; }")
+                          .arg(palette().highlight().color().name()));
+    } else {
+        setStyleSheet(QString());
+    }
+}
+
 void HoverPopover::leaveEvent(QEvent *event)
 {
     QFrame::leaveEvent(event);
-    cancel();
+    if (m_state == State::Visible && !m_graceTimer.isActive()) {
+        m_graceTimer.start();
+    }
+}
+
+void HoverPopover::enterEvent(QEnterEvent *event)
+{
+    QFrame::enterEvent(event);
+    m_graceTimer.stop();
 }
 
 void HoverPopover::keyPressEvent(QKeyEvent *event)
@@ -165,6 +309,44 @@ void HoverPopover::keyPressEvent(QKeyEvent *event)
         return;
     }
     QFrame::keyPressEvent(event);
+}
+
+bool HoverPopover::eventFilter(QObject *watched, QEvent *event)
+{
+    Q_UNUSED(watched);
+    switch (event->type()) {
+    case QEvent::KeyPress: {
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        // Esc dismisses from any state where the popover is up — the
+        // local keyPressEvent override doesn't fire because the popover
+        // doesn't accept focus, so the app filter is the only path.
+        if (keyEvent->key() == Qt::Key_Escape
+            && (m_state == State::Visible || m_state == State::Pinned)) {
+            cancel();
+            break;
+        }
+        // Linux convention — Ctrl is the modifier that "grabs" the
+        // popover for interaction. (Mac would map to Qt::Key_Meta; out
+        // of scope for this single-platform decision.)
+        if (m_state == State::Visible
+            && keyEvent->key() == Qt::Key_Control) {
+            enterState(State::Pinned);
+        }
+        break;
+    }
+    case QEvent::MouseButtonPress: {
+        if (m_state != State::Pinned) break;
+        auto *mouseEvent = static_cast<QMouseEvent *>(event);
+        if (!frameGeometry().contains(mouseEvent->globalPosition().toPoint())) {
+            enterState(State::Hidden);
+        }
+        break;
+    }
+    default:
+        break;
+    }
+    // Never consume — observation only.
+    return false;
 }
 
 } // namespace Corbomite

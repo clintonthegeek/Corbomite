@@ -58,7 +58,7 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
             this, [this](const QString &target, const QPoint &globalPos) {
         if (!m_hoverPopover) return;
         if (target.isEmpty()) {
-            m_hoverPopover->cancel();
+            m_hoverPopover->linkHoverEnded();
         } else {
             // Phase C5: Markoff now supplies the global-screen hover
             // position directly. We preserve the +20 y-offset so the

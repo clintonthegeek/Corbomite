@@ -122,6 +122,59 @@ private Q_SLOTS:
                  qPrintable(QStringLiteral("LivePreview restore drift: %1").arg(got)));
     }
 
+    // Audit: editor-markdown.md §"Top suspected bugs" #4 claimed Live-preview
+    // had an off-by-one column round-trip because capture does
+    // `cursorColumn() - 1` and restore passes column through. The audit was
+    // wrong: `Markoff::Editor::cursorColumn()` returns 1-based
+    // (`columnNumber() + 1`) while `goToLineAndColumn` takes 0-based column.
+    // The `-1` on capture compensates for Live's read/write API asymmetry, so
+    // EphemeralState consistently stores 0-based and the round-trip is even.
+    // This test pins that contract.
+    void livePreviewCursorRoundTrip()
+    {
+        NoteEditorWidget widget;
+        widget.resize(600, 240);
+        widget.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&widget));
+        NoteDocument doc(QStringLiteral("/tmp/vault"),
+                         QStringLiteral("note.md"));
+        doc.setMarkdown(makeParagraphs(20));
+        widget.setNoteDocument(&doc);
+        widget.setViewMode(NoteEditorWidget::ViewMode::LivePreview);
+        {
+            QSignalSpy spy(widget.editor(),
+                           &Markoff::Editor::wordCountChanged);
+            if (widget.editor()->toPlainText().isEmpty())
+                QVERIFY2(spy.wait(2000),
+                         "Timed out waiting for Live scene to build");
+        }
+        QTest::qWait(30);
+
+        // Place cursor at line 5 (1-based), column 7 (0-based via the write
+        // API). Read it back: cursorColumn() returns 1-based → 8.
+        widget.editor()->goToLineAndColumn(5, 7);
+        QTest::qWait(20);
+        const int liveLineBefore = widget.editor()->cursorLine();
+        const int liveColBefore = widget.editor()->cursorColumn();
+        QVERIFY2(liveColBefore == 8,
+                 qPrintable(QStringLiteral(
+                                "Pre-save Live cursorColumn() expected 8 (1-based), got %1")
+                                .arg(liveColBefore)));
+
+        const auto saved = widget.saveEphemeralState();
+        // EphemeralState contract: column stored 0-based.
+        QCOMPARE(saved.cursor.column, 7);
+        QCOMPARE(saved.cursor.line, liveLineBefore - 1);
+
+        // Move the cursor away then restore; column must land back at 7
+        // (0-based via goToLineAndColumn → cursorColumn() returns 8).
+        widget.editor()->goToLineAndColumn(1, 0);
+        QTest::qWait(20);
+        widget.restoreEphemeralState(saved);
+        QTest::qWait(20);
+        QCOMPARE(widget.editor()->cursorColumn(), 8);
+    }
+
     void readingModeStubRoundTrip()
     {
         NoteEditorWidget widget;

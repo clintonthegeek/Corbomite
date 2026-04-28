@@ -162,3 +162,24 @@ add_test(NAME tst_hover_popover_render COMMAND tst_hover_popover_render)
 set_tests_properties(tst_hover_popover_render PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+# 2026-04-27 — HoverPopover Mod-key pinning + 500ms grace timer
+# (P2 #4 sub-items 1+4). Same link surface as tst_hover_popover_render.
+add_executable(tst_hover_popover_pinning
+    tst_hover_popover_pinning.cpp
+    ${CMAKE_SOURCE_DIR}/src/editor/HoverPopover.cpp
+)
+target_include_directories(tst_hover_popover_pinning PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(tst_hover_popover_pinning PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Corbomite::Core
+    Corbomite::Models
+    Markoff::Reading
+)
+add_test(NAME tst_hover_popover_pinning COMMAND tst_hover_popover_pinning)
+set_tests_properties(tst_hover_popover_pinning PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
