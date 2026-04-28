@@ -68,25 +68,29 @@
 
 ## P3 — Plugin extension surface (individual items; coordinated proxy work in Cluster B)
 
-- [ ] [editor-markdown][plugin] `MarkdownRenderer.render(...)` static API + `RenderContext` — load-bearing for hover popovers, search snippets, plugin tooltips, future Bases cells — see [editor-markdown.md](audit-2026-04-26/editor-markdown.md) §"Top gaps"
-- [ ] [editor-markdown][plugin] `MarkdownRenderChild` framework — parent registry, addChild, mount/unmount signals — see [editor-markdown.md](audit-2026-04-26/editor-markdown.md) §"Top gaps"
-- [ ] [plugin][ui-bundle] `addStatusBarItem` — required for any plugin that wants persistent UI — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
-- [ ] [ui-bundle] Lucide icon registry + `Plugin.addIcon(name, svg)` — `lucide-*` strings render blank today — see [ui-bundle.md](audit-2026-04-26/ui-bundle.md) §"Top gaps"
+- [x] [editor-markdown][plugin] `MarkdownRenderer.render(...)` static API — Cluster B Phase 2.3. Returns `QFuture<void>`; wraps `Markoff::Reading::ReadingView`. Permissionless. `Corbomite::MarkdownRenderer::render(...)` (static method on the existing class).
+- [ ] [editor-markdown][plugin] `MarkdownRenderChild` framework — parent registry, addChild, mount/unmount signals — see [editor-markdown.md](audit-2026-04-26/editor-markdown.md) §"Top gaps". Cluster B's `DecorationProvider` covers part of the use case; the parent registry / addChild / mount/unmount split is a separate refactor.
+- [x] [plugin][ui-bundle] `addStatusBarItem` — Cluster B Phase 2.1. `Plugin::addStatusBarItem(localId, widget)`; `ui.statusbar` permission token; `StatusBarRegistry` wraps `QMainWindow::statusBar()`.
+- [x] [ui-bundle] Lucide icon registry + `Plugin.addIcon(name, svg)` — Cluster B Phase 2.2. `LucideIconRegistry` singleton; `addIcon` registrar; `ui.icons` permission token. **Follow-up:** bundled SVG set (~50 icons referenced by Obsidian's built-in commands) not yet pre-populated; `lucide-*` names without explicit `addIcon` registrations still render blank.
 - [ ] [plugin][core] Plugin-side `Events` mixin — Obsidian-shape `vault.on("create", cb)` won't work today — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
-- [ ] [plugin][core] `registerObsidianProtocolHandler` — `obsidian://`/`corbomite://` URL routing — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
+- [x] [plugin][core] `registerObsidianProtocolHandler` — Cluster B Phase 3.2. `corbomite://` routes; `protocol` permission token. **Follow-up:** `obsidian://` opt-in (Settings checkbox + xdg-mime registration on toggle).
+- [ ] [plugin][rendering] Cluster B follow-up — wire `Corbomite::Core::PostProcessorRegistry` (host-wide singleton at `MainWindow::m_pluginPostProcessors`) into `Markoff::ReadingView`'s render pipeline. Plugin registrations land but aren't dispatched today.
+- [ ] [plugin][rendering] Cluster B follow-up — wire `Markoff::CodeBlockProcessorRegistry` (host-wide singleton at `MainWindow::m_pluginCodeBlocks`) into `Markoff::ReadingView::codeBlockProcessorRegistry()` (or a fallback consult). Plugin registrations land but aren't dispatched today.
+- [ ] [plugin][editor-markdown] Cluster B follow-up — `Markoff::DecorationProviderHook` virtual call site in `Markoff::ReadingView::buildScene` (or equivalent Live render path) that consults `Corbomite::DecorationProviderRegistry::instance().providers()` and merges results with built-in decorations. Plugin registrations land but aren't dispatched today.
 
 ## P4 — Lifecycle / per-vault isolation
 
 - [ ] [core][vault] Dangling adapter pointers in `onVaultClosed` — three `.reset()` calls — `src/MainWindow.cpp:2190-2263` — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top suspected bugs"
 - [ ] [plugin] `onLoad` throw auto-unload — try/catch + `Component::unload()` — see [plugin.md](audit-2026-04-26/plugin.md) §"Top suspected bugs"
 - [ ] [plugin][workspace] Detach-leaves-of-type on plugin disable — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
-- [ ] [plugin] `onExternalSettingsChange()` + `data.json` `QFileSystemWatcher` — see [plugin.md](audit-2026-04-26/plugin.md) §"Top suspected bugs"
+- [x] [plugin] `onExternalSettingsChange()` + `data.json` `QFileSystemWatcher` — Cluster B Phase 3.3. `Plugin::onExternalSettingsChange()` virtual + `PluginManager::m_dataJsonWatcher` + `simulateExternalSettingsChange` for tests.
 - [ ] [core][plugin] `appId` for per-vault QtKeychain scoping — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top gaps"
 - [ ] [core][plugin] `quit` event with `Eb`-equivalent collector for plugin async cleanup — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top gaps"
 - [ ] [core][workspace] `css-change` event — bridge `ThemeService::themeChanged` to Workspace — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top gaps"
 
 ## P5 — Missing features (structurally absent; coordinated internal-plugin work in Cluster F)
 
+- [ ] [plugin] Cluster B follow-up — kitchen-sink reference plugin under `tests/plugins/cluster-b-kitchen-sink/`. Exercises every Cluster B verb in one `onload()` as a canonical reference for plugin authors. KPluginFactory `.so` module + metadata.json declaring all relevant permissions.
 - [ ] [plugin][rendering] Page Preview plugin — registry is built; tiny plugin-shaped popover orchestrator closes the loop — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
 - [ ] [rendering] PDF view + `![[file.pdf]]` embed — biggest single rendering-domain capability gap — see [rendering.md](audit-2026-04-26/rendering.md) §"Top gaps"
 - [ ] [rendering][editor-markdown] Paste-from-HTML → Markdown (`htmlToMarkdown` analogue / Turndown port) — see [rendering.md](audit-2026-04-26/rendering.md) §"Top gaps"
@@ -96,7 +100,7 @@
 
 ## P6 — API stability / future-proofing
 
-- [ ] [plugin][core] Move permission tokens from `PluginContext.cpp:21-32` to `corbomite/core/PluginPermissions.h` with `inline constexpr auto` constants — see [plugin.md](audit-2026-04-26/plugin.md) §"Top suspected bugs"
+- [x] [plugin][core] Move permission tokens from `PluginContext.cpp:21-32` to `corbomite/core/PluginPermissions.h` with `inline constexpr auto` constants — Cluster B Phase 0.
 - [ ] [plugin] Document the `apiLevel: 1` ABI before first third-party plugin release — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
 - [ ] [plugin] Document the `X-Corbomite-DockArea`/`DockIcon`/`DockTitle` extension to manifest format — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
 - [ ] [core] MomentFormatter missing tokens (`Y`, `Q`, `gg`/`gggg`, `e`/`E`, `k`/`kk`, `Z`/`ZZ`, locale shortcuts) — vault templates render literal characters — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top gaps"

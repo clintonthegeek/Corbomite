@@ -17,7 +17,6 @@ Most P0/P1 punch-list items are **silent vault-format corruption risks**. Drain 
 
 | Cluster | Title | Status | Source |
 |---|---|---|---|
-| B | Plugin API surface completion | Plan-needed (stub) | Audit |
 | D | Bases UI completion | Plan-needed (stub) | Audit |
 | E | Markoff Editor API parity | Plan-needed (stub) | Audit |
 | F | Internal-plugin gap fill | Plan-needed (stub) | Audit |
@@ -26,12 +25,13 @@ Most P0/P1 punch-list items are **silent vault-format corruption risks**. Drain 
 | I | Editor & Workspace UI surfacing | In-flight | Carried (was Cluster V) |
 | J | Qutepart-Corbomite Fork | In-flight (Phases 1+2 done) | Carried (was parallel refactor) |
 
-Closed (post-reset): A (drained inline 2026-04-27), C (drained inline 2026-04-27).
+Closed (post-reset): A (2026-04-27), B (2026-04-28), C (2026-04-27).
 
 Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/plans/INDEX.md).
 
 ## Recent decisions
 
+- **2026-04-28 — Cluster B closed.** 16-item plugin-API-surface completion shipped across 4 phases. 11 new proxy/registry pairs (Hover, Suggest, PostProcessor, Ribbon, Embed, CodeBlock, StatusBar, LucideIcon, MarkdownRenderer, DecorationProvider, ProtocolHandler) following the existing `CommandRegistrar` pattern; 5 new permission tokens (`ui.rendering`, `ui.editor`, `ui.statusbar`, `ui.icons`, `protocol`) in a public `corbomite/core/PluginPermissions.h`; `Vault::raw` + `Vault::configChanged` signals with expanded `.obsidian/` watcher coverage; `Plugin::onExternalSettingsChange` virtual + per-plugin `data.json` watcher in `PluginManager`; permission reference docs at `docs/plugin-development/permissions.md`. 29 new test cases in `tst_proxy_extensions` + 3 in `tst_vault_watcher` + 3 in `tst_plugin_external_settings`. Spec: [`specs/2026-04-28-cluster-b-plugin-api-surface-design.md`](superpowers/specs/2026-04-28-cluster-b-plugin-api-surface-design.md). Plan: [`plans/2026-04-28-cluster-b-plugin-api-surface.md`](superpowers/plans/2026-04-28-cluster-b-plugin-api-surface.md). Follow-ups tracked in punch list. Active cluster count: 7.
 - **2026-04-27 — Cluster A & Cluster C closed inline.** Both stubs drained via the P0/P1 punch-list sweeps + the 2026-04-26 serializer-consolidation work-unit. Final A item (BOM strip on read in `Vault::read` / `readRaw`; `readBinary` preserves bytes verbatim) shipped with `tst_vault_read::readStripsLeadingUtf8Bom`. Residuals reassigned: `Vault.raw` + `Vault.config-changed` events → Cluster B (#15–#16, plugin event surface); Workspaces internal plugin (`workspaces.json`) + sidedock-as-tree substrate → Cluster F (#9–#10). Active cluster count: 8.
 - **2026-04-26 — Workspace serializer consolidation done.** P1 #1, #2, #3 closed. `Workspace::serialize`/`deserialize` delegate to `WorkspaceSerializer::toJson`/`fromJson`. KDDW `LayoutSaver::serializeLayout()` JSON drives split topology; `Workspace::findLeafById` drives per-leaf state; the two join on `DockWidget::uniqueName`. Per-group `currentTab` round-trips via `Core::Group::currentTabIndex()`. Audit addendum [`obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md`](obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md) corrects the stale "no public Group enumeration API" claim. Spec: [`specs/2026-04-26-workspace-serializer-consolidation-design.md`](superpowers/specs/2026-04-26-workspace-serializer-consolidation-design.md). Plan: [`plans/2026-04-26-workspace-serializer-consolidation.md`](superpowers/plans/2026-04-26-workspace-serializer-consolidation.md).
 - **2026-04-26 — P0 sweep complete.** All 15 P0 silent-corruption items closed. Last two: `FileManager::renameFile` rewritten to drive surgical edits from MetadataCache positions (covers markdown-style + full-path + frontmatter link forms via a single `rewriteLinkLiteral` helper); `PluginManager` ⇄ `.obsidian/{core,community}-plugins.json` cross-app sync landed per [`specs/2026-04-26-plugin-enable-state-cross-app-compromise.md`](superpowers/specs/2026-04-26-plugin-enable-state-cross-app-compromise.md) — JSON wins on vault-open, KConfig authoritative thereafter, dual-write gated by `X-Obsidian-Id` (manifest field + 7-entry internal alias dict).
@@ -44,4 +44,4 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Last touched
 
-2026-04-27 — Closed Clusters A and C inline; shipped BOM strip in `Vault::read` as the last A item; reassigned residuals to B and F. See decisions-archive for the full closeout.
+2026-04-28 — Cluster B closed. 16 plugin-API-surface items shipped across 4 phases. See decisions-archive for the full closeout.

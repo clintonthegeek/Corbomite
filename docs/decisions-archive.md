@@ -10,6 +10,53 @@ Conventions:
 
 ---
 
+## 2026-04-28 — Cluster B closed: 16-item plugin-API-surface completion
+
+Brainstorm 2026-04-28; spec, plan, and execution all completed in a single autonomous pass. Spec: [`specs/2026-04-28-cluster-b-plugin-api-surface-design.md`](superpowers/specs/2026-04-28-cluster-b-plugin-api-surface-design.md). Plan: [`plans/2026-04-28-cluster-b-plugin-api-surface.md`](superpowers/plans/2026-04-28-cluster-b-plugin-api-surface.md). User authorized autonomous execution after design approval; 17 commits land the four phases.
+
+**Phase 0 — permission tokens header.** Extracted file-private constants in `libs/vault/src/PluginContext.cpp:21-32` to a public header `libs/core/include/corbomite/core/PluginPermissions.h`. 12 existing tokens + 5 new (`ui.rendering`, `ui.editor`, `ui.statusbar`, `ui.icons`, `protocol`). PluginContext.cpp uses `using namespace Corbomite::Permissions;`. No behavior change.
+
+**Phase 1 — six mechanical proxies (#1–#6 + wiring).** Each proxy follows the existing `CommandRegistrar` pattern: prefix ids with `<pluginId>:`, track in a `QStringList`, walk + unregister on destruction. Submodule prerequisite: `markoff-core` got `EmbedRegistry::unregisterExtension` + `EmbedRegistry::hasExtension` + `CodeBlockProcessorRegistry::unregisterLanguage` (virtual with default impls — backward-compatible). Six new proxies in `libs/core/{include/corbomite/core/proxies,src/proxies}/`: `HoverLinkSourceRegistrar`, `EditorSuggestRegistrar`, `PostProcessorRegistrar`, `RibbonRegistrar` (via new `RibbonHandle` interface so libs/core doesn't depend on src/app), `EmbedRegistrar`, `CodeBlockRegistrar`. `PluginContext::setExtensionRegistries` setter wires host registries into PluginContext via the existing `setContextConfigurator` callback in `MainWindow::rewirePluginCoreServices`. Plugin facade gains 12 methods (register/unregister pair per verb).
+
+**Phase 1 caveat:** `PostProcessorRegistry` and `CodeBlockProcessorRegistry` plugin registrations are stored in the host-wide `m_pluginPostProcessors` / `m_pluginCodeBlocks` singletons but are not yet consumed during ReadingView render. `ReadingView` currently owns its own per-instance `CodeBlockProcessorRegistry`, and `PostProcessorRegistry` has no consumer outside its own definition. Plugin verbs work syntactically — dispatch wiring is a Cluster B follow-up. `EmbedRegistry` plugin registrations DO dispatch (via `HoverPopover`'s `EmbedRenderer`).
+
+**Phase 2 — four new host-side substrates (#7, #11, #10, #9).**
+- `StatusBarRegistry` (#7) wraps `QMainWindow::statusBar()`; `StatusBarRegistrar` is a thin proxy. `MainWindow::setupStatusBar()` constructs the registry alongside the existing word-count + cursor-pos labels. Plugin facade: `Plugin::addStatusBarItem(localId, widget)`.
+- `LucideIconRegistry` (#11) is a singleton mapping `lucide-*` names to `QIcon`s. SVG bytes are rendered to a 64x64 QPixmap-backed QIcon; QIcon's icon engine handles scaling at paint time. **The bundled set is NOT pre-populated** — that's a follow-up. Today only ad-hoc plugin `addIcon` registrations work.
+- `MarkdownRenderer::render` (#10) added as a static method on the existing `Corbomite::MarkdownRenderer` class (the existing instance methods do HTML rendering; the new static does widget rendering, mirrored on Obsidian's `MarkdownRenderer.render(app, md, el, sourcePath, component): Promise<void>`). Constructs a `Markoff::Reading::ReadingView` parented to the caller's widget, returns a `QFuture<void>` that's already finished once synchronous content is laid out. Math/mermaid/embed children continue rendering in the background. Permissionless. `corbomite-core` gains `markoff_reading` as a private link dep.
+- `DecorationProviderRegistry` (#9) is the Cluster B shape of `registerEditorExtension`. New POD types `Corbomite::Decoration` + `DecorationKind` enum (`Highlight`/`InlineWidget`/`HoverBadge`); `DecorationProvider` interface; singleton registry; `DecorationProviderRegistrar` proxy. **Markoff render-path integration is deferred** — registry stores registrations but Markoff doesn't yet consult it. The follow-up adds a virtual hook in Markoff's editor build pipeline. Per spec, the following EditorExtension capabilities are deferred to Cluster E: gutter widgets, keymap injection (today plugins use `addCommand`), theme overrides (today plugins read `ThemeService`), custom cursor / selection rendering, multi-cursor in Live mode, full `Markoff::EditorExtension` abstract base class.
+
+**Phase 3 — lifecycle / events (#8, #12, #15, #16).**
+- `Vault::raw` (#15) + `Vault::configChanged` (#16) signals shipped, with `.obsidian/` watcher expansion. `Watcher` previously excluded `.obsidian/` entirely; now `isExcluded()` is split into `isTreeExcluded()` (still skipped from created/modified/deleted/renamed for `.obsidian/`, `.corbomite/`, `.trash/`, `.git/`) and `isWatchExcluded()` (only `.corbomite/`, `.trash/`, `.git/` skipped from monitoring). New `Watcher::rawChange` signal fires for every detected mutation regardless of path; Vault forwards it as `raw` and (for `.obsidian/*.json`) `configChanged`. `raw` is **not** echo-suppressed — matches Obsidian's "every adapter mutation" semantics.
+- `ProtocolHandlerRegistry` (#8) routes URLs by host (action). `MainWindow` wires `QDesktopServices::setUrlHandler("corbomite", ...)` at startup. `ProtocolHandlerRegistrar` proxy uses `<pluginId>.<localAction>` namespacing (dot-separator since URL hosts disallow `:`). **`obsidian://` opt-in is deferred** — the substrate is ready, just needs a Settings checkbox + xdg-mime call on toggle.
+- `Plugin::onExternalSettingsChange` (#12) is a public virtual default-no-op. `PluginManager` owns a `QFileSystemWatcher` (`m_dataJsonWatcher`) + path→pluginId map. `disablePlugin` removes the plugin's watch entries. `onDataJsonChanged` slot dispatches to the virtual and re-adds the path (atomic-rename saves drop the watch). A test-only `simulateExternalSettingsChange(pluginId)` bypasses the watcher.
+
+**Phase 4 — permissions polish + closeout.**
+- `docs/plugin-development/permissions.md` (#14) — per-token reference table with rationale for each split (`vault.read`/`write`/`events`, `ui.rendering` aggregation, `ui.statusbar` vs `ui.commands`, `protocol` semantics) and the trust-origin model.
+- Permission tokens public header (#13) shipped in Phase 0.
+- Kitchen-sink reference plugin (#17 in plan, item not in spec) — **deferred** to a follow-up. Per-verb unit tests in `tst_proxy_extensions` already cover the API surface; a real KPluginFactory plugin would mostly exercise the build-system glue.
+
+**Test coverage:** `tst_proxy_extensions` grew from 0 to 29 cases. `tst_vault_watcher` grew from 5 to 10 cases (added 3 cluster-B specific). `tst_plugin_external_settings` is new, 3 cases. All green.
+
+**Cluster-B follow-ups (track in punch list):**
+1. `PostProcessor` + `CodeBlock` ReadingView dispatch wiring (P3) — make plugin-registered processors actually run.
+2. `Markoff::DecorationProviderHook` — wire `DecorationProviderRegistry::providers()` into `Markoff::ReadingView::buildScene` / Live build path (P3).
+3. Bundled Lucide SVG set — populate `LucideIconRegistry` with the ~50 most-referenced icons at app start (P4).
+4. `obsidian://` opt-in — Settings checkbox + xdg-mime registration on toggle (P5).
+5. Kitchen-sink reference plugin (P5) — exercises every verb in one `onload()`; canonical reference for plugin authors.
+6. `Vault::raw` rate-limit + opt-in echo suppression — high-frequency-write plugins may need a per-subscriber filter (P6).
+
+**Files touched (high level):**
+- `libs/markoff-family` submodule: bumped to include unregister methods on EmbedRegistry + CodeBlockProcessorRegistry.
+- `libs/core/`: 11 new register/registrar pairs, MarkdownRenderer extension, PluginPermissions header.
+- `libs/vault/`: PluginContext setter expansion (ten registries), Plugin facade methods, Watcher expansion, raw/configChanged signals, PluginManager data.json watcher.
+- `src/app/`: MainWindow registry construction + wiring (including `QDesktopServices::setUrlHandler`).
+- `tests/core/`: tst_proxy_extensions (new), tst_plugin_external_settings (new).
+- `libs/vault/tests/`: tst_vault_watcher (extended).
+- `docs/`: permissions.md (new), PROJECT-STATE, INDEX, decisions-archive, plan + spec.
+
+---
+
 ## 2026-04-27 — Cluster A & Cluster C closed inline; residuals reassigned to B and F
 
 Both stub clusters never got a brainstorm or full plan; the underlying audit items were drained directly through the punch list. Closeout audit confirms 8 of 10 A scope items + 7 of 9 C scope items already landed via prior P0/P1 sweeps. Closing both, shipping the final A item (BOM strip), and pushing the residuals into the clusters they actually belong in.

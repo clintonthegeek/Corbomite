@@ -4,16 +4,15 @@
 >
 > **Reset 2026-04-26.** Lettering restarted at A after the audit (`docs/audit-2026-04-26/`). Pre-reset legacy clusters live in `archive/` and are referenced as "legacy cluster &lt;letter&gt;" in `decisions-archive.md` to avoid collision.
 
-**Last updated:** 2026-04-27 — Cluster A and Cluster C closed inline (drained via P0/P1 punch-list sweeps + BOM-strip closeout); residuals reassigned to Cluster B (raw/config-changed events) and Cluster F (Workspaces plugin + sidedock-as-tree).
+**Last updated:** 2026-04-28 — Cluster B closed (16 items shipped across 4 phases); follow-ups for ReadingView dispatch wiring + obsidian:// opt-in + bundled Lucide set + kitchen-sink reference plugin tracked in punch list.
 
 ## Active clusters
 
 | Cluster | Title | Plan file | Type | Status | Notes |
 |---|---|---|---|---|---|
-| B | Plugin API surface completion | [stub](2026-04-26-cluster-b-plugin-api-surface.md) | Stub | Plan-needed | 6 missing plugin proxies + 6 missing verbs + raw/config-changed events (pulled from A). Blocks third-party plugin authoring. |
 | D | Bases UI completion | [stub](2026-04-26-cluster-d-bases-ui-completion.md) | Stub | Plan-needed | Runtime exists (legacy K). Builds the missing UI: formula editor, group rendering, properties drawer, export, drag, hover, undo, multi-key sort. |
-| E | Markoff Editor API parity | [stub](2026-04-26-cluster-e-markoff-editor-api-parity.md) | Stub | Plan-needed | Plugin shim — `getLine`/`replaceRange`/`posAtCoords`/etc. Multi-cursor in Live mode. `EditorExtension` type. Should land before Cluster B's `registerEditorExtension`. |
-| F | Internal-plugin gap fill | [stub](2026-04-26-cluster-f-internal-plugin-gap-fill.md) | Stub | Plan-needed | 8 missing internal plugins + Workspaces plugin + sidedock-as-tree substrate (pulled from C). Some gated on B. |
+| E | Markoff Editor API parity | [stub](2026-04-26-cluster-e-markoff-editor-api-parity.md) | Stub | Plan-needed | Plugin shim — `getLine`/`replaceRange`/`posAtCoords`/etc. Multi-cursor in Live mode. Full `EditorExtension` ABI. Cluster B shipped a decoration-only `registerEditorExtension`; this expands it. |
+| F | Internal-plugin gap fill | [stub](2026-04-26-cluster-f-internal-plugin-gap-fill.md) | Stub | Plan-needed | 8 missing internal plugins + Workspaces plugin + sidedock-as-tree substrate (pulled from C). Cluster B unblocked: addStatusBarItem now available for word-count plugin. |
 | G | Markoff Phase C8 (inline-ORC coherence) | [full](2026-04-26-cluster-g-markoff-phase-c8.md) | Full | In-flight | Markoff-side work-unit C8. Was: `2026-04-23-phase-c8-inline-orc-canonical-coherence.md`. |
 | H | Block-substitution widgets | [scouting](2026-04-26-cluster-h-block-substitution-widgets.md) | Scouting | Blocked on G | Promotes block math + mermaid out of QTextDocument substitution into peer `QGraphicsItem`s. Was: legacy Cluster X. |
 | I | Editor & Workspace UI surfacing | [full](2026-04-26-cluster-i-editor-workspace-ui-surfacing.md) | Full | In-flight | Was: legacy Cluster V. Plan written 2026-04-20; phases not yet executed. |
@@ -24,6 +23,7 @@
 | Cluster | Title | Closed | Disposition |
 |---|---|---|---|
 | A | Vault-format compatibility sweep | 2026-04-27 | Drained inline via P0 sweep + BOM-strip closeout. Plan: [closed](2026-04-26-cluster-a-vault-format-compat.md). raw/config-changed events reassigned to B. |
+| B | Plugin API surface completion | 2026-04-28 | 16 items shipped across 4 phases — 11 mechanical / new-substrate proxies (Hover, Suggest, PostProcessor, Ribbon, Embed, CodeBlock, StatusBar, LucideIcon, MarkdownRenderer, DecorationProvider, ProtocolHandler), `Vault::raw` + `configChanged` events, expanded `.obsidian/` watcher, `Plugin::onExternalSettingsChange`, permission tokens public header + reference docs. 5 new permission tokens. Plan: [executed](2026-04-28-cluster-b-plugin-api-surface.md). Spec: [`specs/2026-04-28-cluster-b-plugin-api-surface-design.md`](../specs/2026-04-28-cluster-b-plugin-api-surface-design.md). |
 | C | Workspace serializer fidelity rebuild | 2026-04-27 | Drained inline via P1 sweep + serializer-consolidation work-unit. Plan: [closed](2026-04-26-cluster-c-workspace-serializer.md). Sidedock-as-tree + named-workspaces reassigned to F. |
 
 ## Where to find more
