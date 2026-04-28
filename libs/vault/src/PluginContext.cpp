@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/vault/PluginContext.h"
 
+#include "corbomite/core/PluginPermissions.h"
 #include "corbomite/core/proxies/CommandRegistrar.h"
 #include "corbomite/core/proxies/MenuInjector.h"
 #include "corbomite/storage/proxies/MetadataCacheReader.h"
@@ -17,20 +18,7 @@
 
 namespace Corbomite {
 
-namespace {
-constexpr auto kVaultRead    = "vault.read";
-constexpr auto kVaultWrite   = "vault.write";
-constexpr auto kVaultEvents  = "vault.events";
-constexpr auto kMetadataRead = "metadata.read";
-constexpr auto kWorkspace    = "workspace";
-constexpr auto kUiCommands   = "ui.commands";
-constexpr auto kUiViews      = "ui.views";
-constexpr auto kUiMenus      = "ui.menus";
-constexpr auto kNetwork      = "network";
-constexpr auto kSecrets      = "secrets";
-constexpr auto kProcess      = "process";
-constexpr auto kConfig       = "config";
-} // namespace
+using namespace Corbomite::Permissions;
 
 PluginContext::PluginContext(PluginMetaData meta, QSet<QString> granted)
     : m_meta(std::move(meta)), m_granted(std::move(granted)) {}
