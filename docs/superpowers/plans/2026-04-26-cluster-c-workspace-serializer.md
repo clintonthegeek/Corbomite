@@ -32,8 +32,22 @@
 
 ## Phases
 
-TBD — brainstorm. Likely 3 phases: (1) consolidate serializer + nested splits, (2) sidedock-as-tree + named workspaces, (3) polish (popout lifecycle, undo state).
+(Plan never expanded — fidelity items closed inline through the P1 punch-list sweep + 2026-04-26 serializer-consolidation work-unit. See per-item status below.)
 
 ## Status
 
-**Plan-needed** (stub).
+**Closed 2026-04-27.** Drained inline; the two remaining items are feature substrate (not serializer fidelity) and have been reassigned to Cluster F.
+
+### Disposition
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Consolidate `Workspace::serialize` ⇄ `WorkspaceSerializer` | Closed (P1 punch-list, [serializer-consolidation spec](../specs/2026-04-26-workspace-serializer-consolidation-design.md)) |
+| 2 | Preserve nested splits in serialization | Closed (P1 punch-list — KDDW `LayoutSaver::serializeLayout()` JSON drives split topology) |
+| 3 | Per-group `currentTab` (replace global active-leaf-index) | Closed (P1 punch-list — round-trips via `Core::Group::currentTabIndex()`) |
+| 4 | Bridge KDDW → Corbomite tab-group enumeration (`m_tabGroupOf` lag) | Closed (P1 punch-list — primitives now read from `DockRegistry::groups()`; [kddw-public-enumeration addendum](../../obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md)) |
+| 5 | `SessionManager::m_unknownRoot` `left`/`right` blind write-through | Closed (P1 punch-list — Option B chosen: `m_sidebarDirty` bit, drop dirty subtrees on save) |
+| 6 | `undoCloseLeaf` preserve original parent + history + ephemeral state | Closed (P1 punch-list — `closeLeaf` captures sibling id, restore re-keys + sets state) |
+| 7 | Popout window lifecycle on X-close | Closed (P1 punch-list — `m_windows.removeOne(window)` on close path) |
+| 8 | Sidedock-as-workspace-tree | **Reassigned to Cluster F** (item #10) — substrate refactor, not serializer fidelity; pairs with the Workspaces internal plugin. |
+| 9 | Named-workspaces `.obsidian/workspaces.json` | **Reassigned to Cluster F** (item #9) — owned by the Workspaces internal plugin. |

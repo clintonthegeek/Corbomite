@@ -160,16 +160,33 @@ QVector<TAbstractFile *> Vault::getAllLoadedFiles() const
 
 bool Vault::isEmpty() const { return m_fileMap.size() <= 1; }
 
+namespace {
+// Obsidian spec §3: Vault.read strips a leading UTF-8 BOM (U+FEFF, EF BB BF)
+// before returning. readBinary preserves the bytes verbatim.
+inline QByteArray stripUtf8Bom(QByteArray bytes)
+{
+    if (bytes.size() >= 3
+        && static_cast<unsigned char>(bytes[0]) == 0xEF
+        && static_cast<unsigned char>(bytes[1]) == 0xBB
+        && static_cast<unsigned char>(bytes[2]) == 0xBF) {
+        bytes.remove(0, 3);
+    }
+    return bytes;
+}
+} // namespace
+
 QByteArray Vault::read(TFile *f) const
 {
     if (!f || !m_adapter) return {};
     auto body = m_adapter->readBinary(m_basePath + QLatin1Char('/') + f->path);
-    return body.has_value() ? *body : QByteArray{};
+    return body.has_value() ? stripUtf8Bom(*body) : QByteArray{};
 }
 
 QByteArray Vault::readBinary(TFile *f) const
 {
-    return read(f);
+    if (!f || !m_adapter) return {};
+    auto body = m_adapter->readBinary(m_basePath + QLatin1Char('/') + f->path);
+    return body.has_value() ? *body : QByteArray{};
 }
 
 QByteArray Vault::readRaw(const QString &path) const
@@ -177,7 +194,7 @@ QByteArray Vault::readRaw(const QString &path) const
     if (!m_adapter) return {};
     auto body = m_adapter->readBinary(
         m_basePath + QLatin1Char('/') + VaultPaths::normalize(path));
-    return body.has_value() ? *body : QByteArray{};
+    return body.has_value() ? stripUtf8Bom(*body) : QByteArray{};
 }
 
 QByteArray Vault::cachedRead(TFile *f)

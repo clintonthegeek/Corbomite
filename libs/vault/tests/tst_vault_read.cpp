@@ -15,6 +15,9 @@ private slots:
     void readBinaryReturnsBytes();
     void readRawBypassesTree();
     void readMissingReturnsEmpty();
+    void readStripsLeadingUtf8Bom();
+    void readBinaryPreservesUtf8Bom();
+    void readRawStripsLeadingUtf8Bom();
 };
 
 void TestVaultRead::readReturnsBody()
@@ -71,6 +74,55 @@ void TestVaultRead::readMissingReturnsEmpty()
     Corbomite::FileSystemAdapter fs;
     Corbomite::Vault vault(&fs);
     QCOMPARE(vault.read(nullptr), QByteArray());
+}
+
+void TestVaultRead::readStripsLeadingUtf8Bom()
+{
+    QTemporaryDir dir;
+    QFile f(dir.path() + "/bom.md");
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("\xEF\xBB\xBF# Title\n", 11);
+    f.close();
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *tf = vault.getFileByPath(QStringLiteral("bom.md"));
+    QVERIFY(tf);
+    QCOMPARE(vault.read(tf), QByteArray("# Title\n"));
+}
+
+void TestVaultRead::readBinaryPreservesUtf8Bom()
+{
+    QTemporaryDir dir;
+    QFile f(dir.path() + "/bom.md");
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("\xEF\xBB\xBF# Title\n", 11);
+    f.close();
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *tf = vault.getFileByPath(QStringLiteral("bom.md"));
+    QVERIFY(tf);
+    QCOMPARE(vault.readBinary(tf), QByteArray("\xEF\xBB\xBF# Title\n", 11));
+}
+
+void TestVaultRead::readRawStripsLeadingUtf8Bom()
+{
+    QTemporaryDir dir;
+    QFile f(dir.path() + "/bom.md");
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("\xEF\xBB\xBFhello", 8);
+    f.close();
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    QCOMPARE(vault.readRaw(QStringLiteral("bom.md")), QByteArray("hello"));
 }
 
 QTEST_MAIN(TestVaultRead)

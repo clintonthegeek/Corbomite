@@ -36,6 +36,10 @@ Every Obsidian registration verb that has a sensible KDE/Qt analogue can be reac
 13. Move permission tokens from .cpp to a public header
 14. Document the permission model in `docs/plugin-development/`
 
+**Pulled in from Cluster A on closeout (2026-04-27):**
+15. `Vault.raw` event — fires on every adapter mutation including `.obsidian/`. Today the watcher excludes `.obsidian/` (`Watcher.cpp:28-39`) and there is no equivalent signal. Audit: [vault.md](../../audit-2026-04-26/vault.md) §"Notable concerns" / §"`raw` signal" (line 272).
+16. `Vault.config-changed` event — Obsidian fires on plugin-data external-edit. Pairs with verb #12 (`onExternalSettingsChange` watcher).
+
 ## Out of scope
 
 - Markoff Editor wrapper API parity → **Cluster E** (`registerEditorExtension` is blocked on it)

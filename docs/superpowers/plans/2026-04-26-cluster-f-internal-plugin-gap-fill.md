@@ -24,6 +24,10 @@ A user opening Corbomite for the first time has the same out-of-box surface as O
 7. **File recovery** (Version History modal + backup store; addendum has full spec; significant work)
 8. **Note composer** (merge-file modal + split-file commands)
 
+**Pulled in from Cluster C on closeout (2026-04-27):**
+9. **Workspaces** internal plugin — named-layout snapshots persisted to `.obsidian/workspaces.json` (Record<workspaceName, LayoutJson>). Schema at [obsidian-audit/VAULT-FORMAT.md](../../obsidian-audit/VAULT-FORMAT.md) §`.obsidian/workspaces.json`. Owns the "save / load / delete named workspace" command set. Cluster Y γ-scope deferral; pre-reset legacy `cluster-retros/cluster-y.md`.
+10. **Sidedock-as-workspace-tree** substrate refactor — `WorkspaceSidedock` is a stub; `Workspace::leftSplit() / rightSplit()` return nullptr. Today sidebars live outside the tree in `CorbomiteMDI::Sidebar`. Required for plugin-API parity with Obsidian (`workspace.leftSplit.collapse()` etc.) and for round-tripping the `left`/`right` subtrees in `workspace.json` rather than passing them through with the dirty-bit hack from P1 #4. Cross-cuts Workspaces plugin — work the substrate before / alongside #9.
+
 ## Out of scope
 
 - Plugin-system itself → already shipped (legacy Cluster Q/N)

@@ -10,6 +10,26 @@ Conventions:
 
 ---
 
+## 2026-04-27 — Cluster A & Cluster C closed inline; residuals reassigned to B and F
+
+Both stub clusters never got a brainstorm or full plan; the underlying audit items were drained directly through the punch list. Closeout audit confirms 8 of 10 A scope items + 7 of 9 C scope items already landed via prior P0/P1 sweeps. Closing both, shipping the final A item (BOM strip), and pushing the residuals into the clusters they actually belong in.
+
+**Cluster A — final outstanding item shipped: BOM strip on read.** `Vault::read(TFile*)` and `Vault::readRaw(QString)` now strip a leading UTF-8 BOM (`EF BB BF`) before returning. `Vault::readBinary(TFile*)` was changed to bypass `read()` and call `m_adapter->readBinary` directly so binary callers preserve the bytes verbatim. Implementation in `libs/vault/src/Vault.cpp` via a file-scope `stripUtf8Bom` helper. Fixes audit's `vault.md §"BOM handling"` complaint that Windows-authored vaults display U+FEFF in the editor. Tests: `tst_vault_read::readStripsLeadingUtf8Bom`, `readBinaryPreservesUtf8Bom`, `readRawStripsLeadingUtf8Bom`. Cluster scope said "preserve / restore on write" — descoped: Obsidian itself normalizes the BOM away on save, so matching that behaviour is the correct interop story rather than a Corbomite-specific gap.
+
+**Cluster A reassignment.** Item 9 (`Vault.raw` + `Vault.config-changed` events + `.obsidian/` watcher) moved to Cluster B as items #15–#16. Rationale: the cluster A goal is byte-faithful on-disk format compatibility; `Vault.raw` is plugin event-surface work (fires on every adapter mutation; pairs with `onExternalSettingsChange`). Belongs with the rest of the missing plugin verbs in B.
+
+**Cluster A items already closed (recap, no new work):** 1 frontmatter key-order, 2 config-json writer consolidation, 3 .base YAML key-order, 4 `resolveSubpath` block-id case-insensitivity, 5 empty-frontmatter shell elimination, 6 folder rename descendant rekey, 7 link rewrite fidelity in `FileManager::renameFile`, 10 `CaseSensitivityProbe` wired (now used in `Vault::load`). All landed via P0 punch-list sweep in early- and mid-April.
+
+**Cluster C — all 7 fidelity items already closed.** All P1 punch-list items shipped during the 2026-04-26 serializer-consolidation work-unit and earlier P1 sweeps. Single source of truth is `WorkspaceSerializer::toJson`/`fromJson`; KDDW `LayoutSaver::serializeLayout()` JSON drives split topology; per-group `currentTab` round-trips via `Core::Group::currentTabIndex()`; tab-group enumeration reads `DockRegistry::groups()` directly; `SessionManager::m_unknownRoot` `left`/`right` blind write-through replaced with the dirty-bit Option B; `undoCloseLeaf` captures + restores parent + history + ephemeral state; popout windows are removed from `m_windows` on X-close.
+
+**Cluster C reassignment.** Items 8 (sidedock-as-workspace-tree) and 9 (named-workspaces / `.obsidian/workspaces.json`) moved to Cluster F as items #9–#10. Rationale: both are feature substrate — sidedock-as-tree is the substrate refactor that lets `WorkspaceSidedock` stop returning nullptr (today `Workspace::leftSplit/rightSplit` are stubs), and named-workspaces is owned by Obsidian's Workspaces internal plugin. Both were γ-scope per the legacy Cluster Y retro; they were never serializer fidelity, just sat in the cluster C scope by adjacency.
+
+**Bookkeeping.** INDEX.md moved A and C from "Active clusters" to a new "Closed in this scheme" table. Plan files for A and C now carry per-item disposition tables. Cluster B and Cluster F stubs got the reassigned items appended with audit-doc cross-references. PROJECT-STATE active-cluster snapshot is now 8 (B/D/E/F/G/H/I/J).
+
+Files: `libs/vault/src/Vault.cpp`, `libs/vault/tests/tst_vault_read.cpp`, `docs/PROJECT-STATE.md`, `docs/superpowers/plans/INDEX.md`, `docs/superpowers/plans/2026-04-26-cluster-a-vault-format-compat.md`, `docs/superpowers/plans/2026-04-26-cluster-b-plugin-api-surface.md`, `docs/superpowers/plans/2026-04-26-cluster-c-workspace-serializer.md`, `docs/superpowers/plans/2026-04-26-cluster-f-internal-plugin-gap-fill.md`, `docs/decisions-archive.md`.
+
+---
+
 ## 2026-04-27 — P2 sweep (session 3): FileExplorer dialogs + writeBackup leak + delete signal + fold invalidation + ![[…]] embed
 
 Five P2 punch-list items closed in a single autonomous session.

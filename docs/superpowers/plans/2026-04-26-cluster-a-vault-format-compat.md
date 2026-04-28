@@ -35,8 +35,23 @@ Eliminate every silent on-disk format divergence between Corbomite and Obsidian.
 
 ## Phases
 
-TBD — brainstorm before dispatch. Likely 4–6 phases by file-format target.
+(Plan never expanded — items closed inline through the post-reset P0 sweep + 2026-04-27 closeout. See per-item status below.)
 
 ## Status
 
-**Plan-needed** (stub).
+**Closed 2026-04-27.** Drained inline rather than as a coordinated cluster.
+
+### Disposition
+
+| # | Item | Status |
+|---|---|---|
+| 1 | `processFrontMatter` insertion-order preservation | Closed (P0 punch-list, libs/storage front-matter parser) |
+| 2 | Consolidate `Vault::writeConfigJson` ⇄ `VaultConfig::serializeObsidianStyle` | Closed (P0 punch-list) |
+| 3 | `.base` YAML emitter key-order preservation | Closed (P0 punch-list — top-level + per-view canonical order; user-keyed dicts P2 follow-up also closed) |
+| 4 | `resolveSubpath` block-id case-insensitivity | Closed (P0 punch-list, `LinkUtils.cpp`) |
+| 5 | `Document::withFrontmatter` empty-frontmatter shell elimination | Closed (P0 punch-list) |
+| 6 | Folder rename descendant rekey + cascading `renamed` events | Closed (P0 punch-list, `Vault::rename` recursive walk) |
+| 7 | `FileManager::renameFile` link rewrite fidelity | Closed (P0 punch-list — markdown-style + full-path forms via `MetadataCache` snapshot + shared `rewriteLinkLiteral` helper) |
+| 8 | BOM strip on read | **Closed 2026-04-27** — `Vault::read` + `Vault::readRaw` strip leading U+FEFF; `readBinary` preserves bytes verbatim (test: `tst_vault_read::readStripsLeadingUtf8Bom`). Preserve-on-write was descoped — Obsidian itself normalizes away the BOM on save, so matching that behaviour is correct. |
+| 9 | `Vault.raw` + `Vault.config-changed` events + `.obsidian/` watcher | **Reassigned to Cluster B** (items #15–#16) — really plugin event-surface work, not on-disk format. |
+| 10 | Wire `CaseSensitivityProbe` (was dead code) | Closed (`Vault.cpp:85` — used in vault load probe) |
