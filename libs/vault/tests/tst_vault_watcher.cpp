@@ -18,6 +18,9 @@ private slots:
     void externalDeleteEmitsDeletedWithTombstone();
     void externalRenameEmitsRenamed();
     void unloadEmitsClosed();
+    void externalChangeEmitsRaw();
+    void externalConfigJsonEmitsConfigChanged();
+    void externalNonConfigDoesNotEmitConfigChanged();
 };
 
 namespace {
@@ -107,6 +110,58 @@ void TestVaultWatcher::unloadEmitsClosed()
     QSignalSpy spy(&vault, &Corbomite::Vault::closed);
     vault.unload();
     QCOMPARE(spy.count(), 1);
+}
+
+void TestVaultWatcher::externalChangeEmitsRaw()
+{
+    QTemporaryDir dir;
+    writeFile(dir.path() + "/a.md", "one");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    QSignalSpy rawSpy(&vault, &Corbomite::Vault::raw);
+    QTest::qSleep(1100);
+    writeFile(dir.path() + "/a.md", "two-different");
+    QTRY_VERIFY_WITH_TIMEOUT(rawSpy.count() >= 1, 5000);
+    QCOMPARE(rawSpy.first().at(0).toString(), QStringLiteral("a.md"));
+}
+
+void TestVaultWatcher::externalConfigJsonEmitsConfigChanged()
+{
+    QTemporaryDir dir;
+    QDir().mkpath(dir.path() + "/.obsidian");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    QSignalSpy rawSpy(&vault, &Corbomite::Vault::raw);
+    QSignalSpy cfgSpy(&vault, &Corbomite::Vault::configChanged);
+    writeFile(dir.path() + "/.obsidian/appearance.json",
+              R"({"theme":"obsidian"})");
+    QTRY_VERIFY_WITH_TIMEOUT(cfgSpy.count() >= 1, 5000);
+    QCOMPARE(cfgSpy.first().at(0).toString(),
+             QStringLiteral(".obsidian/appearance.json"));
+    QVERIFY(rawSpy.count() >= 1);
+}
+
+void TestVaultWatcher::externalNonConfigDoesNotEmitConfigChanged()
+{
+    QTemporaryDir dir;
+    writeFile(dir.path() + "/note.md", "x");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    QSignalSpy rawSpy(&vault, &Corbomite::Vault::raw);
+    QSignalSpy cfgSpy(&vault, &Corbomite::Vault::configChanged);
+    QTest::qSleep(1100);
+    writeFile(dir.path() + "/note.md", "y-different");
+    QTRY_VERIFY_WITH_TIMEOUT(rawSpy.count() >= 1, 5000);
+    QCOMPARE(cfgSpy.count(), 0);
 }
 
 QTEST_MAIN(TestVaultWatcher)

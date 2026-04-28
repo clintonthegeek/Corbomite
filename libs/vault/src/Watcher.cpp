@@ -25,11 +25,29 @@ Watcher::Watcher(Vault *vault, QObject *parent)
 Watcher::~Watcher() = default;
 
 namespace {
-bool isExcluded(const QString &rel)
+// Tree-visible exclusion (skipped from created/modified/deleted/renamed
+// signals). `.obsidian/` is excluded from the tree but NOT from the
+// rawChange signal — Cluster B (Vault.raw + configChanged) consumes it
+// for plugin event surface.
+bool isTreeExcluded(const QString &rel)
 {
     return rel.startsWith(QStringLiteral(".obsidian/")) ||
            rel == QStringLiteral(".obsidian") ||
            rel.startsWith(QStringLiteral(".corbomite/")) ||
+           rel == QStringLiteral(".corbomite") ||
+           rel.startsWith(QStringLiteral(".trash/")) ||
+           rel == QStringLiteral(".trash") ||
+           rel.startsWith(QStringLiteral(".git/")) ||
+           rel == QStringLiteral(".git");
+}
+
+// Watcher-coverage exclusion (paths we don't bother monitoring at all).
+// `.git` and `.trash` get arbitrarily large and have no plugin or vault
+// relevance; `.corbomite/` is reserved for future host-internal state.
+// `.obsidian/` IS monitored — plugin config is observable via rawChange.
+bool isWatchExcluded(const QString &rel)
+{
+    return rel.startsWith(QStringLiteral(".corbomite/")) ||
            rel == QStringLiteral(".corbomite") ||
            rel.startsWith(QStringLiteral(".trash/")) ||
            rel == QStringLiteral(".trash") ||
@@ -53,7 +71,7 @@ void Watcher::start(const QString &basePath)
     while (it.hasNext()) {
         const QString d = it.next();
         const QString rel = toRel(d);
-        if (isExcluded(rel)) continue;
+        if (isWatchExcluded(rel)) continue;
         m_fsw.addPath(d);
         snapshotDirectory(d);
     }
@@ -90,7 +108,7 @@ void Watcher::snapshotDirectory(const QString &absDir)
         it.next();
         const QFileInfo fi = it.fileInfo();
         const QString rel = toRel(fi.absoluteFilePath());
-        if (isExcluded(rel)) continue;
+        if (isWatchExcluded(rel)) continue;
         m_knownFiles.insert(rel, fi.lastModified().toMSecsSinceEpoch());
         // Watch the file itself so content-only modifications (no dir
         // entry churn) trigger fileChanged. Directory-level watchers do not
@@ -115,11 +133,13 @@ void Watcher::drainPending()
         it.next();
         const QFileInfo fi = it.fileInfo();
         const QString rel = toRel(fi.absoluteFilePath());
-        if (isExcluded(rel)) continue;
+        if (isWatchExcluded(rel)) continue;
         fresh.insert(rel, fi.lastModified().toMSecsSinceEpoch());
     }
 
     // Separate into deleted + created lists; emit modifieds directly.
+    // Tree-visible signals (created/modified/deleted/renamed) skip
+    // .obsidian/ paths; the rawChange signal fires for every change.
     QStringList createdRels;
     QStringList deletedRels;
     for (auto fit = fresh.cbegin(); fit != fresh.cend(); ++fit) {
@@ -127,7 +147,8 @@ void Watcher::drainPending()
         if (known == m_knownFiles.cend()) {
             createdRels.append(fit.key());
         } else if (known.value() != fit.value()) {
-            Q_EMIT modified(fit.key());
+            Q_EMIT rawChange(fit.key());
+            if (!isTreeExcluded(fit.key())) Q_EMIT modified(fit.key());
         }
     }
     for (auto kit = m_knownFiles.cbegin(); kit != m_knownFiles.cend(); ++kit) {
@@ -146,15 +167,24 @@ void Watcher::drainPending()
             const QString &newRel = unpairedCreates[i];
             const qint64 newMtime = fresh.value(newRel);
             if (oldMtime != 0 && newMtime == oldMtime) {
-                Q_EMIT renamed(oldRel, newRel);
+                Q_EMIT rawChange(newRel);
+                if (!isTreeExcluded(oldRel) && !isTreeExcluded(newRel)) {
+                    Q_EMIT renamed(oldRel, newRel);
+                }
                 unpairedCreates.removeAt(i);
                 matched = true;
                 break;
             }
         }
-        if (!matched) Q_EMIT deleted(oldRel);
+        if (!matched) {
+            Q_EMIT rawChange(oldRel);
+            if (!isTreeExcluded(oldRel)) Q_EMIT deleted(oldRel);
+        }
     }
-    for (const QString &newRel : unpairedCreates) Q_EMIT created(newRel);
+    for (const QString &newRel : unpairedCreates) {
+        Q_EMIT rawChange(newRel);
+        if (!isTreeExcluded(newRel)) Q_EMIT created(newRel);
+    }
 
     // Re-add subdirs + files to the watcher so newly-created entries
     // join the watch list. QFileSystemWatcher dedups addPath internally.
@@ -164,7 +194,7 @@ void Watcher::drainPending()
     while (dit.hasNext()) {
         const QString d = dit.next();
         const QString rel = toRel(d);
-        if (isExcluded(rel)) continue;
+        if (isWatchExcluded(rel)) continue;
         if (!m_fsw.directories().contains(d)) m_fsw.addPath(d);
     }
     for (auto fit = fresh.cbegin(); fit != fresh.cend(); ++fit) {

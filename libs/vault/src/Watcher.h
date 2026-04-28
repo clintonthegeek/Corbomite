@@ -37,6 +37,12 @@ signals:
     void deleted(const QString &relPath);
     void renamed(const QString &oldRelPath, const QString &newRelPath);
 
+    /// Cluster B Phase 3 — fired on every detected mutation regardless
+    /// of path (vault content or `.obsidian/` plugin config). Vault
+    /// converts this into the public `Vault::raw` signal; for
+    /// `.obsidian/*.json` paths Vault additionally emits `configChanged`.
+    void rawChange(const QString &relPath);
+
 private Q_SLOTS:
     void onDirChanged(const QString &absDir);
     void onFileChanged(const QString &absPath);

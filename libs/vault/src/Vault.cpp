@@ -60,6 +60,8 @@ Vault::Vault(DataAdapter *adapter, QObject *parent)
             this, &Vault::onExternalDeleted);
     connect(m_watcher.get(), &detail::Watcher::renamed,
             this, &Vault::onExternalRenamed);
+    connect(m_watcher.get(), &detail::Watcher::rawChange,
+            this, &Vault::onExternalRaw);
 }
 
 Vault::~Vault()
@@ -871,6 +873,16 @@ void Vault::resolveExternalReload(NoteDocument *doc, const QString &resolvedCont
     // Same reasoning as the clean case: resetContent → documentReloaded →
     // NoteDocument sets modified=true; override to false post-merge.
     doc->setModified(false);
+}
+
+void Vault::onExternalRaw(const QString &relPath)
+{
+    const QString rel = VaultPaths::normalize(relPath);
+    Q_EMIT raw(rel);
+    if (rel.startsWith(QStringLiteral(".obsidian/"))
+        && rel.endsWith(QStringLiteral(".json"))) {
+        Q_EMIT configChanged(rel);
+    }
 }
 
 void Vault::stampSelfWrite(const QString &rel, qint64 mtimeMs)

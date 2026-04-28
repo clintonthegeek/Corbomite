@@ -153,6 +153,17 @@ signals:
     /// resolveExternalReload() with the chosen content.
     void externalReloadConflict(Corbomite::NoteDocument *doc, const QString &diskContent);
 
+    /// Cluster B Phase 3 — Obsidian-shape `Vault.raw` event. Fires for
+    /// every external mutation detected by the watcher, including
+    /// `.obsidian/`-prefixed paths. Plugin-facing.
+    void raw(const QString &relPath);
+
+    /// Cluster B Phase 3 — Obsidian-shape `Vault.config-changed` event.
+    /// Fires when an external mutation is detected under
+    /// `.obsidian/*.json`. Pairs with `Plugin::onExternalSettingsChange`
+    /// for per-plugin data.json watchers (Phase 3.3).
+    void configChanged(const QString &relPath);
+
 public Q_SLOTS:
     // Watcher-dispatched handlers. Relative paths only (no basePath prefix).
     // Public so tests can invoke them directly without relying on real
@@ -161,6 +172,7 @@ public Q_SLOTS:
     void onExternalModified(const QString &relPath);
     void onExternalDeleted(const QString &relPath);
     void onExternalRenamed(const QString &oldRel, const QString &newRel);
+    void onExternalRaw(const QString &relPath);
 
 public:
     /// Called by the UI after the user resolves an externalReloadConflict
