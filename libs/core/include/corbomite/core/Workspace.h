@@ -250,6 +250,11 @@ public:
     WorkspaceSidedock *rightSplit() const { return nullptr; }
     WorkspaceFloating *floatingSplit() const { return m_floating; }
 
+    /// Re-emit `cssChange()` from the host. Called by MainWindow whenever
+    /// `ThemeService::themeChanged` fires. Mirrors Obsidian's
+    /// `app.workspace.trigger("css-change")` invocation site.
+    void emitCssChange() { Q_EMIT cssChange(); }
+
 Q_SIGNALS:
     void activeLeafChanged(WorkspaceLeaf *leaf);
     void layoutChanged();
@@ -268,6 +273,13 @@ Q_SIGNALS:
     void leafClosed(WorkspaceLeaf *leaf);
     void revealDockViewRequested(const QString &slug);
     void commandRequested(const QString &commandId);
+
+    /// Mirrors Obsidian's `Workspace.on("css-change")`. Re-emitted by the
+    /// host whenever the active theme changes (ThemeService::themeChanged).
+    /// The host calls `emitCssChange()` from a one-line slot wired in
+    /// MainWindow::onWorkspaceCreated. Plugins observe via
+    /// `WorkspaceController::cssChange`.
+    void cssChange();
 
     /// Re-emission of "the user clicked a tab to make this leaf active"
     /// from the substrate. Hosts (MainWindow) connect once at Workspace

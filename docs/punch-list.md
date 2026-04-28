@@ -80,13 +80,13 @@
 
 ## P4 — Lifecycle / per-vault isolation
 
-- [ ] [core][vault] Dangling adapter pointers in `onVaultClosed` — three `.reset()` calls — `src/MainWindow.cpp:2190-2263` — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top suspected bugs"
-- [ ] [plugin] `onLoad` throw auto-unload — try/catch + `Component::unload()` — see [plugin.md](audit-2026-04-26/plugin.md) §"Top suspected bugs"
+- [x] [core][vault] Dangling adapter pointers in `onVaultClosed` — `MainWindow::onVaultClosed` now drops `m_embedRenderer`'s cached `metadataParser` pointer (matched the existing `metadataCache`/`resources` nulls) and `.reset()`s `m_linkResolverAdapter` / `m_metadataCacheAdapter` / `m_metadataParserImpl` before deleting the wrapped `m_metadataCache` / `m_linkResolver`, so a fresh open's `make_unique` re-creation can't transiently destroy a still-referenced shim. — `src/app/MainWindow.cpp:2289-2310`
+- [x] [plugin] `onLoad` throw auto-unload — `PluginManager::enablePlugin` wraps `plugin->load(ctx)` in try/catch, calls (idempotent) `plugin->unload()` on throw, deletes the instance + context, clears `info->{instance,context,enabled}`, and stores `LoadState::OnLoadThrew` so `PluginsPage` surfaces a "this plugin raised an exception" notice. Persisted enabled-state is left intact so a fixed plugin re-enables on next launch. Test: `tst_plugin_manager_lifecycle::onLoadThrowAutoUnloads`. — `libs/vault/src/PluginManager.cpp:274-310`, `src/dialogs/PluginsPage.cpp:196-207`
 - [ ] [plugin][workspace] Detach-leaves-of-type on plugin disable — see [plugin.md](audit-2026-04-26/plugin.md) §"Top gaps"
 - [x] [plugin] `onExternalSettingsChange()` + `data.json` `QFileSystemWatcher` — Cluster B Phase 3.3. `Plugin::onExternalSettingsChange()` virtual + `PluginManager::m_dataJsonWatcher` + `simulateExternalSettingsChange` for tests.
 - [ ] [core][plugin] `appId` for per-vault QtKeychain scoping — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top gaps"
 - [ ] [core][plugin] `quit` event with `Eb`-equivalent collector for plugin async cleanup — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top gaps"
-- [ ] [core][workspace] `css-change` event — bridge `ThemeService::themeChanged` to Workspace — see [core-and-addenda.md](audit-2026-04-26/core-and-addenda.md) §"Top gaps"
+- [x] [core][workspace] `css-change` event — bridge `ThemeService::themeChanged` to Workspace — `Workspace::cssChange()` Q_SIGNAL + `emitCssChange()` re-entry; MainWindow connects `m_themeService::themeChanged` to it post-Workspace-construction; `WorkspaceController::cssChange` mirrors onto the plugin proxy surface so plugins observing theme transitions can re-render decorations. Test: `tst_proxy_workspace::cssChange_reEmitsFromWorkspace`. — `libs/core/include/corbomite/core/Workspace.h:248-260`, `libs/core/src/proxies/WorkspaceController.cpp:33-39`, `src/app/MainWindow.cpp:1597-1611`
 
 ## P5 — Missing features (structurally absent; coordinated internal-plugin work in Cluster F)
 

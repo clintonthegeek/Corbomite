@@ -193,6 +193,17 @@ void PluginsPage::refreshDetail(int row)
         wf.setBold(true);
         warn->setFont(wf);
         m_detailLayout->addWidget(warn);
+    } else if (state == PluginManager::LoadState::OnLoadThrew) {
+        auto *warn = new QLabel(
+            i18n("This plugin raised an exception while loading and was "
+                 "automatically unloaded. Check the application log for "
+                 "details."),
+            m_detail);
+        warn->setWordWrap(true);
+        QFont wf = warn->font();
+        wf.setBold(true);
+        warn->setFont(wf);
+        m_detailLayout->addWidget(warn);
     }
 
     auto *line = new QFrame(m_detail);

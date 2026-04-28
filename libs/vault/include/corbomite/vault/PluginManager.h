@@ -45,7 +45,16 @@ public:
     ///   should the gate be reached for any reason.
     /// * `IncompatibleApiLevel` — plugin's declared X-Corbomite-ApiLevel
     ///   exceeds CORBOMITE_PLUGIN_API_LEVEL. Recorded at ingest().
-    enum class LoadState { Compatible, IncompatibleVersion, IncompatibleApiLevel };
+    /// * `OnLoadThrew` — `Plugin::onLoad()` raised an exception. The
+    ///   instance was auto-unloaded and destroyed; Settings shows a
+    ///   "this plugin failed to load" notice. Persisted enabled-state
+    ///   is left intact so a fixed plugin re-enables on next launch.
+    enum class LoadState {
+        Compatible,
+        IncompatibleVersion,
+        IncompatibleApiLevel,
+        OnLoadThrew,
+    };
 
     struct PluginInfo
     {

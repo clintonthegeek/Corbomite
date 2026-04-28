@@ -1595,6 +1595,18 @@ void MainWindow::setupEditor()
     // Index 1: Workspace (replaces EditorViewManager)
     m_workspace = new Workspace(m_viewRegistry, this);
 
+    // Bridge ThemeService::themeChanged → Workspace::cssChange so plugins
+    // observing the proxy surface see Obsidian's `css-change` event whenever
+    // the active Markoff theme actually changes (built-in switch, user theme,
+    // or KDE color-scheme follow). Connection is host-lifetime; ThemeService
+    // and Workspace both outlive vault-switch teardowns.
+    if (m_themeService) {
+        connect(m_themeService, &Corbomite::Core::ThemeService::themeChanged,
+                m_workspace, [this](const Markoff::Theme &) {
+            m_workspace->emitCssChange();
+        });
+    }
+
     // Cluster R Task 3.1: plugin `:open` commands dispatch through
     // Workspace::revealDockView → this slot, which resolves slug to tool-view
     // id (`<slug>_panel`) and raises it.
@@ -2288,6 +2300,7 @@ void MainWindow::onVaultClosed()
     if (m_embedRenderer) {
         m_embedRenderer->setMetadataCache(nullptr);
         m_embedRenderer->setResources(nullptr);
+        m_embedRenderer->setMetadataParser(nullptr);
     }
     m_popoverResources.reset();
 
@@ -2302,6 +2315,12 @@ void MainWindow::onVaultClosed()
     m_vaultObj = nullptr;
     delete m_searchIndex;
     m_searchIndex = nullptr;
+    // Drop the Markoff adapter shims before deleting their wrapped pointers.
+    // Consumers were nulled above; resetting now means a fresh open's
+    // re-creation can't transiently destroy a still-referenced shim.
+    m_linkResolverAdapter.reset();
+    m_metadataCacheAdapter.reset();
+    m_metadataParserImpl.reset();
     delete m_metadataCache;
     m_metadataCache = nullptr;
     delete m_linkResolver;

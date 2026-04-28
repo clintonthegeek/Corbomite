@@ -111,6 +111,12 @@ Q_SIGNALS:
     /// empty if the new active leaf is fileless.
     void activeFileChanged(const QString &relativePath);
 
+    /// Mirrors Obsidian's `Workspace.on("css-change")`. Re-emitted from
+    /// `Workspace::cssChange`, which the host fires on every active-theme
+    /// change (ThemeService::themeChanged). Plugins observing theme
+    /// transitions to re-render decorations connect here.
+    void cssChange();
+
 private:
     Workspace *m_workspace;
 };

@@ -21,6 +21,7 @@ struct FakeStats
 {
     int loaded = 0;
     int unloaded = 0;
+    bool throwOnLoad = false;
 };
 
 class FakePlugin : public Corbomite::Plugin
@@ -30,7 +31,12 @@ public:
     explicit FakePlugin(FakeStats *stats, QObject *parent = nullptr)
         : Corbomite::Plugin(parent), m_stats(stats) {}
 protected:
-    void onLoad(Corbomite::PluginContext *) override { ++m_stats->loaded; }
+    void onLoad(Corbomite::PluginContext *) override
+    {
+        ++m_stats->loaded;
+        if (m_stats->throwOnLoad)
+            throw std::runtime_error("simulated onLoad failure");
+    }
     void onUnload() override { ++m_stats->unloaded; }
 private:
     FakeStats *m_stats;
@@ -114,6 +120,7 @@ private slots:
     void refusesPluginWithHigherMinVersion();
     void refusesPluginWithHigherApiLevel();
     void loadsPluginWithCompatibleVersionAndLevel();
+    void onLoadThrowAutoUnloads();
 };
 
 void TestPluginManagerLifecycle::enableTrustedPluginAutoGrantsAndLoads()
@@ -432,6 +439,44 @@ void TestPluginManagerLifecycle::loadsPluginWithCompatibleVersionAndLevel()
     const auto *info = mgr->pluginById(QStringLiteral("baseline"));
     QVERIFY(info && info->instance != nullptr);
     QVERIFY(info->enabled);
+
+    delete mgr;
+    qDeleteAll(stats);
+}
+
+void TestPluginManagerLifecycle::onLoadThrowAutoUnloads()
+{
+    // A plugin whose onLoad throws must be auto-unloaded: instance and
+    // context deleted, enabled flag cleared, loadState set to OnLoadThrew,
+    // and the matching onUnload fires so cleanups run on whatever the
+    // partial onLoad acquired before the throw.
+    QTemporaryDir cfg;
+    QHash<QString, FakeStats *> stats;
+    auto *mgr = makeTestManager(cfg, &stats);
+    mgr->ingest({makeFixture(QStringLiteral("crashy"), true, {})},
+                Corbomite::PluginMetaData::Origin::System);
+
+    // Pre-arm the FakeStats record so the next factory invocation throws.
+    auto *s = new FakeStats;
+    s->throwOnLoad = true;
+    stats.insert(QStringLiteral("crashy"), s);
+
+    QTest::ignoreMessage(QtWarningMsg,
+        QRegularExpression(QStringLiteral("crashy.*onLoad")));
+    QVERIFY(!mgr->enablePlugin(QStringLiteral("crashy")));
+
+    QCOMPARE(mgr->loadState(QStringLiteral("crashy")),
+             Corbomite::PluginManager::LoadState::OnLoadThrew);
+
+    const auto *info = mgr->pluginById(QStringLiteral("crashy"));
+    QVERIFY(info != nullptr);
+    QCOMPARE(info->instance, nullptr);
+    QCOMPARE(info->context, nullptr);
+    QVERIFY(!info->enabled);
+
+    // onLoad ran once, threw, and onUnload ran exactly once during cleanup.
+    QCOMPARE(s->loaded, 1);
+    QCOMPARE(s->unloaded, 1);
 
     delete mgr;
     qDeleteAll(stats);

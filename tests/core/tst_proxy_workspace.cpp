@@ -114,6 +114,8 @@ private slots:
     void getActiveViewOfType_matchesOnlyWhenTypeAgrees();
     void openLinkText_stringMode_dispatchesToWorkspace();
     void getLeaf_stringMode_returnsLeafId();
+
+    void cssChange_reEmitsFromWorkspace();
 };
 
 void TestProxyWorkspace::nullWorkspaceReturnsSafeDefaults()
@@ -345,6 +347,26 @@ void TestProxyWorkspace::getLeaf_stringMode_returnsLeafId()
 
     QVERIFY(ctrl.getLeaf(QStringLiteral("nonsense")).isEmpty()
             == false);  // unrecognised mode falls back to "tab".
+}
+
+void TestProxyWorkspace::cssChange_reEmitsFromWorkspace()
+{
+    // Workspace::cssChange is the host's `app.workspace.trigger("css-change")`
+    // emission point — fired from MainWindow whenever ThemeService::themeChanged
+    // lands. WorkspaceController re-emits it onto the plugin proxy surface so
+    // plugins can connect via `workspace()->cssChange` to re-render decorations.
+    auto *registry = makeRegistry(this);
+    Workspace workspace(registry);
+    WorkspaceController ctrl(&workspace);
+
+    QSignalSpy spy(&ctrl, &WorkspaceController::cssChange);
+    QVERIFY(spy.isValid());
+
+    workspace.emitCssChange();
+    QCOMPARE(spy.count(), 1);
+
+    workspace.emitCssChange();
+    QCOMPARE(spy.count(), 2);
 }
 
 QTEST_MAIN(TestProxyWorkspace)

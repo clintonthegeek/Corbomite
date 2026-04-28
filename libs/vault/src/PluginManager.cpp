@@ -274,7 +274,34 @@ bool PluginManager::enablePlugin(const QString &id)
     info->context = new PluginContext(info->metaData, granted);
     if (m_contextConfigurator) m_contextConfigurator(info->context);
     info->instance = plugin;
-    plugin->load(info->context);
+    try {
+        plugin->load(info->context);
+    } catch (const std::exception &e) {
+        qWarning().noquote() << "PluginManager:" << id
+            << "threw during onLoad —" << e.what()
+            << "— auto-unloading.";
+        // unload() is idempotent + handles partial-load state; swallow any
+        // secondary throw so the cleanup path can't itself crash the host.
+        try { plugin->unload(); } catch (...) {}
+        delete plugin;
+        delete info->context;
+        info->instance = nullptr;
+        info->context = nullptr;
+        info->enabled = false;
+        m_loadState.insert(id, LoadState::OnLoadThrew);
+        return false;
+    } catch (...) {
+        qWarning().noquote() << "PluginManager:" << id
+            << "threw an unknown exception during onLoad — auto-unloading.";
+        try { plugin->unload(); } catch (...) {}
+        delete plugin;
+        delete info->context;
+        info->instance = nullptr;
+        info->context = nullptr;
+        info->enabled = false;
+        m_loadState.insert(id, LoadState::OnLoadThrew);
+        return false;
+    }
     info->enabled = true;
 
     // Cluster B Phase 3.3 — install per-plugin data.json watcher.

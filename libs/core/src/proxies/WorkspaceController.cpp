@@ -34,6 +34,8 @@ WorkspaceController::WorkspaceController(Workspace *workspace, QObject *parent)
             [this](WorkspaceLeaf *leaf) {
                 Q_EMIT activeFileChanged(fileForLeaf(leaf));
             });
+    connect(m_workspace, &Workspace::cssChange, this,
+            &WorkspaceController::cssChange);
 }
 
 WorkspaceController::~WorkspaceController() = default;
