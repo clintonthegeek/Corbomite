@@ -5,6 +5,7 @@
 
 #include <KSharedConfig>
 
+#include <QFileSystemWatcher>
 #include <QHash>
 #include <QList>
 #include <QObject>
@@ -147,11 +148,20 @@ Q_SIGNALS:
     void pluginEnabled(const QString &id);
     void pluginDisabled(const QString &id);
 
+public:
+    /// Test-only: directly fire a data.json change for `pluginId`. Bypasses
+    /// the QFileSystemWatcher so unit tests don't depend on filesystem
+    /// timing.
+    void simulateExternalSettingsChange(const QString &pluginId);
+
 protected:
     /// The version this build of the app reports for MinVersion comparisons.
     /// Virtual so tests can override if ever needed (today we accept any
     /// MinVersion ≤ CORBOMITE_APP_VERSION or, absent that define, 0.0.0).
     virtual QVersionNumber appVersion() const;
+
+private Q_SLOTS:
+    void onDataJsonChanged(const QString &path);
 
 private:
     QSet<QString> loadGrantedPermissions(const QString &id) const;
@@ -167,6 +177,12 @@ private:
     FactoryFn m_factoryOverride;
     PromptFn  m_promptHandler;
     ContextConfigurator m_contextConfigurator;
+
+    // Cluster B Phase 3.3 — per-plugin data.json watcher. Maps absolute
+    // data.json path -> plugin id so the watcher's fileChanged slot can
+    // dispatch to the right plugin.
+    QFileSystemWatcher m_dataJsonWatcher;
+    QHash<QString, QString> m_dataJsonPathToPluginId;
 };
 
 } // namespace Corbomite

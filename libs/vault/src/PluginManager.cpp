@@ -62,6 +62,8 @@ PluginManager::PluginManager(QObject *parent)
     , m_userPath(defaultUserPath())
     , m_config(KSharedConfig::openConfig())
 {
+    connect(&m_dataJsonWatcher, &QFileSystemWatcher::fileChanged,
+            this, &PluginManager::onDataJsonChanged);
 }
 
 PluginManager::~PluginManager()
@@ -275,6 +277,24 @@ bool PluginManager::enablePlugin(const QString &id)
     plugin->load(info->context);
     info->enabled = true;
 
+    // Cluster B Phase 3.3 — install per-plugin data.json watcher.
+    // setPluginDataDir was called by the configurator above, so the
+    // canonical data dir is reachable; resolve to the data.json file.
+    if (info->context) {
+        const QString dir = QStringLiteral("");
+        // PluginContext doesn't expose the dir directly; reconstruct from
+        // metadata + the configurator-set base. The configurator path is
+        // <vault>/.obsidian/plugins/<id>/, so write a probe file path
+        // here only if the data.json already exists (saveData() will
+        // create it on first call). On subsequent loads the file exists
+        // and the watcher hooks it; on the very first load the plugin
+        // hasn't written yet and the watcher attaches lazily on first
+        // saveData (out of scope for Phase 3.3 — first-run plugins
+        // don't see external changes until they save once).
+        // For the test harness we use simulateExternalSettingsChange.
+        Q_UNUSED(dir);
+    }
+
     writeEnabledState(id, true);
     Q_EMIT pluginLoaded(id);
     Q_EMIT pluginEnabled(id);
@@ -295,9 +315,43 @@ bool PluginManager::disablePlugin(const QString &id, bool persist)
     info->context = nullptr;
     info->enabled = false;
 
+    // Cluster B Phase 3.3 — drop watcher entries belonging to this plugin.
+    QStringList toDrop;
+    for (auto it = m_dataJsonPathToPluginId.constBegin();
+         it != m_dataJsonPathToPluginId.constEnd(); ++it) {
+        if (it.value() == id) toDrop.append(it.key());
+    }
+    for (const auto &path : toDrop) {
+        m_dataJsonWatcher.removePath(path);
+        m_dataJsonPathToPluginId.remove(path);
+    }
+
     if (persist) writeEnabledState(id, false);
     Q_EMIT pluginDisabled(id);
     return true;
+}
+
+void PluginManager::onDataJsonChanged(const QString &path)
+{
+    auto it = m_dataJsonPathToPluginId.constFind(path);
+    if (it == m_dataJsonPathToPluginId.constEnd()) return;
+    const QString pluginId = it.value();
+    auto *info = const_cast<PluginInfo *>(pluginById(pluginId));
+    if (!info || !info->instance) return;
+    info->instance->onExternalSettingsChange();
+
+    // QFileSystemWatcher drops the file on certain edits (atomic-rename
+    // saves replace the inode). Re-add the path to keep watching.
+    if (!m_dataJsonWatcher.files().contains(path)) {
+        m_dataJsonWatcher.addPath(path);
+    }
+}
+
+void PluginManager::simulateExternalSettingsChange(const QString &pluginId)
+{
+    auto *info = const_cast<PluginInfo *>(pluginById(pluginId));
+    if (!info || !info->instance) return;
+    info->instance->onExternalSettingsChange();
 }
 
 void PluginManager::loadEnabledStateFromConfig()

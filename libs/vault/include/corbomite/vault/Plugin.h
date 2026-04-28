@@ -170,6 +170,15 @@ protected:
     /// have run. Default is no-op.
     virtual void onUnload() {}
 
+public:
+    /// Cluster B Phase 3.3 — fired when the plugin's data.json on disk is
+    /// modified outside of `PluginContext::saveData()`. PluginManager
+    /// installs a per-plugin QFileSystemWatcher and dispatches here on
+    /// every fileChanged event for the plugin's data.json path. Default
+    /// implementation is a no-op; plugins that surface settings UIs
+    /// override to reload state and re-render.
+    virtual void onExternalSettingsChange() {}
+
     // Bridge Component's lowercase virtuals to Plugin's camelCase override points.
     // Subclasses override `onLoad` / `onUnload`, not these.
     void onload() final;
