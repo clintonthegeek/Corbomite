@@ -38,6 +38,7 @@ class MenuEventEmitter;
 class HoverLinkSourceRegistry;
 class EditorSuggestManager;
 class RibbonHandle;
+class StatusBarRegistry;
 
 // Forward decls — proxy types (owned by PluginContext, lazy-constructed).
 class VaultProxy;
@@ -56,6 +57,7 @@ class PostProcessorRegistrar;
 class RibbonRegistrar;
 class EmbedRegistrar;
 class CodeBlockRegistrar;
+class StatusBarRegistrar;
 
 /// Handed to `Plugin::onLoad()`. Lifetime equals the plugin's load span.
 ///
@@ -92,7 +94,8 @@ public:
                                   Corbomite::Core::PostProcessorRegistry *postProcessors,
                                   RibbonHandle *ribbon,
                                   Markoff::EmbedRegistry *embeds,
-                                  Markoff::CodeBlockProcessorRegistry *codeBlocks);
+                                  Markoff::CodeBlockProcessorRegistry *codeBlocks,
+                                  StatusBarRegistry *statusBar);
 
     // Metadata accessors
     const PluginMetaData &metaData() const { return m_meta; }
@@ -119,6 +122,7 @@ public:
     RibbonRegistrar          *ribbon() const;           // "ui.commands"
     EmbedRegistrar           *embeds() const;           // "ui.rendering"
     CodeBlockRegistrar       *codeBlocks() const;       // "ui.rendering"
+    StatusBarRegistrar       *statusBar() const;        // "ui.statusbar"
 
     /// Per-plugin KConfig group. Returns an empty group if "config" is ungranted.
     KConfigGroup config();
@@ -154,6 +158,7 @@ private:
     mutable RibbonRegistrar          *m_ribbonRegistrar = nullptr;
     mutable EmbedRegistrar           *m_embedRegistrar = nullptr;
     mutable CodeBlockRegistrar       *m_codeBlockRegistrar = nullptr;
+    mutable StatusBarRegistrar       *m_statusBarRegistrar = nullptr;
 
     // Plugin-data.json persistence
     QString                                  m_pluginDataDir;
@@ -175,6 +180,7 @@ private:
     RibbonHandle            *m_ribbonHandle = nullptr;
     Markoff::EmbedRegistry  *m_embedRegistry = nullptr;
     Markoff::CodeBlockProcessorRegistry *m_codeBlockRegistry = nullptr;
+    StatusBarRegistry       *m_statusBarRegistry = nullptr;
 };
 
 } // namespace Corbomite

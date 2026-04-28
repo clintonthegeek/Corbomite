@@ -8,16 +8,21 @@
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/PostProcessorRegistry.h"
 #include "corbomite/core/RibbonHandle.h"
+#include "corbomite/core/StatusBarRegistry.h"
 #include "corbomite/core/proxies/CodeBlockRegistrar.h"
 #include "corbomite/core/proxies/EditorSuggestRegistrar.h"
 #include "corbomite/core/proxies/EmbedRegistrar.h"
 #include "corbomite/core/proxies/HoverLinkSourceRegistrar.h"
 #include "corbomite/core/proxies/PostProcessorRegistrar.h"
 #include "corbomite/core/proxies/RibbonRegistrar.h"
+#include "corbomite/core/proxies/StatusBarRegistrar.h"
 
 #include <markoff/CodeBlockProcessorRegistry.h>
 #include <markoff/EmbedRegistry.h>
 #include <markoff/MarkdownRenderChild.h>
+
+#include <QLabel>
+#include <QStatusBar>
 
 using namespace Corbomite;
 
@@ -87,6 +92,11 @@ private slots:
     // CodeBlockRegistrar
     void codeBlockRegistersAndCleansOnDestroy();
     void codeBlockFirstWinsCollision();
+
+    // StatusBarRegistrar
+    void statusBarPrefixesIdAndAdds();
+    void statusBarDestructorRemovesAll();
+    void statusBarHandlesNullRegistry();
 };
 
 // ---- HoverLinkSourceRegistrar ----
@@ -255,6 +265,40 @@ void TestProxyExtensions::codeBlockFirstWinsCollision()
     CodeBlockRegistrar reg(&registry);
     QVERIFY(!reg.registerLanguage(QStringLiteral("mermaid"),
         [](const QString &, void *, const Markoff::CodeBlockContext &) { return true; }));
+}
+
+// ---- StatusBarRegistrar ----
+
+void TestProxyExtensions::statusBarPrefixesIdAndAdds()
+{
+    QStatusBar bar;
+    StatusBarRegistry registry(&bar);
+    StatusBarRegistrar reg(&registry, QStringLiteral("plug-a"));
+    auto *label = new QLabel(QStringLiteral("hi"));
+    const QString id = reg.addItem(QStringLiteral("info"), label);
+    QCOMPARE(id, QStringLiteral("plug-a:info"));
+    QVERIFY(registry.hasItem(QStringLiteral("plug-a:info")));
+}
+
+void TestProxyExtensions::statusBarDestructorRemovesAll()
+{
+    QStatusBar bar;
+    StatusBarRegistry registry(&bar);
+    {
+        StatusBarRegistrar reg(&registry, QStringLiteral("plug-a"));
+        reg.addItem(QStringLiteral("a"), new QLabel());
+        reg.addItem(QStringLiteral("b"), new QLabel());
+        QCOMPARE(registry.itemCount(), 2);
+    }
+    QCOMPARE(registry.itemCount(), 0);
+}
+
+void TestProxyExtensions::statusBarHandlesNullRegistry()
+{
+    StatusBarRegistrar reg(nullptr, QStringLiteral("p"));
+    auto *label = new QLabel();
+    QVERIFY(reg.addItem(QStringLiteral("x"), label).isEmpty());
+    delete label; // we still own it because addItem refused
 }
 
 QTEST_MAIN(TestProxyExtensions)

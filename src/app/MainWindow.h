@@ -40,6 +40,7 @@ class EmbedRenderer;
 
 namespace Corbomite {
 
+class StatusBarRegistry;
 class FileSystemAdapter;
 class Vault;
 class FileManager;
@@ -242,6 +243,9 @@ private:
     // consumed during render).
     std::unique_ptr<Corbomite::Core::PostProcessorRegistry> m_pluginPostProcessors;
     std::unique_ptr<Markoff::CodeBlockProcessorRegistry> m_pluginCodeBlocks;
+
+    // Cluster B Phase 2 — host-wide status-bar registry.
+    Corbomite::StatusBarRegistry *m_statusBarRegistry = nullptr;
 
     // Cluster Q (Tasks 13-20) — tool views hosting plugin createView()
     // output. Keyed by plugin id; the value is the QWidget the

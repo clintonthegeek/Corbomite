@@ -16,6 +16,7 @@
 #include "corbomite/core/proxies/RibbonRegistrar.h"
 #include "corbomite/core/proxies/EmbedRegistrar.h"
 #include "corbomite/core/proxies/CodeBlockRegistrar.h"
+#include "corbomite/core/proxies/StatusBarRegistrar.h"
 #include "corbomite/vault/PluginDataStore.h"
 #include "corbomite/vault/proxies/FileManagerProxy.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
@@ -47,6 +48,7 @@ PluginContext::~PluginContext()
     delete m_ribbonRegistrar;
     delete m_embedRegistrar;
     delete m_codeBlockRegistrar;
+    delete m_statusBarRegistrar;
 }
 
 void PluginContext::setExtensionRegistries(
@@ -55,7 +57,8 @@ void PluginContext::setExtensionRegistries(
     Corbomite::Core::PostProcessorRegistry *postProcessors,
     RibbonHandle *ribbon,
     Markoff::EmbedRegistry *embeds,
-    Markoff::CodeBlockProcessorRegistry *codeBlocks)
+    Markoff::CodeBlockProcessorRegistry *codeBlocks,
+    StatusBarRegistry *statusBar)
 {
     m_hoverLinkSourceRegistry = hoverLinkSources;
     m_editorSuggestManager = editorSuggests;
@@ -63,6 +66,7 @@ void PluginContext::setExtensionRegistries(
     m_ribbonHandle = ribbon;
     m_embedRegistry = embeds;
     m_codeBlockRegistry = codeBlocks;
+    m_statusBarRegistry = statusBar;
 }
 
 void PluginContext::setCoreServices(Vault *v, FileManager *fm,
@@ -239,6 +243,16 @@ CodeBlockRegistrar *PluginContext::codeBlocks() const
         m_codeBlockRegistrar = new CodeBlockRegistrar(m_codeBlockRegistry);
     }
     return m_codeBlockRegistrar;
+}
+
+StatusBarRegistrar *PluginContext::statusBar() const
+{
+    if (!hasPermission(QLatin1String(kUiStatusbar)) || !m_statusBarRegistry) return nullptr;
+    if (!m_statusBarRegistrar) {
+        m_statusBarRegistrar = new StatusBarRegistrar(
+            m_statusBarRegistry, m_meta.base().pluginId());
+    }
+    return m_statusBarRegistrar;
 }
 
 KConfigGroup PluginContext::config()

@@ -123,6 +123,14 @@ public:
                                               Markoff::CodeBlockProcessor proc);
     void unregisterMarkdownCodeBlockProcessor(const QString &lang);
 
+    /// `ui.statusbar` — add a permanent widget to the status bar.
+    /// Takes ownership of `widget` (parented onto the status bar).
+    /// Returns the namespaced full id on success, empty string on
+    /// failure (no permission, or `localId` already used by this
+    /// plugin).
+    QString addStatusBarItem(const QString &localId, QWidget *widget);
+    bool removeStatusBarItem(const QString &localId);
+
 protected:
     /// Override point — called inside load(ctx) before Component::load().
     virtual void onLoad(PluginContext *ctx) { Q_UNUSED(ctx); }

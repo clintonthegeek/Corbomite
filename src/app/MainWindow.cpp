@@ -47,6 +47,7 @@
 #include "editor/MarkdownView.h"
 #include "canvas/CanvasFileView.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
+#include "corbomite/core/StatusBarRegistry.h"
 #include "corbomite/core/MenuEventEmitter.h"
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/VaultResourceProvider.h"
@@ -849,7 +850,8 @@ void MainWindow::rewirePluginCoreServices()
                                        m_pluginPostProcessors.get(),
                                        m_ribbonToolBar,
                                        m_embedRegistry.get(),
-                                       m_pluginCodeBlocks.get());
+                                       m_pluginCodeBlocks.get(),
+                                       m_statusBarRegistry);
         if (m_vaultObj && m_vaultObj->isLoaded()) {
             const QString dir = m_vaultObj->basePath()
                               + QLatin1Char('/') + m_vaultObj->configDir()
@@ -870,7 +872,8 @@ void MainWindow::rewirePluginCoreServices()
             info.context->setExtensionRegistries(m_hoverSources,
                 m_suggestManager, m_pluginPostProcessors.get(),
                 m_ribbonToolBar, m_embedRegistry.get(),
-                m_pluginCodeBlocks.get());
+                m_pluginCodeBlocks.get(),
+                m_statusBarRegistry);
             if (m_vaultObj && m_vaultObj->isLoaded()) {
                 const QString dir = m_vaultObj->basePath()
                                   + QLatin1Char('/') + m_vaultObj->configDir()
@@ -1778,6 +1781,9 @@ void MainWindow::setupStatusBar()
 
     statusBar()->addPermanentWidget(m_wordCountLabel);
     statusBar()->addPermanentWidget(m_cursorPosLabel);
+
+    // Cluster B Phase 2 — host-wide plugin status-bar registry.
+    m_statusBarRegistry = new Corbomite::StatusBarRegistry(statusBar(), this);
 }
 
 void MainWindow::setupRibbonToolBar()

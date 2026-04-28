@@ -123,6 +123,10 @@ add_library(corbomite-core STATIC
     include/corbomite/core/proxies/EmbedRegistrar.h
     src/proxies/CodeBlockRegistrar.cpp
     include/corbomite/core/proxies/CodeBlockRegistrar.h
+    src/StatusBarRegistry.cpp
+    include/corbomite/core/StatusBarRegistry.h
+    src/proxies/StatusBarRegistrar.cpp
+    include/corbomite/core/proxies/StatusBarRegistrar.h
     include/corbomite/core/PluginPermissions.h
     src/SystemThemeBuilder.cpp
     include/corbomite/core/SystemThemeBuilder.h

@@ -8,6 +8,7 @@
 #include "corbomite/core/proxies/HoverLinkSourceRegistrar.h"
 #include "corbomite/core/proxies/PostProcessorRegistrar.h"
 #include "corbomite/core/proxies/RibbonRegistrar.h"
+#include "corbomite/core/proxies/StatusBarRegistrar.h"
 #include "corbomite/vault/PluginContext.h"
 
 #include <QJsonObject>
@@ -149,6 +150,20 @@ void Plugin::unregisterMarkdownCodeBlockProcessor(const QString &lang)
 {
     if (!m_context) return;
     if (auto *r = m_context->codeBlocks()) r->unregisterLanguage(lang);
+}
+
+QString Plugin::addStatusBarItem(const QString &localId, QWidget *widget)
+{
+    if (!m_context) return {};
+    auto *r = m_context->statusBar();
+    return r ? r->addItem(localId, widget) : QString{};
+}
+
+bool Plugin::removeStatusBarItem(const QString &localId)
+{
+    if (!m_context) return false;
+    auto *r = m_context->statusBar();
+    return r ? r->removeItem(localId) : false;
 }
 
 } // namespace Corbomite
