@@ -121,6 +121,27 @@ private Q_SLOTS:
         QVERIFY(r.cache.embeds.has_value());
         QCOMPARE(r.cache.links->size(), 1);
         QCOMPARE(r.cache.embeds->size(), 1);
+        // The embed must carry a non-empty target — the resolution branch
+        // in `MetadataCache::drainOnePath` keys off `original`/`link`.
+        // Tree-sitter routes some `![[…]]` shapes through its `image` node
+        // (image_description = "[Target]", link_destination = ""), so the
+        // parser must detect the wiki-embed shape from the raw bytes
+        // rather than relying on `wiki_link` always being matched.
+        QCOMPARE(r.cache.embeds->at(0).original, QStringLiteral("Image.png"));
+    }
+
+    // 5b. `![[…]]` routed through tree-sitter's `image` node (no extension
+    // — the case that historically lost the embed target).
+    void testParseEmbedAsImageNode()
+    {
+        LinkResolver resolver = makeResolver({QStringLiteral("Note.md")});
+        ParsedNote r = MetadataParser::parse(md("![[Note]]\n"),
+                                             QStringLiteral("source.md"), resolver);
+        QVERIFY(r.cache.embeds.has_value());
+        QCOMPARE(r.cache.embeds->size(), 1);
+        const LinkCache &lc = r.cache.embeds->at(0);
+        QCOMPARE(lc.original, QStringLiteral("Note"));
+        QCOMPARE(lc.link, QStringLiteral("Note.md"));
     }
 
     // 6. Inline tags.

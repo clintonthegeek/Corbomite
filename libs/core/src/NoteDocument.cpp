@@ -62,6 +62,11 @@ void NoteDocument::setRelativePath(const QString &relativePath)
     Q_EMIT pathChanged(oldPath);
 }
 
+void NoteDocument::markDeleted()
+{
+    Q_EMIT deleted();
+}
+
 QString NoteDocument::name() const
 {
     // Strip leading path, strip .md suffix. Preserve existing semantics.

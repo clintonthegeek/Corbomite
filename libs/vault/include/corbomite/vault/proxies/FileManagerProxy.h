@@ -7,6 +7,8 @@
 
 #include "corbomite/vault/FileManager.h"
 
+class QWidget;
+
 namespace Corbomite {
 
 class TAbstractFile;
@@ -36,6 +38,17 @@ public:
     bool     insertIntoFile(TFile *f, const QByteArray &content,
                             FileManager::InsertMode mode);
     bool     trashFile(TAbstractFile *f);
+
+    // ---- Interactive prompts (gated by vault.write) ----
+    /// Opens the validated `RenameDialog` and commits via `renameFile` —
+    /// the link-rewrite-aware path. Returns the new full vault-relative
+    /// path on success, empty QString on cancel/refusal.
+    QString  promptForFileRename(TAbstractFile *f, QWidget *parent = nullptr);
+
+    /// Opens the trash-option-aware `DeleteConfirmDialog` and routes
+    /// through `Vault::trash`/`Vault::remove` per the `[Files]/TrashOption`
+    /// setting. Returns true iff the file was actually removed.
+    bool     promptForDeletion(TAbstractFile *f, QWidget *parent = nullptr);
 
     // ---- Query (gated by vault.read) ----
     TFolder *getNewFileParent(const QString &hintPath,

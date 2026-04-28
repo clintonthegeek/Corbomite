@@ -143,6 +143,40 @@ private Q_SLOTS:
         // enforce ±0.5 tolerance.
         QCOMPARE(saved.scroll, 0.0f);
     }
+
+    // Audit: editor-markdown.md §"Other" — `setFoldedHeadingLines` doesn't
+    // invalidate when line count changes. NoteEditorWidget persists the
+    // capture-time line count alongside the fold list, then drops folds on
+    // restore when the document shape has shifted.
+    void readingFoldsDropOnLineCountMismatch()
+    {
+        NoteEditorWidget widget;
+        widget.resize(600, 240);
+        widget.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&widget));
+
+        NoteDocument doc(QStringLiteral("/tmp/vault"),
+                         QStringLiteral("note.md"));
+        doc.setMarkdown(QStringLiteral("# A\n\nbody A\n\n# B\n\nbody B\n"));
+        widget.setNoteDocument(&doc);
+        widget.setViewMode(NoteEditorWidget::ViewMode::Reading);
+
+        EphemeralState s;
+        s.modeRaw = QStringLiteral("preview");
+        s.sourceFlag = false;
+        s.foldedHeadings = QVector<int>{0, 4}; // pretend H1@line0, H2@line4
+        // Capture-time line count was 8 — but the doc above has 8 lines.
+        // Set a deliberately-wrong saved count so the restore path takes
+        // the "shape mismatch → drop folds" branch.
+        s.extraKeys.insert(
+            QStringLiteral("corbomite.foldedHeadingsLineCount"), 999);
+        widget.restoreEphemeralState(s);
+
+        const auto saved = widget.saveEphemeralState();
+        // setFoldedHeadingLines was called with an empty vec, so no folds
+        // are active; saving back yields an empty foldedHeadings list.
+        QVERIFY(saved.foldedHeadings.isEmpty());
+    }
 };
 
 QTEST_MAIN(NoteEditorWidgetEphemeralTest)

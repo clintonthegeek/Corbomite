@@ -11,7 +11,7 @@ Work flows through **two parallel tracks**. Both must be checked at session star
 
 Most P0/P1 punch-list items are **silent vault-format corruption risks**. Drain them before strategic-cluster work unless explicitly redirected.
 
-**P2 partial drain** (2026-04-27, second autonomous session of the day). Two P2 items closed: external-rename title refresh (`NoteDocument::setRelativePath` + `pathChanged` signal; `Vault::rename`/folder-rename/watcher paths rekey `m_docs` + notify; `FileView::loadFile` subscribes and re-emits `displayTextChanged` so the tab caption refreshes via the existing `WorkspaceLeaf` wire) and `.base` user-keyed dict round-trip (companion `propertyOrder`/`formulaOrder`/`summaryFormulaOrder` lists tracked at parse time; `emitMap` extended with a fourth `nestedKeyOrder` arg so `properties:`/`formulas:`/`summaries:` blocks emit in source order rather than alphabetical). Open P2 items: footnotes, callouts, HoverPopover Mod-pinning, FileExplorer F2/Delete dialogs, `![[…]]` embed parsing, live-preview off-by-one, `writeBackup` vault leak, externally-deleted leaf orphaning, fold-target invalidation on line-count change, checkbox-click toggle (Reading + Live), reading-mode `setCursorLine`, Mermaid-theme (still deferred).
+**P2 drain in flight** (2026-04-27, third autonomous session of the day). Latest pass (this session) closed five more: FileExplorer F2/Delete now route through `FileManagerProxy::promptForFileRename`/`promptForDeletion` (the validating Rename/DeleteConfirm dialogs, gated on `vault.write`); `writeBackup` moved out of the vault into `<AppLocalDataLocation>/file-recovery/<vault-id>/…` so the recovery copy can't pollute tree/search/graph or re-trigger `Vault::modified`; `NoteDocument::deleted()` + `Vault` cleanup at every delete site so `FileView` nulls its file pointer + closes the leaf instead of orphaning the tab (covers `setState` missing-file too); `NoteEditorWidget` invalidates persisted Reading-mode folds on line-count drift via a corbomite-prefixed extraKeys field; `TreeSitterParser` detects the `![[…]]` shape at the start of the image-node branch so the embed target survives when tree-sitter routes wiki-embeds through its image grammar. Open P2 items: footnotes, callouts, HoverPopover Mod-pinning, live-preview off-by-one, checkbox-click toggle (Reading + Live), reading-mode `setCursorLine`, Mermaid-theme (still deferred).
 
 ## Active strategic clusters (snapshot)
 
@@ -43,4 +43,4 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Last touched
 
-2026-04-27 — P2 sweep: external-rename title refresh + `.base` user-keyed dict ordering. See decisions-archive for the full closeout.
+2026-04-27 — P2 sweep (session 3): FileExplorer dialogs + writeBackup leak + externally-deleted leaf + fold-line-count invalidation + `![[…]]` embed parsing. See decisions-archive for the full closeout.

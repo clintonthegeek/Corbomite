@@ -29,6 +29,13 @@ public:
     /// `pathChanged(oldRelativePath)` when the path actually changes.
     void setRelativePath(const QString &relativePath);
 
+    /// Notify view subscribers that the underlying file has been removed
+    /// (programmatic delete/trash or external deletion). Emits `deleted()`
+    /// so a `FileView` can null its file pointer and request its leaf to
+    /// close instead of orphaning the tab. Called by `Vault` immediately
+    /// before it `deleteLater()`s the doc.
+    void markDeleted();
+
     QString markdown() const;
     void    setMarkdown(const QString &text);
 
@@ -57,6 +64,11 @@ Q_SIGNALS:
     /// state. Mirrors Obsidian's `vault.on("rename")` propagation that
     /// FileView.onload subscribes to.
     void pathChanged(const QString &oldRelativePath);
+
+    /// Emitted by `markDeleted` to let view subscribers null their cached
+    /// pointer and close the leaf. Mirrors Obsidian's per-FileView
+    /// subscription to `vault.on("delete")`.
+    void deleted();
 
 private:
     struct Private;

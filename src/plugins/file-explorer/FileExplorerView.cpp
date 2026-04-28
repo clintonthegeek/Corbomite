@@ -11,7 +11,6 @@
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QMenu>
-#include <QMessageBox>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -138,29 +137,15 @@ void FileExplorerView::onNewNoteIn(const QString &folder)
 void FileExplorerView::onDeleteNote(const QString &path)
 {
     if (!m_fmProxy || !m_vault) return;
-    if (QMessageBox::question(this, i18n("Delete Note"),
-        i18n("Delete \"%1\"?", path)) != QMessageBox::Yes) return;
     auto *file = m_vault->getAbstractFileByPath(path);
-    if (file) m_fmProxy->trashFile(file);
+    if (file) m_fmProxy->promptForDeletion(file, this);
 }
 
 void FileExplorerView::onRenameNote(const QString &path)
 {
     if (!m_fmProxy || !m_vault) return;
-    QString oldName = path.mid(path.lastIndexOf(QLatin1Char('/')) + 1);
-    if (oldName.endsWith(QStringLiteral(".md"))) oldName.chop(3);
-    bool ok = false;
-    const QString newName = QInputDialog::getText(this, i18n("Rename Note"),
-        i18n("New name:"), QLineEdit::Normal, oldName, &ok);
-    if (!ok || newName.isEmpty() || newName == oldName) return;
-    QString folder;
-    const int lastSlash = path.lastIndexOf(QLatin1Char('/'));
-    if (lastSlash > 0) folder = path.left(lastSlash);
-    const QString newPath = folder.isEmpty()
-        ? newName + QStringLiteral(".md")
-        : folder + QLatin1Char('/') + newName + QStringLiteral(".md");
     auto *file = m_vault->getAbstractFileByPath(path);
-    if (file) m_fmProxy->renameFile(file, newPath);
+    if (file) m_fmProxy->promptForFileRename(file, this);
 }
 
 void FileExplorerView::showContextMenu(const QPoint &pos)

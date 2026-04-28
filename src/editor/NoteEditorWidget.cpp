@@ -294,6 +294,16 @@ EphemeralState NoteEditorWidget::captureEphemeralStateFor(ViewMode mode) const
         if (m_readingView) {
             s.scroll = m_readingView->scrollPositionVisualLine();
             s.foldedHeadings = m_readingView->foldedHeadingLines();
+            // Stash the line count alongside so restore can detect a
+            // structural shift (external edit added/removed lines) and
+            // drop folds rather than carry them forward against the wrong
+            // headings. Audit: editor-markdown.md §"Other" — `setFoldedHeadingLines`
+            // doesn't invalidate when line count changes.
+            if (m_doc) {
+                s.extraKeys.insert(
+                    QStringLiteral("corbomite.foldedHeadingsLineCount"),
+                    m_doc->markdown().count(QLatin1Char('\n')) + 1);
+            }
         }
         break;
     }
@@ -328,7 +338,20 @@ void NoteEditorWidget::restoreEphemeralStateFor(ViewMode mode,
     case ViewMode::Reading:
         if (m_readingView) {
             m_readingView->setScrollPositionVisualLine(s.scroll);
-            m_readingView->setFoldedHeadingLines(s.foldedHeadings);
+            // Drop saved folds when the document shape has shifted since
+            // capture (line count delta). `setFoldedHeadingLines` is line-
+            // indexed; carrying stale lines forward would fold the wrong
+            // headings. Audit: editor-markdown.md §"Other" — fold-info
+            // invalidates on line-count change.
+            const QJsonValue savedCountVal = s.extraKeys.value(
+                QStringLiteral("corbomite.foldedHeadingsLineCount"));
+            const int currentCount = m_doc
+                ? m_doc->markdown().count(QLatin1Char('\n')) + 1
+                : 0;
+            const bool shapeMatches = savedCountVal.isDouble()
+                && savedCountVal.toInt() == currentCount;
+            m_readingView->setFoldedHeadingLines(
+                shapeMatches ? s.foldedHeadings : QVector<int>{});
         }
         break;
     }

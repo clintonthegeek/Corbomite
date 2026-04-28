@@ -84,6 +84,24 @@ bool FileManagerProxy::trashFile(TAbstractFile *f)
     return m_fm && m_fm->trashFile(f);
 }
 
+QString FileManagerProxy::promptForFileRename(TAbstractFile *f, QWidget *parent)
+{
+    if (!canWrite()) {
+        logDenied("promptForFileRename", "vault.write");
+        return {};
+    }
+    return m_fm ? m_fm->promptForFileRename(f, parent) : QString{};
+}
+
+bool FileManagerProxy::promptForDeletion(TAbstractFile *f, QWidget *parent)
+{
+    if (!canWrite()) {
+        logDenied("promptForDeletion", "vault.write");
+        return false;
+    }
+    return m_fm && m_fm->promptForDeletion(f, parent);
+}
+
 TFolder *FileManagerProxy::getNewFileParent(const QString &hintPath,
                                             const QString &filename) const
 {

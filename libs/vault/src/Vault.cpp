@@ -462,6 +462,10 @@ bool Vault::remove(TAbstractFile *f, bool recursive)
     if (TFolder *p = node->parent) p->children.removeAll(node.get());
     node->deleted = true;
     m_readCache.remove(rel);
+    if (auto *doc = m_docs.take(rel)) {
+        doc->markDeleted();
+        doc->deleteLater();
+    }
 
     TAbstractFile *raw = node.get();
     m_pendingDelete.push_back(std::move(node));
@@ -550,6 +554,10 @@ bool Vault::trash(TAbstractFile *f, bool useSystem)
                 if (TFolder *p = node->parent) p->children.removeAll(node.get());
                 node->deleted = true;
                 m_readCache.remove(rel);
+                if (auto *doc = m_docs.take(rel)) {
+                    doc->markDeleted();
+                    doc->deleteLater();
+                }
                 TAbstractFile *raw = node.get();
                 m_pendingDelete.push_back(std::move(node));
                 Q_EMIT deletedFile(raw);
@@ -589,6 +597,10 @@ bool Vault::trash(TAbstractFile *f, bool useSystem)
         if (TFolder *p = node->parent) p->children.removeAll(node.get());
         node->deleted = true;
         m_readCache.remove(rel);
+        if (auto *doc = m_docs.take(rel)) {
+            doc->markDeleted();
+            doc->deleteLater();
+        }
         TAbstractFile *raw = node.get();
         m_pendingDelete.push_back(std::move(node));
         Q_EMIT deletedFile(raw);
@@ -876,7 +888,10 @@ void Vault::onExternalDeleted(const QString &relPath)
     }
     TAbstractFile *raw = owned.get();
     m_readCache.remove(rel);
-    if (auto *doc = m_docs.take(rel)) doc->deleteLater();
+    if (auto *doc = m_docs.take(rel)) {
+        doc->markDeleted();
+        doc->deleteLater();
+    }
     m_pendingDelete.push_back(std::move(owned));
     Q_EMIT deletedFile(raw);
 

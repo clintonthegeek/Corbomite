@@ -313,6 +313,39 @@ private Q_SLOTS:
         QCOMPARE(spy.count(), 1);
     }
 
+    void deleteNullsCachedFilePointer()
+    {
+        // Audit: views.md §"Top suspected bugs" — open file deleted
+        // externally orphans leaf. After NoteDocument::markDeleted, the
+        // FileView must null its cached pointer so subsequent saves can't
+        // silently re-create the file via Vault::modify.
+        NoteDocument doc(QStringLiteral("/vault"),
+                         QStringLiteral("notes/doomed.md"));
+        StubFileView view(nullptr);
+        view.loadFile(&doc);
+        QCOMPARE(view.file(), &doc);
+
+        doc.markDeleted();
+        QVERIFY(view.file() == nullptr);
+    }
+
+    void deleteAfterUnloadIsHarmless()
+    {
+        // After loadFile(other), the deleted subscription on the previous
+        // doc must be severed so a delete on the previous doc doesn't
+        // null the *current* file pointer.
+        NoteDocument first(QStringLiteral("/vault"),
+                           QStringLiteral("a.md"));
+        NoteDocument second(QStringLiteral("/vault"),
+                            QStringLiteral("b.md"));
+        StubFileView view(nullptr);
+        view.loadFile(&first);
+        view.loadFile(&second);
+
+        first.markDeleted();
+        QCOMPARE(view.file(), &second);
+    }
+
     void setStateRoundTrip()
     {
         ViewRegistry registry;

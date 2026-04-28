@@ -41,6 +41,16 @@ private:
     // file. Bound in loadFile, severed before unload so a stale pointer
     // can't fire across documents.
     QMetaObject::Connection m_pathChangedConn;
+
+    // Subscription to NoteDocument::deleted — fires when Vault dropped the
+    // file (programmatic remove/trash or external delete). Severed
+    // alongside m_pathChangedConn before unload.
+    QMetaObject::Connection m_deletedConn;
+
+    /// Schedule the owning leaf to close on the next event-loop turn.
+    /// Used by the deleted/missing-file paths so destruction happens
+    /// outside any signal slot that's still iterating Vault state.
+    void requestLeafClose();
 };
 
 } // namespace Corbomite

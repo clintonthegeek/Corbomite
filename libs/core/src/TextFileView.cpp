@@ -6,9 +6,10 @@
 #include "corbomite/storage/DataAdapter.h"
 
 #include <QTimer>
-#include <QDir>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QStandardPaths>
 
 namespace Corbomite {
 
@@ -137,8 +138,26 @@ void TextFileView::writeBackup(const QString &content)
 {
     if (m_vaultRoot.isEmpty() || !m_adapter || !m_file) return;
 
-    QString recoveryDir = m_vaultRoot + QStringLiteral("/.obsidian/file-recovery");
-    QDir().mkpath(recoveryDir);
+    // Backup destination lives OUTSIDE the vault so the recovery copy
+    // doesn't appear in the file tree, search index, tag/graph views, or
+    // re-trigger Vault::modified for the leaf that just failed to save.
+    const QString dataRoot =
+        QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (dataRoot.isEmpty()) return;
+
+    // Per-vault subdir keyed by basename + stable hash of the absolute
+    // vault path so two vaults with the same basename can't collide.
+    const QByteArray vaultHash =
+        QCryptographicHash::hash(m_vaultRoot.toUtf8(),
+                                 QCryptographicHash::Sha256)
+            .toHex().left(12);
+    const QString vaultId =
+        QFileInfo(m_vaultRoot).fileName() + QLatin1Char('-')
+        + QString::fromLatin1(vaultHash);
+
+    const QString recoveryDir =
+        dataRoot + QStringLiteral("/file-recovery/") + vaultId;
+    m_adapter->mkpath(recoveryDir);
 
     QString baseName = QFileInfo(m_file->relativePath()).baseName();
     QString timestamp = QDateTime::currentDateTime().toString(Qt::ISODate);
