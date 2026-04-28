@@ -131,6 +131,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/LucideIconRegistry.h
     src/proxies/LucideIconRegistrar.cpp
     include/corbomite/core/proxies/LucideIconRegistrar.h
+    src/MarkdownRenderer.cpp
+    include/corbomite/core/MarkdownRenderer.h
     include/corbomite/core/PluginPermissions.h
     src/SystemThemeBuilder.cpp
     include/corbomite/core/SystemThemeBuilder.h
@@ -166,7 +168,8 @@ target_link_libraries(corbomite-core
         $<BUILD_INTERFACE:markoff-parser>
         $<BUILD_INTERFACE:markoff_core>
     PRIVATE
-        $<BUILD_INTERFACE:Corbomite::Storage>)
+        $<BUILD_INTERFACE:Corbomite::Storage>
+        $<BUILD_INTERFACE:markoff_reading>)
 
 if(CORBOMITE_USE_KEYRING)
     target_link_libraries(corbomite-core PRIVATE Qt6Keychain::Qt6Keychain)

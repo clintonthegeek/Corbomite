@@ -10,6 +10,7 @@
 #include "corbomite/core/RibbonHandle.h"
 #include "corbomite/core/StatusBarRegistry.h"
 #include "corbomite/core/LucideIconRegistry.h"
+#include "corbomite/core/MarkdownRenderer.h"
 #include "corbomite/core/proxies/CodeBlockRegistrar.h"
 #include "corbomite/core/proxies/EditorSuggestRegistrar.h"
 #include "corbomite/core/proxies/EmbedRegistrar.h"
@@ -104,6 +105,10 @@ private slots:
     void lucideAddIconStoresUnderName();
     void lucideRegistrarPrefixesAndCleansOnDestroy();
     void lucideRejectsInvalidSvg();
+
+    // MarkdownRenderer::render
+    void renderAttachesReadingViewAndCompletesFuture();
+    void renderHandlesNullParent();
 };
 
 namespace {
@@ -350,6 +355,30 @@ void TestProxyExtensions::lucideRejectsInvalidSvg()
     QVERIFY(reg.addIcon(QStringLiteral("bad"), QByteArray("not valid svg")).isEmpty());
     QVERIFY(!r.hasIcon(QStringLiteral("plug-a:bad")));
     r.clearForTesting();
+}
+
+// ---- MarkdownRenderer::render ----
+
+void TestProxyExtensions::renderAttachesReadingViewAndCompletesFuture()
+{
+    QWidget parent;
+    QObject lifetime;
+    auto fut = MarkdownRenderer::render(QStringLiteral("# Hi\n\nBody."),
+                                          &parent,
+                                          QStringLiteral("test.md"),
+                                          &lifetime);
+    QVERIFY(fut.isFinished());
+    QVERIFY(parent.findChildren<QWidget *>().size() > 0);
+}
+
+void TestProxyExtensions::renderHandlesNullParent()
+{
+    QObject lifetime;
+    auto fut = MarkdownRenderer::render(QStringLiteral("# Hi"),
+                                          nullptr,
+                                          QString(),
+                                          &lifetime);
+    QVERIFY(fut.isFinished());
 }
 
 QTEST_MAIN(TestProxyExtensions)

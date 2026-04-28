@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/MarkdownRenderer.h"
+
+#include <markoff/reading/ReadingView.h>
+
+#include <QFutureInterface>
+#include <QHBoxLayout>
+#include <QObject>
+#include <QPointer>
 #include <QRegularExpression>
 #include <QStringList>
 #include <QBuffer>
 #include <QImage>
 #include <QPainter>
 #include <QSvgRenderer>
+#include <QWidget>
 
 #include "mmdr_ffi.h"
 
@@ -538,6 +546,40 @@ QString MarkdownRenderer::defaultStylesheet()
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background: #f6f8fa; font-weight: bold; }
     )");
+}
+
+QFuture<void> MarkdownRenderer::render(const QString &markdown,
+                                          QWidget *parent,
+                                          const QString &sourcePath,
+                                          QObject *lifetime)
+{
+    Q_UNUSED(sourcePath);
+
+    QFutureInterface<void> iface;
+    iface.reportStarted();
+
+    if (!parent) {
+        iface.reportFinished();
+        return iface.future();
+    }
+
+    auto *view = new Markoff::Reading::ReadingView(parent);
+    if (!parent->layout()) {
+        auto *layout = new QHBoxLayout(parent);
+        layout->setContentsMargins(0, 0, 0, 0);
+    }
+    parent->layout()->addWidget(view);
+    view->setPlainText(markdown);
+
+    if (lifetime && lifetime != parent) {
+        QPointer<Markoff::Reading::ReadingView> guard(view);
+        QObject::connect(lifetime, &QObject::destroyed, view, [guard]() {
+            if (guard) guard->deleteLater();
+        });
+    }
+
+    iface.reportFinished();
+    return iface.future();
 }
 
 } // namespace Corbomite
