@@ -112,12 +112,13 @@ void SearchView::executeSearch()
     auto plan = SearchDSL::compile(parsed.root);
     const bool postFilter = !plan.regexPatterns.isEmpty()
                          || !plan.caseSensitiveTerms.isEmpty();
+    const bool hasExclude = !plan.excludedFts5Query.isEmpty();
     if (plan.fts5Query.isEmpty() && plan.requiredTags.isEmpty()
-        && plan.excludedTags.isEmpty() && !postFilter) {
+        && plan.excludedTags.isEmpty() && !postFilter && !hasExclude) {
         results = m_search->search(query);
-    } else if (postFilter) {
-        results = m_search->searchCompiled(plan.fts5Query, plan.requiredTags,
-                                           plan.excludedTags,
+    } else if (hasExclude || postFilter) {
+        results = m_search->searchCompiled(plan.fts5Query, plan.excludedFts5Query,
+                                           plan.requiredTags, plan.excludedTags,
                                            plan.regexPatterns,
                                            plan.caseSensitiveTerms);
     } else {

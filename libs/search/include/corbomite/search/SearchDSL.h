@@ -26,6 +26,12 @@ struct ParseResult {
 // CompiledPlan is the result of an empty query).
 struct CompiledPlan {
     QString fts5Query;
+    // FTS5 fragment matching notes that must be *excluded* from the result.
+    // Populated when the parsed query has no positive sibling for a NOT term
+    // (e.g. top-level `-foo`, or `-foo -bar`). FTS5 MATCH cannot express a
+    // bare top-level negation, so the executor applies this as a NOT IN
+    // sub-query against a full-table or fts5Query-restricted scan.
+    QString excludedFts5Query;
     QStringList requiredTags;
     QStringList excludedTags;
     // Post-filter predicates applied to FTS candidates' content:

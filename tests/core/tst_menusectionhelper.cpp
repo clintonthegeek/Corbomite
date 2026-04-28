@@ -175,9 +175,44 @@ private Q_SLOTS:
         Corbomite::MenuEventEmitter emitter;
         QSignalSpy spy(&emitter, &Corbomite::MenuEventEmitter::fileMenu);
         QMenu m;
-        emitter.emitFileMenu(&m, QStringLiteral("note.md"));
+        emitter.emitFileMenu(
+            &m, QStringLiteral("note.md"),
+            QString::fromLatin1(Corbomite::FileMenuSource::FileExplorerContextMenu));
         QCOMPARE(spy.count(), 1);
         QCOMPARE(spy.at(0).at(1).toString(), QStringLiteral("note.md"));
+        QCOMPARE(spy.at(0).at(2).toString(),
+                 QStringLiteral("file-explorer-context-menu"));
+    }
+
+    void testFileMenuSourceDiscriminatorRoutesByEmission()
+    {
+        // A plugin handler that scopes itself to a single source value should
+        // fire only when that source is emitted. Mirrors Obsidian plugins
+        // that say "only act in tab-header right-click".
+        Corbomite::MenuEventEmitter emitter;
+        int tabHeaderHits = 0;
+        int fileExplorerHits = 0;
+        connect(&emitter, &Corbomite::MenuEventEmitter::fileMenu,
+                this, [&](QMenu *, const QString &, const QString &source,
+                           QObject *) {
+                    if (source == QString::fromLatin1(
+                            Corbomite::FileMenuSource::TabHeader))
+                        ++tabHeaderHits;
+                    else if (source == QString::fromLatin1(
+                            Corbomite::FileMenuSource::FileExplorerContextMenu))
+                        ++fileExplorerHits;
+                });
+
+        QMenu m;
+        emitter.emitFileMenu(&m, QStringLiteral("a.md"),
+            QString::fromLatin1(Corbomite::FileMenuSource::TabHeader));
+        emitter.emitFileMenu(&m, QStringLiteral("a.md"),
+            QString::fromLatin1(Corbomite::FileMenuSource::FileExplorerContextMenu));
+        emitter.emitFileMenu(&m, QStringLiteral("a.md"),
+            QString::fromLatin1(Corbomite::FileMenuSource::TabHeader));
+
+        QCOMPARE(tabHeaderHits, 2);
+        QCOMPARE(fileExplorerHits, 1);
     }
 
     void testEmitTabGroupMenuFires()
@@ -203,10 +238,13 @@ private Q_SLOTS:
 
         QAction pluginAct(QStringLiteral("PluginThing"), this);
         connect(&emitter, &Corbomite::MenuEventEmitter::fileMenu,
-                this, [&](QMenu *, const QString &) {
+                this, [&](QMenu *, const QString &, const QString &,
+                           QObject *) {
                     helper.addToSection(&pluginAct, QStringLiteral("action"));
                 });
-        emitter.emitFileMenu(&m, QStringLiteral("note.md"));
+        emitter.emitFileMenu(&m, QStringLiteral("note.md"),
+                              QString::fromLatin1(
+                                  Corbomite::FileMenuSource::MoreOptions));
 
         helper.finalize();
         QStringList texts;

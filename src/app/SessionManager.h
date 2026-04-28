@@ -103,6 +103,15 @@ private:
     QTimer m_saveTimer;
     int m_saveBlockCount = 0;
     bool m_loaded = false;
+    /// Set true once the user has changed Corbomite's sidebar state
+    /// relative to whatever was on disk at load. While false, the
+    /// passed-through `left`/`right` Obsidian sub-trees are written
+    /// back unmodified (preserves an Obsidian-authored vault's sidedock
+    /// configuration). Once true, those sub-trees are dropped on save
+    /// because they no longer reflect reality (Corbomite has no model
+    /// for Obsidian's nested-split sidedock — see audit
+    /// `workspace.md` §"High severity" #4).
+    bool m_sidebarDirty = false;
 };
 
 } // namespace Corbomite

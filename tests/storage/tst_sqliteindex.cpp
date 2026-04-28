@@ -854,6 +854,36 @@ private Q_SLOTS:
         QCOMPARE(results.at(0).notePath, QStringLiteral("b.md"));
     }
 
+    // P2: bare `/regex/` query landed here with empty fts5Query/tags;
+    // searchCompiled used to early-return ignoring postFilter.
+    void testSearchCompiledRegexOnly()
+    {
+        QTemporaryDir tmp;
+        const QString vault = tmp.path() + "/vault";
+        QDir().mkpath(vault);
+
+        SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.setVaultRoot(vault);
+
+        LinkResolver resolver;
+        MetadataCache cache(resolver);
+        index.setMetadataCache(&cache);
+        QSignalSpy finished(&cache, &MetadataCache::indexFinished);
+
+        auto fa = writeNote(vault, "a.md", "version 1.2.3 release notes");
+        auto fb = writeNote(vault, "b.md", "no version mentioned here");
+        seed(cache, resolver, "a.md", fa.bytes, fa.mtimeMs, &finished);
+        seed(cache, resolver, "b.md", fb.bytes, fb.mtimeMs, &finished);
+
+        auto results = index.searchCompiled(
+            /*fts5Query=*/QString(), /*requiredTags=*/{}, /*excludedTags=*/{},
+            /*regexPatterns=*/{QStringLiteral("\\d+\\.\\d+\\.\\d+")},
+            /*caseSensitiveTerms=*/{}, /*maxResults=*/100);
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).notePath, QStringLiteral("a.md"));
+    }
+
     void testSearchCompiledEmptyPlanReturnsNothing()
     {
         QTemporaryDir tmp;

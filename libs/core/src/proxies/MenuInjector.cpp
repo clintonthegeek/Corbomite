@@ -20,12 +20,14 @@ MenuInjector::~MenuInjector()
     for (const auto &c : m_connections) QObject::disconnect(c);
 }
 
-void MenuInjector::onFileMenuBuilt(Handler handler)
+void MenuInjector::onFileMenuBuilt(FileMenuHandler handler)
 {
     if (!m_emitter) return;
     auto conn = QObject::connect(m_emitter, &MenuEventEmitter::fileMenu,
-        m_emitter, [h = std::move(handler)](QMenu *menu, const QString &path) {
-            h(menu, path);
+        m_emitter, [h = std::move(handler)](QMenu *menu, const QString &path,
+                                              const QString &source,
+                                              QObject * /*leaf*/) {
+            h(menu, path, source);
         });
     m_connections.append(conn);
 }

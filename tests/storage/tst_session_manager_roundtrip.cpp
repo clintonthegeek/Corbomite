@@ -486,18 +486,20 @@ private Q_SLOTS:
     }
 
     // -----------------------------------------------------------------------
-    // 16. Unknown root keys do NOT bleed into _corbomite
+    // 16. Unknown root keys do NOT bleed into _corbomite. Generic unknown
+    // keys (i.e. not the sidedock-specific `left`/`right` pair) survive at
+    // root regardless of whether Corbomite touched sidebar state.
     // -----------------------------------------------------------------------
     void unknownRootKeysDoNotBleedIntoCorbomite()
     {
         QTemporaryDir tmp;
         const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
 
-        // Seed a file with unknown Obsidian keys.
+        // Seed a file with an unknown Obsidian key. `left`/`right` are
+        // covered separately — they get dropped when sidebar is dirty.
         QJsonObject seed;
         seed.insert(QStringLiteral("main"),          QJsonObject{});
         seed.insert(QStringLiteral("obsidianPlugin"), QJsonArray{1, 2, 3});
-        seed.insert(QStringLiteral("left"),           QJsonObject{{QStringLiteral("collapsed"), true}});
         writeJson(path, seed);
 
         SessionManager sm;
@@ -512,7 +514,6 @@ private Q_SLOTS:
 
         // Unknown keys survive at root.
         QVERIFY(root.contains(QStringLiteral("obsidianPlugin")));
-        QVERIFY(root.contains(QStringLiteral("left")));
 
         // _corbomite exists.
         QVERIFY(root.contains(QStringLiteral("_corbomite")));
@@ -521,8 +522,123 @@ private Q_SLOTS:
         // Unknown Obsidian keys must not appear inside _corbomite.
         QVERIFY2(!corbomite.contains(QStringLiteral("obsidianPlugin")),
                  "obsidianPlugin must not be inside _corbomite");
-        QVERIFY2(!corbomite.contains(QStringLiteral("left")),
-                 "left must not be inside _corbomite");
+    }
+
+    // -----------------------------------------------------------------------
+    // P1 #4 — sidedock passthrough policy
+    //
+    // While Corbomite hasn't touched sidebar state since load, the Obsidian
+    // `left`/`right` sub-trees are passed through unmodified (preserves an
+    // Obsidian-authored vault on a no-op Corbomite session). Once the user
+    // changes Corbomite-side sidebar state, those sub-trees are stale and
+    // dropped on save so Obsidian rebuilds the sidedock from defaults
+    // rather than re-applying an arbitrary frozen-in-time configuration.
+    // Audit ref: workspace.md §"High severity" #4.
+    // -----------------------------------------------------------------------
+    void leftRightPreservedWhenSidebarUntouched()
+    {
+        QTemporaryDir tmp;
+        const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
+
+        QJsonObject seed;
+        seed.insert(QStringLiteral("main"), QJsonObject{});
+        seed.insert(QStringLiteral("left"),
+                    QJsonObject{{QStringLiteral("collapsed"), true}});
+        seed.insert(QStringLiteral("right"),
+                    QJsonObject{{QStringLiteral("collapsed"), false}});
+        writeJson(path, seed);
+
+        SessionManager sm;
+        sm.setSessionPath(path);
+        QVERIFY(sm.load());
+        // Re-applying the same sidebar values (as MainWindow does on every
+        // saveSessionState replay) must NOT mark the sidebar dirty —
+        // identity is the gate, not call count.
+        sm.saveNow();
+
+        const QJsonObject root = readJson(path);
+        QVERIFY2(root.contains(QStringLiteral("left")),
+                 "left must survive an untouched-sidebar round-trip");
+        QVERIFY2(root.contains(QStringLiteral("right")),
+                 "right must survive an untouched-sidebar round-trip");
+        QCOMPARE(root.value(QStringLiteral("left")).toObject()
+                     .value(QStringLiteral("collapsed")).toBool(),
+                 true);
+    }
+
+    void leftRightDroppedWhenSidebarMutated()
+    {
+        QTemporaryDir tmp;
+        const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
+
+        QJsonObject seed;
+        seed.insert(QStringLiteral("main"), QJsonObject{});
+        seed.insert(QStringLiteral("left"),
+                    QJsonObject{{QStringLiteral("collapsed"), true}});
+        seed.insert(QStringLiteral("right"),
+                    QJsonObject{{QStringLiteral("collapsed"), false}});
+        seed.insert(QStringLiteral("obsidianPlugin"), QJsonArray{1, 2, 3});
+        writeJson(path, seed);
+
+        SessionManager sm;
+        sm.setSessionPath(path);
+        QVERIFY(sm.load());
+        // First save: no prior sidebar state in _corbomite, so this is a
+        // "new" sidebar value and counts as a Corbomite-side mutation.
+        sm.saveSidebarState(true, 200, false, 150);
+        sm.saveNow();
+
+        const QJsonObject root = readJson(path);
+        QVERIFY2(!root.contains(QStringLiteral("left")),
+                 "left must be dropped once Corbomite mutated sidebar");
+        QVERIFY2(!root.contains(QStringLiteral("right")),
+                 "right must be dropped once Corbomite mutated sidebar");
+        // Other unknown keys still survive — only the sidedock pair is special.
+        QVERIFY2(root.contains(QStringLiteral("obsidianPlugin")),
+                 "non-sidedock unknown keys must still survive");
+    }
+
+    void leftRightPreservedWhenLoadedSidebarReapplied()
+    {
+        // Loading a Corbomite-authored vault populates `_corbomite.sidebar`
+        // before MainWindow replays it via saveSidebarState. Re-applying the
+        // same values must not mark the sidebar dirty, so passed-through
+        // `left`/`right` survive.
+        QTemporaryDir tmp;
+        const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
+
+        // Seed a workspace.json that already has a Corbomite sidebar state
+        // plus Obsidian `left`/`right` sub-trees.
+        QJsonObject corbomite;
+        QJsonObject sidebar;
+        sidebar.insert(QStringLiteral("leftVisible"), true);
+        sidebar.insert(QStringLiteral("leftWidth"), 250);
+        sidebar.insert(QStringLiteral("rightVisible"), false);
+        sidebar.insert(QStringLiteral("rightWidth"), 300);
+        corbomite.insert(QStringLiteral("sidebar"), sidebar);
+
+        QJsonObject seed;
+        seed.insert(QStringLiteral("main"), QJsonObject{});
+        seed.insert(QStringLiteral("_corbomite"), corbomite);
+        seed.insert(QStringLiteral("left"),
+                    QJsonObject{{QStringLiteral("collapsed"), true}});
+        seed.insert(QStringLiteral("right"),
+                    QJsonObject{{QStringLiteral("collapsed"), false}});
+        writeJson(path, seed);
+
+        SessionManager sm;
+        sm.setSessionPath(path);
+        QVERIFY(sm.load());
+
+        // Re-apply identical values — mirrors MainWindow::saveSessionState.
+        sm.saveSidebarState(true, 250, false, 300);
+        sm.saveNow();
+
+        const QJsonObject root = readJson(path);
+        QVERIFY2(root.contains(QStringLiteral("left")),
+                 "left must survive when re-applied sidebar matches loaded value");
+        QVERIFY2(root.contains(QStringLiteral("right")),
+                 "right must survive when re-applied sidebar matches loaded value");
     }
 
     // -----------------------------------------------------------------------

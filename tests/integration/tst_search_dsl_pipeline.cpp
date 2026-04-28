@@ -170,6 +170,52 @@ private Q_SLOTS:
         QCOMPARE(plan.fts5Query.contains(QStringLiteral("important")), true);
     }
 
+    // P2: top-level `-foo` previously emitted invalid FTS5 ("NOT foo") and
+    // returned zero results. compile() now relocates the inner term to
+    // excludedFts5Query and the executor applies it as a NOT IN sub-query.
+    void testTopLevelNegationReturnsAllExceptMatching()
+    {
+        auto h = seed({
+            {QStringLiteral("a.md"), QByteArrayLiteral("apples taste good")},
+            {QStringLiteral("b.md"), QByteArrayLiteral("oranges are nice")},
+            {QStringLiteral("c.md"), QByteArrayLiteral("bananas only")},
+        });
+
+        auto plan = compileQuery(QStringLiteral("-apples"));
+        QVERIFY(plan.fts5Query.isEmpty());
+        QCOMPARE(plan.excludedFts5Query, QStringLiteral("\"apples\""));
+
+        auto results = h.index->searchCompiled(plan.fts5Query, plan.excludedFts5Query,
+                                                plan.requiredTags, plan.excludedTags,
+                                                plan.regexPatterns,
+                                                plan.caseSensitiveTerms);
+        QCOMPARE(results.size(), 2);
+        QStringList paths;
+        for (const auto &r : results) paths.append(r.notePath);
+        std::sort(paths.begin(), paths.end());
+        QCOMPARE(paths, (QStringList{QStringLiteral("b.md"), QStringLiteral("c.md")}));
+    }
+
+    void testTopLevelDoubleNegationExcludesEither()
+    {
+        auto h = seed({
+            {QStringLiteral("a.md"), QByteArrayLiteral("apples taste good")},
+            {QStringLiteral("b.md"), QByteArrayLiteral("oranges are nice")},
+            {QStringLiteral("c.md"), QByteArrayLiteral("bananas only")},
+        });
+
+        auto plan = compileQuery(QStringLiteral("-apples -oranges"));
+        QVERIFY(plan.fts5Query.isEmpty());
+        QVERIFY(!plan.excludedFts5Query.isEmpty());
+
+        auto results = h.index->searchCompiled(plan.fts5Query, plan.excludedFts5Query,
+                                                plan.requiredTags, plan.excludedTags,
+                                                plan.regexPatterns,
+                                                plan.caseSensitiveTerms);
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).notePath, QStringLiteral("c.md"));
+    }
+
     void testParseErrorSurfaced()
     {
         auto parsed = Corbomite::SearchDSL::parse(QStringLiteral("bogus:foo"));

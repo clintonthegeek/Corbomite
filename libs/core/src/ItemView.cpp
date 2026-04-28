@@ -84,7 +84,11 @@ void ItemView::addAction(const QString &icon, const QString &title,
     btn->setToolTip(title);
     btn->setAutoRaise(true);
     connect(btn, &QToolButton::clicked, this, [cb = std::move(callback)] { cb(); });
-    m_actionsLayout->addWidget(btn);
+    // Obsidian's addAction prepends to .view-actions so the most-recent
+    // addAction sits leftmost (closest to the title); the hamburger stays
+    // anchored at the rightmost edge regardless. See views.md §"Top
+    // suspected bugs" and obsidian-audit/domains/views.md addAction entry.
+    m_actionsLayout->insertWidget(0, btn);
 }
 
 void ItemView::onOpen()

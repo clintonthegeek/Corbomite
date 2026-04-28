@@ -28,6 +28,19 @@ private Q_SLOTS:
         QVERIFY(spy.wait(500));
     }
 
+    void testStickyDurationDoesNotAutoDismiss()
+    {
+        auto *notice = new Corbomite::Notice(QStringLiteral("Sticky"), 0);
+        QSignalSpy spy(notice, &QObject::destroyed);
+        notice->show();
+        // Spin the event loop briefly; a 0-interval QTimer would fire on the
+        // first iteration. The notice must still be alive afterwards.
+        QTest::qWait(200);
+        QCOMPARE(spy.count(), 0);
+        notice->close();
+        QVERIFY(spy.wait(200));
+    }
+
     void testActionButtonFiresCallbackAndCloses()
     {
         auto *notice = new Corbomite::Notice(QStringLiteral("Reverted"), 5000);

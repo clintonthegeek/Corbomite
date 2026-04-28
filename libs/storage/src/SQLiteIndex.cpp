@@ -415,13 +415,31 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
                                                   const QStringList &caseSensitiveTerms,
                                                   int maxResults) const
 {
+    return searchCompiled(fts5Query, /*excludedFts5Query=*/QString(),
+                          requiredTags, excludedTags,
+                          regexPatterns, caseSensitiveTerms, maxResults);
+}
+
+QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
+                                                  const QString &excludedFts5Query,
+                                                  const QStringList &requiredTags,
+                                                  const QStringList &excludedTags,
+                                                  const QStringList &regexPatterns,
+                                                  const QStringList &caseSensitiveTerms,
+                                                  int maxResults) const
+{
     QVector<SearchMatch> results;
     if (!m_isOpen) return results;
-    if (fts5Query.isEmpty() && requiredTags.isEmpty() && excludedTags.isEmpty()) {
-        return results;
-    }
 
     const bool postFilter = !regexPatterns.isEmpty() || !caseSensitiveTerms.isEmpty();
+    // A bare `/regex/`, top-level `match-case:`, or top-level `-foo` query
+    // reaches us with an empty fts5Query and empty tag lists; the executor
+    // still has work to do (full-table scan + post-filter / NOT IN), so don't
+    // early-return on those alone.
+    if (fts5Query.isEmpty() && requiredTags.isEmpty() && excludedTags.isEmpty()
+        && excludedFts5Query.isEmpty() && !postFilter) {
+        return results;
+    }
 
     // Pre-compile regexes once. Invalid patterns cause the whole query to
     // return no results — failing closed matches Obsidian's behaviour when
@@ -462,6 +480,12 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
         sql += QStringLiteral(
             " AND path NOT IN (SELECT note_path FROM note_tags WHERE tag = ?)");
         binds.append(tag);
+    }
+
+    if (!excludedFts5Query.isEmpty()) {
+        sql += QStringLiteral(
+            " AND path NOT IN (SELECT path FROM notes_fts WHERE notes_fts MATCH ?)");
+        binds.append(excludedFts5Query);
     }
 
     sql += fts5Query.isEmpty()

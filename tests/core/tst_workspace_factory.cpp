@@ -57,6 +57,9 @@ private Q_SLOTS:
     void getLeaf_splitMode_createsSibling();
     void getLeaf_windowMode_createsFloating();
 
+    void leafCountInGroup_reflectsLiveKddwAfterDrag();
+    void nextLeafInActiveGroup_followsLiveKddwAfterDrag();
+
     void openLinkText_simpleLink_setsViewState();
     void openLinkText_withHeading_capturesSubpathInEphemeralState();
     void openLinkText_withEStateOpts_overridesDerivedSubpath();
@@ -142,6 +145,61 @@ void TestWorkspaceFactory::getLeaf_windowMode_createsFloating()
     const int floatsAfter =
         KDDockWidgets::DockRegistry::self()->floatingWindows().size();
     QCOMPARE(floatsAfter, floatsBefore + 1);
+}
+
+void TestWorkspaceFactory::leafCountInGroup_reflectsLiveKddwAfterDrag()
+{
+    // Regression for P1 #5/#7: tab-group navigation primitives used to
+    // read m_tabGroupOf, a cache that lagged user drag-tab-to-other-group.
+    // After the rework they consult KDDW (DockRegistry::groups() +
+    // Group::dockWidgets()) directly. Simulate a "drag" by reparenting one
+    // leaf's KDDW dock widget into another leaf's group via the public
+    // KDDW API; the count must reflect the new grouping immediately.
+    ViewRegistry registry;
+    Workspace ws(QStringLiteral("test-vault-livegroup-count"), &registry);
+
+    auto *a = ws.createLeafInActiveGroup();
+    QVERIFY(a);
+    auto *b = ws.splitLeaf(a, Qt::Horizontal);
+    QVERIFY(b);
+    QCOMPARE(ws.leafCountInGroup(a), 1);
+    QCOMPARE(ws.leafCountInGroup(b), 1);
+
+    // Move A into B's group via KDDW directly — bypasses Workspace's
+    // create-time m_tabGroupOf bookkeeping (this is the same path KDDW
+    // takes when the user drags a tab onto another tab group).
+    b->dockWidget()->dockWidget()->addDockWidgetAsTab(
+        a->dockWidget()->dockWidget());
+
+    QCOMPARE(ws.leafCountInGroup(a), 2);
+    QCOMPARE(ws.leafCountInGroup(b), 2);
+}
+
+void TestWorkspaceFactory::nextLeafInActiveGroup_followsLiveKddwAfterDrag()
+{
+    // Same regression as above, but exercises the cycle-through-tabs
+    // primitive. Pre-fix, nextLeafInActiveGroup would return nullptr (or
+    // the wrong sibling) after a drag because the cached gid still placed
+    // the moved leaf in its old (now empty) group.
+    ViewRegistry registry;
+    Workspace ws(QStringLiteral("test-vault-livegroup-next"), &registry);
+
+    auto *a = ws.createLeafInActiveGroup();
+    QVERIFY(a);
+    auto *b = ws.splitLeaf(a, Qt::Horizontal);
+    QVERIFY(b);
+
+    // Initially A is alone in its group → no sibling to cycle to.
+    ws.setActiveLeaf(a);
+    QVERIFY(ws.nextLeafInActiveGroup() == nullptr);
+
+    // After "drag" A into B's group, cycling from A must return B.
+    b->dockWidget()->dockWidget()->addDockWidgetAsTab(
+        a->dockWidget()->dockWidget());
+    ws.setActiveLeaf(a);
+    QCOMPARE(ws.nextLeafInActiveGroup(), b);
+    ws.setActiveLeaf(b);
+    QCOMPARE(ws.nextLeafInActiveGroup(), a);
 }
 
 void TestWorkspaceFactory::openLinkText_simpleLink_setsViewState()

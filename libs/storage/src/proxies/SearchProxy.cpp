@@ -47,6 +47,20 @@ QVector<SearchMatch> SearchProxy::searchCompiled(const QString &fts5Query,
                                    regexPatterns, caseSensitiveTerms);
 }
 
+QVector<SearchMatch> SearchProxy::searchCompiled(const QString &fts5Query,
+                                                 const QString &excludedFts5Query,
+                                                 const QStringList &requiredTags,
+                                                 const QStringList &excludedTags,
+                                                 const QStringList &regexPatterns,
+                                                 const QStringList &caseSensitiveTerms) const
+{
+    if (!canRead()) { logDenied("searchCompiled+exclude"); return {}; }
+    if (!m_index)   return {};
+    return m_index->searchCompiled(fts5Query, excludedFts5Query,
+                                   requiredTags, excludedTags,
+                                   regexPatterns, caseSensitiveTerms);
+}
+
 QVector<LinkInfo> SearchProxy::backlinksFor(const QString &targetPath) const
 {
     if (!canRead()) { logDenied("backlinksFor"); return {}; }

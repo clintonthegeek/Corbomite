@@ -9,6 +9,7 @@
 #include "corbomite/core/WorkspaceWindow.h"
 #include "WorkspaceSerializer.h"
 
+#include <kddockwidgets/core/DockRegistry.h>
 #include <kddockwidgets/core/Group.h>
 #include <kddockwidgets/core/Layout.h>
 #include <kddockwidgets/core/MainWindow.h>
@@ -25,6 +26,7 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QPointer>
 #include <QRandomGenerator>
 #include <QSignalBlocker>
 #include <QWidget>
@@ -61,6 +63,52 @@ QString generateTabGroupId()
     auto *rng = QRandomGenerator::global();
     for (int i = 0; i < 16; ++i)
         result.append(QLatin1Char(chars[rng->bounded(16)]));
+    return result;
+}
+
+// Live tab-group enumeration via KDDW. Source of truth for "which leaves
+// share a tab group right now" — tolerant of user drag-tab-to-other-group
+// because it queries DockRegistry directly rather than the cached
+// m_tabGroupOf which is only updated on programmatic create.
+//
+// m_tabGroupOf still exists, but it is now an opaque identifier used by
+// the serializer to key per-group stacked-state — it is no longer
+// authoritative for membership.
+QVector<WorkspaceLeaf *> liveTabSiblings(const QVector<WorkspaceLeaf *> &leaves,
+                                          WorkspaceLeaf *leaf)
+{
+    QVector<WorkspaceLeaf *> result;
+    if (!leaf)
+        return result;
+    auto *qd = leaf->dockWidget();
+    if (!qd)
+        return result;
+    auto *targetCore = qd->dockWidget();
+    if (!targetCore)
+        return result;
+
+    QHash<KDDockWidgets::Core::DockWidget *, WorkspaceLeaf *> byCore;
+    byCore.reserve(leaves.size());
+    for (auto *l : leaves) {
+        if (auto *q = l->dockWidget())
+            if (auto *c = q->dockWidget())
+                byCore.insert(c, l);
+    }
+
+    for (auto *group : KDDockWidgets::DockRegistry::self()->groups()) {
+        const auto dws = group->dockWidgets();
+        bool contains = false;
+        for (auto *dw : dws) {
+            if (dw == targetCore) { contains = true; break; }
+        }
+        if (!contains)
+            continue;
+        for (auto *dw : dws) {
+            if (auto *l = byCore.value(dw, nullptr))
+                result.append(l);
+        }
+        return result;
+    }
     return result;
 }
 
@@ -346,6 +394,16 @@ void Workspace::closeLeaf(WorkspaceLeaf *leaf)
     entry.leafHistory = leaf->history();
     entry.pinned = leaf->pinned();
     entry.group = leaf->group();
+    // Capture a still-live sibling in the closing leaf's KDDW tab group so
+    // undoCloseLeaf can restore the leaf into its original container rather
+    // than the active one. Mirrors Obsidian's "restored to original
+    // container + tab group if live" invariant (workspace.md §415).
+    for (auto *sib : liveTabSiblings(m_leaves, leaf)) {
+        if (sib != leaf) {
+            entry.parentId = sib->id();
+            break;
+        }
+    }
     m_undoHistory.prepend(entry);
     if (m_undoHistory.size() > UndoCap)
         m_undoHistory.removeLast();
@@ -371,14 +429,43 @@ void Workspace::undoCloseLeaf()
         return;
     UndoEntry entry = m_undoHistory.takeFirst();
 
-    auto *leaf = createLeafInActiveGroup();
+    // Place the new leaf in the original tab group when the captured sibling
+    // is still live. Otherwise fall back to the active group (legacy
+    // behaviour). Audit: workspace.md §"Top gaps" — undoCloseLeaf does not
+    // restore container/parent.
+    WorkspaceLeaf *originalSibling = entry.parentId.isEmpty()
+        ? nullptr
+        : m_leavesById.value(entry.parentId);
+    auto *leaf = originalSibling
+        ? createLeafInGroupOf(originalSibling)
+        : createLeafInActiveGroup();
     if (!leaf)
         return;
-    leaf->setId(entry.leafId);
+    // m_leavesById is keyed on the auto-generated id of the freshly created
+    // leaf; rekey to the closed leaf's id before any consumer (including
+    // setActiveLeaf below) reads it. Also re-namespace the KDDW dock
+    // widget's uniqueName so workspace.json round-trip uses the restored
+    // id rather than the throwaway one.
+    const QString freshId = leaf->id();
+    if (!entry.leafId.isEmpty() && entry.leafId != freshId) {
+        m_leavesById.remove(freshId);
+        leaf->setId(entry.leafId);
+        m_leavesById.insert(entry.leafId, leaf);
+        if (auto *qtDw = leaf->dockWidget()) {
+            if (auto *core = qtDw->dockWidget())
+                core->setUniqueName(uniqueNameFor(m_vaultId, entry.leafId));
+        }
+    }
     leaf->setPinned(entry.pinned);
     leaf->setGroup(entry.group);
     if (!entry.state.isEmpty())
         leaf->setViewState(entry.state);
+    if (!entry.eState.isEmpty())
+        leaf->setEphemeralState(entry.eState);
+    // Restore back/forward history wholesale. setViewState above doesn't
+    // push to the history stack (only navigate() does), so overwriting
+    // here is safe.
+    leaf->history() = entry.leafHistory;
 
     setActiveLeaf(leaf);
     Q_EMIT layoutChanged();
@@ -534,18 +621,29 @@ WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)
     // the corresponding serializer-side note.
     leaf->dockWidget()->setFloating(true);
 
-    // Phase 6.3: re-emit floating-window topology changes as
-    // windowFrameChange so plugins can react. Hook destroy on the
-    // FloatingWindow KDDW just spawned, then signal the create.
-    if (auto *fw = leaf->dockWidget()->dockWidget()->floatingWindow()) {
-        connect(fw, &QObject::destroyed, this, [this]() {
-            Q_EMIT windowFrameChange();
-        });
-    }
-
     auto *win = new WorkspaceWindow(this);
     m_windows.append(win);
     if (m_floating) m_floating->addWindow(win);
+
+    // Phase 6.3: re-emit floating-window topology changes as
+    // windowFrameChange so plugins can react. Hook destroy on the
+    // FloatingWindow KDDW just spawned, then signal the create.
+    // The lambda also reaps the WorkspaceWindow shell — without this,
+    // X-closing the popout leaves the shell stranded in m_windows /
+    // m_floating until workspace teardown. QPointer guards against the
+    // case where the shell was already deleted via reparentToMain.
+    if (auto *fw = leaf->dockWidget()->dockWidget()->floatingWindow()) {
+        connect(fw, &QObject::destroyed, this,
+            [this, winPtr = QPointer<WorkspaceWindow>(win)]() {
+                if (winPtr) {
+                    m_windows.removeOne(winPtr.data());
+                    if (m_floating) m_floating->removeWindow(winPtr.data());
+                    winPtr->deleteLater();
+                }
+                Q_EMIT windowFrameChange();
+            });
+    }
+
     Q_EMIT layoutChanged();
     Q_EMIT windowFrameChange();
     return win;
@@ -564,28 +662,9 @@ void Workspace::reparentToMain(WorkspaceWindow *window)
 
 QVector<WorkspaceWindow *> Workspace::windows() const { return m_windows; }
 
-namespace {
-QVector<WorkspaceLeaf *> tabSiblings(const QHash<WorkspaceLeaf *, QString> &tabGroupOf,
-                                     const QVector<WorkspaceLeaf *> &leaves,
-                                     WorkspaceLeaf *leaf)
-{
-    QVector<WorkspaceLeaf *> result;
-    if (!leaf)
-        return result;
-    QString gid = tabGroupOf.value(leaf);
-    if (gid.isEmpty())
-        return result;
-    for (auto *l : leaves) {
-        if (tabGroupOf.value(l) == gid)
-            result.append(l);
-    }
-    return result;
-}
-} // namespace
-
 WorkspaceLeaf *Workspace::nextLeafInActiveGroup() const
 {
-    auto group = tabSiblings(m_tabGroupOf, m_leaves, m_activeLeaf);
+    auto group = liveTabSiblings(m_leaves, m_activeLeaf);
     if (group.size() < 2)
         return nullptr;
     int idx = group.indexOf(m_activeLeaf);
@@ -596,7 +675,7 @@ WorkspaceLeaf *Workspace::nextLeafInActiveGroup() const
 
 WorkspaceLeaf *Workspace::previousLeafInActiveGroup() const
 {
-    auto group = tabSiblings(m_tabGroupOf, m_leaves, m_activeLeaf);
+    auto group = liveTabSiblings(m_leaves, m_activeLeaf);
     if (group.size() < 2)
         return nullptr;
     int idx = group.indexOf(m_activeLeaf);
@@ -608,18 +687,18 @@ WorkspaceLeaf *Workspace::previousLeafInActiveGroup() const
 
 int Workspace::leafIndexInGroup(WorkspaceLeaf *leaf) const
 {
-    auto group = tabSiblings(m_tabGroupOf, m_leaves, leaf);
+    auto group = liveTabSiblings(m_leaves, leaf);
     return group.indexOf(leaf);
 }
 
 int Workspace::leafCountInGroup(WorkspaceLeaf *leaf) const
 {
-    return tabSiblings(m_tabGroupOf, m_leaves, leaf).size();
+    return liveTabSiblings(m_leaves, leaf).size();
 }
 
 void Workspace::closeOtherLeavesInGroupOf(WorkspaceLeaf *leaf)
 {
-    auto group = tabSiblings(m_tabGroupOf, m_leaves, leaf);
+    auto group = liveTabSiblings(m_leaves, leaf);
     QVector<WorkspaceLeaf *> targets;
     for (auto *l : group) {
         if (l != leaf)
@@ -631,7 +710,7 @@ void Workspace::closeOtherLeavesInGroupOf(WorkspaceLeaf *leaf)
 
 void Workspace::closeLeavesToRightOf(WorkspaceLeaf *leaf)
 {
-    auto group = tabSiblings(m_tabGroupOf, m_leaves, leaf);
+    auto group = liveTabSiblings(m_leaves, leaf);
     int pivot = group.indexOf(leaf);
     if (pivot < 0)
         return;
@@ -677,7 +756,7 @@ void Workspace::propagatePinToGroup(WorkspaceLeaf *leaf)
 
 WorkspaceLeaf *Workspace::findOrCreateUnpinnedLeafInGroupOf(WorkspaceLeaf *sibling)
 {
-    auto group = tabSiblings(m_tabGroupOf, m_leaves, sibling ? sibling : m_activeLeaf);
+    auto group = liveTabSiblings(m_leaves, sibling ? sibling : m_activeLeaf);
     for (auto *leaf : group) {
         if (!leaf->pinned())
             return leaf;

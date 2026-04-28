@@ -111,6 +111,19 @@ public:
                                         const QStringList &caseSensitiveTerms,
                                         int maxResults = 100) const;
 
+    /// Full variant that also accepts an `excludedFts5Query` side channel for
+    /// queries SearchDSL couldn't fold into the positive `fts5Query` (a top-
+    /// level `-foo` or `-foo -bar`, where FTS5 MATCH would refuse a bare
+    /// leading NOT). Applied as a `path NOT IN (… MATCH excludedFts5Query)`
+    /// clause against the candidate set.
+    QVector<SearchMatch> searchCompiled(const QString &fts5Query,
+                                        const QString &excludedFts5Query,
+                                        const QStringList &requiredTags,
+                                        const QStringList &excludedTags,
+                                        const QStringList &regexPatterns,
+                                        const QStringList &caseSensitiveTerms,
+                                        int maxResults = 100) const;
+
     // Link queries
     QVector<LinkInfo> backlinksFor(const QString &targetPath) const;
     QVector<LinkInfo> outlinksFor(const QString &sourcePath) const;

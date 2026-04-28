@@ -20,6 +20,7 @@
 
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/Workspace.h"
+#include "corbomite/core/WorkspaceFloating.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/WorkspaceWindow.h"
 #include "WorkspaceSerializer.h"
@@ -32,6 +33,7 @@ class TestWorkspacePopout : public QObject
 private Q_SLOTS:
     void popoutLeaf_createsFloatingWindow();
     void closeFloatingWindow_closesChildrenLeaves();
+    void closeFloatingWindow_reapsWorkspaceWindowShell();
     void restoreFloatingWindow_preservesGeometry();
     void restoreFloatingWindow_preservesMaximize();
 };
@@ -92,6 +94,38 @@ void TestWorkspacePopout::closeFloatingWindow_closesChildrenLeaves()
     QTRY_COMPARE(leafClosedSpy.count(), 1);
     QTRY_VERIFY(leafPtr.isNull());
     QVERIFY(ws.allLeaves().isEmpty());
+}
+
+void TestWorkspacePopout::closeFloatingWindow_reapsWorkspaceWindowShell()
+{
+    // Regression for P1 #6: X-closing a popout used to leave the
+    // WorkspaceWindow shell stranded in m_windows / m_floating until
+    // workspace teardown. The fw->destroyed handler should now clean
+    // both lists and delete the shell.
+    ViewRegistry registry;
+    Workspace ws(QStringLiteral("test-vault-popout-reap"), &registry);
+    ws.kddwMainWindow()->show();
+
+    QObject::connect(&ws, &Workspace::tabCloseRequested, &ws,
+                     [&ws](WorkspaceLeaf *l) { ws.closeLeaf(l); });
+
+    auto *leaf = ws.createLeafInActiveGroup();
+    QVERIFY(leaf);
+    auto *win = ws.popoutLeaf(leaf);
+    QVERIFY(win != nullptr);
+    QPointer<WorkspaceWindow> winPtr(win);
+
+    QCOMPARE(ws.windows().size(), 1);
+    QVERIFY(ws.floatingSplit() != nullptr);
+    QCOMPARE(ws.floatingSplit()->windows().size(), 1);
+
+    auto floats = KDDockWidgets::DockRegistry::self()->floatingWindows();
+    QVERIFY(!floats.isEmpty());
+    floats.first()->view()->close();
+
+    QTRY_VERIFY(winPtr.isNull());
+    QCOMPARE(ws.windows().size(), 0);
+    QCOMPARE(ws.floatingSplit()->windows().size(), 0);
 }
 
 void TestWorkspacePopout::restoreFloatingWindow_preservesGeometry()

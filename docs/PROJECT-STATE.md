@@ -13,7 +13,7 @@ Most P0/P1 punch-list items are **silent vault-format corruption risks**. Drain 
 
 ## Current focus
 
-**P1 #1–#3 (workspace serializer consolidation) done** (2026-04-26). Single hybrid writer (KDDW LayoutSaver JSON for split topology + Workspace for leaf payload) at `libs/core/src/WorkspaceSerializer.cpp`; `Workspace::serialize`/`deserialize` are thin forwarders. 18 fixtures cover the contract. P1 #4 (`m_unknownRoot` left/right write-through) and the `m_tabGroupOf` lag-after-drag follow-up remain in P1; next pick from top of P1 unless redirected.
+**P1 block fully drained** (2026-04-27). Last three P1 punch-list items closed: `ItemView::addAction` prepend (one-line `insertWidget(0, btn)` in `libs/core/src/ItemView.cpp`); `MenuEventEmitter::fileMenu` source discriminator (added Obsidian's `(source, leaf?)` payload + `FileMenuSource::*` constants + typed `MenuInjector::FileMenuHandler`); and `undoCloseLeaf` state restore (capture KDDW sibling id at close → resolve to `createLeafInGroupOf` on undo; restore `eState` + `leafHistory`; rekey `m_leavesById` + KDDW unique-name to the restored leaf id). P1 list now empty. Next: P2 drain (footnotes, callouts, FileExplorer F2/Delete dialogs, external-rename title refresh, `![[…]]` embed parsing, `.base` user-keyed dict ordering, etc.) — Mermaid-theme still deferred pending Rust mmdr changes.
 
 ## Active strategic clusters (snapshot)
 
@@ -45,4 +45,4 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Last touched
 
-2026-04-26 — workspace serializer consolidation (P1 #1-#3). See decisions-archive for the full closeout.
+2026-04-27 — P1 #8-#10 drained: `undoCloseLeaf` state restore + `fileMenu` source discriminator + `ItemView::addAction` prepend. See decisions-archive for the full closeout.

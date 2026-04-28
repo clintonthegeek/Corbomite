@@ -8,9 +8,10 @@ MenuEventEmitter::MenuEventEmitter(QObject *parent)
 {
 }
 
-void MenuEventEmitter::emitFileMenu(QMenu *menu, const QString &filePath)
+void MenuEventEmitter::emitFileMenu(QMenu *menu, const QString &filePath,
+                                     const QString &source, QObject *leaf)
 {
-    Q_EMIT fileMenu(menu, filePath);
+    Q_EMIT fileMenu(menu, filePath, source, leaf);
 }
 
 void MenuEventEmitter::emitUrlMenu(QMenu *menu, const QString &url)

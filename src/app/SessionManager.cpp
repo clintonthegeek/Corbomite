@@ -53,6 +53,7 @@ bool SessionManager::load()
     m_mainJson = {};
     m_leftRibbon = {};
     m_activeLeafId.clear();
+    m_sidebarDirty = false;
 
     if (m_sessionPath.isEmpty()) return false;
 
@@ -141,6 +142,14 @@ void SessionManager::saveSidebarState(bool leftVisible, int leftWidth,
     if (!activePanel.isEmpty()) {
         sidebar.insert(QLatin1String(kSidebarActivePanel), activePanel);
     }
+    // Detect user-driven divergence from the on-disk sidebar so doSave
+    // knows whether to drop the passed-through Obsidian `left`/`right`
+    // sub-trees. MainWindow::saveSessionState calls this on every flush
+    // (including session-restore replays), so identity must be the
+    // gating signal — not call count.
+    const auto previous = m_corbomiteTail.value(QLatin1String(kSidebar)).toObject();
+    if (sidebar != previous)
+        m_sidebarDirty = true;
     m_corbomiteTail.insert(QLatin1String(kSidebar), sidebar);
     scheduleSave();
 }
@@ -242,6 +251,18 @@ void SessionManager::doSave()
     // Compose: unknownRoot (Obsidian keys we pass through) + main + active
     // + _corbomite (our namespaced state).
     QJsonObject root = m_unknownRoot;
+    // Obsidian's `left`/`right` sub-trees encode the sidedock split tree.
+    // Corbomite has no live model of that tree (the `WorkspaceSidedock`
+    // shells return nullptr; the real sidebar is `CorbomiteMDI::Sidebar`,
+    // owned outside the Workspace). While the user hasn't touched
+    // Corbomite's sidebar, we round-trip whatever Obsidian last wrote.
+    // Once they have, that subtree is stale and would freeze Obsidian's
+    // sidedock at an arbitrary past state on the next Obsidian-side
+    // session — drop it so Obsidian rebuilds from defaults.
+    if (m_sidebarDirty) {
+        root.remove(QStringLiteral("left"));
+        root.remove(QStringLiteral("right"));
+    }
     root.insert(QLatin1String(kMain), m_mainJson);
     if (!m_activeLeafId.isEmpty()) {
         root.insert(QLatin1String(kActive), m_activeLeafId);

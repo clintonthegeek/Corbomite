@@ -539,9 +539,16 @@ QString emitFts5(const SearchNodePtr &node, CompiledPlan &plan, bool negated)
             if (!s.isEmpty()) parts.append(s);
         }
         QString joined = parts.join(QStringLiteral(" AND "));
-        for (const QString &n : notParts) {
-            if (joined.isEmpty()) joined = n;  // no positive term — leave as bare
-            else joined += QStringLiteral(" NOT ") + n;
+        if (joined.isEmpty() && !notParts.isEmpty()) {
+            // No positive sibling — emit a single top-level negation; the
+            // outer compile() relocates this into excludedFts5Query, since
+            // FTS5 MATCH does not accept a bare leading NOT.
+            joined = notParts.size() == 1
+                ? QStringLiteral("NOT ") + notParts.first()
+                : QStringLiteral("NOT (") + notParts.join(QStringLiteral(" OR "))
+                      + QLatin1Char(')');
+        } else {
+            for (const QString &n : notParts) joined += QStringLiteral(" NOT ") + n;
         }
         return joined;
     }
@@ -567,6 +574,14 @@ CompiledPlan compile(const SearchNodePtr &root)
     CompiledPlan plan;
     if (!root) return plan;
     plan.fts5Query = emitFts5(root, plan, /*negated=*/false);
+    // FTS5 MATCH cannot start with NOT — the binary "X NOT Y" form is fine
+    // (handled inside emitFts5's And case) but a top-level "NOT X" produced
+    // by parsing `-foo` or `-foo -bar` must be relocated to a side channel
+    // the executor applies as a NOT IN sub-query.
+    if (plan.fts5Query.startsWith(QStringLiteral("NOT "))) {
+        plan.excludedFts5Query = plan.fts5Query.mid(4);
+        plan.fts5Query.clear();
+    }
     return plan;
 }
 

@@ -48,6 +48,10 @@ Notice::Notice(const QString &message, int durationMs, QWidget *parent)
     m_dismissTimer.setSingleShot(true);
     m_dismissTimer.setInterval(durationMs);
     connect(&m_dismissTimer, &QTimer::timeout, this, &QWidget::close);
+    // durationMs == 0 is the sticky-notice contract (caller owns dismissal —
+    // typically via setAction or close()). Without this gate, QTimer would fire
+    // on the next event-loop iteration and the notice would vanish on show.
+    m_sticky = durationMs <= 0;
 }
 
 void Notice::setAction(const QString &label, std::function<void()> callback)
@@ -100,7 +104,7 @@ void Notice::showEvent(QShowEvent *event)
         liveNotices().append(this);
     anchorBottomRight();
     raise();
-    m_dismissTimer.start();
+    if (!m_sticky) m_dismissTimer.start();
 }
 
 Notice::~Notice()

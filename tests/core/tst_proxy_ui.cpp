@@ -189,16 +189,21 @@ void TestProxyUi::fileMenuHandlerInvokedOnEmit()
 
     int hits = 0;
     QString lastPath;
-    inj.onFileMenuBuilt([&](QMenu *menu, const QString &path) {
+    QString lastSource;
+    inj.onFileMenuBuilt([&](QMenu *menu, const QString &path,
+                             const QString &source) {
         ++hits;
         lastPath = path;
+        lastSource = source;
         Q_UNUSED(menu);
     });
 
     QMenu menu;
-    emitter.emitFileMenu(&menu, QStringLiteral("notes/foo.md"));
+    emitter.emitFileMenu(&menu, QStringLiteral("notes/foo.md"),
+                          QString::fromLatin1(FileMenuSource::TabHeader));
     QCOMPARE(hits, 1);
     QCOMPARE(lastPath, QStringLiteral("notes/foo.md"));
+    QCOMPARE(lastSource, QStringLiteral("tab-header"));
 }
 
 void TestProxyUi::editorMenuHandlerInvokedOnEmit()
@@ -235,21 +240,25 @@ void TestProxyUi::menuHandlersDisconnectedOnDestroy()
     int hits = 0;
     {
         MenuInjector inj(&emitter);
-        inj.onFileMenuBuilt([&](QMenu *, const QString &) { ++hits; });
+        inj.onFileMenuBuilt([&](QMenu *, const QString &, const QString &) {
+            ++hits;
+        });
 
         QMenu menu;
-        emitter.emitFileMenu(&menu, QStringLiteral("a.md"));
+        emitter.emitFileMenu(&menu, QStringLiteral("a.md"),
+                              QString::fromLatin1(FileMenuSource::MoreOptions));
         QCOMPARE(hits, 1);
     }
     QMenu menu;
-    emitter.emitFileMenu(&menu, QStringLiteral("b.md"));
+    emitter.emitFileMenu(&menu, QStringLiteral("b.md"),
+                          QString::fromLatin1(FileMenuSource::MoreOptions));
     QCOMPARE(hits, 1); // no further increment after destruction
 }
 
 void TestProxyUi::menuHandlesNullEmitter()
 {
     MenuInjector inj(nullptr);
-    inj.onFileMenuBuilt([](QMenu *, const QString &) {});
+    inj.onFileMenuBuilt([](QMenu *, const QString &, const QString &) {});
     inj.onEditorMenuBuilt([](QMenu *, const QString &) {});
     inj.onTabMenuBuilt([](QMenu *, const QString &) {});
     QVERIFY(true);

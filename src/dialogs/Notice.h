@@ -52,6 +52,7 @@ private:
     QPushButton *m_actionButton = nullptr;
     QHBoxLayout *m_layout = nullptr;
     QTimer m_dismissTimer;
+    bool m_sticky = false;
 };
 
 } // namespace Corbomite

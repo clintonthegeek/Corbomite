@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QtTest/QtTest>
+#include <QHBoxLayout>
 #include <QMenu>
 #include <QSignalSpy>
+#include <QToolButton>
 
 #include "corbomite/core/ItemView.h"
 #include "corbomite/core/View.h"
@@ -103,6 +105,54 @@ private slots:
         QVERIFY(view.order.contains(QStringLiteral("onPaneMenu:more-options")));
         QVERIFY(view.order.indexOf(QStringLiteral("onMoreOptionsMenu")) <
                 view.order.indexOf(QStringLiteral("onPaneMenu:more-options")));
+    }
+
+    void testAddActionPrepends()
+    {
+        // Obsidian's ItemView.addAction prepends the new clickable-icon to
+        // .view-actions; later addAction calls render closer to the title and
+        // the hamburger stays anchored rightmost. See views.md §"Top suspected
+        // bugs": "addAction appends rather than prepends".
+        class HeaderItemView : public Corbomite::ItemView {
+        public:
+            using Corbomite::ItemView::ItemView;
+            QString getViewType() const override { return QStringLiteral("header-test"); }
+            QString getDisplayText() const override { return QStringLiteral("Header"); }
+        };
+
+        HeaderItemView view(nullptr);
+        view.addAction(QStringLiteral("document-edit"),
+                       QStringLiteral("First"), [] {});
+        view.addAction(QStringLiteral("document-save"),
+                       QStringLiteral("Second"), [] {});
+        view.addAction(QStringLiteral("document-close"),
+                       QStringLiteral("Third"), [] {});
+
+        // The actions QHBoxLayout sits inside the header widget; it is the
+        // only QHBoxLayout whose direct children are QToolButtons with the
+        // tooltips we set. Find it via parentage.
+        auto *header = view.headerWidget();
+        QVERIFY(header);
+        QHBoxLayout *actionsLayout = nullptr;
+        for (auto *layout : header->findChildren<QHBoxLayout *>()) {
+            if (layout->count() == 3) {  // exactly our 3 buttons
+                actionsLayout = layout;
+                break;
+            }
+        }
+        QVERIFY(actionsLayout);
+
+        // Buttons should be ordered Third, Second, First (last-added first).
+        auto *first = qobject_cast<QToolButton *>(
+            actionsLayout->itemAt(0)->widget());
+        auto *middle = qobject_cast<QToolButton *>(
+            actionsLayout->itemAt(1)->widget());
+        auto *last = qobject_cast<QToolButton *>(
+            actionsLayout->itemAt(2)->widget());
+        QVERIFY(first && middle && last);
+        QCOMPARE(first->toolTip(), QStringLiteral("Third"));
+        QCOMPARE(middle->toolTip(), QStringLiteral("Second"));
+        QCOMPARE(last->toolTip(), QStringLiteral("First"));
     }
 };
 

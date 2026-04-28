@@ -292,13 +292,16 @@ private:
 
     // Leaf indexes. `m_leaves` is insertion-ordered for stable iteration;
     // `m_leavesById` is the O(1) findLeafById index;
-    // `m_tabGroupOf` carries the opaque tab-group identifier per leaf —
-    // a cache of group membership populated at leaf-create / serializer-
-    // restore time. Lags user-initiated drag-tab-to-other-group; KDDW 2.4
-    // exposes Layout::groups() + Group::dockWidgets() for live enumeration,
-    // so a follow-up can refresh m_tabGroupOf on demand or eliminate it.
-    // Tracking: docs/punch-list.md (post-consolidation entry). API
-    // reference: docs/obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md.
+    // `m_tabGroupOf` carries an opaque tab-group identifier per leaf,
+    // assigned at leaf-create / serializer-restore time. It is no longer
+    // authoritative for live tab-group membership — tab-navigation
+    // primitives (`nextLeafInActiveGroup`, `closeOtherLeavesInGroupOf`,
+    // etc.) read membership from KDDW directly via
+    // `DockRegistry::groups()` + `Group::dockWidgets()` so user
+    // drag-tab-to-other-group is reflected immediately. The cached id
+    // survives only as the key for per-group stacked-state and as a
+    // hand-off token to the serializer (see addendum
+    // docs/obsidian-audit/addenda/2026-04-26-kddw-public-enumeration.md).
     QVector<WorkspaceLeaf *> m_leaves;
     QHash<QString, WorkspaceLeaf *> m_leavesById;
     QHash<WorkspaceLeaf *, QString> m_tabGroupOf;
