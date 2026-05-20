@@ -4,7 +4,8 @@
 #include <QDir>
 #include "corbomite/core/NoteDocument.h"
 #include <markoff/core/MarkoffDocument.h>
-#include <markoff/MarkdownDelta.h>
+// TODO(port): MarkdownDelta retired
+// include <markoff/MarkdownDelta.h>
 
 class TestNoteDocument : public QObject {
     Q_OBJECT

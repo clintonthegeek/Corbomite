@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "HoverPopover.h"
 
-#include <markoff/EmbedRegistry.h>
+#include <markoff/core/EmbedRegistry.h>
 #include "corbomite/core/MarkdownRenderChild.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/vault/Vault.h"

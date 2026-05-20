@@ -7,7 +7,9 @@
 #include <QCloseEvent>
 #include <QStackedWidget>
 
-#include <markoff/Editor.h>
+// TODO(port): old Markoff::Editor retired
+// include <markoff/Editor.h>
+#include <markoff/core/ActionId.h>
 #include <markoff/core/EditorContext.h>
 
 #include <memory>

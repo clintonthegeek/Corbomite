@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // (c) 2026 Corbomite contributors, GPL-3.0-or-later.
 
+// TODO(port-foundation-exploration): same fate as SystemThemeBuilder.cpp —
+// disabled pending theme port (Markoff::Theme has a different shape from the
+// master-side Theme this service was built against).
+#if 0
+
 #include "corbomite/core/ThemeService.h"
 
 #include "corbomite/core/SystemThemeBuilder.h"
@@ -100,3 +105,5 @@ void ThemeService::rebuildAndEmit() {
 }
 
 } // namespace Corbomite::Core
+
+#endif // 0 — disabled pending theme port

@@ -17,8 +17,10 @@
 
 #include "NoteEditorWidget.h"
 
-#include <markoff/Editor.h>
-#include <markoff/reading/ReadingView.h>
+// TODO(port): old Markoff::Editor retired
+// include <markoff/Editor.h>
+// TODO(port): Reading retired
+// include <markoff/reading/ReadingView.h>
 #include <markoff/source/Editor.h>
 #include <markoff/core/MarkoffDocument.h>
 

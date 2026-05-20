@@ -4,7 +4,7 @@
 #ifndef CORBOMITE_CORE_VAULTRESOURCEPROVIDER_H
 #define CORBOMITE_CORE_VAULTRESOURCEPROVIDER_H
 
-#include <markoff/ResourceProvider.h>
+#include <markoff/core/vault/ResourceProvider.h>
 
 #include <QByteArray>
 #include <QString>
@@ -13,15 +13,11 @@
 
 namespace Corbomite::Core {
 
-/// Narrow resolution interface used by renderers (ReadingView, Markoff,
-/// EmbedRenderer, HoverPopover) to turn vault-relative names into
-/// resources. Promoted from `libs/readingview/` in Cluster J Phase 1.
-///
-/// Phase C1: now inherits `Markoff::ResourceProvider` — the
-/// abstract surface consumed by markoff-reading's DI seam. Corbomite
-/// subclasses get transparent markoff-reading compatibility; the
-/// Markoff side only sees the abstract-interface methods.
-class VaultResourceProvider : public Markoff::ResourceProvider
+/// Narrow resolution interface used by renderers to turn vault-relative
+/// names into resources. Inherits `Markoff::Vault::ResourceProvider`
+/// (restored 2026-05-20 driven by port pull; class moved from
+/// `Markoff::ResourceProvider` to `Markoff::Vault::ResourceProvider`).
+class VaultResourceProvider : public Markoff::Vault::ResourceProvider
 {
 public:
     ~VaultResourceProvider() override = default;

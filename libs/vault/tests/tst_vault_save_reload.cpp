@@ -8,7 +8,8 @@
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include <markoff/core/MarkoffDocument.h>
-#include <markoff/MarkdownDelta.h>
+// TODO(port): MarkdownDelta retired
+// include <markoff/MarkdownDelta.h>
 
 class TstVaultSaveReload : public QObject
 {

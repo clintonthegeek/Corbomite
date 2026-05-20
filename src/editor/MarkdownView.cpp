@@ -8,7 +8,8 @@
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "markoff/reading/ReadingView.h"
-#include <markoff/Editor.h>
+// TODO(port): old Markoff::Editor retired
+// include <markoff/Editor.h>
 
 #include <KLocalizedString>
 

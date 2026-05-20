@@ -144,7 +144,7 @@ void Plugin::unregisterEmbed(const QString &ext)
 }
 
 bool Plugin::registerMarkdownCodeBlockProcessor(
-    const QString &lang, Markoff::CodeBlockProcessor proc)
+    const QString &lang, std::shared_ptr<Markoff::CodeBlockProcessor> proc)
 {
     if (!m_context) return false;
     auto *r = m_context->codeBlocks();

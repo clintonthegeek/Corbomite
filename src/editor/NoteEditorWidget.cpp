@@ -12,13 +12,16 @@
 #include "corbomite/storage/EphemeralState.h"
 #include "dialogs/QuickSwitcherModel.h"
 
-#include <markoff/Editor.h>
+// TODO(port): old Markoff::Editor retired
+// include <markoff/Editor.h>
 #include <markoff/core/MarkdownView.h>
-#include <markoff/MarkdownDelta.h>
+// TODO(port): MarkdownDelta retired
+// include <markoff/MarkdownDelta.h>
 #include <markoff/core/MarkoffDocument.h>
-#include <markoff/MermaidRenderer.h>
+// TODO(port): Markoff::MermaidRenderer retired (E5 work)
 #include <markoff/source/Editor.h>
-#include <markoff/reading/ReadingView.h>
+// TODO(port): Reading retired
+// include <markoff/reading/ReadingView.h>
 
 #include <QCursor>
 #include <QKeyEvent>

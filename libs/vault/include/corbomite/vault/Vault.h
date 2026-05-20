@@ -31,9 +31,9 @@ namespace detail { class Watcher; }
 // happens at Vault's first ctor call via a static-local flag in Vault.cpp.
 }  // namespace Corbomite
 
-// ParsePool lives in the top-level Markoff namespace; forward-declare outside
-// Corbomite so the nested unique_ptr member is a complete type at Vault dtor.
-namespace Markoff { class ParsePool; }
+// TODO(port-foundation-exploration): Markoff::ParsePool retired with D4
+// (incremental parser deleted). Forward-decl + m_parsePool member dropped;
+// NoteDocument no longer takes a pool parameter.
 
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFile.h"
@@ -214,9 +214,7 @@ private:
     // Filesystem watcher — private detail class; header in src/.
     std::unique_ptr<detail::Watcher> m_watcher;
 
-    // ParsePool for all NoteDocuments opened by this vault. Lifetime matches
-    // Vault lifetime; passed into every NoteDocument ctor call.
-    std::unique_ptr<Markoff::ParsePool> m_parsePool;
+    // TODO(port-foundation-exploration): m_parsePool retired (D4).
 
     // Deferred-deletion queue: entries persist for one event-loop turn after
     // `deletedFile` emission so synchronous subscribers can observe

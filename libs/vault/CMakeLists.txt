@@ -102,5 +102,9 @@ if(DEFINED KDE_INSTALL_INCLUDEDIR)
     )
 endif()
 
-enable_testing()
-add_subdirectory(tests)
+# TODO(port-foundation-exploration): gated off during port (see top-level
+# CORBOMITE_PORT_BUILD_TESTS).
+if(CORBOMITE_PORT_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

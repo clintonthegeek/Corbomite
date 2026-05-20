@@ -151,25 +151,15 @@ void SettingsDialog::setupAppearancePage()
                 i18n("INI files (*.conf *.ini);;All files (*)"));
             if (path.isEmpty()) return;
 
-            const auto theme = Markoff::Theme::importFromQOwnNotesIni(path);
-            if (!theme) {
-                KMessageBox::error(this,
-                    i18n("Could not parse %1 as a QOwnNotes scheme file.", path),
-                    i18n("Import failed"));
-                return;
-            }
-            if (!m_themeService) return;
-            m_themeService->addUserTheme(*theme);
-            // Refresh combobox preserving signal-blocking so we don't
-            // apply twice.
-            editorTheme->blockSignals(true);
-            editorTheme->clear();
-            editorTheme->addItems(m_themeService->availableThemeNames());
-            editorTheme->setCurrentText(theme->name);
-            editorTheme->blockSignals(false);
-            m_themeService->setActiveThemeByName(theme->name);
-            CorbomiteSettings::self()->setMarkoffTheme(theme->name);
-            CorbomiteSettings::self()->save();
+            // TODO(port-foundation-exploration): Markoff::Theme::importFromQOwnNotesIni
+            // retired with the old Theme shape; importing themes from QOwnNotes
+            // .ini files is disabled until the theme port is tackled. Show a
+            // placeholder message instead.
+            KMessageBox::information(this,
+                i18n("QOwnNotes scheme import is temporarily disabled during "
+                     "the Markoff foundation-exploration port."),
+                i18n("Import disabled"));
+            return;
         });
         layout->addRow(QString(), importBtn);
     }

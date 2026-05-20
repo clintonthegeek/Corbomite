@@ -3,7 +3,8 @@
 #include "WelcomeScreen.h"
 #include "CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
-#include <markoff/Editor.h>
+// TODO(port): old Markoff::Editor retired
+// include <markoff/Editor.h>
 #include <markoff/source/Editor.h>
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
@@ -35,7 +36,7 @@
 
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditorSuggestManager.h"
-#include <markoff/EmbedRegistry.h>
+#include <markoff/core/EmbedRegistry.h>
 #include <markoff/core/CodeBlockProcessorRegistry.h>
 #include "corbomite/core/PostProcessorRegistry.h"
 #include "corbomite/core/MermaidRenderer.h"

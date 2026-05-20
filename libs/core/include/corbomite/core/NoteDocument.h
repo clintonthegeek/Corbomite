@@ -5,7 +5,7 @@
 #include <QString>
 #include <memory>
 
-namespace Markoff { class MarkoffDocument; class ParsePool; }
+namespace Markoff { class MarkoffDocument; }
 
 namespace Corbomite {
 
@@ -14,8 +14,10 @@ class NoteDocument : public QObject {
     Q_PROPERTY(bool modified READ isModified NOTIFY modificationChanged)
 
 public:
+    // TODO(port-foundation-exploration): pool parameter formerly carried a
+    // Markoff::ParsePool *; the new MarkoffDocument has no parse pool
+    // (incremental parser retired with D4). Parameter dropped from signature.
     explicit NoteDocument(const QString &vaultRoot, const QString &relativePath,
-                          Markoff::ParsePool *pool = nullptr,
                           QObject *parent = nullptr);
     ~NoteDocument() override;
 

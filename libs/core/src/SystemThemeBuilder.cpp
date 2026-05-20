@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // (c) 2026 Corbomite contributors, GPL-3.0-or-later.
 
+// TODO(port-foundation-exploration): the new Markoff::Theme uses a different
+// model than master's Element/ElementStyle/elements map. Entire builder body
+// disabled until the theme port is tackled as a feature in its own right;
+// Corbomite themes degrade to whatever the default Theme value carries.
+#if 0
+
 #include "corbomite/core/SystemThemeBuilder.h"
 
 #include <KColorScheme>
@@ -203,3 +209,5 @@ Markoff::Theme buildFromKColorScheme(KColorSchemeManager * /*mgr*/)
 }
 
 } // namespace Corbomite::Core::SystemThemeBuilder
+
+#endif // 0 — disabled pending theme port (Markoff::Theme shape change)

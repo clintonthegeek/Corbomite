@@ -2,7 +2,8 @@
 #include "corbomite/vault/Vault.h"
 
 #include "corbomite/core/NoteDocument.h"
-#include <markoff/ParsePool.h>
+// TODO(port-foundation-exploration): Markoff::ParsePool retired with D4.
+// #include <markoff/ParsePool.h>
 #include <markoff/core/MarkoffDocument.h>
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFile.h"
@@ -49,7 +50,7 @@ Vault::Vault(DataAdapter *adapter, QObject *parent)
     m_root = root.get();
     m_fileMap.emplace(QStringLiteral("/"), std::move(root));
 
-    m_parsePool = std::make_unique<Markoff::ParsePool>(this);
+    // TODO(port-foundation-exploration): ParsePool retired.
 
     m_watcher = std::make_unique<detail::Watcher>(this);
     connect(m_watcher.get(), &detail::Watcher::created,
@@ -693,11 +694,11 @@ NoteDocument *Vault::openDocument(const QString &relPath)
     const QString rel = VaultPaths::normalize(relPath);
     if (auto *existing = m_docs.value(rel)) return existing;
 
-    auto *doc = new NoteDocument(m_basePath, rel, m_parsePool.get(), this);
+    auto *doc = new NoteDocument(m_basePath, rel, this);
     if (auto *tf = getFileByPath(rel)) {
         const QByteArray bytes = cachedRead(tf);
-        doc->markoff()->resetContent(QString::fromUtf8(bytes),
-                                     Markoff::Origin::FirstOpen);
+        // TODO(port-foundation-exploration): resetContent now takes QByteArray.
+        doc->markoff()->resetContent(bytes, Markoff::Origin::FirstOpen);
     }
     // FirstOpen emits contentsChanged which sets modified=true; undo that.
     doc->setModified(false);
@@ -857,7 +858,8 @@ void Vault::onExternalModified(const QString &relPath)
 
     if (!doc->isModified()) {
         // Clean case: apply wholesale, clear undo stack, emit documentReloaded.
-        doc->markoff()->resetContent(newContent, Markoff::Origin::ExternalReloadClean);
+        // TODO(port-foundation-exploration): resetContent takes QByteArray.
+        doc->markoff()->resetContent(newContent.toUtf8(), Markoff::Origin::ExternalReloadClean);
         // resetContent emits documentReloaded, which fires NoteDocument's
         // handler and sets modified=true (because !d->modified was true before
         // the reload). Explicitly reset to false after the reload.
@@ -871,7 +873,8 @@ void Vault::onExternalModified(const QString &relPath)
 void Vault::resolveExternalReload(NoteDocument *doc, const QString &resolvedContent)
 {
     if (!doc) return;
-    doc->markoff()->resetContent(resolvedContent, Markoff::Origin::ExternalReloadResolved);
+    // TODO(port-foundation-exploration): resetContent takes QByteArray.
+    doc->markoff()->resetContent(resolvedContent.toUtf8(), Markoff::Origin::ExternalReloadResolved);
     // Same reasoning as the clean case: resetContent → documentReloaded →
     // NoteDocument sets modified=true; override to false post-merge.
     doc->setModified(false);

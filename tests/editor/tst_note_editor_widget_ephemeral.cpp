@@ -12,7 +12,8 @@
 #include "NoteEditorWidget.h"
 #include "corbomite/storage/EphemeralState.h"
 
-#include <markoff/Editor.h>
+// TODO(port): old Markoff::Editor retired
+// include <markoff/Editor.h>
 #include <markoff/source/Editor.h>
 
 #include "corbomite/core/NoteDocument.h"

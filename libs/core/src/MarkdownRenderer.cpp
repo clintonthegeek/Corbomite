@@ -7,7 +7,8 @@
 
 #include "corbomite/core/MarkdownRenderer.h"
 
-#include <markoff/reading/ReadingView.h>
+// TODO(port): Reading retired
+// include <markoff/reading/ReadingView.h>
 
 #include <QFutureInterface>
 #include <QHBoxLayout>
@@ -591,3 +592,11 @@ QFuture<void> MarkdownRenderer::render(const QString &markdown,
 } // namespace Corbomite
 
 #endif // 0 — disabled pending Markoff::Reading restoration or E1 read-only Live
+
+// Minimal stubs kept OUTSIDE the #if 0 so downstream consumers
+// (RegexRenderEngine, etc.) can still link. TODO(port-foundation-exploration):
+// remove these once the renderer is rewritten against Live-with-editing-disabled.
+#include "corbomite/core/MarkdownRenderer.h"
+namespace Corbomite {
+QString MarkdownRenderer::renderToHtml(const QString & /*markdown*/) const { return {}; }
+}  // namespace Corbomite

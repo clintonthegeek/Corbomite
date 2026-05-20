@@ -7,16 +7,23 @@
 class QStackedWidget;
 
 namespace Markoff {
+// TODO(port-foundation-exploration): Markoff::Editor was the old live editor
+// class (now retired in favor of LiveListModelBinding + QML). Forward-decl
+// kept as a stub to satisfy lingering field/parameter declarations until
+// the Live-side port lands.
 class Editor;
 class MarkdownView;
 class MermaidRenderer;
 }
 
 namespace Markoff::Source {
-class SourceEditor;
+// renamed: SourceEditor → Editor (2026-05-20 port)
+class Editor;
 }
 
 namespace Markoff::Reading {
+// TODO(port-foundation-exploration): Reading retired; stub forward-decl
+// pending Live-with-editing-disabled rewiring.
 class ReadingView;
 }
 
