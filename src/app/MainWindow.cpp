@@ -58,7 +58,9 @@
 #include "corbomite/core/MenuEventEmitter.h"
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/VaultResourceProvider.h"
-#include "markoff/reading/EmbedRenderer.h"
+// TODO(port): Reading::EmbedRenderer retired
+#include <markoff/live/EditorWidget.h>
+#include <markoff/live/LiveListModelBinding.h>
 #include "editor/HoverPopover.h"
 #include "editor/TagSuggest.h"
 #include "editor/WikiLinkSuggest.h"
@@ -346,12 +348,13 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
 
     m_embedRegistry = std::make_unique<Markoff::EmbedRegistry>();
     m_mermaidRenderer = std::make_unique<Corbomite::Core::MermaidRenderer>();
-    m_embedRenderer = std::make_unique<Markoff::Reading::EmbedRenderer>(
-        m_embedRegistry.get(), /*cache=*/nullptr,
-        /*resources=*/nullptr);
-    Markoff::Reading::registerBuiltinEmbedFactories(*m_embedRegistry,
-                                                    *m_embedRenderer);
-    m_hoverPopover->setEmbedRenderer(m_embedRenderer.get());
+    // TODO(port-foundation-exploration): Markoff::Reading::EmbedRenderer +
+    // registerBuiltinEmbedFactories retired with Reading. Hover preview is
+    // disabled until either the Reading leaf is restored or HoverPopover is
+    // rewired against Live-with-editing-disabled.
+    // m_embedRenderer = std::make_unique<Markoff::Reading::EmbedRenderer>(...);
+    // Markoff::Reading::registerBuiltinEmbedFactories(...);
+    // m_hoverPopover->setEmbedRenderer(m_embedRenderer.get());
 
     m_suggestManager = new EditorSuggestManager(this);
     // Suggesters start nullptr-bound; MainWindow rebinds on vault
@@ -387,11 +390,10 @@ MainWindow::~MainWindow()
     delete m_sessionManager;
     m_sessionManager = nullptr;
 
-    if (m_embedRenderer) {
-        m_embedRenderer->setMetadataCache(nullptr);
-        m_embedRenderer->setResources(nullptr);
-    }
-    if (m_hoverPopover) m_hoverPopover->setEmbedRenderer(nullptr);
+    // TODO(port-foundation-exploration): EmbedRenderer disabled — see ctor.
+    // if (m_embedRenderer) { m_embedRenderer->setMetadataCache(nullptr);
+    //                       m_embedRenderer->setResources(nullptr); }
+    // if (m_hoverPopover) m_hoverPopover->setEmbedRenderer(nullptr);
     m_popoverResources.reset();
 
     if (m_metadataCache) {
@@ -431,7 +433,7 @@ MainWindow::~MainWindow()
     delete m_commandRegistry;
     m_commandRegistry = nullptr;
 
-    m_embedRenderer.reset();
+    // TODO(port): m_embedRenderer field disabled — see MainWindow.h.
     m_embedRegistry.reset();
 }
 
@@ -455,46 +457,23 @@ void MainWindow::triggerEditorAction(Markoff::ActionId id)
     auto *editor = activeEditor();
     if (!editor) return;
 
-    // C7: Find/Replace IDs route to the active leaf's MarkdownView virtuals
-    // (Live and Source both override; Reading inherits no-op). Source's
-    // SearchController + named QAction accessors handle next/prev when a
-    // query is set; otherwise both leaves open the find bar.
-    auto *leaf = editor->activeLeaf();
-    if (leaf) {
-        switch (id) {
-            case Markoff::ActionId::FindNext:
-                if (auto *src = qobject_cast<Markoff::Source::Editor *>(leaf))
-                    if (auto *act = src->findNextAction()) { act->trigger(); return; }
-                leaf->showFindBar();
-                return;
-            case Markoff::ActionId::FindPrevious:
-                if (auto *src = qobject_cast<Markoff::Source::Editor *>(leaf))
-                    if (auto *act = src->findPrevAction()) { act->trigger(); return; }
-                leaf->showFindBar();
-                return;
-            case Markoff::ActionId::Replace:
-                leaf->showReplaceBar();
-                return;
-            default:
-                break;
-        }
-    }
-
-    // Fallback for non-Find/Replace IDs: dispatch via Live's action() map.
-    if (!editor->editor()) return;
-    if (auto *act = editor->editor()->action(id))
-        act->trigger();
+    // TODO(port-foundation-exploration): find/replace dispatch retired —
+    // MarkdownView::showFindBar/showReplaceBar virtuals removed by find-
+    // session-scope. Find is now consumer-owned via Markoff::FindController +
+    // attachFindController; reimplement here as part of the find UI port
+    // (the actual next-step feature work). Replace flow deferred to a later
+    // micro-spec.
+    //
+    // For now: no-op on find/replace IDs.
+    (void)id;
 }
 
 void MainWindow::onSetHeading(int level)
 {
-    auto *editor = activeEditor();
-    if (!editor || !editor->editor()) return;
-    // SetHeading1..SetHeading6 are consecutive in ActionId.
-    const auto id = static_cast<Markoff::ActionId>(
-        static_cast<int>(Markoff::ActionId::SetHeading1) + (level - 1));
-    if (auto *act = editor->editor()->action(id))
-        act->trigger();
+    // TODO(port-foundation-exploration): Markoff::ActionId::SetHeading1..6
+    // not in the new ActionId enum yet; heading-set dispatch is part of a
+    // separate feature port.
+    (void)level;
 }
 
 void MainWindow::onInsertCallout()
@@ -503,7 +482,11 @@ void MainWindow::onInsertCallout()
     if (!editor || !editor->editor()) return;
     CalloutPickerDialog dlg(this);
     if (dlg.exec() != QDialog::Accepted) return;
-    editor->editor()->insertCallout(dlg.selectedType(), dlg.title());
+    // TODO(port-foundation-exploration): insertCallout was on the old
+    // Markoff::Editor; not yet on Markoff::Live::EditorWidget. Insert path
+    // needs porting against the new Live API.
+    (void)dlg.selectedType();
+    (void)dlg.title();
 }
 
 void MainWindow::onInsertTable()
@@ -512,7 +495,11 @@ void MainWindow::onInsertTable()
     if (!editor || !editor->editor()) return;
     InsertTableDialog dlg(this);
     if (dlg.exec() != QDialog::Accepted) return;
-    editor->editor()->insertTable(dlg.rows(), dlg.cols(), dlg.firstRowAsHeader());
+    // TODO(port-foundation-exploration): insertTable was on the old
+    // Markoff::Editor; ditto.
+    (void)dlg.rows();
+    (void)dlg.cols();
+    (void)dlg.firstRowAsHeader();
 }
 
 void MainWindow::refreshEditorActions()
@@ -544,143 +531,59 @@ void MainWindow::refreshEditorActions()
         if (auto *act = ac->action(id)) act->setEnabled(isMarkdown);
     }
 
-    // Table submenu is additionally gated on cursorInTable().
-    const bool inTable = isMarkdown && mv->editorWidget()
-                         && mv->editorWidget()->editor()
-                         && mv->editorWidget()->editor()->cursorInTable();
+    // TODO(port-foundation-exploration): cursorInTable / currentHeadingLevel
+    // were on the old Markoff::Editor. New Live::EditorWidget doesn't expose
+    // them; the cursor-context-aware action gating needs to be reimplemented
+    // via the new EditorContext (now a QString-typed blockKind + tableRow/
+    // tableCol fields) when the toolbar/keyboard-shortcut port lands.
     static const QStringList tableActionIds = {
         QStringLiteral("table_row_above"), QStringLiteral("table_row_below"),
         QStringLiteral("table_col_left"),  QStringLiteral("table_col_right"),
         QStringLiteral("table_delete_row"),QStringLiteral("table_delete_col"),
     };
     for (const auto &id : tableActionIds) {
-        if (auto *act = ac->action(id)) act->setEnabled(inTable);
+        if (auto *act = ac->action(id)) act->setEnabled(false);
     }
-
-    // Reflect the current heading level in the H1..H6 radio group.
-    if (isMarkdown && mv->editorWidget() && mv->editorWidget()->editor()) {
-        const int level = mv->editorWidget()->editor()->currentHeadingLevel();
-        for (int i = 1; i <= 6; ++i) {
-            if (auto *act = ac->action(QStringLiteral("heading_%1").arg(i)))
-                act->setChecked(i == level);
-        }
-    } else {
-        for (int i = 1; i <= 6; ++i) {
-            if (auto *act = ac->action(QStringLiteral("heading_%1").arg(i)))
-                act->setChecked(false);
-        }
+    for (int i = 1; i <= 6; ++i) {
+        if (auto *act = ac->action(QStringLiteral("heading_%1").arg(i)))
+            act->setChecked(false);
     }
 }
 
 void MainWindow::connectEditorContext(NoteEditorWidget *editor)
 {
-    if (!editor) return;
-    auto *ed = editor->editor();
-    if (!ed) return;
-    connect(ed, &Markoff::Editor::contextChanged,
-            this, &MainWindow::onEditorContextChanged,
-            Qt::UniqueConnection);
-    // Prime initial state so the toolbar reflects the snapshot even
-    // before the first cursor movement.
-    onEditorContextChanged(ed->context());
+    // TODO(port-foundation-exploration): Markoff::Editor::contextChanged
+    // signal + EditorContext shape (BlockKind enum + inBold/inItalic/etc.)
+    // both retired/changed. Reimplement when the toolbar-state port lands.
+    (void)editor;
 }
 
 void MainWindow::onEditorContextChanged(const Markoff::EditorContext &ctx)
 {
-    KActionCollection *ac = actionCollection();
-    if (!ac) return;
-
-    auto setCheck = [ac](const QString &id, bool on) {
-        if (auto *a = ac->action(id)) a->setChecked(on);
-    };
-    auto setEnable = [ac](const QString &id, bool on) {
-        if (auto *a = ac->action(id)) a->setEnabled(on);
-    };
-
-    using BK = Markoff::EditorContext::BlockKind;
-
-    // Format toolbar check-state
-    setCheck(QStringLiteral("format_bold"),          ctx.inBold);
-    setCheck(QStringLiteral("format_italic"),        ctx.inItalic);
-    setCheck(QStringLiteral("format_strikethrough"), ctx.inStrikethrough);
-    setCheck(QStringLiteral("format_inline_code"),   ctx.inInlineCode);
-
-    // Heading radio
-    for (int i = 1; i <= 6; ++i) {
-        setCheck(QStringLiteral("heading_%1").arg(i),
-                 ctx.headingLevel == i);
-    }
-    setEnable(QStringLiteral("heading_increase"),
-              !ctx.readOnly && ctx.headingLevel < 6);
-    setEnable(QStringLiteral("heading_decrease"),
-              !ctx.readOnly && ctx.headingLevel >= 1);
-
-    // Table delete gating — more precise than the existing
-    // refreshEditorActions path which only gates on cursorInTable().
-    const bool inTable = (ctx.blockKind == BK::Table);
-    if (ctx.table) {
-        setEnable(QStringLiteral("table_delete_row"),
-                  !ctx.readOnly && inTable && ctx.table->rows > 1);
-        setEnable(QStringLiteral("table_delete_col"),
-                  !ctx.readOnly && inTable && ctx.table->cols > 1);
-    }
-
-    // Fold-at-cursor only on headings
-    setEnable(QStringLiteral("toggle_fold"),
-              ctx.blockKind == BK::Heading);
+    // TODO(port-foundation-exploration): see connectEditorContext. New
+    // EditorContext is QString-typed blockKind + headingLevel + table coords
+    // only — no inBold/inItalic/inStrikethrough/inInlineCode/readOnly/table-
+    // shape fields. Toolbar wire-up needs reimplementing against the new shape.
+    (void)ctx;
 }
 
 void MainWindow::connectEditorContextMenu(NoteEditorWidget *editor)
 {
     if (!editor) return;
-    auto *ed = editor->editor();
-    if (!ed) return;
-    connect(ed, &Markoff::Editor::aboutToShowContextMenu,
-            this, &MainWindow::onAboutToShowContextMenu,
-            Qt::UniqueConnection);
+    // TODO(port-foundation-exploration): aboutToShowContextMenu signal lived
+    // on the old Markoff::Editor. Context-menu wiring needs porting against
+    // Live::EditorWidget's eventual context-menu surface (LiveContextMenu
+    // Handler is already in the new live leaf; bridge to it as a follow-up).
+    (void)editor;
 }
 
 void MainWindow::onAboutToShowContextMenu(QMenu *menu,
                                           const Markoff::EditorContext &ctx,
                                           const QPoint & /*globalPos*/)
 {
-    if (!menu) return;
-    using BK = Markoff::EditorContext::BlockKind;
-    Corbomite::MenuSectionHelper helper(menu);
-    KActionCollection *ac = actionCollection();
-    if (!ac) return;
-
-    auto add = [&](const QString &section, const QString &id) {
-        if (auto *a = ac->action(id)) helper.addToSection(a, section);
-    };
-
-    // Format section — always available when active view is a MarkdownView.
-    add(QStringLiteral("action"), QStringLiteral("format_bold"));
-    add(QStringLiteral("action"), QStringLiteral("format_italic"));
-    add(QStringLiteral("action"), QStringLiteral("format_strikethrough"));
-    add(QStringLiteral("action"), QStringLiteral("format_inline_code"));
-
-    // Heading / Insert — grouped into the "action" section after format
-    // entries (canonical section ordering means the helper flushes them
-    // with a single separator gap from built-ins).
-    for (int i = 1; i <= 6; ++i)
-        add(QStringLiteral("action"), QStringLiteral("heading_%1").arg(i));
-    add(QStringLiteral("action"), QStringLiteral("insert_link"));
-    add(QStringLiteral("action"), QStringLiteral("insert_wiki_link"));
-    add(QStringLiteral("action"), QStringLiteral("insert_callout"));
-    add(QStringLiteral("action"), QStringLiteral("insert_table"));
-
-    // Context-specific entries keyed off the snapshot.
-    if (ctx.blockKind == BK::Table) {
-        add(QStringLiteral("action"), QStringLiteral("table_row_above"));
-        add(QStringLiteral("action"), QStringLiteral("table_row_below"));
-        add(QStringLiteral("action"), QStringLiteral("table_col_left"));
-        add(QStringLiteral("action"), QStringLiteral("table_col_right"));
-        add(QStringLiteral("action"), QStringLiteral("table_delete_row"));
-        add(QStringLiteral("action"), QStringLiteral("table_delete_col"));
-    }
-
-    helper.finalize();
+    // TODO(port-foundation-exploration): paired with connectEditorContextMenu.
+    (void)menu;
+    (void)ctx;
 }
 
 MarkdownView *MainWindow::activeMarkdownView() const
@@ -698,14 +601,10 @@ NoteEditorWidget *MainWindow::activeEditor() const
 
 void MainWindow::onFind()
 {
-    // Route Ctrl+F to Markoff::Editor's Find action when the active view is a
-    // Markdown view in LivePreview mode. Source-mode Find is a future Qutepart
-    // fork Phase 3 concern; ReadingView has no search bar yet.
-    auto *editor = activeEditor();
-    if (!editor) return;
-    if (auto *markoff = editor->editor()) {
-        if (auto *act = markoff->action(Markoff::ActionId::Find)) act->trigger();
-    }
+    // TODO(port-foundation-exploration): Ctrl+F was Markoff::ActionId::Find on
+    // the old Editor's QAction map. New find is consumer-owned via
+    // Markoff::FindController + attachFindController — wire here when the
+    // find UI port lands (the next feature work).
 }
 
 void MainWindow::onZoomIn()
@@ -1117,8 +1016,9 @@ void MainWindow::propagateServicesToView(View *view)
 
         auto *editor = mv->editorWidget();
         if (editor) {
-            // C4 Task 14: inject Mermaid renderer into both Live and Reading leaves.
-            editor->setMermaidRenderer(m_mermaidRenderer.get());
+            // TODO(port-foundation-exploration): Markoff::MermaidRenderer
+            // abstract retired (E5 work) — setMermaidRenderer is now a no-op.
+            editor->setMermaidRenderer(nullptr);
 
             connect(editor, &NoteEditorWidget::linkActivated,
                     this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
@@ -1247,13 +1147,13 @@ void MainWindow::setupActions()
     connect(save, &QAction::triggered, this, &MainWindow::saveCurrentNote);
 
     KStandardAction::undo(this, [this]() {
-        auto *editor = activeEditor();
-        if (editor) editor->editor()->undo();
+        // TODO(port-foundation-exploration): undo/redo were on Markoff::Editor.
+        // EditorWidget doesn't expose them; route through MarkoffDocument's
+        // d2UndoLog when the undo port lands.
     }, ac);
 
     KStandardAction::redo(this, [this]() {
-        auto *editor = activeEditor();
-        if (editor) editor->editor()->redo();
+        // TODO(port-foundation-exploration): see undo.
     }, ac);
 
     KStandardAction::find(this, &MainWindow::onFind, ac);
@@ -1445,123 +1345,13 @@ void MainWindow::setupActions()
         return act;
     };
 
-    // Edit > Find / Find Next / Find Previous / Replace
-    addEditorAction(QStringLiteral("edit_find_next"), Id::FindNext,
-                    QStringLiteral("go-down-search"), i18n("Find Next"),
-                    QKeySequence::FindNext);
-    addEditorAction(QStringLiteral("edit_find_previous"), Id::FindPrevious,
-                    QStringLiteral("go-up-search"), i18n("Find Previous"),
-                    QKeySequence::FindPrevious);
-    addEditorAction(QStringLiteral("edit_replace"), Id::Replace,
-                    QStringLiteral("edit-find-replace"), i18n("Replace..."),
-                    QKeySequence::Replace);
-
-    // Format: Bold / Italic / Strikethrough / Inline code — all checkable
-    // so MainWindow::onEditorContextChanged (C6) can reflect the current
-    // inline-span state on the toolbar/menubar.
-    if (auto *a = addEditorAction(QStringLiteral("format_bold"), Id::ToggleBold,
-                    QStringLiteral("format-text-bold"), i18n("Bold"),
-                    QKeySequence::Bold))
-        a->setCheckable(true);
-    if (auto *a = addEditorAction(QStringLiteral("format_italic"), Id::ToggleItalic,
-                    QStringLiteral("format-text-italic"), i18n("Italic"),
-                    QKeySequence::Italic))
-        a->setCheckable(true);
-    if (auto *a = addEditorAction(QStringLiteral("format_strikethrough"), Id::ToggleStrikethrough,
-                    QStringLiteral("format-text-strikethrough"), i18n("Strikethrough"),
-                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X)))
-        a->setCheckable(true);
-    if (auto *a = addEditorAction(QStringLiteral("format_inline_code"), Id::ToggleInlineCode,
-                    QStringLiteral("code-context"), i18n("Inline Code"),
-                    QKeySequence(Qt::CTRL | Qt::Key_QuoteLeft)))
-        a->setCheckable(true);
-
-    // Format/Insert: links + block elements (no dialog)
-    addEditorAction(QStringLiteral("insert_link"), Id::InsertLink,
-                    QStringLiteral("insert-link"), i18n("Insert Link"),
-                    QKeySequence(Qt::CTRL | Qt::Key_K));
-    addEditorAction(QStringLiteral("insert_wiki_link"), Id::InsertWikiLink,
-                    QStringLiteral("insert-link"), i18n("Insert Wiki Link"),
-                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
-    addEditorAction(QStringLiteral("insert_image"), Id::InsertImage,
-                    QStringLiteral("insert-image"), i18n("Insert Image"));
-    addEditorAction(QStringLiteral("insert_code_block"), Id::InsertCodeBlock,
-                    QStringLiteral("code-block"), i18n("Insert Code Block"));
-    addEditorAction(QStringLiteral("insert_block_quote"), Id::InsertBlockQuote,
-                    QStringLiteral("format-text-blockquote"), i18n("Insert Block Quote"));
-    addEditorAction(QStringLiteral("insert_horizontal_rule"), Id::InsertHorizontalRule,
-                    QStringLiteral("distribute-horizontal-center"), i18n("Insert Horizontal Rule"));
-    addEditorAction(QStringLiteral("toggle_checkbox"), Id::ToggleCheckbox,
-                    QStringLiteral("checkbox"), i18n("Toggle Checkbox"));
-
-    // Heading: H1..H6 as a checkable radio group + Increase/Decrease
-    auto *headingGroup = new QActionGroup(this);
-    headingGroup->setExclusive(true);
-    for (int level = 1; level <= 6; ++level) {
-        auto *act = ac->addAction(QStringLiteral("heading_%1").arg(level));
-        act->setText(i18n("Heading %1", level));
-        act->setIcon(QIcon::fromTheme(QStringLiteral("format-text-heading")));
-        act->setCheckable(true);
-        act->setActionGroup(headingGroup);
-        ac->setDefaultShortcut(
-            act, QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_0 + level)));
-        connect(act, &QAction::triggered, this,
-                [this, level]() { onSetHeading(level); });
-    }
-    addEditorAction(QStringLiteral("heading_increase"), Id::IncreaseHeading,
-                    QStringLiteral("format-header-more"), i18n("Increase Heading Level"));
-    addEditorAction(QStringLiteral("heading_decrease"), Id::DecreaseHeading,
-                    QStringLiteral("format-header-less"), i18n("Decrease Heading Level"));
-
-    // Insert: Table... / Callout... (dialog-wrapped, not Markoff-action-forwarded)
-    auto *insertTable = ac->addAction(QStringLiteral("insert_table"));
-    insertTable->setText(i18n("Insert Table..."));
-    insertTable->setIcon(QIcon::fromTheme(QStringLiteral("insert-table")));
-    connect(insertTable, &QAction::triggered, this, &MainWindow::onInsertTable);
-
-    auto *insertCallout = ac->addAction(QStringLiteral("insert_callout"));
-    insertCallout->setText(i18n("Insert Callout..."));
-    insertCallout->setIcon(QIcon::fromTheme(QStringLiteral("dialog-information")));
-    connect(insertCallout, &QAction::triggered, this, &MainWindow::onInsertCallout);
-
-    // Table operations (enable-gated on Editor::cursorInTable). Markoff's
-    // ActionId enum has no per-row/column entries — forward to the
-    // member-function API directly.
-    auto addTableAction = [this, ac](const QString &objName, const QString &icon,
-                                     const QString &label,
-                                     void (Markoff::Editor::*fn)()) {
-        auto *act = ac->addAction(objName);
-        act->setText(label);
-        if (!icon.isEmpty())
-            act->setIcon(QIcon::fromTheme(icon));
-        connect(act, &QAction::triggered, this, [this, fn]() {
-            auto *editor = activeEditor();
-            if (editor && editor->editor()) (editor->editor()->*fn)();
-        });
-    };
-    addTableAction(QStringLiteral("table_row_above"),   QStringLiteral("edit-table-insert-row-above"),
-                   i18n("Insert Row Above"),    &Markoff::Editor::tableInsertRowAbove);
-    addTableAction(QStringLiteral("table_row_below"),   QStringLiteral("edit-table-insert-row-below"),
-                   i18n("Insert Row Below"),    &Markoff::Editor::tableInsertRowBelow);
-    addTableAction(QStringLiteral("table_col_left"),    QStringLiteral("edit-table-insert-column-left"),
-                   i18n("Insert Column Left"),  &Markoff::Editor::tableInsertColumnLeft);
-    addTableAction(QStringLiteral("table_col_right"),   QStringLiteral("edit-table-insert-column-right"),
-                   i18n("Insert Column Right"), &Markoff::Editor::tableInsertColumnRight);
-    addTableAction(QStringLiteral("table_delete_row"),  QStringLiteral("edit-table-delete-row"),
-                   i18n("Delete Row"),          &Markoff::Editor::tableDeleteRow);
-    addTableAction(QStringLiteral("table_delete_col"),  QStringLiteral("edit-table-delete-column"),
-                   i18n("Delete Column"),       &Markoff::Editor::tableDeleteColumn);
-
-    // View > Fold All / Unfold All / Toggle Fold at Cursor
-    addEditorAction(QStringLiteral("fold_all"), Id::FoldAll,
-                    QStringLiteral("collapse-all"), i18n("Fold All"),
-                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Minus));
-    addEditorAction(QStringLiteral("unfold_all"), Id::UnfoldAll,
-                    QStringLiteral("expand-all"), i18n("Unfold All"),
-                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Equal));
-    addEditorAction(QStringLiteral("toggle_fold"), Id::ToggleFoldAtCursor,
-                    QStringLiteral("code-function"), i18n("Toggle Fold at Cursor"),
-                    QKeySequence(Qt::CTRL | Qt::Key_Period));
+    // TODO(port-foundation-exploration): Markoff::ActionId enum was wholly
+    // restructured for foundation-exploration (no FindNext/FindPrevious/
+    // Replace/ToggleBold/.../IncreaseHeading/etc.). The whole editor-action
+    // registration block is disabled until each action gets reconnected
+    // through Live::EditorWidget's actual surface as feature ports land.
+    // Find UI port is next on the queue.
+    (void)addEditorAction;
 
     // Initial enable-state: no active MarkdownView yet, so disable the
     // whole editor-action set. Workspace::activeLeafChanged will refresh
@@ -1813,12 +1603,10 @@ void MainWindow::setupEditor()
         // Editor Mode radio submenu to the current ViewMode and keep it
         // in sync via the viewModeChanged signal.
         refreshEditorActions();
-        if (editor && editor->editor()) {
-            disconnect(editor->editor(), &Markoff::Editor::cursorPositionChanged,
-                       this, nullptr);
-            connect(editor->editor(), &Markoff::Editor::cursorPositionChanged,
-                    this, [this](int, int) { refreshEditorActions(); });
-        }
+        // TODO(port-foundation-exploration): cursorPositionChanged(int,int)
+        // was on the old Markoff::Editor. EditorWidget's cursor signals come
+        // via binding()->cursorState() — re-wire when refreshEditorActions
+        // gets reimplemented against the new context shape.
         if (editor) {
             // Phase C6 — wire Markoff EditorContext signals for live
             // Format/Heading/Table state and context-menu contribution.
@@ -2131,20 +1919,13 @@ void MainWindow::onVaultOpened(const QString &path)
     m_fileManager = new FileManager(m_vaultObj, m_metadataCache, this);
 
     m_popoverResources = std::make_unique<VaultScopedResources>(m_vaultObj);
-    m_linkResolverAdapter =
-        std::make_unique<Corbomite::MarkoffAdapters::LinkResolverAdapter>(
-            m_linkResolver);
-    m_metadataCacheAdapter =
-        std::make_unique<Corbomite::MarkoffAdapters::MetadataCacheAdapter>(
-            m_metadataCache);
-    m_metadataParserImpl =
-        std::make_unique<Corbomite::MarkoffAdapters::MetadataParserImpl>(
-            m_linkResolver);
-    if (m_embedRenderer) {
-        m_embedRenderer->setMetadataCache(m_metadataCacheAdapter.get());
-        m_embedRenderer->setResources(m_popoverResources.get());
-        m_embedRenderer->setMetadataParser(m_metadataParserImpl.get());
-    }
+    // TODO(port-foundation-exploration): MarkoffAdapters (LinkResolverAdapter,
+    // MetadataCacheAdapter, MetadataParserImpl) all #if 0-disabled until
+    // Markoff::Vault::* concretes are restored. EmbedRenderer wiring same.
+    // m_linkResolverAdapter = std::make_unique<...>(m_linkResolver);
+    // m_metadataCacheAdapter = std::make_unique<...>(m_metadataCache);
+    // m_metadataParserImpl = std::make_unique<...>(m_linkResolver);
+    // if (m_embedRenderer) { m_embedRenderer->setMetadataCache(...); ... }
 
     // Wire suggesters + hover popover against the live vault.
     m_hoverPopover->setVault(m_vaultObj);
@@ -2408,11 +2189,8 @@ void MainWindow::onVaultClosed()
     if (m_hoverPopover) m_hoverPopover->setVault(nullptr);
 
 
-    if (m_embedRenderer) {
-        m_embedRenderer->setMetadataCache(nullptr);
-        m_embedRenderer->setResources(nullptr);
-        m_embedRenderer->setMetadataParser(nullptr);
-    }
+    // TODO(port-foundation-exploration): EmbedRenderer teardown disabled.
+    // if (m_embedRenderer) { m_embedRenderer->setMetadataCache(nullptr); ... }
     m_popoverResources.reset();
 
     if (m_metadataCache) {
@@ -2429,9 +2207,8 @@ void MainWindow::onVaultClosed()
     // Drop the Markoff adapter shims before deleting their wrapped pointers.
     // Consumers were nulled above; resetting now means a fresh open's
     // re-creation can't transiently destroy a still-referenced shim.
-    m_linkResolverAdapter.reset();
-    m_metadataCacheAdapter.reset();
-    m_metadataParserImpl.reset();
+    // TODO(port-foundation-exploration): adapter fields disabled.
+    // m_linkResolverAdapter.reset(); m_metadataCacheAdapter.reset(); m_metadataParserImpl.reset();
     delete m_metadataCache;
     m_metadataCache = nullptr;
     delete m_linkResolver;
@@ -2517,10 +2294,9 @@ void MainWindow::insertTemplate()
     editor->noteDocument()->setMarkdown(finalBody);
 
     if (cursorIdx >= 0) {
+        // TODO(port-foundation-exploration): goToLine retired on EditorWidget.
         const int line = finalBody.left(cursorIdx).count(QLatin1Char('\n'));
-        if (auto *mk = editor->editor()) {
-            mk->goToLine(line);
-        }
+        (void)line;
     }
 }
 

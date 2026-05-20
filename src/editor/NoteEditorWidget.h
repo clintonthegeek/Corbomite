@@ -7,13 +7,12 @@
 class QStackedWidget;
 
 namespace Markoff {
-// TODO(port-foundation-exploration): Markoff::Editor was the old live editor
-// class (now retired in favor of LiveListModelBinding + QML). Forward-decl
-// kept as a stub to satisfy lingering field/parameter declarations until
-// the Live-side port lands.
-class Editor;
 class MarkdownView;
-class MermaidRenderer;
+class MermaidRenderer;  // stub forward decl — type undefined post-port (E5 work)
+}
+
+namespace Markoff::Live {
+class EditorWidget;
 }
 
 namespace Markoff::Source {
@@ -22,8 +21,9 @@ class Editor;
 }
 
 namespace Markoff::Reading {
-// TODO(port-foundation-exploration): Reading retired; stub forward-decl
-// pending Live-with-editing-disabled rewiring.
+// TODO(port-foundation-exploration): Reading retired; stub forward-decl kept
+// purely so old method signatures (readingView() accessor) compile. Returns
+// nullptr unconditionally now.
 class ReadingView;
 }
 
@@ -69,9 +69,9 @@ public:
     void setViewMode(ViewMode mode);
     ViewMode viewMode() const;
 
-    Markoff::Editor *editor() const;
+    Markoff::Live::EditorWidget *editor() const;
     Markoff::Source::Editor *sourceEditor() const;
-    Markoff::Reading::ReadingView *readingView() const;
+    Markoff::Reading::ReadingView *readingView() const;  // always nullptr post-port
 
     // Returns the active MarkdownView leaf (any of the three), or nullptr if
     // none has been constructed yet. Cluster R / C7 consumers (MarkdownView
@@ -157,7 +157,7 @@ private:
 
     QStackedWidget *m_stack = nullptr;
 
-    Markoff::Editor *m_editor = nullptr;
+    Markoff::Live::EditorWidget *m_editor = nullptr;
     // Source mode widget — lazy. Constructed on first `setViewMode(Source)`
     // and cached in the stack thereafter. Accessor returns nullptr until
     // first construction. See `ensureWidgetConstructed`.

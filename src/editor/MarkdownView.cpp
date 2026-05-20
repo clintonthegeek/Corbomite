@@ -7,7 +7,7 @@
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "markoff/reading/ReadingView.h"
+// TODO(port): Reading::ReadingView retired
 // TODO(port): old Markoff::Editor retired
 // include <markoff/Editor.h>
 
@@ -86,56 +86,20 @@ bool MarkdownView::setCursorLine(int line)
 
 void MarkdownView::zoomIn()
 {
-    if (!m_editorWidget) return;
-    switch (m_editorWidget->viewMode()) {
-    case NoteEditorWidget::ViewMode::LivePreview:
-        if (auto *ed = m_editorWidget->editor()) {
-            if (auto *a = ed->action(Markoff::ActionId::ZoomIn))
-                a->trigger();
-        }
-        break;
-    case NoteEditorWidget::ViewMode::Source:
-        if (auto *se = m_editorWidget->sourceEditor()) se->zoomIn();
-        break;
-    case NoteEditorWidget::ViewMode::Reading:
-        if (auto *rv = m_editorWidget->readingView()) rv->zoomIn();
-        break;
-    }
+    // TODO(port-foundation-exploration): zoom dispatch was leaf-specific and
+    // used Markoff::ActionId::ZoomIn / ZoomOut + per-leaf zoomIn/zoomOut/
+    // resetZoom methods that no longer exist on the new leaves. Zoom port
+    // is its own feature; no-op here for now.
 }
 
 void MarkdownView::zoomOut()
 {
-    if (!m_editorWidget) return;
-    switch (m_editorWidget->viewMode()) {
-    case NoteEditorWidget::ViewMode::LivePreview:
-        if (auto *ed = m_editorWidget->editor()) {
-            if (auto *a = ed->action(Markoff::ActionId::ZoomOut))
-                a->trigger();
-        }
-        break;
-    case NoteEditorWidget::ViewMode::Source:
-        if (auto *se = m_editorWidget->sourceEditor()) se->zoomOut();
-        break;
-    case NoteEditorWidget::ViewMode::Reading:
-        if (auto *rv = m_editorWidget->readingView()) rv->zoomOut();
-        break;
-    }
+    // TODO: see zoomIn.
 }
 
 void MarkdownView::zoomReset()
 {
-    if (!m_editorWidget) return;
-    switch (m_editorWidget->viewMode()) {
-    case NoteEditorWidget::ViewMode::LivePreview:
-        if (auto *ed = m_editorWidget->editor()) ed->resetZoom();
-        break;
-    case NoteEditorWidget::ViewMode::Source:
-        if (auto *se = m_editorWidget->sourceEditor()) se->resetZoom();
-        break;
-    case NoteEditorWidget::ViewMode::Reading:
-        if (auto *rv = m_editorWidget->readingView()) rv->resetZoom();
-        break;
-    }
+    // TODO: see zoomIn.
 }
 
 QJsonObject MarkdownView::getState() const
@@ -331,23 +295,19 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
     });
     helper.addToSection(exportPdfAct, QStringLiteral("action"));
 
-    // ---- find: dispatch to leaf widget's showFindBar / showReplaceBar (C7) ----
+    // ---- find: TODO(port-foundation-exploration) — MarkdownView::showFindBar
+    // / showReplaceBar virtuals removed by find-session-scope. Find is now
+    // consumer-owned; the find UI port (the next feature work) will reconnect
+    // these menu actions to Markoff::FindController-driven UI on the
+    // Corbomite side. Replace is deferred until then.
     auto *findAct = new QAction(
         QIcon::fromTheme(QStringLiteral("edit-find")),
         i18n("Find..."), this);
-    connect(findAct, &QAction::triggered, this, [this] {
-        if (auto *leaf = m_editorWidget ? m_editorWidget->activeLeaf() : nullptr)
-            leaf->showFindBar();
-    });
     helper.addToSection(findAct, QStringLiteral("find"));
 
     auto *replaceAct = new QAction(
         QIcon::fromTheme(QStringLiteral("edit-find-replace")),
         i18n("Replace..."), this);
-    connect(replaceAct, &QAction::triggered, this, [this] {
-        if (auto *leaf = m_editorWidget ? m_editorWidget->activeLeaf() : nullptr)
-            leaf->showReplaceBar();
-    });
     helper.addToSection(replaceAct, QStringLiteral("find"));
 
     // ---- view.linked submenu: open the five sidebar dock panels ----

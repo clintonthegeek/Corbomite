@@ -211,3 +211,9 @@ Markoff::Theme buildFromKColorScheme(KColorSchemeManager * /*mgr*/)
 } // namespace Corbomite::Core::SystemThemeBuilder
 
 #endif // 0 — disabled pending theme port (Markoff::Theme shape change)
+
+// Minimal stub OUTSIDE the #if 0 so downstream linkers can resolve.
+#include "corbomite/core/SystemThemeBuilder.h"
+namespace Corbomite::Core::SystemThemeBuilder {
+Markoff::Theme buildFromKColorScheme(KColorSchemeManager *) { return {}; }
+}  // namespace Corbomite::Core::SystemThemeBuilder

@@ -219,19 +219,18 @@ private:
     // (concrete, no adapter needed). EmbedRegistryAdapter removed; callers use
     // m_embedRegistry directly as Markoff::EmbedRegistry.
     std::unique_ptr<Markoff::EmbedRegistry> m_embedRegistry;
-    std::unique_ptr<Markoff::Reading::EmbedRenderer> m_embedRenderer;
+    // TODO(port-foundation-exploration): Reading::EmbedRenderer +
+    // MarkoffAdapters::* unique_ptrs disabled — those types are forward-
+    // declared in this header but their definitions are #if 0-out in
+    // the .cpp / Adapters.h. unique_ptr dtor needs sizeof which can't
+    // see incomplete types from this header. Re-enable when those types
+    // are restored.
+    // std::unique_ptr<Markoff::Reading::EmbedRenderer> m_embedRenderer;
     std::unique_ptr<Corbomite::Core::VaultResourceProvider> m_popoverResources;
-    // Phase C1 DI-seam adapters. Registry adapter retired in C4 Task 13
-    // (m_embedRegistry is now Markoff::EmbedRegistry directly).
-    // Remaining adapters rebuilt on each vault open (they close over
-    // per-vault m_linkResolver / m_metadataCache).
     std::unique_ptr<Corbomite::Core::MermaidRenderer> m_mermaidRenderer;
-    std::unique_ptr<Corbomite::MarkoffAdapters::LinkResolverAdapter>
-        m_linkResolverAdapter;
-    std::unique_ptr<Corbomite::MarkoffAdapters::MetadataCacheAdapter>
-        m_metadataCacheAdapter;
-    std::unique_ptr<Corbomite::MarkoffAdapters::MetadataParserImpl>
-        m_metadataParserImpl;
+    // std::unique_ptr<Corbomite::MarkoffAdapters::LinkResolverAdapter> m_linkResolverAdapter;
+    // std::unique_ptr<Corbomite::MarkoffAdapters::MetadataCacheAdapter> m_metadataCacheAdapter;
+    // std::unique_ptr<Corbomite::MarkoffAdapters::MetadataParserImpl> m_metadataParserImpl;
     EditorSuggestManager *m_suggestManager = nullptr;
     WikiLinkSuggest *m_wikiSuggest = nullptr;
     TagSuggest *m_tagSuggest = nullptr;
