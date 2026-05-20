@@ -54,6 +54,7 @@ private:
 
     QTreeView *m_treeView;
     NotesTreeModel *m_model = nullptr;
+    QStringList m_savedExpansion;
 };
 
 } // namespace Corbomite

@@ -72,7 +72,23 @@ struct SplitNode {
     QString direction; // "horizontal" or "vertical"
     QList<SplitNode> splitChildren;
     QList<TabsNode> tabsChildren;
-    // Variant-like: a node has EITHER splitChildren OR tabsChildren, not both.
+    // Original interleaved order of children. Each entry is (isSplit, index)
+    // — index points into splitChildren or tabsChildren depending on the
+    // bool. Render/materialize walk this list to preserve the on-disk order
+    // of children at this split level. Earlier code assumed a node had
+    // EITHER splits OR tabs (not both interleaved); Obsidian-authored
+    // layouts and KDDW LayoutSaver dumps both produce mixed orderings,
+    // so the assumption was wrong and silently scrambled split positions.
+    QList<QPair<bool, int>> childOrder;
+
+    void addTabs(const TabsNode &t) {
+        tabsChildren.append(t);
+        childOrder.append({false, tabsChildren.size() - 1});
+    }
+    void addSplit(const SplitNode &s) {
+        splitChildren.append(s);
+        childOrder.append({true, splitChildren.size() - 1});
+    }
 };
 
 struct WindowNode {
@@ -131,9 +147,9 @@ SplitNode parseSplit(const QJsonObject &o)
         auto childObj = v.toObject();
         auto type = childObj.value(QStringLiteral("type")).toString();
         if (type == QStringLiteral("tabs")) {
-            n.tabsChildren.append(parseTabs(childObj));
+            n.addTabs(parseTabs(childObj));
         } else if (type == QStringLiteral("split")) {
-            n.splitChildren.append(parseSplit(childObj));
+            n.addSplit(parseSplit(childObj));
         }
     }
     return n;
@@ -193,8 +209,23 @@ QJsonObject renderSplit(const SplitNode &n)
     o[QStringLiteral("type")] = QStringLiteral("split");
     o[QStringLiteral("direction")] = n.direction;
     QJsonArray kids;
-    for (const auto &c : n.splitChildren) kids.append(renderSplit(c));
-    for (const auto &c : n.tabsChildren) kids.append(renderTabs(c));
+    // Walk childOrder to preserve original interleaved ordering. Falls back
+    // to splits-then-tabs if childOrder wasn't populated (defensive — should
+    // not happen for nodes built by parseSplit / addTabs / addSplit).
+    if (!n.childOrder.isEmpty()) {
+        for (const auto &slot : n.childOrder) {
+            const bool isSplit = slot.first;
+            const int idx = slot.second;
+            if (isSplit && idx < n.splitChildren.size()) {
+                kids.append(renderSplit(n.splitChildren[idx]));
+            } else if (!isSplit && idx < n.tabsChildren.size()) {
+                kids.append(renderTabs(n.tabsChildren[idx]));
+            }
+        }
+    } else {
+        for (const auto &c : n.splitChildren) kids.append(renderSplit(c));
+        for (const auto &c : n.tabsChildren) kids.append(renderTabs(c));
+    }
     o[QStringLiteral("children")] = kids;
     return o;
 }
@@ -292,7 +323,7 @@ void walkLayoutNode(const QJsonObject &layoutNode,
     if (layoutNode.value(QStringLiteral("isContainer")).toBool()) {
         SplitNode child;
         walkLayoutContainer(layoutNode, frames, child, workspace);
-        parent.splitChildren.append(child);
+        parent.addSplit(child);
         return;
     }
     // Leaf-of-tree (group reference). Resolve the frame via guestId.
@@ -318,7 +349,7 @@ void walkLayoutNode(const QJsonObject &layoutNode,
             tabs.stacked = true;
         }
     }
-    parent.tabsChildren.append(tabs);
+    parent.addTabs(tabs);
 }
 
 // Locate this MainWindow's entry in a LayoutSaver JSON dump.
@@ -559,17 +590,40 @@ materializeSplit(const SplitNode &split,
         first = false;
     };
 
-    for (const auto &childTabs : split.tabsChildren) {
-        placeChild([&](KDDockWidgets::Location loc,
-                       KDDockWidgets::QtWidgets::DockWidget *rel) {
-            return materializeTabs(childTabs, main, rel, loc, workspace);
-        });
-    }
-    for (const auto &childSplit : split.splitChildren) {
-        placeChild([&](KDDockWidgets::Location loc,
-                       KDDockWidgets::QtWidgets::DockWidget *rel) {
-            return materializeSplit(childSplit, main, rel, loc, workspace);
-        });
+    // Walk childOrder so siblings are docked left-to-right (or top-to-bottom)
+    // in their JSON order. Falls back to tabs-then-splits if childOrder is
+    // empty (defensive — should not happen for parsed/programmatic nodes).
+    if (!split.childOrder.isEmpty()) {
+        for (const auto &slot : split.childOrder) {
+            const bool isSplit = slot.first;
+            const int idx = slot.second;
+            if (isSplit && idx < split.splitChildren.size()) {
+                const auto &childSplit = split.splitChildren[idx];
+                placeChild([&](KDDockWidgets::Location loc,
+                               KDDockWidgets::QtWidgets::DockWidget *rel) {
+                    return materializeSplit(childSplit, main, rel, loc, workspace);
+                });
+            } else if (!isSplit && idx < split.tabsChildren.size()) {
+                const auto &childTabs = split.tabsChildren[idx];
+                placeChild([&](KDDockWidgets::Location loc,
+                               KDDockWidgets::QtWidgets::DockWidget *rel) {
+                    return materializeTabs(childTabs, main, rel, loc, workspace);
+                });
+            }
+        }
+    } else {
+        for (const auto &childTabs : split.tabsChildren) {
+            placeChild([&](KDDockWidgets::Location loc,
+                           KDDockWidgets::QtWidgets::DockWidget *rel) {
+                return materializeTabs(childTabs, main, rel, loc, workspace);
+            });
+        }
+        for (const auto &childSplit : split.splitChildren) {
+            placeChild([&](KDDockWidgets::Location loc,
+                           KDDockWidgets::QtWidgets::DockWidget *rel) {
+                return materializeSplit(childSplit, main, rel, loc, workspace);
+            });
+        }
     }
 
     return firstAnchor;
@@ -704,7 +758,7 @@ SplitNode floatingWindowAsSplit(KDDockWidgets::Core::FloatingWindow *fw,
         l.viewType = QStringLiteral("empty");
         tabs.children.append(l);
     }
-    root.tabsChildren.append(tabs);
+    root.addTabs(tabs);
     return root;
 }
 

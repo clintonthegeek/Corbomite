@@ -360,50 +360,93 @@ bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
 bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
 {
     if (!f || !m_vault) return false;
-    const QString oldPath = f->path;
-    const QString oldBase = QFileInfo(oldPath).completeBaseName();
-    const QString newBase = QFileInfo(newPath).completeBaseName();
+    const QString rootOldPath = f->path;
 
     Q_EMIT renameStarted(f, newPath);
 
-    // Snapshot backlinks BEFORE the rename — otherwise MetadataCache loses
-    // the entry when the rename reshapes it. Walk allPaths() checking each
-    // cache's links/embeds/frontmatterLinks for the old base name.
-    QVector<QString> sources;
+    // Build the per-file move list. For a single-file rename it's just one
+    // entry. For a folder rename, expand to the folder itself plus every
+    // descendant — Vault::rename(folder) moves all descendants in one shot,
+    // but body-link rewriting needs to know each descendant's individual
+    // old → new mapping so wikilinks like `[[Targets/Foo]]` get translated
+    // to `[[Renamed/Foo]]` instead of being missed.
+    struct Move {
+        QString oldP;
+        QString newP;
+        QString oldBase;  // QFileInfo::completeBaseName of oldP
+    };
+    QVector<Move> moves;
+    auto pushMove = [&](const QString &oldP, const QString &newP) {
+        moves.push_back({oldP, newP, QFileInfo(oldP).completeBaseName()});
+    };
+    pushMove(rootOldPath, newPath);
+    if (dynamic_cast<TFolder *>(f)) {
+        const QString oldPrefix = rootOldPath + QLatin1Char('/');
+        // Collect descendant paths from the cache (covers every file the
+        // metadata layer knows about — same source of truth used by the
+        // snapshot below). Folder rename also moves non-`.md` files but
+        // those have no inbound link references to rewrite, so the cache
+        // walk is sufficient for the link-rewrite phase.
+        if (m_cache) {
+            for (const QString &p : m_cache->allPaths()) {
+                if (p.startsWith(oldPrefix)) {
+                    pushMove(p, newPath + QLatin1Char('/') + p.mid(oldPrefix.size()));
+                }
+            }
+        }
+    }
+
+    // Find the move that a given resolved link target (e.g. cache `lc.link`)
+    // refers to. Returns nullptr when the target doesn't match any move.
+    auto matchMove = [&](const QString &target) -> const Move * {
+        if (target.isEmpty()) return nullptr;
+        const int hash = target.indexOf(QLatin1Char('#'));
+        const QString bare = hash >= 0 ? target.left(hash) : target;
+        for (const Move &m : moves) {
+            if (target == m.oldP || target == m.oldBase) return &m;
+            if (bare == m.oldP || bare == m.oldBase) return &m;
+        }
+        return nullptr;
+    };
+
+    // Snapshot backlinks BEFORE the rename — MetadataCache loses these
+    // entries when the rename reshapes the source-file index. Walk
+    // allPaths() and bag every source whose links/embeds/frontmatterLinks
+    // touch any move's old path. Self-references (a moved file linking to
+    // another moved file) need rewriting too, so skipping by `src == oldPath`
+    // is intentional only for the root of the rename — descendants are
+    // both sources AND targets.
+    QSet<QString> sourceSet;
     if (m_cache) {
         const QStringList all = m_cache->allPaths();
         for (const QString &src : all) {
-            if (src == oldPath) continue;
+            if (src == rootOldPath) continue;
             const auto cm = m_cache->getFileCache(src);
             if (!cm.has_value()) continue;
             bool refs = false;
-            auto matchesOld = [&](const QString &target) {
-                if (target.isEmpty()) return false;
-                if (target == oldPath) return true;
-                if (target == oldBase) return true;
-                const int hash = target.indexOf(QLatin1Char('#'));
-                const QString bare = hash >= 0 ? target.left(hash) : target;
-                return bare == oldBase || bare == oldPath;
-            };
             if (cm->links) {
                 for (const auto &l : *cm->links) {
-                    if (matchesOld(l.link)) { refs = true; break; }
+                    if (matchMove(l.link)) { refs = true; break; }
                 }
             }
             if (!refs && cm->embeds) {
                 for (const auto &l : *cm->embeds) {
-                    if (matchesOld(l.link)) { refs = true; break; }
+                    if (matchMove(l.link)) { refs = true; break; }
                 }
             }
             if (!refs && cm->frontmatterLinks) {
                 for (const auto &fml : *cm->frontmatterLinks) {
-                    if (matchesOld(fml.link)) { refs = true; break; }
+                    if (matchMove(fml.link)) { refs = true; break; }
                 }
             }
-            if (refs) sources.append(src);
+            if (refs) sourceSet.insert(src);
         }
     }
+    QVector<QString> sources(sourceSet.begin(), sourceSet.end());
 
+    // Single Vault::rename — for folders this also moves descendants
+    // (m_fileMap entries get re-keyed and per-descendant `renamed` signals
+    // fire).
     if (!m_vault->rename(f, newPath)) return false;
 
     int done = 0;
@@ -425,12 +468,13 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
             const QString text = QString::fromUtf8(body);
 
             auto pushBodyRewrite = [&](const LinkCache &lc) {
-                if (linkPathWithoutSubpath(lc.link) != oldPath) return;
+                const Move *mv = matchMove(linkPathWithoutSubpath(lc.link));
+                if (!mv) return;
                 const int s = lc.position.start.offset;
                 const int e = lc.position.end.offset;
                 if (s < 0 || e > text.size() || s >= e) return;
                 const QString slice = text.mid(s, e - s);
-                const QString rebuilt = rewriteLinkLiteral(slice, oldPath, newPath);
+                const QString rebuilt = rewriteLinkLiteral(slice, mv->oldP, mv->newP);
                 if (rebuilt.isEmpty()) return;
                 rewrites.push_back({s, e, rebuilt});
             };
@@ -451,7 +495,8 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
                 const int fmEnd = cm->frontmatterPosition->end.offset;
                 int searchFrom = fmStart;
                 for (const FrontmatterLinkCache &fml : *cm->frontmatterLinks) {
-                    if (linkPathWithoutSubpath(fml.link) != oldPath) {
+                    const Move *mv = matchMove(linkPathWithoutSubpath(fml.link));
+                    if (!mv) {
                         // Even unaffected entries consume their span so the
                         // next search starts past them.
                         const int idx = text.indexOf(fml.original, searchFrom);
@@ -462,7 +507,7 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
                     const int idx = text.indexOf(fml.original, searchFrom);
                     if (idx < 0 || idx >= fmEnd) continue;
                     const QString rebuilt =
-                        rewriteLinkLiteral(fml.original, oldPath, newPath);
+                        rewriteLinkLiteral(fml.original, mv->oldP, mv->newP);
                     if (rebuilt.isEmpty()) {
                         searchFrom = idx + static_cast<int>(fml.original.size());
                         continue;
@@ -478,7 +523,7 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
         Q_EMIT linkUpdateProgress(done, total);
     }
 
-    Q_EMIT renameFinished(f, oldPath);
+    Q_EMIT renameFinished(f, rootOldPath);
     return true;
 }
 bool FileManager::deleteProperty(const QString &) { return false; }

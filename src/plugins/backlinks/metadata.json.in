@@ -1,6 +1,5 @@
 {
     "KPlugin": {
-        "Id": "corbomite-backlinks",
         "Name": "Backlinks",
         "Description": "Show notes that link to the active note",
         "Icon": "link",
@@ -11,6 +10,7 @@
         "Authors": [{"Name": "Corbomite Developers"}]
     },
     "X-Corbomite-Trusted": @X_CORBOMITE_TRUSTED@,
+    "X-Obsidian-Id": "backlink",
     "X-Corbomite-Permissions": ["metadata.read", "workspace", "ui.views", "ui.commands"],
     "X-Corbomite-MinVersion": "0.1.0",
     "X-Corbomite-DockArea": "right",

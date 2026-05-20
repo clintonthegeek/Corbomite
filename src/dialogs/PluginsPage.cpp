@@ -53,10 +53,16 @@ PluginsPage::PluginsPage(PluginManager *mgr, QWidget *parent)
             &PluginsPage::onItemChanged);
 
     if (m_mgr) {
+        // Queued: rebuild() calls m_list->clear() which deletes the
+        // QListWidgetItem currently being processed by onItemChanged. Direct
+        // connection led to a use-after-free at line 118 (m_list->row(item)
+        // after the item had been freed by the clear inside enablePlugin's
+        // synchronous emission of pluginEnabled). Queue the rebuild so it
+        // runs after onItemChanged returns to the event loop.
         connect(m_mgr, &PluginManager::pluginEnabled, this,
-                [this](const QString &) { rebuild(); });
+                [this](const QString &) { rebuild(); }, Qt::QueuedConnection);
         connect(m_mgr, &PluginManager::pluginDisabled, this,
-                [this](const QString &) { rebuild(); });
+                [this](const QString &) { rebuild(); }, Qt::QueuedConnection);
     }
 }
 

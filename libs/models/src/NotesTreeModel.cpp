@@ -13,7 +13,8 @@ bool isTreeFile(const TFile *tf)
 {
     if (!tf) return false;
     return tf->extension == QLatin1String("md")
-        || tf->extension == QLatin1String("canvas");
+        || tf->extension == QLatin1String("canvas")
+        || tf->extension == QLatin1String("base");
 }
 }  // namespace
 
@@ -97,6 +98,7 @@ QVariant NotesTreeModel::data(const QModelIndex &index, int role) const
     case FileTypeRole:
         if (node->isDirectory) return QStringLiteral("directory");
         if (node->name.endsWith(QStringLiteral(".canvas"))) return QStringLiteral("canvas");
+        if (node->name.endsWith(QStringLiteral(".base"))) return QStringLiteral("base");
         return QStringLiteral("markdown");
     }
     return {};

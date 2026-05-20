@@ -1,6 +1,5 @@
 {
     "KPlugin": {
-        "Id": "corbomite-bookmarks",
         "Name": "Bookmarks",
         "Description": "Save and organize references to files, folders, headings, blocks, searches, and graphs",
         "Icon": "bookmark-new",
@@ -11,6 +10,7 @@
         "Authors": [{"Name": "Corbomite Developers"}]
     },
     "X-Corbomite-Trusted": @X_CORBOMITE_TRUSTED@,
+    "X-Obsidian-Id": "bookmarks",
     "X-Corbomite-Permissions": ["vault.read", "vault.write", "vault.events", "workspace", "ui.views", "ui.commands"],
     "X-Corbomite-MinVersion": "0.1.0",
     "X-Corbomite-ApiLevel": 1,

@@ -41,7 +41,7 @@ void BookmarksPlugin::onLoad(Corbomite::PluginContext *ctx)
     m_store = new BookmarksStore(this);
     // Initial read via VaultProxy (gated by vault.read permission).
     if (auto *vp = ctx->vault()) {
-        const QJsonObject obj = vp->readConfigJson(QStringLiteral("bookmarks.json")).toObject();
+        const QJsonObject obj = vp->readConfigJson(QStringLiteral("bookmarks")).toObject();
         m_store->loadFromJson(obj);
     }
     connect(m_store, &BookmarksStore::changed, this, &BookmarksPlugin::scheduleSave);
@@ -79,7 +79,7 @@ void BookmarksPlugin::doSave()
     if (!m_store || !context()) return;
     auto *vp = context()->vault();
     if (!vp) return;
-    vp->writeConfigJson(QStringLiteral("bookmarks.json"), m_store->toJson());
+    vp->writeConfigJson(QStringLiteral("bookmarks"), m_store->toJson());
 }
 
 void BookmarksPlugin::openBookmarkModalForFile(const QString &relativePath,

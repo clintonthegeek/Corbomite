@@ -36,23 +36,36 @@
 
 ## Building
 
-Configure and build with the dev build flag:
+Two CMake presets are defined in `CMakePresets.json`:
+
+- `dev` → `build-dev/`, `Debug`, `CORBOMITE_DEV_BUILD=ON` (isolated config/data, `[Dev]` window title)
+- `release` → `build-release/`, `Release`, `CMAKE_INSTALL_PREFIX=/usr/local` (for dogfooding via `sudo cmake --install`)
+
+Configure and build the dev preset:
 
 ```bash
-cmake -B build -DCORBOMITE_DEV_BUILD=ON
-cmake --build build -j 10
+cmake --preset dev
+cmake --build --preset dev -j 10
 ```
 
 Always pass `-j 10` to `cmake --build` — the default serial build is slow on this tree. Use the same `-j 10` for incremental rebuilds.
 
 Run:
 ```bash
-./build/Corbomite
+./build-dev/Corbomite
 ```
 
 Run tests:
 ```bash
-cd build && ctest --output-on-failure -j 10
+cd build-dev && ctest --output-on-failure -j 10
+```
+
+Build and install the release preset (system-wide, separate config/data dirs from dev):
+
+```bash
+cmake --preset release
+cmake --build --preset release -j 10
+sudo cmake --install build-release
 ```
 
 ### Dependencies

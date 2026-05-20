@@ -1652,6 +1652,40 @@ void MainWindow::setupEditor()
                 m_workspace, [this](const Markoff::Theme &) {
             m_workspace->emitCssChange();
         });
+
+        // Also persist the active theme to `.obsidian/appearance.json` so
+        // Obsidian sees the same theme on next open. The vocabulary is:
+        // empty/absent → follow system; "moonstone" → Light; "obsidian" →
+        // Dark; custom CSS-theme names pass through unchanged. Idempotent —
+        // the writer compares against the file's current `theme` and skips
+        // when they already match, which avoids the read-on-open ping-pong
+        // (when a vault open reads its appearance.json and applies the
+        // theme, this slot fires but the value is already on disk).
+        connect(m_themeService, &Corbomite::Core::ThemeService::themeChanged,
+                this, [this](const Markoff::Theme &) {
+            if (!m_pluginVaultConfig || !m_themeService) return;
+            QString obsTheme;
+            const QString name = m_themeService->activeThemeName();
+            if (!name.isEmpty()
+                && name != QStringLiteral("Follow system")) {
+                if (name == QStringLiteral("Light")) {
+                    obsTheme = QStringLiteral("moonstone");
+                } else if (name == QStringLiteral("Dark")) {
+                    obsTheme = QStringLiteral("obsidian");
+                } else {
+                    // Custom CSS theme: pass through (matches the
+                    // VaultConfig::obsidianAppearanceTheme contract).
+                    obsTheme = name;
+                }
+            }
+            QJsonObject appearance =
+                m_pluginVaultConfig->readAppearanceJson().value_or(QJsonObject{});
+            const QString existing =
+                appearance.value(QStringLiteral("theme")).toString();
+            if (existing == obsTheme) return;
+            appearance[QStringLiteral("theme")] = obsTheme;
+            m_pluginVaultConfig->writeAppearanceJson(appearance);
+        });
     }
 
     // Cluster R Task 3.1: plugin `:open` commands dispatch through
@@ -2240,6 +2274,35 @@ void MainWindow::onVaultOpened(const QString &path)
             std::make_unique<VaultConfig>(m_fsAdapter.get(), path);
         pm->setVaultConfig(m_pluginVaultConfig.get());
         pm->loadEnabledStateFromConfig();
+    }
+
+    // Apply the per-vault theme from `.obsidian/appearance.json` so opening
+    // a vault that Obsidian wrote with `theme: "obsidian"` switches Corbomite
+    // to its Dark theme (and vice versa). When `theme` is empty or absent,
+    // ThemeService stays at "Follow system". Custom CSS-theme names pass
+    // through and bind via setActiveThemeByName if the user has installed a
+    // matching theme in `~/.config/corbomite[-dev]/themes/`. The
+    // appearance-write hook above is idempotent so the resulting
+    // themeChanged emission won't churn the file.
+    if (m_themeService && m_pluginVaultConfig) {
+        if (auto app = m_pluginVaultConfig->readAppearanceJson()) {
+            const QString obsTheme =
+                app->value(QStringLiteral("theme")).toString();
+            QString internal = QStringLiteral("Follow system");
+            if (!obsTheme.isEmpty()) {
+                if (obsTheme == QStringLiteral("moonstone")) {
+                    internal = QStringLiteral("Light");
+                } else if (obsTheme == QStringLiteral("obsidian")) {
+                    internal = QStringLiteral("Dark");
+                } else if (m_themeService->availableThemeNames()
+                            .contains(obsTheme)) {
+                    internal = obsTheme;
+                }
+            }
+            if (internal != m_themeService->activeThemeName()) {
+                m_themeService->setActiveThemeByName(internal);
+            }
+        }
     }
 
     if (m_sessionManager->hasLoadedSession()) {

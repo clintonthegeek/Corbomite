@@ -11,6 +11,7 @@
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QMenu>
+#include <QMessageBox>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -41,6 +42,16 @@ FileExplorerView::FileExplorerView(VaultProxy *vault,
     if (m_vault) {
         m_model = new NotesTreeModel(m_vault, this);
         m_treeView->setModel(m_model);
+
+        // Preserve folder expansion state across model resets — the model
+        // does a full beginResetModel/endResetModel on every create/delete/
+        // rename event (NotesTreeModel.cpp:222-243), which collapses every
+        // folder back to its initial state. Snapshot before the reset, restore
+        // after. Uses the existing expanded/setExpanded helpers above.
+        connect(m_model, &QAbstractItemModel::modelAboutToBeReset, this,
+                [this]() { m_savedExpansion = expandedFolderPaths(); });
+        connect(m_model, &QAbstractItemModel::modelReset, this,
+                [this]() { setExpandedFolderPaths(m_savedExpansion); });
     }
 
     connect(m_treeView, &QTreeView::doubleClicked, this,
@@ -131,7 +142,17 @@ void FileExplorerView::onNewNoteIn(const QString &folder)
     TFolder *parent = nullptr;
     if (!folder.isEmpty()) parent = m_vault->getFolderByPath(folder);
     auto *tf = m_fmProxy->createNewMarkdownFile(parent, name);
-    if (tf) onNoteActivated(tf->path);
+    if (tf) {
+        onNoteActivated(tf->path);
+    } else {
+        // `Vault::create` returns null on case-insensitive collision (so
+        // case-only-different names that would clobber each other on
+        // case-folding filesystems are refused even on case-sensitive ext4).
+        // Surface that to the user so the silent refusal isn't mysterious.
+        QMessageBox::warning(this, i18n("Could not create note"),
+            i18n("A note named \"%1\" already exists in this folder "
+                 "(case-insensitive match). Pick a different name.", name));
+    }
 }
 
 void FileExplorerView::onDeleteNote(const QString &path)
@@ -162,6 +183,17 @@ void FileExplorerView::showContextMenu(const QPoint &pos)
                                            i18n("New Note Here"));
             connect(newNote, &QAction::triggered, this,
                     [this, p = contextPath]() { onNewNoteIn(p); });
+            // Don't offer rename/delete on the root row.
+            if (!contextPath.isEmpty() && contextPath != QStringLiteral("/")) {
+                menu.addSeparator();
+                auto *rename = menu.addAction(i18n("Rename"));
+                connect(rename, &QAction::triggered, this,
+                        [this, p = contextPath]() { onRenameNote(p); });
+                auto *del = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-delete")),
+                                           i18n("Delete"));
+                connect(del, &QAction::triggered, this,
+                        [this, p = contextPath]() { onDeleteNote(p); });
+            }
         } else {
             auto *open = menu.addAction(i18n("Open"));
             connect(open, &QAction::triggered, this,
@@ -188,10 +220,14 @@ bool FileExplorerView::eventFilter(QObject *obj, QEvent *event)
     if (obj == m_treeView && event->type() == QEvent::KeyPress) {
         auto *keyEvent = static_cast<QKeyEvent *>(event);
         const auto idx = m_treeView->currentIndex();
-        if (idx.isValid() && !idx.data(NotesTreeModel::IsDirectoryRole).toBool()) {
+        if (idx.isValid()) {
             const QString path = idx.data(NotesTreeModel::PathRole).toString();
-            if (keyEvent->key() == Qt::Key_F2) { onRenameNote(path); return true; }
-            if (keyEvent->key() == Qt::Key_Delete) { onDeleteNote(path); return true; }
+            // F2/Delete work on both files and folders. Suppress on the
+            // virtual root row only.
+            if (!path.isEmpty() && path != QStringLiteral("/")) {
+                if (keyEvent->key() == Qt::Key_F2) { onRenameNote(path); return true; }
+                if (keyEvent->key() == Qt::Key_Delete) { onDeleteNote(path); return true; }
+            }
         }
     }
     return QWidget::eventFilter(obj, event);

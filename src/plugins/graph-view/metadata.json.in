@@ -10,6 +10,7 @@
         "Authors": [{"Name": "Corbomite Developers"}]
     },
     "X-Corbomite-Trusted": @X_CORBOMITE_TRUSTED@,
+    "X-Obsidian-Id": "graph",
     "X-Corbomite-Permissions": ["vault.read", "metadata.read", "workspace", "ui.views", "ui.commands"],
     "X-Corbomite-MinVersion": "0.1.0",
     "X-Corbomite-DockArea": "right",

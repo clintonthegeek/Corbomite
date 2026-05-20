@@ -518,8 +518,10 @@ namespace {
 QString configJsonAbs(const QString &basePath, const QString &configDir,
                       const QString &name)
 {
+    QString stem = name;
+    if (stem.endsWith(QStringLiteral(".json"))) stem.chop(5);
     return basePath + QLatin1Char('/') + configDir + QLatin1Char('/')
-         + name + QStringLiteral(".json");
+         + stem + QStringLiteral(".json");
 }
 }
 
