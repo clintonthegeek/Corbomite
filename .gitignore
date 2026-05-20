@@ -54,3 +54,6 @@ testvaults/**/.trash/
 testvaults/DevVault/
 testvaults/starter-vault/Parser Tests/
 testvaults/starter-vault/dfsfg.canvas
+
+# Reference-only Obsidian clones (local study, not part of project)
+ObsClones/
