@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QFont>
 #include <QMetaType>
 #include <QVector>
 #include <QWidget>
 
-namespace Qutepart {
-class Qutepart;
-}
+class QPlainTextEdit;
+
+// TODO(port-foundation-exploration): Qutepart::Qutepart was a public class in
+// the old Markoff layout. Foundation-exploration retired the standalone qutepart
+// library (markoff-source's QPlainTextEdit-based widget now subsumes that role).
+// This shim is stubbed to a plain QPlainTextEdit; the real port-feature is to
+// replace Corbomite::SourceEditor with Markoff::Source::Editor at the
+// NoteEditorWidget seam. Until then, visual-line scroll is approximated by
+// scrollbar-value passthrough.
 
 namespace Corbomite {
 
@@ -68,7 +75,9 @@ public:
 
     // Internal-use accessor for tests and future phase-3/phase-7 wiring.
     // NOT part of the app-facing contract.
-    Qutepart::Qutepart *qutepart() const { return m_qutepart; }
+    // TODO(port-foundation-exploration): originally returned Qutepart::Qutepart *.
+    // Stubbed to QPlainTextEdit * pending source-editor swap port.
+    QPlainTextEdit *qutepart() const { return m_qutepart; }
 
 Q_SIGNALS:
     void textChanged();
@@ -76,7 +85,7 @@ Q_SIGNALS:
     void scrollPositionChanged(float visualLine);
 
 private:
-    Qutepart::Qutepart *m_qutepart = nullptr;
+    QPlainTextEdit *m_qutepart = nullptr;  // formerly Qutepart::Qutepart *
     QVector<int> m_pendingFoldedHeadings; // TODO(phase-4/phase-7): honour
     QFont m_defaultFont; // Captured at ctor for resetZoom().
 };

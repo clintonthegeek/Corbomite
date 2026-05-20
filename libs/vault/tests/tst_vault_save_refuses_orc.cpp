@@ -7,7 +7,7 @@
 #include "corbomite/vault/Vault.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/storage/FileSystemAdapter.h"
-#include <markoff/MarkoffDocument.h>
+#include <markoff/core/MarkoffDocument.h>
 
 using namespace Corbomite;
 

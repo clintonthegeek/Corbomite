@@ -4,23 +4,23 @@
 #ifndef CORBOMITE_CORE_MERMAIDRENDERER_H
 #define CORBOMITE_CORE_MERMAIDRENDERER_H
 
-#include <markoff/MermaidRenderer.h>
+// TODO(port-foundation-exploration): Markoff::MermaidRenderer abstract was
+// retired with the old leaves. Stubbed to a no-base class so this header
+// compiles; consumers that pass this to a Markoff seam (NoteEditorWidget
+// setMermaidRenderer, MainWindow) will need their own stubs until E5 lands a
+// new Markoff::MermaidRenderer abstract.
+// #include <markoff/MermaidRenderer.h>
 
 #include <QByteArray>
 #include <QString>
 
 namespace Corbomite::Core {
 
-/// Host-side concrete `Markoff::MermaidRenderer` implementation. Wraps
-/// the `mmdr` Rust FFI; CorbomiteApp plugs one of these into every
-/// `ReadingView` it opens so the Markoff-side DI seam can render
-/// mermaid diagrams. markoff-reading's Phase-C1 standalone Default
-/// returns empty bytes — this concrete is what makes mermaid actually
-/// render.
-class MermaidRenderer final : public Markoff::MermaidRenderer
+/// Host-side concrete mermaid renderer. Wraps the `mmdr` Rust FFI.
+class MermaidRenderer final
 {
 public:
-    QByteArray renderSvg(const QString &source) const override;
+    QByteArray renderSvg(const QString &source) const;
 };
 
 } // namespace Corbomite::Core

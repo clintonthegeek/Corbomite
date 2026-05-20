@@ -5,7 +5,7 @@
 #include <QList>
 #include <QString>
 
-#include <markoff-parser/Document.h>
+#include <markoff/parser/Document.h>
 
 namespace Corbomite {
 

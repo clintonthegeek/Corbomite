@@ -32,11 +32,11 @@
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 
-#include <markoff/MarkdownView.h>
-#include <markoff/MarkoffDocument.h>
+#include <markoff/core/MarkdownView.h>
+#include <markoff/core/MarkoffDocument.h>
 #include <markoff/SearchBar.h>
 #include <markoff/SearchController.h>
-#include <markoff/source/SourceEditor.h>
+#include <markoff/source/Editor.h>
 
 #include <QAction>
 #include <QMenu>
@@ -47,7 +47,7 @@ using Corbomite::NoteDocument;
 using Corbomite::NoteEditorWidget;
 using Corbomite::ViewRegistry;
 using Corbomite::WorkspaceLeaf;
-using Markoff::Source::SourceEditor;
+using Markoff::Source::Editor;
 
 namespace {
 

@@ -18,7 +18,7 @@
 #include <markoff/Editor.h>
 #include <markoff/MermaidRenderer.h>
 #include <markoff/reading/ReadingView.h>
-#include <markoff/MarkoffDocument.h>
+#include <markoff/core/MarkoffDocument.h>
 
 #include "corbomite/core/NoteDocument.h"
 

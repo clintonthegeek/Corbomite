@@ -50,7 +50,7 @@ target_link_libraries(tst_cachedmetadata PRIVATE Qt6::Test Corbomite::Storage)
 
 add_executable(tst_metadataparser tst_metadataparser.cpp)
 add_test(NAME tst_metadataparser COMMAND tst_metadataparser)
-target_link_libraries(tst_metadataparser PRIVATE Qt6::Test Corbomite::Storage MarkoffParser::MarkoffParser)
+target_link_libraries(tst_metadataparser PRIVATE Qt6::Test Corbomite::Storage Markoff::Parser)
 
 add_executable(tst_metadatacache_core tst_metadatacache_core.cpp)
 add_test(NAME tst_metadatacache_core COMMAND tst_metadatacache_core)

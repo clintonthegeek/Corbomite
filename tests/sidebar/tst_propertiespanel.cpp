@@ -21,7 +21,7 @@
 #include <QStringList>
 #include <QTemporaryDir>
 
-#include <markoff-parser/YamlValue.h>
+#include <markoff/parser/YamlValue.h>
 
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/models/PropertyType.h"

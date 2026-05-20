@@ -9,7 +9,7 @@
 #include <QString>
 #include <QStringList>
 
-#include <markoff/Theme.h>
+#include <markoff/core/Theme.h>
 
 class KColorSchemeManager;
 

@@ -3,7 +3,7 @@
 
 #include "corbomite/core/NoteDocument.h"
 #include <markoff/ParsePool.h>
-#include <markoff/MarkoffDocument.h>
+#include <markoff/core/MarkoffDocument.h>
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/TFolder.h"

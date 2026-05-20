@@ -74,6 +74,17 @@ add_subdirectory(libs/jkqtmathtext)
 add_subdirectory(libs/mmdr)
 
 set(MARKOFF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+# TODO(port-foundation-exploration): foundation-exploration retired the
+# single top-level MARKOFF_BUILD_TESTS gate; each leaf now has its own
+# (MARKOFF_CORE_BUILD_TESTS, etc.). Per-leaf gates explicitly OFF here so
+# the submodule doesn't try to build tests that depend on internal
+# headers Corbomite doesn't expose to its build. Clean-up: have Markoff
+# make MARKOFF_BUILD_TESTS the canonical gate that propagates to all
+# leaves.
+set(MARKOFF_CORE_BUILD_TESTS   OFF CACHE BOOL "" FORCE)
+set(MARKOFF_LIVE_BUILD_TESTS   OFF CACHE BOOL "" FORCE)
+set(MARKOFF_SOURCE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(MARKOFF_PARSER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # Phase B bridge (MARKOFF_READING_USE_REAL_COREDEPS) retired in Markoff
 # v0.3.0 (Phase C1). markoff-reading now consumes host-provided
 # implementations of `Markoff::*` / `Markoff::Vault::*` interfaces via
@@ -206,10 +217,11 @@ add_subdirectory(tests/graph)
 add_subdirectory(tests/sidebar)
 add_subdirectory(libs/forcegraph/tests)
 add_subdirectory(libs/canvas/tests)
-# Markoff top-level cross-leaf integration tests (MARKOFF_BUILD_TESTS is OFF
-# for the submodule; Corbomite adds this subdirectory directly so the tests
-# run under ctest like any other Corbomite test).
-add_subdirectory(libs/markoff-family/tests/markoff)
+# TODO(port-foundation-exploration): Markoff foundation-exploration retired
+# the top-level tests/ directory; cross-leaf tests are now per-leaf or absent.
+# Re-evaluate once the port has settled on which Markoff tests Corbomite wants
+# to drive directly. Original line:
+#   add_subdirectory(libs/markoff-family/tests/markoff)
 
 # Examples (opt-in) — gated behind CORBOMITE_BUILD_EXAMPLES so default
 # builds don't pay for them.

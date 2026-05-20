@@ -4,7 +4,7 @@
 #ifndef CORBOMITE_CORE_SYSTEMTHEMEBUILDER_H
 #define CORBOMITE_CORE_SYSTEMTHEMEBUILDER_H
 
-#include <markoff/Theme.h>
+#include <markoff/core/Theme.h>
 
 class KColorSchemeManager;
 

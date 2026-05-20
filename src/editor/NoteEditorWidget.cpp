@@ -13,11 +13,11 @@
 #include "dialogs/QuickSwitcherModel.h"
 
 #include <markoff/Editor.h>
-#include <markoff/MarkdownView.h>
+#include <markoff/core/MarkdownView.h>
 #include <markoff/MarkdownDelta.h>
-#include <markoff/MarkoffDocument.h>
+#include <markoff/core/MarkoffDocument.h>
 #include <markoff/MermaidRenderer.h>
-#include <markoff/source/SourceEditor.h>
+#include <markoff/source/Editor.h>
 #include <markoff/reading/ReadingView.h>
 
 #include <QCursor>
@@ -189,7 +189,7 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
     switch (mode) {
     case ViewMode::Source:
         if (!m_sourceEditor) {
-            m_sourceEditor = new Markoff::Source::SourceEditor(this);
+            m_sourceEditor = new Markoff::Source::Editor(this);
             m_sourceIndex = m_stack->addWidget(m_sourceEditor);
             if (m_themeService)
                 m_sourceEditor->setViewTheme(m_themeService->currentTheme());
@@ -245,7 +245,7 @@ bool NoteEditorWidget::goToLine(int line)
     switch (m_viewMode) {
     case ViewMode::Source:
         if (m_sourceEditor) {
-            // Markoff::Source::SourceEditor::setCursorPosition takes 1-based line.
+            // Markoff::Source::Editor::setCursorPosition takes 1-based line.
             m_sourceEditor->setCursorPosition({line, 0});
             return true;
         }
@@ -273,7 +273,7 @@ EphemeralState NoteEditorWidget::captureEphemeralStateFor(ViewMode mode) const
     case ViewMode::Source:
         if (m_sourceEditor) {
             s.scroll = m_sourceEditor->scrollPosition();
-            // Markoff::Source::SourceEditor uses 1-based lines; EphemeralState
+            // Markoff::Source::Editor uses 1-based lines; EphemeralState
             // stores 0-based (same convention as LivePreview capture below).
             const auto cp = m_sourceEditor->cursorPosition();
             s.cursor.line   = std::max(0, cp.line - 1);
@@ -317,7 +317,7 @@ void NoteEditorWidget::restoreEphemeralStateFor(ViewMode mode,
     switch (mode) {
     case ViewMode::Source:
         if (m_sourceEditor) {
-            // EphemeralState stores 0-based; Markoff::Source::SourceEditor
+            // EphemeralState stores 0-based; Markoff::Source::Editor
             // takes 1-based lines — add 1 on restore.
             m_sourceEditor->setCursorPosition({s.cursor.line + 1, s.cursor.column});
             m_sourceEditor->setScrollPosition(s.scroll);
@@ -403,7 +403,7 @@ Markoff::Editor *NoteEditorWidget::editor() const
     return m_editor;
 }
 
-Markoff::Source::SourceEditor *NoteEditorWidget::sourceEditor() const
+Markoff::Source::Editor *NoteEditorWidget::sourceEditor() const
 {
     return m_sourceEditor;
 }

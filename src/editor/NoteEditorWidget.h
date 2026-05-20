@@ -63,7 +63,7 @@ public:
     ViewMode viewMode() const;
 
     Markoff::Editor *editor() const;
-    Markoff::Source::SourceEditor *sourceEditor() const;
+    Markoff::Source::Editor *sourceEditor() const;
     Markoff::Reading::ReadingView *readingView() const;
 
     // Returns the active MarkdownView leaf (any of the three), or nullptr if
@@ -154,7 +154,7 @@ private:
     // Source mode widget — lazy. Constructed on first `setViewMode(Source)`
     // and cached in the stack thereafter. Accessor returns nullptr until
     // first construction. See `ensureWidgetConstructed`.
-    Markoff::Source::SourceEditor *m_sourceEditor = nullptr;
+    Markoff::Source::Editor *m_sourceEditor = nullptr;
     // Reading mode widget — lazy. Same pattern as `m_sourceEditor`.
     Markoff::Reading::ReadingView *m_readingView = nullptr;
     ViewMode m_viewMode = ViewMode::LivePreview;

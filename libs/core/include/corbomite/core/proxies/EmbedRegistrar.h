@@ -1,18 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include "markoff/EmbedRegistry.h"
+// TODO(port-foundation-exploration): Markoff::EmbedRegistry / Markoff::EmbedFactory
+// retired with the old leaves. Registrar class stubbed to forward-decl
+// placeholders so the header compiles; consumers that actually register embeds
+// will need their own stubs until E3 lands the new EmbedRegistry abstract.
+// #include "markoff/EmbedRegistry.h"
 
 #include <QString>
 #include <QStringList>
+#include <functional>
+
+namespace Markoff {
+class EmbedRegistry;  // stub forward decl — type undefined post-port
+using EmbedFactory = std::function<void()>;  // stub — real type unknown post-port
+} // namespace Markoff
 
 namespace Corbomite {
 
-/// Embed-extension registration facade for plugins with the "ui.rendering"
-/// permission. Embeds are dispatched by file extension; the registrar
-/// tracks every extension it registered and unregisters them all on
-/// destruction. Note: extensions are NOT plugin-id-namespaced (they are
-/// shared across all plugins by definition — first-registered-wins).
 class EmbedRegistrar
 {
 public:
@@ -22,11 +27,7 @@ public:
     EmbedRegistrar(const EmbedRegistrar &) = delete;
     EmbedRegistrar &operator=(const EmbedRegistrar &) = delete;
 
-    /// Returns false if the extension was already registered by something
-    /// else (first-wins); true on success. Caller's factory is held by
-    /// the registry until unregister.
     bool registerExtension(const QString &ext, Markoff::EmbedFactory factory);
-
     void unregisterExtension(const QString &ext);
 
 private:

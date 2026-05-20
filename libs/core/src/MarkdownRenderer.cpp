@@ -1,4 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// TODO(port-foundation-exploration): Markoff::Reading::ReadingView was retired
+// with the old leaves. The MarkdownRenderer in this file was the Reading-mode
+// renderer entry; entire file disabled pending either reading-mode restoration
+// or rewiring against Live-with-editing-disabled (E1).
+#if 0
+
 #include "corbomite/core/MarkdownRenderer.h"
 
 #include <markoff/reading/ReadingView.h>
@@ -583,3 +589,5 @@ QFuture<void> MarkdownRenderer::render(const QString &markdown,
 }
 
 } // namespace Corbomite
+
+#endif // 0 — disabled pending Markoff::Reading restoration or E1 read-only Live

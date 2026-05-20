@@ -76,7 +76,7 @@ target_link_libraries(corbomite-bases
         $<BUILD_INTERFACE:Corbomite::Core>
         $<BUILD_INTERFACE:Corbomite::Storage>
         $<BUILD_INTERFACE:Corbomite::Vault>
-        $<BUILD_INTERFACE:MarkoffParser::MarkoffParser>
+        $<BUILD_INTERFACE:Markoff::Parser>
 )
 
 # Install rules for find_package(Corbomite) third-party consumers.

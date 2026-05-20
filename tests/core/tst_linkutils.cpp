@@ -2,7 +2,7 @@
 #include <QTest>
 
 #include "corbomite/core/LinkUtils.h"
-#include <markoff-parser/Document.h>
+#include <markoff/parser/Document.h>
 
 using namespace Corbomite;
 

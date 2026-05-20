@@ -4,7 +4,7 @@
 #include "CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
 #include <markoff/Editor.h>
-#include <markoff/source/SourceEditor.h>
+#include <markoff/source/Editor.h>
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/Command.h"
@@ -36,7 +36,7 @@
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include <markoff/EmbedRegistry.h>
-#include <markoff/CodeBlockProcessorRegistry.h>
+#include <markoff/core/CodeBlockProcessorRegistry.h>
 #include "corbomite/core/PostProcessorRegistry.h"
 #include "corbomite/core/MermaidRenderer.h"
 #include "corbomite/core/ViewRegistry.h"
@@ -462,12 +462,12 @@ void MainWindow::triggerEditorAction(Markoff::ActionId id)
     if (leaf) {
         switch (id) {
             case Markoff::ActionId::FindNext:
-                if (auto *src = qobject_cast<Markoff::Source::SourceEditor *>(leaf))
+                if (auto *src = qobject_cast<Markoff::Source::Editor *>(leaf))
                     if (auto *act = src->findNextAction()) { act->trigger(); return; }
                 leaf->showFindBar();
                 return;
             case Markoff::ActionId::FindPrevious:
-                if (auto *src = qobject_cast<Markoff::Source::SourceEditor *>(leaf))
+                if (auto *src = qobject_cast<Markoff::Source::Editor *>(leaf))
                     if (auto *act = src->findPrevAction()) { act->trigger(); return; }
                 leaf->showFindBar();
                 return;

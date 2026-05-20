@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/NoteDocument.h"
 
-#include <markoff/MarkoffDocument.h>
+#include <markoff/core/MarkoffDocument.h>
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>

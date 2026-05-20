@@ -14,8 +14,8 @@
 #include <KConfigGroup>
 #include <KSharedConfig>
 
-#include <markoff-parser/Document.h>
-#include <markoff-parser/YamlValue.h>
+#include <markoff/parser/Document.h>
+#include <markoff/parser/YamlValue.h>
 
 #include <QFileInfo>
 #include <QSet>

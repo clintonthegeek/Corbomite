@@ -8,7 +8,7 @@
 #include <QStackedWidget>
 
 #include <markoff/Editor.h>
-#include <markoff/EditorContext.h>
+#include <markoff/core/EditorContext.h>
 
 #include <memory>
 

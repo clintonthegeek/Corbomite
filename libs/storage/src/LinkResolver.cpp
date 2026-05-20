@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/storage/LinkResolver.h"
 
-#include <markoff-parser/LinkTextParser.h>
+#include <markoff/parser/LinkTextParser.h>
 
 #include <QStringList>
 

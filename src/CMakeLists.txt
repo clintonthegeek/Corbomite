@@ -70,8 +70,10 @@ target_link_libraries(CorbomiteApp
         Corbomite::Models
         Corbomite::Vault
         Corbomite::Bases
-        Markoff::Live
-        Markoff::Reading
+        markoff_live
+        # TODO(port-foundation-exploration): Markoff::Reading retired; NoteEditorWidget
+        # stubs Reading mode pending Live-with-editing-disabled (E1) decision.
+        #   Markoff::Reading
         Markoff::Source
         forcegraph
         canvas

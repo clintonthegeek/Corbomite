@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include "markoff/CodeBlockProcessorRegistry.h"
+#include "markoff/core/CodeBlockProcessorRegistry.h"
 
 #include <QString>
 #include <QStringList>

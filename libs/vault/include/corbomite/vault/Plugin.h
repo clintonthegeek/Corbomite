@@ -6,7 +6,7 @@
 #include "corbomite/core/PostProcessorRegistry.h"
 
 #include <markoff/EmbedRegistry.h>
-#include <markoff/CodeBlockProcessorRegistry.h>
+#include <markoff/core/CodeBlockProcessorRegistry.h>
 
 #include <functional>
 
