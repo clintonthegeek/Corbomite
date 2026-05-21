@@ -28,6 +28,8 @@ add_library(CorbomiteApp STATIC
     editor/CompletionPopup.cpp
     editor/CompletionDelegate.cpp
     editor/HoverPopover.cpp
+    editor/FindBar.cpp
+    editor/FindBar.h
     editor/WikiLinkSuggest.cpp
     editor/TagSuggest.cpp
     editor/VaultResourceProvider.cpp

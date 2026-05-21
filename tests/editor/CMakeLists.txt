@@ -193,3 +193,22 @@ set_tests_properties(tst_hover_popover_pinning PROPERTIES
 )
 
 endif()  # FALSE — HoverPopover tests disabled pending port
+
+# Find UI port (2026-05-20) — host-owned FindBar consumes Markoff::FindController.
+add_executable(tst_findbar
+    tst_findbar.cpp
+    ${CMAKE_SOURCE_DIR}/src/editor/FindBar.cpp
+    ${CMAKE_SOURCE_DIR}/src/editor/FindBar.h
+)
+target_include_directories(tst_findbar PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_findbar PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Markoff::Core
+)
+add_test(NAME tst_findbar COMMAND tst_findbar)
+set_tests_properties(tst_findbar PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
