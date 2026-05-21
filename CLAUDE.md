@@ -1,3 +1,16 @@
+> **2026-05-20 — `port/foundation-exploration` branch is the active port effort.**
+>
+> Corbomite is being ported from Markoff `master` (v0.6.x) to Markoff
+> `exploration/new-foundation` (the D-arc + E-arc rebuild). The port lives on
+> a dedicated branch — **`master` is untouched and stays pinned to Markoff
+> master**. Status, cross-repo branch map, and the eventual back-to-master
+> merge plan are all at [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md).
+> Full session recap (Markoff-side): `libs/markoff-family/docs/handoff/2026-05-20-port-first-session-recap.md`.
+>
+> If you are working on the port: `git checkout port/foundation-exploration` and
+> read the port doc above. Most of the rest of this CLAUDE.md describes master-
+> tree workflow, which is the right reference for non-port work.
+
 ## Long-term project state
 
 > **Read this section first if you are starting a new session.** Corbomite tracks work across **two parallel tracks**: a flat severity-ranked **punch list** of small fixes, and **strategic clusters** for multi-phase coordinated initiatives. State persists across sessions in dedicated files; do not infer status from conversation context.
