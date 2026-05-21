@@ -497,10 +497,19 @@ void MainWindow::triggerEditorAction(Markoff::ActionId id)
 
 void MainWindow::onSetHeading(int level)
 {
-    // Forward to the active editor's LiveActionController. heading0..6 cover
-    // demote-to-paragraph (level=0) and H1..H6.
-    auto *lac = liveActionControllerFor(activeEditor());
-    if (!lac || level < 0 || level > 6) return;
+    auto *editor = activeEditor();
+    if (!editor || level < 0 || level > 6) return;
+
+    // Per-leaf dispatch: source view operates on flat text via Editor's
+    // setHeadingLevel; live view triggers the heading{N}Action which goes
+    // through LiveFormatController::setHeadingLevel.
+    if (editor->viewMode() == NoteEditorWidget::ViewMode::Source) {
+        if (auto *src = editor->sourceEditor()) src->setHeadingLevel(level);
+        return;
+    }
+
+    auto *lac = liveActionControllerFor(editor);
+    if (!lac) return;
     QAction *act = nullptr;
     switch (level) {
         case 0: act = lac->heading0Action(); break;
@@ -1200,11 +1209,23 @@ void MainWindow::setupActions()
     connect(save, &QAction::triggered, this, &MainWindow::saveCurrentNote);
 
     KStandardAction::undo(this, [this]() {
-        if (auto *lac = liveActionControllerFor(activeEditor())) lac->undoAction()->trigger();
+        auto *editor = activeEditor();
+        if (!editor) return;
+        if (editor->viewMode() == NoteEditorWidget::ViewMode::Source) {
+            if (auto *src = editor->sourceEditor()) src->plainTextEdit()->undo();
+            return;
+        }
+        if (auto *lac = liveActionControllerFor(editor)) lac->undoAction()->trigger();
     }, ac);
 
     KStandardAction::redo(this, [this]() {
-        if (auto *lac = liveActionControllerFor(activeEditor())) lac->redoAction()->trigger();
+        auto *editor = activeEditor();
+        if (!editor) return;
+        if (editor->viewMode() == NoteEditorWidget::ViewMode::Source) {
+            if (auto *src = editor->sourceEditor()) src->plainTextEdit()->redo();
+            return;
+        }
+        if (auto *lac = liveActionControllerFor(editor)) lac->redoAction()->trigger();
     }, ac);
 
     KStandardAction::find(this, &MainWindow::onFind, ac);
@@ -1390,17 +1411,29 @@ void MainWindow::setupActions()
     //       is synchronized from there in refreshEditorActions().
     //   (b) Is registered but stubbed with a TODO until the corresponding
     //       Markoff-side feature is built (see port-foundation-exploration.md).
+    // Per-leaf dispatcher: in Live view, trigger the LiveActionController
+    // QAction; in Source view, call the Markoff::Source::Editor method.
+    // The two surfaces are distinct (Live mutates per-block D2 buffers;
+    // Source mutates flat text via QTextCursor) but converge on the same
+    // user-visible result because both flow into MarkoffDocument.
     auto addEditorActionForwarded = [this, ac](
         const QString &objName, const QString &icon, const QString &label,
         const QKeySequence &shortcut,
-        QAction *(Markoff::Live::LiveActionController::*accessor)() const) -> QAction* {
+        QAction *(Markoff::Live::LiveActionController::*liveAccessor)() const,
+        void (Markoff::Source::Editor::*sourceOp)()) -> QAction* {
         auto *act = ac->addAction(objName);
         act->setText(label);
         if (!icon.isEmpty()) act->setIcon(QIcon::fromTheme(icon));
         if (!shortcut.isEmpty()) ac->setDefaultShortcut(act, shortcut);
-        connect(act, &QAction::triggered, this, [this, accessor]() {
-            if (auto *lac = liveActionControllerFor(activeEditor()))
-                ((lac)->*accessor)()->trigger();
+        connect(act, &QAction::triggered, this, [this, liveAccessor, sourceOp]() {
+            auto *editor = activeEditor();
+            if (!editor) return;
+            if (editor->viewMode() == NoteEditorWidget::ViewMode::Source) {
+                if (auto *src = editor->sourceEditor()) (src->*sourceOp)();
+                return;
+            }
+            if (auto *lac = liveActionControllerFor(editor))
+                (lac->*liveAccessor)()->trigger();
         });
         return act;
     };
@@ -1430,33 +1463,37 @@ void MainWindow::setupActions()
     if (auto *a = addEditorActionForwarded(
             QStringLiteral("format_bold"),
             QStringLiteral("format-text-bold"), i18n("Bold"), QKeySequence::Bold,
-            &Markoff::Live::LiveActionController::boldAction))
+            &Markoff::Live::LiveActionController::boldAction,
+            &Markoff::Source::Editor::toggleBold))
         a->setCheckable(true);
     if (auto *a = addEditorActionForwarded(
             QStringLiteral("format_italic"),
             QStringLiteral("format-text-italic"), i18n("Italic"), QKeySequence::Italic,
-            &Markoff::Live::LiveActionController::italicAction))
+            &Markoff::Live::LiveActionController::italicAction,
+            &Markoff::Source::Editor::toggleItalic))
         a->setCheckable(true);
     if (auto *a = addEditorActionForwarded(
             QStringLiteral("format_strikethrough"),
             QStringLiteral("format-text-strikethrough"), i18n("Strikethrough"),
             QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X),
-            &Markoff::Live::LiveActionController::strikeAction))
+            &Markoff::Live::LiveActionController::strikeAction,
+            &Markoff::Source::Editor::toggleStrikethrough))
         a->setCheckable(true);
     if (auto *a = addEditorActionForwarded(
             QStringLiteral("format_inline_code"),
             QStringLiteral("code-context"), i18n("Inline Code"),
             QKeySequence(Qt::CTRL | Qt::Key_E),
-            &Markoff::Live::LiveActionController::inlineCodeAction))
+            &Markoff::Live::LiveActionController::inlineCodeAction,
+            &Markoff::Source::Editor::toggleInlineCode))
         a->setCheckable(true);
 
-    // Insert: Link forwards to LiveActionController. Wiki / image / code-block /
-    // block-quote / horizontal-rule / checkbox don't have Markoff equivalents
-    // yet — registered as stubs.
+    // Insert: Link forwards to LiveActionController (live) or
+    // Markoff::Source::Editor::insertLink (source).
     addEditorActionForwarded(QStringLiteral("insert_link"),
                              QStringLiteral("insert-link"), i18n("Insert Link"),
                              QKeySequence(Qt::CTRL | Qt::Key_K),
-                             &Markoff::Live::LiveActionController::linkAction);
+                             &Markoff::Live::LiveActionController::linkAction,
+                             &Markoff::Source::Editor::insertLink);
     addEditorActionStub(QStringLiteral("insert_wiki_link"),
                         QStringLiteral("insert-link"), i18n("Insert Wiki Link"),
                         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
