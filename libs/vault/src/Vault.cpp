@@ -697,8 +697,14 @@ NoteDocument *Vault::openDocument(const QString &relPath)
     auto *doc = new NoteDocument(m_basePath, rel, this);
     if (auto *tf = getFileByPath(rel)) {
         const QByteArray bytes = cachedRead(tf);
-        // TODO(port-foundation-exploration): resetContent now takes QByteArray.
-        doc->markoff()->resetContent(bytes, Markoff::Origin::FirstOpen);
+        // TODO(port-foundation-exploration): resetContent only populates the
+        // legacy buffer (d->buffer); D2 per-block CRDT state (which
+        // iterateBlocks queries) is built only by loadFromMarkdown. Using
+        // loadFromMarkdown for the FirstOpen path so views actually see
+        // content. resetContent stays for ExternalReload paths below until
+        // we verify the same fix applies (it likely does — Origin's only
+        // remaining role is undo-stack handling).
+        doc->markoff()->loadFromMarkdown(bytes);
     }
     // FirstOpen emits contentsChanged which sets modified=true; undo that.
     doc->setModified(false);
