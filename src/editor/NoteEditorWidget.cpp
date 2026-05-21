@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "NoteEditorWidget.h"
 #include "CompletionPopup.h"
+#include "FindBar.h"
 #include "HoverPopover.h"
 #include "ViewModeSerializer.h"
 #include "VaultResourceProvider.h"
@@ -12,6 +13,7 @@
 #include "corbomite/storage/EphemeralState.h"
 #include "dialogs/QuickSwitcherModel.h"
 
+#include <markoff/core/FindController.h>
 #include <markoff/core/MarkdownView.h>
 #include <markoff/core/MarkoffDocument.h>
 #include <markoff/live/EditorWidget.h>
@@ -43,6 +45,12 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_stack);
+
+    m_findBar = new FindBar(this);
+    m_findBar->hide();
+    layout->addWidget(m_findBar);
+    QObject::connect(m_findBar, &FindBar::closeRequested,
+                     this, &NoteEditorWidget::hideFindBar);
 
     m_livePreviewIndex = m_stack->addWidget(m_editor);
     m_stack->setCurrentIndex(m_livePreviewIndex);
@@ -459,6 +467,48 @@ QString NoteEditorWidget::resolveTarget(const QString &target) const
     if (target.endsWith(QStringLiteral(".md")) || target.endsWith(QStringLiteral(".canvas")))
         return target;
     return target + QStringLiteral(".md");
+}
+
+// --- Find UI ---
+
+void NoteEditorWidget::showFindBar()
+{
+    if (!m_doc) return;
+    auto *fc = m_doc->findController();
+    m_findBar->setController(fc);
+    if (auto *leaf = activeLeaf()) {
+        // Use the polymorphic attach hook present on both Live::EditorWidget
+        // and Source::Editor. Symmetric API; no leaf-type switch needed in
+        // the contract, but the call site needs a downcast since
+        // MarkdownView itself doesn't expose attachFindController.
+        if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
+            live->attachFindController(fc);
+        else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
+            src->attachFindController(fc);
+    }
+    fc->activate();
+    m_findBar->show();
+    m_findBar->focusLineEdit();
+}
+
+void NoteEditorWidget::hideFindBar()
+{
+    if (m_doc) {
+        if (auto *leaf = activeLeaf()) {
+            if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
+                live->detachFindController();
+            else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
+                src->detachFindController();
+        }
+        m_doc->findController()->deactivate();
+    }
+    m_findBar->hide();
+    if (auto *leaf = activeLeaf()) leaf->setFocus();
+}
+
+bool NoteEditorWidget::isFindBarVisible() const
+{
+    return m_findBar && m_findBar->isVisible();
 }
 
 } // namespace Corbomite

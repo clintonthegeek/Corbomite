@@ -37,6 +37,7 @@ class CompletionPopup;
 class HoverPopover;
 class EditorSuggestManager;
 class EditorSuggest;
+class FindBar;
 
 namespace Core {
 class ThemeService;
@@ -59,6 +60,10 @@ public:
     void setNoteDocument(NoteDocument *doc);
     NoteDocument *noteDocument() const;
     void setVault(Vault *vault);
+
+    void showFindBar();
+    void hideFindBar();
+    bool isFindBarVisible() const;
 
     /// Phase C3 mode transition: (1) snapshot ephemeral state from outgoing
     /// leaf, (2) detach outgoing leaf via setDocument(nullptr), (3) swap
@@ -185,6 +190,8 @@ private:
 
     // C4 Task 14 — mermaid renderer (lifetime owned by MainWindow).
     Markoff::MermaidRenderer *m_mermaidRenderer = nullptr;
+
+    FindBar *m_findBar = nullptr;
 
     // Completion state
     CompletionPopup *m_completionPopup = nullptr;
