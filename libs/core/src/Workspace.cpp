@@ -235,6 +235,17 @@ void Workspace::setActiveLeaf(WorkspaceLeaf *leaf)
         return;
     m_activeLeaf = leaf;
     if (leaf) {
+        // Realize deferred leaves on activation. Session restore marks every
+        // non-currently-visible-in-its-group leaf as deferred (Workspace.cpp
+        // §loadWorkspaceJson) so we don't construct a view for every tab on
+        // startup; activation is when the user pays the cost. Without this
+        // call, clicking a deferred tab raised the tab in the UI but left
+        // it with no central widget (surfaced 2026-05-21 by Corbomite
+        // session-restore dogfood). The two existing loadIfDeferred call
+        // sites (MainWindow::openFileInWorkspace, WorkspaceController::
+        // openFile) cover the "open file by path" entry points but missed
+        // the "click on already-open tab" path.
+        leaf->loadIfDeferred();
         leaf->updateActiveTime();
         // Make the substrate raise the leaf's tab so the visible UI matches.
         // No-op if the tab is already current.
