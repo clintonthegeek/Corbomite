@@ -119,9 +119,37 @@ void FindBar::onNeedleChanged()
     m_applyingControllerNeedle = false;
 }
 
-void FindBar::onMatchesChanged()                      { /* Task 4 */ }
-void FindBar::onCurrentMatchChanged()                 { /* Task 4 */ }
-void FindBar::refreshCountLabel()                     { /* Task 4 */ }
-void FindBar::refreshButtonEnableState()              { /* Task 4 */ }
+void FindBar::refreshCountLabel()
+{
+    if (!m_controller || m_controller->needle().isEmpty()) {
+        m_countLabel->setText(QString());
+        return;
+    }
+    const int matchCount = m_controller->matchCount();
+    if (matchCount == 0) {
+        m_countLabel->setText(tr("No matches"));
+        return;
+    }
+    const int current = m_controller->currentMatchIndex();
+    m_countLabel->setText(tr("%1 of %2").arg(current + 1).arg(matchCount));
+}
+
+void FindBar::refreshButtonEnableState()
+{
+    const bool hasMatches = m_controller && m_controller->matchCount() > 0;
+    m_prevButton->setEnabled(hasMatches);
+    m_nextButton->setEnabled(hasMatches);
+}
+
+void FindBar::onMatchesChanged()
+{
+    refreshCountLabel();
+    refreshButtonEnableState();
+}
+
+void FindBar::onCurrentMatchChanged()
+{
+    refreshCountLabel();
+}
 
 } // namespace Corbomite
