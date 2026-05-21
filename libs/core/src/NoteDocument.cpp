@@ -89,7 +89,10 @@ QString NoteDocument::name() const
 
 QString NoteDocument::markdown() const
 {
-    return d->markoff->toMarkdown();  // toMarkdown() returns const QString& — copy on return
+    // Route through serializeForSave() — toMarkdown() reads MarkoffDocument's
+    // legacy buffer which loadFromMarkdown() and D2 edits do not update.
+    // See Markoff docs/handoff/2026-05-21-save-path-data-loss.md.
+    return QString::fromUtf8(d->markoff->serializeForSave());
 }
 
 void NoteDocument::setMarkdown(const QString &text)
@@ -118,7 +121,9 @@ int NoteDocument::wordCount() const
     if (d->cachedWordCount >= 0)
         return d->cachedWordCount;
 
-    const QString text = d->markoff->toMarkdown();
+    // Route through markdown() — d->markoff->toMarkdown() reads MarkoffDocument's
+    // legacy buffer which D2 edits do not update.
+    const QString text = markdown();
     if (text.isEmpty()) {
         d->cachedWordCount = 0;
         return 0;

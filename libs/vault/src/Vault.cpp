@@ -726,22 +726,25 @@ bool Vault::saveDocument(NoteDocument *doc)
     if (!tf) return false;
 
     // Write canonical UTF-8 bytes verbatim — no QTextDocumentWriter, no
-    // format coercion. toMarkdown() is the MarkoffDocument's canonical source.
-    const QString markdown = doc->markoff()->toMarkdown();
+    // format coercion. serializeForSave() is the MarkoffDocument's D2-aware
+    // canonical save serializer; toMarkdown() reads the legacy buffer which
+    // D2 edits do not update (Markoff handoff 2026-05-21-save-path-data-loss.md).
+    const QByteArray bytes = doc->markoff()->serializeForSave();
 
     // Terminal guard (C8 Task 5.4): the canonical buffer must never contain
     // U+FFFC. If it does, a presentation-layer glyph leaked into the source
     // of truth. Refuse the write, emit saveFailed, and leave disk untouched.
-    if (markdown.contains(QChar::ObjectReplacementCharacter)) {
+    // U+FFFC in UTF-8 is the three-byte sequence EF BF BC.
+    static const QByteArray kObjectReplacementUtf8 =
+        QByteArray::fromHex("efbfbc");
+    if (bytes.contains(kObjectReplacementUtf8)) {
         qCCritical(lcVaultSafety,
             "Vault::saveDocument REFUSED: canonical buffer contains U+FFFC "
-            "for rel=\"%s\" (chars=%lld). Aborting write; file unchanged.",
-            qUtf8Printable(rel), static_cast<long long>(markdown.size()));
+            "for rel=\"%s\" (bytes=%lld). Aborting write; file unchanged.",
+            qUtf8Printable(rel), static_cast<long long>(bytes.size()));
         Q_EMIT doc->saveFailed();
         return false;
     }
-
-    const QByteArray bytes = markdown.toUtf8();
     const QString abs = m_basePath + QLatin1Char('/') + rel;
 
     // Stamp echo-suppression BEFORE the write so the watcher's mtime-based
@@ -830,7 +833,7 @@ void Vault::onExternalModified(const QString &relPath)
         QFile diskFile(m_basePath + QLatin1Char('/') + rel);
         if (diskFile.open(QIODevice::ReadOnly)) {
             const QByteArray disk = diskFile.readAll();
-            if (disk == doc->markoff()->toMarkdown().toUtf8()) {
+            if (disk == doc->markoff()->serializeForSave()) {
                 consumeSelfWrite(rel, mtimeMs);  // drain ledger entry if present
                 return;  // byte-equal — not a real external change
             }
