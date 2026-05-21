@@ -47,7 +47,7 @@ The Markoff side is complete. Corbomite needs to build the UI and wire it.
 | Component | Location | Role |
 |---|---|---|
 | `Corbomite::FindBar` | `src/editor/FindBar.{h,cpp}` (NEW) | Horizontal QWidget hosting line edit + buttons. Binds to a `Markoff::FindController*` via `setController`. |
-| `Corbomite::NoteDocument::findController()` | `src/document/NoteDocument.{h,cpp}` (MODIFIED) | Lazy accessor — constructs one `Markoff::FindController` per NoteDocument on first call, bound to `markoff()`. |
+| `Corbomite::NoteDocument::findController()` | `libs/core/include/corbomite/core/NoteDocument.h` + `libs/core/src/NoteDocument.cpp` (MODIFIED) | Lazy accessor — constructs one `Markoff::FindController` per NoteDocument on first call, bound to `markoff()`. |
 | `Corbomite::NoteEditorWidget` | `src/editor/NoteEditorWidget.{h,cpp}` (MODIFIED) | Owns one FindBar instance docked at the bottom of its layout. Public `showFindBar()`/`hideFindBar()`. Attaches/detaches the controller to/from the active leaf on leaf swap. |
 | `Corbomite::MainWindow` find actions | `src/app/MainWindow.cpp` (MODIFIED) | Restores `KStandardAction::find` (Ctrl+F) to route to the active NoteEditorWidget; `FindNext`/`FindPrevious` dispatch to the active controller. Currently stubbed since the port. |
 
@@ -63,7 +63,7 @@ Okular-inspired horizontal bar, KDE-conventional widget order:
 
 - **Close button** — `QToolButton` (auto-raised), icon `dialog-close`. Triggers `controller.deactivate()` + bar hide.
 - **Label** — `Find:` with buddy bound to the line edit (Alt+F mnemonic).
-- **Line edit** — `KLineEdit` with `setClearButtonEnabled(true)`.
+- **Line edit** — `QLineEdit` with `setClearButtonEnabled(true)`.
 - **Count label** — `QLabel`. Text policy below.
 - **Previous** — `QPushButton`, icon `go-up-search`, tooltip "Previous match (Shift+F3)".
 - **Next** — `QPushButton`, icon `go-down-search`, tooltip "Next match (F3)".
@@ -126,7 +126,7 @@ private:
     void refreshCountLabel();
     void refreshButtonEnableState();
 
-    KLineEdit       *m_lineEdit     = nullptr;
+    QLineEdit       *m_lineEdit     = nullptr;
     QLabel          *m_countLabel   = nullptr;
     QPushButton     *m_prevButton   = nullptr;
     QPushButton     *m_nextButton   = nullptr;
@@ -238,7 +238,7 @@ Integration tests (NoteEditorWidget showFindBar / hideFindBar / leaf-swap rewire
 ## Build + linkage
 
 - `FindBar` lives in the existing `Corbomite` target alongside other `src/editor/` files.
-- Depends on: Qt6::Widgets, KF6::Completion (for KLineEdit). KF6::Completion is already linked via existing KF6 usage.
+- Depends on: Qt6::Widgets. The line edit is a plain `QLineEdit` with `setClearButtonEnabled(true)` (Qt 5.2+ built-in). No KF6::Completion dep needed for MVP; upgrading to `KHistoryComboBox` is a post-MVP feature.
 - No new submodule or external dep.
 - `Markoff::FindController` is in `markoff_core` which Corbomite already links.
 
