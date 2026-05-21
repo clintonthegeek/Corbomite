@@ -100,6 +100,8 @@ public Q_SLOTS:
 
 private Q_SLOTS:
     void onFind();
+    void onFindNext();
+    void onFindPrev();
     void onSettingsApplied();
     void onZoomIn();
     void onZoomOut();

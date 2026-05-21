@@ -14,6 +14,7 @@
 #include "corbomite/core/FileView.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/TextFileView.h"
+#include <markoff/core/FindController.h>
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
 #include "corbomite/bases/BasesView.h"
@@ -186,6 +187,18 @@ public:
 private:
     Vault *m_vault;
 };
+
+// Walks: editor → its note document → its find controller. Null-safe at every
+// step. Takes the editor directly (rather than the MainWindow) so this can
+// live in the anonymous namespace without needing access to MainWindow's
+// private accessors.
+Markoff::FindController *findControllerFor(NoteEditorWidget *neWidget)
+{
+    if (!neWidget) return nullptr;
+    auto *noteDoc = neWidget->noteDocument();
+    if (!noteDoc) return nullptr;
+    return noteDoc->findController();
+}
 
 } // namespace
 
@@ -601,10 +614,19 @@ NoteEditorWidget *MainWindow::activeEditor() const
 
 void MainWindow::onFind()
 {
-    // TODO(port-foundation-exploration): Ctrl+F was Markoff::ActionId::Find on
-    // the old Editor's QAction map. New find is consumer-owned via
-    // Markoff::FindController + attachFindController — wire here when the
-    // find UI port lands (the next feature work).
+    auto *neWidget = activeEditor();
+    if (!neWidget) return;
+    neWidget->showFindBar();
+}
+
+void MainWindow::onFindNext()
+{
+    if (auto *fc = findControllerFor(activeEditor())) fc->findNext();
+}
+
+void MainWindow::onFindPrev()
+{
+    if (auto *fc = findControllerFor(activeEditor())) fc->findPrevious();
 }
 
 void MainWindow::onZoomIn()
@@ -1157,6 +1179,8 @@ void MainWindow::setupActions()
     }, ac);
 
     KStandardAction::find(this, &MainWindow::onFind, ac);
+    KStandardAction::findNext(this, &MainWindow::onFindNext, ac);
+    KStandardAction::findPrev(this, &MainWindow::onFindPrev, ac);
 
     KStandardAction::aboutApp(this, &MainWindow::onAboutApp, ac);
     KStandardAction::aboutKDE(this, &MainWindow::onAboutKde, ac);
