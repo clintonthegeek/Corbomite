@@ -263,6 +263,14 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
     const EphemeralState outgoing = captureEphemeralStateFor(m_viewMode);
 
     // 2. Detach outgoing leaf from the canonical document.
+    if (isFindBarVisible() && m_doc) {
+        if (auto *leaf = activeLeaf()) {
+            if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
+                live->detachFindController();
+            else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
+                src->detachFindController();
+        }
+    }
     if (auto *leaf = activeLeaf()) {
         leaf->setDocument(nullptr);
     }
@@ -277,6 +285,15 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
     if (auto *leaf = activeLeaf()) {
         if (m_doc) {
             leaf->setDocument(m_doc->markoff());
+        }
+    }
+    if (isFindBarVisible() && m_doc) {
+        auto *fc = m_doc->findController();
+        if (auto *leaf = activeLeaf()) {
+            if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
+                live->attachFindController(fc);
+            else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
+                src->attachFindController(fc);
         }
     }
 
