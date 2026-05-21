@@ -5,7 +5,7 @@
 #include <QString>
 #include <memory>
 
-namespace Markoff { class MarkoffDocument; }
+namespace Markoff { class MarkoffDocument; class FindController; }
 
 namespace Corbomite {
 
@@ -50,6 +50,10 @@ public:
     // New: leaves bind via note->markoff().
     Markoff::MarkoffDocument       *markoff();
     const Markoff::MarkoffDocument *markoff() const;
+
+    /// Lazy: constructs one FindController per NoteDocument on first call.
+    /// Bound to markoff(); owned by NoteDocument via QObject parent.
+    Markoff::FindController *findController();
 
 Q_SIGNALS:
     void textChanged();

@@ -2,6 +2,7 @@
 #include "corbomite/core/NoteDocument.h"
 
 #include <markoff/core/MarkoffDocument.h>
+#include <markoff/core/FindController.h>
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -12,6 +13,7 @@ struct NoteDocument::Private {
     QString vaultRoot;
     QString relativePath;
     std::unique_ptr<Markoff::MarkoffDocument> markoff;
+    Markoff::FindController *findController = nullptr;
     bool modified = false;
     mutable int cachedWordCount = -1;
 };
@@ -149,5 +151,13 @@ int NoteDocument::characterCount() const
 
 Markoff::MarkoffDocument       *NoteDocument::markoff()       { return d->markoff.get(); }
 const Markoff::MarkoffDocument *NoteDocument::markoff() const { return d->markoff.get(); }
+
+Markoff::FindController *NoteDocument::findController()
+{
+    if (!d->findController) {
+        d->findController = new Markoff::FindController(markoff(), this);
+    }
+    return d->findController;
+}
 
 } // namespace Corbomite
