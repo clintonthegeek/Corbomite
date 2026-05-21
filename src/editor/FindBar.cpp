@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "FindBar.h"
 
+#include <markoff/core/FindController.h>
+
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QLabel>
@@ -54,14 +56,34 @@ FindBar::FindBar(QWidget *parent)
     layout->addWidget(m_countLabel);
     layout->addWidget(m_prevButton);
     layout->addWidget(m_nextButton);
+
+    QObject::connect(m_lineEdit, &QLineEdit::textChanged,
+                     this, &FindBar::onLineEditTextChanged);
 }
 
 FindBar::~FindBar() = default;
 
 void FindBar::setController(Markoff::FindController *controller)
 {
-    // Implemented in Task 3.
+    if (m_controller == controller) return;
+
+    if (m_controller) {
+        QObject::disconnect(m_controller, nullptr, this, nullptr);
+    }
+
     m_controller = controller;
+
+    if (m_controller) {
+        QObject::connect(m_controller, &Markoff::FindController::needleChanged,
+                         this, &FindBar::onNeedleChanged);
+        QObject::connect(m_controller, &Markoff::FindController::matchesChanged,
+                         this, &FindBar::onMatchesChanged);
+        QObject::connect(m_controller, &Markoff::FindController::currentMatchChanged,
+                         this, &FindBar::onCurrentMatchChanged);
+    }
+
+    refreshCountLabel();
+    refreshButtonEnableState();
 }
 
 Markoff::FindController *FindBar::controller() const
@@ -81,8 +103,22 @@ bool FindBar::eventFilter(QObject *obj, QEvent *event)
     return QFrame::eventFilter(obj, event);
 }
 
-void FindBar::onLineEditTextChanged(const QString &) { /* Task 3 */ }
-void FindBar::onNeedleChanged()                       { /* Task 3 */ }
+void FindBar::onLineEditTextChanged(const QString &text)
+{
+    if (m_applyingControllerNeedle) return;
+    if (!m_controller) return;
+    m_controller->setNeedle(text);
+}
+
+void FindBar::onNeedleChanged()
+{
+    if (!m_controller) return;
+    if (m_lineEdit->text() == m_controller->needle()) return;
+    m_applyingControllerNeedle = true;
+    m_lineEdit->setText(m_controller->needle());
+    m_applyingControllerNeedle = false;
+}
+
 void FindBar::onMatchesChanged()                      { /* Task 4 */ }
 void FindBar::onCurrentMatchChanged()                 { /* Task 4 */ }
 void FindBar::refreshCountLabel()                     { /* Task 4 */ }
