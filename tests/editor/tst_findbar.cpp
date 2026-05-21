@@ -22,6 +22,10 @@ private Q_SLOTS:
     void matchesChanged_updatesCountLabel();
     void noMatch_showsNoMatches();
     void prevNextButton_disabledWhenNoMatches();
+    void returnKey_callsFindNext();
+    void shiftReturn_callsFindPrev();
+    void nextButton_callsFindNext();
+    void prevButton_callsFindPrev();
 };
 
 void TstFindBar::unbound_safe()
@@ -125,6 +129,81 @@ void TstFindBar::prevNextButton_disabledWhenNoMatches()
     lineEdit->setText(QStringLiteral("hello"));
     QVERIFY(prevBtn->isEnabled());
     QVERIFY(nextBtn->isEnabled());
+}
+
+void TstFindBar::returnKey_callsFindNext()
+{
+    Markoff::MarkoffDocument doc(1);
+    doc.loadFromMarkdown(QByteArray("test alpha test beta test\n"));
+    Markoff::FindController fc(&doc);
+    fc.activate();
+
+    FindBar bar;
+    bar.setController(&fc);
+    auto *lineEdit = bar.findChild<QLineEdit*>("findBarLineEdit");
+    lineEdit->setText(QStringLiteral("test"));
+
+    QSignalSpy spy(&fc, &Markoff::FindController::navigationRequested);
+    QTest::keyClick(lineEdit, Qt::Key_Return);
+    QCOMPARE(spy.count(), 1);
+}
+
+void TstFindBar::shiftReturn_callsFindPrev()
+{
+    Markoff::MarkoffDocument doc(1);
+    doc.loadFromMarkdown(QByteArray("test alpha test beta test\n"));
+    Markoff::FindController fc(&doc);
+    fc.activate();
+
+    FindBar bar;
+    bar.setController(&fc);
+    auto *lineEdit = bar.findChild<QLineEdit*>("findBarLineEdit");
+    lineEdit->setText(QStringLiteral("test"));
+
+    // Advance forward once first, so we can measure the backward step.
+    fc.findNext();
+    const int afterForward = fc.currentMatchIndex();
+
+    QTest::keyClick(lineEdit, Qt::Key_Return, Qt::ShiftModifier);
+    QVERIFY(fc.currentMatchIndex() != afterForward);
+}
+
+void TstFindBar::nextButton_callsFindNext()
+{
+    Markoff::MarkoffDocument doc(1);
+    doc.loadFromMarkdown(QByteArray("test alpha test beta test\n"));
+    Markoff::FindController fc(&doc);
+    fc.activate();
+
+    FindBar bar;
+    bar.setController(&fc);
+    auto *lineEdit = bar.findChild<QLineEdit*>("findBarLineEdit");
+    auto *nextBtn  = bar.findChild<QPushButton*>("findBarNext");
+    lineEdit->setText(QStringLiteral("test"));
+
+    QSignalSpy spy(&fc, &Markoff::FindController::navigationRequested);
+    QTest::mouseClick(nextBtn, Qt::LeftButton);
+    QCOMPARE(spy.count(), 1);
+}
+
+void TstFindBar::prevButton_callsFindPrev()
+{
+    Markoff::MarkoffDocument doc(1);
+    doc.loadFromMarkdown(QByteArray("test alpha test beta test\n"));
+    Markoff::FindController fc(&doc);
+    fc.activate();
+
+    FindBar bar;
+    bar.setController(&fc);
+    auto *lineEdit = bar.findChild<QLineEdit*>("findBarLineEdit");
+    auto *prevBtn  = bar.findChild<QPushButton*>("findBarPrev");
+    lineEdit->setText(QStringLiteral("test"));
+
+    fc.findNext();  // advance once so prev has somewhere to go
+
+    QSignalSpy spy(&fc, &Markoff::FindController::navigationRequested);
+    QTest::mouseClick(prevBtn, Qt::LeftButton);
+    QCOMPARE(spy.count(), 1);
 }
 
 QTEST_MAIN(TstFindBar)

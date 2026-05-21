@@ -4,6 +4,7 @@
 #include <markoff/core/FindController.h>
 
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLineEdit>
 #include <QLabel>
 #include <QPushButton>
@@ -57,6 +58,13 @@ FindBar::FindBar(QWidget *parent)
     layout->addWidget(m_prevButton);
     layout->addWidget(m_nextButton);
 
+    QObject::connect(m_prevButton, &QPushButton::clicked, this, [this]() {
+        if (m_controller) m_controller->findPrevious();
+    });
+    QObject::connect(m_nextButton, &QPushButton::clicked, this, [this]() {
+        if (m_controller) m_controller->findNext();
+    });
+
     QObject::connect(m_lineEdit, &QLineEdit::textChanged,
                      this, &FindBar::onLineEditTextChanged);
 }
@@ -99,7 +107,17 @@ void FindBar::focusLineEdit()
 
 bool FindBar::eventFilter(QObject *obj, QEvent *event)
 {
-    // Implemented in Tasks 5 and 6.
+    if (obj == m_lineEdit && event->type() == QEvent::KeyPress) {
+        auto *ke = static_cast<QKeyEvent*>(event);
+        if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
+            if (m_controller) {
+                if (ke->modifiers() & Qt::ShiftModifier) m_controller->findPrevious();
+                else                                     m_controller->findNext();
+            }
+            return true;  // consume — don't let Return cascade
+        }
+        // Escape handled in Task 6.
+    }
     return QFrame::eventFilter(obj, event);
 }
 
