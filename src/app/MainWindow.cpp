@@ -497,10 +497,21 @@ void MainWindow::triggerEditorAction(Markoff::ActionId id)
 
 void MainWindow::onSetHeading(int level)
 {
-    // TODO(port-foundation-exploration): Markoff::ActionId::SetHeading1..6
-    // not in the new ActionId enum yet; heading-set dispatch is part of a
-    // separate feature port.
-    (void)level;
+    // Forward to the active editor's LiveActionController. heading0..6 cover
+    // demote-to-paragraph (level=0) and H1..H6.
+    auto *lac = liveActionControllerFor(activeEditor());
+    if (!lac || level < 0 || level > 6) return;
+    QAction *act = nullptr;
+    switch (level) {
+        case 0: act = lac->heading0Action(); break;
+        case 1: act = lac->heading1Action(); break;
+        case 2: act = lac->heading2Action(); break;
+        case 3: act = lac->heading3Action(); break;
+        case 4: act = lac->heading4Action(); break;
+        case 5: act = lac->heading5Action(); break;
+        case 6: act = lac->heading6Action(); break;
+    }
+    if (act) act->trigger();
 }
 
 void MainWindow::onInsertCallout()
@@ -543,6 +554,9 @@ void MainWindow::refreshEditorActions()
         QStringLiteral("format_bold"), QStringLiteral("format_italic"),
         QStringLiteral("format_strikethrough"), QStringLiteral("format_inline_code"),
         QStringLiteral("insert_link"),
+        QStringLiteral("heading_1"), QStringLiteral("heading_2"),
+        QStringLiteral("heading_3"), QStringLiteral("heading_4"),
+        QStringLiteral("heading_5"), QStringLiteral("heading_6"),
     };
     for (const auto &id : forwardedActionIds) {
         if (auto *act = ac->action(id)) act->setEnabled(isMarkdown);
@@ -563,9 +577,6 @@ void MainWindow::refreshEditorActions()
         QStringLiteral("insert_wiki_link"), QStringLiteral("insert_image"),
         QStringLiteral("insert_code_block"), QStringLiteral("insert_block_quote"),
         QStringLiteral("insert_horizontal_rule"), QStringLiteral("toggle_checkbox"),
-        QStringLiteral("heading_1"), QStringLiteral("heading_2"),
-        QStringLiteral("heading_3"), QStringLiteral("heading_4"),
-        QStringLiteral("heading_5"), QStringLiteral("heading_6"),
         QStringLiteral("heading_increase"), QStringLiteral("heading_decrease"),
         QStringLiteral("table_row_above"), QStringLiteral("table_row_below"),
         QStringLiteral("table_col_left"),  QStringLiteral("table_col_right"),
@@ -1462,8 +1473,11 @@ void MainWindow::setupActions()
     addEditorActionStub(QStringLiteral("toggle_checkbox"),
                         QStringLiteral("checkbox"), i18n("Toggle Checkbox"));
 
-    // Heading: H1..H6 + Increase/Decrease — all stubs until Markoff
-    // implements ActionId::HeadingLevel{0..6} dispatch in LiveActionController.
+    // Heading: H1..H6 forward to LiveActionController heading{1..6}Action
+    // (Markoff: LiveFormatController::setHeadingLevel). H0 (paragraph) is
+    // not surfaced as a discrete KAction here; users hit Ctrl+0 via the
+    // shortcut on heading0Action when it propagates, or use the
+    // heading_decrease repeatedly.
     auto *headingGroup = new QActionGroup(this);
     headingGroup->setExclusive(true);
     for (int level = 1; level <= 6; ++level) {
@@ -1474,12 +1488,13 @@ void MainWindow::setupActions()
         act->setActionGroup(headingGroup);
         ac->setDefaultShortcut(
             act, QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_0 + level)));
-        act->setEnabled(false);
-        // TODO(port-foundation-exploration): wire to LiveActionController
-        // heading-level actions when Markoff lands them.
         connect(act, &QAction::triggered, this,
                 [this, level]() { onSetHeading(level); });
     }
+    // Increase / Decrease still stubs — Markoff has no native
+    // increase/decrease semantic. Could be implemented client-side by
+    // reading the current block's headingLevel from the model and calling
+    // setHeadingLevel(level ± 1) — TODO when block-context reporting lands.
     addEditorActionStub(QStringLiteral("heading_increase"),
                         QStringLiteral("format-header-more"),
                         i18n("Increase Heading Level"));
