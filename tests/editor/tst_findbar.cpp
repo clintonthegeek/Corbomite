@@ -26,6 +26,8 @@ private Q_SLOTS:
     void shiftReturn_callsFindPrev();
     void nextButton_callsFindNext();
     void prevButton_callsFindPrev();
+    void escapeKey_emitsCloseRequested();
+    void closeButton_emitsCloseRequested();
 };
 
 void TstFindBar::unbound_safe()
@@ -203,6 +205,24 @@ void TstFindBar::prevButton_callsFindPrev()
 
     QSignalSpy spy(&fc, &Markoff::FindController::navigationRequested);
     QTest::mouseClick(prevBtn, Qt::LeftButton);
+    QCOMPARE(spy.count(), 1);
+}
+
+void TstFindBar::escapeKey_emitsCloseRequested()
+{
+    FindBar bar;
+    auto *lineEdit = bar.findChild<QLineEdit*>("findBarLineEdit");
+    QSignalSpy spy(&bar, &FindBar::closeRequested);
+    QTest::keyClick(lineEdit, Qt::Key_Escape);
+    QCOMPARE(spy.count(), 1);
+}
+
+void TstFindBar::closeButton_emitsCloseRequested()
+{
+    FindBar bar;
+    auto *closeBtn = bar.findChild<QToolButton*>("findBarClose");
+    QSignalSpy spy(&bar, &FindBar::closeRequested);
+    QTest::mouseClick(closeBtn, Qt::LeftButton);
     QCOMPARE(spy.count(), 1);
 }
 

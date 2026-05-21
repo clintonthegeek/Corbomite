@@ -65,6 +65,9 @@ FindBar::FindBar(QWidget *parent)
         if (m_controller) m_controller->findNext();
     });
 
+    QObject::connect(m_closeButton, &QToolButton::clicked,
+                     this, &FindBar::closeRequested);
+
     QObject::connect(m_lineEdit, &QLineEdit::textChanged,
                      this, &FindBar::onLineEditTextChanged);
 }
@@ -116,7 +119,10 @@ bool FindBar::eventFilter(QObject *obj, QEvent *event)
             }
             return true;  // consume — don't let Return cascade
         }
-        // Escape handled in Task 6.
+        if (ke->key() == Qt::Key_Escape) {
+            Q_EMIT closeRequested();
+            return true;
+        }
     }
     return QFrame::eventFilter(obj, event);
 }
