@@ -32,7 +32,10 @@ private Q_SLOTS:
         vault.load(tmp.path());
 
         auto *doc = vault.openDocument(QStringLiteral("test.md"));
-        QCOMPARE(doc->markdown(), QStringLiteral("original content"));
+        // serializeForSave() canonicalises to a single trailing newline
+        // (CommonMark; Markoff B1 buffer convention), so round-trips of
+        // content lacking one gain a terminal "\n". Accepted 2026-05-25.
+        QCOMPARE(doc->markdown(), QStringLiteral("original content\n"));
         QVERIFY(!doc->isModified());
 
         doc->setMarkdown(QStringLiteral("modified content"));
@@ -44,7 +47,7 @@ private Q_SLOTS:
         // Read directly from disk
         QFile f(tmp.path() + "/test.md");
         f.open(QIODevice::ReadOnly);
-        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("modified content"));
+        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("modified content\n"));
     }
 
     void testSavePreservesUtf8()
@@ -58,7 +61,8 @@ private Q_SLOTS:
         vault.load(tmp.path());
 
         auto *doc = vault.openDocument(QStringLiteral("utf8.md"));
-        QCOMPARE(doc->markdown(), content);
+        // Canonical trailing newline on serialize (see testOpenModifySave).
+        QCOMPARE(doc->markdown(), content + QStringLiteral("\n"));
 
         // Modify and save
         QString newContent = content + QStringLiteral("\n\nMore text");
@@ -68,7 +72,7 @@ private Q_SLOTS:
         // Verify
         QFile f(tmp.path() + "/utf8.md");
         f.open(QIODevice::ReadOnly);
-        QCOMPARE(QString::fromUtf8(f.readAll()), newContent);
+        QCOMPARE(QString::fromUtf8(f.readAll()), newContent + QStringLiteral("\n"));
     }
 
     void testCreateAndSave()
@@ -89,7 +93,8 @@ private Q_SLOTS:
 
         QFile f(tmp.path() + "/brand-new.md");
         f.open(QIODevice::ReadOnly);
-        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("# Brand New Note\n\nContent here."));
+        // Canonical trailing newline on save (see testOpenModifySave).
+        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("# Brand New Note\n\nContent here.\n"));
     }
 };
 
