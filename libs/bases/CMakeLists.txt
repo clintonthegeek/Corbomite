@@ -57,6 +57,8 @@ add_library(corbomite-bases STATIC
     include/corbomite/bases/BasesTreeModel.h
     src/BasesCellDelegate.cpp
     include/corbomite/bases/BasesCellDelegate.h
+    src/BasesHeaderView.cpp
+    include/corbomite/bases/BasesHeaderView.h
     src/BasesView.cpp
     include/corbomite/bases/BasesView.h
     include/corbomite/bases/ValuePtr.h

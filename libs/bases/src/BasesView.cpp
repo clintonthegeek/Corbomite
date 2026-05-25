@@ -2,6 +2,7 @@
 #include "corbomite/bases/BasesView.h"
 
 #include "corbomite/bases/BasesCellDelegate.h"
+#include "corbomite/bases/BasesHeaderView.h"
 #include "corbomite/bases/BasesTreeModel.h"
 #include "corbomite/bases/FunctionRegistry.h"
 #include "corbomite/bases/QueryController.h"
@@ -46,8 +47,11 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     root->addWidget(m_errorBanner);
 
     m_table = new QTreeView(this);
-    m_table->header()->setSectionsClickable(true);
-    m_table->header()->setSectionsMovable(true);
+    auto *hdr = new BasesHeaderView(m_table);
+    m_table->setHeader(hdr);
+    hdr->setProviders(
+        [this]() { return m_activeView ? m_activeView->sort : QVector<SortKey>{}; },
+        [this](int c) { return m_model ? m_model->propertyAt(c) : PropertyId{}; });
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setRootIsDecorated(true);
     m_table->setExpandsOnDoubleClick(true);
@@ -59,9 +63,9 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_table->setItemDelegate(m_delegate);
     root->addWidget(m_table, 1);
 
-    connect(m_table->header(), &QHeaderView::sectionClicked,
+    connect(hdr, &QHeaderView::sectionClicked,
             this, &BasesView::onHeaderClicked);
-    connect(m_table->header(), &QHeaderView::sectionMoved,
+    connect(hdr, &QHeaderView::sectionMoved,
             this, &BasesView::onSectionMoved);
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &BasesView::onSearchChanged);
@@ -162,7 +166,10 @@ void BasesView::onHeaderClicked(int column)
     const bool shift = QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
     cycleHeaderSort(m_activeView->sort, pid, shift);
     if (m_controller) m_controller->recomputeNow();
-    if (m_table) m_table->expandAll();   // keep groups visible after re-sort
+    if (m_table) {
+        m_table->header()->update();     // repaint sort indicators
+        m_table->expandAll();            // keep groups visible after re-sort
+    }
     requestSave();                       // persist, as reorder/view-switch already do
 }
 
