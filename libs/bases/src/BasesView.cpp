@@ -2,7 +2,7 @@
 #include "corbomite/bases/BasesView.h"
 
 #include "corbomite/bases/BasesCellDelegate.h"
-#include "corbomite/bases/BasesTableModel.h"
+#include "corbomite/bases/BasesTreeModel.h"
 #include "corbomite/bases/FunctionRegistry.h"
 #include "corbomite/bases/QueryController.h"
 
@@ -13,7 +13,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
-#include <QTableView>
+#include <QTreeView>
 #include <QVBoxLayout>
 
 namespace Corbomite::Bases {
@@ -43,11 +43,13 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_errorBanner->hide();
     root->addWidget(m_errorBanner);
 
-    m_table = new QTableView(this);
-    m_table->horizontalHeader()->setSectionsClickable(true);
-    m_table->horizontalHeader()->setSectionsMovable(true);
+    m_table = new QTreeView(this);
+    m_table->header()->setSectionsClickable(true);
+    m_table->header()->setSectionsMovable(true);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->verticalHeader()->setVisible(false);
+    m_table->setRootIsDecorated(true);
+    m_table->setExpandsOnDoubleClick(true);
+    m_table->setItemsExpandable(true);
     m_table->setEditTriggers(QAbstractItemView::DoubleClicked
                            | QAbstractItemView::SelectedClicked
                            | QAbstractItemView::EditKeyPressed);
@@ -55,9 +57,9 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_table->setItemDelegate(m_delegate);
     root->addWidget(m_table, 1);
 
-    connect(m_table->horizontalHeader(), &QHeaderView::sectionClicked,
+    connect(m_table->header(), &QHeaderView::sectionClicked,
             this, &BasesView::onHeaderClicked);
-    connect(m_table->horizontalHeader(), &QHeaderView::sectionMoved,
+    connect(m_table->header(), &QHeaderView::sectionMoved,
             this, &BasesView::onSectionMoved);
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &BasesView::onSearchChanged);
@@ -144,8 +146,9 @@ void BasesView::rebuildLayout()
     m_controller->setQuery(m_query);
     m_controller->setViewConfig(m_activeView);
 
-    m_model = std::make_unique<BasesTableModel>(m_controller.get(), m_fm, this);
+    m_model = std::make_unique<BasesTreeModel>(m_controller.get(), m_fm, this);
     m_table->setModel(m_model.get());
+    m_table->expandAll();
     m_controller->recomputeNow();
 }
 
@@ -182,7 +185,7 @@ void BasesView::onViewSelectorChanged(const QString &name)
 void BasesView::onSectionMoved(int, int, int)
 {
     if (!m_activeView || !m_model) return;
-    auto *header = m_table->horizontalHeader();
+    auto *header = m_table->header();
     const int columnCount = m_model->columnCount();
     QVector<PropertyId> newOrder;
     newOrder.reserve(columnCount);

@@ -2,6 +2,7 @@
 #include "corbomite/bases/BasesCellDelegate.h"
 
 #include "corbomite/bases/BasesTableModel.h"
+#include "corbomite/bases/BasesTreeModel.h"
 #include "corbomite/bases/Values.h"
 
 #include <QCheckBox>
@@ -112,6 +113,22 @@ void BasesCellDelegate::paint(QPainter *painter,
                               const QStyleOptionViewItem &option,
                               const QModelIndex &index) const
 {
+    // Group-heading row: bold label + count (column 0), summary cells otherwise.
+    if (index.data(BasesTreeModel::IsGroupRowRole).toBool()) {
+        painter->save();
+        painter->fillRect(option.rect, option.palette.alternateBase());
+        QFont f = option.font; f.setBold(true); painter->setFont(f);
+        QString text = index.data(Qt::DisplayRole).toString();
+        if (index.column() == 0) {
+            const int n = index.data(BasesTreeModel::GroupCountRole).toInt();
+            text = QStringLiteral("%1  (%2)").arg(text).arg(n);
+        }
+        painter->drawText(option.rect.adjusted(4, 0, -4, 0),
+                          Qt::AlignVCenter | Qt::AlignLeft, text);
+        painter->restore();
+        return;
+    }
+
     const QString type = index.data(BasesTableModel::ValueTypeRole).toString();
     if (type == QLatin1String("Error")) {
         // Subtle warning tint for error cells.

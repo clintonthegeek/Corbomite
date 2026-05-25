@@ -10,7 +10,7 @@
 class QLabel;
 class QLineEdit;
 class QComboBox;
-class QTableView;
+class QTreeView;
 
 namespace Corbomite {
 class FileManager;
@@ -23,7 +23,7 @@ class WorkspaceLeaf;
 namespace Corbomite::Bases {
 
 class BasesCellDelegate;
-class BasesTableModel;
+class BasesTreeModel;
 class FunctionRegistry;
 class QueryController;
 
@@ -82,9 +82,9 @@ private:
     BasesViewConfig *m_activeView = nullptr;
 
     std::unique_ptr<QueryController> m_controller;
-    std::unique_ptr<BasesTableModel> m_model;
+    std::unique_ptr<BasesTreeModel> m_model;
 
-    QTableView *m_table = nullptr;
+    QTreeView *m_table = nullptr;
     BasesCellDelegate *m_delegate = nullptr;
     QLabel *m_errorBanner = nullptr;
     QLineEdit *m_searchEdit = nullptr;
