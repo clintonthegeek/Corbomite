@@ -10,6 +10,8 @@
 
 namespace Corbomite::Bases {
 
+class VaultResolver;
+
 /// Runtime context passed to the evaluator. Concrete implementations:
 ///   - BasesEntry (Phase 7) — canonical one-row context.
 ///   - ShadowingContext (Phase 5) — iteration-bound scope for
@@ -26,6 +28,9 @@ public:
 
     /// Keys exposed for auto-complete. Not used at evaluation time.
     virtual QStringList keys() const { return {}; }
+
+    /// Vault-access seam for vault-bound builtins. Default: unbound.
+    virtual const VaultResolver *vault() const { return nullptr; }
 };
 
 /// Lambda-backed adapter. Useful in tests and for simple host-side
