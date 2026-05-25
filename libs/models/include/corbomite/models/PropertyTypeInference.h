@@ -3,7 +3,7 @@
 
 #include "corbomite/models/PropertyType.h"
 
-#include <markoff-parser/YamlValue.h>
+#include <markoff/parser/YamlValue.h>
 
 class QJsonValue;
 

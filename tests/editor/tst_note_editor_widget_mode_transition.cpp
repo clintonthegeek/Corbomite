@@ -17,10 +17,12 @@
 
 #include "NoteEditorWidget.h"
 
-#include <markoff/Editor.h>
-#include <markoff/reading/ReadingView.h>
-#include <markoff/source/SourceEditor.h>
-#include <markoff/MarkoffDocument.h>
+// TODO(port): old Markoff::Editor retired
+// include <markoff/Editor.h>
+// TODO(port): Reading retired
+// include <markoff/reading/ReadingView.h>
+#include <markoff/source/Editor.h>
+#include <markoff/core/MarkoffDocument.h>
 
 #include "corbomite/core/NoteDocument.h"
 
@@ -31,7 +33,7 @@
 
 using Corbomite::NoteDocument;
 using Corbomite::NoteEditorWidget;
-using Markoff::Source::SourceEditor;
+using Markoff::Source::Editor;
 
 namespace {
 

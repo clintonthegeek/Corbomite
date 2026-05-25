@@ -3,8 +3,9 @@
 #include <QSignalSpy>
 #include <QDir>
 #include "corbomite/core/NoteDocument.h"
-#include <markoff/MarkoffDocument.h>
-#include <markoff/MarkdownDelta.h>
+#include <markoff/core/MarkoffDocument.h>
+// TODO(port): MarkdownDelta retired
+// include <markoff/MarkdownDelta.h>
 
 class TestNoteDocument : public QObject {
     Q_OBJECT

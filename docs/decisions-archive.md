@@ -10,6 +10,32 @@ Conventions:
 
 ---
 
+## 2026-05-25 — Foundation port reconciliation; Markoff merged to master; G/H/J obsoleted
+
+**Context.** Corbomite development had been paused on `port/foundation-exploration` waiting for Markoff's `exploration/new-foundation` rebuild — a QML/QtQuick peer-delegate editor over a D2/CollabText block model that retired the old four-leaf QGraphicsView editor (Source, Live, Reading, canvas) and its `QTextDocument` + `ObjectReplacementCharacter` substitution machinery. This session assessed the widget's readiness, caught the port up, and reconciled the pre-rewrite roadmap against the new reality.
+
+**Widget assessment (from the consumer side).** The new foundation is dogfood-usable for everyday editing: E1 (inline highlighter), E2 (cursor-aware view), E2.5 (editing affordances), E2.6 (theme/zoom/dark), E3a (link navigation) are tagged + dogfood-signed; E4 (graphical table editing with cell wrap + smart column widths) is functionally complete pending Phase H. The block-delegate architecture is correct and eliminates whole bug classes we had been fighting. Pending Markoff phases: E3 (embeds/tags/callouts), E5 (math/Mermaid parity), E6 (distillation).
+
+**Pin bump + verification.** Bumped submodule `libs/markoff-family` from `cb0f147` to the then-tip `03f088a` (79-commit clean fast-forward). Corbomite built clean (app + tests link) and launched against the starter vault with zero QML errors/Qt warnings. The four port-blockers from the 2026-05-20 first session (Find UI, doc-sharing doubling, source-mode-empty, `resetContent`/D2) were already closed.
+
+**Handoff exchange + Markoff merge.** Wrote `docs/handoff/2026-05-25-to-markoff-green-light-foundation-merge.md` green-lighting the foundation→master merge (the blocker had been "Corbomite still compiles against old code" — now false). Markoff acted on it the same day: merged `exploration/new-foundation` → Markoff `master` at `3c7afa9` (+ cleanup `1e0f332`), tagged **`v0.7.0-freeze`**; old tree preserved at `v0.6.x-final`; `exploration/new-foundation` + `feature/tri-view-phase-a` deleted (reachable via merge commit + `archive/tri-view-phase-a`). They also re-vendored `libs/jkqtmathtext` (had been a machine-local symlink) in the prep window. Their reply: `libs/markoff-family/docs/handoff/2026-05-25-to-corbomite-merge-complete.md`.
+
+**Roadmap reconciliation.** The rewrite obsoletes three pre-rewrite strategic clusters and re-scopes a fourth:
+- **G (Markoff Phase C8 — inline-ORC coherence): OBSOLETE.** Guarded against `U+FFFC` corruption in `QTextDocument`-substituted glyphs; no QTextDocument/ORC glyphs exist in the new model. E1 InlineHighlighter is the replacement.
+- **H (block-substitution widgets): OBSOLETE.** Its goal (promote math/mermaid out of `QTextDocument` into peer graphics items) *is* the new baseline. Superseded by Markoff E5.
+- **J (Qutepart-Corbomite Source fork): LIKELY OBSOLETE.** New foundation ships `Markoff::Source::Editor` (block-aware d2 edits, format ops). Confirm it covers the qutepart-fork intent (visual-line scroll, fold serialization, find/replace, markdown awareness) before formal closeout.
+- **E (Markoff editor plugin API parity): RE-SCOPE.** Its line/column shim surface (`getLine`/`replaceRange`/`posAtCoords`) is invalidated by the D2 block model. Re-scope when plugin-editor-API pressure arrives, likely post-port-merge. Its dependency on J Phases 1–2 dissolves.
+- **I (editor & workspace UI surfacing): PARTLY ABSORBED.** Editor-action wiring is being redone on the port branch (heading actions, per-leaf format dispatch); reconcile against that rather than executing the 2026-04-20 plan. The Workspace (KDDW) half is substrate-independent and survives.
+- **D (Bases UI) and F (internal-plugin gap fill): UNAFFECTED** — the live Corbomite-native cluster work, can proceed in parallel with the port.
+
+Open punch-list editor/rendering P2s are now either moot (Reading mode retired — affects HoverPopover, checkbox-toggle, Reading `setCursorLine`) or gated on Markoff E3/E5, not actionable Corbomite work; the punch list should be re-triaged after the port→master merge rather than drained top-down.
+
+**Branch housekeeping.** Three dead Corbomite old-editor experiment branches (`markoff-fold-v2`, `markoff-reading-split`, `markoff-source-split`) archived as annotated `archive/<branch>` tags (pushed to origin), then deleted local + origin — mirroring Markoff's `archive/`-tag convention. `markoff-fold-v2`'s worktree held only symlinks-into-main + gitignored artifacts; nothing lost.
+
+**Open decision (Markoff awaiting our steer).** Reading-vs-non-editable-Live: restore a Reading leaf, or drive Live with `Capabilities::Editable=false`? Several frozen features hang off this; it's the highest-value question to resolve.
+
+**Next moves.** Re-pin submodule to `v0.7.0-freeze`, then merge `port/foundation-exploration` → Corbomite `master` (Markoff-first ordering now satisfied).
+
 ## 2026-04-28 — Cluster B closed: 16-item plugin-API-surface completion
 
 Brainstorm 2026-04-28; spec, plan, and execution all completed in a single autonomous pass. Spec: [`specs/2026-04-28-cluster-b-plugin-api-surface-design.md`](superpowers/specs/2026-04-28-cluster-b-plugin-api-surface-design.md). Plan: [`plans/2026-04-28-cluster-b-plugin-api-surface.md`](superpowers/plans/2026-04-28-cluster-b-plugin-api-surface.md). User authorized autonomous execution after design approval; 17 commits land the four phases.

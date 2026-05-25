@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // (c) 2026 Corbomite contributors, GPL-3.0-or-later.
 
+// TODO(port-foundation-exploration): same fate as SystemThemeBuilder.cpp —
+// disabled pending theme port (Markoff::Theme has a different shape from the
+// master-side Theme this service was built against).
+#if 0
+
 #include "corbomite/core/ThemeService.h"
 
 #include "corbomite/core/SystemThemeBuilder.h"
@@ -99,4 +104,22 @@ void ThemeService::rebuildAndEmit() {
     emit themeChanged(m_currentTheme);
 }
 
+} // namespace Corbomite::Core
+
+#endif // 0 — disabled pending theme port
+
+// Minimal stubs OUTSIDE the #if 0 so downstream linkers (vault, app, etc.)
+// can still link. TODO(port-foundation-exploration): replace with real impl
+// when the theme port lands.
+#include "corbomite/core/ThemeService.h"
+namespace Corbomite::Core {
+ThemeService::ThemeService(KColorSchemeManager *, QObject *parent)
+    : QObject(parent) {}
+ThemeService::~ThemeService() = default;
+Markoff::Theme ThemeService::currentTheme() const { return {}; }
+QString      ThemeService::activeThemeName() const { return {}; }
+QStringList  ThemeService::availableThemeNames() const { return {}; }
+void         ThemeService::setActiveThemeByName(const QString &) {}
+void         ThemeService::addUserTheme(const Markoff::Theme &) {}
+void         ThemeService::refreshSystemTheme() {}
 } // namespace Corbomite::Core

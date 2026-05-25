@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// TODO(port-foundation-exploration): Markoff::Reading::ReadingView was retired
+// with the old leaves. The MarkdownRenderer in this file was the Reading-mode
+// renderer entry; entire file disabled pending either reading-mode restoration
+// or rewiring against Live-with-editing-disabled (E1).
+#if 0
+
 #include "corbomite/core/MarkdownRenderer.h"
 
-#include <markoff/reading/ReadingView.h>
+// TODO(port): Reading retired
+// include <markoff/reading/ReadingView.h>
 
 #include <QFutureInterface>
 #include <QHBoxLayout>
@@ -583,3 +590,13 @@ QFuture<void> MarkdownRenderer::render(const QString &markdown,
 }
 
 } // namespace Corbomite
+
+#endif // 0 — disabled pending Markoff::Reading restoration or E1 read-only Live
+
+// Minimal stubs kept OUTSIDE the #if 0 so downstream consumers
+// (RegexRenderEngine, etc.) can still link. TODO(port-foundation-exploration):
+// remove these once the renderer is rewritten against Live-with-editing-disabled.
+#include "corbomite/core/MarkdownRenderer.h"
+namespace Corbomite {
+QString MarkdownRenderer::renderToHtml(const QString & /*markdown*/) const { return {}; }
+}  // namespace Corbomite

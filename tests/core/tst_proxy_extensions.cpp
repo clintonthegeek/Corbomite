@@ -25,8 +25,8 @@
 #include "corbomite/core/proxies/StatusBarRegistrar.h"
 #include "corbomite/core/proxies/LucideIconRegistrar.h"
 
-#include <markoff/CodeBlockProcessorRegistry.h>
-#include <markoff/EmbedRegistry.h>
+#include <markoff/core/CodeBlockProcessorRegistry.h>
+#include <markoff/core/EmbedRegistry.h>
 #include <markoff/MarkdownRenderChild.h>
 
 #include <QLabel>

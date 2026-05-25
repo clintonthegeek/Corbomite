@@ -3,7 +3,7 @@
 // Phase C3 — NoteEditorWidget save/restore ephemeral state round-trips
 // through all three ViewMode targets (Source, LivePreview, Reading).
 //
-// Source rides on `Markoff::Source::SourceEditor::scrollPosition`, LivePreview on
+// Source rides on `Markoff::Source::Editor::scrollPosition`, LivePreview on
 // `Markoff::Editor::setScrollPositionVisualLine`, Reading on
 // `Markoff::Reading::ReadingView`.
 //
@@ -12,8 +12,9 @@
 #include "NoteEditorWidget.h"
 #include "corbomite/storage/EphemeralState.h"
 
-#include <markoff/Editor.h>
-#include <markoff/source/SourceEditor.h>
+// TODO(port): old Markoff::Editor retired
+// include <markoff/Editor.h>
+#include <markoff/source/Editor.h>
 
 #include "corbomite/core/NoteDocument.h"
 
@@ -25,7 +26,7 @@
 using Corbomite::EphemeralState;
 using Corbomite::NoteDocument;
 using Corbomite::NoteEditorWidget;
-using Markoff::Source::SourceEditor;
+using Markoff::Source::Editor;
 
 namespace {
 

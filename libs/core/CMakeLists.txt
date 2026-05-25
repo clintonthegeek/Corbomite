@@ -178,7 +178,9 @@ target_link_libraries(corbomite-core
         $<BUILD_INTERFACE:markoff_core>
     PRIVATE
         $<BUILD_INTERFACE:Corbomite::Storage>
-        $<BUILD_INTERFACE:markoff_reading>)
+        # TODO(port-foundation-exploration): markoff_reading retired.
+        # $<BUILD_INTERFACE:markoff_reading>
+    )
 
 if(CORBOMITE_USE_KEYRING)
     target_link_libraries(corbomite-core PRIVATE Qt6Keychain::Qt6Keychain)

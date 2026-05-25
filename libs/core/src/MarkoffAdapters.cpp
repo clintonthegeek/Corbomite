@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // (c) 2026 Corbomite contributors, GPL-3.0-or-later.
 
+// TODO(port-foundation-exploration): paired with Adapters.h — disabled
+// pending Markoff::Vault::* restoration on the Markoff side.
+#if 0
+
 #include "corbomite/markoff_adapters/Adapters.h"
 
 #include "corbomite/storage/CachedMetadata.h"
@@ -139,3 +143,5 @@ MetadataParserImpl::parse(const QByteArray &content,
 }
 
 } // namespace Corbomite::MarkoffAdapters
+
+#endif // 0 — disabled pending Markoff::Vault::* restoration

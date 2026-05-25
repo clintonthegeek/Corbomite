@@ -6,7 +6,11 @@
 
 #include "corbomite/core/Component.h"
 
-#include <markoff/MarkdownRenderChild.h>
+// TODO(port-foundation-exploration): Markoff::MarkdownRenderChild was retired
+// with the old leaves. Inheritance + override removed; setRenderedText /
+// renderedText (inherited from Markoff base) are stubbed locally so the
+// class compiles standalone.
+// #include <markoff/MarkdownRenderChild.h>
 
 #include <QPointer>
 #include <QString>
@@ -17,29 +21,25 @@ namespace Corbomite::Core {
 /// Lifecycle-tied widget/scene-node subtree produced by post-processors,
 /// code-block processors, and embed renderers. Auto-unloads when its
 /// containing section is recycled by ReadingView's SectionRecyclePool.
-///
-/// Audit reference: `docs/obsidian-audit/domains/editor-markdown.md §10`.
-///
-/// Phase C1: now inherits `Markoff::MarkdownRenderChild` (for the DI
-/// seam on the ReadingView side) in addition to Corbomite's `Component`
-/// lifecycle. `setRenderedText` / `renderedText` are inherited from the
-/// Markoff base; `mountInto` is overridden to keep the QPointer<QWidget>
-/// host reference that Corbomite callers read via `hostWidget()`.
-class MarkdownRenderChild : public Markoff::MarkdownRenderChild,
-                            public Corbomite::Component
+class MarkdownRenderChild : public Corbomite::Component
 {
 public:
     MarkdownRenderChild();
     ~MarkdownRenderChild() override;
 
-    /// Attach this child's widget subtree to `host`. Host is referenced
-    /// via QPointer so renderer code can detect host destruction without
-    /// chasing dangling pointers.
-    void mountInto(QWidget *host) override;
+    /// Attach this child's widget subtree to `host`.
+    void mountInto(QWidget *host);
     QWidget *hostWidget() const;
+
+    // TODO(port-foundation-exploration): formerly inherited from
+    // Markoff::MarkdownRenderChild. Stubbed locally pending the new
+    // Markoff::MarkdownRenderChild abstract (E3 work).
+    void setRenderedText(const QString &t) { m_renderedText = t; }
+    QString renderedText() const { return m_renderedText; }
 
 private:
     QPointer<QWidget> m_host;
+    QString m_renderedText;
 };
 
 } // namespace Corbomite::Core

@@ -5,10 +5,11 @@
 #include "corbomite/core/HoverLinkSource.h"
 #include "corbomite/core/PostProcessorRegistry.h"
 
-#include <markoff/EmbedRegistry.h>
-#include <markoff/CodeBlockProcessorRegistry.h>
+#include <markoff/core/EmbedRegistry.h>
+#include <markoff/core/CodeBlockProcessorRegistry.h>
 
 #include <functional>
+#include <memory>
 
 #include <QJsonObject>
 #include <QObject>
@@ -121,8 +122,11 @@ public:
     void unregisterEmbed(const QString &ext);
 
     /// `ui.rendering` — register a code-block processor by language tag.
-    bool registerMarkdownCodeBlockProcessor(const QString &lang,
-                                              Markoff::CodeBlockProcessor proc);
+    /// Migrated 2026-05-20: new Markoff::CodeBlockProcessor is abstract;
+    /// callers pass a shared_ptr to a concrete subclass.
+    bool registerMarkdownCodeBlockProcessor(
+        const QString &lang,
+        std::shared_ptr<Markoff::CodeBlockProcessor> proc);
     void unregisterMarkdownCodeBlockProcessor(const QString &lang);
 
     /// `ui.statusbar` — add a permanent widget to the status bar.

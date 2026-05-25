@@ -41,8 +41,8 @@
 #include <QStringList>
 #include <QVector>
 
-#include <markoff-parser/Document.h>
-#include <markoff-parser/YamlValue.h>
+#include <markoff/parser/Document.h>
+#include <markoff/parser/YamlValue.h>
 
 #include "corbomite/storage/LinkResolver.h"
 

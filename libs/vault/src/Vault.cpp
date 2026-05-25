@@ -2,8 +2,9 @@
 #include "corbomite/vault/Vault.h"
 
 #include "corbomite/core/NoteDocument.h"
-#include <markoff/ParsePool.h>
-#include <markoff/MarkoffDocument.h>
+// TODO(port-foundation-exploration): Markoff::ParsePool retired with D4.
+// #include <markoff/ParsePool.h>
+#include <markoff/core/MarkoffDocument.h>
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/TFolder.h"
@@ -49,7 +50,7 @@ Vault::Vault(DataAdapter *adapter, QObject *parent)
     m_root = root.get();
     m_fileMap.emplace(QStringLiteral("/"), std::move(root));
 
-    m_parsePool = std::make_unique<Markoff::ParsePool>(this);
+    // TODO(port-foundation-exploration): ParsePool retired.
 
     m_watcher = std::make_unique<detail::Watcher>(this);
     connect(m_watcher.get(), &detail::Watcher::created,
@@ -693,11 +694,17 @@ NoteDocument *Vault::openDocument(const QString &relPath)
     const QString rel = VaultPaths::normalize(relPath);
     if (auto *existing = m_docs.value(rel)) return existing;
 
-    auto *doc = new NoteDocument(m_basePath, rel, m_parsePool.get(), this);
+    auto *doc = new NoteDocument(m_basePath, rel, this);
     if (auto *tf = getFileByPath(rel)) {
         const QByteArray bytes = cachedRead(tf);
-        doc->markoff()->resetContent(QString::fromUtf8(bytes),
-                                     Markoff::Origin::FirstOpen);
+        // TODO(port-foundation-exploration): resetContent only populates the
+        // legacy buffer (d->buffer); D2 per-block CRDT state (which
+        // iterateBlocks queries) is built only by loadFromMarkdown. Using
+        // loadFromMarkdown for the FirstOpen path so views actually see
+        // content. resetContent stays for ExternalReload paths below until
+        // we verify the same fix applies (it likely does — Origin's only
+        // remaining role is undo-stack handling).
+        doc->markoff()->loadFromMarkdown(bytes);
     }
     // FirstOpen emits contentsChanged which sets modified=true; undo that.
     doc->setModified(false);
@@ -719,22 +726,25 @@ bool Vault::saveDocument(NoteDocument *doc)
     if (!tf) return false;
 
     // Write canonical UTF-8 bytes verbatim — no QTextDocumentWriter, no
-    // format coercion. toMarkdown() is the MarkoffDocument's canonical source.
-    const QString markdown = doc->markoff()->toMarkdown();
+    // format coercion. serializeForSave() is the MarkoffDocument's D2-aware
+    // canonical save serializer; toMarkdown() reads the legacy buffer which
+    // D2 edits do not update (Markoff handoff 2026-05-21-save-path-data-loss.md).
+    const QByteArray bytes = doc->markoff()->serializeForSave();
 
     // Terminal guard (C8 Task 5.4): the canonical buffer must never contain
     // U+FFFC. If it does, a presentation-layer glyph leaked into the source
     // of truth. Refuse the write, emit saveFailed, and leave disk untouched.
-    if (markdown.contains(QChar::ObjectReplacementCharacter)) {
+    // U+FFFC in UTF-8 is the three-byte sequence EF BF BC.
+    static const QByteArray kObjectReplacementUtf8 =
+        QByteArray::fromHex("efbfbc");
+    if (bytes.contains(kObjectReplacementUtf8)) {
         qCCritical(lcVaultSafety,
             "Vault::saveDocument REFUSED: canonical buffer contains U+FFFC "
-            "for rel=\"%s\" (chars=%lld). Aborting write; file unchanged.",
-            qUtf8Printable(rel), static_cast<long long>(markdown.size()));
+            "for rel=\"%s\" (bytes=%lld). Aborting write; file unchanged.",
+            qUtf8Printable(rel), static_cast<long long>(bytes.size()));
         Q_EMIT doc->saveFailed();
         return false;
     }
-
-    const QByteArray bytes = markdown.toUtf8();
     const QString abs = m_basePath + QLatin1Char('/') + rel;
 
     // Stamp echo-suppression BEFORE the write so the watcher's mtime-based
@@ -823,7 +833,7 @@ void Vault::onExternalModified(const QString &relPath)
         QFile diskFile(m_basePath + QLatin1Char('/') + rel);
         if (diskFile.open(QIODevice::ReadOnly)) {
             const QByteArray disk = diskFile.readAll();
-            if (disk == doc->markoff()->toMarkdown().toUtf8()) {
+            if (disk == doc->markoff()->serializeForSave()) {
                 consumeSelfWrite(rel, mtimeMs);  // drain ledger entry if present
                 return;  // byte-equal — not a real external change
             }
@@ -857,7 +867,8 @@ void Vault::onExternalModified(const QString &relPath)
 
     if (!doc->isModified()) {
         // Clean case: apply wholesale, clear undo stack, emit documentReloaded.
-        doc->markoff()->resetContent(newContent, Markoff::Origin::ExternalReloadClean);
+        // TODO(port-foundation-exploration): resetContent takes QByteArray.
+        doc->markoff()->resetContent(newContent.toUtf8(), Markoff::Origin::ExternalReloadClean);
         // resetContent emits documentReloaded, which fires NoteDocument's
         // handler and sets modified=true (because !d->modified was true before
         // the reload). Explicitly reset to false after the reload.
@@ -871,7 +882,8 @@ void Vault::onExternalModified(const QString &relPath)
 void Vault::resolveExternalReload(NoteDocument *doc, const QString &resolvedContent)
 {
     if (!doc) return;
-    doc->markoff()->resetContent(resolvedContent, Markoff::Origin::ExternalReloadResolved);
+    // TODO(port-foundation-exploration): resetContent takes QByteArray.
+    doc->markoff()->resetContent(resolvedContent.toUtf8(), Markoff::Origin::ExternalReloadResolved);
     // Same reasoning as the clean case: resetContent → documentReloaded →
     // NoteDocument sets modified=true; override to false post-merge.
     doc->setModified(false);

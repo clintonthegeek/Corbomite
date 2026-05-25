@@ -58,7 +58,7 @@ target_link_libraries(corbomite-storage
     # does not ship submodule targets. See libs/core/CMakeLists.txt for
     # the full rationale.
     PUBLIC
-        $<BUILD_INTERFACE:MarkoffParser::MarkoffParser>)
+        $<BUILD_INTERFACE:Markoff::Parser>)
 
 if(NOT PROJECT_IS_TOP_LEVEL)
     target_link_libraries(corbomite-storage PUBLIC Corbomite::Core)

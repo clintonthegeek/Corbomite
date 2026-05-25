@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/bases/BasesQuery.h"
 
-#include "markoff-parser/YamlValue.h"
+#include "markoff/parser/YamlValue.h"
 
 #include <QHash>
 #include <QSet>

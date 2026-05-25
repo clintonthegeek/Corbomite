@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SourceEditor.h"
 
-#include <qutepart.h>
+// TODO(port-foundation-exploration): qutepart.h was the public header of the
+// retired standalone Qutepart library. Stubbed to QPlainTextEdit pending the
+// source-editor swap port to Markoff::Source::Editor.
 
+#include <QPlainTextEdit>
 #include <QScrollBar>
+#include <QTextBlock>
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QVBoxLayout>
@@ -12,7 +16,7 @@ namespace Corbomite {
 
 SourceEditor::SourceEditor(QWidget *parent)
     : QWidget(parent)
-    , m_qutepart(new Qutepart::Qutepart(this))
+    , m_qutepart(new QPlainTextEdit(this))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -73,12 +77,18 @@ void SourceEditor::setCursorPosition(CursorPos pos)
 
 float SourceEditor::scrollPosition() const
 {
-    return m_qutepart->scrollPositionVisualLine();
+    // TODO(port-foundation-exploration): Qutepart::Qutepart had a visual-line
+    // float scroll API; QPlainTextEdit only exposes block-line scroll. Approximate
+    // by returning the scrollbar value as a float — accurate enough for
+    // EphemeralState round-trips during the port, off by visual-soft-wrap
+    // adjustments that the real Markoff::Source::Editor will need to handle.
+    return static_cast<float>(m_qutepart->verticalScrollBar()->value());
 }
 
 void SourceEditor::setScrollPosition(float visualLine)
 {
-    m_qutepart->setScrollPositionVisualLine(visualLine);
+    // TODO(port-foundation-exploration): see scrollPosition() — symmetric stub.
+    m_qutepart->verticalScrollBar()->setValue(static_cast<int>(visualLine));
 }
 
 QVector<int> SourceEditor::foldedHeadings() const

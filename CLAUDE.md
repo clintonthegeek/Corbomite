@@ -1,3 +1,18 @@
+> **2026-05-25 — Foundation port landed on `master`.**
+>
+> The port from Markoff `master` (v0.6.x) to Markoff's D-arc + E-arc rebuild is
+> complete and **merged to Corbomite `master`**. Markoff merged its
+> `exploration/new-foundation` to Markoff `master` (tag `v0.7.0-freeze`) first;
+> Corbomite's submodule is pinned there. The old four-leaf QGraphicsView editor
+> is retired; the QML/D2 live editor is canonical. Day-to-day work is back on
+> `master` — no dedicated port branch.
+>
+> History + the now-degraded feature list (each comes back per its Markoff
+> E-phase) is at [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md).
+> Markoff's merge-complete reply: `libs/markoff-family/docs/handoff/2026-05-25-to-corbomite-merge-complete.md`.
+> Open steer owed to Markoff: Reading-mode direction (restore a Reading leaf vs.
+> read-only Live) — gates HoverPopover, checkbox-toggle, `setCursorLine`.
+
 ## Long-term project state
 
 > **Read this section first if you are starting a new session.** Corbomite tracks work across **two parallel tracks**: a flat severity-ranked **punch list** of small fixes, and **strategic clusters** for multi-phase coordinated initiatives. State persists across sessions in dedicated files; do not infer status from conversation context.

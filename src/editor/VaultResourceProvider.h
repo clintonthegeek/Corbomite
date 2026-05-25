@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include <markoff/ResourceProvider.h>
+#include <markoff/core/vault/ResourceProvider.h>
 
 namespace Corbomite {
 
 class Vault;
 
-class VaultResourceProvider : public Markoff::ResourceProvider {
+class VaultResourceProvider : public Markoff::Vault::ResourceProvider {
 public:
     VaultResourceProvider(Vault *vault, const QString &noteRelativePath);
 

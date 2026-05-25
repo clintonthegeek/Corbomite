@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/storage/LinkResolver.h"
 
-#include <markoff-parser/LinkTextParser.h>
+#include <markoff/parser/LinkTextParser.h>
 
 #include <QStringList>
 
@@ -101,7 +101,7 @@ ResolvedLink LinkResolver::resolve(const QString &sourcePath,
                                    const QString &rawTarget) const
 {
     // Split off subpath first.
-    const Markoff::LinkTarget split = Markoff::parseLinktext(rawTarget);
+    const Markoff::LinkTextSplit split = Markoff::parseLinktext(rawTarget);
     QString linktext = split.path.trimmed();
 
     ResolvedLink r;

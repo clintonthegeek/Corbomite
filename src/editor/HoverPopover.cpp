@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "HoverPopover.h"
 
-#include <markoff/EmbedRegistry.h>
+#include <markoff/core/EmbedRegistry.h>
 #include "corbomite/core/MarkdownRenderChild.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/vault/Vault.h"
-#include "markoff/reading/EmbedRenderer.h"
-#include "markoff/reading/ReadingView.h"
+// TODO(port): Reading::EmbedRenderer retired
+// TODO(port): Reading::ReadingView retired
 
 #include <QApplication>
 #include <QCursor>
@@ -78,12 +78,11 @@ HoverPopover::HoverPopover(QWidget *parent)
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(0);
 
-    // Cluster J Phase 6 — the preview is now a real ReadingView. Math,
-    // mermaid, syntax highlighting, wiki-links, and images all render
-    // in-place via the same pipeline used by Reading mode.
-    m_view = new Markoff::Reading::ReadingView(this);
-    m_view->setFocusPolicy(Qt::NoFocus);
-    layout->addWidget(m_view);
+    // TODO(port-foundation-exploration): preview was a Markoff::Reading::
+    // ReadingView; Reading retired. Hover preview is dark until the
+    // markoff-reading-lite restoration OR Live-with-editing-disabled lands.
+    m_view = nullptr;
+    (void)layout;
 
     m_delayTimer.setSingleShot(true);
     m_delayTimer.setInterval(kHoverDelayMs);
@@ -230,41 +229,11 @@ void HoverPopover::showNow()
 
 void HoverPopover::renderTarget(const QString &target)
 {
-    if (!m_view) return;
-
-    QString path;
-    QString subpath;
-    splitTarget(target, &path, &subpath);
-
-    // Cluster J Phase 6 — preferred path: route through EmbedRenderer.
-    // The renderer handles depth-guard, recursive `![[...]]` expansion,
-    // image-shim conversion (`![[foo.png]]` → `![](foo.png)`), and
-    // heading / `#^block` subpath slicing via MetadataCache. The
-    // expanded markdown is then fed to the embedded ReadingView, which
-    // owns math / mermaid / syntax-highlighting render via Phase 5's
-    // built-in CodeBlockProcessorRegistry registrations.
-    if (m_embedRenderer) {
-        Markoff::EmbedRequest req{path, subpath, nullptr, /*depth=*/1};
-        auto child = m_embedRenderer->render(req);
-        if (child) {
-            m_view->setPlainText(child->renderedText());
-            return;
-        }
-    }
-
-    // Legacy fallback — pre-Phase-6 path used when no EmbedRenderer is
-    // wired (defensive; happens only in test harnesses or before the
-    // first vault opens). Strips subpath; renders raw markdown only.
-    if (!m_vault) {
-        m_view->setPlainText(target);
-        return;
-    }
-    auto *doc = m_vault->openDocument(path);
-    if (!doc) {
-        m_view->setPlainText(QStringLiteral("(unresolved: %1)").arg(target));
-        return;
-    }
-    m_view->setPlainText(doc->markdown());
+    // TODO(port-foundation-exploration): renderTarget pumped resolved
+    // markdown into a Markoff::Reading::ReadingView (m_view) — retired.
+    // No-op until HoverPopover is rewired against Live-with-editing-disabled
+    // or markoff-reading-lite is restored.
+    (void)target;
 }
 
 void HoverPopover::onGraceTimeout()

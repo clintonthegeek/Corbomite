@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/bases/FilterTree.h"
 
-#include "markoff-parser/YamlValue.h"
+#include "markoff/parser/YamlValue.h"
 
 #include <QVariantList>
 #include <QVariantMap>

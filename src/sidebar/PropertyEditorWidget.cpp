@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "PropertyEditorWidget.h"
 
-#include <markoff-parser/YamlValue.h>
+#include <markoff/parser/YamlValue.h>
 
 #include <QCheckBox>
 #include <QDate>

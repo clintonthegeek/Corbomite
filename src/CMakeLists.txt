@@ -28,6 +28,8 @@ add_library(CorbomiteApp STATIC
     editor/CompletionPopup.cpp
     editor/CompletionDelegate.cpp
     editor/HoverPopover.cpp
+    editor/FindBar.cpp
+    editor/FindBar.h
     editor/WikiLinkSuggest.cpp
     editor/TagSuggest.cpp
     editor/VaultResourceProvider.cpp
@@ -70,8 +72,15 @@ target_link_libraries(CorbomiteApp
         Corbomite::Models
         Corbomite::Vault
         Corbomite::Bases
-        Markoff::Live
-        Markoff::Reading
+        markoff_live
+        # Static QML module — also link the auto-generated plugin lib so the
+        # `import org.markoff.live 1.0` resolves at runtime. qt_add_qml_module
+        # generates the *plugin / *plugin_init targets when STATIC is set.
+        markoff_liveplugin
+        markoff_liveplugin_init
+        # TODO(port-foundation-exploration): Markoff::Reading retired; NoteEditorWidget
+        # stubs Reading mode pending Live-with-editing-disabled (E1) decision.
+        #   Markoff::Reading
         Markoff::Source
         forcegraph
         canvas

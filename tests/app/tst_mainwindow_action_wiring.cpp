@@ -15,7 +15,7 @@
 #include "app/CorbomiteApp.h"
 #include "app/MainWindow.h"
 
-#include <markoff/EditorContext.h>
+#include <markoff/core/EditorContext.h>
 
 using Corbomite::CorbomiteApp;
 using Corbomite::MainWindow;

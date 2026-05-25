@@ -37,7 +37,7 @@ target_link_libraries(corbomite-models
     # doesn't leak into the installed Corbomite package. See
     # libs/core/CMakeLists.txt for the full rationale.
     PUBLIC
-        $<BUILD_INTERFACE:MarkoffParser::MarkoffParser>)
+        $<BUILD_INTERFACE:Markoff::Parser>)
 
 target_link_libraries(corbomite-models PUBLIC Corbomite::Vault)
 

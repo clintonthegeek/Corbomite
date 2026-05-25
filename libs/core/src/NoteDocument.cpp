@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/NoteDocument.h"
 
-#include <markoff/MarkoffDocument.h>
+#include <markoff/core/MarkoffDocument.h>
+#include <markoff/core/FindController.h>
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -12,21 +13,30 @@ struct NoteDocument::Private {
     QString vaultRoot;
     QString relativePath;
     std::unique_ptr<Markoff::MarkoffDocument> markoff;
+    Markoff::FindController *findController = nullptr;
     bool modified = false;
     mutable int cachedWordCount = -1;
 };
 
 NoteDocument::NoteDocument(const QString &vaultRoot, const QString &relativePath,
-                           Markoff::ParsePool *pool, QObject *parent)
+                           QObject *parent)
     : QObject(parent), d(std::make_unique<Private>())
 {
     d->vaultRoot    = vaultRoot;
     d->relativePath = relativePath;
+    // TODO(port-foundation-exploration): new MarkoffDocument ctor takes
+    // (replicaId, registry?, parent?) — no buffer/pool args. Using random
+    // replicaId 1 here is the same workaround markoff-live-app used pre-
+    // CollabText perf fix; revisit when collab use cases land.
     d->markoff = std::make_unique<Markoff::MarkoffDocument>(
-        /* buffer */ nullptr, pool, this);
+        quint16{1}, /* registry */ nullptr, this);
 
-    connect(d->markoff.get(), &Markoff::MarkoffDocument::contentsChanged, this,
-            [this](qsizetype /*offset*/, qsizetype /*removed*/, qsizetype /*inserted*/) {
+    // TODO(port-foundation-exploration): contentsChanged(qsizetype, qsizetype,
+    // qsizetype) replaced by d2DocumentChanged() (no args). Word-count
+    // invalidation logic preserved; offset/removed/inserted info no longer
+    // available to listeners.
+    connect(d->markoff.get(), &Markoff::MarkoffDocument::d2DocumentChanged, this,
+            [this]() {
         d->cachedWordCount = -1;
         if (!d->modified)
             setModified(true);
@@ -79,14 +89,18 @@ QString NoteDocument::name() const
 
 QString NoteDocument::markdown() const
 {
-    return d->markoff->toMarkdown();  // toMarkdown() returns const QString& — copy on return
+    // Route through serializeForSave() — toMarkdown() reads MarkoffDocument's
+    // legacy buffer which loadFromMarkdown() and D2 edits do not update.
+    // See Markoff docs/handoff/2026-05-21-save-path-data-loss.md.
+    return QString::fromUtf8(d->markoff->serializeForSave());
 }
 
 void NoteDocument::setMarkdown(const QString &text)
 {
     // Generic-purpose setter — callers who know their use-case should prefer
     // markoff()->resetContent(text, Origin::*) directly.
-    d->markoff->resetContent(text, Markoff::Origin::TestFixture);
+    // TODO(port-foundation-exploration): new resetContent takes QByteArray.
+    d->markoff->resetContent(text.toUtf8(), Markoff::Origin::TestFixture);
 }
 
 bool NoteDocument::isModified() const
@@ -107,7 +121,9 @@ int NoteDocument::wordCount() const
     if (d->cachedWordCount >= 0)
         return d->cachedWordCount;
 
-    const QString text = d->markoff->toMarkdown();
+    // Route through markdown() — d->markoff->toMarkdown() reads MarkoffDocument's
+    // legacy buffer which D2 edits do not update.
+    const QString text = markdown();
     if (text.isEmpty()) {
         d->cachedWordCount = 0;
         return 0;
@@ -129,10 +145,24 @@ int NoteDocument::wordCount() const
 
 int NoteDocument::characterCount() const
 {
-    return int(d->markoff->length());
+    // TODO(port-foundation-exploration): length() was a method on the old
+    // MarkoffDocument; new equivalent is visibleLength() returning UTF-8
+    // byte count. Note: this changes the "character count" semantic from
+    // QString-char to UTF-8-byte. For ASCII-heavy markdown the values
+    // match; for multi-byte content this overcounts. Revisit if word/
+    // character-count UX surfaces this discrepancy.
+    return int(d->markoff->visibleLength());
 }
 
 Markoff::MarkoffDocument       *NoteDocument::markoff()       { return d->markoff.get(); }
 const Markoff::MarkoffDocument *NoteDocument::markoff() const { return d->markoff.get(); }
+
+Markoff::FindController *NoteDocument::findController()
+{
+    if (!d->findController) {
+        d->findController = new Markoff::FindController(markoff(), this);
+    }
+    return d->findController;
+}
 
 } // namespace Corbomite

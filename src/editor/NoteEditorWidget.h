@@ -7,16 +7,23 @@
 class QStackedWidget;
 
 namespace Markoff {
-class Editor;
 class MarkdownView;
-class MermaidRenderer;
+class MermaidRenderer;  // stub forward decl — type undefined post-port (E5 work)
+}
+
+namespace Markoff::Live {
+class EditorWidget;
 }
 
 namespace Markoff::Source {
-class SourceEditor;
+// renamed: SourceEditor → Editor (2026-05-20 port)
+class Editor;
 }
 
 namespace Markoff::Reading {
+// TODO(port-foundation-exploration): Reading retired; stub forward-decl kept
+// purely so old method signatures (readingView() accessor) compile. Returns
+// nullptr unconditionally now.
 class ReadingView;
 }
 
@@ -30,6 +37,7 @@ class CompletionPopup;
 class HoverPopover;
 class EditorSuggestManager;
 class EditorSuggest;
+class FindBar;
 
 namespace Core {
 class ThemeService;
@@ -53,6 +61,10 @@ public:
     NoteDocument *noteDocument() const;
     void setVault(Vault *vault);
 
+    void showFindBar();
+    void hideFindBar();
+    bool isFindBarVisible() const;
+
     /// Phase C3 mode transition: (1) snapshot ephemeral state from outgoing
     /// leaf, (2) detach outgoing leaf via setDocument(nullptr), (3) swap
     /// QStackedWidget index (lazy-constructing the incoming widget if first
@@ -62,9 +74,9 @@ public:
     void setViewMode(ViewMode mode);
     ViewMode viewMode() const;
 
-    Markoff::Editor *editor() const;
-    Markoff::Source::SourceEditor *sourceEditor() const;
-    Markoff::Reading::ReadingView *readingView() const;
+    Markoff::Live::EditorWidget *editor() const;
+    Markoff::Source::Editor *sourceEditor() const;
+    Markoff::Reading::ReadingView *readingView() const;  // always nullptr post-port
 
     // Returns the active MarkdownView leaf (any of the three), or nullptr if
     // none has been constructed yet. Cluster R / C7 consumers (MarkdownView
@@ -150,11 +162,11 @@ private:
 
     QStackedWidget *m_stack = nullptr;
 
-    Markoff::Editor *m_editor = nullptr;
+    Markoff::Live::EditorWidget *m_editor = nullptr;
     // Source mode widget — lazy. Constructed on first `setViewMode(Source)`
     // and cached in the stack thereafter. Accessor returns nullptr until
     // first construction. See `ensureWidgetConstructed`.
-    Markoff::Source::SourceEditor *m_sourceEditor = nullptr;
+    Markoff::Source::Editor *m_sourceEditor = nullptr;
     // Reading mode widget — lazy. Same pattern as `m_sourceEditor`.
     Markoff::Reading::ReadingView *m_readingView = nullptr;
     ViewMode m_viewMode = ViewMode::LivePreview;
@@ -178,6 +190,8 @@ private:
 
     // C4 Task 14 — mermaid renderer (lifetime owned by MainWindow).
     Markoff::MermaidRenderer *m_mermaidRenderer = nullptr;
+
+    FindBar *m_findBar = nullptr;
 
     // Completion state
     CompletionPopup *m_completionPopup = nullptr;

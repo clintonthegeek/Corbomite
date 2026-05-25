@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include "markoff/EmbedRegistry.h"
+#include <markoff/core/EmbedRegistry.h>
 
 #include <QString>
 #include <QStringList>

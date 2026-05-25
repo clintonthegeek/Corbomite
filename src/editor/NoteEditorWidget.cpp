@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "NoteEditorWidget.h"
 #include "CompletionPopup.h"
+#include "FindBar.h"
 #include "HoverPopover.h"
 #include "ViewModeSerializer.h"
 #include "VaultResourceProvider.h"
@@ -12,13 +13,20 @@
 #include "corbomite/storage/EphemeralState.h"
 #include "dialogs/QuickSwitcherModel.h"
 
-#include <markoff/Editor.h>
-#include <markoff/MarkdownView.h>
-#include <markoff/MarkdownDelta.h>
-#include <markoff/MarkoffDocument.h>
-#include <markoff/MermaidRenderer.h>
-#include <markoff/source/SourceEditor.h>
-#include <markoff/reading/ReadingView.h>
+#include <markoff/core/FindController.h>
+#include <markoff/core/MarkdownView.h>
+#include <markoff/core/MarkoffDocument.h>
+#include <markoff/live/EditorWidget.h>
+#include <markoff/live/LiveListModelBinding.h>
+#include <markoff/source/Editor.h>
+// TODO(port-foundation-exploration): old Markoff::Editor / MarkdownDelta /
+// Markoff::Reading / Markoff::MermaidRenderer all retired with the leaf
+// reshuffling — the live leaf is now hosted via Markoff::Live::EditorWidget
+// (this commit). Many of the editor's old signals (textChanged,
+// wordCountChanged, linkClicked, linkHovered, completionDismissHint,
+// cursorPositionChanged-with-line/col) have no direct equivalents on
+// LiveListModelBinding yet; their wiring is stubbed and will be reinstated
+// as feature ports land.
 
 #include <QCursor>
 #include <QKeyEvent>
@@ -31,51 +39,30 @@ namespace Corbomite {
 NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     : QWidget(parent)
     , m_stack(new QStackedWidget(this))
-    , m_editor(new Markoff::Editor(this))
+    , m_editor(new Markoff::Live::EditorWidget(
+          Markoff::Live::LiveListModelBinding::AllCapabilities, this))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_stack);
 
-    // Markoff (LivePreview) is the default mode for most users so construct
-    // it eagerly + mount it as the first stack page. Source and Reading
-    // widgets are constructed lazily on first `setViewMode(...)` and cached
-    // in the stack thereafter (see `ensureWidgetConstructed`).
+    m_findBar = new FindBar(this);
+    m_findBar->hide();
+    layout->addWidget(m_findBar);
+    QObject::connect(m_findBar, &FindBar::closeRequested,
+                     this, &NoteEditorWidget::hideFindBar);
+
     m_livePreviewIndex = m_stack->addWidget(m_editor);
     m_stack->setCurrentIndex(m_livePreviewIndex);
 
-    connect(m_editor, &Markoff::Editor::textChanged,
-            this, &NoteEditorWidget::onTextChanged);
-    connect(m_editor, &Markoff::Editor::cursorPositionChanged,
-            this, &NoteEditorWidget::onCursorPositionChanged);
-    connect(m_editor, &Markoff::Editor::wordCountChanged,
-            this, [this](int count) { m_cachedWordCount = count; });
-    connect(m_editor, &Markoff::Editor::linkClicked,
-            this, [this](const QString &target) {
-        Q_EMIT linkActivated(resolveTarget(target));
-    });
-    connect(m_editor, &Markoff::Editor::linkHovered,
-            this, [this](const QString &target, const QPoint &globalPos) {
-        if (!m_hoverPopover) return;
-        if (target.isEmpty()) {
-            m_hoverPopover->linkHoverEnded();
-        } else {
-            // Phase C5: Markoff now supplies the global-screen hover
-            // position directly. We preserve the +20 y-offset so the
-            // popover doesn't land under the cursor and trigger
-            // leaveEvent on the hovered link.
-            m_hoverPopover->scheduleShow(resolveTarget(target),
-                                          globalPos + QPoint(0, 20));
-        }
-    });
-    connect(m_editor, &Markoff::Editor::completionDismissHint,
-            this, &NoteEditorWidget::dismissCompletion);
-    // Cluster H Phase 3 — trigger detection moved into each EditorSuggest;
-    // the editor merely fires cursor changes which the manager dispatches
-    // to its registered suggester list (insertion-order first-wins).
-    connect(m_editor, &Markoff::Editor::cursorPositionChanged,
-            this, [this](int, int) { maybeActivateSuggester(); });
-
+    // TODO(port-foundation-exploration): old Markoff::Editor exposed
+    // textChanged / cursorPositionChanged(int line, int col) /
+    // wordCountChanged / linkClicked / linkHovered / completionDismissHint.
+    // None of these has a direct equivalent on Live's LiveListModelBinding
+    // yet. Cursor info will need to come from binding()->cursorState()
+    // via cursorChanged(); text/word/link signals need ad-hoc wiring through
+    // MarkoffDocument or LinkService. Each will be hooked back up as its
+    // feature ports — find UI first.
     m_editor->installEventFilter(this);
 }
 
@@ -91,13 +78,16 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
     m_doc = doc;
 
     if (m_doc) {
-        // Update VaultResourceProvider for the live editor.
-        m_editor->setResourceProvider(nullptr);
+        // TODO(port-foundation-exploration): setResourceProvider lived on the
+        // old Markoff::Editor; on Live's binding it's not directly exposed.
+        // Resource resolution now flows through services (Markoff::Vault::
+        // ResourceProvider, MarkoffServices). Wire-up deferred to a follow-up
+        // micro-spec.
         delete m_resourceProvider;
         m_resourceProvider = nullptr;
         if (m_vault) {
             m_resourceProvider = new VaultResourceProvider(m_vault, m_doc->relativePath());
-            m_editor->setResourceProvider(m_resourceProvider);
+            // TODO(port): plug m_resourceProvider into the document's services.
         }
 
         // Attach the active leaf to the new document.
@@ -105,8 +95,9 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
             leaf->setDocument(m_doc->markoff());
         }
     } else {
-        // No document — clear the live editor (it's always constructed).
-        m_editor->clear();
+        // TODO(port-foundation-exploration): no equivalent of Editor::clear()
+        // on EditorWidget; closing the document detaches via setDocument(nullptr).
+        m_editor->setDocument(nullptr);
     }
 }
 
@@ -135,23 +126,18 @@ void NoteEditorWidget::setThemeService(Core::ThemeService *service)
 void NoteEditorWidget::applyThemeToAllLeaves()
 {
     if (!m_themeService) return;
-    const Markoff::Theme theme = m_themeService->currentTheme();
-    if (m_editor)        m_editor->setViewTheme(theme);
-    if (m_sourceEditor)  m_sourceEditor->setViewTheme(theme);
-    if (m_readingView)   m_readingView->setViewTheme(theme);
+    // TODO(port-foundation-exploration): theme propagation deferred — full
+    // theme port disabled (SystemThemeBuilder + ThemeService stubbed out).
+    // Live leaf's theme path is binding()->setTheme(...) but Markoff::Theme
+    // ctor / setters changed; revisit when the theme feature ports.
 }
 
 void NoteEditorWidget::setMermaidRenderer(Markoff::MermaidRenderer *renderer)
 {
     m_mermaidRenderer = renderer;
-    // Live leaf is always constructed eagerly — inject immediately.
-    if (m_editor)
-        m_editor->setMermaidRenderer(renderer);
-    // Reading leaf is lazy; if already constructed, inject now.
-    // If not yet constructed, ensureWidgetConstructed will call
-    // setMermaidRenderer when it creates the ReadingView (see below).
-    if (m_readingView)
-        m_readingView->setMermaidRenderer(renderer);
+    // TODO(port-foundation-exploration): Markoff::MermaidRenderer abstract
+    // retired (E5 work). No-op until restoration.
+    (void)renderer;
 }
 
 NoteDocument *NoteEditorWidget::noteDocument() const
@@ -163,10 +149,11 @@ void NoteEditorWidget::setVault(Vault *vault)
 {
     m_vault = vault;
     if (m_doc && m_vault) {
-        m_editor->setResourceProvider(nullptr);
+        // TODO(port-foundation-exploration): setResourceProvider on Live
+        // editor not yet exposed — see setNoteDocument above. Resource
+        // provider is constructed for future wire-up.
         delete m_resourceProvider;
         m_resourceProvider = new VaultResourceProvider(m_vault, m_doc->relativePath());
-        m_editor->setResourceProvider(m_resourceProvider);
     }
 }
 
@@ -189,39 +176,19 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
     switch (mode) {
     case ViewMode::Source:
         if (!m_sourceEditor) {
-            m_sourceEditor = new Markoff::Source::SourceEditor(this);
+            m_sourceEditor = new Markoff::Source::Editor(this);
             m_sourceIndex = m_stack->addWidget(m_sourceEditor);
-            if (m_themeService)
-                m_sourceEditor->setViewTheme(m_themeService->currentTheme());
+            // TODO(port-foundation-exploration): setViewTheme retired (theme port).
         }
         break;
     case ViewMode::LivePreview:
         // Always constructed eagerly in the ctor.
         break;
     case ViewMode::Reading:
-        if (!m_readingView) {
-            m_readingView = new Markoff::Reading::ReadingView(this);
-            m_readingIndex = m_stack->addWidget(m_readingView);
-            if (m_themeService)
-                m_readingView->setViewTheme(m_themeService->currentTheme());
-            // C4 Task 14: inject mermaid renderer into late-constructed Reading leaf.
-            if (m_mermaidRenderer)
-                m_readingView->setMermaidRenderer(m_mermaidRenderer);
-            // Phase C5: wire Reading-mode link-hover into the same
-            // HoverPopover instance the editor uses. Prior to C5
-            // Reading mode had no hover popover; wiki-link hover in
-            // Reading now shows the preview consistent with Live mode.
-            connect(m_readingView, &Markoff::Reading::ReadingView::linkHovered,
-                    this, [this](const QString &href, const QPoint &globalPos) {
-                if (!m_hoverPopover) return;
-                if (href.isEmpty()) {
-                    m_hoverPopover->cancel();
-                } else {
-                    m_hoverPopover->scheduleShow(resolveTarget(href),
-                                                  globalPos + QPoint(0, 20));
-                }
-            });
-        }
+        // TODO(port-foundation-exploration): Markoff::Reading::ReadingView
+        // retired with the old leaves. Reading mode is currently a no-op
+        // (selecting it leaves the LivePreview leaf showing). Reading-via-
+        // Live-with-editing-disabled awaits the Editable Capability port.
         break;
     }
 }
@@ -234,7 +201,10 @@ Markoff::MarkdownView *NoteEditorWidget::activeLeaf() const
     case ViewMode::LivePreview:
         return m_editor;
     case ViewMode::Reading:
-        return m_readingView;    // may be nullptr if not yet constructed
+        // TODO(port-foundation-exploration): Reading retired; activeLeaf
+        // returns the LivePreview as a fallback so the polymorphic chain
+        // (e.g. setDocument) doesn't break when in degraded Reading mode.
+        return m_editor;
     }
     return nullptr;
 }
@@ -245,16 +215,15 @@ bool NoteEditorWidget::goToLine(int line)
     switch (m_viewMode) {
     case ViewMode::Source:
         if (m_sourceEditor) {
-            // Markoff::Source::SourceEditor::setCursorPosition takes 1-based line.
             m_sourceEditor->setCursorPosition({line, 0});
             return true;
         }
         return false;
     case ViewMode::LivePreview:
-        if (m_editor) {
-            m_editor->goToLine(line);
-            return true;
-        }
+        // TODO(port-foundation-exploration): Markoff::Live::EditorWidget
+        // doesn't expose goToLine. Cursor placement by line/column needs
+        // the legacy line-coord → byte-offset / BlockAnchor conversion to
+        // be reimplemented against the new MarkoffDocument. No-op for now.
         return false;
     case ViewMode::Reading:
         return false;
@@ -269,92 +238,21 @@ EphemeralState NoteEditorWidget::captureEphemeralStateFor(ViewMode mode) const
     s.modeRaw = compound.mode;
     s.sourceFlag = compound.source;
 
-    switch (mode) {
-    case ViewMode::Source:
-        if (m_sourceEditor) {
-            s.scroll = m_sourceEditor->scrollPosition();
-            // Markoff::Source::SourceEditor uses 1-based lines; EphemeralState
-            // stores 0-based (same convention as LivePreview capture below).
-            const auto cp = m_sourceEditor->cursorPosition();
-            s.cursor.line   = std::max(0, cp.line - 1);
-            s.cursor.column = cp.column;
-            // foldedHeadings() returns QVector<FoldSpec> — Phase A stub returns
-            // empty; EphemeralState holds QVector<int>. Leave as empty for now.
-        }
-        break;
-    case ViewMode::LivePreview:
-        s.scroll = m_editor->scrollPositionVisualLine();
-        // Markoff exposes 1-based line/column; EphemeralState stores
-        // 0-based so Source and LivePreview share a common cursor coord
-        // system across transitions. Subtract 1 on save, add on restore.
-        s.cursor.line = std::max(0, m_editor->cursorLine() - 1);
-        s.cursor.column = std::max(0, m_editor->cursorColumn() - 1);
-        break;
-    case ViewMode::Reading:
-        if (m_readingView) {
-            s.scroll = m_readingView->scrollPositionVisualLine();
-            s.foldedHeadings = m_readingView->foldedHeadingLines();
-            // Stash the line count alongside so restore can detect a
-            // structural shift (external edit added/removed lines) and
-            // drop folds rather than carry them forward against the wrong
-            // headings. Audit: editor-markdown.md §"Other" — `setFoldedHeadingLines`
-            // doesn't invalidate when line count changes.
-            if (m_doc) {
-                s.extraKeys.insert(
-                    QStringLiteral("corbomite.foldedHeadingsLineCount"),
-                    m_doc->markdown().count(QLatin1Char('\n')) + 1);
-            }
-        }
-        break;
-    }
-
+    // TODO(port-foundation-exploration): ephemeral-state capture stubbed —
+    // Source::Editor renamed/methods changed (scrollPosition gone), Live
+    // EditorWidget doesn't expose cursorLine/cursorColumn, Reading retired.
+    // Each branch will be reimplemented when the relevant feature port lands.
+    (void)mode;
     return s;
 }
 
 void NoteEditorWidget::restoreEphemeralStateFor(ViewMode mode,
                                                  const EphemeralState &s)
 {
-    switch (mode) {
-    case ViewMode::Source:
-        if (m_sourceEditor) {
-            // EphemeralState stores 0-based; Markoff::Source::SourceEditor
-            // takes 1-based lines — add 1 on restore.
-            m_sourceEditor->setCursorPosition({s.cursor.line + 1, s.cursor.column});
-            m_sourceEditor->setScrollPosition(s.scroll);
-            // foldedHeadings — Phase A stub; no-op.
-        }
-        break;
-    case ViewMode::LivePreview:
-        // Line is 1-based on the Markoff::Editor wire, 0-based in
-        // EphemeralState. Column is 0-based on both. goToLineAndColumn
-        // preserves the user's in-line cursor position across Source ->
-        // Live transitions; before v0.6.1 this fell back to goToLine
-        // which always placed the cursor at column 0.
-        if (s.cursor.line > 0 || s.cursor.column > 0) {
-            m_editor->goToLineAndColumn(s.cursor.line + 1, s.cursor.column);
-        }
-        m_editor->setScrollPositionVisualLine(s.scroll);
-        break;
-    case ViewMode::Reading:
-        if (m_readingView) {
-            m_readingView->setScrollPositionVisualLine(s.scroll);
-            // Drop saved folds when the document shape has shifted since
-            // capture (line count delta). `setFoldedHeadingLines` is line-
-            // indexed; carrying stale lines forward would fold the wrong
-            // headings. Audit: editor-markdown.md §"Other" — fold-info
-            // invalidates on line-count change.
-            const QJsonValue savedCountVal = s.extraKeys.value(
-                QStringLiteral("corbomite.foldedHeadingsLineCount"));
-            const int currentCount = m_doc
-                ? m_doc->markdown().count(QLatin1Char('\n')) + 1
-                : 0;
-            const bool shapeMatches = savedCountVal.isDouble()
-                && savedCountVal.toInt() == currentCount;
-            m_readingView->setFoldedHeadingLines(
-                shapeMatches ? s.foldedHeadings : QVector<int>{});
-        }
-        break;
-    }
+    // TODO(port-foundation-exploration): ephemeral-state restore stubbed —
+    // pairs with the stubbed captureEphemeralStateFor above.
+    (void)mode;
+    (void)s;
 }
 
 void NoteEditorWidget::setViewMode(ViewMode newMode)
@@ -365,6 +263,14 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
     const EphemeralState outgoing = captureEphemeralStateFor(m_viewMode);
 
     // 2. Detach outgoing leaf from the canonical document.
+    if (isFindBarVisible() && m_doc) {
+        if (auto *leaf = activeLeaf()) {
+            if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
+                live->detachFindController();
+            else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
+                src->detachFindController();
+        }
+    }
     if (auto *leaf = activeLeaf()) {
         leaf->setDocument(nullptr);
     }
@@ -379,6 +285,15 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
     if (auto *leaf = activeLeaf()) {
         if (m_doc) {
             leaf->setDocument(m_doc->markoff());
+        }
+    }
+    if (isFindBarVisible() && m_doc) {
+        auto *fc = m_doc->findController();
+        if (auto *leaf = activeLeaf()) {
+            if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
+                live->attachFindController(fc);
+            else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
+                src->attachFindController(fc);
         }
     }
 
@@ -398,29 +313,33 @@ NoteEditorWidget::ViewMode NoteEditorWidget::viewMode() const
     return m_viewMode;
 }
 
-Markoff::Editor *NoteEditorWidget::editor() const
+Markoff::Live::EditorWidget *NoteEditorWidget::editor() const
 {
     return m_editor;
 }
 
-Markoff::Source::SourceEditor *NoteEditorWidget::sourceEditor() const
+Markoff::Source::Editor *NoteEditorWidget::sourceEditor() const
 {
     return m_sourceEditor;
 }
 
 Markoff::Reading::ReadingView *NoteEditorWidget::readingView() const
 {
-    return m_readingView;
+    // TODO(port-foundation-exploration): Reading retired; always nullptr.
+    return nullptr;
 }
 
 int NoteEditorWidget::currentLine() const
 {
-    return m_editor->cursorLine();
+    // TODO(port-foundation-exploration): cursorLine retired; line/column
+    // accessor needs TextAnchor → line conversion on the new MarkoffDocument.
+    return 0;
 }
 
 int NoteEditorWidget::currentColumn() const
 {
-    return m_editor->cursorColumn();
+    // TODO(port-foundation-exploration): see currentLine.
+    return 0;
 }
 
 // Cluster E Phase 1 — ephemeral state round-trip. Now called from
@@ -498,85 +417,27 @@ void NoteEditorWidget::onCursorPositionChanged(int line, int column)
 
 void NoteEditorWidget::maybeActivateSuggester()
 {
-    if (!m_suggestManager || !m_doc) return;
-
-    const int absPos = absoluteCursorPos();
-    if (absPos < 0) {
-        if (m_completionPopup) dismissCompletion();
-        return;
-    }
-    const QString line = currentLineText();
-    const int lineStart = absPos - m_editor->cursorColumn() + 1;
-    const int colInLine = absPos - lineStart;
-
-    auto result = m_suggestManager->dispatch(colInLine, line, m_doc);
-    if (!result) {
-        if (m_completionPopup) dismissCompletion();
-        return;
-    }
-
-    // If a popup is already up for the same suggester + same trigger start,
-    // just refilter; otherwise rebuild.
-    const int absStart = lineStart + result->info.start;
-    if (m_completionPopup && m_activeSuggester == result->suggester
-        && m_completionTriggerPos == absStart) {
-        updateCompletionFilter();
-        return;
-    }
-    dismissCompletion();
-    m_activeSuggester = result->suggester;
-    m_completionTriggerPos = absStart;
-
-    auto *model = new QStringListModel(result->suggester->getSuggestions(result->info), this);
-    m_completionPopup = new CompletionPopup(model, m_editor->viewport());
-    model->setParent(m_completionPopup);
-    connect(m_completionPopup, &CompletionPopup::itemSelected,
-            this, &NoteEditorWidget::onCompletionAccepted);
-    connect(m_completionPopup, &CompletionPopup::dismissed,
-            this, [this]() {
-        m_completionPopup = nullptr;
-        m_activeSuggester = nullptr;
-        m_completionTriggerPos = -1;
-    });
-    m_completionPopup->setFilterText(result->info.query);
-    positionCompletionPopup();
-    m_completionPopup->show();
+    // TODO(port-foundation-exploration): completion dispatch depended on the
+    // old Markoff::Editor's cursorLine/cursorColumn/viewport/toPlainText.
+    // Completion port is its own feature (separate from the find port).
+    // No-op until that feature lands.
 }
 
 void NoteEditorWidget::positionCompletionPopup()
 {
-    if (!m_completionPopup) return;
-    // cursorScreenRect is global; convert to viewport-local since
-    // that's the popup's parent.
-    QRect cr = m_editor->cursorScreenRect();
-    QPoint local = m_editor->viewport()->mapFromGlobal(cr.bottomLeft());
-    m_completionPopup->move(local + QPoint(0, 2));
+    // TODO(port-foundation-exploration): see maybeActivateSuggester.
 }
 
 int NoteEditorWidget::absoluteCursorPos() const
 {
-    int line = m_editor->cursorLine();
-    int col = m_editor->cursorColumn();
-    if (line < 1 || col < 1) return -1;
-    QString src = m_editor->toPlainText();
-    int currentLine = 1;
-    for (int i = 0; i < src.size(); ++i) {
-        if (currentLine == line) return i + col - 1;
-        if (src[i] == QLatin1Char('\n')) ++currentLine;
-    }
-    return src.size();
+    // TODO(port-foundation-exploration): see maybeActivateSuggester.
+    return -1;
 }
 
 QString NoteEditorWidget::currentLineText() const
 {
-    const int absPos = absoluteCursorPos();
-    if (absPos < 0) return {};
-    const QString src = m_editor->toPlainText();
-    int start = absPos;
-    while (start > 0 && src.at(start - 1) != QLatin1Char('\n')) --start;
-    int end = absPos;
-    while (end < src.size() && src.at(end) != QLatin1Char('\n')) ++end;
-    return src.mid(start, end - start);
+    // TODO(port-foundation-exploration): toPlainText retired on EditorWidget.
+    return {};
 }
 
 void NoteEditorWidget::updateCompletionFilter()
@@ -587,16 +448,10 @@ void NoteEditorWidget::updateCompletionFilter()
         dismissCompletion();
         return;
     }
-    const QString src = m_editor->toPlainText();
-    QString filter = src.mid(m_completionTriggerPos,
-                              absPos - m_completionTriggerPos);
-    if (filter.contains(QLatin1Char('\n'))
-        || filter.contains(QLatin1Char(']'))) {
-        dismissCompletion();
-        return;
-    }
-    m_completionPopup->setFilterText(filter);
-    positionCompletionPopup();
+    // TODO(port-foundation-exploration): toPlainText accessor retired on
+    // EditorWidget — completion port will reimplement against MarkoffDocument.
+    dismissCompletion();
+    (void)absPos;
 }
 
 void NoteEditorWidget::dismissCompletion()
@@ -613,34 +468,11 @@ void NoteEditorWidget::dismissCompletion()
 
 void NoteEditorWidget::onCompletionAccepted(const QString &text, const QString &data)
 {
+    Q_UNUSED(text)
     Q_UNUSED(data)
-
-    const QString source = m_editor->toPlainText();
-    const int triggerPos = m_completionTriggerPos;
-    const int absPos = absoluteCursorPos();
-    if (triggerPos < 0 || triggerPos > source.size() || absPos < 0
-        || !m_activeSuggester || !m_doc) {
-        dismissCompletion();
-        return;
-    }
-
-    EditorSuggestTriggerInfo ctx;
-    ctx.start = triggerPos;
-    ctx.end = absPos;
-    ctx.query = source.mid(triggerPos, absPos - triggerPos);
-    const QString insertion = m_activeSuggester->selectSuggestion(text, ctx);
-
-    // Phase C3: write the completion through the canonical MarkoffDocument
-    // undo stack rather than bypassing it with setPlainText + setMarkdown.
-    // This preserves undo history and keeps leaves in sync via their
-    // contentsChanged subscriptions.
-    const qsizetype removeLen = static_cast<qsizetype>(absPos - triggerPos);
-    m_doc->markoff()->undoStack()->push(
-        new Markoff::MarkdownDelta(m_doc->markoff(),
-                                   static_cast<qsizetype>(triggerPos),
-                                   removeLen,
-                                   insertion));
-
+    // TODO(port-foundation-exploration): completion-write path used the
+    // retired Markoff::MarkdownDelta + undoStack APIs. Port to applyFlatEdit
+    // + d2UndoLog when the completion feature lands. No-op for now.
     dismissCompletion();
 }
 
@@ -652,6 +484,48 @@ QString NoteEditorWidget::resolveTarget(const QString &target) const
     if (target.endsWith(QStringLiteral(".md")) || target.endsWith(QStringLiteral(".canvas")))
         return target;
     return target + QStringLiteral(".md");
+}
+
+// --- Find UI ---
+
+void NoteEditorWidget::showFindBar()
+{
+    if (!m_doc) return;
+    auto *fc = m_doc->findController();
+    m_findBar->setController(fc);
+    if (auto *leaf = activeLeaf()) {
+        // Use the polymorphic attach hook present on both Live::EditorWidget
+        // and Source::Editor. Symmetric API; no leaf-type switch needed in
+        // the contract, but the call site needs a downcast since
+        // MarkdownView itself doesn't expose attachFindController.
+        if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
+            live->attachFindController(fc);
+        else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
+            src->attachFindController(fc);
+    }
+    fc->activate();
+    m_findBar->show();
+    m_findBar->focusLineEdit();
+}
+
+void NoteEditorWidget::hideFindBar()
+{
+    if (m_doc) {
+        if (auto *leaf = activeLeaf()) {
+            if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
+                live->detachFindController();
+            else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
+                src->detachFindController();
+        }
+        m_doc->findController()->deactivate();
+    }
+    m_findBar->hide();
+    if (auto *leaf = activeLeaf()) leaf->setFocus();
+}
+
+bool NoteEditorWidget::isFindBarVisible() const
+{
+    return m_findBar && m_findBar->isVisible();
 }
 
 } // namespace Corbomite

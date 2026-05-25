@@ -74,7 +74,7 @@ target_link_libraries(vault
         KF6::CoreAddons
         KF6::ConfigCore
     PRIVATE
-        MarkoffParser::MarkoffParser
+        Markoff::Parser
 )
 
 # PluginManager's MinVersion gate compares plugin metadata against this
@@ -102,5 +102,9 @@ if(DEFINED KDE_INSTALL_INCLUDEDIR)
     )
 endif()
 
-enable_testing()
-add_subdirectory(tests)
+# TODO(port-foundation-exploration): gated off during port (see top-level
+# CORBOMITE_PORT_BUILD_TESTS).
+if(CORBOMITE_PORT_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

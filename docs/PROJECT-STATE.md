@@ -2,6 +2,8 @@
 
 > Slim session-start orientation. **Reset 2026-04-26** after a full audit (`docs/audit-2026-04-26/`) regrouped everything into a fresh A-onwards cluster scheme + a flat punch list. Pre-reset state archived at `docs/archive-2026-04-26/PROJECT-STATE-pre-reset.md`.
 
+> **2026-05-25 — Foundation port landed on `master`.** Markoff's QML/D2 rebuild merged to Markoff `master` (tag `v0.7.0-freeze`); Corbomite re-pinned there and merged `port/foundation-exploration` → `master`. The old four-leaf QGraphicsView editor is retired; the QML/D2 live editor is canonical. The rewrite **obsoletes clusters G, H, and (likely) J** and **re-scopes E**; **D and F are unaffected** and are the live cluster work. Open steer owed to Markoff: Reading-mode direction (restore a Reading leaf vs. read-only Live). Port doc: [`docs/port-foundation-exploration.md`](port-foundation-exploration.md). Handoffs: [`docs/handoff/`](handoff/).
+
 ## Two tracks
 
 Work flows through **two parallel tracks**. Both must be checked at session start.
@@ -17,20 +19,20 @@ Most P0/P1 punch-list items are **silent vault-format corruption risks**. Drain 
 
 | Cluster | Title | Status | Source |
 |---|---|---|---|
-| D | Bases UI completion | Plan-needed (stub) | Audit |
-| E | Markoff Editor API parity | Plan-needed (stub) | Audit |
-| F | Internal-plugin gap fill | Plan-needed (stub) | Audit |
-| G | Markoff Phase C8 (inline-ORC coherence) | In-flight | Carried (was Phase C8 plan) |
-| H | Block-substitution widgets | Scouting (blocked on G) | Carried (was Cluster X) |
-| I | Editor & Workspace UI surfacing | In-flight | Carried (was Cluster V) |
-| J | Qutepart-Corbomite Fork | In-flight (Phases 1+2 done) | Carried (was parallel refactor) |
+| D | Bases UI completion | Plan-needed (stub) — **unaffected by port** | Audit |
+| E | Markoff Editor API parity | **Re-scope vs D2 block model** (was: Plan-needed stub) | Audit |
+| F | Internal-plugin gap fill | Plan-needed (stub) — **mostly unaffected** | Audit |
+| I | Editor & Workspace UI surfacing | **Partly absorbed into port** (editor-action wiring); Workspace half survives | Carried (was Cluster V) |
 
 Closed (post-reset): A (2026-04-27), B (2026-04-28), C (2026-04-27).
+
+**Obsoleted by the foundation rewrite (2026-05-25):** G (inline-ORC coherence — no more QTextDocument/ORC substrate), H (block-substitution widgets — peer-delegate model is the new baseline; math/mermaid → Markoff E5), J (qutepart Source fork — likely superseded by `Markoff::Source::Editor`; confirm before formal closeout). See INDEX + decisions-archive.
 
 Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/plans/INDEX.md).
 
 ## Recent decisions
 
+- **2026-05-25 — Foundation port reconciliation; Markoff merged to master.** Markoff's QML/D2 rebuild (`exploration/new-foundation`) merged to Markoff `master` (tag `v0.7.0-freeze`, tip `1e0f332`); old v0.6.x tree preserved at `v0.6.x-final`. The rewrite retired the QGraphicsView / `QTextDocument` / `ObjectReplacementCharacter` substrate, **obsoleting clusters G (inline-ORC coherence) and H (block-substitution widgets)** and **likely J** (qutepart Source fork — superseded by `Markoff::Source::Editor`); **E** (editor plugin API) needs re-scope against the D2 block model; **I** is partly absorbed into the port's editor-action wiring; **D and F are unaffected** and remain the live Corbomite-native cluster work. Three dead old-editor branches archived as `archive/markoff-{fold-v2,reading-split,source-split}` tags. Next: re-pin submodule to `v0.7.0-freeze`, then merge `port/foundation-exploration` → Corbomite `master` (Markoff-first ordering satisfied). Handoffs at [`docs/handoff/`](handoff/) (ours + Markoff's `to-corbomite-merge-complete` reply). Full closeout: decisions-archive.md.
 - **2026-04-28 — Autonomous punch-list drain (7 items + 1 regression fix).** Six closures + one shutdown-guard fix shipped in one autonomous session: (1) `MainWindow::onVaultClosed` adapter-pointer reset (3 P4 items batched: drops `m_embedRenderer`'s cached `metadataParser` pointer + `.reset()`s the three Markoff shims before deleting wrapped pointers; `PluginManager::enablePlugin` try/catches `plugin->load` and auto-unloads on throw with new `LoadState::OnLoadThrew`; `Workspace::cssChange()` Q_SIGNAL + `WorkspaceController::cssChange` proxy mirror, wired to `ThemeService::themeChanged` from MainWindow). (2) MomentFormatter — added `Y/Q/gg/gggg/E/e/k/kk/Z/ZZ` and the moment-en locale shortcuts `LT/LTS/L/l/LL/ll/LLL/lll/LLLL/llll`; vault templates referencing these no longer render the literal characters. (3) `Workspace::detachLeavesOfType(type)` + `ViewRegistrar::registeredTypes()` accessor + MainWindow wiring on `pluginUnloading` (gated on `m_vaultObj` so destruction-time disablePlugin can't crash on dangling NoteDocument refs — caught + fixed mid-session via `tst_mainwindow_action_wiring`). (4) `BasesView::setCurrentFile(TFile *)` public + Workspace::activeLeafChanged wire-up so `this` formulas re-evaluate on note switch. (5) `SettingsDialog` Hotkeys page embedding `KShortcutsEditor` (`AllActions`, `LetterShortcutsAllowed`); commits on accept, undoes on cancel. New tests: `tst_plugin_manager_lifecycle::onLoadThrowAutoUnloads`, `tst_proxy_workspace::cssChange_reEmitsFromWorkspace`, `tst_workspace_factory::detachLeavesOfType_closesMatchingLeavesOnly`, 9 new cases in `tst_momentformatter`.
 - **2026-04-28 — Cluster B closed.** 16-item plugin-API-surface completion shipped across 4 phases. 11 new proxy/registry pairs (Hover, Suggest, PostProcessor, Ribbon, Embed, CodeBlock, StatusBar, LucideIcon, MarkdownRenderer, DecorationProvider, ProtocolHandler) following the existing `CommandRegistrar` pattern; 5 new permission tokens (`ui.rendering`, `ui.editor`, `ui.statusbar`, `ui.icons`, `protocol`) in a public `corbomite/core/PluginPermissions.h`; `Vault::raw` + `Vault::configChanged` signals with expanded `.obsidian/` watcher coverage; `Plugin::onExternalSettingsChange` virtual + per-plugin `data.json` watcher in `PluginManager`; permission reference docs at `docs/plugin-development/permissions.md`. 29 new test cases in `tst_proxy_extensions` + 3 in `tst_vault_watcher` + 3 in `tst_plugin_external_settings`. Spec: [`specs/2026-04-28-cluster-b-plugin-api-surface-design.md`](superpowers/specs/2026-04-28-cluster-b-plugin-api-surface-design.md). Plan: [`plans/2026-04-28-cluster-b-plugin-api-surface.md`](superpowers/plans/2026-04-28-cluster-b-plugin-api-surface.md). Follow-ups tracked in punch list. Active cluster count: 7.
 - **2026-04-27 — Cluster A & Cluster C closed inline.** Both stubs drained via the P0/P1 punch-list sweeps + the 2026-04-26 serializer-consolidation work-unit. Final A item (BOM strip on read in `Vault::read` / `readRaw`; `readBinary` preserves bytes verbatim) shipped with `tst_vault_read::readStripsLeadingUtf8Bom`. Residuals reassigned: `Vault.raw` + `Vault.config-changed` events → Cluster B (#15–#16, plugin event surface); Workspaces internal plugin (`workspaces.json`) + sidedock-as-tree substrate → Cluster F (#9–#10). Active cluster count: 8.
@@ -40,9 +42,10 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Open questions
 
-- Next strategic cluster to brainstorm? Recommendation: **B** (Plugin API surface) — unblocks third-party plugins and feeds Cluster F. **D** and **F** can run in parallel after B has shape.
-- Cluster-A precedent (drained inline rather than expanded to a full plan): worth applying to **C/D/F** stubs first to see if any have already been drained too. Both A and C closeouts confirmed most scope items had already shipped via the punch list.
+- **Reading-vs-non-editable-Live (highest-value, Markoff is awaiting our steer).** Restore a Reading leaf, or drive Live with `Capabilities::Editable=false`? Several frozen punch-list P2s (HoverPopover, checkbox-toggle, Reading `setCursorLine`) hang off this one decision.
+- **Punch-list re-base after the port→master merge.** The open editor/rendering P2s are now either moot (Reading retired) or gated on Markoff E3 (embeds/callouts) / E5 (math/mermaid), not actionable Corbomite work. Re-triage rather than drain top-down.
+- **Confirm J's obsolescence** before formal closeout: does `Markoff::Source::Editor` fully cover the qutepart-fork intent (visual-line scroll, fold serialization, find/replace, markdown awareness)?
 
 ## Last touched
 
-2026-04-28 — Autonomous 7-item punch-list drain (P4/P5/P6 mix). See decisions-archive for the full closeout once written.
+2026-05-25 — Foundation port landed on `master`: submodule re-pinned to `v0.7.0-freeze`, `port/foundation-exploration` merged in (--no-ff), build + launch verified. Next: send Markoff the Reading-mode steer; re-triage the punch list against the new substrate; D/F are the live cluster work.
