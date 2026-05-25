@@ -1,0 +1,28 @@
+filters:
+  and:
+    - 'note.type == "director"'
+views:
+  - type: table
+    name: Directors
+    order:
+      - file.name
+      - note.born
+      - note.country
+    sort:
+      - property: note.born
+        direction: ASC
+  - type: table
+    name: By Country
+    groupBy:
+      property: note.country
+      direction: ASC
+    order:
+      - file.name
+      - note.born
+    sort:
+      - property: note.country
+        direction: ASC
+      - property: note.born
+        direction: ASC
+    summaries:
+      file.name: count

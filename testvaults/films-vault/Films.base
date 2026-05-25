@@ -1,0 +1,82 @@
+formulas:
+  hours: "(note.runtime / 60).round(2)"
+views:
+  - type: table
+    name: All Films
+    order:
+      - note.title
+      - note.year
+      - note.genre
+      - note.rating
+      - note.runtime
+      - formula.hours
+      - note.director
+      - note.country
+      - note.watched
+    sort:
+      - property: note.year
+        direction: ASC
+  - type: table
+    name: By Genre
+    groupBy:
+      property: note.genre
+      direction: ASC
+    order:
+      - note.title
+      - note.year
+      - note.rating
+      - note.director
+    sort:
+      - property: note.genre
+        direction: ASC
+      - property: note.rating
+        direction: DESC
+    summaries:
+      note.title: count
+      note.rating: average
+  - type: table
+    name: By Decade
+    groupBy:
+      property: note.decade
+      direction: ASC
+    order:
+      - note.title
+      - note.year
+      - note.genre
+      - note.rating
+    sort:
+      - property: note.decade
+        direction: ASC
+      - property: note.rating
+        direction: DESC
+    summaries:
+      note.title: count
+      note.rating: average
+  - type: table
+    name: Watchlist
+    filters:
+      and:
+        - "note.watched == false"
+    order:
+      - note.title
+      - note.year
+      - note.genre
+      - note.rating
+      - note.director
+    sort:
+      - property: note.rating
+        direction: DESC
+  - type: table
+    name: Top Rated
+    filters:
+      and:
+        - "note.rating >= 8"
+    order:
+      - note.title
+      - note.year
+      - note.genre
+      - note.rating
+    sort:
+      - property: note.rating
+        direction: DESC
+    limit: 15
