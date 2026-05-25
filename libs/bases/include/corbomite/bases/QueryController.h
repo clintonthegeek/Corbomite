@@ -3,6 +3,7 @@
 
 #include "BasesQuery.h"
 #include "BasesQueryResult.h"
+#include "BasesVaultResolver.h"
 
 #include <QObject>
 #include <QString>
@@ -69,6 +70,7 @@ private:
     QString m_searchQuery;
 
     std::unique_ptr<BasesQueryResult> m_result;
+    std::unique_ptr<BasesVaultResolver> m_resolver;
     QTimer *m_recomputeTimer = nullptr;
 };
 

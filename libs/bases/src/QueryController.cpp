@@ -82,11 +82,15 @@ void QueryController::recomputeNow()
     // Gather candidate TFiles — markdown only per audit surface.
     const QVector<TFile *> files = m_vault->getMarkdownFiles();
 
+    // One resolver per recompute, seeded from the full vault path set.
+    m_resolver = std::make_unique<BasesVaultResolver>(m_vault, m_cache);
+
     QVector<std::shared_ptr<BasesEntry>> entries;
     entries.reserve(files.size());
     for (TFile *f : files) {
         entries.push_back(std::make_shared<BasesEntry>(
-            m_vault, m_cache, f, m_local ? m_local : f, *m_query, m_funcs));
+            m_vault, m_cache, f, m_local ? m_local : f, *m_query, m_funcs,
+            m_resolver.get()));
     }
 
     // Apply global filter + per-view filter (both AND).

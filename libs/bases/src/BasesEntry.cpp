@@ -14,13 +14,15 @@ namespace Corbomite::Bases {
 
 BasesEntry::BasesEntry(Vault *vault, MetadataCache *cache,
                        TFile *file, TFile *localFile,
-                       const BasesQuery &query, FunctionRegistry *funcs)
+                       const BasesQuery &query, FunctionRegistry *funcs,
+                       const VaultResolver *resolver)
     : m_vault(vault),
       m_cache(cache),
       m_file(file),
       m_local(localFile),
       m_query(query),
-      m_funcs(funcs ? funcs : &FunctionRegistry::global())
+      m_funcs(funcs ? funcs : &FunctionRegistry::global()),
+      m_resolver(resolver)
 {
 }
 

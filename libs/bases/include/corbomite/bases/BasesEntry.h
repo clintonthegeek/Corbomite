@@ -20,6 +20,7 @@ class Vault;
 namespace Corbomite::Bases {
 
 class FunctionRegistry;
+class VaultResolver;
 
 /// A `BasesEntry` is one vault note projected into a query result — a
 /// row in a BasesView's table. Holds a borrowed `TFile *`, a borrowed
@@ -33,7 +34,8 @@ public:
                TFile *file,
                TFile *localFile,
                const BasesQuery &query,
-               FunctionRegistry *funcs = nullptr);
+               FunctionRegistry *funcs = nullptr,
+               const VaultResolver *resolver = nullptr);
     ~BasesEntry() override;
 
     TFile *file() const { return m_file; }
@@ -49,6 +51,8 @@ public:
     /// Identifier dispatch.
     ValuePtr getByIdentifier(const QString &name) const override;
     QStringList keys() const override;
+
+    const VaultResolver *vault() const override { return m_resolver; }
 
     /// PropertyId-keyed accessor (dispatches by kind).
     ValuePtr getValue(const PropertyId &id) const;
@@ -67,6 +71,7 @@ private:
     TFile *m_local;
     const BasesQuery &m_query;
     FunctionRegistry *m_funcs;
+    const VaultResolver *m_resolver = nullptr;
 
     mutable std::shared_ptr<FileValue> m_implicit;
     mutable std::shared_ptr<ObjectValue> m_note;
