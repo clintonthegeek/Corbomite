@@ -4,19 +4,16 @@
 >
 > **Reset 2026-04-26.** Lettering restarted at A after the audit (`docs/audit-2026-04-26/`). Pre-reset legacy clusters live in `archive/` and are referenced as "legacy cluster &lt;letter&gt;" in `decisions-archive.md` to avoid collision.
 
-**Last updated:** 2026-04-28 — Cluster B closed (16 items shipped across 4 phases); follow-ups for ReadingView dispatch wiring + obsidian:// opt-in + bundled Lucide set + kitchen-sink reference plugin tracked in punch list.
+**Last updated:** 2026-05-25 — Foundation port reconciliation. Markoff's QML/D2 rebuild merged to Markoff `master` (`v0.7.0-freeze`); the rewrite obsoletes G/H/J and re-scopes E. D/F/I-Workspace unaffected. See PROJECT-STATE + the new "Obsoleted by the foundation rewrite" table below.
 
 ## Active clusters
 
 | Cluster | Title | Plan file | Type | Status | Notes |
 |---|---|---|---|---|---|
-| D | Bases UI completion | [stub](2026-04-26-cluster-d-bases-ui-completion.md) | Stub | Plan-needed | Runtime exists (legacy K). Builds the missing UI: formula editor, group rendering, properties drawer, export, drag, hover, undo, multi-key sort. |
-| E | Markoff Editor API parity | [stub](2026-04-26-cluster-e-markoff-editor-api-parity.md) | Stub | Plan-needed | Plugin shim — `getLine`/`replaceRange`/`posAtCoords`/etc. Multi-cursor in Live mode. Full `EditorExtension` ABI. Cluster B shipped a decoration-only `registerEditorExtension`; this expands it. |
-| F | Internal-plugin gap fill | [stub](2026-04-26-cluster-f-internal-plugin-gap-fill.md) | Stub | Plan-needed | 8 missing internal plugins + Workspaces plugin + sidedock-as-tree substrate (pulled from C). Cluster B unblocked: addStatusBarItem now available for word-count plugin. |
-| G | Markoff Phase C8 (inline-ORC coherence) | [full](2026-04-26-cluster-g-markoff-phase-c8.md) | Full | In-flight | Markoff-side work-unit C8. Was: `2026-04-23-phase-c8-inline-orc-canonical-coherence.md`. |
-| H | Block-substitution widgets | [scouting](2026-04-26-cluster-h-block-substitution-widgets.md) | Scouting | Blocked on G | Promotes block math + mermaid out of QTextDocument substitution into peer `QGraphicsItem`s. Was: legacy Cluster X. |
-| I | Editor & Workspace UI surfacing | [full](2026-04-26-cluster-i-editor-workspace-ui-surfacing.md) | Full | In-flight | Was: legacy Cluster V. Plan written 2026-04-20; phases not yet executed. |
-| J | Qutepart-Corbomite Fork | [full](2026-04-26-cluster-j-qutepart-fork.md) | Full | In-flight (Phases 1+2 done) | Long-term internal Markoff Source-mode refactor. Was: standalone "Parallel long-term internal refactor". Next: Phase 3 (public find/replace API). |
+| D | Bases UI completion | [stub](2026-04-26-cluster-d-bases-ui-completion.md) | Stub | Plan-needed | **Unaffected by port.** Runtime exists (legacy K). Builds the missing UI: formula editor, group rendering, properties drawer, export, drag, hover, undo, multi-key sort. |
+| E | Markoff Editor API parity | [stub](2026-04-26-cluster-e-markoff-editor-api-parity.md) | Stub | **Re-scope vs D2 model** | Plugin shim — was line/column-based (`getLine`/`replaceRange`/`posAtCoords`). The new foundation's D2 block model invalidates that surface; re-scope when plugin-editor-API pressure arrives (likely post-port-merge). Dependency on J Phases 1–2 dissolved. |
+| F | Internal-plugin gap fill | [stub](2026-04-26-cluster-f-internal-plugin-gap-fill.md) | Stub | Plan-needed | **Mostly unaffected.** 8 missing internal plugins + Workspaces plugin + sidedock-as-tree substrate (pulled from C). Plugins touching the editor API wait on E's rework; the rest are independent. |
+| I | Editor & Workspace UI surfacing | [full](2026-04-26-cluster-i-editor-workspace-ui-surfacing.md) | Full | **Partly absorbed into port** | Was: legacy Cluster V. Editor-surfacing half is being redone on `port/foundation-exploration` (heading actions, per-leaf format dispatch); reconcile against that rather than executing the 2026-04-20 plan. Workspace (KDDW) half is substrate-independent and survives. |
 
 ## Closed in this scheme
 
@@ -25,6 +22,16 @@
 | A | Vault-format compatibility sweep | 2026-04-27 | Drained inline via P0 sweep + BOM-strip closeout. Plan: [closed](2026-04-26-cluster-a-vault-format-compat.md). raw/config-changed events reassigned to B. |
 | B | Plugin API surface completion | 2026-04-28 | 16 items shipped across 4 phases — 11 mechanical / new-substrate proxies (Hover, Suggest, PostProcessor, Ribbon, Embed, CodeBlock, StatusBar, LucideIcon, MarkdownRenderer, DecorationProvider, ProtocolHandler), `Vault::raw` + `configChanged` events, expanded `.obsidian/` watcher, `Plugin::onExternalSettingsChange`, permission tokens public header + reference docs. 5 new permission tokens. Plan: [executed](2026-04-28-cluster-b-plugin-api-surface.md). Spec: [`specs/2026-04-28-cluster-b-plugin-api-surface-design.md`](../specs/2026-04-28-cluster-b-plugin-api-surface-design.md). |
 | C | Workspace serializer fidelity rebuild | 2026-04-27 | Drained inline via P1 sweep + serializer-consolidation work-unit. Plan: [closed](2026-04-26-cluster-c-workspace-serializer.md). Sidedock-as-tree + named-workspaces reassigned to F. |
+
+## Obsoleted by the foundation rewrite (2026-05-25)
+
+These three clusters were built entirely on the old Markoff editor substrate (QGraphicsView scene + `QTextDocument` + `ObjectReplacementCharacter` substitution + qutepart Source mode). Markoff's `exploration/new-foundation` rebuild — a QML/QtQuick peer-delegate editor over a D2/CollabText block model, merged to Markoff `master` (`v0.7.0-freeze`) on 2026-05-25 — removes that substrate, so these clusters' problems no longer exist or are now the baseline. Plans left in place for history; do not dispatch.
+
+| Cluster | Title | Plan file | Why obsolete |
+|---|---|---|---|
+| G | Markoff Phase C8 (inline-ORC coherence) | [full](2026-04-26-cluster-g-markoff-phase-c8.md) | Guarded against `U+FFFC` corruption in `QTextDocument`-substituted glyphs. No QTextDocument, no ORC glyphs in the new model — the corruption class can't occur. E1 InlineHighlighter is the replacement. |
+| H | Block-substitution widgets | [scouting](2026-04-26-cluster-h-block-substitution-widgets.md) | Goal was to promote math/mermaid *out of* `QTextDocument` *into* peer graphics items. That *is* the new baseline — every block is a peer QML delegate. Superseded by Markoff E5 (math/Mermaid Live parity). |
+| J | Qutepart-Corbomite Fork | [full](2026-04-26-cluster-j-qutepart-fork.md) | Was going to vendor + own a Source-mode widget. New foundation ships `Markoff::Source::Editor` (block-aware d2 edits, format ops). **Likely** obsolete — confirm `Markoff::Source::Editor` covers the qutepart-fork intent (visual-line scroll, fold serialization, find/replace, markdown awareness) before formal closeout. |
 
 ## Where to find more
 
