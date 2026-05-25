@@ -576,6 +576,7 @@ void registerLinkMethods(FunctionRegistry &r)
             auto *lv = subj(args);
             if (!lv) return std::make_shared<BooleanValue>(false);
             const QString other = toStr(args.value(1));
+            // Bound: compare both sides' canonical resolved paths. Unbound: fall back to raw string equality.
             if (const VaultResolver *v = ctx.vault()) {
                 const QString tgt = v->resolveLinkTarget(lv->data(), lv->sourcePath());
                 const QString oth = v->resolveLinkTarget(other, lv->sourcePath());

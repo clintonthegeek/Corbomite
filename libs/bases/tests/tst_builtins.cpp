@@ -39,6 +39,7 @@ public:
     }
     QString resolveLinkTarget(const QString &linkData, const QString &) const override
     {
+        // sourcePath unused in the fake; the real resolver uses it for relative/short-link resolution.
         return linkMap.value(linkData);  // "" if absent
     }
 };
@@ -194,6 +195,16 @@ private Q_SLOTS:
         QCOMPARE(v->type(), QStringLiteral("Null"));
     }
 
+    void testFileGlobalNoArgsReturnsNull()
+    {
+        // file() with no path arg: the DSL passes an empty args vector; the lambda
+        // calls fileAt("") which returns Null when the path is absent from the vault.
+        FakeResolver r;  // files is empty
+        VaultCtx c; c.res = &r;
+        auto v = run(QStringLiteral("file()"), c);
+        QCOMPARE(v->type(), QStringLiteral("Null"));
+    }
+
     // ----- LinkValue.asFile + linksTo via VaultResolver -----
 
     void testLinkAsFileResolves()
@@ -222,6 +233,30 @@ private Q_SLOTS:
         auto no  = run(QStringLiteral("lnk.linksTo('Other.md')"), c);
         QCOMPARE(std::static_pointer_cast<BooleanValue>(yes)->data(), true);
         QCOMPARE(std::static_pointer_cast<BooleanValue>(no)->data(), false);
+    }
+
+    void testLinkAsFileReturnsNullWhenNotFound()
+    {
+        FakeResolver r;
+        r.linkMap.insert(QStringLiteral("Foo"), QStringLiteral("Notes/Foo.md"));
+        // note: files is empty — the resolved path does not exist
+        VaultCtx c; c.res = &r;
+        c.ids.insert(QStringLiteral("lnk"),
+                     std::make_shared<LinkValue>(QStringLiteral("Foo"),
+                                                 QStringLiteral("src.md")));
+        auto v = run(QStringLiteral("lnk.asFile()"), c);
+        QCOMPARE(v->type(), QStringLiteral("Null"));
+    }
+
+    void testLinkLinksToUnresolvedReturnsFalse()
+    {
+        FakeResolver r;  // empty linkMap: the link resolves to nothing
+        VaultCtx c; c.res = &r;
+        c.ids.insert(QStringLiteral("lnk"),
+                     std::make_shared<LinkValue>(QStringLiteral("Ghost"),
+                                                 QStringLiteral("src.md")));
+        auto v = run(QStringLiteral("lnk.linksTo('Anything.md')"), c);
+        QCOMPARE(std::static_pointer_cast<BooleanValue>(v)->data(), false);
     }
 
     // ----- Error paths -----
