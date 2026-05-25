@@ -48,9 +48,13 @@ ValuePtr ListValue::get(int i) const
 
 bool ListValue::includes(const ValuePtr &v) const
 {
+    const QString needle = v ? v->toString() : QString{};
     for (const auto &x : m_data) {
-        if (Value::staticLooseEquals(x.get(), v.get()))
+        if (auto *tag = dynamic_cast<TagValue *>(x.get())) {
+            if (tag->tagMatches(needle)) return true;
+        } else if (Value::staticLooseEquals(x.get(), v.get())) {
             return true;
+        }
     }
     return false;
 }

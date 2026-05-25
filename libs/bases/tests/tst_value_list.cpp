@@ -64,6 +64,16 @@ private Q_SLOTS:
         QVERIFY(!l->includes(S("c")));
     }
 
+    void testIncludesHierarchicalTag()
+    {
+        QVector<ValuePtr> elems{ std::make_shared<TagValue>(QStringLiteral("#parent/child")) };
+        auto l = std::make_shared<ListValue>(elems);
+        QVERIFY(l->includes(std::make_shared<TagValue>(QStringLiteral("#parent"))));
+        QVERIFY(l->includes(std::make_shared<StringValue>(QStringLiteral("#parent"))));
+        QVERIFY(l->includes(std::make_shared<TagValue>(QStringLiteral("#parent/child"))));
+        QVERIFY(!l->includes(std::make_shared<TagValue>(QStringLiteral("#parent/other"))));
+    }
+
     void testListConcat()
     {
         auto a = list({N(1), N(2)});
