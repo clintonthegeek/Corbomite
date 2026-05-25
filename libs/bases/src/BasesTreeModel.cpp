@@ -162,6 +162,11 @@ ValuePtr BasesTreeModel::valueAt(const QModelIndex &index) const
     return entry->getValue(propertyAt(index.column()));
 }
 
+BasesEntry *BasesTreeModel::entryForIndex(const QModelIndex &index) const
+{
+    return entryAt(index);
+}
+
 bool BasesTreeModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
     if (role != Qt::EditRole || isGroupRow(index) || !m_fm) return false;

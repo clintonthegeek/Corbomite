@@ -10,6 +10,7 @@
 #include "corbomite/bases/PropertiesMenuPanel.h"
 #include "corbomite/bases/SortGroupMenuPanel.h"
 #include "corbomite/bases/ViewsMenuPanel.h"
+#include "corbomite/bases/PropertiesDrawer.h"
 #include "corbomite/bases/BasesQueryResult.h"
 
 #include <KLocalizedString>
@@ -18,8 +19,10 @@
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
+#include <QSplitter>
 #include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
@@ -58,6 +61,12 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_viewsBtn->setText(i18n("Views"));
     m_viewsBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
     toolbar->addWidget(m_viewsBtn);
+
+    m_drawerBtn = new QToolButton(this);
+    m_drawerBtn->setText(i18n("Properties pane"));
+    m_drawerBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_drawerBtn->setCheckable(true);
+    toolbar->addWidget(m_drawerBtn);
 
     m_propsPanel = new PropertiesMenuPanel(this);
     m_sortPanel  = new SortGroupMenuPanel(this);
@@ -112,7 +121,20 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
                            | QAbstractItemView::EditKeyPressed);
     m_delegate = new BasesCellDelegate(this);
     m_table->setItemDelegate(m_delegate);
-    root->addWidget(m_table, 1);
+
+    m_splitter = new QSplitter(Qt::Horizontal, this);
+    m_splitter->addWidget(m_table);
+    m_drawer = new PropertiesDrawer(m_splitter);
+    m_drawer->hide();                         // collapsed until toggled
+    m_splitter->addWidget(m_drawer);
+    m_splitter->setStretchFactor(0, 1);
+    m_splitter->setStretchFactor(1, 0);
+    root->addWidget(m_splitter, 1);
+
+    connect(m_drawerBtn, &QToolButton::toggled, this, [this](bool on) {
+        m_drawer->setVisible(on);
+        if (on) onSelectionChanged();
+    });
 
     connect(hdr, &QHeaderView::sectionClicked,
             this, &BasesView::onHeaderClicked);
@@ -137,6 +159,7 @@ void BasesView::setServices(Vault *vault, MetadataCache *cache,
     m_vault = vault;
     m_cache = cache;
     m_fm = fileManager;
+    if (m_drawer) m_drawer->setFileManager(m_fm);
     m_funcs = funcs ? funcs : &FunctionRegistry::global();
 }
 
@@ -205,6 +228,8 @@ void BasesView::rebuildLayout()
 
     m_model = std::make_unique<BasesTreeModel>(m_controller.get(), m_fm, this);
     m_table->setModel(m_model.get());
+    connect(m_table->selectionModel(), &QItemSelectionModel::currentRowChanged,
+            this, &BasesView::onSelectionChanged, Qt::UniqueConnection);
     m_table->expandAll();
     m_controller->recomputeNow();
 }
@@ -250,6 +275,14 @@ void BasesView::onSectionMoved(int, int, int)
     if (newOrder == m_activeView->order) return;
     m_activeView->order = std::move(newOrder);
     requestSave();
+}
+
+void BasesView::onSelectionChanged()
+{
+    if (!m_drawer || !m_drawer->isVisible() || !m_model) return;
+    const QModelIndex idx = m_table->currentIndex();
+    if (!idx.isValid() || m_model->isGroupRow(idx)) { m_drawer->showEntry(nullptr); return; }
+    m_drawer->showEntry(m_model->entryForIndex(idx));
 }
 
 void BasesView::onConfigMutated()

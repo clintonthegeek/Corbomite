@@ -41,6 +41,7 @@ public:
 
     bool isGroupRow(const QModelIndex &index) const;
     ValuePtr valueAt(const QModelIndex &index) const;       // entry cells; null for group rows
+    BasesEntry *entryForIndex(const QModelIndex &index) const;  // null for group rows
     PropertyId propertyAt(int column) const;
 
     /// Test seam: populate the snapshot directly, bypassing the controller.
