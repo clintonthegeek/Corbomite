@@ -60,6 +60,31 @@ private Q_SLOTS:
         QVERIFY(!m.isGroupRow(e));
         QVERIFY(!m.parent(e).isValid());                       // parent is root
     }
+
+    void testGroupRowData()
+    {
+        BasesQuery q;
+        BasesTreeModel m(nullptr, nullptr);
+        m.populateForTesting({ grp("Active", 2, q) }, {note("status"), note("title")});
+        // The single keyed group is NOT flat -> a group row exists.
+        const QModelIndex g0 = m.index(0, 0, QModelIndex());
+        QVERIFY(m.isGroupRow(g0));
+        QCOMPARE(m.data(g0, BasesTreeModel::IsGroupRowRole).toBool(), true);
+        QCOMPARE(m.data(g0, BasesTreeModel::GroupCountRole).toInt(), 2);
+        QCOMPARE(m.data(g0, Qt::DisplayRole).toString(), QStringLiteral("Active"));
+        // entry rows are not group rows
+        const QModelIndex e = m.index(0, 0, g0);
+        QCOMPARE(m.data(e, BasesTreeModel::IsGroupRowRole).toBool(), false);
+    }
+    void testNullKeyGroupLabel()
+    {
+        BasesQuery q;
+        BasesTreeModel m(nullptr, nullptr);
+        // two groups so it's not flat; second is keyless
+        m.populateForTesting({ grp("Active", 1, q), grp(nullptr, 1, q) }, {note("status")});
+        const QModelIndex g1 = m.index(1, 0, QModelIndex());
+        QCOMPARE(m.data(g1, Qt::DisplayRole).toString(), QStringLiteral("(no value)"));
+    }
 };
 
 QTEST_MAIN(TestBasesTreeModel)

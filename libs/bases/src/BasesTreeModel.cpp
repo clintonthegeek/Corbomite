@@ -120,12 +120,76 @@ void BasesTreeModel::onResultsChanged()
     endResetModel();
 }
 
-// --- data()/setData()/flags()/headerData() land in Task 3 ---
-QVariant BasesTreeModel::data(const QModelIndex &, int) const { return {}; }
-bool BasesTreeModel::setData(const QModelIndex &, const QVariant &, int) { return false; }
+QVariant BasesTreeModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid()) return {};
+
+    if (isGroupRow(index)) {
+        const int g = index.row();
+        if (g < 0 || g >= m_groups.size()) return {};
+        const BasesEntryGroup &grp = m_groups[g];
+        if (role == IsGroupRowRole) return true;
+        if (role == GroupCountRole) return int(grp.entries.size());
+        if (role == Qt::DisplayRole) {
+            if (index.column() == 0)
+                return grp.hasKey() ? grp.key->toString() : QStringLiteral("(no value)");
+            // summary cell for this column iff a summary fn is configured
+            const PropertyId pid = propertyAt(index.column());
+            const QString fn = m_summaries.value(pid);
+            if (!fn.isEmpty() && m_controller && m_controller->result()) {
+                auto sv = m_controller->result()->summaryValue(g, pid, fn);
+                return sv ? sv->toString() : QString{};
+            }
+            return {};
+        }
+        return {};
+    }
+
+    // entry row
+    if (role == IsGroupRowRole) return false;
+    const auto v = valueAt(index);
+    if (!v) return {};
+    if (role == ValueTypeRole) return v->type();
+    if (role == ValuePtrRole)  return QVariant::fromValue(v);
+    if (role == Qt::DisplayRole || role == Qt::EditRole) return v->toString();
+    return {};
+}
+
+ValuePtr BasesTreeModel::valueAt(const QModelIndex &index) const
+{
+    auto *entry = entryAt(index);
+    if (!entry) return nullptr;
+    return entry->getValue(propertyAt(index.column()));
+}
+
+bool BasesTreeModel::setData(const QModelIndex &index, const QVariant &value, int role)
+{
+    if (role != Qt::EditRole || isGroupRow(index) || !m_fm) return false;
+    auto *entry = entryAt(index);
+    if (!entry || !entry->file()) return false;
+    const PropertyId pid = propertyAt(index.column());
+    if (pid.kind != PropertyKind::Note) return false;   // only frontmatter editable
+    m_fm->processFrontMatter(entry->file(), [&](QVariantMap &fm) { fm.insert(pid.name, value); });
+    return true;  // QueryController recompute -> resultsChanged -> reset
+}
+
 Qt::ItemFlags BasesTreeModel::flags(const QModelIndex &index) const
-{ return index.isValid() ? (Qt::ItemIsEnabled | Qt::ItemIsSelectable) : Qt::NoItemFlags; }
-QVariant BasesTreeModel::headerData(int, Qt::Orientation, int) const { return {}; }
-ValuePtr BasesTreeModel::valueAt(const QModelIndex &) const { return nullptr; }
+{
+    if (!index.isValid()) return Qt::NoItemFlags;
+    Qt::ItemFlags f = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    if (!isGroupRow(index) && propertyAt(index.column()).kind == PropertyKind::Note)
+        f |= Qt::ItemIsEditable;
+    return f;
+}
+
+QVariant BasesTreeModel::headerData(int section, Qt::Orientation o, int role) const
+{
+    if (role != Qt::DisplayRole) return {};
+    if (o == Qt::Horizontal) {
+        if (section < 0 || section >= m_columns.size()) return {};
+        return m_columns[section].toString();
+    }
+    return {};
+}
 
 }  // namespace Corbomite::Bases
