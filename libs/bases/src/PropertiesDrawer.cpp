@@ -106,6 +106,8 @@ void PropertiesDrawer::showEntry(BasesEntry *entry)
 void PropertiesDrawer::commit(const QString &key, const QVariant &value)
 {
     if (!m_fm || !m_file) return;
+    // processFrontMatter is synchronous: the lambda runs immediately, so the
+    // by-reference captures are valid for its full duration.
     m_fm->processFrontMatter(m_file, [&](QVariantMap &fm) { fm.insert(key, value); });
 }
 

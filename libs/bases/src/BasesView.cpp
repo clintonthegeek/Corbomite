@@ -16,6 +16,7 @@
 #include <KLocalizedString>
 
 #include <QComboBox>
+#include <QEvent>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -81,19 +82,28 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
         m_viewSelector->setCurrentText(name);   // triggers onViewSelectorChanged
     });
 
+    // Watch the popup panels for hide events so a click on the same button
+    // right after its panel dismissed (outside-click) is debounced below.
+    m_propsPanel->installEventFilter(this);
+    m_sortPanel->installEventFilter(this);
+    m_viewsPanel->installEventFilter(this);
+
     connect(m_propsBtn, &QToolButton::clicked, this, [this]() {
+        if (m_panelDismissTimer.isValid() && m_panelDismissTimer.elapsed() < 150) return;
         if (!m_activeView) return;
         m_propsPanel->setState(&m_activeView->order, availableProperties(),
                                [this](const PropertyId &p) { return displayNameFor(p); });
         showPanelUnder(m_propsPanel, m_propsBtn);
     });
     connect(m_sortBtn, &QToolButton::clicked, this, [this]() {
+        if (m_panelDismissTimer.isValid() && m_panelDismissTimer.elapsed() < 150) return;
         if (!m_activeView) return;
         m_sortPanel->setState(m_activeView, availableProperties(),
                               [this](const PropertyId &p) { return displayNameFor(p); });
         showPanelUnder(m_sortPanel, m_sortBtn);
     });
     connect(m_viewsBtn, &QToolButton::clicked, this, [this]() {
+        if (m_panelDismissTimer.isValid() && m_panelDismissTimer.elapsed() < 150) return;
         if (!m_query) return;
         m_viewsPanel->setState(m_query.get(), m_activeView ? m_activeView->name : QString{});
         showPanelUnder(m_viewsPanel, m_viewsBtn);
@@ -307,6 +317,15 @@ QString BasesView::displayNameFor(const PropertyId &pid) const
             return it->displayName;
     }
     return pid.name;
+}
+
+bool BasesView::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::Hide
+        && (watched == m_propsPanel || watched == m_sortPanel || watched == m_viewsPanel)) {
+        m_panelDismissTimer.restart();
+    }
+    return TextFileView::eventFilter(watched, event);
 }
 
 void BasesView::showPanelUnder(QWidget *panel, QToolButton *button)

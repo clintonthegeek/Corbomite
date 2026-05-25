@@ -5,6 +5,8 @@
 
 #include "corbomite/core/TextFileView.h"
 
+#include <QElapsedTimer>
+
 #include <memory>
 
 class QLabel;
@@ -69,6 +71,9 @@ public:
     /// debounces).
     void setCurrentFile(Corbomite::TFile *file);
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private Q_SLOTS:
     void onHeaderClicked(int column);
     void onSearchChanged(const QString &text);
@@ -109,6 +114,8 @@ private:
     QToolButton *m_drawerBtn = nullptr;
     QSplitter *m_splitter = nullptr;
     PropertiesDrawer *m_drawer = nullptr;
+
+    QElapsedTimer m_panelDismissTimer;   // guards popup re-open flip-flop
 };
 
 }  // namespace Corbomite::Bases
