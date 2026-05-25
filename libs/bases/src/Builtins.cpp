@@ -7,6 +7,7 @@
 
 #include "corbomite/bases/EvalContext.h"
 #include "corbomite/bases/Values.h"
+#include "corbomite/bases/VaultResolver.h"
 
 #include "corbomite/core/MomentFormatter.h"
 #include "corbomite/vault/TFile.h"
@@ -165,11 +166,9 @@ void registerGlobals(FunctionRegistry &r)
     r.addGlobal({
         QStringLiteral("file"),
         {requiredParam(QStringLiteral("path"))},
-        [](const EvalContext &, const QVector<ValuePtr> &args) -> ValuePtr {
-            // Without a Vault binding at the evaluator layer, file() resolves
-            // to null for the typical string input. BasesEntry-rooted
-            // contexts may override this by constructing FileValue directly.
-            Q_UNUSED(args);
+        [](const EvalContext &ctx, const QVector<ValuePtr> &args) -> ValuePtr {
+            if (const VaultResolver *v = ctx.vault())
+                return v->fileAt(args.isEmpty() ? QString{} : toStr(args[0]));
             return NullValue::instance();
         }});
 

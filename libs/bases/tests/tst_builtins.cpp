@@ -4,6 +4,10 @@
 #include "corbomite/bases/Formula.h"
 #include "corbomite/bases/FunctionRegistry.h"
 #include "corbomite/bases/Values.h"
+#include "corbomite/bases/VaultResolver.h"
+
+#include <QHash>
+#include <QSet>
 
 using namespace Corbomite::Bases;
 
@@ -19,6 +23,34 @@ class NullCtx : public EvalContext
 {
 public:
     ValuePtr getByIdentifier(const QString &) const override { return nullptr; }
+};
+
+class FakeResolver : public VaultResolver
+{
+public:
+    QSet<QString> files;                 // paths that exist
+    QHash<QString, QString> linkMap;     // linkData -> canonical path
+
+    ValuePtr fileAt(const QString &p) const override
+    {
+        return files.contains(p) ? std::static_pointer_cast<Value>(
+                   std::make_shared<FileValue>(nullptr, nullptr))
+                                 : NullValue::instance();
+    }
+    QString resolveLinkTarget(const QString &linkData, const QString &) const override
+    {
+        return linkMap.value(linkData);  // "" if absent
+    }
+};
+
+class VaultCtx : public EvalContext
+{
+public:
+    const FakeResolver *res = nullptr;
+    QHash<QString, ValuePtr> ids;        // identifier -> value (for lnk.* tests)
+
+    ValuePtr getByIdentifier(const QString &n) const override { return ids.value(n); }
+    const VaultResolver *vault() const override { return res; }
 };
 
 }  // namespace
@@ -143,6 +175,23 @@ private Q_SLOTS:
     {
         NullCtx c;
         QVERIFY(run(QStringLiteral("/foo/i.matches('FOO')"), c)->isTruthy());
+    }
+
+    // ----- file() global via VaultResolver -----
+
+    void testFileGlobalResolvesViaVault()
+    {
+        FakeResolver r; r.files.insert(QStringLiteral("Notes/X.md"));
+        VaultCtx c; c.res = &r;
+        auto v = run(QStringLiteral("file('Notes/X.md')"), c);
+        QCOMPARE(v->type(), QStringLiteral("File"));
+    }
+
+    void testFileGlobalUnboundReturnsNull()
+    {
+        NullCtx c;
+        auto v = run(QStringLiteral("file('Notes/X.md')"), c);
+        QCOMPARE(v->type(), QStringLiteral("Null"));
     }
 
     // ----- Error paths -----
