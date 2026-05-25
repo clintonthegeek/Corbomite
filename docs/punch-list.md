@@ -47,6 +47,14 @@
 
 ---
 
+## Added 2026-05-25 (post-port / D.1 close-out)
+
+- [ ] [bases][parsing][P1] **`.base` `unrecognizedData` truncates non-scalar shapes** — top-level path in `BasesQuery.cpp` (~209-218) drops nested YAML instead of preserving it; `BasesViewConfig.cpp` already uses `yamlToVariant` correctly. Forward-compat round-trip risk: a future Obsidian `.base` feature that nests YAML would be silently lost on first save. Deferred out of Cluster D.1 (evaluator-only) as a sibling of the Cluster A key-order fix. See [audit-2026-04-26/bases.md](audit-2026-04-26/bases.md) §"Missing — Structural #1/#3".
+- [ ] [editor-markdown][vault][P1?][NEEDS-TRIAGE] **Trailing-`\n` drift in `markdown()` save path (foundation-port regression).** `tst_dailynoteservice`, `tst_vault_lifecycle`, `tst_editor_save` all fail on a trailing-newline mismatch in serialized `markdown()` since the foundation port. Likely the new `serializeForSave`/D2 path adds or drops a final `\n` vs. what these tests expect. **Undiagnosed** — could be a stale test expectation OR a real save-format drift (potential silent diff-churn / round-trip risk → would be P0/P1 if real). Triage: compare new-foundation serialize output against on-disk byte expectations before deciding severity. NOT a D.1 regression (D.1 touched only `libs/bases`).
+- [ ] [metadata][parsing][NEEDS-TRIAGE] **`tst_metadataparser` embed `.original` field mismatch (foundation-port).** Surfaced in the post-D.1 full-suite run; outside `libs/bases`. Triage against the new parser's embed handling.
+
+---
+
 ## P0 — Vault-format silent-corruption fixes (FIX FIRST)
 
 - [x] [vault][parsing] `processFrontMatter` reorders YAML keys alphabetically on every metadata edit — `libs/vault/src/FileManager.cpp:138-143` — see [parsing.md](audit-2026-04-26/parsing.md) §"Frontmatter round-trip risks (CRITICAL)"

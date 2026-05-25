@@ -10,6 +10,18 @@ Conventions:
 
 ---
 
+## 2026-05-25 — Cluster D.1 shipped: Bases backend correctness (vault-bound functions, tags, sort)
+
+First sub-project of Cluster D (Bases UI), executed subagent-driven (fresh implementer per task batch + two-stage spec/quality review, all on `master` per the no-branches preference). Spec: [`specs/2026-05-25-cluster-d1-bases-backend-correctness-design.md`](superpowers/specs/2026-05-25-cluster-d1-bases-backend-correctness-design.md). Plan: [`plans/2026-05-25-cluster-d1-bases-backend-correctness.md`](superpowers/plans/2026-05-25-cluster-d1-bases-backend-correctness.md). 8 commits, `85034d6..f5161b0`.
+
+**Decomposition.** Cluster D (12 stub items + ~18 audit items) was too large for one spec; split into D.1 backend correctness, D.2 read-side rendering, D.3 editing UI, D.4 interactivity/export, D.5 plugin API. Brainstorming also confirmed two audit "structural" items had already drained (YAML key-order → Cluster A; `this`-binding → P5 Bases Phase 2).
+
+**What shipped.** (1) A narrow `VaultResolver` interface (`fileAt`, `resolveLinkTarget(linkData, sourcePath)`) surfaced via `EvalContext::vault()` (nullptr default) — chosen over adding methods directly to `EvalContext` to keep that interface stable. (2) Concrete `BasesVaultResolver` wrapping `Vault*`+`MetadataCache*`+ an owned `storage::LinkResolver`, owned by `QueryController` (one per recompute, seeded from the vault path set) and threaded into each `BasesEntry`. (3) `file()` global, `LinkValue.asFile()`, `LinkValue.linksTo()` resolve via the seam with unbound fallbacks. (4) `TagValue::tagMatches` corrected to one-directional (stored tag matches a query iff equal or subtag-of-query; the prior bidirectional branch was an audit-flagged divergence — a pre-existing test that pinned the defect was updated); `ListValue::includes` special-cases `TagValue` elements (`file.tags.contains("#parent")` now matches `#parent/child`). `FileValue::hasTag` inherits the corrected semantics. (5) `ListValue::sort()` null-last was found already correct (audit's "nulls first" was stale) and is pinned by test.
+
+**Notable.** The `asFile`/`linksTo` builtins are DSL *methods* (called `lnk.asFile()`, with parens) — bare member access bypasses the function registry. `NullValue::type()` is `"Null"` (capital N). Out of scope and deferred to the punch list: `unrecognizedData` non-scalar preservation (serialization-layer, sibling of the Cluster A key-order work).
+
+**Verification.** All 13 `tst_bases_*` tests green; final holistic review READY. The full suite has 10 failures, all outside `libs/bases` (foundation-port degradation — render stubs, plus a save-path trailing-`\n` issue and a metadata-parser embed mismatch flagged for separate triage); none are D.1 regressions.
+
 ## 2026-05-25 — Foundation port reconciliation; Markoff merged to master; G/H/J obsoleted
 
 **Context.** Corbomite development had been paused on `port/foundation-exploration` waiting for Markoff's `exploration/new-foundation` rebuild — a QML/QtQuick peer-delegate editor over a D2/CollabText block model that retired the old four-leaf QGraphicsView editor (Source, Live, Reading, canvas) and its `QTextDocument` + `ObjectReplacementCharacter` substitution machinery. This session assessed the widget's readiness, caught the port up, and reconciled the pre-rewrite roadmap against the new reality.
