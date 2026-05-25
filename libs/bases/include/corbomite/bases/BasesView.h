@@ -10,6 +10,7 @@
 class QLabel;
 class QLineEdit;
 class QComboBox;
+class QToolButton;
 class QTreeView;
 
 namespace Corbomite {
@@ -26,6 +27,9 @@ class BasesCellDelegate;
 class BasesTreeModel;
 class FunctionRegistry;
 class QueryController;
+class PropertiesMenuPanel;
+class SortGroupMenuPanel;
+class ViewsMenuPanel;
 
 /// Main-area view widget for `.base` files. TextFileView subclass — save/
 /// load plumbing comes from the base class; setViewData/getViewData
@@ -72,6 +76,10 @@ private Q_SLOTS:
 private:
     void rebuildLayout();
     void populateViewSelector();
+    void onConfigMutated();              // recompute + persist after a panel edit
+    QVector<PropertyId> availableProperties() const;
+    QString displayNameFor(const PropertyId &pid) const;
+    void showPanelUnder(QWidget *panel, QToolButton *button);
 
     Vault *m_vault = nullptr;
     MetadataCache *m_cache = nullptr;
@@ -89,6 +97,12 @@ private:
     QLabel *m_errorBanner = nullptr;
     QLineEdit *m_searchEdit = nullptr;
     QComboBox *m_viewSelector = nullptr;
+    QToolButton *m_propsBtn = nullptr;
+    QToolButton *m_sortBtn = nullptr;
+    QToolButton *m_viewsBtn = nullptr;
+    PropertiesMenuPanel *m_propsPanel = nullptr;
+    SortGroupMenuPanel *m_sortPanel = nullptr;
+    ViewsMenuPanel *m_viewsPanel = nullptr;
 };
 
 }  // namespace Corbomite::Bases

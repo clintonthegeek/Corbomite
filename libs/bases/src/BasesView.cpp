@@ -7,6 +7,10 @@
 #include "corbomite/bases/FunctionRegistry.h"
 #include "corbomite/bases/QueryController.h"
 #include "corbomite/bases/SortCycle.h"
+#include "corbomite/bases/PropertiesMenuPanel.h"
+#include "corbomite/bases/SortGroupMenuPanel.h"
+#include "corbomite/bases/ViewsMenuPanel.h"
+#include "corbomite/bases/BasesQueryResult.h"
 
 #include <KLocalizedString>
 
@@ -16,6 +20,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -38,6 +43,52 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_searchEdit->setPlaceholderText(i18n("Search"));
     m_searchEdit->setClearButtonEnabled(true);
     toolbar->addWidget(m_searchEdit);
+
+    m_propsBtn = new QToolButton(this);
+    m_propsBtn->setText(i18n("Properties"));
+    m_propsBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    toolbar->addWidget(m_propsBtn);
+
+    m_sortBtn = new QToolButton(this);
+    m_sortBtn->setText(i18n("Sort & group"));
+    m_sortBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    toolbar->addWidget(m_sortBtn);
+
+    m_viewsBtn = new QToolButton(this);
+    m_viewsBtn->setText(i18n("Views"));
+    m_viewsBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    toolbar->addWidget(m_viewsBtn);
+
+    m_propsPanel = new PropertiesMenuPanel(this);
+    m_sortPanel  = new SortGroupMenuPanel(this);
+    m_viewsPanel = new ViewsMenuPanel(this);
+    m_propsPanel->setOnChanged([this]() { onConfigMutated(); });
+    m_sortPanel->setOnChanged([this]()  { onConfigMutated(); });
+    m_viewsPanel->setOnChanged([this]() {
+        populateViewSelector();
+        requestSave();
+    });
+    m_viewsPanel->setOnActivate([this](const QString &name) {
+        m_viewSelector->setCurrentText(name);   // triggers onViewSelectorChanged
+    });
+
+    connect(m_propsBtn, &QToolButton::clicked, this, [this]() {
+        if (!m_activeView) return;
+        m_propsPanel->setState(&m_activeView->order, availableProperties(),
+                               [this](const PropertyId &p) { return displayNameFor(p); });
+        showPanelUnder(m_propsPanel, m_propsBtn);
+    });
+    connect(m_sortBtn, &QToolButton::clicked, this, [this]() {
+        if (!m_activeView) return;
+        m_sortPanel->setState(m_activeView, availableProperties(),
+                              [this](const PropertyId &p) { return displayNameFor(p); });
+        showPanelUnder(m_sortPanel, m_sortBtn);
+    });
+    connect(m_viewsBtn, &QToolButton::clicked, this, [this]() {
+        if (!m_query) return;
+        m_viewsPanel->setState(m_query.get(), m_activeView ? m_activeView->name : QString{});
+        showPanelUnder(m_viewsPanel, m_viewsBtn);
+    });
 
     root->addLayout(toolbar);
 
@@ -199,6 +250,38 @@ void BasesView::onSectionMoved(int, int, int)
     if (newOrder == m_activeView->order) return;
     m_activeView->order = std::move(newOrder);
     requestSave();
+}
+
+void BasesView::onConfigMutated()
+{
+    if (m_controller) m_controller->recomputeNow();
+    if (m_table) m_table->expandAll();
+    requestSave();
+}
+
+QVector<PropertyId> BasesView::availableProperties() const
+{
+    if (m_controller && m_controller->result())
+        return m_controller->result()->properties();
+    return m_activeView ? m_activeView->order : QVector<PropertyId>{};
+}
+
+QString BasesView::displayNameFor(const PropertyId &pid) const
+{
+    if (m_query) {
+        auto it = m_query->properties.constFind(pid);
+        if (it != m_query->properties.constEnd() && !it->displayName.isEmpty())
+            return it->displayName;
+    }
+    return pid.name;
+}
+
+void BasesView::showPanelUnder(QWidget *panel, QToolButton *button)
+{
+    const QPoint below = button->mapToGlobal(QPoint(0, button->height()));
+    panel->move(below);
+    panel->show();
+    panel->raise();
 }
 
 }  // namespace Corbomite::Bases
