@@ -561,19 +561,27 @@ void registerLinkMethods(FunctionRegistry &r)
         return dynamic_cast<LinkValue *>(args.value(0).get());
     };
     r.addForType(typeid(LinkValue), { QStringLiteral("asFile"), {},
-        [subj](const EvalContext &, const QVector<ValuePtr> &args) -> ValuePtr {
-            Q_UNUSED(subj);
-            Q_UNUSED(args);
-            // Requires Vault binding — a real BasesEntry can override.
+        [subj](const EvalContext &ctx, const QVector<ValuePtr> &args) -> ValuePtr {
+            auto *lv = subj(args);
+            if (!lv) return NullValue::instance();
+            if (const VaultResolver *v = ctx.vault()) {
+                const QString path = v->resolveLinkTarget(lv->data(), lv->sourcePath());
+                if (!path.isEmpty()) return v->fileAt(path);
+            }
             return NullValue::instance();
         }});
     r.addForType(typeid(LinkValue), { QStringLiteral("linksTo"),
         {requiredParam(QStringLiteral("other"))},
-        [subj](const EvalContext &, const QVector<ValuePtr> &args) -> ValuePtr {
+        [subj](const EvalContext &ctx, const QVector<ValuePtr> &args) -> ValuePtr {
             auto *lv = subj(args);
             if (!lv) return std::make_shared<BooleanValue>(false);
-            const QString target = toStr(args.value(1));
-            return std::make_shared<BooleanValue>(lv->data() == target);
+            const QString other = toStr(args.value(1));
+            if (const VaultResolver *v = ctx.vault()) {
+                const QString tgt = v->resolveLinkTarget(lv->data(), lv->sourcePath());
+                const QString oth = v->resolveLinkTarget(other, lv->sourcePath());
+                return std::make_shared<BooleanValue>(!tgt.isEmpty() && tgt == oth);
+            }
+            return std::make_shared<BooleanValue>(lv->data() == other);
         }});
 }
 

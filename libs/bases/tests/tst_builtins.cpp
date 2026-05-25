@@ -194,6 +194,36 @@ private Q_SLOTS:
         QCOMPARE(v->type(), QStringLiteral("Null"));
     }
 
+    // ----- LinkValue.asFile + linksTo via VaultResolver -----
+
+    void testLinkAsFileResolves()
+    {
+        FakeResolver r;
+        r.linkMap.insert(QStringLiteral("Foo"), QStringLiteral("Notes/Foo.md"));
+        r.files.insert(QStringLiteral("Notes/Foo.md"));
+        VaultCtx c; c.res = &r;
+        c.ids.insert(QStringLiteral("lnk"),
+                     std::make_shared<LinkValue>(QStringLiteral("Foo"),
+                                                 QStringLiteral("src.md")));
+        auto v = run(QStringLiteral("lnk.asFile()"), c);
+        QCOMPARE(v->type(), QStringLiteral("File"));
+    }
+
+    void testLinkLinksToResolvesCanonical()
+    {
+        FakeResolver r;
+        r.linkMap.insert(QStringLiteral("Foo"), QStringLiteral("Notes/Foo.md"));
+        r.linkMap.insert(QStringLiteral("Notes/Foo.md"), QStringLiteral("Notes/Foo.md"));
+        VaultCtx c; c.res = &r;
+        c.ids.insert(QStringLiteral("lnk"),
+                     std::make_shared<LinkValue>(QStringLiteral("Foo"),
+                                                 QStringLiteral("src.md")));
+        auto yes = run(QStringLiteral("lnk.linksTo('Notes/Foo.md')"), c);
+        auto no  = run(QStringLiteral("lnk.linksTo('Other.md')"), c);
+        QCOMPARE(std::static_pointer_cast<BooleanValue>(yes)->data(), true);
+        QCOMPARE(std::static_pointer_cast<BooleanValue>(no)->data(), false);
+    }
+
     // ----- Error paths -----
 
     void testUnknownFunctionError()
