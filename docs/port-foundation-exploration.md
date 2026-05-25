@@ -1,31 +1,35 @@
-# Corbomite port: `port/foundation-exploration` branch
+# Corbomite port: foundation-exploration (LANDED on `master`)
 
-**Created:** 2026-05-20.
-**Purpose:** Port Corbomite from Markoff `master` (v0.6.x line) to Markoff `exploration/new-foundation` (the D-arc + E-arc rebuild that retired the old four leaves).
-**Status:** In flight. Compiles, launches, renders documents in Live mode. Many features degraded; each comes back as its feature port lands.
+**Created:** 2026-05-20. **Merged to `master`:** 2026-05-25.
+**Purpose:** Port Corbomite from Markoff `master` (v0.6.x line) to Markoff's D-arc + E-arc rebuild (which retired the old four leaves).
+**Status:** ✅ **Complete and merged to Corbomite `master`.** Compiles, launches, renders in Live mode. Some features remain degraded pending their Markoff E-phase (see degradation table below); each comes back as that phase lands.
 
-This branch is the active port effort. **Corbomite `master` remains untouched** and continues to track Markoff `master`. The two diverge fully here.
+> **This doc is now historical** for the port mechanics. The work that was on
+> `port/foundation-exploration` is on `master`. Markoff merged its rebuild to
+> Markoff `master` (tag `v0.7.0-freeze`) first; Corbomite then re-pinned and
+> merged (Markoff-first ordering honoured). The **degradation table** below
+> remains the live reference for what's still missing and which Markoff phase
+> restores it. Roadmap reconciliation (clusters G/H/J obsoleted, E re-scoped):
+> see `docs/PROJECT-STATE.md` + `docs/decisions-archive.md` (2026-05-25 entry).
 
-## Cross-repo branch map
+## Cross-repo branch map (final)
 
 | Repo | Branch | State |
 |------|--------|-------|
-| Markoff (`/home/clinton/dev/Markoff`) | `master` | v0.6.x line. Frozen — foundation-exploration will eventually merge here. |
-| Markoff | `exploration/new-foundation` | **Active dev.** D-arc + E-arc rebuild. ~1000 commits ahead of master. |
-| Corbomite (`/home/clinton/dev/Corbomite`) | `master` | Pinned to Markoff `master` tip (`2b7b3e7`). No port work touches it. |
-| Corbomite | `port/foundation-exploration` | **This branch.** Pinned to Markoff `exploration/new-foundation` HEAD. |
+| Markoff (`/home/clinton/dev/Markoff`) | `master` | **Now the foundation tree.** D-arc + E-arc rebuild merged here 2026-05-25; tag `v0.7.0-freeze` (`1e0f332`). Old v0.6.x tree preserved at tag `v0.6.x-final`. |
+| Markoff | `exploration/new-foundation` | **Deleted** (merged into Markoff `master`; reachable via the merge commit). |
+| Corbomite (`/home/clinton/dev/Corbomite`) | `master` | **Now the foundation port.** Submodule pinned to Markoff `v0.7.0-freeze`. |
+| Corbomite | `port/foundation-exploration` | Merged into `master` 2026-05-25; disposition (retire/archive-tag) pending. |
 
-The Markoff side is worked from `.worktrees/foundation-exploration/`. The Corbomite side is the main checkout (no worktree — different branch on the same tree).
+## Merge plan back to masters — DONE
 
-## Eventual merge plan back to masters
+1. ✅ **Port completed** feature-by-feature against the new foundation (Find UI first, then headings/format dispatch, doc-sharing fix, source rendering).
+2. ⏳ **`markoff-core` freeze spec** — deferred by mutual agreement; to be driven by real port pressure (the API surfaces our port actually leans on), not the speculative draft. We feed Markoff the consumer surface when ready.
+3. ✅ **Markoff tagged** `v0.7.0-freeze`.
+4. ✅ **Markoff `exploration/new-foundation` → Markoff `master`** (their side; merge `3c7afa9` + cleanup `1e0f332`).
+5. ✅ **Corbomite `port/foundation-exploration` → Corbomite `master`** with the submodule re-pinned to `v0.7.0-freeze`.
 
-1. **Complete the port on this branch** — one feature at a time as evidence-driven micro-specs against Markoff `exploration/new-foundation`. Find UI is feature #1.
-2. **When the port is functionally complete** (find, source-widget swap, embeds/tags/callouts, table editor minimum, theme port), draft a small evidence-driven `markoff-core` freeze spec based on real port pressure (NOT the speculative draft preserved at Markoff's `docs/specs/2026-05-20-markoff-core-freeze-shape-design.md`).
-3. **Tag Markoff** at that point — probably `v0.7.0-freeze`.
-4. **Merge Markoff `exploration/new-foundation` → Markoff `master`.** Large merge: retires old leaves wholesale; new layout becomes canonical.
-5. **Merge Corbomite `port/foundation-exploration` → Corbomite `master`.** Submodule pin tracks new Markoff master tip.
-
-**Markoff merges first.** Reversing the order leaves Corbomite master with a submodule pin nobody else can resolve.
+**Markoff merged first**, as required — Corbomite master's submodule pin resolves on every machine.
 
 ## What's done
 

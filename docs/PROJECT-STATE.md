@@ -2,7 +2,7 @@
 
 > Slim session-start orientation. **Reset 2026-04-26** after a full audit (`docs/audit-2026-04-26/`) regrouped everything into a fresh A-onwards cluster scheme + a flat punch list. Pre-reset state archived at `docs/archive-2026-04-26/PROJECT-STATE-pre-reset.md`.
 
-> **2026-05-25 — Foundation port is the active line of work.** Markoff's QML/D2 rebuild merged to Markoff `master` (tag `v0.7.0-freeze`); Corbomite's port lives on `port/foundation-exploration` and builds against it. The rewrite **obsoletes clusters G, H, and (likely) J** and **re-scopes E**; **D and F are unaffected**. Next moves: re-pin submodule to `v0.7.0-freeze`, then merge `port/foundation-exploration` → Corbomite `master`. Port doc: [`docs/port-foundation-exploration.md`](port-foundation-exploration.md). Handoffs: [`docs/handoff/`](handoff/).
+> **2026-05-25 — Foundation port landed on `master`.** Markoff's QML/D2 rebuild merged to Markoff `master` (tag `v0.7.0-freeze`); Corbomite re-pinned there and merged `port/foundation-exploration` → `master`. The old four-leaf QGraphicsView editor is retired; the QML/D2 live editor is canonical. The rewrite **obsoletes clusters G, H, and (likely) J** and **re-scopes E**; **D and F are unaffected** and are the live cluster work. Open steer owed to Markoff: Reading-mode direction (restore a Reading leaf vs. read-only Live). Port doc: [`docs/port-foundation-exploration.md`](port-foundation-exploration.md). Handoffs: [`docs/handoff/`](handoff/).
 
 ## Two tracks
 
@@ -48,4 +48,4 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Last touched
 
-2026-05-25 — Foundation port reconciliation; Markoff merged to master (`v0.7.0-freeze`). Submodule pin bumped to `03f088a` earlier today; re-pin to `v0.7.0-freeze` + the `port/foundation-exploration` → `master` merge are the next moves.
+2026-05-25 — Foundation port landed on `master`: submodule re-pinned to `v0.7.0-freeze`, `port/foundation-exploration` merged in (--no-ff), build + launch verified. Next: send Markoff the Reading-mode steer; re-triage the punch list against the new substrate; D/F are the live cluster work.
