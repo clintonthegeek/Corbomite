@@ -5,10 +5,12 @@
 #include "corbomite/bases/BasesTreeModel.h"
 #include "corbomite/bases/FunctionRegistry.h"
 #include "corbomite/bases/QueryController.h"
+#include "corbomite/bases/SortCycle.h"
 
 #include <KLocalizedString>
 
 #include <QComboBox>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
@@ -156,19 +158,12 @@ void BasesView::onHeaderClicked(int column)
 {
     if (!m_activeView || !m_model) return;
     const PropertyId pid = m_model->propertyAt(column);
-    // Cycle: ascending -> descending -> unsorted.
-    QString newDir;
-    if (!m_activeView->sort.isEmpty() && m_activeView->sort.front().property == pid) {
-        newDir = m_activeView->sort.front().direction == QLatin1String("ASC")
-                     ? QStringLiteral("DESC") : QString{};
-    } else {
-        newDir = QStringLiteral("ASC");
-    }
-    m_activeView->sort.clear();
-    if (!newDir.isEmpty())
-        m_activeView->sort.push_back({pid, newDir});
+    if (pid.name.isEmpty()) return;
+    const bool shift = QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
+    cycleHeaderSort(m_activeView->sort, pid, shift);
     if (m_controller) m_controller->recomputeNow();
-    requestSave();
+    if (m_table) m_table->expandAll();   // keep groups visible after re-sort
+    requestSave();                       // persist, as reorder/view-switch already do
 }
 
 void BasesView::onSearchChanged(const QString &text)
