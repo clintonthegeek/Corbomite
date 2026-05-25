@@ -5,13 +5,18 @@
 #include "corbomite/bases/BasesTreeModel.h"
 #include "corbomite/bases/Values.h"
 
+#include "corbomite/core/LucideIconRegistry.h"
+
 #include <QCheckBox>
 #include <QDateEdit>
 #include <QDateTimeEdit>
 #include <QDoubleSpinBox>
+#include <QIcon>
 #include <QLineEdit>
 #include <QPainter>
+#include <QPixmap>
 #include <QStyle>
+#include <QTextDocument>
 
 namespace Corbomite::Bases {
 
@@ -130,6 +135,36 @@ void BasesCellDelegate::paint(QPainter *painter,
     }
 
     const QString type = index.data(BasesTableModel::ValueTypeRole).toString();
+    if (type == QLatin1String("Icon")) {
+        const QString name = index.data(Qt::DisplayRole).toString();
+        const QIcon ic = Corbomite::LucideIconRegistry::instance().get(name);
+        painter->save();
+        if (!ic.isNull()) ic.paint(painter, option.rect, Qt::AlignCenter);
+        else painter->drawText(option.rect, Qt::AlignCenter, name);     // fallback
+        painter->restore();
+        return;
+    }
+    if (type == QLatin1String("Image")) {
+        const QString ref = index.data(Qt::DisplayRole).toString();
+        QPixmap pm(ref);                       // absolute/relative-to-cwd path
+        painter->save();
+        if (!pm.isNull())
+            painter->drawPixmap(option.rect,
+                pm.scaled(option.rect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        else painter->drawText(option.rect, Qt::AlignVCenter | Qt::AlignLeft, ref);
+        painter->restore();
+        return;
+    }
+    if (type == QLatin1String("HTML")) {
+        const QString html = index.data(Qt::DisplayRole).toString();
+        QTextDocument doc; doc.setHtml(html); doc.setTextWidth(option.rect.width());
+        painter->save();
+        painter->translate(option.rect.topLeft());
+        doc.drawContents(painter, QRectF(0, 0, option.rect.width(), option.rect.height()));
+        painter->restore();
+        return;
+    }
+    // "Markdown" intentionally falls through to the plain-text fallback (deferred).
     if (type == QLatin1String("Error")) {
         // Subtle warning tint for error cells.
         painter->save();

@@ -65,3 +65,7 @@ target_link_libraries(tst_bases_sortcycle PRIVATE Qt6::Test Corbomite::Bases)
 add_executable(tst_bases_tree_model tst_bases_tree_model.cpp)
 add_test(NAME tst_bases_tree_model COMMAND tst_bases_tree_model)
 target_link_libraries(tst_bases_tree_model PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)
+
+add_executable(tst_bases_cell_delegate tst_bases_cell_delegate.cpp)
+add_test(NAME tst_bases_cell_delegate COMMAND tst_bases_cell_delegate)
+target_link_libraries(tst_bases_cell_delegate PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)
