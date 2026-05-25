@@ -2,7 +2,7 @@
 
 > Slim session-start orientation. **Reset 2026-04-26** after a full audit (`docs/audit-2026-04-26/`) regrouped everything into a fresh A-onwards cluster scheme + a flat punch list. Pre-reset state archived at `docs/archive-2026-04-26/PROJECT-STATE-pre-reset.md`.
 
-> **2026-05-25 — Foundation port landed on `master`.** Markoff's QML/D2 rebuild merged to Markoff `master` (tag `v0.7.0-freeze`); Corbomite re-pinned there and merged `port/foundation-exploration` → `master`. The old four-leaf QGraphicsView editor is retired; the QML/D2 live editor is canonical. The rewrite **obsoletes clusters G, H, and (likely) J** and **re-scopes E**; **D and F are unaffected** and are the live cluster work. Open steer owed to Markoff: Reading-mode direction (restore a Reading leaf vs. read-only Live). Port doc: [`docs/port-foundation-exploration.md`](port-foundation-exploration.md). Handoffs: [`docs/handoff/`](handoff/).
+> **2026-05-25 — Foundation port landed on `master`.** Markoff's QML/D2 rebuild merged to Markoff `master` (tag `v0.7.0-freeze`); Corbomite re-pinned there and merged `port/foundation-exploration` → `master`. The old four-leaf QGraphicsView editor is retired; the QML/D2 live editor is canonical. The rewrite **obsoletes clusters G, H, and (likely) J** and **re-scopes E**; **D and F are unaffected** and are the live cluster work. Reading-mode direction decided (read-only Live, `Capabilities::Editable=false`); steer sent to Markoff, awaiting their spec. Port doc: [`docs/port-foundation-exploration.md`](port-foundation-exploration.md). Handoffs: [`docs/handoff/`](handoff/).
 
 ## Two tracks
 
@@ -42,7 +42,7 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Open questions
 
-- **Reading-vs-non-editable-Live (highest-value, Markoff is awaiting our steer).** Restore a Reading leaf, or drive Live with `Capabilities::Editable=false`? Several frozen punch-list P2s (HoverPopover, checkbox-toggle, Reading `setCursorLine`) hang off this one decision.
+- **Reading-mode: DECIDED — read-only Live (`Capabilities::Editable=false`).** Steer sent to Markoff 2026-05-25; awaiting their spec. Unfreezes the dependent P2s (HoverPopover, checkbox-toggle, Reading `setCursorLine`) once Markoff exposes the read-only capability + a renderer entry point for HoverPopover.
 - **Punch-list re-base after the port→master merge.** The open editor/rendering P2s are now either moot (Reading retired) or gated on Markoff E3 (embeds/callouts) / E5 (math/mermaid), not actionable Corbomite work. Re-triage rather than drain top-down.
 - **Confirm J's obsolescence** before formal closeout: does `Markoff::Source::Editor` fully cover the qutepart-fork intent (visual-line scroll, fold serialization, find/replace, markdown awareness)?
 

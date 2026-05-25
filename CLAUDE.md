@@ -10,8 +10,10 @@
 > History + the now-degraded feature list (each comes back per its Markoff
 > E-phase) is at [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md).
 > Markoff's merge-complete reply: `libs/markoff-family/docs/handoff/2026-05-25-to-corbomite-merge-complete.md`.
-> Open steer owed to Markoff: Reading-mode direction (restore a Reading leaf vs.
-> read-only Live) — gates HoverPopover, checkbox-toggle, `setCursorLine`.
+> Reading-mode direction **decided**: read-only Live (`Capabilities::Editable=false`),
+> not a restored Reading leaf — steer sent to Markoff
+> (`docs/handoff/2026-05-25-to-markoff-reading-steer-and-merge-confirm.md`),
+> awaiting their spec. Unfreezes HoverPopover, checkbox-toggle, `setCursorLine`.
 
 ## Long-term project state
 
