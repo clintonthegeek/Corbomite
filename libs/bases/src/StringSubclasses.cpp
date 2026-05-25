@@ -11,11 +11,9 @@ namespace Corbomite::Bases {
 bool TagValue::tagMatches(const QString &other) const
 {
     if (m_data == other) return true;
-    // Hierarchical: other + "/" is a prefix of m_data (tag under a parent)
-    // OR m_data + "/" is a prefix of other (parent of a tag).
-    if (m_data.startsWith(other + QLatin1Char('/'))) return true;
-    if (other.startsWith(m_data + QLatin1Char('/'))) return true;
-    return false;
+    // One-directional (Obsidian): this stored tag matches a query `other`
+    // iff this is `other` or a subtag of it. The reverse does NOT match.
+    return m_data.startsWith(other + QLatin1Char('/'));
 }
 
 // ----- LinkValue -----

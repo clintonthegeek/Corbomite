@@ -34,9 +34,9 @@ private Q_SLOTS:
     void testTagHierarchicalMatchChild()
     {
         TagValue parent(QStringLiteral("#foo"));
-        // Parent tag matches child queries too (prefix relationship symmetric
-        // in `tagMatches` per audit — `#foo/bar` also matches `#foo`).
-        QVERIFY(parent.tagMatches(QStringLiteral("#foo/bar")));
+        // One-directional (Obsidian): a parent tag does NOT match a child query.
+        // Only the child tag matches the parent query, not vice versa.
+        QVERIFY(!parent.tagMatches(QStringLiteral("#foo/bar")));
     }
 
     void testTagNoPartialMatch()
@@ -44,6 +44,16 @@ private Q_SLOTS:
         TagValue t(QStringLiteral("#foobar"));
         // `#foo` must not match `#foobar` (no `/` boundary).
         QVERIFY(!t.tagMatches(QStringLiteral("#foo")));
+    }
+
+    void testTagMatchesOneDirectional()
+    {
+        TagValue child(QStringLiteral("#parent/child"));
+        QVERIFY(child.tagMatches(QStringLiteral("#parent")));          // stored under query
+        QVERIFY(child.tagMatches(QStringLiteral("#parent/child")));    // equal
+        QVERIFY(!child.tagMatches(QStringLiteral("#parent/other")));   // sibling
+        TagValue parent(QStringLiteral("#parent"));
+        QVERIFY(!parent.tagMatches(QStringLiteral("#parent/child")));  // reverse must NOT match
     }
 
     // ----- LinkValue -----
