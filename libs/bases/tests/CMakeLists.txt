@@ -57,3 +57,7 @@ target_link_libraries(tst_bases_yaml_schema PRIVATE Qt6::Test Corbomite::Bases)
 add_executable(tst_bases_entry tst_basesentry.cpp)
 add_test(NAME tst_bases_entry COMMAND tst_bases_entry)
 target_link_libraries(tst_bases_entry PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_bases_sortcycle tst_sortcycle.cpp)
+add_test(NAME tst_bases_sortcycle COMMAND tst_bases_sortcycle)
+target_link_libraries(tst_bases_sortcycle PRIVATE Qt6::Test Corbomite::Bases)
