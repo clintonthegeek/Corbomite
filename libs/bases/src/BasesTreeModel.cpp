@@ -169,6 +169,9 @@ bool BasesTreeModel::setData(const QModelIndex &index, const QVariant &value, in
     if (!entry || !entry->file()) return false;
     const PropertyId pid = propertyAt(index.column());
     if (pid.kind != PropertyKind::Note) return false;   // only frontmatter editable
+    // processFrontMatter is synchronous; entry->file() is evaluated before the
+    // call and entry is not dereferenced afterward, so the recompute->reset that
+    // a resulting cacheChanged triggers cannot dangle it. (Parity with BasesTableModel.)
     m_fm->processFrontMatter(entry->file(), [&](QVariantMap &fm) { fm.insert(pid.name, value); });
     return true;  // QueryController recompute -> resultsChanged -> reset
 }

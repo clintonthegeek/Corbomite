@@ -51,6 +51,10 @@ private Q_SLOTS:
     void onResultsChanged();
 
 private:
+    // internalId encodes a node's kind/parent for the 2-level tree:
+    //   GROUP_ID (-1): group node     (parent = root; row = group index)
+    //   FLAT_ID  (-2): flat entry     (parent = root; row = entry index in the single keyless group)
+    //   0..N         : grouped entry  (parent = group `internalId`; row = entry index within it)
     static constexpr quintptr GROUP_ID = quintptr(-1);
     static constexpr quintptr FLAT_ID  = quintptr(-2);
     bool isFlat() const;

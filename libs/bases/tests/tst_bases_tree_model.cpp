@@ -85,6 +85,21 @@ private Q_SLOTS:
         const QModelIndex g1 = m.index(1, 0, QModelIndex());
         QCOMPARE(m.data(g1, Qt::DisplayRole).toString(), QStringLiteral("(no value)"));
     }
+
+    void testEmptyModel()
+    {
+        BasesTreeModel m(nullptr, nullptr);   // never populated
+        QCOMPARE(m.rowCount(QModelIndex()), 0);
+        QCOMPARE(m.columnCount(QModelIndex()), 0);
+        QVERIFY(!m.index(0, 0, QModelIndex()).isValid());
+    }
+    void testInvalidIndexDataIsSafe()
+    {
+        BasesTreeModel m(nullptr, nullptr);
+        QVERIFY(!m.data(QModelIndex(), Qt::DisplayRole).isValid());
+        QCOMPARE(m.setData(QModelIndex(), QVariant(42), Qt::EditRole), false);
+        QCOMPARE(m.flags(QModelIndex()), Qt::NoItemFlags);
+    }
 };
 
 QTEST_MAIN(TestBasesTreeModel)
