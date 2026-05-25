@@ -17,7 +17,7 @@ Cluster K shipped the Bases runtime + a flat read-side view: `BasesView` hosts a
 
 ## Goal
 
-Open a grouped `.base` and see collapsible group headings with row counts and summary cells; click column headers to build a multi-key sort; and see Icon/Image/HTML cells rendered richly. All read-side: D.2 makes **no `.base` writes** and no inline edits.
+Open a grouped `.base` and see collapsible group headings with row counts and summary cells; click column headers to build a multi-key sort; and see Icon/Image/HTML cells rendered richly. Read-side in the sense of **no inline cell edits and no new write paths** — header-sort persists to the `.base` exactly as the existing column-reorder/view-switch already do (via `requestSave()`); it introduces no new mutation surface.
 
 ## Scope
 
@@ -30,7 +30,7 @@ Open a grouped `.base` and see collapsible group headings with row counts and su
 **Out of scope (→ D.3 or frozen):**
 - Toolbar Sort+group / Properties / Views / Results menus; inline cell editing; summary-formula *configuration*; the "+ New" button.
 - Markdown cells (frozen on the read-only-Live renderer — plain-text fallback for now).
-- **Persistence:** collapse state and header-sort are session-local in D.2 (see Design §2, §4); persisting them (leaf ephemeral state / `.base` write) is deferred.
+- **Collapse-state persistence:** collapse state is session-local (in-memory) in D.2 — see Design §2; persisting collapsed group keys (leaf ephemeral state) is deferred. (Header-sort **does** persist — see §4 — matching existing behavior; only collapse is session-local.)
 
 ## Design
 
@@ -68,10 +68,11 @@ Exact Icon/Image `renderTo` semantics resolved against the canonical source chun
 
 ### 4. Header-click multi-key sort
 
-On `header()->sectionClicked(logicalIndex)`:
-- Resolve `propertyAt(logicalIndex)`. If it's not currently in `m_cfg.sort`, append it ASC. If it's the most-recent/only key, cycle ASC→DESC→remove. Shift-click **appends** a new key (secondary, tertiary…) rather than replacing, enabling multi-key build-up.
-- Re-run the query result's sort (`applySort` consumes `m_cfg.sort`) and refresh the model. **Session-local** — D.2 does not write `m_cfg.sort` back to the `.base`. Persistent sort config is D.3's toolbar menu.
-- Indicators: a header section delegate / `QHeaderView` paint hook draws the ASC/DESC arrow plus a small priority index (1, 2, …) on each sorted column. (Native `QHeaderView` shows only one indicator; multi-key needs custom header painting.)
+`BasesView::onHeaderClicked` **already exists** and does a single-key ASC→DESC→unsorted cycle, persisting via `requestSave()`. D.2 **extends** it to multi-key:
+- Plain click on column C: if `m_cfg.sort` is exactly `[C, …]` with C primary, cycle C's direction ASC→DESC→remove (and if removed, the next key becomes primary); otherwise replace the sort with `[C ASC]`. (Preserves today's single-key behavior.)
+- **Shift-click** on column C: **append/cycle** C as an additional key (secondary, tertiary…) without clearing the others, enabling multi-key build-up. (`QHeaderView::sectionClicked` carries no modifier; read `QGuiApplication::keyboardModifiers()` in the handler, or filter the header's mouse-press.)
+- Re-run via `m_controller->recomputeNow()` (`applySort` consumes `m_cfg.sort`) and **persist** via the existing `requestSave()` — same as column-reorder/view-switch. This is not a new write path.
+- Indicators: a header paint hook draws the ASC/DESC arrow plus a small priority index (1, 2, …) on each sorted column. (Native `QHeaderView` shows only one indicator; multi-key needs custom header painting.)
 
 Exact cycle semantics (does a third click remove the key or keep DESC; how Shift interacts) pinned against the Obsidian source during implementation.
 
@@ -81,7 +82,7 @@ The tree model is the testable core:
 - `rowCount`/`index`/`parent` for **grouped**, **ungrouped**, and **null-key-group-present** cases (incl. round-trip `parent(index(...)) == expected`).
 - `data`: entry-row cell values match the old flat model; group-row col 0 = label + count; group-row summary cells present only when configured; `IsGroupRowRole` set on group rows only.
 - Sort handler: clicking a header mutates `m_cfg.sort` per the cycle (append ASC → DESC → remove; Shift appends a key); verified at the handler/controller level.
-- Delegate: unit-test the value→display dispatch helper (`displayText()`-style) for the new types; painting itself is GUI and not pixel-tested.
+- Delegate: there is no standalone display helper — `BasesCellDelegate::paint()` dispatches on `ValueTypeRole` and paints directly. So rich cells get a **smoke test** (paint each new type into a `QPixmap`/`QImage` via the delegate; assert no crash) rather than a value→text unit test; the model + sort handler carry the real assertions.
 
 Use the existing `libs/bases/tests` harness; new `tst_bases_tree_model` (or extend the model test) + sort-handler cases. All existing bases tests stay green.
 
@@ -89,9 +90,9 @@ Use the existing `libs/bases/tests` harness; new `tst_bases_tree_model` (or exte
 
 - A grouped `.base` renders collapsible group headings with counts + summary cells; ungrouped renders flat (no headings); null-key group renders last.
 - Icon/Image/HTML cells render richly; Markdown falls back to text.
-- Header clicks build/cycle a multi-key sort with visible indicators; the view re-sorts; no `.base` write occurs.
+- Header clicks build/cycle a multi-key sort with visible indicators; the view re-sorts and persists via the existing `requestSave()` (no new write path).
 - New model/sort unit tests pass; full `libs/bases` suite green.
-- No inline edits, no toolbar menus, no `.base` writes (those are D.3).
+- No inline cell edits and no toolbar menus (those are D.3).
 
 ## References
 
