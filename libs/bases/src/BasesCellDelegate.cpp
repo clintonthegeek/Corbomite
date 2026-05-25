@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/bases/BasesCellDelegate.h"
 
-#include "corbomite/bases/BasesTableModel.h"
 #include "corbomite/bases/BasesTreeModel.h"
 #include "corbomite/bases/Values.h"
 
@@ -30,7 +29,7 @@ QWidget *BasesCellDelegate::createEditor(QWidget *parent,
                                          const QModelIndex &index) const
 {
     Q_UNUSED(option);
-    const QString type = index.data(BasesTableModel::ValueTypeRole).toString();
+    const QString type = index.data(BasesTreeModel::ValueTypeRole).toString();
 
     if (type == QLatin1String("Boolean")) {
         auto *cb = new QCheckBox(parent);
@@ -44,7 +43,7 @@ QWidget *BasesCellDelegate::createEditor(QWidget *parent,
         return sb;
     }
     if (type == QLatin1String("Date")) {
-        auto valueVar = index.data(BasesTableModel::ValuePtrRole);
+        auto valueVar = index.data(BasesTreeModel::ValuePtrRole);
         ValuePtr v = valueVar.value<ValuePtr>();
         auto *d = dynamic_cast<DateValue *>(v.get());
         if (d && d->hasTime()) {
@@ -61,24 +60,24 @@ QWidget *BasesCellDelegate::createEditor(QWidget *parent,
 
 void BasesCellDelegate::setEditorData(QWidget *editor, const QModelIndex &index) const
 {
-    const QString type = index.data(BasesTableModel::ValueTypeRole).toString();
+    const QString type = index.data(BasesTreeModel::ValueTypeRole).toString();
 
     if (auto *cb = qobject_cast<QCheckBox *>(editor)) {
-        auto valueVar = index.data(BasesTableModel::ValuePtrRole);
+        auto valueVar = index.data(BasesTreeModel::ValuePtrRole);
         ValuePtr v = valueVar.value<ValuePtr>();
         auto *b = dynamic_cast<BooleanValue *>(v.get());
         cb->setChecked(b && b->data());
         return;
     }
     if (auto *sb = qobject_cast<QDoubleSpinBox *>(editor)) {
-        auto valueVar = index.data(BasesTableModel::ValuePtrRole);
+        auto valueVar = index.data(BasesTreeModel::ValuePtrRole);
         ValuePtr v = valueVar.value<ValuePtr>();
         auto *n = dynamic_cast<NumberValue *>(v.get());
         sb->setValue(n ? n->data() : 0.0);
         return;
     }
     if (auto *de = qobject_cast<QDateTimeEdit *>(editor)) {
-        auto valueVar = index.data(BasesTableModel::ValuePtrRole);
+        auto valueVar = index.data(BasesTreeModel::ValuePtrRole);
         ValuePtr v = valueVar.value<ValuePtr>();
         if (auto *d = dynamic_cast<DateValue *>(v.get())) {
             de->setDateTime(d->dateTime());
@@ -134,7 +133,7 @@ void BasesCellDelegate::paint(QPainter *painter,
         return;
     }
 
-    const QString type = index.data(BasesTableModel::ValueTypeRole).toString();
+    const QString type = index.data(BasesTreeModel::ValueTypeRole).toString();
     if (type == QLatin1String("Icon")) {
         const QString name = index.data(Qt::DisplayRole).toString();
         const QIcon ic = Corbomite::LucideIconRegistry::instance().get(name);
@@ -176,7 +175,7 @@ void BasesCellDelegate::paint(QPainter *painter,
     }
     if (type == QLatin1String("Boolean")) {
         // Render as a checkmark glyph rather than "true"/"false" text.
-        const auto valueVar = index.data(BasesTableModel::ValuePtrRole);
+        const auto valueVar = index.data(BasesTreeModel::ValuePtrRole);
         ValuePtr v = valueVar.value<ValuePtr>();
         auto *b = dynamic_cast<BooleanValue *>(v.get());
         painter->save();
