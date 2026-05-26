@@ -169,6 +169,9 @@ def main():
 
     # ---- Films.base : multi-view, exercises every D.3 surface ----
     films_base = textwrap.dedent("""\
+        filters:
+          and:
+            - 'file.inFolder("Films")'
         formulas:
           hours: "(note.runtime / 60).round(2)"
         views:

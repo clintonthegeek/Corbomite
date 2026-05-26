@@ -1,3 +1,6 @@
+filters:
+  and:
+    - 'file.inFolder("Films")'
 formulas:
   hours: "(note.runtime / 60).round(2)"
 views:
