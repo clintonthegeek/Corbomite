@@ -6,7 +6,10 @@
 #include "corbomite/core/TextFileView.h"
 
 #include <QElapsedTimer>
+#include <QPoint>
+#include <QString>
 
+#include <functional>
 #include <memory>
 
 class QLabel;
@@ -72,6 +75,12 @@ public:
     /// debounces).
     void setCurrentFile(Corbomite::TFile *file);
 
+    /// Host callbacks for cell interactions that escape the base's own leaf.
+    void setOpenInNewTabHandler(std::function<void(const QString &path)> cb) { m_openInNewTab = std::move(cb); }
+    void setTagSearchHandler(std::function<void(const QString &tag)> cb) { m_searchTag = std::move(cb); }
+    void setRenamePrompt(std::function<void(const QString &path)> cb) { m_promptRename = std::move(cb); }
+    void setDeletePrompt(std::function<void(const QString &path)> cb) { m_promptDelete = std::move(cb); }
+
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -86,8 +95,12 @@ private Q_SLOTS:
     void onViewSelectorChanged(const QString &name);
     void onSectionMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex);
     void onSelectionChanged();
+    void onLinkClicked(const QString &target, Qt::KeyboardModifiers mods);
+    void onContextMenu(const QPoint &pos);
 
 private:
+    QString resolveLink(const QString &target) const;   // wikilink target -> vault path ("" if unresolved)
+
     void rebuildLayout();
     void populateViewSelector();
     /// Read the raw `.base` bytes from the vault and parse them. No-op until
@@ -125,6 +138,11 @@ private:
     PropertiesDrawer *m_drawer = nullptr;
 
     QElapsedTimer m_panelDismissTimer;   // guards popup re-open flip-flop
+
+    std::function<void(const QString &)> m_openInNewTab;
+    std::function<void(const QString &)> m_searchTag;
+    std::function<void(const QString &)> m_promptRename;
+    std::function<void(const QString &)> m_promptDelete;
 };
 
 }  // namespace Corbomite::Bases

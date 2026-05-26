@@ -12,24 +12,35 @@
 #include "corbomite/bases/ViewsMenuPanel.h"
 
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/Vault.h"
+#include "corbomite/bases/BasesEntry.h"
+#include "corbomite/bases/BasesVaultResolver.h"
 #include "corbomite/bases/PropertiesDrawer.h"
 #include "corbomite/bases/BasesQueryResult.h"
+#include "corbomite/bases/Values.h"
 
 #include <KLocalizedString>
 
+#include <QApplication>
+#include <QClipboard>
 #include <QComboBox>
+#include <QDesktopServices>
 #include <QEvent>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QItemSelectionModel>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QSplitter>
 #include <QToolButton>
 #include <QTreeView>
+#include <QUrl>
 #include <QVBoxLayout>
 
 namespace Corbomite::Bases {
@@ -139,6 +150,21 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
                            | QAbstractItemView::EditKeyPressed);
     m_delegate = new BasesCellDelegate(this);
     m_table->setItemDelegate(m_delegate);
+
+    connect(m_delegate, &BasesCellDelegate::linkClicked,
+            this, &BasesView::onLinkClicked);
+    connect(m_delegate, &BasesCellDelegate::tagClicked, this, [this](const QString &tag) {
+        if (m_searchTag) m_searchTag(tag);
+    });
+    connect(m_delegate, &BasesCellDelegate::urlClicked, this, [](const QString &url) {
+        QDesktopServices::openUrl(QUrl(url));
+    });
+
+    m_table->setDragEnabled(true);
+    m_table->setDragDropMode(QAbstractItemView::DragOnly);
+    m_table->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_table, &QWidget::customContextMenuRequested,
+            this, &BasesView::onContextMenu);
 
     m_splitter = new QSplitter(Qt::Horizontal, this);
     m_splitter->addWidget(m_table);
@@ -373,6 +399,89 @@ void BasesView::showPanelUnder(QWidget *panel, QToolButton *button)
     panel->move(below);
     panel->show();
     panel->raise();
+}
+
+QString BasesView::resolveLink(const QString &target) const
+{
+    if (!m_vault) return {};
+    BasesVaultResolver resolver(m_vault, m_cache);
+    const QString src = m_query ? m_query->filePath : QString{};
+    return resolver.resolveLinkTarget(target, src);   // "" if unresolved
+}
+
+void BasesView::onLinkClicked(const QString &target, Qt::KeyboardModifiers mods)
+{
+    const QString path = resolveLink(target);
+    if (path.isEmpty()) return;                       // unresolved -> no-op
+    const bool newTab = mods.testFlag(Qt::ControlModifier)
+                     || mods.testFlag(Qt::MetaModifier);
+    if (newTab) {
+        if (m_openInNewTab) m_openInNewTab(path);
+        return;
+    }
+    // Same-tab navigation: drive the base's own leaf (history-aware).
+    if (auto *lf = leaf()) {
+        QJsonObject state;
+        state[QStringLiteral("type")] = QStringLiteral("markdown");
+        state[QStringLiteral("state")] = QJsonObject{{QStringLiteral("file"), path}};
+        lf->navigate(state);
+    } else if (m_openInNewTab) {
+        m_openInNewTab(path);                         // fallback
+    }
+}
+
+void BasesView::onContextMenu(const QPoint &pos)
+{
+    if (!m_model) return;
+    const QModelIndex idx = m_table->indexAt(pos);
+    if (!idx.isValid() || m_model->isGroupRow(idx)) return;
+
+    QMenu menu(this);
+    // Resolve the row's note (entry's own file) for file actions.
+    QString notePath;
+    if (BasesEntry *e = m_model->entryForIndex(idx); e && e->file())
+        notePath = e->file()->path;
+
+    // If the clicked cell is a wikilink, prefer its target.
+    const QString type = idx.data(BasesTreeModel::ValueTypeRole).toString();
+    if (type == QLatin1String("Link")) {
+        const auto v = idx.data(BasesTreeModel::ValuePtrRole).value<ValuePtr>();
+        if (auto *s = dynamic_cast<StringValue *>(v.get())) {
+            const QString resolved = resolveLink(s->data());
+            if (!resolved.isEmpty()) notePath = resolved;
+        }
+    }
+
+    if (!notePath.isEmpty()) {
+        const QString path = notePath;
+        menu.addAction(i18n("Open"), this, [this, path]() {
+            if (auto *lf = leaf()) {
+                QJsonObject st; st[QStringLiteral("type")] = QStringLiteral("markdown");
+                st[QStringLiteral("state")] = QJsonObject{{QStringLiteral("file"), path}};
+                lf->navigate(st);
+            }
+        });
+        menu.addAction(i18n("Open in new tab"), this, [this, path]() {
+            if (m_openInNewTab) m_openInNewTab(path);
+        });
+        menu.addAction(i18n("Copy as wikilink"), this, [path]() {
+            const QString base = QFileInfo(path).completeBaseName();
+            QApplication::clipboard()->setText(QStringLiteral("[[%1]]").arg(base));
+        });
+        menu.addSeparator();
+        menu.addAction(i18n("Rename…"), this, [this, path]() {
+            if (m_promptRename) m_promptRename(path);
+        });
+        menu.addAction(i18n("Delete"), this, [this, path]() {
+            if (m_promptDelete) m_promptDelete(path);
+        });
+    } else {
+        const QString display = idx.data(Qt::DisplayRole).toString();
+        menu.addAction(i18n("Copy value"), this, [display]() {
+            QApplication::clipboard()->setText(display);
+        });
+    }
+    menu.exec(m_table->viewport()->mapToGlobal(pos));
 }
 
 }  // namespace Corbomite::Bases
