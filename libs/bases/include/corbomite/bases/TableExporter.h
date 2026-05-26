@@ -16,6 +16,9 @@ namespace Corbomite::Bases {
 /// row set in the result's current sort order (grouping ignored — matches
 /// Obsidian's export). Columns come from BasesQueryResult::properties(); cell
 /// text is `entry->getValue(prop)->toString()` (null value -> empty string).
+///
+/// Intended as a stack-allocated temporary: the referenced BasesQueryResult
+/// must outlive the exporter (the member is a const reference, not a copy).
 class TableExporter
 {
 public:

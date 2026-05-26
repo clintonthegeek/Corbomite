@@ -2,7 +2,6 @@
 #include "corbomite/bases/TableExporter.h"
 
 #include "corbomite/bases/BasesEntry.h"
-#include "corbomite/bases/Values.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
