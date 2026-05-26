@@ -1,5 +1,5 @@
 ---
-title: The Silence of the Lambs
+title: "The Silence of the Lambs"
 year: 1991
 decade: 1990
 runtime: 118

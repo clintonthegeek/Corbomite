@@ -1,5 +1,5 @@
 ---
-title: 2001: A Space Odyssey
+title: "2001: A Space Odyssey"
 year: 1968
 decade: 1960
 runtime: 149

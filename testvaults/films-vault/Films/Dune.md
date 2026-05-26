@@ -1,5 +1,5 @@
 ---
-title: Dune
+title: "Dune"
 year: 2021
 decade: 2020
 runtime: 155

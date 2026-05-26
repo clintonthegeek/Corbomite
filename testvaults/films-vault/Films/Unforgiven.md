@@ -1,5 +1,5 @@
 ---
-title: Unforgiven
+title: "Unforgiven"
 year: 1992
 decade: 1990
 runtime: 130

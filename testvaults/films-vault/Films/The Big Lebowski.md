@@ -1,5 +1,5 @@
 ---
-title: The Big Lebowski
+title: "The Big Lebowski"
 year: 1998
 decade: 1990
 runtime: 117

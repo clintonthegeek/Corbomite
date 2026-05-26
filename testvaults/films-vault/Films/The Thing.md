@@ -1,5 +1,5 @@
 ---
-title: The Thing
+title: "The Thing"
 year: 1982
 decade: 1980
 runtime: 109

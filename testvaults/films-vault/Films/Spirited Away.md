@@ -1,5 +1,5 @@
 ---
-title: Spirited Away
+title: "Spirited Away"
 year: 2001
 decade: 2000
 runtime: 125

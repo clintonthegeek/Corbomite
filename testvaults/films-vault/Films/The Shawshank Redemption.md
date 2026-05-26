@@ -1,5 +1,5 @@
 ---
-title: The Shawshank Redemption
+title: "The Shawshank Redemption"
 year: 1994
 decade: 1990
 runtime: 142

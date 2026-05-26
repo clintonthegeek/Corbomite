@@ -1,5 +1,5 @@
 ---
-title: Everything Everywhere All at Once
+title: "Everything Everywhere All at Once"
 year: 2022
 decade: 2020
 runtime: 139

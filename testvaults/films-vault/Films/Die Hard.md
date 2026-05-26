@@ -1,5 +1,5 @@
 ---
-title: Die Hard
+title: "Die Hard"
 year: 1988
 decade: 1980
 runtime: 132

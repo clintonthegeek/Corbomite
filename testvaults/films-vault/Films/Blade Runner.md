@@ -1,5 +1,5 @@
 ---
-title: Blade Runner
+title: "Blade Runner"
 year: 1982
 decade: 1980
 runtime: 117

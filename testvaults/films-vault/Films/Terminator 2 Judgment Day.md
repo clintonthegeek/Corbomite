@@ -1,5 +1,5 @@
 ---
-title: Terminator 2: Judgment Day
+title: "Terminator 2: Judgment Day"
 year: 1991
 decade: 1990
 runtime: 137

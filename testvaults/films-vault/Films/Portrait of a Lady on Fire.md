@@ -1,5 +1,5 @@
 ---
-title: Portrait of a Lady on Fire
+title: "Portrait of a Lady on Fire"
 year: 2019
 decade: 2010
 runtime: 122

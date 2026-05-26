@@ -19,6 +19,7 @@ class QSplitter;
 namespace Corbomite {
 class FileManager;
 class MetadataCache;
+class NoteDocument;
 class TFile;
 class Vault;
 class WorkspaceLeaf;
@@ -74,6 +75,11 @@ public:
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
+    /// Load the `.base` body from the NoteDocument and parse it. TextFileView's
+    /// adapter-based loader is inert (no DataAdapter is ever injected), so —
+    /// like MarkdownView — we take content straight from the document.
+    void onLoadFile(Corbomite::NoteDocument *file) override;
+
 private Q_SLOTS:
     void onHeaderClicked(int column);
     void onSearchChanged(const QString &text);
@@ -84,6 +90,9 @@ private Q_SLOTS:
 private:
     void rebuildLayout();
     void populateViewSelector();
+    /// Read the raw `.base` bytes from the vault and parse them. No-op until
+    /// both the vault (services) and the document (onLoadFile) are present.
+    void loadBaseFromVault();
     void onConfigMutated();              // recompute + persist after a panel edit
     QVector<PropertyId> availableProperties() const;
     QString displayNameFor(const PropertyId &pid) const;

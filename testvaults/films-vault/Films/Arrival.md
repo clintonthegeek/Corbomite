@@ -1,5 +1,5 @@
 ---
-title: Arrival
+title: "Arrival"
 year: 2016
 decade: 2010
 runtime: 116

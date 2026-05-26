@@ -1,5 +1,5 @@
 ---
-title: Mad Max: Fury Road
+title: "Mad Max: Fury Road"
 year: 2015
 decade: 2010
 runtime: 120

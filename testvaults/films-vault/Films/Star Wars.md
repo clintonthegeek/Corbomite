@@ -1,5 +1,5 @@
 ---
-title: Star Wars
+title: "Star Wars"
 year: 1977
 decade: 1970
 runtime: 121

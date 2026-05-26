@@ -1,5 +1,5 @@
 ---
-title: Chinatown
+title: "Chinatown"
 year: 1974
 decade: 1970
 runtime: 130

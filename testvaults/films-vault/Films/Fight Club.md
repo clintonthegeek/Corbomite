@@ -1,5 +1,5 @@
 ---
-title: Fight Club
+title: "Fight Club"
 year: 1999
 decade: 1990
 runtime: 139

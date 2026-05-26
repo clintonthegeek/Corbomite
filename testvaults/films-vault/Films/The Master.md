@@ -1,5 +1,5 @@
 ---
-title: The Master
+title: "The Master"
 year: 2012
 decade: 2010
 runtime: 138

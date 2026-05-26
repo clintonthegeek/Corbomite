@@ -1,5 +1,5 @@
 ---
-title: Goodfellas
+title: "Goodfellas"
 year: 1990
 decade: 1990
 runtime: 145

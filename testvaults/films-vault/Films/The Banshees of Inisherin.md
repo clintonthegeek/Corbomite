@@ -1,5 +1,5 @@
 ---
-title: The Banshees of Inisherin
+title: "The Banshees of Inisherin"
 year: 2022
 decade: 2020
 runtime: 114

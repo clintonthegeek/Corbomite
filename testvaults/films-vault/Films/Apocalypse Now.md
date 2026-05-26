@@ -1,5 +1,5 @@
 ---
-title: Apocalypse Now
+title: "Apocalypse Now"
 year: 1979
 decade: 1970
 runtime: 147

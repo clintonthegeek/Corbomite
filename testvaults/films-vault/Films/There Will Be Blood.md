@@ -1,5 +1,5 @@
 ---
-title: There Will Be Blood
+title: "There Will Be Blood"
 year: 2007
 decade: 2000
 runtime: 158

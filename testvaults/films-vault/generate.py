@@ -132,7 +132,7 @@ def main():
         decade = (year // 10) * 10
         fm = textwrap.dedent(f"""\
             ---
-            title: {title}
+            title: "{title}"
             year: {year}
             decade: {decade}
             runtime: {runtime}

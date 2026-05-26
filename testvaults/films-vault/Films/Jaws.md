@@ -1,5 +1,5 @@
 ---
-title: Jaws
+title: "Jaws"
 year: 1975
 decade: 1970
 runtime: 124

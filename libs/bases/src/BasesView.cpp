@@ -10,6 +10,10 @@
 #include "corbomite/bases/PropertiesMenuPanel.h"
 #include "corbomite/bases/SortGroupMenuPanel.h"
 #include "corbomite/bases/ViewsMenuPanel.h"
+
+#include "corbomite/core/NoteDocument.h"
+#include "corbomite/vault/TFile.h"
+#include "corbomite/vault/Vault.h"
 #include "corbomite/bases/PropertiesDrawer.h"
 #include "corbomite/bases/BasesQueryResult.h"
 
@@ -33,7 +37,11 @@ namespace Corbomite::Bases {
 BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     : TextFileView(leaf, parent)
 {
-    auto *root = new QVBoxLayout(this);
+    // Build into the ItemView-provided content area, NOT `this` — ItemView's
+    // ctor already installs an outer layout (header chrome + contentWidget).
+    // Creating a second layout on `this` is rejected by Qt ("already has a
+    // layout") and leaves our toolbar/table unmanaged + invisible.
+    auto *root = new QVBoxLayout(contentWidget());
     root->setContentsMargins(0, 0, 0, 0);
 
     // Toolbar row: view switcher + search field.
@@ -154,42 +162,54 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
             this, &BasesView::onSearchChanged);
     connect(m_viewSelector, &QComboBox::currentTextChanged,
             this, &BasesView::onViewSelectorChanged);
-
-    qWarning() << "BASESDBG: ctor DONE table=" << (void *)m_table
-               << "propsBtn=" << (void *)m_propsBtn << "splitter=" << (void *)m_splitter
-               << "childToolButtons=" << findChildren<QToolButton *>().size();
 }
 
 BasesView::~BasesView() = default;
 
 Corbomite::View *BasesView::factory(WorkspaceLeaf *leaf)
 {
-    qWarning() << "BASESDBG: factory() called, leaf=" << (void *)leaf;
     return new BasesView(leaf);
 }
 
 void BasesView::setServices(Vault *vault, MetadataCache *cache,
                             FileManager *fileManager, FunctionRegistry *funcs)
 {
-    const bool vaultChanged = (m_vault != vault);
     m_vault = vault;
     m_cache = cache;
     m_fm = fileManager;
     if (m_drawer) m_drawer->setFileManager(m_fm);
     m_funcs = funcs ? funcs : &FunctionRegistry::global();
 
-    // Services can arrive *after* the .base content: in the host,
-    // onLoadFile->setViewData fires before propagateServicesToView->
-    // setServices. setViewData's rebuildLayout() bails while m_vault is
-    // null, so the model would never get built. Rebuild here once the
-    // services land (guarded so repeated same-vault re-injections — e.g.
-    // on every activeLeafChanged — don't needlessly rescan the vault).
-    qWarning() << "BASESDBG: setServices vault=" << (bool)vault << "cache=" << (bool)cache
-               << "fm=" << (bool)fileManager << "query=" << (bool)m_query
-               << "model=" << (bool)m_model << "willRebuild="
-               << (m_query && (vaultChanged || !m_model));
-    if (m_query && (vaultChanged || !m_model))
+    // Services and file-content arrive in either order in the host
+    // (propagateServicesToView vs onLoadFile). Whichever completes the
+    // vault+file pair last triggers the actual load + parse.
+    loadBaseFromVault();
+    // Recovery: if the query was supplied directly (setViewData) before the
+    // vault landed, rebuildLayout() bailed earlier — build it now.
+    if (m_query && !m_model && m_vault)
         rebuildLayout();
+}
+
+void BasesView::loadBaseFromVault()
+{
+    // Need both the vault (for a raw read) and the loaded document. Skip if a
+    // model is already built (idempotent across repeated setServices calls).
+    if (!m_vault || !file() || m_model)
+        return;
+    TFile *tf = m_vault->getFileByPath(file()->relativePath());
+    if (!tf)
+        return;
+    // Raw bytes — NOT NoteDocument::markdown(), which would route the .base
+    // YAML through the Markdown parser and corrupt it.
+    setViewData(QString::fromUtf8(m_vault->read(tf)), true);
+}
+
+void BasesView::onLoadFile(Corbomite::NoteDocument *file)
+{
+    // Run base wiring (rename/delete subscriptions). TextFileView's adapter
+    // read is inert (no DataAdapter injected), so it won't load content.
+    TextFileView::onLoadFile(file);
+    loadBaseFromVault();
 }
 
 QString BasesView::getViewData() const
@@ -210,16 +230,12 @@ void BasesView::setViewData(const QString &data, bool clear)
     }
     m_query = std::move(q);
     m_activeView = m_query->getViewConfig();
-    qWarning() << "BASESDBG: setViewData len=" << data.size() << "parseErr=" << err
-               << "views=" << (m_query ? int(m_query->views.size()) : -1)
-               << "activeView=" << (m_activeView ? m_activeView->name : QStringLiteral("<null>"));
     populateViewSelector();
     rebuildLayout();
 }
 
 void BasesView::clear()
 {
-    qWarning() << "BASESDBG: clear() called";
     m_query.reset();
     m_activeView = nullptr;
     m_table->setModel(nullptr);
@@ -252,12 +268,7 @@ void BasesView::populateViewSelector()
 
 void BasesView::rebuildLayout()
 {
-    qWarning() << "BASESDBG: rebuildLayout ENTER vault=" << (bool)m_vault
-               << "query=" << (bool)m_query;
-    if (!m_vault || !m_query) {
-        qWarning() << "BASESDBG: rebuildLayout BAILED (no vault or query)";
-        return;
-    }
+    if (!m_vault || !m_query) return;
 
     m_controller = std::make_unique<QueryController>(
         m_vault, m_cache, m_funcs, this);
@@ -270,11 +281,6 @@ void BasesView::rebuildLayout()
             this, &BasesView::onSelectionChanged, Qt::UniqueConnection);
     m_table->expandAll();
     m_controller->recomputeNow();
-    qWarning() << "BASESDBG: rebuildLayout DONE markdownFiles via model: cols="
-               << m_model->columnCount(QModelIndex())
-               << "rootRows=" << m_model->rowCount(QModelIndex())
-               << "tableVisible=" << m_table->isVisible()
-               << "tableModelSet=" << (m_table->model() != nullptr);
 }
 
 void BasesView::onHeaderClicked(int column)

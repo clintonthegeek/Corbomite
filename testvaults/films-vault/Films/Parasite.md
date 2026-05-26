@@ -1,5 +1,5 @@
 ---
-title: Parasite
+title: "Parasite"
 year: 2019
 decade: 2010
 runtime: 132

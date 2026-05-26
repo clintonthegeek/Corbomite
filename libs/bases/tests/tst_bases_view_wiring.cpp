@@ -12,6 +12,7 @@
 #include <QTemporaryDir>
 
 #include "corbomite/bases/BasesView.h"
+#include "corbomite/core/NoteDocument.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/vault/Vault.h"
 
@@ -38,6 +39,7 @@ void seedVault(const QString &root) {
     };
     write(root + QStringLiteral("/A.md"), "---\ntitle: Alpha\nyear: 2001\n---\n# Alpha\n");
     write(root + QStringLiteral("/B.md"), "---\ntitle: Beta\nyear: 1999\n---\n# Beta\n");
+    write(root + QStringLiteral("/v.base"), kBase);
 }
 
 int columnCount(BasesView &bv) {
@@ -88,6 +90,26 @@ private Q_SLOTS:
         BasesView bv(nullptr);
         bv.setServices(&vault, nullptr, nullptr);          // services first
         bv.setViewData(QString::fromUtf8(kBase), true);
+
+        QCOMPARE(columnCount(bv), 3);
+        QCOMPARE(rootRowCount(bv), 2);
+    }
+
+    // The REAL host path: the leaf loads a NoteDocument via FileView::loadFile,
+    // which calls onLoadFile. BasesView must take the .base body from the
+    // document (TextFileView's adapter loader is inert) and parse it. Before
+    // the fix, onLoadFile never called setViewData, so the model never built.
+    void loadFileFromDocumentBuildsModel() {
+        FileSystemAdapter adapter;
+        Vault vault(&adapter);
+        vault.load(m_dir.path());
+        Corbomite::NoteDocument *doc = vault.openDocument(QStringLiteral("v.base"));
+        QVERIFY(doc);
+        QVERIFY(!doc->markdown().isEmpty());   // document carries the .base YAML
+
+        BasesView bv(nullptr);
+        bv.setServices(&vault, nullptr, nullptr);
+        bv.loadFile(doc);                       // -> onLoadFile -> setViewData
 
         QCOMPARE(columnCount(bv), 3);
         QCOMPARE(rootRowCount(bv), 2);

@@ -1,5 +1,5 @@
 ---
-title: The Lord of the Rings: The Fellowship of the Ring
+title: "The Lord of the Rings: The Fellowship of the Ring"
 year: 2001
 decade: 2000
 runtime: 178

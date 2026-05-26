@@ -1,5 +1,5 @@
 ---
-title: Get Out
+title: "Get Out"
 year: 2017
 decade: 2010
 runtime: 104

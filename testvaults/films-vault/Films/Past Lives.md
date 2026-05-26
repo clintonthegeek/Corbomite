@@ -1,5 +1,5 @@
 ---
-title: Past Lives
+title: "Past Lives"
 year: 2023
 decade: 2020
 runtime: 105

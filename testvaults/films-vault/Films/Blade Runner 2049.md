@@ -1,5 +1,5 @@
 ---
-title: Blade Runner 2049
+title: "Blade Runner 2049"
 year: 2017
 decade: 2010
 runtime: 164

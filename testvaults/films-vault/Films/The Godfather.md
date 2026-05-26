@@ -1,5 +1,5 @@
 ---
-title: The Godfather
+title: "The Godfather"
 year: 1972
 decade: 1970
 runtime: 175

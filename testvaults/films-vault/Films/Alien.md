@@ -1,5 +1,5 @@
 ---
-title: Alien
+title: "Alien"
 year: 1979
 decade: 1970
 runtime: 117

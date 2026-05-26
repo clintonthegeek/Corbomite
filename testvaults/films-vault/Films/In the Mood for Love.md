@@ -1,5 +1,5 @@
 ---
-title: In the Mood for Love
+title: "In the Mood for Love"
 year: 2000
 decade: 2000
 runtime: 98

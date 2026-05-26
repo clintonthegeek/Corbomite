@@ -1,5 +1,5 @@
 ---
-title: Se7en
+title: "Se7en"
 year: 1995
 decade: 1990
 runtime: 127

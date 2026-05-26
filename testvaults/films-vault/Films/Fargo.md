@@ -1,5 +1,5 @@
 ---
-title: Fargo
+title: "Fargo"
 year: 1996
 decade: 1990
 runtime: 98

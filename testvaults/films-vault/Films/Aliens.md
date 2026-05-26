@@ -1,5 +1,5 @@
 ---
-title: Aliens
+title: "Aliens"
 year: 1986
 decade: 1980
 runtime: 137

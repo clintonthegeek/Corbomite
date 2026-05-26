@@ -1,5 +1,5 @@
 ---
-title: Jurassic Park
+title: "Jurassic Park"
 year: 1993
 decade: 1990
 runtime: 127

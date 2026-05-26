@@ -1,5 +1,5 @@
 ---
-title: Her
+title: "Her"
 year: 2013
 decade: 2010
 runtime: 126

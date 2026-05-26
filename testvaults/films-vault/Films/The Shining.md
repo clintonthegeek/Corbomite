@@ -1,5 +1,5 @@
 ---
-title: The Shining
+title: "The Shining"
 year: 1980
 decade: 1980
 runtime: 146

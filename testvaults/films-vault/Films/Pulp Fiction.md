@@ -1,5 +1,5 @@
 ---
-title: Pulp Fiction
+title: "Pulp Fiction"
 year: 1994
 decade: 1990
 runtime: 154

@@ -1,5 +1,5 @@
 ---
-title: The Dark Knight
+title: "The Dark Knight"
 year: 2008
 decade: 2000
 runtime: 152
