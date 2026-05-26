@@ -10,10 +10,18 @@
 #include <QTreeView>
 #include <QAbstractItemModel>
 #include <QTemporaryDir>
+#include <QSignalSpy>
 
 #include "corbomite/bases/BasesView.h"
+#include "corbomite/bases/BasesEntry.h"
+#include "corbomite/bases/BasesQuery.h"
+#include "corbomite/bases/PropertyId.h"
+#include "corbomite/bases/Values.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/storage/LinkResolver.h"
+#include "corbomite/storage/MetadataCache.h"
+#include "corbomite/vault/TFile.h"
 #include "corbomite/vault/Vault.h"
 
 using namespace Corbomite;
@@ -113,6 +121,37 @@ private Q_SLOTS:
 
         QCOMPARE(columnCount(bv), 3);
         QCOMPARE(rootRowCount(bv), 2);
+    }
+
+    // Regression: BasesEntry::frontmatter() returned a reference into the
+    // std::optional<CachedMetadata> temporary from getFileCache(), so reading
+    // any note.* value over a cache with real frontmatter dereferenced freed
+    // memory (segfault in ObjectValue::fromFrontMatter during filter eval).
+    void noteValueOverPopulatedCacheDoesNotDangle() {
+        FileSystemAdapter adapter;
+        Vault vault(&adapter);
+        vault.load(m_dir.path());
+
+        Corbomite::LinkResolver resolver;
+        resolver.setVaultPaths({QStringLiteral("A.md"), QStringLiteral("B.md")});
+        Corbomite::MetadataCache cache(resolver);
+        QSignalSpy spy(&cache, &Corbomite::MetadataCache::cacheChanged);
+        cache.onFileChanged(QStringLiteral("A.md"),
+            QByteArray("---\ntitle: Alpha\nyear: 2001\n---\n# Alpha\n"), 1);
+        if (spy.isEmpty()) QVERIFY(spy.wait(2000));   // parse may drain via worker
+        // Confirm the cache actually holds the frontmatter we'll read.
+        const auto fc = cache.getFileCache(QStringLiteral("A.md"));
+        QVERIFY(fc && fc->frontmatter && !fc->frontmatter->isEmpty());
+
+        Corbomite::TFile *tf = vault.getFileByPath(QStringLiteral("A.md"));
+        QVERIFY(tf);
+
+        BasesQuery q;
+        BasesEntry entry(&vault, &cache, tf, tf, q);
+        const ValuePtr title =
+            entry.getValue(PropertyId{PropertyKind::Note, QStringLiteral("title")});
+        QVERIFY(title);
+        QCOMPARE(title->toString(), QStringLiteral("Alpha"));
     }
 };
 

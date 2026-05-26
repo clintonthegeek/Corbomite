@@ -28,13 +28,18 @@ BasesEntry::BasesEntry(Vault *vault, MetadataCache *cache,
 
 BasesEntry::~BasesEntry() = default;
 
-const QJsonObject &BasesEntry::frontmatter() const
+QJsonObject BasesEntry::frontmatter() const
 {
+    // NOTE: returns BY VALUE. `getFileCache` hands back a std::optional<
+    // CachedMetadata> by value, so `c` is a local temporary; returning a
+    // reference into `*c->frontmatter` would dangle the moment `c` dies (it
+    // did — segfault in ObjectValue::fromFrontMatter). QJsonObject is
+    // implicitly shared, so the copy is cheap.
     if (m_cache && m_file) {
         const auto c = m_cache->getFileCache(m_file->path);
         if (c && c->frontmatter) return *c->frontmatter;
     }
-    return m_emptyFm;
+    return {};
 }
 
 QStringList BasesEntry::getPropertyKeys() const

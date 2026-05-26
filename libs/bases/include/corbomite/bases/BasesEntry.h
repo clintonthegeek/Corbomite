@@ -41,9 +41,10 @@ public:
     TFile *file() const { return m_file; }
     TFile *localFile() const { return m_local; }
 
-    /// Live frontmatter alias (audit §8 invariant "live alias into
-    /// MetadataCache"). Empty QJsonObject if no cache entry.
-    const QJsonObject &frontmatter() const;
+    /// Frontmatter snapshot from the MetadataCache (empty if no cache entry).
+    /// Returned BY VALUE: getFileCache yields a temporary, so a reference
+    /// would dangle. QJsonObject is implicitly shared, so the copy is cheap.
+    QJsonObject frontmatter() const;
 
     /// Raw frontmatter keys.
     QStringList getPropertyKeys() const;
@@ -77,7 +78,6 @@ private:
     mutable std::shared_ptr<ObjectValue> m_note;
     mutable QHash<QString, ValuePtr> m_formulaCache;
     mutable QSet<QString> m_inProgressFormulas;
-    mutable QJsonObject m_emptyFm;  // for frontmatter() no-cache path
 };
 
 }  // namespace Corbomite::Bases
