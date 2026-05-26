@@ -135,6 +135,7 @@ private:
     void showQuickSwitcher();
     void showCommandPalette();
     void showSearchPanel();
+    void showSearchForQuery(const QString &query);
     void openGraphView();
     void insertTemplate();
     void openDailyNote();

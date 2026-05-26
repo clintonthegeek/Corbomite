@@ -82,6 +82,13 @@ void SearchView::focusSearchInput()
     m_searchInput->selectAll();
 }
 
+void SearchView::setQuery(const QString &query)
+{
+    // setText drives textChanged -> onSearchTextChanged -> debounced executeSearch.
+    m_searchInput->setText(query);
+    m_searchInput->setFocus();
+}
+
 void SearchView::onSearchTextChanged(const QString &text)
 {
     if (text.trimmed().isEmpty()) {

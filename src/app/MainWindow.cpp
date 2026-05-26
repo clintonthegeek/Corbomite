@@ -1132,6 +1132,24 @@ void MainWindow::propagateServicesToView(View *view)
             connect(m_workspace, &Workspace::activeLeafChanged, bv, refresh);
             refresh(m_workspace->activeLeaf());
         }
+        bv->setOpenInNewTabHandler([this](const QString &path) {
+            openFileInWorkspace(path);
+        });
+        bv->setTagSearchHandler([this](const QString &tag) {
+            // Reuse the search panel; the DSL strips a leading '#', so a bare
+            // tag works (note frontmatter tags are stored without '#').
+            showSearchForQuery(QStringLiteral("tag:%1").arg(tag));
+        });
+        bv->setRenamePrompt([this](const QString &path) {
+            if (!m_vaultObj || !m_fileManager) return;
+            if (auto *f = m_vaultObj->getAbstractFileByPath(path))
+                m_fileManager->promptForFileRename(f, this);
+        });
+        bv->setDeletePrompt([this](const QString &path) {
+            if (!m_vaultObj || !m_fileManager) return;
+            if (auto *f = m_vaultObj->getAbstractFileByPath(path))
+                m_fileManager->promptForDeletion(f, this);
+        });
         return;
     }
 
@@ -2485,6 +2503,21 @@ void MainWindow::showSearchPanel()
                 info->instance->focus(*it);
             }
         }
+    }
+}
+
+void MainWindow::showSearchForQuery(const QString &query)
+{
+    // Surface the search tool view (as showSearchPanel does), then push the
+    // query into the hosted SearchView. The plugin lives in a separate .so,
+    // so we cannot link its symbols — invoke setQuery by name via the meta
+    // object instead (it is Q_INVOKABLE).
+    auto *tv = toolView(QStringLiteral("corbomite-search_panel"));
+    if (!tv) return;
+    showToolView(tv);
+    auto it = m_hostedPluginViews.constFind(QStringLiteral("corbomite-search"));
+    if (it != m_hostedPluginViews.constEnd() && *it) {
+        QMetaObject::invokeMethod(*it, "setQuery", Q_ARG(QString, query));
     }
 }
 

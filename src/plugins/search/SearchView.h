@@ -27,6 +27,12 @@ public:
 
     void focusSearchInput();
 
+    /// Set the query text and run it (debounced via the existing input path).
+    /// Used by hosts that launch a pre-filled search, e.g. a Bases tag click.
+    /// Q_INVOKABLE so the host can call it across the plugin .so boundary via
+    /// QMetaObject::invokeMethod without linking the plugin's symbols.
+    Q_INVOKABLE void setQuery(const QString &query);
+
 private:
     void onSearchTextChanged(const QString &text);
     void executeSearch();
