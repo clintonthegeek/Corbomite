@@ -9,6 +9,9 @@
 #include "corbomite/vault/FileManager.h"
 #include "corbomite/vault/TFile.h"
 
+#include <QFileInfo>
+#include <QMimeData>
+#include <QSet>
 #include <QVariantMap>
 
 Q_DECLARE_METATYPE(Corbomite::Bases::ValuePtr)
@@ -185,9 +188,35 @@ Qt::ItemFlags BasesTreeModel::flags(const QModelIndex &index) const
 {
     if (!index.isValid()) return Qt::NoItemFlags;
     Qt::ItemFlags f = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
-    if (!isGroupRow(index) && propertyAt(index.column()).kind == PropertyKind::Note)
-        f |= Qt::ItemIsEditable;
+    if (!isGroupRow(index)) {
+        f |= Qt::ItemIsDragEnabled;
+        if (propertyAt(index.column()).kind == PropertyKind::Note)
+            f |= Qt::ItemIsEditable;
+    }
     return f;
+}
+
+QStringList BasesTreeModel::mimeTypes() const
+{
+    return { QStringLiteral("text/plain") };
+}
+
+QMimeData *BasesTreeModel::mimeData(const QModelIndexList &indexes) const
+{
+    QStringList links;
+    QSet<BasesEntry *> seen;
+    for (const QModelIndex &idx : indexes) {
+        if (idx.column() != 0) continue;          // one entry per row
+        BasesEntry *e = entryForIndex(idx);
+        if (!e || !e->file() || seen.contains(e)) continue;
+        seen.insert(e);
+        const QString base = QFileInfo(e->file()->path).completeBaseName();
+        if (!base.isEmpty()) links << QStringLiteral("[[%1]]").arg(base);
+    }
+    if (links.isEmpty()) return nullptr;
+    auto *md = new QMimeData;
+    md->setText(links.join(QLatin1Char('\n')));
+    return md;
 }
 
 QVariant BasesTreeModel::headerData(int section, Qt::Orientation o, int role) const

@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
 #include <QAbstractItemModelTester>
+#include <QMimeData>
+#include <QTemporaryDir>
 #include "corbomite/bases/BasesTreeModel.h"
 #include "corbomite/bases/BasesQueryResult.h"   // BasesEntryGroup
 #include "corbomite/bases/BasesEntry.h"
 #include "corbomite/bases/BasesQuery.h"
 #include "corbomite/bases/Values.h"
+#include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/vault/Vault.h"
+#include "corbomite/vault/TFile.h"
 
 using namespace Corbomite::Bases;
 
@@ -99,6 +104,32 @@ private Q_SLOTS:
         QVERIFY(!m.data(QModelIndex(), Qt::DisplayRole).isValid());
         QCOMPARE(m.setData(QModelIndex(), QVariant(42), Qt::EditRole), false);
         QCOMPARE(m.flags(QModelIndex()), Qt::NoItemFlags);
+    }
+
+    void mimeDataYieldsWikilinkForEntries() {
+        // One flat group with a single entry backed by a real TFile.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        { QFile f(dir.path() + QStringLiteral("/Alien.md"));
+          QVERIFY(f.open(QIODevice::WriteOnly)); f.write("# Alien\n"); }
+        Corbomite::FileSystemAdapter adapter;
+        Corbomite::Vault vault(&adapter);
+        vault.load(dir.path());
+        Corbomite::TFile *tf = vault.getFileByPath(QStringLiteral("Alien.md"));
+        QVERIFY(tf);
+
+        BasesQuery q;
+        BasesEntryGroup g;
+        g.entries.push_back(std::make_shared<BasesEntry>(&vault, nullptr, tf, tf, q));
+        BasesTreeModel m(nullptr, nullptr);
+        m.populateForTesting({ g }, { note("title") });   // single keyless group -> flat
+
+        const QModelIndex idx = m.index(0, 0, QModelIndex());
+        QVERIFY(idx.isValid());
+        QVERIFY(m.flags(idx) & Qt::ItemIsDragEnabled);
+        std::unique_ptr<QMimeData> md(m.mimeData({ idx }));
+        QVERIFY(md);
+        QCOMPARE(md->text(), QStringLiteral("[[Alien]]"));
     }
 };
 

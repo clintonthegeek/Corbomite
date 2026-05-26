@@ -7,9 +7,11 @@
 
 #include <QAbstractItemModel>
 #include <QHash>
+#include <QStringList>
 #include <QVector>
 
 namespace Corbomite { class FileManager; }
+class QMimeData;
 
 namespace Corbomite::Bases {
 
@@ -37,6 +39,8 @@ public:
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
+    QStringList mimeTypes() const override;
+    QMimeData *mimeData(const QModelIndexList &indexes) const override;
     QVariant headerData(int section, Qt::Orientation o, int role = Qt::DisplayRole) const override;
 
     bool isGroupRow(const QModelIndex &index) const;
