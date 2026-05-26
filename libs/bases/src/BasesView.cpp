@@ -166,11 +166,21 @@ Corbomite::View *BasesView::factory(WorkspaceLeaf *leaf)
 void BasesView::setServices(Vault *vault, MetadataCache *cache,
                             FileManager *fileManager, FunctionRegistry *funcs)
 {
+    const bool vaultChanged = (m_vault != vault);
     m_vault = vault;
     m_cache = cache;
     m_fm = fileManager;
     if (m_drawer) m_drawer->setFileManager(m_fm);
     m_funcs = funcs ? funcs : &FunctionRegistry::global();
+
+    // Services can arrive *after* the .base content: in the host,
+    // onLoadFile->setViewData fires before propagateServicesToView->
+    // setServices. setViewData's rebuildLayout() bails while m_vault is
+    // null, so the model would never get built. Rebuild here once the
+    // services land (guarded so repeated same-vault re-injections — e.g.
+    // on every activeLeafChanged — don't needlessly rescan the vault).
+    if (m_query && (vaultChanged || !m_model))
+        rebuildLayout();
 }
 
 QString BasesView::getViewData() const

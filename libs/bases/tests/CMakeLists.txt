@@ -73,3 +73,7 @@ target_link_libraries(tst_bases_cell_delegate PRIVATE Qt6::Test Qt6::Widgets Cor
 add_executable(tst_bases_view_config_ops tst_view_config_ops.cpp)
 add_test(NAME tst_bases_view_config_ops COMMAND tst_bases_view_config_ops)
 target_link_libraries(tst_bases_view_config_ops PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_bases_view_wiring tst_bases_view_wiring.cpp)
+add_test(NAME tst_bases_view_wiring COMMAND tst_bases_view_wiring)
+target_link_libraries(tst_bases_view_wiring PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases Corbomite::Vault Corbomite::Storage)
