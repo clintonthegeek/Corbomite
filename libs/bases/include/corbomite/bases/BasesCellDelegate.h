@@ -34,6 +34,14 @@ public:
     void paint(QPainter *painter,
                const QStyleOptionViewItem &option,
                const QModelIndex &index) const override;
+
+    bool editorEvent(QEvent *event, QAbstractItemModel *model,
+                     const QStyleOptionViewItem &option, const QModelIndex &index) override;
+
+Q_SIGNALS:
+    void linkClicked(const QString &target, Qt::KeyboardModifiers mods);
+    void tagClicked(const QString &tag);
+    void urlClicked(const QString &url);
 };
 
 }  // namespace Corbomite::Bases
