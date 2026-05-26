@@ -41,6 +41,8 @@ add_library(corbomite-bases STATIC
     include/corbomite/bases/BasesViewConfig.h
     src/SortCycle.cpp
     include/corbomite/bases/SortCycle.h
+    src/TableExporter.cpp
+    include/corbomite/bases/TableExporter.h
     src/CellHitTest.cpp
     include/corbomite/bases/CellHitTest.h
     src/ViewConfigOps.cpp
