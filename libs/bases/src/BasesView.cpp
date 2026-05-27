@@ -251,7 +251,9 @@ void BasesView::pushFrontMatterEdit(Corbomite::TFile *file, const QString &key,
     auto notify = [this](const QString &msg) {
         m_errorBanner->setText(msg);
         m_errorBanner->show();
-        QTimer::singleShot(4000, m_errorBanner, [this]() { m_errorBanner->hide(); });
+        QTimer::singleShot(4000, this, [this]() {
+            if (m_errorBanner) m_errorBanner->hide();
+        });
     };
     m_undoStack.push(new CmdSetFrontMatter(m_fm, file, key, value, notify));
 }
