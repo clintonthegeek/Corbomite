@@ -5,6 +5,7 @@
 
 #include <KLocalizedString>
 
+#include <QEvent>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
@@ -85,8 +86,19 @@ PropertyRow::PropertyRow(const QString &key, PropertyType type,
 
     if (editable) {
         m_keyLabel->setCursor(Qt::IBeamCursor);
-        m_keyLabel->installEventFilter(this);  // rename trigger wired in Task 6
+        m_keyLabel->installEventFilter(this);
+        connect(m_keyEdit, &QLineEdit::editingFinished,
+                this, &PropertyRow::commitInlineRename);
     }
+}
+
+bool PropertyRow::eventFilter(QObject *obj, QEvent *ev)
+{
+    if (obj == m_keyLabel && ev->type() == QEvent::MouseButtonRelease) {
+        beginInlineRename();
+        return true;
+    }
+    return QWidget::eventFilter(obj, ev);
 }
 
 Markoff::YamlValue PropertyRow::currentValue() const

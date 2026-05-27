@@ -120,9 +120,25 @@ void PropertiesView::addProperty(const QString &name, PropertyType type)
     scheduleWrite();
 }
 
-bool PropertiesView::renameProperty(const QString &, const QString &)
+bool PropertiesView::renameProperty(const QString &oldKey, const QString &newKey)
 {
-    return false; // Task 6
+    const QString n = newKey.trimmed();
+    const int i = indexOfKey(oldKey);
+    if (i < 0 || n.isEmpty()) return false;
+    if (m_rows[i]->isReadOnly()) return false;
+    if (keyExists(n) && n.compare(oldKey, Qt::CaseInsensitive) != 0) return false;
+
+    PropertyRow *old = m_rows[i];
+    const PropertyType type = old->type();
+    const Markoff::YamlValue val = old->currentValue();
+    auto *row = new PropertyRow(n, type, val, /*editable=*/true, m_rowsContainer);
+    connectRow(row);
+    m_rowsLayout->insertWidget(i, row);
+    m_rowsLayout->removeWidget(old);
+    old->deleteLater();
+    m_rows[i] = row;
+    scheduleWrite();
+    return true;
 }
 
 void PropertiesView::deleteProperty(const QString &key)
@@ -149,15 +165,20 @@ void PropertiesView::clearRows()
     m_rows.clear();
 }
 
-void PropertiesView::appendRow(const QString &key, PropertyType type,
-                               const Markoff::YamlValue &value, bool editable)
+void PropertiesView::connectRow(PropertyRow *row)
 {
-    auto *row = new PropertyRow(key, type, value, editable, m_rowsContainer);
     connect(row, &PropertyRow::valueChanged, this, &PropertiesView::scheduleWrite);
     connect(row, &PropertyRow::deleteRequested, this,
             [this, row]() { deleteProperty(row->key()); });
     connect(row, &PropertyRow::keyRenameRequested, this,
             [this](const QString &o, const QString &n) { renameProperty(o, n); });
+}
+
+void PropertiesView::appendRow(const QString &key, PropertyType type,
+                               const Markoff::YamlValue &value, bool editable)
+{
+    auto *row = new PropertyRow(key, type, value, editable, m_rowsContainer);
+    connectRow(row);
     m_rowsLayout->addWidget(row);
     m_rows.push_back(row);
 }

@@ -63,6 +63,7 @@ private:
     void rebuildFromFrontmatter(const QJsonObject &fm);
     void appendRow(const QString &key, PropertyType type,
                    const Markoff::YamlValue &value, bool editable);
+    void connectRow(PropertyRow *row);
     void clearRows();
     void scheduleWrite();
     void flushWrite();

@@ -36,6 +36,7 @@ private slots:
     void classifiesComplexValuesAsNonEditable();
     void addThenWritePersistsTypedKeysInOrder();
     void deleteRemovesKeyFromDisk();
+    void renameChangesKeyPreservingPositionAndValue();
 };
 
 static PluginMetaData makeMeta() { return PluginMetaData(KPluginMetaData{}); }
@@ -187,6 +188,42 @@ void TestPropertiesPlugin::deleteRemovesKeyFromDisk()
         QString::fromUtf8(vault.read(note)));
     QVERIFY(!doc->parsedFrontmatter().keys().contains(QStringLiteral("drop")));
     QVERIFY(doc->parsedFrontmatter().keys().contains(QStringLiteral("keep")));
+    delete view;
+}
+
+void TestPropertiesPlugin::renameChangesKeyPreservingPositionAndValue()
+{
+    using namespace Corbomite;
+    FileSystemAdapter fs; QTemporaryDir dir; Vault vault(&fs); vault.load(dir.path());
+    LinkResolver resolver; MetadataCache cache(resolver); FileManager fm(&vault, &cache);
+    TFile *note = vault.create(QStringLiteral("n.md"), "---\na: x\nb: y\n---\nbody\n");
+    QVERIFY(note);
+
+    PropertiesPlugin plugin;
+    PluginContext ctx(makeMeta(),
+        {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
+         QStringLiteral("metadata.read"), QStringLiteral("workspace")});
+    ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
+                        nullptr, nullptr, nullptr);
+    plugin.load(&ctx);
+    auto *view = qobject_cast<PropertiesView *>(plugin.createView(nullptr));
+    QVERIFY(view);
+    view->setActiveFileForTest(QStringLiteral("n.md"));
+    view->addProperty(QStringLiteral("a"), PropertyType::Text);
+    view->setRowValueForTest(QStringLiteral("a"), QStringLiteral("x"));
+    view->addProperty(QStringLiteral("b"), PropertyType::Text);
+    view->setRowValueForTest(QStringLiteral("b"), QStringLiteral("y"));
+
+    QVERIFY(view->renameProperty(QStringLiteral("a"), QStringLiteral("alpha")));
+    QVERIFY(!view->renameProperty(QStringLiteral("alpha"), QStringLiteral("b"))); // dup rejected
+    view->flushPendingWrite();
+
+    auto doc = Markoff::Document::fromMarkdown(
+        QString::fromUtf8(vault.read(note)));
+    QCOMPARE(doc->parsedFrontmatter().keys(),
+             QStringList({QStringLiteral("alpha"), QStringLiteral("b")}));
+    QCOMPARE(doc->parsedFrontmatter().get(QStringLiteral("alpha")).asString(),
+             QStringLiteral("x"));
     delete view;
 }
 

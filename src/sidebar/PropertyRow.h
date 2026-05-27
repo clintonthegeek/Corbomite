@@ -49,6 +49,9 @@ Q_SIGNALS:
     void keyRenameRequested(const QString &oldKey, const QString &newKey);
     void reorderRequested(int fromVisualY);  // emitted on drag-drop; view maps to index
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *ev) override;
+
 private:
     void beginInlineRename();
     void commitInlineRename();
