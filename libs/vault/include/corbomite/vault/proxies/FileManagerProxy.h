@@ -32,6 +32,7 @@ public:
     // ---- Mutation (gated by vault.write) ----
     bool     renameFile(TAbstractFile *f, const QString &newPath);
     bool     processFrontMatter(TFile *f, FileManager::FrontMatterMutator mut);
+    bool     setFrontMatter(TFile *f, const QList<FileManager::FrontMatterEntry> &ordered);
     TFile   *createNewMarkdownFile(TFolder *parent, const QString &name,
                                    const QByteArray &content = {});
     TFolder *createNewFolder(TFolder *parent);

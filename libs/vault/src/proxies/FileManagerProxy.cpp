@@ -45,6 +45,16 @@ bool FileManagerProxy::processFrontMatter(TFile *f,
     return m_fm && m_fm->processFrontMatter(f, std::move(mut));
 }
 
+bool FileManagerProxy::setFrontMatter(TFile *f,
+                                      const QList<FileManager::FrontMatterEntry> &ordered)
+{
+    if (!canWrite()) {
+        logDenied("setFrontMatter", "vault.write");
+        return false;
+    }
+    return m_fm && m_fm->setFrontMatter(f, ordered);
+}
+
 TFile *FileManagerProxy::createNewMarkdownFile(TFolder *parent,
                                                const QString &name,
                                                const QByteArray &content)
