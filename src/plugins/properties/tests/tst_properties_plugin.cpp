@@ -9,16 +9,19 @@
 #include "../PropertiesView.h"
 #include "../../../sidebar/PropertyRow.h"
 
+#include <markoff/parser/Document.h>
 #include <markoff/parser/YamlValue.h>
 
 #include "corbomite/core/Command.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/Workspace.h"
+#include "corbomite/models/PropertyType.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/vault/FileManager.h"
 #include "corbomite/vault/PluginContext.h"
+#include "corbomite/vault/TFile.h"
 #include "corbomite/vault/Vault.h"
 
 using namespace Corbomite;
@@ -31,6 +34,7 @@ private slots:
     void returnsNullWhenVaultWriteMissing();
     void registersOpenCommandAndDispatchesRevealDockView();
     void classifiesComplexValuesAsNonEditable();
+    void addThenWritePersistsTypedKeysInOrder();
 };
 
 static PluginMetaData makeMeta() { return PluginMetaData(KPluginMetaData{}); }
@@ -119,6 +123,37 @@ void TestPropertiesPlugin::classifiesComplexValuesAsNonEditable()
         "m:\n  k: v\nlistofmaps:\n  - x: 1\n"), &e);
     QVERIFY(!isEditableFrontmatterValue(complex.get(QStringLiteral("m"))));          // map
     QVERIFY(!isEditableFrontmatterValue(complex.get(QStringLiteral("listofmaps")))); // seq of maps
+}
+
+void TestPropertiesPlugin::addThenWritePersistsTypedKeysInOrder()
+{
+    using namespace Corbomite;
+    FileSystemAdapter fs; QTemporaryDir dir; Vault vault(&fs); vault.load(dir.path());
+    LinkResolver resolver; MetadataCache cache(resolver); FileManager fm(&vault, &cache);
+    TFile *note = vault.create(QStringLiteral("note.md"), "---\nexisting: 1\n---\nbody\n");
+    QVERIFY(note);
+
+    PropertiesPlugin plugin;
+    PluginContext ctx(makeMeta(),
+        {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
+         QStringLiteral("metadata.read"), QStringLiteral("workspace")});
+    ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
+                        nullptr, nullptr, nullptr);
+    plugin.load(&ctx);
+    auto *view = qobject_cast<PropertiesView *>(plugin.createView(nullptr));
+    QVERIFY(view);
+    view->setActiveFileForTest(QStringLiteral("note.md"));
+
+    view->addProperty(QStringLiteral("title"), PropertyType::Text);
+    view->setRowValueForTest(QStringLiteral("title"), QStringLiteral("Hello"));
+    view->flushPendingWrite();
+
+    auto doc = Markoff::Document::fromMarkdown(
+        QString::fromUtf8(vault.read(note)));
+    QVERIFY(doc->parsedFrontmatter().keys().contains(QStringLiteral("title")));
+    QCOMPARE(doc->parsedFrontmatter().get(QStringLiteral("title")).asString(),
+             QStringLiteral("Hello"));
+    delete view;
 }
 
 QTEST_MAIN(TestPropertiesPlugin)
