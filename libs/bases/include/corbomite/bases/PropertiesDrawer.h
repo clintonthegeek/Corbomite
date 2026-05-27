@@ -16,7 +16,8 @@ namespace Corbomite::Bases {
 class BasesEntry;
 
 /// Right-pane editor for the selected entry's frontmatter. Renders a form of
-/// label + type-appropriate editor; commits via FileManager::processFrontMatter.
+/// label + type-appropriate editor; emits frontMatterEditRequested on commit
+/// (BasesView routes it through the undo stack).
 class PropertiesDrawer : public QWidget
 {
     Q_OBJECT

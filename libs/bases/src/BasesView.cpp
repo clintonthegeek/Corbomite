@@ -351,7 +351,7 @@ void BasesView::rebuildLayout()
 
     m_model = std::make_unique<BasesTreeModel>(m_controller.get(), m_fm, this);
     connect(m_model.get(), &BasesTreeModel::frontMatterEditRequested,
-            this, &BasesView::pushFrontMatterEdit);
+            this, &BasesView::pushFrontMatterEdit, Qt::UniqueConnection);
     m_table->setModel(m_model.get());
     connect(m_table->selectionModel(), &QItemSelectionModel::currentRowChanged,
             this, &BasesView::onSelectionChanged, Qt::UniqueConnection);
