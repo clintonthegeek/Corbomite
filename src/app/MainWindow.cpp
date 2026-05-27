@@ -646,6 +646,14 @@ MarkdownView *MainWindow::activeMarkdownView() const
     return qobject_cast<MarkdownView *>(m_workspace->activeLeaf()->view());
 }
 
+Corbomite::Bases::BasesView *MainWindow::activeBasesView() const
+{
+    if (!m_workspace || !m_workspace->activeLeaf())
+        return nullptr;
+    return qobject_cast<Corbomite::Bases::BasesView *>(
+        m_workspace->activeLeaf()->view());
+}
+
 NoteEditorWidget *MainWindow::activeEditor() const
 {
     auto *mv = activeMarkdownView();
@@ -1227,12 +1235,9 @@ void MainWindow::setupActions()
     connect(save, &QAction::triggered, this, &MainWindow::saveCurrentNote);
 
     KStandardAction::undo(this, [this]() {
-        if (m_workspace && m_workspace->activeLeaf()) {
-            if (auto *bv = qobject_cast<Corbomite::Bases::BasesView *>(
-                    m_workspace->activeLeaf()->view())) {
-                bv->undo();
-                return;
-            }
+        if (auto *bv = activeBasesView()) {
+            bv->undo();
+            return;
         }
         auto *editor = activeEditor();
         if (!editor) return;
@@ -1244,12 +1249,9 @@ void MainWindow::setupActions()
     }, ac);
 
     KStandardAction::redo(this, [this]() {
-        if (m_workspace && m_workspace->activeLeaf()) {
-            if (auto *bv = qobject_cast<Corbomite::Bases::BasesView *>(
-                    m_workspace->activeLeaf()->view())) {
-                bv->redo();
-                return;
-            }
+        if (auto *bv = activeBasesView()) {
+            bv->redo();
+            return;
         }
         auto *editor = activeEditor();
         if (!editor) return;

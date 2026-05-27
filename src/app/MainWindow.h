@@ -52,6 +52,7 @@ class Workspace;
 class WorkspaceLeaf;
 class NoteEditorWidget;
 class MarkdownView;
+namespace Bases { class BasesView; }
 class AutosaveReactor;
 // FileWatchReactor forward decl removed — moved into Corbomite::detail::Watcher
 // inside libs/vault/ during Q.0 Phase 2 Task 2.2. Re-exposed via Vault's
@@ -146,6 +147,7 @@ private:
     void updateWindowTitle(NoteEditorWidget *editor = nullptr);
     void openFileInWorkspace(const QString &relativePath);
     MarkdownView *activeMarkdownView() const;
+    Corbomite::Bases::BasesView *activeBasesView() const;
     NoteEditorWidget *activeEditor() const;
 
     void connectEditorContext(NoteEditorWidget *editor);
