@@ -556,8 +556,15 @@ NewItemSeed::SeedList BasesView::resolveTemplateProps() const
     const auto cache = m_cache->getFileCache(tmplPath);
     if (!cache || !cache->frontmatter.has_value()) return out;
     const QJsonObject fm = cache->frontmatter.value();
-    for (auto it = fm.constBegin(); it != fm.constEnd(); ++it)
-        out.append({it.key(), it.value().toVariant().toString()});
+    for (auto it = fm.constBegin(); it != fm.constEnd(); ++it) {
+        // The string-based seed pipeline can only carry scalars. Stringifying
+        // an array/object value here would write lossy garbage (e.g. a list
+        // collapses to an empty string), so skip non-scalar template keys
+        // rather than corrupt the new note's frontmatter.
+        const QJsonValue v = it.value();
+        if (v.isArray() || v.isObject()) continue;
+        out.append({it.key(), v.toVariant().toString()});
+    }
     return out;
 }
 
