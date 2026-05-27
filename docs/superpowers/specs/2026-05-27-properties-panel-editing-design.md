@@ -46,6 +46,31 @@ shapes the editors can't represent.
 
 ## Architecture
 
+### 0. Markoff prerequisite — `YamlValue::setChildFrom`
+
+Order-authoritative rebuild requires building a *fresh* map in insertion order
+(`findOrCreateKey` keeps existing keys in place; new keys append at end — so an
+existing tree can't be reordered in place). `YamlValue` currently has no primitive
+to copy an arbitrary node verbatim into that fresh map. Add one to the Markoff
+submodule (`libs/markoff-family/libs/markoff-parser`), backed by ryml's
+`Tree::duplicate`:
+
+```cpp
+// YamlValue.h — new mutation method
+void setChildFrom(const QString &key, const YamlValue &src);
+```
+
+Semantics: deep-copies `src`'s subtree (any kind: scalar / seq / map, nested
+arbitrarily) into this map under `key`, appended as the last child (so a fresh
+build preserves call order). If `key` already exists it is removed first. Backed by
+`d->tree->duplicate(src.d->tree.get(), src.d->nodeId, d->nodeId, last_child)` +
+an explicit `set_key`. This is byte-faithful for every YAML shape, unlike the
+scalar-only setters.
+
+**Cross-repo ordering (CONTRIBUTING-OPS Ritual 5):** land + commit + push this in
+Markoff first, then bump the Corbomite submodule pin, so Corbomite's pin always
+resolves. Markoff is currently at `082b063`.
+
 ### 1. Vault API — ordered front-matter setter
 
 Add to `FileManager` (and mirror on `FileManagerProxy`, gated on the `vault.write`
@@ -65,9 +90,11 @@ Semantics:
 
 - Re-parses the **real on-disk YAML** via `m_vault->process(...)` + `Markoff::Document::fromMarkdown`,
   exactly like `processFrontMatter` (so it never trusts a lossy in-memory view).
-- For each entry in list order: if `preserveFromDisk`, copy that key's `Markoff::YamlValue`
-  straight from the freshly parsed frontmatter (verbatim); otherwise convert `value` to a
-  `YamlValue` (same `QVariant`→YAML mapping used by `applyVariantMapToYaml`).
+- Build a **fresh** `next = YamlValue::emptyMap()` and append entries in list order
+  (insertion order is authoritative). For each entry: if `preserveFromDisk`, copy that
+  key's node from the freshly parsed on-disk frontmatter via
+  `next.setChildFrom(key, working.get(key))` (byte-faithful, §0); otherwise set the scalar/
+  list via the `QVariant`-kind switch (`setString`/`setInt`/`setBool`/`setDouble`/`setSeq`).
 - Builds `next` by appending entries **in list order** — this order is authoritative
   (no `originalKeys` reconstruction; that is `processFrontMatter`'s merge behavior, not this
   wholesale setter's).
@@ -157,6 +184,8 @@ The scalar-vs-non-scalar list check is a small helper on the view (or reused fro
 
 | File | Change |
 |---|---|
+| `libs/markoff-family/libs/markoff-parser/include/markoff/parser/YamlValue.h` | `setChildFrom` decl (Markoff submodule) |
+| `libs/markoff-family/libs/markoff-parser/src/YamlValue.cpp` | `setChildFrom` impl via ryml `duplicate` (Markoff submodule) |
 | `libs/vault/include/corbomite/vault/FileManager.h` | `FrontMatterEntry` struct + `setFrontMatter` decl |
 | `libs/vault/src/FileManager.cpp` | `setFrontMatter` impl (reuses `applyVariantMapToYaml` + strip-empty branch) |
 | `libs/vault/include/corbomite/vault/proxies/FileManagerProxy.h` | proxy decl |
@@ -168,6 +197,11 @@ The scalar-vs-non-scalar list check is a small helper on the view (or reused fro
 ## Testing
 
 Tests define expected behavior; fix code, not tests.
+
+**Markoff layer — extend the `YamlValue` test suite** (in the submodule): `setChildFrom`
+copies a scalar, a flat string-list, a nested map of scalars, and a list-of-maps verbatim
+(stringify of the copied child equals stringify of the source); copying under an existing
+key replaces it; copying appends as the last child (order check via `keys()`).
 
 **Vault layer — `tst_setfrontmatter` (new, `libs/vault/tests/`)** — pure, no widgets:
 
