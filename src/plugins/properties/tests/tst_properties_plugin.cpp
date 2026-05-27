@@ -7,6 +7,9 @@
 
 #include "../PropertiesPlugin.h"
 #include "../PropertiesView.h"
+#include "../../../sidebar/PropertyRow.h"
+
+#include <markoff/parser/YamlValue.h>
 
 #include "corbomite/core/Command.h"
 #include "corbomite/core/ViewRegistry.h"
@@ -27,6 +30,7 @@ private slots:
     void createsViewWhenMetadataAndWriteGranted();
     void returnsNullWhenVaultWriteMissing();
     void registersOpenCommandAndDispatchesRevealDockView();
+    void classifiesComplexValuesAsNonEditable();
 };
 
 static PluginMetaData makeMeta() { return PluginMetaData(KPluginMetaData{}); }
@@ -97,6 +101,24 @@ void TestPropertiesPlugin::registersOpenCommandAndDispatchesRevealDockView()
     QVERIFY(commands.executeById(QStringLiteral("corbomite-properties:open")));
     QCOMPARE(spy.count(), 1);
     QCOMPARE(spy.first().at(0).toString(), QStringLiteral("properties"));
+}
+
+void TestPropertiesPlugin::classifiesComplexValuesAsNonEditable()
+{
+    using namespace Corbomite;
+    using YV = Markoff::YamlValue;
+    QString e;
+    YV scalars = YV::parse(QStringLiteral(
+        "s: text\nn: 3\nb: true\nlist:\n  - a\n  - b\n"), &e);
+    QVERIFY(isEditableFrontmatterValue(scalars.get(QStringLiteral("s"))));
+    QVERIFY(isEditableFrontmatterValue(scalars.get(QStringLiteral("n"))));
+    QVERIFY(isEditableFrontmatterValue(scalars.get(QStringLiteral("b"))));
+    QVERIFY(isEditableFrontmatterValue(scalars.get(QStringLiteral("list")))); // scalar list
+
+    YV complex = YV::parse(QStringLiteral(
+        "m:\n  k: v\nlistofmaps:\n  - x: 1\n"), &e);
+    QVERIFY(!isEditableFrontmatterValue(complex.get(QStringLiteral("m"))));          // map
+    QVERIFY(!isEditableFrontmatterValue(complex.get(QStringLiteral("listofmaps")))); // seq of maps
 }
 
 QTEST_MAIN(TestPropertiesPlugin)

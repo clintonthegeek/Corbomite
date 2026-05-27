@@ -4,6 +4,7 @@ corbomite_add_plugin(corbomite-properties
         PropertiesPlugin.cpp
         PropertiesView.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../sidebar/PropertyEditorWidget.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../sidebar/PropertyRow.cpp
     TRUSTED
     INCLUDE_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}/../../sidebar

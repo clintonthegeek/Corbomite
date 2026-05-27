@@ -20,6 +20,7 @@ add_library(CorbomiteApp STATIC
     app/WelcomeScreen.cpp
     mdi/CorbomiteMDI.cpp
     sidebar/PropertyEditorWidget.cpp
+    sidebar/PropertyRow.cpp
     editor/MarkdownView.cpp
     editor/MarkdownView.h
     editor/NoteEditorWidget.cpp

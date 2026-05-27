@@ -8,7 +8,8 @@ set(CMAKE_AUTOMOC ON)
 add_executable(tst_properties_plugin tst_properties_plugin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../PropertiesPlugin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../PropertiesView.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../sidebar/PropertyEditorWidget.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../sidebar/PropertyEditorWidget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../sidebar/PropertyRow.cpp)
 target_include_directories(tst_properties_plugin PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../sidebar)
