@@ -123,6 +123,42 @@ private Q_SLOTS:
         QCOMPARE(rootRowCount(bv), 2);
     }
 
+    // applySummaryChoice writes into the active view's summaries map and the
+    // change survives a getViewData/setViewData round-trip (i.e., persists).
+    void applySummaryChoice_writesViewConfigAndRoundTrips() {
+        FileSystemAdapter adapter;
+        Vault vault(&adapter);
+        vault.load(m_dir.path());
+
+        BasesView bv(nullptr);
+        bv.setViewData(QString::fromUtf8(kBase), true);
+        bv.setServices(&vault, nullptr, nullptr);
+
+        // Precondition: no summary set yet.
+        const PropertyId priceProp{PropertyKind::Note, QStringLiteral("year")};
+        QVERIFY(bv.activeView());
+        QVERIFY(!bv.activeView()->summaries.contains(priceProp));
+
+        // Mutate via the public helper.
+        bv.applySummaryChoice(priceProp, QStringLiteral("average"));
+
+        // Immediately reflected in the active view.
+        QCOMPARE(bv.activeView()->summaries.value(priceProp), QStringLiteral("average"));
+
+        // Survives a round-trip through getViewData (YAML serialise/parse).
+        const QString serialised = bv.getViewData();
+        QVERIFY(!serialised.isEmpty());
+        BasesView bv2(nullptr);
+        bv2.setViewData(serialised, true);
+        bv2.setServices(&vault, nullptr, nullptr);
+        QVERIFY(bv2.activeView());
+        QCOMPARE(bv2.activeView()->summaries.value(priceProp), QStringLiteral("average"));
+
+        // Clearing with empty string removes the entry.
+        bv.applySummaryChoice(priceProp, QString());
+        QVERIFY(!bv.activeView()->summaries.contains(priceProp));
+    }
+
     // Regression: BasesEntry::frontmatter() returned a reference into the
     // std::optional<CachedMetadata> temporary from getFileCache(), so reading
     // any note.* value over a cache with real frontmatter dereferenced freed

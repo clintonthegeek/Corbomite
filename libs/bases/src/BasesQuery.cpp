@@ -169,7 +169,10 @@ void emitValue(QString &out, const QVariant &v, int indent)
 {
     if (v.typeId() == QMetaType::QVariantMap) {
         out.append(QLatin1Char('\n'));
-        emitMap(out, v.toMap(), indent);
+        // Nested maps must be indented past the key that introduced them.
+        // `indent` here is already the *content* indent (key column), so
+        // the sub-map keys need indent+2 to satisfy YAML block-mapping rules.
+        emitMap(out, v.toMap(), indent + 2);
     } else if (v.typeId() == QMetaType::QVariantList) {
         emitList(out, v.toList(), indent);
     } else {

@@ -11,6 +11,9 @@
 #include "corbomite/bases/PropertiesMenuPanel.h"
 #include "corbomite/bases/SortGroupMenuPanel.h"
 #include "corbomite/bases/ViewsMenuPanel.h"
+#include "corbomite/bases/FormulaEditDialog.h"
+#include "corbomite/bases/FormulaCandidates.h"
+#include "corbomite/bases/FormulaOps.h"
 
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/WorkspaceLeaf.h"
@@ -121,6 +124,22 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_viewsPanel = new ViewsMenuPanel(this);
     m_propsPanel->setOnChanged([this]() { onConfigMutated(); });
     m_sortPanel->setOnChanged([this]()  { onConfigMutated(); });
+
+    connect(m_propsPanel, &PropertiesMenuPanel::addFormulaRequested, this,
+            [this]() { openFormulaDialog(QString()); });
+    connect(m_propsPanel, &PropertiesMenuPanel::editFormulaRequested, this,
+            [this](const QString &name) { openFormulaDialog(name); });
+    connect(m_propsPanel, &PropertiesMenuPanel::deleteFormulaRequested, this,
+            [this](const QString &name) {
+                if (!m_query) return;
+                FormulaOps::remove(m_query->formulas, m_query->formulaOrder, name);
+                onConfigMutated();
+            });
+    connect(m_propsPanel, &PropertiesMenuPanel::summaryChanged, this,
+            [this](const PropertyId &p, const QString &fn) {
+                if (fn == QString::fromLatin1(kCustomSummarySentinel)) openSummaryDialog(p);
+                else applySummaryChoice(p, fn);
+            });
     m_viewsPanel->setOnChanged([this]() {
         populateViewSelector();
         requestSave();
@@ -138,6 +157,11 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     connect(m_propsBtn, &QToolButton::clicked, this, [this]() {
         if (m_panelDismissTimer.isValid() && m_panelDismissTimer.elapsed() < 150) return;
         if (!m_activeView) return;
+        // Feed summary state BEFORE setState so rebuild() finds m_summaryNames populated.
+        m_propsPanel->setSummaryState(summaryNamesForPicker(),
+            [this](const PropertyId &p) {
+                return m_activeView ? m_activeView->summaries.value(p) : QString();
+            });
         m_propsPanel->setState(&m_activeView->order, availableProperties(),
                                [this](const PropertyId &p) { return displayNameFor(p); });
         showPanelUnder(m_propsPanel, m_propsBtn);
@@ -432,6 +456,73 @@ QString BasesView::displayNameFor(const PropertyId &pid) const
             return it->displayName;
     }
     return pid.name;
+}
+
+QStringList BasesView::summaryNamesForPicker() const
+{
+    QStringList names{
+        QStringLiteral("average"), QStringLiteral("sum"), QStringLiteral("min"),
+        QStringLiteral("max"), QStringLiteral("median"), QStringLiteral("stddev"),
+        QStringLiteral("unique"), QStringLiteral("count") };
+    if (m_query)
+        for (const auto &n : m_query->summaryFormulaOrder)
+            if (!names.contains(n)) names << n;
+    return names;
+}
+
+QStringList BasesView::formulaCandidateList() const
+{
+    return FormulaCandidates::build(availableProperties(),
+                                    m_funcs ? m_funcs : &FunctionRegistry::global(),
+                                    FormulaCandidates::Mode::NamedFormula);
+}
+
+void BasesView::openFormulaDialog(const QString &editName)
+{
+    if (!m_query) return;
+    FormulaEditDialog dlg(FormulaCandidates::Mode::NamedFormula, this);
+    dlg.setCandidates(formulaCandidateList());
+    QStringList existing = m_query->formulaOrder;
+    existing.removeAll(editName);                 // editing its own name is fine
+    dlg.setExistingNames(existing);
+    if (!editName.isEmpty())
+        dlg.setInitial(editName, m_query->formulas.value(editName).source());
+    if (dlg.exec() != QDialog::Accepted) return;
+
+    const QString name = dlg.formulaName();
+    const QString src  = dlg.formulaSource();
+    if (editName.isEmpty()) {
+        FormulaOps::add(m_query->formulas, m_query->formulaOrder, name, src);
+    } else if (name != editName) {
+        FormulaOps::rename(m_query->formulas, m_query->formulaOrder, editName, name);
+        FormulaOps::setSource(m_query->formulas, name, src);
+    } else {
+        FormulaOps::setSource(m_query->formulas, name, src);
+    }
+    onConfigMutated();
+}
+
+void BasesView::openSummaryDialog(const PropertyId &prop)
+{
+    if (!m_query) return;
+    FormulaEditDialog dlg(FormulaCandidates::Mode::SummaryFormula, this);
+    dlg.setCandidates(FormulaCandidates::build(
+        availableProperties(),
+        m_funcs ? m_funcs : &FunctionRegistry::global(),
+        FormulaCandidates::Mode::SummaryFormula));
+    dlg.setExistingNames(m_query->summaryFormulaOrder);
+    if (dlg.exec() != QDialog::Accepted) return;
+    FormulaOps::add(m_query->summaryFormulas, m_query->summaryFormulaOrder,
+                    dlg.formulaName(), dlg.formulaSource());
+    applySummaryChoice(prop, dlg.formulaName());
+}
+
+void BasesView::applySummaryChoice(const PropertyId &prop, const QString &fnName)
+{
+    if (!m_activeView) return;
+    if (fnName.isEmpty()) m_activeView->summaries.remove(prop);
+    else m_activeView->summaries.insert(prop, fnName);
+    onConfigMutated();
 }
 
 bool BasesView::eventFilter(QObject *watched, QEvent *event)

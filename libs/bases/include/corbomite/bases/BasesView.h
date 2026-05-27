@@ -87,6 +87,10 @@ public:
     void undo();
     void redo();
 
+    /// Assign (or clear) a summary function for `prop` in the active view.
+    /// Public so tests can exercise the mutation without spawning a dialog.
+    void applySummaryChoice(const PropertyId &prop, const QString &fnName);
+
 public Q_SLOTS:
     /// Single chokepoint: build a CmdSetFrontMatter and push it. Connected to
     /// BasesTreeModel::frontMatterEditRequested and
@@ -130,6 +134,11 @@ private:
     QVector<PropertyId> availableProperties() const;
     QString displayNameFor(const PropertyId &pid) const;
     void showPanelUnder(QWidget *panel, QToolButton *button);
+
+    QStringList summaryNamesForPicker() const;        ///< built-in defaults + custom summary names
+    QStringList formulaCandidateList() const;
+    void openFormulaDialog(const QString &editName);  ///< add (empty) or edit a named formula
+    void openSummaryDialog(const PropertyId &prop);   ///< create/assign a custom summary
 
     Vault *m_vault = nullptr;
     MetadataCache *m_cache = nullptr;
