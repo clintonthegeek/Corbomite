@@ -123,7 +123,12 @@ void TestSetFrontMatter::nonMarkdownReturnsFalse()
 {
     FileSystemAdapter fs; QTemporaryDir dir; Vault v(&fs); v.load(dir.path());
     FileManager fm(&v, nullptr);
+    // null-pointer guard
     QVERIFY(!fm.setFrontMatter(nullptr, {}));
+    // non-.md file guard
+    TFile *canvas = seed(v, QStringLiteral("note.canvas"), "{}");
+    QVERIFY(canvas);
+    QVERIFY(!fm.setFrontMatter(canvas, {}));
 }
 
 QTEST_MAIN(TestSetFrontMatter)
