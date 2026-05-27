@@ -1227,6 +1227,13 @@ void MainWindow::setupActions()
     connect(save, &QAction::triggered, this, &MainWindow::saveCurrentNote);
 
     KStandardAction::undo(this, [this]() {
+        if (m_workspace && m_workspace->activeLeaf()) {
+            if (auto *bv = qobject_cast<Corbomite::Bases::BasesView *>(
+                    m_workspace->activeLeaf()->view())) {
+                bv->undo();
+                return;
+            }
+        }
         auto *editor = activeEditor();
         if (!editor) return;
         if (editor->viewMode() == NoteEditorWidget::ViewMode::Source) {
@@ -1237,6 +1244,13 @@ void MainWindow::setupActions()
     }, ac);
 
     KStandardAction::redo(this, [this]() {
+        if (m_workspace && m_workspace->activeLeaf()) {
+            if (auto *bv = qobject_cast<Corbomite::Bases::BasesView *>(
+                    m_workspace->activeLeaf()->view())) {
+                bv->redo();
+                return;
+            }
+        }
         auto *editor = activeEditor();
         if (!editor) return;
         if (editor->viewMode() == NoteEditorWidget::ViewMode::Source) {
