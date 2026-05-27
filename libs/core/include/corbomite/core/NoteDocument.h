@@ -77,6 +77,11 @@ Q_SIGNALS:
     void deleted();
 
 private:
+    /// True when the underlying document has edits beyond the last
+    /// clean watermark (see NoteDocument.cpp). Used to gate re-dirtying
+    /// against stale, deferred d2DocumentChanged notifications.
+    bool hasUnsavedEdits() const;
+
     struct Private;
     std::unique_ptr<Private> d;
 };

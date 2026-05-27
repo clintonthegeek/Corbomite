@@ -16,6 +16,17 @@ struct NoteDocument::Private {
     Markoff::FindController *findController = nullptr;
     bool modified = false;
     mutable int cachedWordCount = -1;
+
+    // Save watermark: the document edit-sequence values captured the last time
+    // the document was marked clean (load / save / reload). MarkoffDocument
+    // schedules d2DocumentChanged via QTimer::singleShot(0), so a clean→save
+    // sequence can leave a *stale* change notification queued; when it fires
+    // after the save it must NOT re-dirty already-saved content. Gating the
+    // re-dirty on actual sequence advancement past this watermark fixes that.
+    // Both sequences are tracked because legacy edits bump editSequence() while
+    // D2 edits bump d2EditSequence().
+    quint64 savedEditSeq = 0;
+    quint64 savedD2Seq = 0;
 };
 
 NoteDocument::NoteDocument(const QString &vaultRoot, const QString &relativePath,
@@ -38,14 +49,14 @@ NoteDocument::NoteDocument(const QString &vaultRoot, const QString &relativePath
     connect(d->markoff.get(), &Markoff::MarkoffDocument::d2DocumentChanged, this,
             [this]() {
         d->cachedWordCount = -1;
-        if (!d->modified)
+        if (!d->modified && hasUnsavedEdits())
             setModified(true);
         Q_EMIT textChanged();
     });
     connect(d->markoff.get(), &Markoff::MarkoffDocument::documentReloaded, this,
             [this]() {
         d->cachedWordCount = -1;
-        if (!d->modified)
+        if (!d->modified && hasUnsavedEdits())
             setModified(true);
         Q_EMIT textChanged();
     });
@@ -108,8 +119,22 @@ bool NoteDocument::isModified() const
     return d->modified;
 }
 
+bool NoteDocument::hasUnsavedEdits() const
+{
+    return d->markoff->editSequence() != d->savedEditSeq
+        || d->markoff->d2EditSequence() != d->savedD2Seq;
+}
+
 void NoteDocument::setModified(bool modified)
 {
+    if (!modified) {
+        // Marking clean (load / save / reload): record the current edit
+        // watermark so a deferred d2DocumentChanged queued before this point
+        // — representing content that is now on disk — does not re-dirty the
+        // document when it finally fires. See Private::savedEditSeq.
+        d->savedEditSeq = d->markoff->editSequence();
+        d->savedD2Seq   = d->markoff->d2EditSequence();
+    }
     if (d->modified != modified) {
         d->modified = modified;
         Q_EMIT modificationChanged(modified);
