@@ -120,3 +120,9 @@ add_test(NAME tst_formula_edit_dialog COMMAND tst_formula_edit_dialog)
 target_link_libraries(tst_formula_edit_dialog PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)
 set_tests_properties(tst_formula_edit_dialog PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_properties_menu_panel tst_properties_menu_panel.cpp)
+add_test(NAME tst_properties_menu_panel COMMAND tst_properties_menu_panel)
+target_link_libraries(tst_properties_menu_panel PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)
+set_tests_properties(tst_properties_menu_panel PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
