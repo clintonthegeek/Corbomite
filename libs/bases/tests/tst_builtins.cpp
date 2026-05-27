@@ -259,6 +259,26 @@ private Q_SLOTS:
         QCOMPARE(std::static_pointer_cast<BooleanValue>(v)->data(), false);
     }
 
+    // ----- Registry enumeration -----
+
+    void allNames_includesGlobalsAndMembers()
+    {
+        auto &r = FunctionRegistry::global();
+        const QStringList names = r.allNames();
+        // Globals (addendum §8.2):
+        QVERIFY(names.contains(QStringLiteral("now")));
+        QVERIFY(names.contains(QStringLiteral("min")));
+        // Member functions (addendum §8.4 / §8.7):
+        // Note: names are stored lowercased (addForType calls fn.name.toLower())
+        QVERIFY(names.contains(QStringLiteral("startswith")));
+        QVERIFY(names.contains(QStringLiteral("sum")));
+        // Deduped + sorted:
+        QStringList sorted = names;
+        sorted.sort();
+        QCOMPARE(names, sorted);
+        QCOMPARE(names.count(QStringLiteral("sum")), 1);
+    }
+
     // ----- Error paths -----
 
     void testUnknownFunctionError()

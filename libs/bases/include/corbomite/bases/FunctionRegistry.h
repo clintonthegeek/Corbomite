@@ -5,6 +5,7 @@
 
 #include <QHash>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 #include <functional>
@@ -51,6 +52,10 @@ public:
 
     const BasesFunction *findInstance(const Value *subject, const QString &name) const;
     const BasesFunction *findGlobal(const QString &name) const;
+
+    /// Sorted, deduped names of every registered function (globals + all
+    /// per-type members). For autocomplete candidate lists.
+    QStringList allNames() const;
 
     void removeGlobal(const QString &name);
     void removeForType(std::type_index valueClass, const QString &name);

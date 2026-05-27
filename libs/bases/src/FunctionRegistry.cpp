@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/bases/FunctionRegistry.h"
 
+#include <QSet>
+#include <QStringList>
+
 #include "corbomite/bases/Values.h"
 
 namespace Corbomite::Bases {
@@ -93,6 +96,19 @@ void FunctionRegistry::removeForType(std::type_index valueClass, const QString &
     if (it == m_byType.end()) return;
     it->remove(name.toLower());
     if (it->isEmpty()) m_byType.erase(it);
+}
+
+QStringList FunctionRegistry::allNames() const
+{
+    QSet<QString> set;
+    for (auto it = m_global.constBegin(); it != m_global.constEnd(); ++it)
+        set.insert(it.key());
+    for (auto t = m_byType.constBegin(); t != m_byType.constEnd(); ++t)
+        for (auto f = t->constBegin(); f != t->constEnd(); ++f)
+            set.insert(f.key());
+    QStringList out(set.constBegin(), set.constEnd());
+    out.sort();
+    return out;
 }
 
 FunctionRegistry &FunctionRegistry::global()
