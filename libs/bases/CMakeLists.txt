@@ -83,6 +83,8 @@ add_library(corbomite-bases STATIC
     include/corbomite/bases/SortGroupMenuPanel.h
     src/ViewsMenuPanel.cpp
     include/corbomite/bases/ViewsMenuPanel.h
+    src/FormulaInput.cpp
+    include/corbomite/bases/FormulaInput.h
     include/corbomite/bases/ValuePtr.h
     include/corbomite/bases/Value.h
     include/corbomite/bases/Values.h
