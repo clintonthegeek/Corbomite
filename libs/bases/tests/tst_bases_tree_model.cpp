@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
 #include <QAbstractItemModelTester>
+#include <QFile>
 #include <QMimeData>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include "corbomite/bases/BasesTreeModel.h"
 #include "corbomite/bases/BasesQueryResult.h"   // BasesEntryGroup
@@ -10,6 +12,7 @@
 #include "corbomite/bases/Values.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/vault/Vault.h"
+#include "corbomite/vault/FileManager.h"
 #include "corbomite/vault/TFile.h"
 
 using namespace Corbomite::Bases;
@@ -130,6 +133,44 @@ private Q_SLOTS:
         std::unique_ptr<QMimeData> md(m.mimeData({ idx }));
         QVERIFY(md);
         QCOMPARE(md->text(), QStringLiteral("[[Alien]]"));
+    }
+
+    void setDataEmitsRequestAndDoesNotWrite()
+    {
+        QTemporaryDir dir;
+        {
+            QFile f(dir.path() + "/n.md");
+            f.open(QIODevice::WriteOnly);
+            f.write("---\nstatus: old\n---\nbody\n");
+            f.close();
+        }
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vault(&fs);
+        vault.load(dir.path());
+        Corbomite::FileManager fm(&vault, nullptr);
+        auto *tf = vault.getFileByPath(QStringLiteral("n.md"));
+        QVERIFY(tf);
+
+        BasesQuery q;
+        BasesTreeModel m(nullptr, &fm);
+        BasesEntryGroup g;   // one keyless group holding our real-file entry
+        g.entries.push_back(std::make_shared<BasesEntry>(&vault, nullptr, tf, nullptr, q));
+        m.populateForTesting({g}, {note("status")});
+
+        const QModelIndex idx = m.index(0, 0, QModelIndex());
+        QVERIFY(idx.isValid());
+        QVERIFY(!m.isGroupRow(idx));
+
+        QSignalSpy spy(&m, &BasesTreeModel::frontMatterEditRequested);
+        QVERIFY(m.setData(idx, QStringLiteral("new"), Qt::EditRole));
+        QCOMPARE(spy.count(), 1);
+
+        // The model must NOT have written to disk (only the chokepoint does).
+        QFile after(dir.path() + "/n.md");
+        after.open(QIODevice::ReadOnly);
+        const QByteArray bytes = after.readAll();
+        QVERIFY(bytes.contains("status: old"));
+        QVERIFY(!bytes.contains("status: new"));
     }
 };
 

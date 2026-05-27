@@ -27,6 +27,10 @@ public:
     /// Populate from `entry` (its file + frontmatter). Null clears the form.
     void showEntry(BasesEntry *entry);
 
+Q_SIGNALS:
+    void frontMatterEditRequested(Corbomite::TFile *file, const QString &key,
+                                  const QVariant &value);
+
 private:
     void clearForm();
     void commit(const QString &key, const QVariant &value);

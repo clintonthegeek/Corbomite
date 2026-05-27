@@ -177,10 +177,10 @@ bool BasesTreeModel::setData(const QModelIndex &index, const QVariant &value, in
     if (!entry || !entry->file()) return false;
     const PropertyId pid = propertyAt(index.column());
     if (pid.kind != PropertyKind::Note) return false;   // only frontmatter editable
-    // processFrontMatter is synchronous; entry->file() is evaluated before the
-    // call and entry is not dereferenced afterward, so the recompute->reset that
-    // a resulting cacheChanged triggers cannot dangle it. (Parity with BasesTableModel.)
-    m_fm->processFrontMatter(entry->file(), [&](QVariantMap &fm) { fm.insert(pid.name, value); });
+    // The model stays stack- and widget-agnostic: it emits a request that the
+    // owning BasesView routes through its undo chokepoint, which performs the
+    // actual frontmatter write. The model never writes directly.
+    Q_EMIT frontMatterEditRequested(entry->file(), pid.name, value);
     return true;  // QueryController recompute -> resultsChanged -> reset
 }
 

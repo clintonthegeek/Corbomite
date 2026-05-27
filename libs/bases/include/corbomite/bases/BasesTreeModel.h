@@ -10,7 +10,10 @@
 #include <QStringList>
 #include <QVector>
 
-namespace Corbomite { class FileManager; }
+namespace Corbomite {
+class FileManager;
+class TFile;
+}  // namespace Corbomite
 class QMimeData;
 
 namespace Corbomite::Bases {
@@ -51,6 +54,10 @@ public:
     /// Test seam: populate the snapshot directly, bypassing the controller.
     void populateForTesting(const QVector<BasesEntryGroup> &groups,
                             const QVector<PropertyId> &columns);
+
+Q_SIGNALS:
+    void frontMatterEditRequested(Corbomite::TFile *file, const QString &key,
+                                  const QVariant &value);
 
 private Q_SLOTS:
     void onResultsChanged();

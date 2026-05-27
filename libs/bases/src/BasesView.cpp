@@ -197,6 +197,8 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_splitter = new QSplitter(Qt::Horizontal, this);
     m_splitter->addWidget(m_table);
     m_drawer = new PropertiesDrawer(m_splitter);
+    connect(m_drawer, &PropertiesDrawer::frontMatterEditRequested,
+            this, &BasesView::pushFrontMatterEdit);
     m_drawer->hide();                         // collapsed until toggled
     m_splitter->addWidget(m_drawer);
     m_splitter->setStretchFactor(0, 1);
@@ -348,6 +350,8 @@ void BasesView::rebuildLayout()
     m_controller->setViewConfig(m_activeView);
 
     m_model = std::make_unique<BasesTreeModel>(m_controller.get(), m_fm, this);
+    connect(m_model.get(), &BasesTreeModel::frontMatterEditRequested,
+            this, &BasesView::pushFrontMatterEdit);
     m_table->setModel(m_model.get());
     connect(m_table->selectionModel(), &QItemSelectionModel::currentRowChanged,
             this, &BasesView::onSelectionChanged, Qt::UniqueConnection);
