@@ -97,6 +97,8 @@ private Q_SLOTS:
     void onSelectionChanged();
     void onLinkClicked(const QString &target, Qt::KeyboardModifiers mods);
     void onContextMenu(const QPoint &pos);
+    void onCopyTable();
+    void onExportCsv();
 
 private:
     QString resolveLink(const QString &target) const;   // wikilink target -> vault path ("" if unresolved)
@@ -134,6 +136,7 @@ private:
     SortGroupMenuPanel *m_sortPanel = nullptr;
     ViewsMenuPanel *m_viewsPanel = nullptr;
     QToolButton *m_drawerBtn = nullptr;
+    QToolButton *m_resultsBtn = nullptr;
     QSplitter *m_splitter = nullptr;
     PropertiesDrawer *m_drawer = nullptr;
 

@@ -19,6 +19,7 @@
 #include "corbomite/bases/BasesVaultResolver.h"
 #include "corbomite/bases/PropertiesDrawer.h"
 #include "corbomite/bases/BasesQueryResult.h"
+#include "corbomite/bases/TableExporter.h"
 #include "corbomite/bases/Values.h"
 
 #include <KLocalizedString>
@@ -28,15 +29,19 @@
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QEvent>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QIcon>
 #include <QItemSelectionModel>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMimeData>
+#include <QSaveFile>
 #include <QSplitter>
 #include <QToolButton>
 #include <QTreeView>
@@ -87,6 +92,18 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_drawerBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
     m_drawerBtn->setCheckable(true);
     toolbar->addWidget(m_drawerBtn);
+
+    m_resultsBtn = new QToolButton(this);
+    m_resultsBtn->setIcon(QIcon::fromTheme(QStringLiteral("document-export")));
+    m_resultsBtn->setToolTip(i18n("Export / copy table"));
+    m_resultsBtn->setPopupMode(QToolButton::InstantPopup);
+    {
+        auto *menu = new QMenu(m_resultsBtn);
+        menu->addAction(i18n("Copy table"), this, &BasesView::onCopyTable);
+        menu->addAction(i18n("Export CSV…"), this, &BasesView::onExportCsv);
+        m_resultsBtn->setMenu(menu);
+    }
+    toolbar->addWidget(m_resultsBtn);
 
     m_propsPanel = new PropertiesMenuPanel(this);
     m_sortPanel  = new SortGroupMenuPanel(this);
@@ -482,6 +499,43 @@ void BasesView::onContextMenu(const QPoint &pos)
         });
     }
     menu.exec(m_table->viewport()->mapToGlobal(pos));
+}
+
+void BasesView::onCopyTable()
+{
+    if (!m_controller || !m_controller->result()) return;
+    TableExporter exp(*m_controller->result(),
+                      [this](const PropertyId &pid) { return displayNameFor(pid); });
+
+    auto *mime = new QMimeData();
+    mime->setText(exp.toTsv());  // text/plain = TSV (spreadsheet-friendly default).
+    mime->setData(QStringLiteral("text/markdown"), exp.toMarkdown().toUtf8());
+    mime->setHtml(exp.toHtml());
+    mime->setData(QStringLiteral("obsidian/table"), exp.toObsidianTable());
+    QApplication::clipboard()->setMimeData(mime);
+}
+
+void BasesView::onExportCsv()
+{
+    if (!m_controller || !m_controller->result()) return;
+
+    QString suggested = QStringLiteral("table.csv");
+    if (m_query && !m_query->filePath.isEmpty()) {
+        const QString stem = QFileInfo(m_query->filePath).completeBaseName();
+        if (!stem.isEmpty()) suggested = stem + QStringLiteral(".csv");
+    }
+    const QString path = QFileDialog::getSaveFileName(
+        this, i18n("Export table as CSV"), suggested,
+        i18n("CSV files (*.csv);;All files (*)"));
+    if (path.isEmpty()) return;
+
+    TableExporter exp(*m_controller->result(),
+                      [this](const PropertyId &pid) { return displayNameFor(pid); });
+    QSaveFile f(path);
+    if (!f.open(QIODevice::WriteOnly) || f.write(exp.toCsv().toUtf8()) < 0 || !f.commit()) {
+        m_errorBanner->setText(i18n("Failed to write CSV: %1", path));
+        m_errorBanner->show();
+    }
 }
 
 }  // namespace Corbomite::Bases
