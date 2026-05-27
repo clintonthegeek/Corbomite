@@ -10,16 +10,20 @@ QJsonObject LeafHistoryEntry::serialize() const
 {
     return {{QStringLiteral("title"), title},
             {QStringLiteral("icon"), icon},
+            {QStringLiteral("type"), type},
             {QStringLiteral("state"), state},
             {QStringLiteral("eState"), eState}};
 }
 
 LeafHistoryEntry LeafHistoryEntry::deserialize(const QJsonObject &json)
 {
-    return {json[QStringLiteral("title")].toString(),
-            json[QStringLiteral("icon")].toString(),
-            json[QStringLiteral("state")].toObject(),
-            json[QStringLiteral("eState")].toObject()};
+    LeafHistoryEntry e;
+    e.title  = json[QStringLiteral("title")].toString();
+    e.icon   = json[QStringLiteral("icon")].toString();
+    e.type   = json[QStringLiteral("type")].toString();  // empty for pre-existing sessions
+    e.state  = json[QStringLiteral("state")].toObject();
+    e.eState = json[QStringLiteral("eState")].toObject();
+    return e;
 }
 
 void LeafHistory::push(const LeafHistoryEntry &current)

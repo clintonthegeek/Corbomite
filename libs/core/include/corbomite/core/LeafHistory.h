@@ -11,6 +11,7 @@ namespace Corbomite {
 struct LeafHistoryEntry {
     QString title;
     QString icon;
+    QString type;   ///< view type ("markdown", "bases", …) — needed to recreate the right view on back/forward across differing view types.
     QJsonObject state;
     QJsonObject eState;
 

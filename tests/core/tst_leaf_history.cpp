@@ -14,9 +14,11 @@ class TestLeafHistory : public QObject
 private:
     LeafHistoryEntry makeEntry(const QString &title)
     {
-        return {title, QStringLiteral("document"),
-                QJsonObject{{QStringLiteral("file"), title}},
-                QJsonObject{}};
+        LeafHistoryEntry e;
+        e.title = title;
+        e.icon  = QStringLiteral("document");
+        e.state = QJsonObject{{QStringLiteral("file"), title}};
+        return e;
     }
 
 private Q_SLOTS:

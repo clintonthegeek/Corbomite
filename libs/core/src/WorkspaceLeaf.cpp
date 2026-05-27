@@ -266,6 +266,7 @@ void WorkspaceLeaf::navigate(const QJsonObject &viewState)
         LeafHistoryEntry current;
         current.title = m_view->getDisplayText();
         current.icon = m_view->getIcon();
+        current.type = m_view->getViewType();
         current.state = m_view->getState();
         current.eState = m_view->getEphemeralState();
         m_history.push(current);
@@ -292,6 +293,7 @@ void WorkspaceLeaf::goBack()
     if (m_view) {
         current.title = m_view->getDisplayText();
         current.icon = m_view->getIcon();
+        current.type = m_view->getViewType();
         current.state = m_view->getState();
         current.eState = m_view->getEphemeralState();
     }
@@ -300,12 +302,7 @@ void WorkspaceLeaf::goBack()
     if (!entry.isValid())
         return;
 
-    if (m_view) {
-        m_view->setState(entry.state);
-        Q_EMIT viewChanged(m_view);
-        if (!entry.eState.isEmpty())
-            m_view->setEphemeralState(entry.eState);
-    }
+    restoreFromHistory(entry);
 }
 
 void WorkspaceLeaf::goForward()
@@ -317,6 +314,7 @@ void WorkspaceLeaf::goForward()
     if (m_view) {
         current.title = m_view->getDisplayText();
         current.icon = m_view->getIcon();
+        current.type = m_view->getViewType();
         current.state = m_view->getState();
         current.eState = m_view->getEphemeralState();
     }
@@ -325,12 +323,26 @@ void WorkspaceLeaf::goForward()
     if (!entry.isValid())
         return;
 
-    if (m_view) {
+    restoreFromHistory(entry);
+}
+
+void WorkspaceLeaf::restoreFromHistory(const LeafHistoryEntry &entry)
+{
+    // Recreate the view when the entry's type differs from what's mounted
+    // (mirrors navigate()'s type-switch). An empty type — e.g. a history entry
+    // from a pre-type session — falls back to in-place setState.
+    if (!entry.type.isEmpty() && (!m_view || m_view->getViewType() != entry.type)) {
+        QJsonObject viewState;
+        viewState[QStringLiteral("type")] = entry.type;
+        viewState[QStringLiteral("state")] = entry.state;
+        setViewState(viewState);  // recreates the view + applies inner state + emits viewChanged
+    } else if (m_view) {
         m_view->setState(entry.state);
         Q_EMIT viewChanged(m_view);
-        if (!entry.eState.isEmpty())
-            m_view->setEphemeralState(entry.eState);
     }
+
+    if (m_view && !entry.eState.isEmpty())
+        m_view->setEphemeralState(entry.eState);
 }
 
 // --- Serialize / Deserialize ---

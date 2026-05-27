@@ -44,6 +44,23 @@ public:
     QJsonObject getState() const override { return m_state; }
 };
 
+// A second view type, so we can reproduce cross-view-type back/forward
+// navigation (e.g. a ".base" BasesView → a wikilinked markdown note → back).
+class StubView2 : public View
+{
+    Q_OBJECT
+public:
+    explicit StubView2(WorkspaceLeaf *leaf, QWidget *parent = nullptr)
+        : View(leaf, parent)
+    {}
+    QString getViewType()    const override { return QStringLiteral("stub2"); }
+    QString getDisplayText() const override { return QStringLiteral("Stub2"); }
+
+    QJsonObject m_state;
+    void setState(const QJsonObject &state) override { m_state = state; }
+    QJsonObject getState() const override { return m_state; }
+};
+
 // ---------------------------------------------------------------------------
 // Helper: build a simple ViewState object with a "file" key
 // ---------------------------------------------------------------------------
@@ -301,6 +318,10 @@ private:
             [](WorkspaceLeaf *leaf) -> View * {
                 return new StubView(leaf);
             });
+        m_registry->registerView(QStringLiteral("stub2"),
+            [](WorkspaceLeaf *leaf) -> View * {
+                return new StubView2(leaf);
+            });
         m_leaf = new WorkspaceLeaf(m_registry, this);
 
         // Create and open a stub view so navigate() can call setState
@@ -498,6 +519,59 @@ private Q_SLOTS:
         // Navigate to a new page from "a" — forward stack should be cleared
         m_leaf->navigate(makeState("c.md"));
         QVERIFY(!m_leaf->history().canGoForward());
+    }
+
+    // -----------------------------------------------------------------------
+    // goBack() across DIFFERENT view types must restore the original view
+    // *type*, not just push the old state onto the current (wrong) view.
+    // Regression: clicking a wikilink in a ".base" view navigates to a
+    // markdown note (recreating the leaf's view as markdown); pressing Back
+    // used to call setState() on the still-mounted markdown view, so the
+    // ".base" file rendered as raw markdown text instead of the table view.
+    // -----------------------------------------------------------------------
+    void goBackRestoresViewTypeAcrossViewTypes()
+    {
+        m_view->setState(makeState("films.base"));  // current view is "stub"
+
+        // Forward-navigate to a different view type (like base → markdown note).
+        QJsonObject toStub2;
+        toStub2[QStringLiteral("type")]  = QStringLiteral("stub2");
+        toStub2[QStringLiteral("state")] = makeState("note.md");
+        m_leaf->navigate(toStub2);
+        QCOMPARE(m_leaf->getViewState()[QStringLiteral("type")].toString(),
+                 QStringLiteral("stub2"));
+
+        // Back must recreate the ORIGINAL view type, with its state.
+        m_leaf->goBack();
+        QCOMPARE(m_leaf->getViewState()[QStringLiteral("type")].toString(),
+                 QStringLiteral("stub"));
+        QCOMPARE(m_leaf->getViewState()[QStringLiteral("state")]
+                     .toObject()[QStringLiteral("file")].toString(),
+                 QStringLiteral("films.base"));
+    }
+
+    // -----------------------------------------------------------------------
+    // goForward() across different view types likewise restores the forward
+    // entry's view type.
+    // -----------------------------------------------------------------------
+    void goForwardRestoresViewTypeAcrossViewTypes()
+    {
+        m_view->setState(makeState("films.base"));
+
+        QJsonObject toStub2;
+        toStub2[QStringLiteral("type")]  = QStringLiteral("stub2");
+        toStub2[QStringLiteral("state")] = makeState("note.md");
+        m_leaf->navigate(toStub2);
+        m_leaf->goBack();   // back to stub / films.base
+        QCOMPARE(m_leaf->getViewState()[QStringLiteral("type")].toString(),
+                 QStringLiteral("stub"));
+
+        m_leaf->goForward();  // forward again to stub2 / note.md
+        QCOMPARE(m_leaf->getViewState()[QStringLiteral("type")].toString(),
+                 QStringLiteral("stub2"));
+        QCOMPARE(m_leaf->getViewState()[QStringLiteral("state")]
+                     .toObject()[QStringLiteral("file")].toString(),
+                 QStringLiteral("note.md"));
     }
 };
 

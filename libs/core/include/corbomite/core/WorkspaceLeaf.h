@@ -120,6 +120,12 @@ Q_SIGNALS:
     void groupChanged(const QString &group);
 
 private:
+    /// Restore a history entry, recreating the view via the registry when the
+    /// entry's view type differs from the current view (so back/forward across
+    /// view types — e.g. bases ↔ markdown — rebuilds the right view instead of
+    /// loading state into the wrong one).
+    void restoreFromHistory(const LeafHistoryEntry &entry);
+
     QString m_id;
     KDDockWidgets::QtWidgets::DockWidget *m_dockWidget = nullptr;
     QPointer<View> m_view;
