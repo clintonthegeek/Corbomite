@@ -89,3 +89,10 @@ target_link_libraries(tst_table_exporter PRIVATE Qt6::Test Corbomite::Bases)
 add_executable(tst_new_item_seed tst_new_item_seed.cpp)
 add_test(NAME tst_new_item_seed COMMAND tst_new_item_seed)
 target_link_libraries(tst_new_item_seed PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_bases_commands tst_bases_commands.cpp)
+add_test(NAME tst_bases_commands COMMAND tst_bases_commands)
+target_link_libraries(tst_bases_commands PRIVATE
+    Qt6::Test Corbomite::Bases Corbomite::Vault Corbomite::Storage)
+set_tests_properties(tst_bases_commands PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

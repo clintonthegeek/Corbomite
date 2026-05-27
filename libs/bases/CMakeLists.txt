@@ -8,6 +8,8 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets)
 find_package(KF6I18n REQUIRED)
 
 add_library(corbomite-bases STATIC
+    src/BasesCommands.cpp
+    include/corbomite/bases/BasesCommands.h
     src/Value.cpp
     src/NullValue.cpp
     src/BooleanValue.cpp
