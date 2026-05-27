@@ -37,6 +37,7 @@ private slots:
     void addThenWritePersistsTypedKeysInOrder();
     void deleteRemovesKeyFromDisk();
     void renameChangesKeyPreservingPositionAndValue();
+    void moveReordersPersistedKeys();
 };
 
 static PluginMetaData makeMeta() { return PluginMetaData(KPluginMetaData{}); }
@@ -224,6 +225,42 @@ void TestPropertiesPlugin::renameChangesKeyPreservingPositionAndValue()
              QStringList({QStringLiteral("alpha"), QStringLiteral("b")}));
     QCOMPARE(doc->parsedFrontmatter().get(QStringLiteral("alpha")).asString(),
              QStringLiteral("x"));
+    delete view;
+}
+
+void TestPropertiesPlugin::moveReordersPersistedKeys()
+{
+    using namespace Corbomite;
+    FileSystemAdapter fs; QTemporaryDir dir; Vault vault(&fs); vault.load(dir.path());
+    LinkResolver resolver; MetadataCache cache(resolver); FileManager fm(&vault, &cache);
+    TFile *note = vault.create(QStringLiteral("n.md"),
+                               "---\none: 1\ntwo: 2\nthree: 3\n---\nb\n");
+    QVERIFY(note);
+
+    PropertiesPlugin plugin;
+    PluginContext ctx(makeMeta(),
+        {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
+         QStringLiteral("metadata.read"), QStringLiteral("workspace")});
+    ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
+                        nullptr, nullptr, nullptr);
+    plugin.load(&ctx);
+    auto *view = qobject_cast<PropertiesView *>(plugin.createView(nullptr));
+    QVERIFY(view);
+    view->setActiveFileForTest(QStringLiteral("n.md"));
+    const QStringList keys{QStringLiteral("one"), QStringLiteral("two"), QStringLiteral("three")};
+    for (const QString &k : keys) {
+        view->addProperty(k, PropertyType::Text);
+        view->setRowValueForTest(k, QStringLiteral("v"));
+    }
+
+    view->moveProperty(2, 0);   // move "three" to the front
+    view->flushPendingWrite();
+
+    auto doc = Markoff::Document::fromMarkdown(
+        QString::fromUtf8(vault.read(note)));
+    QCOMPARE(doc->parsedFrontmatter().keys(),
+             QStringList({QStringLiteral("three"), QStringLiteral("one"),
+                          QStringLiteral("two")}));
     delete view;
 }
 

@@ -5,11 +5,14 @@
 
 #include <KLocalizedString>
 
+#include <QDrag>
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMimeData>
+#include <QMouseEvent>
 #include <QStackedWidget>
 #include <QToolButton>
 
@@ -84,6 +87,8 @@ PropertyRow::PropertyRow(const QString &key, PropertyType type,
             this, &PropertyRow::deleteRequested);
     h->addWidget(m_deleteButton);
 
+    m_grip->installEventFilter(this);
+
     if (editable) {
         m_keyLabel->setCursor(Qt::IBeamCursor);
         m_keyLabel->installEventFilter(this);
@@ -97,6 +102,18 @@ bool PropertyRow::eventFilter(QObject *obj, QEvent *ev)
     if (obj == m_keyLabel && ev->type() == QEvent::MouseButtonRelease) {
         beginInlineRename();
         return true;
+    }
+    if (obj == m_grip && ev->type() == QEvent::MouseButtonPress) {
+        auto *me = static_cast<QMouseEvent *>(ev);
+        if (me->button() == Qt::LeftButton && m_visualIndex >= 0) {
+            auto *mime = new QMimeData;
+            mime->setData(QStringLiteral("application/x-corbomite-property-row"),
+                          QByteArray::number(m_visualIndex));
+            auto *drag = new QDrag(this);
+            drag->setMimeData(mime);
+            drag->exec(Qt::MoveAction);
+            return true;
+        }
     }
     return QWidget::eventFilter(obj, ev);
 }

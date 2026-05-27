@@ -43,6 +43,10 @@ public:
     /// Current editor value (editable rows only; read-only rows return Null).
     Markoff::YamlValue currentValue() const;
 
+    /// Visual index maintained by PropertiesView; used as drag source identity.
+    void setVisualIndex(int i) { m_visualIndex = i; }
+    int  visualIndex() const   { return m_visualIndex; }
+
 Q_SIGNALS:
     void valueChanged();
     void deleteRequested();
@@ -59,6 +63,7 @@ private:
     QString m_key;
     PropertyType m_type;
     bool m_editable;
+    int m_visualIndex = -1;
 
     QToolButton *m_grip = nullptr;
     QStackedWidget *m_keyStack = nullptr;  // label <-> line edit

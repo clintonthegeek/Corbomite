@@ -7,6 +7,7 @@
 #include <QVector>
 #include <QWidget>
 
+class QEvent;
 class QLabel;
 class QPushButton;
 class QTimer;
@@ -58,6 +59,9 @@ private Q_SLOTS:
     void onCacheChanged(const QString &path);
     void onAddPropertyClicked();
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *ev) override;
+
 private:
     void refresh();
     void rebuildFromFrontmatter(const QJsonObject &fm);
@@ -65,6 +69,7 @@ private:
                    const Markoff::YamlValue &value, bool editable);
     void connectRow(PropertyRow *row);
     void clearRows();
+    void reindexRows();
     void scheduleWrite();
     void flushWrite();
     int  indexOfKey(const QString &key) const;

@@ -15,11 +15,14 @@
 #include <KLocalizedString>
 
 #include <QDebug>
+#include <QDropEvent>
+#include <QEvent>
 #include <QFont>
 #include <QInputDialog>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMimeData>
 #include <QPushButton>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -54,6 +57,8 @@ PropertiesView::PropertiesView(MetadataCacheReader *metadata,
     m_rowsLayout = new QVBoxLayout(m_rowsContainer);
     m_rowsLayout->setContentsMargins(0, 0, 0, 0);
     m_rowsLayout->setSpacing(2);
+    m_rowsContainer->setAcceptDrops(true);
+    m_rowsContainer->installEventFilter(this);
     layout->addWidget(m_rowsContainer);
 
     m_emptyLabel->setAlignment(Qt::AlignCenter);
@@ -137,6 +142,7 @@ bool PropertiesView::renameProperty(const QString &oldKey, const QString &newKey
     m_rowsLayout->removeWidget(old);
     old->deleteLater();
     m_rows[i] = row;
+    reindexRows();
     scheduleWrite();
     return true;
 }
@@ -149,12 +155,59 @@ void PropertiesView::deleteProperty(const QString &key)
     m_rowsLayout->removeWidget(row);
     row->deleteLater();
     if (m_rows.isEmpty()) { m_emptyLabel->setVisible(true); m_rowsContainer->setVisible(false); }
+    reindexRows();
     scheduleWrite();
 }
 
-void PropertiesView::moveProperty(int, int)
+void PropertiesView::moveProperty(int from, int to)
 {
-    // Task 7
+    if (from < 0 || from >= m_rows.size() || to < 0 || to >= m_rows.size() || from == to)
+        return;
+    PropertyRow *row = m_rows.takeAt(from);
+    m_rows.insert(to, row);
+    m_rowsLayout->removeWidget(row);
+    m_rowsLayout->insertWidget(to, row);
+    reindexRows();
+    scheduleWrite();
+}
+
+// ---- Drop event handling ----
+
+bool PropertiesView::eventFilter(QObject *obj, QEvent *ev)
+{
+    if (obj == m_rowsContainer) {
+        if (ev->type() == QEvent::DragEnter) {
+            auto *de = static_cast<QDragEnterEvent *>(ev);
+            if (de->mimeData()->hasFormat(
+                    QStringLiteral("application/x-corbomite-property-row"))) {
+                de->acceptProposedAction();
+                return true;
+            }
+        } else if (ev->type() == QEvent::Drop) {
+            auto *de = static_cast<QDropEvent *>(ev);
+            if (!de->mimeData()->hasFormat(
+                    QStringLiteral("application/x-corbomite-property-row")))
+                return false;
+            const int srcIndex = de->mimeData()
+                ->data(QStringLiteral("application/x-corbomite-property-row"))
+                .toInt();
+            // Determine target index from the child widget under the drop point.
+            const QPoint localPos = de->position().toPoint();
+            int targetIndex = m_rows.size() - 1;  // default: drop at end
+            if (auto *child = m_rowsContainer->childAt(localPos)) {
+                // Walk up until we find a direct PropertyRow child.
+                QWidget *w = child;
+                while (w && w->parent() != m_rowsContainer)
+                    w = qobject_cast<QWidget *>(w->parent());
+                if (auto *row = qobject_cast<PropertyRow *>(w))
+                    targetIndex = row->visualIndex();
+            }
+            de->acceptProposedAction();
+            moveProperty(srcIndex, targetIndex);
+            return true;
+        }
+    }
+    return QWidget::eventFilter(obj, ev);
 }
 
 // ---- Row management ----
@@ -174,6 +227,12 @@ void PropertiesView::connectRow(PropertyRow *row)
             [this](const QString &o, const QString &n) { renameProperty(o, n); });
 }
 
+void PropertiesView::reindexRows()
+{
+    for (int i = 0; i < m_rows.size(); ++i)
+        m_rows[i]->setVisualIndex(i);
+}
+
 void PropertiesView::appendRow(const QString &key, PropertyType type,
                                const Markoff::YamlValue &value, bool editable)
 {
@@ -181,6 +240,7 @@ void PropertiesView::appendRow(const QString &key, PropertyType type,
     connectRow(row);
     m_rowsLayout->addWidget(row);
     m_rows.push_back(row);
+    reindexRows();
 }
 
 void PropertiesView::refresh()
