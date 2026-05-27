@@ -2,10 +2,13 @@
 #include "corbomite/bases/FormulaInput.h"
 
 #include "corbomite/bases/Formula.h"
+#include "corbomite/bases/FormulaCandidates.h"
 
+#include <QAbstractItemView>
 #include <QAction>
 #include <QCompleter>
 #include <QIcon>
+#include <QScrollBar>
 #include <QStringListModel>
 
 namespace Corbomite::Bases {
@@ -22,7 +25,11 @@ FormulaInput::FormulaInput(QWidget *parent)
     m_completer->setWidget(this);
 
     connect(this, &QLineEdit::textChanged, this, &FormulaInput::revalidate);
-    connect(this, &QLineEdit::textChanged, this, &FormulaInput::maybePopupCompleter);
+    // Pop the completer only on real user input. Using textEdited (not
+    // textChanged) means the programmatic setText() inside
+    // onCompletionActivated() does not re-trigger the popup right after a
+    // selection (reentrancy), and validation still runs on programmatic edits.
+    connect(this, &QLineEdit::textEdited, this, &FormulaInput::maybePopupCompleter);
     connect(m_completer, QOverload<const QString &>::of(&QCompleter::activated),
             this, &FormulaInput::onCompletionActivated);
 
@@ -59,7 +66,32 @@ void FormulaInput::revalidate()
     }
 }
 
-void FormulaInput::maybePopupCompleter() { /* implemented in the next task */ }
-void FormulaInput::onCompletionActivated(const QString &) { /* implemented in the next task */ }
+void FormulaInput::maybePopupCompleter()
+{
+    const auto span = FormulaCandidates::tokenAt(text(), cursorPosition());
+    if (span.token.isEmpty()) {
+        m_completer->popup()->hide();
+        return;
+    }
+    m_completer->setCompletionPrefix(span.token);
+    if (m_completer->completionCount() == 0) {
+        m_completer->popup()->hide();
+        return;
+    }
+    QRect r = cursorRect();
+    r.setWidth(m_completer->popup()->sizeHintForColumn(0)
+               + m_completer->popup()->verticalScrollBar()->sizeHint().width());
+    m_completer->complete(r);
+}
+
+void FormulaInput::onCompletionActivated(const QString &completion)
+{
+    const int cursor = cursorPosition();
+    const auto span = FormulaCandidates::tokenAt(text(), cursor);
+    QString t = text();
+    t.replace(span.start, cursor - span.start, completion);
+    setText(t);
+    setCursorPosition(span.start + completion.size());
+}
 
 }  // namespace Corbomite::Bases

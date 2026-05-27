@@ -31,6 +31,18 @@ private slots:
         QVERIFY(spy.count() >= 1);
         QCOMPARE(spy.last().at(0).toBool(), false);
     }
+    void completion_replacesOnlyCurrentToken()
+    {
+        FormulaInput in;
+        in.setCandidates({QStringLiteral("status"), QStringLiteral("started")});
+        in.setText(QStringLiteral("note.sta"));
+        in.setCursorPosition(8);
+        // Drive the activation path directly (popup isn't shown headless):
+        QMetaObject::invokeMethod(&in, "onCompletionActivated",
+                                  Q_ARG(QString, QStringLiteral("status")));
+        QCOMPARE(in.text(), QStringLiteral("note.status"));
+        QCOMPARE(in.cursorPosition(), 11);
+    }
 };
 
 QTEST_MAIN(TestFormulaInput)
