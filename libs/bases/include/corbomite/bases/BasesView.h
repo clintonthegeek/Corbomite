@@ -2,6 +2,7 @@
 #pragma once
 
 #include "BasesQuery.h"
+#include "corbomite/bases/NewItemSeed.h"
 
 #include "corbomite/core/TextFileView.h"
 
@@ -99,9 +100,14 @@ private Q_SLOTS:
     void onContextMenu(const QPoint &pos);
     void onCopyTable();
     void onExportCsv();
+    void onNewItem();
 
 private:
     QString resolveLink(const QString &target) const;   // wikilink target -> vault path ("" if unresolved)
+
+    /// Resolve the newItemTemplate path to a (key,value) frontmatter list via
+    /// the metadata cache. Empty if no template or no frontmatter.
+    NewItemSeed::SeedList resolveTemplateProps() const;
 
     void rebuildLayout();
     void populateViewSelector();
@@ -137,6 +143,7 @@ private:
     ViewsMenuPanel *m_viewsPanel = nullptr;
     QToolButton *m_drawerBtn = nullptr;
     QToolButton *m_resultsBtn = nullptr;
+    QToolButton *m_newBtn = nullptr;
     QSplitter *m_splitter = nullptr;
     PropertiesDrawer *m_drawer = nullptr;
 

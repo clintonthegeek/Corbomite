@@ -13,8 +13,10 @@
 
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomite/vault/FileManager.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/Vault.h"
+#include "corbomite/storage/MetadataCache.h"
 #include "corbomite/bases/BasesEntry.h"
 #include "corbomite/bases/BasesVaultResolver.h"
 #include "corbomite/bases/PropertiesDrawer.h"
@@ -47,6 +49,7 @@
 #include <QTreeView>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <QVariantMap>
 
 namespace Corbomite::Bases {
 
@@ -92,6 +95,12 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_drawerBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
     m_drawerBtn->setCheckable(true);
     toolbar->addWidget(m_drawerBtn);
+
+    m_newBtn = new QToolButton(this);
+    m_newBtn->setIcon(QIcon::fromTheme(QStringLiteral("list-add")));
+    m_newBtn->setToolTip(i18n("New entry"));
+    connect(m_newBtn, &QToolButton::clicked, this, &BasesView::onNewItem);
+    toolbar->addWidget(m_newBtn);
 
     m_resultsBtn = new QToolButton(this);
     m_resultsBtn->setIcon(QIcon::fromTheme(QStringLiteral("document-export")));
@@ -536,6 +545,51 @@ void BasesView::onExportCsv()
         m_errorBanner->setText(i18n("Failed to write CSV: %1", path));
         m_errorBanner->show();
     }
+}
+
+NewItemSeed::SeedList BasesView::resolveTemplateProps() const
+{
+    NewItemSeed::SeedList out;
+    if (!m_query || !m_query->newItemTemplate.has_value() || !m_cache) return out;
+    const QString tmplPath = m_query->newItemTemplate.value();
+    if (tmplPath.isEmpty()) return out;
+    const auto cache = m_cache->getFileCache(tmplPath);
+    if (!cache || !cache->frontmatter.has_value()) return out;
+    const QJsonObject fm = cache->frontmatter.value();
+    for (auto it = fm.constBegin(); it != fm.constEnd(); ++it)
+        out.append({it.key(), it.value().toVariant().toString()});
+    return out;
+}
+
+void BasesView::onNewItem()
+{
+    if (!m_fm) return;
+
+    QString folder;
+    if (m_query && m_query->newItemFolder.has_value())
+        folder = m_query->newItemFolder.value();
+
+    BasesViewConfig *view = m_activeView;
+    FilterPtr filter = view ? view->filters : FilterPtr{};
+    if (!filter && m_query) filter = m_query->filters;
+    const NewItemSeed::SeedList seed = NewItemSeed::compute(filter, resolveTemplateProps());
+
+    Corbomite::TFile *file = m_fm->createMarkdownNote(QStringLiteral("Untitled"), folder);
+    if (!file) {
+        m_errorBanner->setText(i18n("Failed to create new note"));
+        m_errorBanner->show();
+        return;
+    }
+
+    if (!seed.isEmpty()) {
+        m_fm->processFrontMatter(file, [&seed](QVariantMap &fm) {
+            for (const auto &p : seed) fm.insert(p.first, p.second);
+        });
+    }
+
+    const QString path = file->path;
+    if (m_openInNewTab) m_openInNewTab(path);
+    if (m_promptRename) m_promptRename(path);
 }
 
 }  // namespace Corbomite::Bases
