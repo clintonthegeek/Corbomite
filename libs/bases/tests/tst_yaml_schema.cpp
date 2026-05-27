@@ -112,6 +112,48 @@ private Q_SLOTS:
         QVERIFY(q2->unrecognizedData.contains(QStringLiteral("futureKey")));
     }
 
+    void testUnknownTopLevelNestedShapePreserved()
+    {
+        // A future Obsidian `.base` key whose value is a nested map or list
+        // must survive a load→save→load round-trip. Previously the parser's
+        // unrecognizedData switch dropped non-scalar shapes (`default: break;`).
+        const QString src = QStringLiteral(
+            "views:\n"
+            "  - type: table\n"
+            "    name: A\n"
+            "futureMap:\n"
+            "  nested: value\n"
+            "  count: 3\n"
+            "futureList:\n"
+            "  - one\n"
+            "  - two\n");
+        auto q = BasesQuery::fromString(src);
+
+        // Nested map preserved on first parse.
+        QVERIFY(q->unrecognizedData.contains(QStringLiteral("futureMap")));
+        const QVariant mapVal = q->unrecognizedData.value(QStringLiteral("futureMap"));
+        QCOMPARE(mapVal.typeId(), QMetaType::QVariantMap);
+        QCOMPARE(mapVal.toMap().value(QStringLiteral("nested")).toString(),
+                 QStringLiteral("value"));
+        QCOMPARE(mapVal.toMap().value(QStringLiteral("count")).toLongLong(), 3LL);
+
+        // Nested list preserved on first parse.
+        QVERIFY(q->unrecognizedData.contains(QStringLiteral("futureList")));
+        const QVariant listVal = q->unrecognizedData.value(QStringLiteral("futureList"));
+        QCOMPARE(listVal.typeId(), QMetaType::QVariantList);
+        QCOMPARE(listVal.toList().size(), 2);
+        QCOMPARE(listVal.toList().at(0).toString(), QStringLiteral("one"));
+
+        // ...and survives reparse after emission.
+        auto q2 = BasesQuery::fromString(q->toString());
+        QVERIFY(q2->unrecognizedData.contains(QStringLiteral("futureMap")));
+        QCOMPARE(q2->unrecognizedData.value(QStringLiteral("futureMap"))
+                     .toMap().value(QStringLiteral("count")).toLongLong(), 3LL);
+        QVERIFY(q2->unrecognizedData.contains(QStringLiteral("futureList")));
+        QCOMPARE(q2->unrecognizedData.value(QStringLiteral("futureList"))
+                     .toList().size(), 2);
+    }
+
     void testLimitZeroIsUnlimited()
     {
         const QString src = QStringLiteral(

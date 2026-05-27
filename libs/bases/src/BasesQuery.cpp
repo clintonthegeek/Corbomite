@@ -251,16 +251,11 @@ std::unique_ptr<BasesQuery> BasesQuery::fromString(const QString &text, QString 
             q->newItemTemplate = v.asString();
         }
         // Unknown top-level keys -> unrecognizedData (preserved round-trip).
+        // yamlToVariant recurses into nested maps/sequences so a future
+        // Obsidian `.base` key with structured value isn't silently flattened
+        // or dropped on save (the emit side already round-trips nested shapes).
         else {
-            // Scalar pass-through; sequences and maps stored as QVariantList/Map.
-            switch (v.kind()) {
-            case Markoff::YamlValue::Kind::Null:   q->unrecognizedData.insert(key, QVariant{}); break;
-            case Markoff::YamlValue::Kind::Bool:   q->unrecognizedData.insert(key, v.asBool()); break;
-            case Markoff::YamlValue::Kind::Int:    q->unrecognizedData.insert(key, static_cast<qlonglong>(v.asInt())); break;
-            case Markoff::YamlValue::Kind::Double: q->unrecognizedData.insert(key, v.asDouble()); break;
-            case Markoff::YamlValue::Kind::String: q->unrecognizedData.insert(key, v.asString()); break;
-            default: break;  // complex shapes skipped for MVP unrecognizedData
-            }
+            q->unrecognizedData.insert(key, yamlToVariant(v));
         }
     });
 

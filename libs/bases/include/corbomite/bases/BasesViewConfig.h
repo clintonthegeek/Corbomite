@@ -18,6 +18,11 @@ class YamlValue;
 
 namespace Corbomite::Bases {
 
+/// Recursively convert a parsed YAML node into a QVariant, preserving nested
+/// map/sequence shapes. Used to round-trip forward-compat `unrecognizedData`
+/// (both per-view and top-level) without flattening or dropping structure.
+QVariant yamlToVariant(const Markoff::YamlValue &v);
+
 struct SortKey
 {
     PropertyId property;

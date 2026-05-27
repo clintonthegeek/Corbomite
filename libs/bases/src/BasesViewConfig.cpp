@@ -7,8 +7,6 @@
 
 namespace Corbomite::Bases {
 
-namespace {
-
 QVariant yamlToVariant(const Markoff::YamlValue &v)
 {
     using K = Markoff::YamlValue::Kind;
@@ -34,6 +32,8 @@ QVariant yamlToVariant(const Markoff::YamlValue &v)
     }
     return {};
 }
+
+namespace {
 
 QString variantToString(const QVariant &v)
 {
