@@ -104,3 +104,7 @@ target_link_libraries(tst_bases_summary PRIVATE Qt6::Test Corbomite::Bases)
 add_executable(tst_formula_ops tst_formula_ops.cpp)
 add_test(NAME tst_formula_ops COMMAND tst_formula_ops)
 target_link_libraries(tst_formula_ops PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_formula_candidates tst_formula_candidates.cpp)
+add_test(NAME tst_formula_candidates COMMAND tst_formula_candidates)
+target_link_libraries(tst_formula_candidates PRIVATE Qt6::Test Corbomite::Bases)
