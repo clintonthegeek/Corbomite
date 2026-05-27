@@ -3,8 +3,10 @@
 
 #include <functional>
 
+#include <QList>
 #include <QObject>
 #include <QString>
+#include <QVariant>
 #include <QVariantMap>
 
 class QWidget;
@@ -35,6 +37,21 @@ public:
     // ---- Atomic frontmatter mutation ----
     using FrontMatterMutator = std::function<void(QVariantMap &)>;
     bool processFrontMatter(TFile *f, FrontMatterMutator mut);
+
+    /// One ordered front-matter entry for setFrontMatter.
+    /// When preserveFromDisk is true, the key's value is copied verbatim from
+    /// the existing on-disk YAML (value is ignored) — used for complex shapes
+    /// the editors can't round-trip.
+    struct FrontMatterEntry {
+        QString  key;
+        QVariant value;
+        bool     preserveFromDisk = false;
+    };
+
+    /// Rewrite a note's front-matter wholesale, in the given order. Keys present
+    /// on disk but absent from `ordered` are deleted. An empty list strips the
+    /// front-matter block. Returns false for null/non-.md files.
+    bool setFrontMatter(TFile *f, const QList<FrontMatterEntry> &ordered);
 
     // ---- Bulk property ops (declared; bodies deferred per spec §11) ----
     bool deleteProperty(const QString &key);

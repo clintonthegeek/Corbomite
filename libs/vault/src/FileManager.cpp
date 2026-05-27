@@ -357,6 +357,58 @@ bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
     });
 }
 
+bool FileManager::setFrontMatter(TFile *f, const QList<FrontMatterEntry> &ordered)
+{
+    if (!f || !m_vault) return false;
+    if (f->extension != QStringLiteral("md")) return false;
+
+    return m_vault->process(f, [&](const QByteArray &cur) -> QByteArray {
+        auto doc = Markoff::Document::fromMarkdown(QString::fromUtf8(cur));
+        if (!doc) return cur;
+
+        Markoff::YamlValue current = doc->parsedFrontmatter();
+        Markoff::YamlValue working = current.isNull()
+            ? Markoff::YamlValue::emptyMap()
+            : current.clone();
+
+        Markoff::YamlValue next = Markoff::YamlValue::emptyMap();
+        for (const FrontMatterEntry &e : ordered) {
+            if (e.preserveFromDisk) {
+                if (working.contains(e.key))
+                    next.setChildFrom(e.key, working.get(e.key));
+                else
+                    next.setNull(e.key);
+                continue;
+            }
+            const QVariant &val = e.value;
+            switch (val.typeId()) {
+            case QMetaType::Bool:
+                next.setBool(e.key, val.toBool()); break;
+            case QMetaType::Int:
+            case QMetaType::LongLong:
+            case QMetaType::UInt:
+            case QMetaType::ULongLong:
+                next.setInt(e.key, val.toLongLong()); break;
+            case QMetaType::Double:
+            case QMetaType::Float:
+                next.setDouble(e.key, val.toDouble()); break;
+            case QMetaType::QStringList:
+                next.setSeq(e.key, val.toStringList()); break;
+            case QMetaType::QString:
+                next.setString(e.key, val.toString()); break;
+            default:
+                if (!val.isValid() || val.isNull()) next.setNull(e.key);
+                else next.setString(e.key, val.toString());
+                break;
+            }
+        }
+
+        const Markoff::YamlValue out =
+            ordered.isEmpty() ? Markoff::YamlValue() : next;
+        return doc->withFrontmatter(out).toUtf8();
+    });
+}
+
 bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
 {
     if (!f || !m_vault) return false;

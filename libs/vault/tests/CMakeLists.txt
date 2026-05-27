@@ -147,6 +147,13 @@ add_test(NAME tst_file_manager_frontmatter COMMAND tst_file_manager_frontmatter)
 set_tests_properties(tst_file_manager_frontmatter PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_setfrontmatter tst_setfrontmatter.cpp)
+target_link_libraries(tst_setfrontmatter
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_setfrontmatter COMMAND tst_setfrontmatter)
+set_tests_properties(tst_setfrontmatter PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_file_manager_rename tst_file_manager_rename.cpp)
 target_link_libraries(tst_file_manager_rename
     PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
