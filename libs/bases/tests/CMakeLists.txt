@@ -114,3 +114,9 @@ add_test(NAME tst_formula_input COMMAND tst_formula_input)
 target_link_libraries(tst_formula_input PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)
 set_tests_properties(tst_formula_input PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_formula_edit_dialog tst_formula_edit_dialog.cpp)
+add_test(NAME tst_formula_edit_dialog COMMAND tst_formula_edit_dialog)
+target_link_libraries(tst_formula_edit_dialog PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)
+set_tests_properties(tst_formula_edit_dialog PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
