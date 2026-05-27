@@ -10,6 +10,24 @@ Conventions:
 
 ---
 
+## 2026-05-26 — Cluster D.4b shipped: Bases export/copy & +New entry
+
+Shipped via subagent-driven TDD (Opus controller, Sonnet implementers + spec reviewers, qt-code-reviewer for quality), 6 commits on `master` (`db4122ae` TableExporter → `da80d5db` +New, plus two review fixups and the close-out). Plan: [`plans/2026-05-26-cluster-d4b-bases-export-new-entry.md`](superpowers/plans/2026-05-26-cluster-d4b-bases-export-new-entry.md). Spec: [`specs/2026-05-26-cluster-d4b-bases-export-new-entry-design.md`](superpowers/specs/2026-05-26-cluster-d4b-bases-export-new-entry-design.md).
+
+**Two pure widget-free helpers (full TDD):**
+- `TableExporter` (`libs/bases`) — serializes the current `BasesQueryResult` to five formats: `toCsv()` (RFC-4180, CRLF), `toTsv()` (tabs/newlines sanitized), `toMarkdown()` (GFM pipe table, `|` escaped), `toHtml()` (`<table>`, entities escaped), `toObsidianTable()` (`QByteArray` of `{"rows":[…],"alignment":[…]}` — the format confirmed against the real Obsidian `app.js`, header is `rows[0]`, alignment one `""` per column). Flat rows in current sort order, grouping ignored (matches Obsidian). Columns from `result.properties()`, cell text from `entry->getValue(prop)->toString()`, header text via an injected `DisplayNameFn`. `tst_table_exporter` (6 slots: quoting/sanitization/escaping/JSON shape).
+- `NewItemSeed` (`libs/bases`) — given a filter tree + template frontmatter, computes the seed map. Walks **top-level AND-context equality constraints** only (`Conj::And` / `BinOp::AndAnd`); OR / negation / non-equality / `file.*` contribute nothing. Equality values override colliding template keys (one entry per key). Needed a new public `Formula::ast()` accessor exposing the parsed `Expr` root for static analysis. `tst_new_item_seed` (9 slots).
+
+**`BasesView` wiring (no headless test — clipboard/dialog/file-create widget paths):**
+- Results-menu `QToolButton` (InstantPopup `QMenu`): *Copy table* builds one `QMimeData` with four flavors (`text/plain`=TSV, `text/markdown`, HTML, `obsidian/table`) — clipboard takes ownership; *Export CSV…* → `QFileDialog::getSaveFileName` (suggested name from the `.base` stem) → `QSaveFile` write of `toCsv()`.
+- "+New" `QToolButton`: resolve folder (`newItemFolder` else vault root) → compute seed (`NewItemSeed::compute` over active-view-then-global filter + `resolveTemplateProps`) → `FileManager::createMarkdownNote("Untitled", folder)` → `processFrontMatter` to write the seed → `m_openInNewTab` + `m_promptRename` (host callbacks reused from D.4a). `resolveTemplateProps` reads the template note's frontmatter via `MetadataCache::getFileCache`.
+
+**Decisions / boundaries.** Export is flat-in-sort-order ignoring groups; seeding is AND-context equality only (OR/negation/non-equality and full filter-satisfying defaults deferred). Full 4-format clipboard parity chosen over CSV-only. Post-create flow is "create Untitled → open → prompt rename" (the validating rename dialog stands in for Obsidian's inline HoverEditor). Review caught a **silent-data-quality bug**: stringifying a non-scalar template value (e.g. `tags: [a,b,c]`) via `toVariant().toString()` collapsed it to an empty string — fixed by skipping array/object template keys (the string-based seed pipeline only carries scalars).
+
+**Verification.** 21/21 bases tests green (19 pre-existing + `tst_table_exporter` + `tst_new_item_seed`); clean build; offscreen launch clean. **The widget paths (Copy-table MIME payloads, Export-CSV dialog/file, the +New create/open/rename flow) are unverified by tests — pending user eyeball**, joining the D.2/D.3/D.4a interactive-verification backlog. One visual judgment call deferred to that pass: the new toolbar buttons use `QIcon::fromTheme` icons while the sibling props/sort/views buttons are text-only.
+
+**Deferred (not in D.4b):** D.4c undo/redo, formula editor, visual filter builder, D.5 plugin API, OR/negation seeding, per-layout (cards/list) export.
+
 ## 2026-05-26 — Cluster D.4a shipped: Bases cell interactivity
 
 Fourth Cluster D sub-project (interactivity slice "a"), TDD on `master` (no-branches preference). Spec: [`specs/2026-05-26-cluster-d4a-bases-cell-interactivity-design.md`](superpowers/specs/2026-05-26-cluster-d4a-bases-cell-interactivity-design.md). Plan: [`plans/2026-05-26-cluster-d4a-bases-cell-interactivity.md`](superpowers/plans/2026-05-26-cluster-d4a-bases-cell-interactivity.md). 5 feature commits + this close-out.
