@@ -47,6 +47,8 @@ add_library(corbomite-bases STATIC
     include/corbomite/bases/CellHitTest.h
     src/ViewConfigOps.cpp
     include/corbomite/bases/ViewConfigOps.h
+    src/NewItemSeed.cpp
+    include/corbomite/bases/NewItemSeed.h
     src/BasesQuery.cpp
     include/corbomite/bases/BasesQuery.h
     src/BasesEntry.cpp

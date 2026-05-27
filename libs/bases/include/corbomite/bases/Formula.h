@@ -38,6 +38,11 @@ public:
     bool isValid() const { return !m_parseError.has_value(); }
     std::optional<QString> parseError() const { return m_parseError; }
 
+    /// Root of the parsed expression tree (nullptr only if never parsed).
+    /// Exposed for static analysis (e.g. NewItemSeed extracting equality
+    /// constraints); the evaluator still drives execution.
+    const Expr *ast() const { return m_ast.get(); }
+
     ValuePtr getValue(const EvalContext &ctx, FunctionRegistry *funcs = nullptr) const;
     bool test(const EvalContext &ctx, FunctionRegistry *funcs = nullptr) const;
 

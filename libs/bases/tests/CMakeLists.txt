@@ -85,3 +85,7 @@ target_link_libraries(tst_bases_cell_hittest PRIVATE Qt6::Test Qt6::Gui Corbomit
 add_executable(tst_table_exporter tst_table_exporter.cpp)
 add_test(NAME tst_table_exporter COMMAND tst_table_exporter)
 target_link_libraries(tst_table_exporter PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_new_item_seed tst_new_item_seed.cpp)
+add_test(NAME tst_new_item_seed COMMAND tst_new_item_seed)
+target_link_libraries(tst_new_item_seed PRIVATE Qt6::Test Corbomite::Bases)
