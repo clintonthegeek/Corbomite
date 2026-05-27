@@ -35,6 +35,7 @@ private slots:
     void registersOpenCommandAndDispatchesRevealDockView();
     void classifiesComplexValuesAsNonEditable();
     void addThenWritePersistsTypedKeysInOrder();
+    void deleteRemovesKeyFromDisk();
 };
 
 static PluginMetaData makeMeta() { return PluginMetaData(KPluginMetaData{}); }
@@ -153,6 +154,39 @@ void TestPropertiesPlugin::addThenWritePersistsTypedKeysInOrder()
     QVERIFY(doc->parsedFrontmatter().keys().contains(QStringLiteral("title")));
     QCOMPARE(doc->parsedFrontmatter().get(QStringLiteral("title")).asString(),
              QStringLiteral("Hello"));
+    delete view;
+}
+
+void TestPropertiesPlugin::deleteRemovesKeyFromDisk()
+{
+    using namespace Corbomite;
+    FileSystemAdapter fs; QTemporaryDir dir; Vault vault(&fs); vault.load(dir.path());
+    LinkResolver resolver; MetadataCache cache(resolver); FileManager fm(&vault, &cache);
+    TFile *note = vault.create(QStringLiteral("n.md"), "---\nkeep: 1\ndrop: 2\n---\nx\n");
+    QVERIFY(note);
+
+    PropertiesPlugin plugin;
+    PluginContext ctx(makeMeta(),
+        {QStringLiteral("vault.read"), QStringLiteral("vault.write"),
+         QStringLiteral("metadata.read"), QStringLiteral("workspace")});
+    ctx.setCoreServices(&vault, &fm, &cache, nullptr, nullptr, nullptr,
+                        nullptr, nullptr, nullptr);
+    plugin.load(&ctx);
+    auto *view = qobject_cast<PropertiesView *>(plugin.createView(nullptr));
+    QVERIFY(view);
+    view->setActiveFileForTest(QStringLiteral("n.md"));
+    view->addProperty(QStringLiteral("keep"), PropertyType::Text);
+    view->setRowValueForTest(QStringLiteral("keep"), QStringLiteral("1"));
+    view->addProperty(QStringLiteral("drop"), PropertyType::Text);
+    view->setRowValueForTest(QStringLiteral("drop"), QStringLiteral("2"));
+
+    view->deleteProperty(QStringLiteral("drop"));
+    view->flushPendingWrite();
+
+    auto doc = Markoff::Document::fromMarkdown(
+        QString::fromUtf8(vault.read(note)));
+    QVERIFY(!doc->parsedFrontmatter().keys().contains(QStringLiteral("drop")));
+    QVERIFY(doc->parsedFrontmatter().keys().contains(QStringLiteral("keep")));
     delete view;
 }
 

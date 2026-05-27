@@ -125,9 +125,15 @@ bool PropertiesView::renameProperty(const QString &, const QString &)
     return false; // Task 6
 }
 
-void PropertiesView::deleteProperty(const QString &)
+void PropertiesView::deleteProperty(const QString &key)
 {
-    // Task 5
+    const int i = indexOfKey(key);
+    if (i < 0) return;
+    PropertyRow *row = m_rows.takeAt(i);
+    m_rowsLayout->removeWidget(row);
+    row->deleteLater();
+    if (m_rows.isEmpty()) { m_emptyLabel->setVisible(true); m_rowsContainer->setVisible(false); }
+    scheduleWrite();
 }
 
 void PropertiesView::moveProperty(int, int)
