@@ -2,6 +2,7 @@
 #include "corbomite/bases/BasesView.h"
 
 #include "corbomite/bases/BasesCellDelegate.h"
+#include "corbomite/bases/BasesCommands.h"
 #include "corbomite/bases/BasesHeaderView.h"
 #include "corbomite/bases/BasesTreeModel.h"
 #include "corbomite/bases/FunctionRegistry.h"
@@ -45,6 +46,7 @@
 #include <QMimeData>
 #include <QSaveFile>
 #include <QSplitter>
+#include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
 #include <QUrl>
@@ -242,8 +244,24 @@ void BasesView::setServices(Vault *vault, MetadataCache *cache,
         rebuildLayout();
 }
 
+void BasesView::pushFrontMatterEdit(Corbomite::TFile *file, const QString &key,
+                                    const QVariant &value)
+{
+    if (!m_fm || !file) return;
+    auto notify = [this](const QString &msg) {
+        m_errorBanner->setText(msg);
+        m_errorBanner->show();
+        QTimer::singleShot(4000, m_errorBanner, [this]() { m_errorBanner->hide(); });
+    };
+    m_undoStack.push(new CmdSetFrontMatter(m_fm, file, key, value, notify));
+}
+
+void BasesView::undo() { m_undoStack.undo(); }
+void BasesView::redo() { m_undoStack.redo(); }
+
 void BasesView::loadBaseFromVault()
 {
+    m_undoStack.clear();   // a history never spans two base loads
     // Need both the vault (for a raw read) and the loaded document. Skip if a
     // model is already built (idempotent across repeated setServices calls).
     if (!m_vault || !file() || m_model)

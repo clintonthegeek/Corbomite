@@ -9,6 +9,7 @@
 #include <QElapsedTimer>
 #include <QPoint>
 #include <QString>
+#include <QUndoStack>
 
 #include <functional>
 #include <memory>
@@ -82,6 +83,17 @@ public:
     void setRenamePrompt(std::function<void(const QString &path)> cb) { m_promptRename = std::move(cb); }
     void setDeletePrompt(std::function<void(const QString &path)> cb) { m_promptDelete = std::move(cb); }
 
+    /// Drive the per-view undo stack (host wires these to Edit ▸ Undo/Redo).
+    void undo();
+    void redo();
+
+public Q_SLOTS:
+    /// Single chokepoint: build a CmdSetFrontMatter and push it. Connected to
+    /// BasesTreeModel::frontMatterEditRequested and
+    /// PropertiesDrawer::frontMatterEditRequested.
+    void pushFrontMatterEdit(Corbomite::TFile *file, const QString &key,
+                             const QVariant &value);
+
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
@@ -129,6 +141,8 @@ private:
 
     std::unique_ptr<QueryController> m_controller;
     std::unique_ptr<BasesTreeModel> m_model;
+
+    QUndoStack m_undoStack;
 
     QTreeView *m_table = nullptr;
     BasesCellDelegate *m_delegate = nullptr;
