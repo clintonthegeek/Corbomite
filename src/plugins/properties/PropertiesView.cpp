@@ -9,7 +9,6 @@
 #include "corbomite/models/PropertyTypeInference.h"
 #include "corbomite/storage/proxies/MetadataCacheReader.h"
 #include "corbomite/vault/FileManager.h"
-#include "corbomite/vault/TFile.h"
 #include "corbomite/vault/proxies/FileManagerProxy.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
 
@@ -99,8 +98,6 @@ void PropertiesView::onCacheChanged(const QString &path)
     if (m_writeDebounce->isActive()) return; // suppress while user edit pending
     refresh();
 }
-
-void PropertiesView::onEditorValueChanged() { scheduleWrite(); }
 
 void PropertiesView::onAddPropertyClicked()
 {

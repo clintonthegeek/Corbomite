@@ -56,7 +56,6 @@ public:
 private Q_SLOTS:
     void onActiveFileChanged(const QString &path);
     void onCacheChanged(const QString &path);
-    void onEditorValueChanged();
     void onAddPropertyClicked();
 
 private:
