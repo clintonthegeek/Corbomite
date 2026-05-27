@@ -2,6 +2,7 @@
 #include "corbomite/bases/BasesQueryResult.h"
 
 #include "corbomite/bases/FunctionRegistry.h"
+#include "corbomite/bases/SummaryContext.h"
 #include "corbomite/bases/Values.h"
 
 #include <algorithm>
@@ -63,8 +64,10 @@ int signFor(const QString &dir) { return dir.toUpper() == QLatin1String("DESC") 
 
 BasesQueryResult::BasesQueryResult(const BasesViewConfig &cfg,
                                    QVector<std::shared_ptr<BasesEntry>> entries,
-                                   FunctionRegistry *funcs)
-    : m_cfg(cfg), m_rows(std::move(entries)), m_funcs(funcs)
+                                   FunctionRegistry *funcs,
+                                   const QHash<QString, Formula> *summaryFormulas)
+    : m_cfg(cfg), m_rows(std::move(entries)), m_funcs(funcs),
+      m_summaryFormulas(summaryFormulas)
 {
     applySort();
     applyLimit();
@@ -156,26 +159,31 @@ ValuePtr BasesQueryResult::summaryValue(int groupIndex,
                                         const PropertyId &prop,
                                         const QString &summaryFn) const
 {
-    Q_UNUSED(summaryFn);  // default summaries mapped by name come in Phase 7 Task 7.3 follow-up
     const auto &gs = groups();
     if (groupIndex < 0 || groupIndex >= gs.size()) return NullValue::instance();
     QVector<ValuePtr> vals;
     for (const auto &e : gs[groupIndex].entries) vals.push_back(e->getValue(prop));
-    ListValue list(vals);
+    auto list = std::make_shared<ListValue>(vals);
 
-    // Minimal dispatch covering the addendum §9 default names most useful
-    // for MVP tabular summaries. Formula-string-based summaries are a
-    // follow-up — this path hard-codes the common cases for speed.
+    // Custom summary formula (addendum §9) takes precedence over built-in names.
+    if (m_summaryFormulas) {
+        auto it = m_summaryFormulas->constFind(summaryFn);
+        if (it != m_summaryFormulas->constEnd()) {
+            SummaryContext ctx(list);
+            return it->getValue(ctx, m_funcs);
+        }
+    }
+
     const QString key = summaryFn.toLower();
-    if (key == QLatin1String("sum"))     return list.sum();
-    if (key == QLatin1String("min"))     return list.min();
-    if (key == QLatin1String("max"))     return list.max();
+    if (key == QLatin1String("sum"))     return list->sum();
+    if (key == QLatin1String("min"))     return list->min();
+    if (key == QLatin1String("max"))     return list->max();
     if (key == QLatin1String("mean")
-     || key == QLatin1String("average")) return list.mean();
-    if (key == QLatin1String("median"))  return list.median();
-    if (key == QLatin1String("stddev"))  return list.stddev();
-    if (key == QLatin1String("unique"))  return std::make_shared<NumberValue>(list.unique()->length());
-    if (key == QLatin1String("count"))   return std::make_shared<NumberValue>(list.length());
+     || key == QLatin1String("average")) return list->mean();
+    if (key == QLatin1String("median"))  return list->median();
+    if (key == QLatin1String("stddev"))  return list->stddev();
+    if (key == QLatin1String("unique"))  return std::make_shared<NumberValue>(list->unique()->length());
+    if (key == QLatin1String("count"))   return std::make_shared<NumberValue>(list->length());
     return NullValue::instance();
 }
 

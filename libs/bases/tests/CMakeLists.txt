@@ -96,3 +96,7 @@ target_link_libraries(tst_bases_commands PRIVATE
     Qt6::Test Corbomite::Bases Corbomite::Vault Corbomite::Storage)
 set_tests_properties(tst_bases_commands PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_bases_summary tst_bases_summary.cpp)
+add_test(NAME tst_bases_summary COMMAND tst_bases_summary)
+target_link_libraries(tst_bases_summary PRIVATE Qt6::Test Corbomite::Bases)

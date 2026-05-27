@@ -115,7 +115,9 @@ void QueryController::recomputeNow()
         filtered.push_back(e);
     }
 
-    m_result = std::make_unique<BasesQueryResult>(*m_cfg, filtered, m_funcs);
+    m_result = std::make_unique<BasesQueryResult>(
+        *m_cfg, filtered, m_funcs,
+        m_query ? &m_query->summaryFormulas : nullptr);
     Q_EMIT resultsChanged();
 }
 

@@ -3,6 +3,7 @@
 
 #include "BasesEntry.h"
 #include "BasesViewConfig.h"
+#include "Formula.h"
 #include "PropertyId.h"
 #include "Values.h"
 
@@ -34,7 +35,8 @@ class BasesQueryResult
 public:
     BasesQueryResult(const BasesViewConfig &cfg,
                      QVector<std::shared_ptr<BasesEntry>> entries,
-                     FunctionRegistry *funcs = nullptr);
+                     FunctionRegistry *funcs = nullptr,
+                     const QHash<QString, Formula> *summaryFormulas = nullptr);
 
     const QVector<std::shared_ptr<BasesEntry>> &rows() const { return m_rows; }
 
@@ -56,6 +58,7 @@ private:
     const BasesViewConfig &m_cfg;
     QVector<std::shared_ptr<BasesEntry>> m_rows;
     FunctionRegistry *m_funcs;
+    const QHash<QString, Formula> *m_summaryFormulas = nullptr;  // not owned
 
     mutable std::optional<QVector<BasesEntryGroup>> m_groups;
     mutable std::optional<QVector<PropertyId>> m_props;
