@@ -14,14 +14,18 @@
 
 #include <KLocalizedString>
 
+#include <QComboBox>
 #include <QDebug>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDropEvent>
 #include <QEvent>
 #include <QFont>
-#include <QInputDialog>
+#include <QFormLayout>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QMimeData>
 #include <QPushButton>
 #include <QTimer>
@@ -106,11 +110,34 @@ void PropertiesView::onCacheChanged(const QString &path)
 
 void PropertiesView::onAddPropertyClicked()
 {
-    bool ok = false;
-    const QString name = QInputDialog::getText(this, i18n("Add property"),
-        i18n("Property name:"), QLineEdit::Normal, QString(), &ok);
-    if (!ok || name.trimmed().isEmpty()) return;
-    addProperty(name.trimmed(), PropertyType::Text);
+    QDialog dlg(this);
+    dlg.setWindowTitle(i18n("Add property"));
+    auto *form = new QFormLayout(&dlg);
+    auto *nameEdit = new QLineEdit(&dlg);
+    auto *typeCombo = new QComboBox(&dlg);
+    typeCombo->addItem(i18n("Text"),        static_cast<int>(PropertyType::Text));
+    typeCombo->addItem(i18n("Number"),      static_cast<int>(PropertyType::Number));
+    typeCombo->addItem(i18n("Checkbox"),    static_cast<int>(PropertyType::Checkbox));
+    typeCombo->addItem(i18n("Date"),        static_cast<int>(PropertyType::Date));
+    typeCombo->addItem(i18n("Date & time"), static_cast<int>(PropertyType::DateTime));
+    typeCombo->addItem(i18n("List"),        static_cast<int>(PropertyType::List));
+    form->addRow(i18n("Name:"), nameEdit);
+    form->addRow(i18n("Type:"), typeCombo);
+    auto *buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    form->addRow(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    if (dlg.exec() != QDialog::Accepted) return;
+    const QString name = nameEdit->text().trimmed();
+    if (name.isEmpty()) return;
+    if (keyExists(name)) {
+        QMessageBox::warning(this, i18n("Add property"),
+            i18n("A property named '%1' already exists.", name));
+        return;
+    }
+    addProperty(name, static_cast<PropertyType>(typeCombo->currentData().toInt()));
 }
 
 // ---- Interaction API ----
