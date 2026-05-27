@@ -3,8 +3,6 @@
 
 #include "PropertyEditorWidget.h"
 
-#include "corbomite/models/PropertyTypeInference.h"
-
 #include <KLocalizedString>
 
 #include <QHBoxLayout>
