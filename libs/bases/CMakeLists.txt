@@ -51,6 +51,8 @@ add_library(corbomite-bases STATIC
     include/corbomite/bases/ViewConfigOps.h
     src/NewItemSeed.cpp
     include/corbomite/bases/NewItemSeed.h
+    src/FormulaOps.cpp
+    include/corbomite/bases/FormulaOps.h
     src/BasesQuery.cpp
     include/corbomite/bases/BasesQuery.h
     src/BasesEntry.cpp

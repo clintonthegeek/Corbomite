@@ -100,3 +100,7 @@ set_tests_properties(tst_bases_commands PROPERTIES
 add_executable(tst_bases_summary tst_bases_summary.cpp)
 add_test(NAME tst_bases_summary COMMAND tst_bases_summary)
 target_link_libraries(tst_bases_summary PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_formula_ops tst_formula_ops.cpp)
+add_test(NAME tst_formula_ops COMMAND tst_formula_ops)
+target_link_libraries(tst_formula_ops PRIVATE Qt6::Test Corbomite::Bases)
