@@ -270,6 +270,78 @@ private Q_SLOTS:
         QCOMPARE(out[QStringLiteral("customExt")].toArray().size(), 3);
     }
 
+    void testDefaultValuesOmittedOnWrite()
+    {
+        // Obsidian omits default values on write to keep cross-app diffs small:
+        //   color/label/subpath empty → omitted
+        //   fromEnd == "none"        → omitted
+        //   toEnd   == "arrow"       → omitted
+        //   backgroundStyle == "cover" → omitted
+        // See docs/obsidian-audit/domains/canvas.md §3 invariant 2.
+        Canvas::CanvasDocument doc;
+
+        Canvas::CanvasNode group;
+        group.id = QStringLiteral("g");
+        group.type = Canvas::NodeType::Group;
+        group.backgroundStyle = QStringLiteral("cover"); // Obsidian default
+        doc.addNode(group);
+
+        Canvas::CanvasNode file;
+        file.id = QStringLiteral("f");
+        file.type = Canvas::NodeType::File;
+        file.file = QStringLiteral("notes/x.md");
+        // subpath, color empty
+        doc.addNode(file);
+
+        Canvas::CanvasNode text;
+        text.id = QStringLiteral("t");
+        text.type = Canvas::NodeType::Text;
+        text.text = QStringLiteral("hi");
+        // color empty
+        doc.addNode(text);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("e");
+        edge.fromNode = QStringLiteral("t");
+        edge.toNode = QStringLiteral("f");
+        // fromEnd default None, toEnd default Arrow, color/label empty
+        doc.addEdge(edge);
+
+        auto json = doc.toJson();
+
+        // Find each emitted object by id.
+        QHash<QString, QJsonObject> outNodes;
+        for (auto v : json[QStringLiteral("nodes")].toArray()) {
+            auto o = v.toObject();
+            outNodes.insert(o[QStringLiteral("id")].toString(), o);
+        }
+        auto outEdge = json[QStringLiteral("edges")].toArray().at(0).toObject();
+
+        QVERIFY2(!outNodes[QStringLiteral("g")].contains(QStringLiteral("backgroundStyle")),
+                 "Group node should omit backgroundStyle when it equals the Obsidian default 'cover'");
+        QVERIFY(!outNodes[QStringLiteral("f")].contains(QStringLiteral("subpath")));
+        QVERIFY(!outNodes[QStringLiteral("f")].contains(QStringLiteral("color")));
+        QVERIFY(!outNodes[QStringLiteral("t")].contains(QStringLiteral("color")));
+        QVERIFY(!outEdge.contains(QStringLiteral("fromEnd")));
+        QVERIFY(!outEdge.contains(QStringLiteral("toEnd")));
+        QVERIFY(!outEdge.contains(QStringLiteral("color")));
+        QVERIFY(!outEdge.contains(QStringLiteral("label")));
+    }
+
+    void testNonDefaultBackgroundStyleEmitted()
+    {
+        // Inverse of the cover-omission rule: anything else must still be written.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode g;
+        g.id = QStringLiteral("g");
+        g.type = Canvas::NodeType::Group;
+        g.backgroundStyle = QStringLiteral("ratio");
+        doc.addNode(g);
+
+        auto out = doc.toJson()[QStringLiteral("nodes")].toArray().at(0).toObject();
+        QCOMPARE(out[QStringLiteral("backgroundStyle")].toString(), QStringLiteral("ratio"));
+    }
+
     void testEdgeDefaultToEnd()
     {
         // When toEnd is not specified in JSON, default should be "arrow"

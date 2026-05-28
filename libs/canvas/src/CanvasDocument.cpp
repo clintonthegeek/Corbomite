@@ -167,7 +167,11 @@ QJsonObject CanvasDocument::toJson() const
             obj[QStringLiteral("label")] = node.label;
         if (node.type == NodeType::Group && !node.background.isEmpty())
             obj[QStringLiteral("background")] = node.background;
-        if (node.type == NodeType::Group && !node.backgroundStyle.isEmpty())
+        // Obsidian's default is "cover" and omits it from JSON; emit only when
+        // it diverges from the default. See canvas.md §3 invariant 2.
+        if (node.type == NodeType::Group
+            && !node.backgroundStyle.isEmpty()
+            && node.backgroundStyle != QLatin1String("cover"))
             obj[QStringLiteral("backgroundStyle")] = node.backgroundStyle;
 
         mergeExtras(obj, node.extraData);
@@ -182,15 +186,11 @@ QJsonObject CanvasDocument::toJson() const
         obj[QStringLiteral("fromNode")] = edge.fromNode;
         obj[QStringLiteral("toNode")] = edge.toNode;
 
-        if (edge.fromSide != Side::Right)
-            obj[QStringLiteral("fromSide")] = sideToString(edge.fromSide);
-        else
-            obj[QStringLiteral("fromSide")] = sideToString(edge.fromSide);
-
-        if (edge.toSide != Side::Left)
-            obj[QStringLiteral("toSide")] = sideToString(edge.toSide);
-        else
-            obj[QStringLiteral("toSide")] = sideToString(edge.toSide);
+        // Sides are always written: invariant 2 (every edge resolves to a
+        // concrete side post-load via V5 self-heal), so by the time we save
+        // there is no "absent side" case to represent.
+        obj[QStringLiteral("fromSide")] = sideToString(edge.fromSide);
+        obj[QStringLiteral("toSide")] = sideToString(edge.toSide);
 
         if (edge.fromEnd != EndType::None)
             obj[QStringLiteral("fromEnd")] = endTypeToString(edge.fromEnd);
