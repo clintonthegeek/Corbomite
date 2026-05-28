@@ -435,6 +435,27 @@ private Q_SLOTS:
         QCOMPARE(doc.edge(QStringLiteral("e")).toSide,   Canvas::Side::Top);
     }
 
+    void testFractionalGeometryRoundsNotTruncates()
+    {
+        // Obsidian Math.round()s x/y/width/height on every setData
+        // (canvas.md §3 invariant 3). QJsonValue::toInt() truncates, so
+        // 0.7 becomes 0 for Corbomite and 1 for Obsidian — repeatable
+        // off-by-one drift on every cross-app save. Round explicitly.
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [
+                {"id":"n","type":"text","x":0.7,"y":-0.4,"width":99.6,"height":50.5}
+            ],
+            "edges": []
+        })").object();
+        Canvas::CanvasDocument doc;
+        QVERIFY(doc.loadFromJson(json));
+        auto n = doc.node(QStringLiteral("n"));
+        QCOMPARE(n.x, 1);        // qRound(0.7)
+        QCOMPARE(n.y, 0);        // qRound(-0.4)
+        QCOMPARE(n.width, 100);  // qRound(99.6)
+        QCOMPARE(n.height, 51);  // qRound(50.5) — half rounds away from zero
+    }
+
     void testEdgeDefaultToEnd()
     {
         // When toEnd is not specified in JSON, default should be "arrow"

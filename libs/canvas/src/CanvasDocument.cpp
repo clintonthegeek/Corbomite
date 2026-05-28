@@ -105,10 +105,13 @@ bool CanvasDocument::loadFromJson(const QJsonObject &json)
         else if (typeStr == QLatin1String("link")) node.type = NodeType::Link;
         else if (typeStr == QLatin1String("group")) node.type = NodeType::Group;
 
-        node.x = obj[QStringLiteral("x")].toInt();
-        node.y = obj[QStringLiteral("y")].toInt();
-        node.width = obj[QStringLiteral("width")].toInt(250);
-        node.height = obj[QStringLiteral("height")].toInt(60);
+        // Obsidian Math.round()s geometry on every setData (canvas.md §3
+        // invariant 3); QJsonValue::toInt() truncates, so fractional values
+        // would drift by ≤1px every cross-app save. Round explicitly.
+        node.x      = qRound(obj[QStringLiteral("x")].toDouble());
+        node.y      = qRound(obj[QStringLiteral("y")].toDouble());
+        node.width  = qRound(obj[QStringLiteral("width")].toDouble(250));
+        node.height = qRound(obj[QStringLiteral("height")].toDouble(60));
         node.color = obj[QStringLiteral("color")].toString();
 
         // Type-specific fields
