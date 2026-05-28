@@ -342,6 +342,99 @@ private Q_SLOTS:
         QCOMPARE(out[QStringLiteral("backgroundStyle")].toString(), QStringLiteral("ratio"));
     }
 
+    void testMissingFromSideSelfHealsHorizontal()
+    {
+        // toNode lies due-right of fromNode → fromSide must resolve to "right".
+        // V5 angular-sector picker; see canvas.md §3 invariant 5 + §8 invariant 10.
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [
+                {"id":"a","type":"text","x":0,"y":0,"width":100,"height":100},
+                {"id":"b","type":"text","x":300,"y":0,"width":100,"height":100}
+            ],
+            "edges": [
+                {"id":"e","fromNode":"a","toNode":"b","toSide":"left"}
+            ]
+        })").object();
+        Canvas::CanvasDocument doc;
+        QVERIFY(doc.loadFromJson(json));
+        QCOMPARE(doc.edge(QStringLiteral("e")).fromSide, Canvas::Side::Right);
+    }
+
+    void testMissingToSideSelfHealsHorizontal()
+    {
+        // toSide must point back toward fromNode (left), not the
+        // sideFromString default of "right".
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [
+                {"id":"a","type":"text","x":0,"y":0,"width":100,"height":100},
+                {"id":"b","type":"text","x":300,"y":0,"width":100,"height":100}
+            ],
+            "edges": [
+                {"id":"e","fromNode":"a","toNode":"b","fromSide":"right"}
+            ]
+        })").object();
+        Canvas::CanvasDocument doc;
+        QVERIFY(doc.loadFromJson(json));
+        QCOMPARE(doc.edge(QStringLiteral("e")).toSide, Canvas::Side::Left);
+    }
+
+    void testMissingSidesSelfHealVertical()
+    {
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [
+                {"id":"a","type":"text","x":0,"y":0,"width":100,"height":100},
+                {"id":"b","type":"text","x":0,"y":300,"width":100,"height":100}
+            ],
+            "edges": [
+                {"id":"e","fromNode":"a","toNode":"b"}
+            ]
+        })").object();
+        Canvas::CanvasDocument doc;
+        doc.loadFromJson(json);
+        QCOMPARE(doc.edge(QStringLiteral("e")).fromSide, Canvas::Side::Bottom);
+        QCOMPARE(doc.edge(QStringLiteral("e")).toSide,   Canvas::Side::Top);
+    }
+
+    void testHealedSidesPersistOnRoundTrip()
+    {
+        // The computed sides must be written back into JSON; otherwise the next
+        // save still looks side-less to Obsidian and the diff ping-pongs.
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [
+                {"id":"a","type":"text","x":0,"y":0,"width":100,"height":100},
+                {"id":"b","type":"text","x":300,"y":0,"width":100,"height":100}
+            ],
+            "edges": [
+                {"id":"e","fromNode":"a","toNode":"b"}
+            ]
+        })").object();
+        Canvas::CanvasDocument doc;
+        doc.loadFromJson(json);
+        auto out = doc.toJson()[QStringLiteral("edges")].toArray().at(0).toObject();
+        QCOMPARE(out[QStringLiteral("fromSide")].toString(), QStringLiteral("right"));
+        QCOMPARE(out[QStringLiteral("toSide")].toString(),   QStringLiteral("left"));
+    }
+
+    void testAspectRatioInformsAngularSector()
+    {
+        // Wide 200x100 nodes; offset (300, 200) center-to-center.
+        // corner angle = atan2(50,100) ≈ 26.6°; offset angle ≈ 33.7° → vertical face.
+        // dy > 0 → fromSide=Bottom; the reverse vector at toNode → toSide=Top.
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [
+                {"id":"a","type":"text","x":0,"y":0,"width":200,"height":100},
+                {"id":"b","type":"text","x":200,"y":150,"width":200,"height":100}
+            ],
+            "edges": [
+                {"id":"e","fromNode":"a","toNode":"b"}
+            ]
+        })").object();
+        Canvas::CanvasDocument doc;
+        doc.loadFromJson(json);
+        QCOMPARE(doc.edge(QStringLiteral("e")).fromSide, Canvas::Side::Bottom);
+        QCOMPARE(doc.edge(QStringLiteral("e")).toSide,   Canvas::Side::Top);
+    }
+
     void testEdgeDefaultToEnd()
     {
         // When toEnd is not specified in JSON, default should be "arrow"

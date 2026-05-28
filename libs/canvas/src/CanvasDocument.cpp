@@ -49,6 +49,25 @@ QJsonObject captureExtras(const QJsonObject &src, const QSet<QString> &known)
     return extras;
 }
 
+// V5 angular-sector picker (canvas.md §3 invariant 5 + §8 invariant 10):
+// given the node's own dimensions and the vector from its center to the other
+// endpoint's center, return the face the edge emerges from. Aspect-aware: the
+// boundary between "horizontal face" and "vertical face" is the node's own
+// corner diagonal, i.e. atan2(h/2, w/2), not a fixed 45°.
+//
+// Do NOT conflate with A3 (live drag-snap nearest-face) — that one is in the
+// scene/tool layer, not here.
+Side pickSideToward(int thisW, int thisH, double dx, double dy)
+{
+    const double absDx = dx < 0 ? -dx : dx;
+    const double absDy = dy < 0 ? -dy : dy;
+    // |dy|/|dx| > thisH/thisW  ⇔  |dy|*thisW > |dx|*thisH   (no divide-by-zero)
+    const bool vertical = absDy * thisW > absDx * thisH;
+    if (vertical)
+        return dy > 0 ? Side::Bottom : Side::Top;
+    return dx > 0 ? Side::Right : Side::Left;
+}
+
 void mergeExtras(QJsonObject &dst, const QJsonObject &extras)
 {
     // Append extras after the modelled keys. Obsidian's actual emission order
@@ -113,8 +132,32 @@ bool CanvasDocument::loadFromJson(const QJsonObject &json)
         edge.id = obj[QStringLiteral("id")].toString();
         edge.fromNode = obj[QStringLiteral("fromNode")].toString();
         edge.toNode = obj[QStringLiteral("toNode")].toString();
-        edge.fromSide = sideFromString(obj[QStringLiteral("fromSide")].toString());
-        edge.toSide = sideFromString(obj[QStringLiteral("toSide")].toString());
+
+        const QString rawFromSide = obj[QStringLiteral("fromSide")].toString();
+        const QString rawToSide   = obj[QStringLiteral("toSide")].toString();
+        edge.fromSide = sideFromString(rawFromSide);
+        edge.toSide   = sideFromString(rawToSide);
+
+        // V5 self-heal: absent sides resolve to the angular-sector pick now and
+        // are persisted in-memory so the next save bakes a concrete value in
+        // — otherwise we'd ping-pong with Obsidian on every cross-app edit.
+        if (rawFromSide.isEmpty() || rawToSide.isEmpty()) {
+            const auto fromIt = m_nodes.constFind(edge.fromNode);
+            const auto toIt   = m_nodes.constFind(edge.toNode);
+            if (fromIt != m_nodes.constEnd() && toIt != m_nodes.constEnd()) {
+                const double fromCx = fromIt->x + fromIt->width  / 2.0;
+                const double fromCy = fromIt->y + fromIt->height / 2.0;
+                const double toCx   = toIt->x   + toIt->width    / 2.0;
+                const double toCy   = toIt->y   + toIt->height   / 2.0;
+                if (rawFromSide.isEmpty())
+                    edge.fromSide = pickSideToward(fromIt->width, fromIt->height,
+                                                   toCx - fromCx, toCy - fromCy);
+                if (rawToSide.isEmpty())
+                    edge.toSide = pickSideToward(toIt->width, toIt->height,
+                                                 fromCx - toCx, fromCy - toCy);
+            }
+        }
+
         edge.fromEnd = endTypeFromString(obj[QStringLiteral("fromEnd")].toString());
         edge.toEnd = endTypeFromString(
             obj.contains(QStringLiteral("toEnd"))
