@@ -56,6 +56,10 @@ Q_SIGNALS:
 private:
     QHash<QString, CanvasNode> m_nodes;
     QHash<QString, CanvasEdge> m_edges;
+    // Unknown top-level JSON keys preserved verbatim across load→save
+    // (Obsidian spreads ...unknownData on the root object; we must too,
+    // otherwise plugin- or future-Obsidian-written canvases lose data).
+    QJsonObject m_extraTopLevel;
     bool m_modified = false;
 };
 

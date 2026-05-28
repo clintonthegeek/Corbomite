@@ -205,6 +205,71 @@ private Q_SLOTS:
         QCOMPARE(spy.at(0).at(0).toString(), QStringLiteral("e1"));
     }
 
+    void testUnknownNodeFieldsPreservedOnRoundTrip()
+    {
+        // Obsidian / plugins / newer versions can write fields we don't model.
+        // Round-trip must preserve them on each node (Obsidian uses ...unknownData
+        // rest-spread; we must do the same).
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [
+                {"id":"n1","type":"text","x":0,"y":0,"width":100,"height":50,
+                 "text":"hi",
+                 "styleAttributes":{"a":1,"b":"two"},
+                 "futureField":42}
+            ],
+            "edges": []
+        })").object();
+
+        Canvas::CanvasDocument doc;
+        QVERIFY(doc.loadFromJson(json));
+        auto out = doc.toJson();
+        auto outNode = out[QStringLiteral("nodes")].toArray().at(0).toObject();
+        QVERIFY(outNode.contains(QStringLiteral("styleAttributes")));
+        QCOMPARE(outNode[QStringLiteral("styleAttributes")].toObject()[QStringLiteral("a")].toInt(), 1);
+        QCOMPARE(outNode[QStringLiteral("styleAttributes")].toObject()[QStringLiteral("b")].toString(),
+                 QStringLiteral("two"));
+        QVERIFY(outNode.contains(QStringLiteral("futureField")));
+        QCOMPARE(outNode[QStringLiteral("futureField")].toInt(), 42);
+    }
+
+    void testUnknownEdgeFieldsPreservedOnRoundTrip()
+    {
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [
+                {"id":"a","type":"text","x":0,"y":0,"width":100,"height":50},
+                {"id":"b","type":"text","x":200,"y":0,"width":100,"height":50}
+            ],
+            "edges": [
+                {"id":"e","fromNode":"a","toNode":"b","fromSide":"right","toSide":"left",
+                 "weight":3,"meta":{"flag":true}}
+            ]
+        })").object();
+
+        Canvas::CanvasDocument doc;
+        QVERIFY(doc.loadFromJson(json));
+        auto out = doc.toJson();
+        auto outEdge = out[QStringLiteral("edges")].toArray().at(0).toObject();
+        QCOMPARE(outEdge[QStringLiteral("weight")].toInt(), 3);
+        QCOMPARE(outEdge[QStringLiteral("meta")].toObject()[QStringLiteral("flag")].toBool(), true);
+    }
+
+    void testUnknownTopLevelFieldsPreservedOnRoundTrip()
+    {
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [],
+            "edges": [],
+            "metadata": {"version": "1.2"},
+            "customExt": [1,2,3]
+        })").object();
+
+        Canvas::CanvasDocument doc;
+        QVERIFY(doc.loadFromJson(json));
+        auto out = doc.toJson();
+        QCOMPARE(out[QStringLiteral("metadata")].toObject()[QStringLiteral("version")].toString(),
+                 QStringLiteral("1.2"));
+        QCOMPARE(out[QStringLiteral("customExt")].toArray().size(), 3);
+    }
+
     void testEdgeDefaultToEnd()
     {
         // When toEnd is not specified in JSON, default should be "arrow"

@@ -3,9 +3,63 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QFile>
+#include <QSet>
 #include <QUuid>
 
 namespace Canvas {
+
+namespace {
+
+// Keys this version of Corbomite consumes when loading. Anything outside the
+// set is preserved verbatim into extraData / extraTopLevel so a plugin- or
+// future-Obsidian-written file survives a round-trip unchanged.
+const QSet<QString> &knownNodeKeys()
+{
+    static const QSet<QString> k = {
+        QStringLiteral("id"),         QStringLiteral("type"),
+        QStringLiteral("x"),          QStringLiteral("y"),
+        QStringLiteral("width"),      QStringLiteral("height"),
+        QStringLiteral("color"),      QStringLiteral("text"),
+        QStringLiteral("file"),       QStringLiteral("subpath"),
+        QStringLiteral("url"),        QStringLiteral("label"),
+        QStringLiteral("background"), QStringLiteral("backgroundStyle"),
+    };
+    return k;
+}
+
+const QSet<QString> &knownEdgeKeys()
+{
+    static const QSet<QString> k = {
+        QStringLiteral("id"),       QStringLiteral("fromNode"),
+        QStringLiteral("toNode"),   QStringLiteral("fromSide"),
+        QStringLiteral("toSide"),   QStringLiteral("fromEnd"),
+        QStringLiteral("toEnd"),    QStringLiteral("color"),
+        QStringLiteral("label"),
+    };
+    return k;
+}
+
+QJsonObject captureExtras(const QJsonObject &src, const QSet<QString> &known)
+{
+    QJsonObject extras;
+    for (auto it = src.begin(); it != src.end(); ++it) {
+        if (!known.contains(it.key()))
+            extras.insert(it.key(), it.value());
+    }
+    return extras;
+}
+
+void mergeExtras(QJsonObject &dst, const QJsonObject &extras)
+{
+    // Append extras after the modelled keys. Obsidian's actual emission order
+    // puts unknownData first; preserving JSON object key order isn't load-bearing
+    // (the parsers we target are not order-sensitive), so emitting after keeps
+    // diffs against our own previous output stable.
+    for (auto it = extras.begin(); it != extras.end(); ++it)
+        dst.insert(it.key(), it.value());
+}
+
+} // namespace
 
 CanvasDocument::CanvasDocument(QObject *parent)
     : QObject(parent)
@@ -16,6 +70,8 @@ bool CanvasDocument::loadFromJson(const QJsonObject &json)
 {
     m_nodes.clear();
     m_edges.clear();
+    m_extraTopLevel = captureExtras(
+        json, {QStringLiteral("nodes"), QStringLiteral("edges")});
 
     // Parse nodes
     auto nodesArray = json[QStringLiteral("nodes")].toArray();
@@ -44,6 +100,7 @@ bool CanvasDocument::loadFromJson(const QJsonObject &json)
         node.label = obj[QStringLiteral("label")].toString();
         node.background = obj[QStringLiteral("background")].toString();
         node.backgroundStyle = obj[QStringLiteral("backgroundStyle")].toString();
+        node.extraData = captureExtras(obj, knownNodeKeys());
 
         m_nodes.insert(node.id, node);
     }
@@ -65,6 +122,7 @@ bool CanvasDocument::loadFromJson(const QJsonObject &json)
                 : QStringLiteral("arrow"));
         edge.color = obj[QStringLiteral("color")].toString();
         edge.label = obj[QStringLiteral("label")].toString();
+        edge.extraData = captureExtras(obj, knownEdgeKeys());
 
         m_edges.insert(edge.id, edge);
     }
@@ -112,6 +170,8 @@ QJsonObject CanvasDocument::toJson() const
         if (node.type == NodeType::Group && !node.backgroundStyle.isEmpty())
             obj[QStringLiteral("backgroundStyle")] = node.backgroundStyle;
 
+        mergeExtras(obj, node.extraData);
+
         nodesArray.append(obj);
     }
 
@@ -140,11 +200,14 @@ QJsonObject CanvasDocument::toJson() const
         if (!edge.color.isEmpty()) obj[QStringLiteral("color")] = edge.color;
         if (!edge.label.isEmpty()) obj[QStringLiteral("label")] = edge.label;
 
+        mergeExtras(obj, edge.extraData);
+
         edgesArray.append(obj);
     }
 
     json[QStringLiteral("nodes")] = nodesArray;
     json[QStringLiteral("edges")] = edgesArray;
+    mergeExtras(json, m_extraTopLevel);
     return json;
 }
 

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QColor>
+#include <QJsonObject>
 #include <QString>
 
 namespace Canvas {
@@ -25,6 +26,10 @@ struct CanvasNode {
     QString label;             // Group nodes
     QString background;        // Group nodes
     QString backgroundStyle;   // Group nodes: "cover", "ratio", "repeat"
+
+    // Unknown JSON fields on this node preserved verbatim across load→save
+    // (Obsidian spreads ...unknownData; we must too).
+    QJsonObject extraData;
 };
 
 struct CanvasEdge {
@@ -37,6 +42,9 @@ struct CanvasEdge {
     EndType toEnd = EndType::Arrow;
     QString color;
     QString label;
+
+    // Unknown JSON fields on this edge preserved verbatim across load→save.
+    QJsonObject extraData;
 };
 
 // Color mapping from JSON Canvas spec
