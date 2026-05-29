@@ -39,6 +39,8 @@ add_library(corbomite-bases STATIC
     include/corbomite/bases/PropertyId.h
     src/FilterTree.cpp
     include/corbomite/bases/FilterTree.h
+    src/FilterSpec.cpp
+    include/corbomite/bases/FilterSpec.h
     src/BasesViewConfig.cpp
     include/corbomite/bases/BasesViewConfig.h
     src/SortCycle.cpp
