@@ -222,3 +222,22 @@ add_test(NAME tst_findbar COMMAND tst_findbar)
 set_tests_properties(tst_findbar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+# 2026-05-29 — Reading mode is a read-only Markoff::Styled::Editor leaf.
+add_executable(tst_reading_styled_leaf
+    tst_reading_styled_leaf.cpp
+)
+target_include_directories(tst_reading_styled_leaf PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_reading_styled_leaf PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    markoff_styled
+    Corbomite::Core
+)
+add_test(NAME tst_reading_styled_leaf COMMAND tst_reading_styled_leaf)
+set_tests_properties(tst_reading_styled_leaf PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)

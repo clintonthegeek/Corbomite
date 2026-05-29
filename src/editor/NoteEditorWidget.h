@@ -20,6 +20,10 @@ namespace Markoff::Source {
 class Editor;
 }
 
+namespace Markoff::Styled {
+class Editor;
+}
+
 namespace Markoff::Reading {
 // TODO(port-foundation-exploration): Reading retired; stub forward-decl kept
 // purely so old method signatures (readingView() accessor) compile. Returns
@@ -167,6 +171,10 @@ private:
     // and cached in the stack thereafter. Accessor returns nullptr until
     // first construction. See `ensureWidgetConstructed`.
     Markoff::Source::Editor *m_sourceEditor = nullptr;
+    // Reading mode widget — a read-only Markoff::Styled::Editor (QWidget, no
+    // QML). Lazy, same pattern as m_sourceEditor. Replaces the retired
+    // Markoff::Reading::ReadingView stub.
+    Markoff::Styled::Editor *m_styledReadingView = nullptr;
     // Reading mode widget — lazy. Same pattern as `m_sourceEditor`.
     Markoff::Reading::ReadingView *m_readingView = nullptr;
     ViewMode m_viewMode = ViewMode::LivePreview;

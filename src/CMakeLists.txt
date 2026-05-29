@@ -83,6 +83,7 @@ target_link_libraries(CorbomiteApp
         # stubs Reading mode pending Live-with-editing-disabled (E1) decision.
         #   Markoff::Reading
         Markoff::Source
+        markoff_styled
         forcegraph
         canvas
 )

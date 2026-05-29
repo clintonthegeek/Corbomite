@@ -19,6 +19,7 @@
 #include <markoff/live/EditorWidget.h>
 #include <markoff/live/LiveListModelBinding.h>
 #include <markoff/source/Editor.h>
+#include <markoff/styled/Editor.h>
 // TODO(port-foundation-exploration): old Markoff::Editor / MarkdownDelta /
 // Markoff::Reading / Markoff::MermaidRenderer all retired with the leaf
 // reshuffling — the live leaf is now hosted via Markoff::Live::EditorWidget
@@ -185,10 +186,11 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
         // Always constructed eagerly in the ctor.
         break;
     case ViewMode::Reading:
-        // TODO(port-foundation-exploration): Markoff::Reading::ReadingView
-        // retired with the old leaves. Reading mode is currently a no-op
-        // (selecting it leaves the LivePreview leaf showing). Reading-via-
-        // Live-with-editing-disabled awaits the Editable Capability port.
+        if (!m_styledReadingView) {
+            m_styledReadingView = new Markoff::Styled::Editor(this);
+            m_styledReadingView->setReadOnly(true);
+            m_readingIndex = m_stack->addWidget(m_styledReadingView);
+        }
         break;
     }
 }
@@ -201,10 +203,7 @@ Markoff::MarkdownView *NoteEditorWidget::activeLeaf() const
     case ViewMode::LivePreview:
         return m_editor;
     case ViewMode::Reading:
-        // TODO(port-foundation-exploration): Reading retired; activeLeaf
-        // returns the LivePreview as a fallback so the polymorphic chain
-        // (e.g. setDocument) doesn't break when in degraded Reading mode.
-        return m_editor;
+        return m_styledReadingView;  // may be nullptr if not yet constructed
     }
     return nullptr;
 }
@@ -299,11 +298,6 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
 
     // 5. Restore scroll + fold + cursor (mode-appropriate).
     restoreEphemeralStateFor(newMode, outgoing);
-
-    // Mirror legacy behaviour: Reading mode makes Markoff read-only
-    // (cosmetic, since Reading is a different widget now, but tests &
-    // consumers might still inspect `m_editor->isReadOnly()`).
-    m_editor->setReadOnly(newMode == ViewMode::Reading);
 
     Q_EMIT viewModeChanged(newMode);
 }
