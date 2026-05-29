@@ -6,8 +6,8 @@
 > When picking up new work, scan top-down: P0 first.
 > Strategic clusters (multi-phase coordinated work) live separately under `superpowers/plans/`.
 
-**Last refreshed:** 2026-05-26 (full-suite triage during D.4b + save-flag fix: `testSaveShortcut` root-caused & resolved; `EditorSuggest` cursor-past-end crash + `tst_notedocument` re-enable filed). Prior: 2026-05-25 re-triage against the QML/D2 foundation; 2026-04-28 shakedown + bug-bash round 2.
-**Item count:** 79 (58 audit-derived + 16 shakedown-derived + 5 full-suite-triage; 1 of the latter resolved).
+**Last refreshed:** 2026-05-29 (architecture audit — `audit-2026-05-29-architecture.md`; added 3 save-path integrity items at top of P0: non-atomic `saveDocument` [P0], `modify()` open-doc desync [P1], markdown blank-line drift [Markoff triage]). Prior: 2026-05-26 full-suite triage during D.4b + save-flag fix; 2026-05-25 re-triage against the QML/D2 foundation; 2026-04-28 shakedown + bug-bash round 2.
+**Item count:** 82 (58 audit-derived + 16 shakedown-derived + 5 full-suite-triage + 3 architecture-audit; 1 of the full-suite-triage resolved).
 
 ---
 
@@ -69,6 +69,12 @@
 ---
 
 ## P0 — Vault-format silent-corruption fixes (FIX FIRST)
+
+### Added 2026-05-29 — save-path integrity (from `audit-2026-05-29-architecture.md`)
+
+- [ ] [vault][data-loss][P0] **`Vault::saveDocument` writes via raw `QFile(WriteOnly|Truncate)`, not the atomic adapter path.** `libs/vault/src/Vault.cpp:755` opens `QFile(abs)` with `WriteOnly|Truncate` and `f.write(bytes)` directly, bypassing `m_adapter->writeBinary(...)` (which `FileSystemAdapter` implements as an atomic temp-file-rename). A crash/power-loss mid-write truncates the note — the exact silent-corruption class this section exists for. It also means a mock `DataAdapter` can't intercept the canonical save path (tests can't observe it). Fix: route the save through `m_adapter->writeBinary(abs, bytes, hints)` after the U+FFFC guard, keeping the echo-suppression stamp ordering. Verify against `tst_vault_save_reload`. See [audit-2026-05-29-architecture.md](audit-2026-05-29-architecture.md) §"Data-integrity defects" #1.
+- [ ] [vault][data-loss][P1] **`Vault::modify()` doesn't reconcile an open `NoteDocument` → silent buffer staleness.** `libs/vault/src/Vault.cpp:213-239` updates `m_readCache` + `TFile::stat` but never touches `m_docs`. Because `modify()` stamps a self-write, the watcher echo is suppressed, so a frontmatter/process write (`FileManager::processFrontMatter` → `Vault::process` → `modify`) to a file that *also* has a live editor `NoteDocument` leaves the in-memory D2 buffer stale vs disk, with no reconciliation path (the `onExternalModified` reload is deliberately suppressed for self-writes). Fix: if `m_docs` holds the path, re-sync the open document (or refuse the optimization for open files). **No test covers this** — add one (a `modify()` on an opened doc asserts the doc's `serializeForSave()` reflects the new bytes). See [audit-2026-05-29-architecture.md](audit-2026-05-29-architecture.md) §"Data-integrity defects" #2.
+- [ ] [editor-markdown][data-loss][NEEDS-TRIAGE] **Markdown open→save collapses blank-line runs (working-tree evidence: `Start Here.md` 68→33 lines).** The save path is `doc->markoff()->serializeForSave()` — **Markoff's** D2 serializer (submodule), a known data-loss class already steered via [`handoff/2026-05-21-save-path-data-loss.md`](handoff/2026-05-21-save-path-data-loss.md). Cross-repo (Markoff-owned), like the `2026-05-25` D2-clear fix. **Triage step:** confirm the dirty `testvaults/starter-vault/PKM LM/*.md` files were Corbomite-written (the AST-round-trip pattern matches Markoff, not Obsidian) before raising with Markoff. Not Corbomite-fixable locally. See [audit-2026-05-29-architecture.md](audit-2026-05-29-architecture.md) §"Adjacent".
 
 - [x] [vault][parsing] `processFrontMatter` reorders YAML keys alphabetically on every metadata edit — `libs/vault/src/FileManager.cpp:138-143` — see [parsing.md](audit-2026-04-26/parsing.md) §"Frontmatter round-trip risks (CRITICAL)"
 - [x] [vault][settings] Two parallel `.obsidian/*.json` writers diverge on indent (Bookmarks plugin writes 4-space; route `Vault::writeConfigJson` through `VaultConfig::serializeObsidianStyle`) — `libs/vault/src/Vault.cpp` vs `VaultConfig::serializeObsidianStyle` — see [settings.md](audit-2026-04-26/settings.md) §"On-disk schema compatibility matrix (per-file)"
