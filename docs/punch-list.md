@@ -45,6 +45,8 @@
 
 **Bottom line:** pick from bucket ② plus the bucket-③ re-targets. Everything rendering-/popover-/Reading-shaped (④) collapses into the single read-only-Live dependency already requested; callout/mermaid/embed (⑤) wait on Markoff E3/E5. Strategic tracks D (Bases UI) and F (internal plugins) are both substrate-independent and remain live.
 
+- [x] **[RESOLVED 2026-05-29 — `ab242ab2`.]** [editor][rendering] **Reading-mode "dead-end" fork (audit-2026-05-29) closed by a read-only `Markoff::Styled::Editor` leaf.** Reading mode is no longer read-only Live nor the retired `Markoff::Reading::ReadingView` — it owns a styled QWidget leaf (no QML). The old `Capabilities::Editable=false` steer to Markoff is retired; the nullptr-returning `readingView()` stub + forward-decl are deleted from `NoteEditorWidget`. See [`handoff/2026-05-29-to-markoff-styled-document-renderer.md`](handoff/2026-05-29-to-markoff-styled-document-renderer.md).
+
 ---
 
 ## Added 2026-05-25 (post-port / D.1 close-out)

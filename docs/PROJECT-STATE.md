@@ -53,7 +53,7 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Open questions
 
-- **Reading-mode: DECIDED — read-only Live (`Capabilities::Editable=false`).** Steer sent to Markoff 2026-05-25; awaiting their spec. Unfreezes the dependent P2s (HoverPopover, checkbox-toggle, Reading `setCursorLine`) once Markoff exposes the read-only capability + a renderer entry point for HoverPopover.
+- **Reading-mode: RESOLVED — read-only `Markoff::Styled::Editor` leaf** (QWidget, no QML), not read-only Live. The old `Capabilities::Editable=false` steer to Markoff is **retired** (see [`docs/handoff/2026-05-29-to-markoff-styled-document-renderer.md`](handoff/2026-05-29-to-markoff-styled-document-renderer.md)).
 - **Punch-list re-base after the port→master merge.** The open editor/rendering P2s are now either moot (Reading retired) or gated on Markoff E3 (embeds/callouts) / E5 (math/mermaid), not actionable Corbomite work. Re-triage rather than drain top-down.
 - **Confirm J's obsolescence** before formal closeout: does `Markoff::Source::Editor` fully cover the qutepart-fork intent (visual-line scroll, fold serialization, find/replace, markdown awareness)?
 
