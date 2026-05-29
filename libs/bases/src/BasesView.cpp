@@ -11,6 +11,8 @@
 #include "corbomite/bases/PropertiesMenuPanel.h"
 #include "corbomite/bases/SortGroupMenuPanel.h"
 #include "corbomite/bases/ViewsMenuPanel.h"
+#include "corbomite/bases/FilterBuilderDialog.h"
+#include "corbomite/bases/FilterSpec.h"
 #include "corbomite/bases/FormulaEditDialog.h"
 #include "corbomite/bases/FormulaCandidates.h"
 #include "corbomite/bases/FormulaOps.h"
@@ -94,6 +96,12 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_viewsBtn->setText(i18n("Views"));
     m_viewsBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
     toolbar->addWidget(m_viewsBtn);
+
+    m_filtersBtn = new QToolButton(this);
+    m_filtersBtn->setText(i18n("Filters"));
+    m_filtersBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    connect(m_filtersBtn, &QToolButton::clicked, this, &BasesView::openFiltersDialog);
+    toolbar->addWidget(m_filtersBtn);
 
     m_drawerBtn = new QToolButton(this);
     m_drawerBtn->setText(i18n("Properties pane"));
@@ -522,6 +530,25 @@ void BasesView::applySummaryChoice(const PropertyId &prop, const QString &fnName
     if (!m_activeView) return;
     if (fnName.isEmpty()) m_activeView->summaries.remove(prop);
     else m_activeView->summaries.insert(prop, fnName);
+    onConfigMutated();
+}
+
+void BasesView::openFiltersDialog()
+{
+    if (!m_query || !m_activeView) return;
+    FilterBuilderDialog dlg(this);
+    dlg.setScopes(fromFilter(m_query->filters),
+                  fromFilter(m_activeView->filters),
+                  formulaCandidateList());
+    if (dlg.exec() != QDialog::Accepted) return;
+    applyFilterSpecs(dlg.globalSpec(), dlg.perViewSpec());
+}
+
+void BasesView::applyFilterSpecs(const FilterSpec &globalSpec, const FilterSpec &perViewSpec)
+{
+    if (!m_query || !m_activeView) return;
+    m_query->filters = toFilter(globalSpec);
+    m_activeView->filters = toFilter(perViewSpec);
     onConfigMutated();
 }
 

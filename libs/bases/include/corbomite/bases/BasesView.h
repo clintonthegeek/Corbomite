@@ -40,6 +40,7 @@ class PropertiesMenuPanel;
 class SortGroupMenuPanel;
 class ViewsMenuPanel;
 class PropertiesDrawer;
+struct FilterSpec;
 
 /// Main-area view widget for `.base` files. TextFileView subclass — save/
 /// load plumbing comes from the base class; setViewData/getViewData
@@ -91,6 +92,10 @@ public:
     /// Public so tests can exercise the mutation without spawning a dialog.
     void applySummaryChoice(const PropertyId &prop, const QString &fnName);
 
+    /// Replace both filter scopes from edited specs, then recompute + persist.
+    /// Public for testability (the dialog path calls this on accept).
+    void applyFilterSpecs(const FilterSpec &globalSpec, const FilterSpec &perViewSpec);
+
 public Q_SLOTS:
     /// Single chokepoint: build a CmdSetFrontMatter and push it. Connected to
     /// BasesTreeModel::frontMatterEditRequested and
@@ -139,6 +144,7 @@ private:
     QStringList formulaCandidateList() const;
     void openFormulaDialog(const QString &editName);  ///< add (empty) or edit a named formula
     void openSummaryDialog(const PropertyId &prop);   ///< create/assign a custom summary
+    void openFiltersDialog();
 
     Vault *m_vault = nullptr;
     MetadataCache *m_cache = nullptr;
@@ -161,6 +167,7 @@ private:
     QToolButton *m_propsBtn = nullptr;
     QToolButton *m_sortBtn = nullptr;
     QToolButton *m_viewsBtn = nullptr;
+    QToolButton *m_filtersBtn = nullptr;
     PropertiesMenuPanel *m_propsPanel = nullptr;
     SortGroupMenuPanel *m_sortPanel = nullptr;
     ViewsMenuPanel *m_viewsPanel = nullptr;

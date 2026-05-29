@@ -15,6 +15,7 @@
 #include "corbomite/bases/BasesView.h"
 #include "corbomite/bases/BasesEntry.h"
 #include "corbomite/bases/BasesQuery.h"
+#include "corbomite/bases/FilterSpec.h"
 #include "corbomite/bases/PropertyId.h"
 #include "corbomite/bases/Values.h"
 #include "corbomite/core/NoteDocument.h"
@@ -157,6 +158,46 @@ private Q_SLOTS:
         // Clearing with empty string removes the entry.
         bv.applySummaryChoice(priceProp, QString());
         QVERIFY(!bv.activeView()->summaries.contains(priceProp));
+    }
+
+    // applyFilterSpecs writes both filter scopes and the change survives a
+    // getViewData/setViewData round-trip.
+    void applyFilterSpecs_writesBothScopesAndRoundTrips()
+    {
+        FileSystemAdapter adapter;
+        Vault vault(&adapter);
+        vault.load(m_dir.path());
+
+        BasesView bv(nullptr);
+        bv.setViewData(QString::fromUtf8(kBase), true);
+        bv.setServices(&vault, nullptr, nullptr);
+
+        QVERIFY(bv.query());
+        QVERIFY(bv.activeView());
+
+        FilterSpec global = FilterSpec::group(Conj::And, { FilterSpec::leaf(QStringLiteral("file.hasTag(\"book\")")) });
+        FilterSpec perView = FilterSpec::group(Conj::Or, {
+            FilterSpec::leaf(QStringLiteral("status == \"open\"")),
+            FilterSpec::leaf(QStringLiteral("status == \"wip\"")),
+        });
+        bv.applyFilterSpecs(global, perView);
+
+        // Global: single-child And-group collapses to a bare rule via optimize().
+        QVERIFY(bv.query()->filters != nullptr);
+        QCOMPARE(bv.query()->filters->serialize().toString(),
+                 QStringLiteral("file.hasTag(\"book\")"));
+
+        // Per-view: Or-group with two children stays as a map.
+        QVERIFY(bv.activeView()->filters != nullptr);
+        QVERIFY(bv.activeView()->filters->serialize().toMap().contains(QStringLiteral("or")));
+
+        // Both scopes survive a round-trip through YAML.
+        // Note: yamlQuoteIfNeeded wraps strings containing '"' in double-quotes
+        // with backslash-escaped inner quotes, so the raw YAML contains \"-escaped
+        // values. Check for unambiguous substrings that survive escaping.
+        const QString yaml = bv.getViewData();
+        QVERIFY(yaml.contains(QStringLiteral("file.hasTag")));
+        QVERIFY(yaml.contains(QStringLiteral("status == ")));  // per-view or-filter present
     }
 
     // Regression: BasesEntry::frontmatter() returned a reference into the
