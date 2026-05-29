@@ -317,12 +317,6 @@ Markoff::Source::Editor *NoteEditorWidget::sourceEditor() const
     return m_sourceEditor;
 }
 
-Markoff::Reading::ReadingView *NoteEditorWidget::readingView() const
-{
-    // TODO(port-foundation-exploration): Reading retired; always nullptr.
-    return nullptr;
-}
-
 int NoteEditorWidget::currentLine() const
 {
     // TODO(port-foundation-exploration): cursorLine retired; line/column

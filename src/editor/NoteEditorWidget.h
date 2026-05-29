@@ -24,13 +24,6 @@ namespace Markoff::Styled {
 class Editor;
 }
 
-namespace Markoff::Reading {
-// TODO(port-foundation-exploration): Reading retired; stub forward-decl kept
-// purely so old method signatures (readingView() accessor) compile. Returns
-// nullptr unconditionally now.
-class ReadingView;
-}
-
 namespace Corbomite {
 
 struct EphemeralState;
@@ -53,9 +46,10 @@ class NoteEditorWidget : public QWidget {
 public:
     // Three-mode encoding per Cluster E plan. `LivePreview` is Markoff's
     // cursor-in-block-reveals-source widget; `Source` is the plain-text
-    // qutepart-corbomite widget; `Reading` is the ReadingView widget. On the
-    // wire these map through `ViewModeSerializer` to Obsidian's compound
-    // `{mode, source}` shape — we do not persist the enum integer.
+    // editor widget; `Reading` is a read-only `Markoff::Styled::Editor` leaf
+    // (QWidget, no QML). On the wire these map through `ViewModeSerializer` to
+    // Obsidian's compound `{mode, source}` shape — we do not persist the enum
+    // integer.
     enum class ViewMode { Source, LivePreview, Reading };
     Q_ENUM(ViewMode)
 
@@ -80,7 +74,6 @@ public:
 
     Markoff::Live::EditorWidget *editor() const;
     Markoff::Source::Editor *sourceEditor() const;
-    Markoff::Reading::ReadingView *readingView() const;  // always nullptr post-port
 
     // Returns the active MarkdownView leaf (any of the three), or nullptr if
     // none has been constructed yet. Cluster R / C7 consumers (MarkdownView
@@ -152,7 +145,7 @@ private:
     void ensureWidgetConstructed(ViewMode mode);
 
     // (activeLeaf is now a public accessor — declared above with editor()/
-    // sourceEditor()/readingView(). Internal callers below also use it.)
+    // sourceEditor(). Internal callers below also use it.)
 
     // C2 — apply current theme to every constructed leaf (Live/Source/Reading).
     void applyThemeToAllLeaves();
@@ -175,8 +168,6 @@ private:
     // QML). Lazy, same pattern as m_sourceEditor. Replaces the retired
     // Markoff::Reading::ReadingView stub.
     Markoff::Styled::Editor *m_styledReadingView = nullptr;
-    // Reading mode widget — lazy. Same pattern as `m_sourceEditor`.
-    Markoff::Reading::ReadingView *m_readingView = nullptr;
     ViewMode m_viewMode = ViewMode::LivePreview;
 
     // Indices populated as widgets are constructed. -1 means "not mounted
