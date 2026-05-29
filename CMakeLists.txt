@@ -92,6 +92,7 @@ set(MARKOFF_CORE_BUILD_TESTS   OFF CACHE BOOL "" FORCE)
 set(MARKOFF_LIVE_BUILD_TESTS   OFF CACHE BOOL "" FORCE)
 set(MARKOFF_SOURCE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(MARKOFF_PARSER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(MARKOFF_STYLED_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # Phase B bridge (MARKOFF_READING_USE_REAL_COREDEPS) retired in Markoff
 # v0.3.0 (Phase C1). markoff-reading now consumes host-provided
 # implementations of `Markoff::*` / `Markoff::Vault::*` interfaces via
