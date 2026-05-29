@@ -130,3 +130,8 @@ set_tests_properties(tst_properties_menu_panel PROPERTIES
 add_executable(tst_filter_spec tst_filter_spec.cpp)
 add_test(NAME tst_filter_spec COMMAND tst_filter_spec)
 target_link_libraries(tst_filter_spec PRIVATE Qt6::Test Corbomite::Bases)
+
+add_executable(tst_filter_builder_widget tst_filter_builder_widget.cpp)
+add_test(NAME tst_filter_builder_widget COMMAND tst_filter_builder_widget)
+target_link_libraries(tst_filter_builder_widget PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)
+set_tests_properties(tst_filter_builder_widget PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
