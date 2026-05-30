@@ -252,6 +252,42 @@ private Q_SLOTS:
         QVERIFY(item != nullptr);
     }
 
+    void testSetRenderEngineAfterCardsExist()
+    {
+        // Regression: if cards are built BEFORE the engine is set (e.g. the
+        // engine is wired by MainWindow after the document loads), the existing
+        // cards must be (re-)rendered when setRenderEngine is finally called.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.setFileResolver([](const QString &) -> QString {
+            return QStringLiteral("# Hello\n\nContent here");
+        });
+
+        // Add the file card FIRST, with no engine set yet.
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("late1");
+        node.type = Canvas::NodeType::File;
+        node.file = QStringLiteral("note.md");
+        node.x = 0; node.y = 0;
+        node.width = 250; node.height = 200;
+        doc.addNode(node);
+
+        auto *item = scene.fileCardItem(QStringLiteral("late1"));
+        QVERIFY(item != nullptr);
+        // No engine yet -> nothing rendered.
+        QVERIFY(!item->hasRenderedDocument());
+
+        // Now set the engine AFTER the card already exists.
+        Corbomite::RegexRenderEngine engine;
+        engine.setProfile(Corbomite::RenderProfile::canvasCard());
+        scene.setRenderEngine(&engine);
+
+        // The existing card must now have a rendered document.
+        QVERIFY(item->hasRenderedDocument());
+    }
+
     void testFileResolverReturnsEmpty()
     {
         Canvas::CanvasDocument doc;

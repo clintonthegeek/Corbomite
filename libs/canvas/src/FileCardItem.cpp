@@ -48,6 +48,11 @@ void FileCardItem::setRenderedDocument(std::unique_ptr<Corbomite::RenderedDocume
     update();
 }
 
+bool FileCardItem::hasRenderedDocument() const
+{
+    return m_renderedDoc && m_renderedDoc->toQTextDocument() != nullptr;
+}
+
 QString FileCardItem::displayTitle() const
 {
     // Extract filename without extension

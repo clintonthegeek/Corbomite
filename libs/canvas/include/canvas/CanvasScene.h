@@ -121,6 +121,7 @@ private:
     void populateFromDocument();
     void clearAllItems();
     void renderFileCard(FileCardItem *item);
+    void reRenderAllCards();
     void addColorSubmenu(QMenu *parentMenu, const QString &nodeId, const QString &currentColor);
 
     CanvasDocument *m_document = nullptr;

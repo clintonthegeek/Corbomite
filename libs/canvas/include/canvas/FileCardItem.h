@@ -21,6 +21,10 @@ public:
 
     void setRenderedDocument(std::unique_ptr<Corbomite::RenderedDocument> doc);
 
+    /// Test/introspection accessor: true once a rendered document with a backing
+    /// QTextDocument has been set on this card.
+    bool hasRenderedDocument() const;
+
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 

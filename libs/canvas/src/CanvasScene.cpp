@@ -204,6 +204,30 @@ void CanvasScene::removeEdgeItem(const QString &id)
 void CanvasScene::setRenderEngine(Corbomite::MarkdownRenderEngine *engine)
 {
     m_renderEngine = engine;
+    // Cards may already exist (built when the document loaded, before any engine
+    // was wired). Re-render them now so they pick up the newly-set engine.
+    reRenderAllCards();
+}
+
+void CanvasScene::reRenderAllCards()
+{
+    if (!m_renderEngine)
+        return;
+
+    for (auto *card : std::as_const(m_textCardItems)) {
+        if (!card)
+            continue;
+        const QString text = card->nodeData().text;
+        if (text.isEmpty()) {
+            card->setRenderedDocument(nullptr);
+            continue;
+        }
+        card->setRenderedDocument(m_renderEngine->render(text));
+    }
+
+    for (auto *card : std::as_const(m_fileCardItems)) {
+        renderFileCard(card);
+    }
 }
 
 Corbomite::MarkdownRenderEngine *CanvasScene::renderEngine() const
