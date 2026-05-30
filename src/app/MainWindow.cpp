@@ -411,6 +411,21 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    // Canvas views hold a raw pointer to m_cardRenderEngine (a unique_ptr
+    // member). Member destructors run BEFORE the base ~QObject tears down the
+    // child Workspace + view tree, so the engine would be freed first, leaving
+    // each CanvasFileView/CanvasScene with a dangling engine pointer during its
+    // own teardown. Clear it now — while the engine is still alive — so nothing
+    // can dereference a freed engine. (Reordering the member can't fix this:
+    // QObject children always outlive every member destructor.)
+    if (m_workspace) {
+        for (auto *leaf : m_workspace->allLeaves()) {
+            auto *view = leaf ? leaf->view() : nullptr;
+            if (auto *cv = qobject_cast<CanvasFileView *>(view))
+                cv->setRenderEngine(nullptr);
+        }
+    }
+
     delete m_autosave;
     m_autosave = nullptr;
 
