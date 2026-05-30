@@ -16,6 +16,8 @@ add_library(corbomite-core STATIC
     src/MarkdownRenderer.cpp
     src/RenderedDocument.cpp
     src/MarkdownRenderEngine.cpp
+    src/SubpathExtract.cpp
+    include/corbomite/core/SubpathExtract.h
     src/RegexRenderEngine.cpp
     src/MarkoffRenderEngine.cpp
     src/LinkUtils.cpp

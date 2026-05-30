@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/MarkoffRenderEngine.h"
 #include "corbomite/core/RenderedDocument.h"
+#include "corbomite/core/SubpathExtract.h"
 
 #include <QTextDocument>
 
@@ -16,7 +17,7 @@ std::unique_ptr<RenderedDocument> MarkoffRenderEngine::render(
 {
     QString md = markdown;
     if (!options.subpath.isEmpty())
-        md = extractSubpath(markdown, options.subpath);
+        md = extractMarkdownSubpath(markdown, options.subpath);
 
     auto doc = std::make_unique<QTextDocument>();
     doc->setPlainText(md);
