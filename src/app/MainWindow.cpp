@@ -41,6 +41,7 @@
 #include <markoff/core/CodeBlockProcessorRegistry.h>
 #include "corbomite/core/PostProcessorRegistry.h"
 #include "corbomite/core/MermaidRenderer.h"
+#include "corbomite/core/StyledRenderEngine.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/View.h"
 #include "corbomite/markoff_adapters/Adapters.h"
@@ -375,6 +376,7 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
 
     m_embedRegistry = std::make_unique<Markoff::EmbedRegistry>();
     m_mermaidRenderer = std::make_unique<Corbomite::Core::MermaidRenderer>();
+    m_cardRenderEngine = std::make_unique<Corbomite::StyledRenderEngine>();
     // TODO(port-foundation-exploration): Markoff::Reading::EmbedRenderer +
     // registerBuiltinEmbedFactories retired with Reading. Hover preview is
     // disabled until either the Reading leaf is restored or HoverPopover is
@@ -1123,6 +1125,9 @@ void MainWindow::propagateServicesToView(View *view)
         cv->setCanvasCommandDispatcher([cmds](const QString &commandId) {
             if (cmds) cmds->executeById(commandId);
         });
+        // Feed card rendering from the headless styled renderer (this is the
+        // setRenderEngine chain's only production caller).
+        cv->setRenderEngine(m_cardRenderEngine.get());
         return;
     }
 

@@ -58,6 +58,7 @@ class AutosaveReactor;
 // inside libs/vault/ during Q.0 Phase 2 Task 2.2. Re-exposed via Vault's
 // public signal API in Q.0 Phase 7.
 class SessionManager;
+class StyledRenderEngine;
 class SQLiteIndex;
 class MetadataCache;
 class LinkResolver;
@@ -233,6 +234,8 @@ private:
     // std::unique_ptr<Markoff::Reading::EmbedRenderer> m_embedRenderer;
     std::unique_ptr<Corbomite::Core::VaultResourceProvider> m_popoverResources;
     std::unique_ptr<Corbomite::Core::MermaidRenderer> m_mermaidRenderer;
+    // Headless styled renderer handed to every CanvasFileView for card content.
+    std::unique_ptr<Corbomite::StyledRenderEngine> m_cardRenderEngine;
     // std::unique_ptr<Corbomite::MarkoffAdapters::LinkResolverAdapter> m_linkResolverAdapter;
     // std::unique_ptr<Corbomite::MarkoffAdapters::MetadataCacheAdapter> m_metadataCacheAdapter;
     // std::unique_ptr<Corbomite::MarkoffAdapters::MetadataParserImpl> m_metadataParserImpl;
