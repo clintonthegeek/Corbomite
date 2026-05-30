@@ -20,6 +20,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/SubpathExtract.h
     src/RegexRenderEngine.cpp
     src/MarkoffRenderEngine.cpp
+    src/StyledRenderEngine.cpp
+    include/corbomite/core/StyledRenderEngine.h
     src/LinkUtils.cpp
     include/corbomite/core/LinkUtils.h
     src/Component.cpp
@@ -178,6 +180,7 @@ target_link_libraries(corbomite-core
         $<BUILD_INTERFACE:mmdr>
         $<BUILD_INTERFACE:markoff-parser>
         $<BUILD_INTERFACE:markoff_core>
+        $<BUILD_INTERFACE:markoff_styled>
     PRIVATE
         $<BUILD_INTERFACE:Corbomite::Storage>
         # TODO(port-foundation-exploration): markoff_reading retired.

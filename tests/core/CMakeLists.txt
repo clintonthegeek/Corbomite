@@ -78,6 +78,13 @@ add_executable(tst_subpath tst_subpath.cpp)
 add_test(NAME tst_subpath COMMAND tst_subpath)
 target_link_libraries(tst_subpath PRIVATE Qt6::Test Corbomite::Core)
 
+add_executable(tst_styled_render_engine tst_styled_render_engine.cpp)
+target_link_libraries(tst_styled_render_engine PRIVATE
+    Qt6::Test Qt6::Widgets Corbomite::Core markoff_styled)
+add_test(NAME tst_styled_render_engine COMMAND tst_styled_render_engine)
+set_tests_properties(tst_styled_render_engine PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_linkutils tst_linkutils.cpp)
 add_test(NAME tst_linkutils COMMAND tst_linkutils)
 target_link_libraries(tst_linkutils PRIVATE Qt6::Test Corbomite::Core Markoff::Parser)
