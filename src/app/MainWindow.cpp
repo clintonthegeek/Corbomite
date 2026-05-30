@@ -677,22 +677,32 @@ void MainWindow::onFindPrev()
     if (auto *fc = findControllerFor(activeEditor())) fc->findPrevious();
 }
 
+// Zoom is editor-owned: Markoff installs window-level Shortcuts (Ctrl+= /
+// Ctrl++ / Ctrl+Shift+= / Ctrl+- / Ctrl+0) in LiveView.qml as "editor-internal
+// viewport concerns the host has no opinion about." Corbomite therefore does
+// NOT bind those keys (doing so caused a KActionCollection ambiguity →
+// "Ctrl+= is ambiguous, no action triggered"). The View-menu zoom items remain
+// and forward to the active Live leaf's LiveActionController so menu clicks
+// still zoom. No-op in Source/Reading (no font-scale zoom there).
 void MainWindow::onZoomIn()
 {
-    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
-    if (auto *v = leaf ? leaf->view() : nullptr) v->zoomIn();
+    auto *editor = activeEditor();
+    if (!editor) return;
+    if (auto *lac = liveActionControllerFor(editor)) lac->zoomInAction()->trigger();
 }
 
 void MainWindow::onZoomOut()
 {
-    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
-    if (auto *v = leaf ? leaf->view() : nullptr) v->zoomOut();
+    auto *editor = activeEditor();
+    if (!editor) return;
+    if (auto *lac = liveActionControllerFor(editor)) lac->zoomOutAction()->trigger();
 }
 
 void MainWindow::onZoomReset()
 {
-    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
-    if (auto *v = leaf ? leaf->view() : nullptr) v->zoomReset();
+    auto *editor = activeEditor();
+    if (!editor) return;
+    if (auto *lac = liveActionControllerFor(editor)) lac->zoomResetAction()->trigger();
 }
 
 void MainWindow::onAboutApp()
@@ -1276,22 +1286,23 @@ void MainWindow::setupActions()
         setSidebarsVisible(!sidebarsVisible());
     });
 
+    // NB: no setDefaultShortcut() on the zoom actions — Ctrl+= / Ctrl+- /
+    // Ctrl+0 are owned by the editor (Markoff LiveView.qml window Shortcuts).
+    // Binding them here re-introduces the "Ctrl+= is ambiguous" collision.
+    // These menu items forward to the editor's zoom via onZoom*().
     auto *zoomIn = ac->addAction(QStringLiteral("view_zoom_in"));
     zoomIn->setText(i18n("Zoom In"));
     zoomIn->setIcon(QIcon::fromTheme(QStringLiteral("zoom-in")));
-    ac->setDefaultShortcut(zoomIn, QKeySequence(Qt::CTRL | Qt::Key_Equal));
     connect(zoomIn, &QAction::triggered, this, &MainWindow::onZoomIn);
 
     auto *zoomOut = ac->addAction(QStringLiteral("view_zoom_out"));
     zoomOut->setText(i18n("Zoom Out"));
     zoomOut->setIcon(QIcon::fromTheme(QStringLiteral("zoom-out")));
-    ac->setDefaultShortcut(zoomOut, QKeySequence(Qt::CTRL | Qt::Key_Minus));
     connect(zoomOut, &QAction::triggered, this, &MainWindow::onZoomOut);
 
     auto *zoomReset = ac->addAction(QStringLiteral("view_zoom_reset"));
     zoomReset->setText(i18n("Reset Zoom"));
     zoomReset->setIcon(QIcon::fromTheme(QStringLiteral("zoom-original")));
-    ac->setDefaultShortcut(zoomReset, QKeySequence(Qt::CTRL | Qt::Key_0));
     connect(zoomReset, &QAction::triggered, this, &MainWindow::onZoomReset);
 
     {
@@ -1611,9 +1622,11 @@ void MainWindow::setupActions()
     addEditorActionStub(QStringLiteral("fold_all"),
                         QStringLiteral("collapse-all"), i18n("Fold All"),
                         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Minus));
+    // No Ctrl+Shift+= shortcut — it collides with the editor's zoom-in
+    // alternate sequence (LiveView.qml). unfold_all is an unimplemented stub
+    // anyway; reintroduce a (non-colliding) shortcut when folding lands.
     addEditorActionStub(QStringLiteral("unfold_all"),
-                        QStringLiteral("expand-all"), i18n("Unfold All"),
-                        QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Equal));
+                        QStringLiteral("expand-all"), i18n("Unfold All"));
     addEditorActionStub(QStringLiteral("toggle_fold"),
                         QStringLiteral("code-function"),
                         i18n("Toggle Fold at Cursor"),
