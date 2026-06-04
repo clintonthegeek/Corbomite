@@ -7,6 +7,16 @@ class TestRenderEngine : public QObject {
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase()
+    {
+        // RegexRenderEngine wraps the retired Reading-mode MarkdownRenderer,
+        // whose implementation is #if 0'd out (renderToHtml() is a {} stub)
+        // per the foundation port — so rendered documents come back empty.
+        // Re-enable when reading mode is rewired against read-only Live (E1).
+        // See docs/port-foundation-exploration.md rows 5/8.
+        QSKIP("Reading-mode renderer retired by foundation port; awaiting E1 rewire");
+    }
+
     void testRenderProducesDocument()
     {
         Corbomite::RegexRenderEngine engine;

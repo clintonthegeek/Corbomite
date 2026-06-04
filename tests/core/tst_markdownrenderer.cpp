@@ -6,6 +6,16 @@ class TestMarkdownRenderer : public QObject {
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase()
+    {
+        // MarkdownRenderer is the retired Reading-mode HTML renderer: its
+        // implementation is #if 0'd out (libs/core/src/MarkdownRenderer.cpp)
+        // and renderToHtml() is a {} stub, per the foundation port. These
+        // assertions cannot pass until reading mode is rewired against
+        // read-only Live (E1). See docs/port-foundation-exploration.md rows 5/8.
+        QSKIP("Reading-mode HTML renderer retired by foundation port; awaiting E1 rewire");
+    }
+
     void testHeading()
     {
         Corbomite::MarkdownRenderer r;

@@ -18,7 +18,9 @@ public:
                                                         const QString &lineText,
                                                         NoteDocument *) override
     {
-        int i = cursorPos - 1;
+        // Clamp the scan start to the last valid index: a cursor positioned
+        // at (or past) end-of-line must not index past the string.
+        int i = qMin(cursorPos, static_cast<int>(lineText.size())) - 1;
         while (i >= 0) {
             if (lineText.at(i) == m_sigil) {
                 EditorSuggestTriggerInfo info;
