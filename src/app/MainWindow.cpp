@@ -2664,9 +2664,8 @@ void MainWindow::insertTemplate()
     editor->noteDocument()->setMarkdown(finalBody);
 
     if (cursorIdx >= 0) {
-        // TODO(port-foundation-exploration): goToLine retired on EditorWidget.
         const int line = finalBody.left(cursorIdx).count(QLatin1Char('\n'));
-        (void)line;
+        editor->goToLine(line + 1);   // count('\n') is 0-based; CursorPos is 1-based
     }
 }
 

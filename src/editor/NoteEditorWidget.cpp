@@ -39,6 +39,8 @@
 #include <QStringListModel>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 namespace Corbomite {
 
 NoteEditorWidget::NoteEditorWidget(QWidget *parent)
@@ -230,39 +232,28 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
     }
 }
 
-Markoff::MarkdownView *NoteEditorWidget::activeLeaf() const
+Markoff::MarkdownView *NoteEditorWidget::leafFor(ViewMode mode) const
 {
-    switch (m_viewMode) {
-    case ViewMode::Source:
-        return m_sourceEditor;   // may be nullptr if not yet constructed
-    case ViewMode::LivePreview:
-        return m_editor;
-    case ViewMode::Reading:
-        return m_styledReadingView;  // may be nullptr if not yet constructed
+    switch (mode) {
+    case ViewMode::Source:      return m_sourceEditor;
+    case ViewMode::LivePreview: return m_editor;
+    case ViewMode::Reading:     return m_styledReadingView;
     }
     return nullptr;
+}
+
+Markoff::MarkdownView *NoteEditorWidget::activeLeaf() const
+{
+    return leafFor(m_viewMode);
 }
 
 bool NoteEditorWidget::goToLine(int line)
 {
     if (line < 1) return false;
-    switch (m_viewMode) {
-    case ViewMode::Source:
-        if (m_sourceEditor) {
-            m_sourceEditor->setCursorPosition({line, 0});
-            return true;
-        }
-        return false;
-    case ViewMode::LivePreview:
-        // TODO(port-foundation-exploration): Markoff::Live::EditorWidget
-        // doesn't expose goToLine. Cursor placement by line/column needs
-        // the legacy line-coord → byte-offset / BlockAnchor conversion to
-        // be reimplemented against the new MarkoffDocument. No-op for now.
-        return false;
-    case ViewMode::Reading:
-        return false;
-    }
-    return false;
+    Markoff::MarkdownView *leaf = activeLeaf();
+    if (!leaf) return false;
+    leaf->setCursorPosition({line, 1});
+    return true;
 }
 
 EphemeralState NoteEditorWidget::captureEphemeralStateFor(ViewMode mode) const
@@ -272,21 +263,25 @@ EphemeralState NoteEditorWidget::captureEphemeralStateFor(ViewMode mode) const
     s.modeRaw = compound.mode;
     s.sourceFlag = compound.source;
 
-    // TODO(port-foundation-exploration): ephemeral-state capture stubbed —
-    // Source::Editor renamed/methods changed (scrollPosition gone), Live
-    // EditorWidget doesn't expose cursorLine/cursorColumn, Reading retired.
-    // Each branch will be reimplemented when the relevant feature port lands.
-    (void)mode;
+    // Contract v2: CursorPos is 1-based flat visual lines (0 = unset);
+    // scroll is the 0.0–1.0 fraction from scrollPositionVisualLine().
+    if (Markoff::MarkdownView *leaf = leafFor(mode)) {
+        const Markoff::CursorPos pos = leaf->cursorPosition();
+        s.cursor.line = pos.line;
+        s.cursor.column = pos.column;
+        s.scroll = leaf->scrollPositionVisualLine();
+    }
     return s;
 }
 
 void NoteEditorWidget::restoreEphemeralStateFor(ViewMode mode,
                                                  const EphemeralState &s)
 {
-    // TODO(port-foundation-exploration): ephemeral-state restore stubbed —
-    // pairs with the stubbed captureEphemeralStateFor above.
-    (void)mode;
-    (void)s;
+    Markoff::MarkdownView *leaf = leafFor(mode);
+    if (!leaf) return;
+    if (s.cursor.line >= 1)
+        leaf->setCursorPosition({s.cursor.line, std::max(1, s.cursor.column)});
+    leaf->setScrollPositionVisualLine(std::clamp(s.scroll, 0.0f, 1.0f));
 }
 
 void NoteEditorWidget::setViewMode(ViewMode newMode)

@@ -48,14 +48,10 @@ set_tests_properties(tst_view_mode_serializer PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
-# Cluster E Phase 2 — NoteEditorWidget saveEphemeralState / restoreEphemeralState
-# round-trips through Source / LivePreview / Reading targets. Links against
-# CorbomiteApp (for NoteEditorWidget) plus Markoff (for the LivePreview editor
-# accessor) — the Source + Reading widgets are reached via the widget itself.
-# TODO(port-foundation-exploration): references the retired Markoff::Editor
-# cursorColumn() / line/col cursor API on Live's EditorWidget (which doesn't
-# expose it yet — wired stub in NoteEditorWidget.cpp lines 234-238).
-if(FALSE)
+# Phase 1 (contract v2) — NoteEditorWidget saveEphemeralState /
+# restoreEphemeralState + goToLine round-trip through Source / LivePreview /
+# Reading via the MarkdownView base (CursorPos + 0.0–1.0 scroll fraction).
+# Rewritten against the contract-v2 base (re-enabled 2026-06-10).
 add_executable(tst_note_editor_widget_ephemeral
     tst_note_editor_widget_ephemeral.cpp
 )
@@ -67,13 +63,14 @@ target_link_libraries(tst_note_editor_widget_ephemeral PRIVATE
     Qt6::Widgets
     CorbomiteApp
     markoff_live
+    markoff_styled
     Markoff::Source
+    Corbomite::Core
 )
 add_test(NAME tst_note_editor_widget_ephemeral COMMAND tst_note_editor_widget_ephemeral)
 set_tests_properties(tst_note_editor_widget_ephemeral PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
-endif()
 
 # Phase 1 (contract v2) — NoteEditorWidget signal-driven mode-transition
 # glue: cursorInfoChanged on leaf cursor move, canonical-bytes preservation

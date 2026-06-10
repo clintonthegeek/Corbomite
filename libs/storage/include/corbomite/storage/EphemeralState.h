@@ -36,7 +36,7 @@ struct EphemeralState {
         }
     };
 
-    float scroll = 0.0f;             // visual-line float (±0.5 precision — see header comment)
+    float scroll = 0.0f;             // scroll fraction 0.0–1.0 (MarkdownView::scrollPositionVisualLine, contract v2)
     Cursor cursor;
     QString modeRaw = QStringLiteral("source"); // {"source","preview"}
     bool sourceFlag = false;         // when modeRaw == "source": false = live-preview, true = source

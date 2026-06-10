@@ -108,10 +108,9 @@ public:
     int currentLine() const;
     int currentColumn() const;
 
-    /// Move the cursor to `line` (1-based). Dispatches per active ViewMode:
-    /// Source uses Qutepart's setCursorPosition; LivePreview uses Markoff's
-    /// goToLine; Reading is a no-op (no cursor). Returns true if the mode
-    /// could apply the change, false for Reading mode or out-of-range.
+    /// Move the cursor to `line` (1-based flat visual line). Dispatches via
+    /// the MarkdownView base; works in all three modes (Reading keeps a
+    /// caret while read-only). Returns false only when no leaf exists yet.
     bool goToLine(int line);
 
     // Cluster E Phase 1/7 — ephemeral-state round-trip. Captures / restores
@@ -156,6 +155,10 @@ private:
     // --- Mode-transition helpers ---
     int stackIndexFor(ViewMode mode) const;
     void ensureWidgetConstructed(ViewMode mode);
+
+    // Leaf for a given mode (nullptr until lazily constructed). activeLeaf()
+    // == leafFor(m_viewMode).
+    Markoff::MarkdownView *leafFor(ViewMode mode) const;
 
     // (activeLeaf is now a public accessor — declared above with editor()/
     // sourceEditor(). Internal callers below also use it.)
