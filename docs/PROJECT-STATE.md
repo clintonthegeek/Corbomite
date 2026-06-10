@@ -15,7 +15,7 @@ Work flows through **two parallel tracks**. Both must be checked at session star
 
 Most P0/P1 punch-list items are **silent vault-format corruption risks**. Drain them before strategic-cluster work unless explicitly redirected.
 
-The P0/P1 bands were re-verified 2026-06-10: the two genuinely dangerous open items are **non-atomic `Vault::saveDocument`** (P0, `Vault.cpp:755`) and **`modify()` not reconciling open NoteDocuments** (P1), plus the newly-filed P0 **link-clicks-dead** (no `LinkService` consumer). Drain those first; the historical P2-drain narrative lives in `decisions-archive.md`.
+The P0/P1 bands were re-verified 2026-06-10 and drained in Phase 0 (branch `feature/phase0-data-safety`): non-atomic `saveDocument`, `modify()` reconciliation, link-clicks-dead, LinkResolver staleness, BOM strip, and DB relocation — all fixed. Remaining open items start at P1 (`onExternalRenamed` descendants) and P2; see punch-list.
 
 ## Active strategic clusters (snapshot)
 
@@ -60,12 +60,6 @@ Older closeouts (2026-04-26 reset → 2026-04-28) and all full closeout paragrap
 
 ## Last touched
 
-2026-06-10 — **Full audit + docs reset** (see Recent decisions). No production code changed beyond removing the tracked `qmarkdowntextedit` symlink and the stale `build/` dir.
-
-Next pickup options (roadmap [`plans/2026-06-10-road-to-dogfood.md`](superpowers/plans/2026-06-10-road-to-dogfood.md) sequences these; user should redirect):
-
-1. **Data-safety bundle (P0/P1).** Atomic `saveDocument`, LinkResolver freshness, BOM-in-rebuild, `modify()` reconciliation, frontmatter fence false-match steer. Small, verified, highest stakes.
-2. **Markoff re-pin + contract-v2 adoption.** Execute `/home/clinton/dev/Markoff/docs/handoff/2026-06-09-corbomite-api-adoption-brief.md` + wire `LinkService` (link clicks, P0). Unstubs 8 known dead surfaces.
-3. **Eyeball-verification session** (see Open questions) — cheap, clears a quality backlog.
+2026-06-10 — **Phase 0 (data safety) complete** on branch `feature/phase0-data-safety` (7 items: atomic save, link navigation, LinkResolver freshness, `modify()` reconciliation, BOM strip, DB relocation, + Markoff steers). 256/257 offscreen; lone red `tst_metadataparser` gated on the Phase 1 re-pin. Next: Phase 1 — Markoff re-pin + contract-v2 adoption.
 
 Build/test: `cmake --build --preset dev -j 10`. Tests: `cd build-dev && QT_QPA_PLATFORM=offscreen ctest --output-on-failure -j 10` (offscreen is mandatory). Work on `master` (no feature branches). Pre-pull.

@@ -10,6 +10,31 @@ Conventions:
 
 ---
 
+## 2026-06-10 — Phase 0 data-safety landed (road-to-dogfood)
+
+Phase 0 of `docs/superpowers/plans/2026-06-10-road-to-dogfood.md` is complete on branch `feature/phase0-data-safety`. Seven items closed across five code sessions; test baseline moved from 250/257 to 256/257 offscreen (the lone red `tst_metadataparser` is the known embed-image-node bug gated on the Phase 1 Markoff re-pin).
+
+**The seven items:**
+(0.1) **Atomic `Vault::saveDocument`** (`51d62910`): the editor save path had been the only non-atomic write in the codebase — raw `QFile(WriteOnly|Truncate)` at `Vault.cpp:755`. Routed through `m_adapter->writeBinary` (atomic temp-file-rename via `FileSystemAdapter`). Test `tst_vault_adapter::saveDocument_routesThroughAdapterWriteBinary` pins the route and makes the mock adapter observable.
+(0.2) **Link navigation** (`88ad1b46`+`8c9d8c8d`): `LinkService::linkActivated` had no consumer anywhere in src; the core PKM loop was broken. Fixed by wiring a shared `DefaultLinkService` to the Live editor binding and the Styled Reading leaf; MainWindow resolves via LinkResolver → navigates; create-on-click parity for missing targets. Tests `tst_link_activation`, `tst_mainwindow_link_navigation`.
+(0.3) **LinkResolver freshness** (`4b44b255`): the in-process LinkResolver was populated once at vault open and never updated; create/rename/delete left new/renamed files "unresolved" until vault reopen. Also: only `.md` files were fed, so attachment embeds never resolved. Fixed by connecting vault signals to `addVaultPath`/`removeVaultPath` and feeding all file types. Test `tst_mainwindow_link_resolver_freshness`.
+(0.4) **`modify()` reconciliation** (`d9f1c102`+`ddfacc03`): `Vault::modify()` updated `m_readCache` but never touched `m_docs`, leaving an open NoteDocument's D2 buffer stale whenever a self-write (e.g. `processFrontMatter`) targeted an open file. Fixed via `reconcileOpenDocument`: refresh-if-clean, fire `externalReloadConflict`-if-dirty. Test `tst_vault_modify_reconcile`.
+(0.5) **BOM strip in `MetadataCache::rebuildVault`** (`1d7f477f`): bulk index read raw bytes without BOM strip; `QString::fromUtf8` already strips the BOM before parse (so parse itself was fine), but the raw-byte hash diverged from the canonical post-strip bytes, causing unnecessary re-parse churn on every BOM'd file. Added explicit strip. Test `tst_metadatacache_bom`. Note: the nuance (no frontmatter parse failure — only churn) is documented in the punch-list fix note.
+(0.7) **DB relocation out of `.obsidian/`** (`41b4f537`+`7fdbb25b`): `index.sqlite` and `metadata-cache.db` lived inside the vault at `.obsidian/`, polluting synced/Obsidian-shared vaults and feeding the file watcher. Moved to `<AppLocalDataLocation>/index/<vault-id>/` via new `PathUtils::vaultLocalDataDir`; legacy in-`.obsidian/` copies cleaned on first open. Tests `tst_mainwindow_db_paths`, `tst_path_utils`.
+
+**Markoff steers (0.6):**
+Frontmatter closing-fence false-match (`Document.cpp:42` matches `\n---` without EOL check) steered upstream (`69162236`+`7a87daf7`); handoff at `docs/handoff/2026-06-10-to-markoff-frontmatter-fence-eol.md`. Item remains `[ ]` in punch-list as the cross-repo acceptance oracle, per house convention.
+
+**One open decision (blank-line collapse):** triage confirmed the `[NEEDS-TRIAGE]` blank-line-collapse item is Corbomite/Markoff round-trip-written and intentional Markoff normalization (B1 spec 2026-05-18 §2), but it is a confirmed Obsidian round-trip-fidelity gap. The decision — steer Markoff toward spacing-preserving save vs accept + document — is recorded as OPEN in `docs/handoff/2026-06-10-blank-line-collapse-triage.md`. Bears on release criterion "no unexplained diffs."
+
+**Two discovered follow-ups (added to punch-list `[audit-2026-06-10]`):**
+(P1) `Vault::onExternalRenamed` (`Vault.cpp:941-960`) doesn't iterate folder descendants, unlike programmatic `Vault::rename` (`:434-460`) — an external folder rename leaves descendant paths stale in LinkResolver + MetadataCache until vault reopen.
+(P3) UTF-8 BOM-strip is duplicated in `Vault::stripUtf8Bom` (`Vault.cpp:169-178`) and `MetadataCache` lambda (`MetadataCache.cpp:136-144`); should consolidate into one `Corbomite::Storage` helper. Also: `SQLiteIndex::writeRowsFromCache` (`SQLiteIndex.cpp:213-214`) reads via `QString::fromUtf8` without explicit strip — harmless but inconsistent.
+
+**Next:** Phase 1 — Markoff re-pin past Task 13 + contract-v2 adoption (brief at `/home/clinton/dev/Markoff/docs/handoff/2026-06-09-corbomite-api-adoption-brief.md`).
+
+---
+
 ## 2026-06-10 — Full code/docs audit + docs reset
 
 Nine-agent verification pass across four fronts: (1) live navigational docs vs code/git — CLAUDE.md library table was fiction in 4 of 9 rows, PROJECT-STATE carried a reading-mode triple-contradiction, OPS rituals cited dead paths/dirs; all fixed in place. (2) obsidian-audit corpus vs the decompiled source — ~95% accurate across ~230 spot-checked claims; refuted claims (getAvailablePath " 1"-start, unresolvedLinks casing, normalizePath internals, UTF-16 offsets, workspace window-node flat bounds, ViewState group placement, expandText timing, taxonomy's QueryController-as-DSL-parser) recorded as four correction addenda. (3) feature parity vs code — FEATURE-MATRIX/GAP-ANALYSIS (frozen 2026-04-14) stale in both directions; superseded by the new living `docs/PARITY-MATRIX.md`; both bannered. (4) code quality — MainWindow confirmed god class (2,778 lines, 18 responsibilities); ~1,000+ lines dead code catalogued (SourceEditor, CompletionPopup, four `#if 0` corpse files in libs/core, KateMDI session machinery); naming collisions (MarkdownView×2, VaultResourceProvider×2); release blockers (no LICENSE file, 34.8 MB mmdr binary blob in git, tracked qmarkdowntextedit symlink — symlink removed this session).

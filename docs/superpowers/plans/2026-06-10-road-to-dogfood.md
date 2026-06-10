@@ -22,6 +22,8 @@ committed, with PARITY-MATRIX rows updated. Phases 0–2 are strictly ordered;
 
 ## Phase 0 — Data safety (BLOCKS DOGFOODING; days, not weeks)
 
+**Status: COMPLETE (2026-06-10, branch `feature/phase0-data-safety`)** — 256/257 offscreen; lone red `tst_metadataparser` gated on the Phase 1 re-pin. Note: the blank-line-collapse interop decision (item 0.6) is OPEN — confirmed intentional Markoff normalization but a confirmed Obsidian round-trip-fidelity gap; see [`docs/handoff/2026-06-10-blank-line-collapse-triage.md`](../../handoff/2026-06-10-blank-line-collapse-triage.md). This bears on release criterion `:147` ("no unexplained diffs") and must be resolved before first public cut.
+
 Nobody dogfoods an editor that can eat notes. All items are punch-listed with
 file:line evidence; most are <20-line fixes.
 

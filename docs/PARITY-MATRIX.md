@@ -30,8 +30,8 @@ contract-v2 re-pin (see the adoption brief).
 | Vault open/load, tree build, `.obsidian`/`.trash` exclusion | ✅ | `libs/vault/src/Vault.cpp:78-105,634-678` |
 | read/cachedRead/readBinary + BOM handling | ✅ | `Vault.cpp:166-211`; BOM stripped on read, preserved on readBinary |
 | `modify`/`append`/`process` (atomic via QSaveFile, per-path mutex) | ✅ | `Vault.cpp:213-282`; `FileSystemAdapter.cpp:75-97` |
-| **`saveDocument` — main editor save path** | ⚠ **P0 BUG** | `Vault.cpp:755-767` raw non-atomic `QFile` write; crash mid-write truncates the note. The ONLY non-atomic write path. Punch-list P0 |
-| `modify()` reconciling open NoteDocuments | ❌ P1 | `Vault.cpp:213-239` never touches `m_docs` |
+| **`saveDocument` — main editor save path** | ✅ | `51d62910` — routed through `m_adapter->writeBinary`; atomic temp-file-rename on crash. Test `tst_vault_adapter::saveDocument_routesThroughAdapterWriteBinary` |
+| `modify()` reconciling open NoteDocuments | ✅ | `d9f1c102`+`ddfacc03` — `reconcileOpenDocument`: refresh-if-clean / signal-if-dirty via `externalReloadConflict`; test `tst_vault_modify_reconcile` |
 | Path normalization (NFC etc.) | ✅ | `libs/vault/src/PathNormalization.cpp` |
 | Collision naming ("Untitled N") | ⚠ | `FileManager.cpp:583-597` starts at 2, case-sensitive; Obsidian starts at " 1" (addendum 2026-06-10) |
 | Rename + link rewrite (wiki/markdown/frontmatter) | ✅ | `FileManager.cpp:412-580`; 8-slot test. Gaps: percent-encoded URLs, `alwaysUpdateLinks` not consulted |
@@ -46,13 +46,14 @@ contract-v2 re-pin (see the adoption brief).
 |---|---|---|
 | Links/embeds/tags/headings/blocks/footnotes extraction | ✅ | `MetadataParser.cpp:288-718`; 20-slot test. Sections cover 3 of 11 types |
 | Link resolution algorithm (6-step, shortest-path) | ✅ | `LinkResolver.cpp:100-209`; 20 tests. GAP-ANALYSIS P0.1 long fixed |
-| **LinkResolver freshness in-session** | ⚠ **BUG** | populated once at vault open (`MainWindow.cpp:2200-2207`); create/rename/delete never update it; only `.md` fed (attachments never resolve) |
+| **LinkResolver freshness in-session** | ✅ | `4b44b255` — create/rename/delete → add/removeVaultPath; feeds non-`.md` attachments too; test `tst_mainwindow_link_resolver_freshness` |
 | Subpath resolution (#heading, #^block) + parseLinktext | ✅ | `LinkUtils.cpp:83+`, markoff parser |
 | resolvedLinks/unresolvedLinks aggregate maps | ⚠ | absent as API; SQLiteIndex `links` table serves backlinks/graph instead (deliberate divergence; plugin-API shape missing) |
 | Cache events (changed/resolved/finished + debounce) | ✅ | `MetadataCache.cpp:316-435` |
-| Cache persistence | ⚠ **P1** | SQLite **inside the vault** at `.obsidian/{index.sqlite,metadata-cache.db}` (`MainWindow.cpp:2181,2235,2240`) — pollutes synced vaults, churns watcher. Move to AppLocalDataLocation |
-| BOM'd files in bulk index | ⚠ BUG | `MetadataCache::rebuildVault` reads raw bytes, no BOM strip → frontmatter lost |
-| Frontmatter parse tolerance | 🟡 | byte-0/`\r\n`/EOF cases OK; closing-fence `\n---` matched without EOL check (false-close on `----`) — Markoff-owned |
+| Cache persistence | ✅ | `41b4f537`+`7fdbb25b` — DBs now under `<AppLocalDataLocation>/index/<vault-id>/` via `PathUtils::vaultLocalDataDir`; legacy in-`.obsidian/` copies cleaned on open; tests `tst_mainwindow_db_paths`, `tst_path_utils` |
+| BOM'd files in bulk index | ✅ | `1d7f477f` — BOM strip in `MetadataCache::rebuildVault`; eliminates hash-divergence/re-parse churn (`fromUtf8` already strips before parse, but explicit strip prevents churn); test `tst_metadatacache_bom` |
+| Frontmatter parse tolerance | 🟡 | byte-0/`\r\n`/EOF cases OK; closing-fence `\n---` matched without EOL check (false-close on `----`) — Markoff-owned (steered `69162236`+`7a87daf7`) |
+| **Blank-line round-trip fidelity** | ⚠ KNOWN GAP | Markoff D2 serializer normalizes consecutive blank lines; confirmed intentional (B1 spec §2) but confirmed Obsidian round-trip fidelity gap. Open decision: steer Markoff toward spacing-preserving save vs accept+document. See [`handoff/2026-06-10-blank-line-collapse-triage.md`](handoff/2026-06-10-blank-line-collapse-triage.md). Bears on release criterion "no unexplained diffs" |
 | processFrontMatter (ordered, append, strip-empty) | ✅ | `FileManager.cpp:308-358`; 7-slot test |
 | YAML re-emission byte format | ⚠ | ryml emit ≠ Obsidian js-yaml style; every Properties edit reformats the block; no byte-format test |
 | `.obsidian/*.json` read/write + unknown-key preservation | ✅ I/O · ⭕ consumption | `VaultConfig.cpp` + round-trip test; **but `app.json` and `hotkeys.json` are read by nothing** |
@@ -62,7 +63,7 @@ contract-v2 re-pin (see the adoption brief).
 | Feature | Status | Evidence / notes |
 |---|---|---|
 | Three modes (Live/Source/Reading) + Ctrl+E + wire-format `{mode, source}` | ✅ | `NoteEditorWidget.cpp:175-303`; `ViewModeSerializer.cpp` |
-| **Link click → navigate** | ⭕ **P0** | NO `LinkService` consumer anywhere in src/; `MainWindow.cpp:1120` connects a never-emitted signal. Core PKM loop broken |
+| **Link click → navigate** | ✅ | `88ad1b46`+`8c9d8c8d` — shared `DefaultLinkService` wired to Live binding + Styled Reading leaf; MainWindow resolves via LinkResolver → navigates; create-on-click for missing targets; tests `tst_link_activation`, `tst_mainwindow_link_navigation` |
 | `[[`/`#` completion | ⭕ | suggesters registered but `maybeActivateSuggester` is a no-op; `CompletionPopup` never instantiated |
 | Live: headings/lists/tables(+cell edit)/code(+highlight)/checkbox toggle | ✅ | markoff-live delegates; `TableEditBinding` |
 | Reading (styled): tables | ❌ pin / ✅ post-pin | styled tables land with re-pin (avoid `8c13c5d..079ac1f` window) |
@@ -146,13 +147,13 @@ Example plugins compile against current API (verified 2026-06-10).
 
 ## The eight headline holes (what a dogfooder hits in hour one)
 
-1. **Link clicks do nothing** in every mode (P0, wiring-only fix).
+1. ~~**Link clicks do nothing** in every mode (P0, wiring-only fix).~~ **FIXED `88ad1b46`+`8c9d8c8d` (Phase 0)**
 2. **No completion** for `[[` or `#` — typed blind.
-3. **Editor save path can truncate notes on crash** (P0, ~5-line fix).
+3. ~~**Editor save path can truncate notes on crash** (P0, ~5-line fix).~~ **FIXED `51d62910` (Phase 0)**
 4. **No back/forward navigation** despite a complete LeafHistory engine.
 5. **Reading mode is a downgrade** (no tables until re-pin, raw math, inert checkboxes).
 6. **Status bar lies** (Words: 0 forever); sidebar layout amnesia on every launch.
-7. **Whitespace corruption on save** (blank-line collapse, Markoff-owned, punch-list NT).
+7. **Whitespace corruption on save** (blank-line collapse, Markoff-owned, open decision — see triage doc).
 8. **Canvas can't create edges**; subfolder canvases render empty file cards.
 
 The matching fix sequence lives in
