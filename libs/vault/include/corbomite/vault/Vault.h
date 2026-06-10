@@ -195,6 +195,15 @@ private:
     /// case-(in)sensitive filesystems.
     bool existsCaseInsensitive(const QString &rel) const;
 
+    /// Reconcile an open NoteDocument with bytes just written by `modify()`.
+    /// A self-write suppresses the watcher echo, so without this the live
+    /// editor buffer would go stale vs disk. Refresh-if-clean, signal-if-dirty
+    /// — reuses the external-reload mechanism (resetContent / the
+    /// externalReloadConflict signal). No-op when no doc is open for `rel`
+    /// or the open doc already holds these bytes. `rel` is the normalized
+    /// vault-relative path (TFile::path form, same key as m_docs).
+    void reconcileOpenDocument(const QString &rel, const QByteArray &body);
+
     DataAdapter *m_adapter;
     QString      m_basePath;
     bool         m_loaded = false;

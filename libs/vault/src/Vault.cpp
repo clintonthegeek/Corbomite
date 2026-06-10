@@ -234,8 +234,54 @@ bool Vault::modify(TFile *f, const QByteArray &body, const WriteHints &hints)
         fs.mtimeMs   = *effective.mtimeMs;
         f->stat      = fs;
     }
+
+    // Reconcile any open NoteDocument. A self-write stamps the echo ledger
+    // above, so onExternalModified will suppress the watcher echo and the
+    // live editor buffer would otherwise be left stale vs disk. Apply the
+    // same refresh-if-clean / signal-if-dirty policy here, reusing the
+    // external-reload mechanism so there is a single reconciliation path.
+    reconcileOpenDocument(f->path, body);
+
     Q_EMIT modified(f);
     return true;
+}
+
+// Reconcile a self-write against an open NoteDocument for `rel`. Mirrors the
+// clean/dirty dispatch in onExternalModified (spec §6.2), the difference being
+// the new bytes are already in hand (the bytes we just wrote) rather than read
+// back from disk:
+//   - no open doc                  → nothing to do (tree/cache already updated).
+//   - already byte-equal           → no-op (don't churn the CRDT / undo stack).
+//   - clean (no unsaved edits)      → resetContent + setModified(false): the
+//                                     watermark re-records so the deferred
+//                                     documentReloaded/d2DocumentChanged the
+//                                     reset queues cannot re-dirty the doc.
+//   - dirty (unsaved user edits)    → DO NOT clobber; emit externalReloadConflict
+//                                     so the editor layer can decide (same
+//                                     conflict seam the watcher path uses).
+void Vault::reconcileOpenDocument(const QString &rel, const QByteArray &body)
+{
+    NoteDocument *doc = m_docs.value(rel);
+    if (!doc) return;
+
+    // Already in sync — avoid resetting the CRDT / clearing the undo stack for
+    // a write that lands the same bytes the document already holds. Mirrors
+    // the byte-equal short-circuit in onExternalModified.
+    if (doc->markoff()->serializeForSave() == body) return;
+
+    if (!doc->isModified()) {
+        // Clean: adopt the new bytes wholesale, clear the undo stack.
+        doc->markoff()->resetContent(body, Markoff::Origin::ExternalReloadClean);
+        // resetContent emits documentReloaded (which re-dirties via the
+        // !modified && hasUnsavedEdits() gate); reset to false afterwards so
+        // the doc ends consistent-with-disk and the watermark is re-recorded.
+        doc->setModified(false);
+    } else {
+        // Dirty: never lose the user's unsaved edits. Defer to the editor
+        // layer via the existing conflict signal — same contract as a
+        // genuine external modification of a dirty open document.
+        Q_EMIT externalReloadConflict(doc, QString::fromUtf8(body));
+    }
 }
 
 bool Vault::modifyBinary(TFile *f, const QByteArray &body, const WriteHints &hints)

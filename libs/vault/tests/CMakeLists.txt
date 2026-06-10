@@ -111,6 +111,13 @@ add_test(NAME tst_vault_config_json COMMAND tst_vault_config_json)
 set_tests_properties(tst_vault_config_json PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_vault_modify_reconcile tst_vault_modify_reconcile.cpp)
+target_link_libraries(tst_vault_modify_reconcile
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Core Corbomite::Storage)
+add_test(NAME tst_vault_modify_reconcile COMMAND tst_vault_modify_reconcile)
+set_tests_properties(tst_vault_modify_reconcile PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # TODO(port-foundation-exploration): tst_vault_save_reload uses retired
 # resetContent(QString) + undoStack() + MarkdownDelta. Re-enable after porting
 # the test to the new QByteArray + d2UndoLog API.
