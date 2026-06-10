@@ -1301,13 +1301,9 @@ void MainWindow::setupActions()
             bv->undo();
             return;
         }
-        auto *editor = activeEditor();
-        if (!editor) return;
-        if (editor->viewMode() == NoteEditorWidget::ViewMode::Source) {
-            if (auto *src = editor->sourceEditor()) src->plainTextEdit()->undo();
-            return;
-        }
-        if (auto *lac = liveActionControllerFor(editor)) lac->undoAction()->trigger();
+        if (auto *editor = activeEditor())
+            if (auto *leaf = editor->activeLeaf())
+                leaf->undo();   // base-implemented: doc->undoD2(); no-op while read-only
     }, ac);
 
     KStandardAction::redo(this, [this]() {
@@ -1315,13 +1311,9 @@ void MainWindow::setupActions()
             bv->redo();
             return;
         }
-        auto *editor = activeEditor();
-        if (!editor) return;
-        if (editor->viewMode() == NoteEditorWidget::ViewMode::Source) {
-            if (auto *src = editor->sourceEditor()) src->plainTextEdit()->redo();
-            return;
-        }
-        if (auto *lac = liveActionControllerFor(editor)) lac->redoAction()->trigger();
+        if (auto *editor = activeEditor())
+            if (auto *leaf = editor->activeLeaf())
+                leaf->redo();
     }, ac);
 
     KStandardAction::find(this, &MainWindow::onFind, ac);
