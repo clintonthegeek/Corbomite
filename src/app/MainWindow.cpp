@@ -2265,13 +2265,14 @@ void MainWindow::onVaultOpened(const QString &path)
 
     QDir().mkpath(configPath);
 
-    // Db files live in AppLocalDataLocation (outside the vault) so they don't
-    // pollute the vault directory, appear in Obsidian sync, or show up in git.
-    // The per-vault subdir uses the same basename+hash keying as the
-    // file-recovery path (PathUtils::vaultLocalDataDir).
+    // Db files live outside the vault under AppLocalDataLocation (or TempLocation
+    // if AppLocalDataLocation is unavailable — see PathUtils::vaultLocalDataDir).
+    // vaultLocalDataDir() is guaranteed non-empty for a non-empty vault path and
+    // guaranteed not vault-relative, so no fallback to configPath is needed or
+    // safe.  Using configPath as a write target was the 0.7 defect: it caused a
+    // destroy-rebuild loop because the legacy cleanup runs on every open.
     const QString dbDir = PathUtils::vaultLocalDataDir(path);
-    if (!dbDir.isEmpty())
-        QDir().mkpath(dbDir);
+    QDir().mkpath(dbDir);
 
     // Legacy cleanup: if the DB files are still in the old .obsidian/ location
     // (pre-Task-0.7), delete them so the vault stays clean. They are entirely
@@ -2293,12 +2294,8 @@ void MainWindow::onVaultOpened(const QString &path)
         }
     }
 
-    const QString indexDbPath = dbDir.isEmpty()
-        ? configPath + QStringLiteral("/index.sqlite")      // fallback (AppLocalDataLocation unavailable)
-        : dbDir + QStringLiteral("/index.sqlite");
-    const QString cacheDbPath = dbDir.isEmpty()
-        ? configPath + QStringLiteral("/metadata-cache.db")
-        : dbDir + QStringLiteral("/metadata-cache.db");
+    const QString indexDbPath = dbDir + QStringLiteral("/index.sqlite");
+    const QString cacheDbPath = dbDir + QStringLiteral("/metadata-cache.db");
 
     delete m_searchIndex;
     m_searchIndex = new SQLiteIndex(this);

@@ -31,13 +31,15 @@ QString corbomiteUrlFor(const QString &vaultName,
 /// Returns an empty string if `vaultRoot` is empty.
 QString vaultId(const QString &vaultRoot);
 
-/// Returns the per-vault subdirectory under AppLocalDataLocation that
-/// Corbomite uses for regenerable cache files (search index, metadata cache).
-/// The directory is NOT inside the vault — it lives in
-/// `<AppLocalDataLocation>/index/<vault-id>/`.
+/// Returns the per-vault subdirectory that Corbomite uses for regenerable
+/// cache files (search index, metadata cache).  The path is NEVER inside the
+/// vault and is NEVER empty (as long as `vaultRoot` is non-empty):
 ///
-/// Returns an empty string if AppLocalDataLocation is unavailable or
-/// `vaultRoot` is empty.
+///   * Primary:   `<AppLocalDataLocation>/index/<vault-id>/`
+///   * Fallback:  `<TempLocation>/corbomite/index/<vault-id>/`
+///               (used only when AppLocalDataLocation is unavailable)
+///
+/// Returns an empty string only if `vaultRoot` itself is empty.
 /// The caller is responsible for creating the directory (QDir::mkpath).
 QString vaultLocalDataDir(const QString &vaultRoot);
 

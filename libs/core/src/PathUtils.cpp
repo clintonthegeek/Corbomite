@@ -58,9 +58,16 @@ QString vaultLocalDataDir(const QString &vaultRoot)
 {
     const QString id = vaultId(vaultRoot);
     if (id.isEmpty()) return {};
-    const QString dataRoot =
+    QString dataRoot =
         QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (dataRoot.isEmpty()) return {};
+    if (dataRoot.isEmpty()) {
+        // Last-resort fallback: TempLocation is effectively always available.
+        // The DBs are entirely regenerable caches, so temp is an acceptable
+        // home on the rare platform where AppLocalDataLocation is empty.
+        dataRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
+                   + QStringLiteral("/corbomite");
+    }
+    // dataRoot is now guaranteed non-empty and never vault-relative.
     return dataRoot + QStringLiteral("/index/") + id;
 }
 
