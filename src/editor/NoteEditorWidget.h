@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QWidget>
 
+#include <markoff/core/EditorContext.h>
 #include <markoff/core/LinkActivation.h>
 
 class QStackedWidget;
@@ -124,6 +125,10 @@ Q_SIGNALS:
     void cursorInfoChanged(int line, int column, int wordCount);
     void linkActivated(const QString &targetPath);
     void viewModeChanged(ViewMode mode);
+    // Contract v2: re-emitted from whichever leaf is active. Inactive leaves
+    // are detached from the document and silent, but the leaf == activeLeaf()
+    // guard in wireLeaf makes that explicit.
+    void editorContextChanged(const Markoff::EditorContext &ctx);
 
 private:
     bool eventFilter(QObject *obj, QEvent *event) override;

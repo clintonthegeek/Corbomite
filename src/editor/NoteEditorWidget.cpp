@@ -152,6 +152,11 @@ void NoteEditorWidget::wireLeaf(Markoff::MarkdownView *leaf)
 {
     if (m_themeService)
         leaf->setTheme(m_themeService->currentTheme());
+    connect(leaf, &Markoff::MarkdownView::contextChanged, this,
+            [this, leaf](const Markoff::EditorContext &ctx) {
+                if (leaf == activeLeaf())
+                    Q_EMIT editorContextChanged(ctx);
+            });
 }
 
 void NoteEditorWidget::setMermaidRenderer(Markoff::MermaidRenderer *renderer)

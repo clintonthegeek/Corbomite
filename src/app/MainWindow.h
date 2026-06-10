@@ -156,6 +156,11 @@ private:
     void connectEditorContext(NoteEditorWidget *editor);
     void connectEditorContextMenu(NoteEditorWidget *editor);
 
+    // Contract v2: format verbs + heading actions enabled iff the active
+    // Markoff leaf advertises editing (hasEditing() — false in Reading,
+    // false while read-only).
+    void updateEditorActionStates();
+
     /// Forward `id` to the active `MarkdownView`'s Markoff editor. No-op
     /// when the active view is not a MarkdownView.
     void triggerEditorAction(Markoff::ActionId id);

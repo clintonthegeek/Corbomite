@@ -603,19 +603,40 @@ void MainWindow::refreshEditorActions()
 
 void MainWindow::connectEditorContext(NoteEditorWidget *editor)
 {
-    // TODO(port-foundation-exploration): Markoff::Editor::contextChanged
-    // signal + EditorContext shape (BlockKind enum + inBold/inItalic/etc.)
-    // both retired/changed. Reimplement when the toolbar-state port lands.
-    (void)editor;
+    connect(editor, &NoteEditorWidget::editorContextChanged,
+            this, &MainWindow::onEditorContextChanged, Qt::UniqueConnection);
 }
 
 void MainWindow::onEditorContextChanged(const Markoff::EditorContext &ctx)
 {
-    // TODO(port-foundation-exploration): see connectEditorContext. New
-    // EditorContext is QString-typed blockKind + headingLevel + table coords
-    // only — no inBold/inItalic/inStrikethrough/inInlineCode/readOnly/table-
-    // shape fields. Toolbar wire-up needs reimplementing against the new shape.
-    (void)ctx;
+    // Heading radio: check H<n> while the caret sits in a heading block,
+    // clear otherwise (group policy is ExclusiveOptional, set at creation).
+    auto *ac = actionCollection();
+    const bool isHeading =
+        ctx.blockKind == QLatin1String(Markoff::BlockKindNames::Heading);
+    for (int level = 1; level <= 6; ++level) {
+        if (auto *a = ac->action(QStringLiteral("heading_%1").arg(level)))
+            a->setChecked(isHeading && ctx.headingLevel == level);
+    }
+    updateEditorActionStates();
+}
+
+void MainWindow::updateEditorActionStates()
+{
+    auto *editor = activeEditor();
+    Markoff::MarkdownView *leaf = editor ? editor->activeLeaf() : nullptr;
+    const bool canEdit = leaf && leaf->hasEditing();
+
+    auto *ac = actionCollection();
+    const QStringList verbActions{
+        QStringLiteral("format_bold"),       QStringLiteral("format_italic"),
+        QStringLiteral("format_strikethrough"),
+        QStringLiteral("format_inline_code"), QStringLiteral("insert_link")};
+    for (const QString &name : verbActions)
+        if (auto *a = ac->action(name)) a->setEnabled(canEdit);
+    for (int level = 1; level <= 6; ++level)
+        if (auto *a = ac->action(QStringLiteral("heading_%1").arg(level)))
+            a->setEnabled(canEdit);
 }
 
 void MainWindow::connectEditorContextMenu(NoteEditorWidget *editor)
@@ -1570,7 +1591,7 @@ void MainWindow::setupActions()
     // shortcut on heading0Action when it propagates, or use the
     // heading_decrease repeatedly.
     auto *headingGroup = new QActionGroup(this);
-    headingGroup->setExclusive(true);
+    headingGroup->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
     for (int level = 1; level <= 6; ++level) {
         auto *act = ac->addAction(QStringLiteral("heading_%1").arg(level));
         act->setText(i18n("Heading %1", level));
@@ -1898,6 +1919,7 @@ void MainWindow::setupEditor()
             // Format/Heading/Table state and context-menu contribution.
             connectEditorContext(editor);
             connectEditorContextMenu(editor);
+            updateEditorActionStates();
             // C2 — wire ThemeService so this editor follows theme changes.
             if (m_themeService)
                 editor->setThemeService(m_themeService);
