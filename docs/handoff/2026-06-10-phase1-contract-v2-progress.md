@@ -74,7 +74,55 @@ Production code is **complete and believed correct**. The plan's Task 9 commit s
 
 The now-deleted pre-port `tst_note_editor_widget_mode_transition` handled this with a `waitForLiveScene()` helper + a documented **±3 line tolerance** for Live specifically.
 
-### Recommended next step for Task 9
+### ⚠ ADDENDUM (2026-06-10, later session) — diagnosis refined; both options below are REFUTED
+
+Empirical follow-up overturned the "headless async-cursor limitation" theory:
+
+1. **`QTRY_COMPARE` polling for 5s does NOT converge** — the cursor stays at line 1
+   forever. The write is *dropped*, not delayed, so option 1 below (longer waits)
+   cannot work. Option 2 (±3 tolerance) cannot work either: the actual is line **1**
+   vs expected 7 — no tolerance covers it.
+2. **Re-issuing `setCursorPosition` each poll cycle converges in ~131 ms** — the
+   model populates fine in offscreen and the delegate registers; only the one-shot
+   request issued during the attach window is lost.
+3. **Root cause:** `LiveCursorState::requestTextCaretAtRow` (LiveCursorState.cpp:178)
+   early-returns when `expectedRow >= m_model->rowCount()`. The pending-focus queue
+   (`m_pendingFocus`/`tryResolvePending`) only covers *delegate-not-yet-registered*,
+   not *model-not-yet-populated*. `LiveListModelBinding::setDocument` never syncs the
+   model at attach — it waits for `documentLoaded` (only fires for loads *after*
+   attach) or the debounced `d2DocumentChanged` (next event-loop spin). So any
+   base-contract write issued in the same call stack as document attach is silently
+   discarded. **`setScrollPositionVisualLine` drops identically** (markoff-live
+   EditorWidget.cpp:459 — computes against a still-zero `contentHeight`).
+4. **This is a production-relevant contract violation, not a test artifact.** The
+   adoption brief's own restore recipe (§ ephemeral: attach → `setCursorPosition` →
+   `setScrollPositionVisualLine`, same stack) loses both writes on the Live leaf —
+   in windowed mode too (it's event-loop timing, not rendering). Phase 3 session
+   restore will hit this the moment it is wired. Source/Styled honor the same calls
+   synchronously, so the base contract is non-uniform across leaves — exactly what
+   the leaf-agnosticism directive exists to prevent. Upstream's
+   `tst_view_contract_live` passes only because it warms up (waits for rowCount +
+   delegate registration) before issuing writes — the attach window is untested.
+
+Current paths in production are believed safe by accident: mode-switch restores run
+against long-attached docs (model populated), and the template-marker `goToLine`
+(MainWindow.cpp:2664-2668) likely survives because `requestTextCaretAtRow` calls
+`flushPendingDocumentChanges()`, which picks up the debounce still pending from the
+just-executed `setMarkdown` (verify in Task 11 manual smoke).
+
+**RESOLVED (same day, user-approved upstream fix #3):** the true mechanism was the
+LiveView.qml initial-focus seed (`onCountChanged → requestTextCaretAtRow(0,0)`)
+firing one frame after model population and clobbering the consumer's pending caret
+request (the model populates synchronously at attach via `EditorWidget::setDocument`'s
+`flushPendingD2Changed` — the empty-model guard was a red herring at the leaf level).
+Scroll was a true drop (zero `contentHeight` fallback). Upstream fix `8112833f`:
+seed yields to an explicit consumer write (`initialCaretRequested` flag) + scroll
+fraction latched and applied on `contentHeightChanged`; falsifiable suite
+`tst_view_contract_live_attach_window` (RED→GREEN). Corbomite re-pinned (`9043135a`),
+Task 9 committed (`5d7fcc5e`), suite 259/259. **Task 12 must cite `<REPIN_SHA>` =
+`8112833f` and THREE upstream deviations.**
+
+### ~~Recommended next step for Task 9~~ (superseded by the addendum above)
 
 This is the **third** Live-in-headless-tests tolerance issue this phase (the first two were resolved by user decision: re-enable+rewrite the mode-transition file; upstream cursor-emit fix). Suggested resolution, in order of preference:
 1. **Try to make Live land exactly first:** add scene warmup before asserting — e.g. `show()` + `qWaitForWindowExposed` are already there; try waiting on the leaf's own `cursorPositionChanged` via `QSignalSpy`/`QTRY_VERIFY`, or `QTRY_COMPARE(leaf->cursorPosition().line, 7)` (longer implicit wait) instead of a fixed `qWait(20)`. If Live then resolves, keep the assertions exact for all three modes.

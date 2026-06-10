@@ -66,23 +66,23 @@ contract-v2 re-pin (see the adoption brief).
 | **Link click → navigate** | ✅ | `88ad1b46`+`8c9d8c8d` — shared `DefaultLinkService` wired to Live binding + Styled Reading leaf; MainWindow resolves via LinkResolver → navigates; create-on-click for missing targets; tests `tst_link_activation`, `tst_mainwindow_link_navigation` |
 | `[[`/`#` completion | ⭕ | suggesters registered but `maybeActivateSuggester` is a no-op; `CompletionPopup` never instantiated |
 | Live: headings/lists/tables(+cell edit)/code(+highlight)/checkbox toggle | ✅ | markoff-live delegates; `TableEditBinding` |
-| Reading (styled): tables | ❌ pin / ✅ post-pin | styled tables land with re-pin (avoid `8c13c5d..079ac1f` window) |
+| Reading (styled): tables | ✅ | re-pin `8112833f` (past styled-table arc, outside the `8c13c5d..079ac1f` window); renders real `QTextTable` grids |
 | Reading: checkbox toggle, code highlight, math | ❌ | styled leaf is no-KF6; math Live-only (`MathRenderer.cpp`) |
 | Callouts | ❌ | no Callout BlockKind; renders as blockquote; Insert Callout dialog is a placebo (`MainWindow.cpp:543-567`) |
-| Footnotes / embeds `![[..]]` transclusion / mermaid | ❌ | embeds: parser image-node bug steered upstream (`b6ae2c0f`); mermaid renderer exists (mmdr) but nothing consumes it |
+| Footnotes / embeds `![[..]]` transclusion / mermaid | ❌ | embed image-node parse fix landed upstream (`9a6a6b74`, Phase 1) — transclusion *rendering* still absent; mermaid renderer exists (mmdr) but nothing consumes it |
 | Images in Live | 🟡 | ImageDelegate works; `VaultResourceProvider` constructed but never plugged in (`NoteEditorWidget.cpp:82-92`) |
-| Format verbs (B/I/strike/code/link/heading) | 🟡 | Live+Source via dual dispatch (`MainWindow.cpp:1487-1605`); unified base verbs post-pin |
-| Undo/redo | ⚠ | Source mode uses `plainTextEdit()->undo()` — Qt stack diverges from D2 doc (INVARIANTS §3 anti-pattern); fixed by adoption brief |
-| Find in note | ✅ Live/Source · ⭕ Reading | `FindBar` + adapters; Reading find post-pin |
+| Format verbs (B/I/strike/code/link/heading) | ✅ | base dispatch via `addEditorActionBase` (`20abc25a`); enabled-state from `hasEditing()` + heading radio from `contextChanged` (`d98c7abd`) |
+| Undo/redo | ✅ | all leaves via `MarkdownView` base → `undoD2` (`b5a4b041`); Source dual-stack divergence retired |
+| Find in note | ✅ all modes | base `attachFindController` (`bfa2fa16`); in-table matches counted but not painted (Markoff brief §3, known v1 limit) |
 | Replace | ❌ | no UI; hamburger Find…/Replace… actions connected to nothing (`MarkdownView.cpp:298-312`) |
 | Hover preview | ⭕ | `HoverPopover` state machine complete, renders nothing (`m_view = nullptr`), and scheduleShow never fires |
-| Word count / Ln,Col statusbar | ⭕ | labels exist; `cursorInfoChanged` connected to nothing; word count permanently 0 |
-| goToLine / ephemeral state (cursor+scroll persist) | ⭕ | Source-only goToLine; capture/restore `(void)` no-ops — post-pin + brief |
-| Theme propagation to leaves | ⭕ | `applyThemeToAllLeaves` no-op — post-pin + brief |
-| Templates / daily notes | 🟡 / ✅ | template inserts at END not cursor (`MainWindow.cpp:2573-2613`); daily notes wired |
+| Word count / Ln,Col statusbar | ✅ Ln/Col · ⭕ word count | Ln/Col live in all modes via base `cursorPositionChanged` (`ad0729e7`); word count stays 0 — Phase 2 |
+| goToLine / ephemeral state (cursor+scroll persist) | ✅ | contract-v2 `CursorPos` + 0.0–1.0 scroll fraction via base (`5d7fcc5e`); Live attach-window writes fixed upstream (`8112833f`) |
+| Theme propagation to leaves | ✅ | `applyThemeToAllLeaves` + `wireLeaf` at lazy construction (`17b2cd00`) |
+| Templates / daily notes | 🟡 / ✅ | template body still appends at END, but the `{{cursor}}` marker now moves the caret via `goToLine` (`5d7fcc5e`); daily notes wired |
 | Paste/drop images, paste HTML→MD | ❌ | no host hooks; Live clipboard is plain-text only |
 | Vim mode / spellcheck / RTL | ❌ | absent entirely (explicitly post-1.0 candidates) |
-| Zoom/font scale | 🟡 | Live only; Source/Reading post-pin via `setFontScale` |
+| Zoom/font scale | ✅ | all leaves via base `setFontScale` (`c6a7afad`); steps match Live's Ctrl+= shortcuts (1.10) |
 | Autosave | ✅ | `AutosaveReactor` (2 s debounce) → saveDocument (see P0 above) |
 
 ## 4. Workspace, UI, settings

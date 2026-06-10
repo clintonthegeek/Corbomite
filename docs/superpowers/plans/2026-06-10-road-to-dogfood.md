@@ -42,6 +42,22 @@ a note created this session resolves immediately; the vault dir stays clean.
 
 ## Phase 1 — Markoff re-pin + contract-v2 adoption (~1 week)
 
+**Status: COMPLETE (2026-06-10, master)** — final re-pin at `8112833f`; adoption
+brief §2 fully consumed; **259/259** offscreen (excl. `benchmark`); MainWindow
+leaf-agnosticism grep gate enforced (zero concrete-leaf mentions). **Three
+roadmap deviations landed upstream in Markoff this phase** (plan anticipated
+zero-to-one): ① the `![[…]]` embed image-node fix was NOT in Markoff master at
+planning time — implemented upstream as `9a6a6b74` (Task 1); ② `markoff-source`/
+`markoff-styled` never emitted the base `cursorPositionChanged` — fixed as
+`23c36aac` (Task 8, unplanned, user-approved); ③ the Live leaf lost
+`setCursorPosition`/`setScrollPositionVisualLine` issued in the document-attach
+window (QML initial-focus seed clobbered the pending caret; scroll fraction
+dropped at zero contentHeight) — fixed as `8112833f` (Task 9, unplanned,
+user-approved; falsifiable suite `tst_view_contract_live_attach_window`).
+Execution record: [`2026-06-10-phase1-markoff-repin-contract-v2.md`](2026-06-10-phase1-markoff-repin-contract-v2.md);
+in-progress handoff (kept for the attach-window investigation record):
+[`../../handoff/2026-06-10-phase1-contract-v2-progress.md`](../../handoff/2026-06-10-phase1-contract-v2-progress.md).
+
 The single highest-leverage work item: one re-pin + mechanical edits unstub
 eight dead surfaces.
 

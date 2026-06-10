@@ -7,11 +7,13 @@
 > leaf** (decided + shipped 2026-05-29; the earlier "read-only Live" steer is
 > retired). `StyledRenderEngine` (2026-05-30) renders canvas cards headlessly.
 >
-> **Next major workfront:** adopt Markoff's MarkdownView contract v2 — re-pin
-> the submodule past Task 13 and execute
-> `/home/clinton/dev/Markoff/docs/handoff/2026-06-09-corbomite-api-adoption-brief.md`
-> (unstubs find-in-Reading, undo unification, theme propagation, Ln/Col,
-> goToLine, ephemeral state, format-verb dispatch).
+> **Contract-v2 adoption COMPLETE (2026-06-10, road-to-dogfood Phase 1):**
+> submodule pinned at `8112833f`; find-in-Reading, undo unification, theme
+> propagation, Ln/Col, goToLine, ephemeral state, format-verb dispatch and
+> zoom all run through the `Markoff::MarkdownView` base (MainWindow is
+> grep-gated leaf-agnostic). **Next major workfront:** road-to-dogfood
+> Phase 2 (completion revival first) —
+> [`docs/superpowers/plans/2026-06-10-road-to-dogfood.md`](docs/superpowers/plans/2026-06-10-road-to-dogfood.md).
 >
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
 > Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).
@@ -82,10 +84,10 @@ required or ~24 GUI tests abort trying to reach the display:
 cd build-dev && QT_QPA_PLATFORM=offscreen ctest --output-on-failure -j 10
 ```
 
-Baseline (2026-06-10): **250/251 pass** (excl. `tst_benchmark_layout`, label
-`benchmark`, which times out by design). The one failure is
-`tst_metadataparser` (2 slots) — the known `![[…]]` embed image-node bug,
-gated on a Markoff re-pin (steered upstream 2026-06-04, `b6ae2c0f`).
+Baseline (2026-06-10, post-Phase 1): **259/259 pass** (excl.
+`tst_benchmark_layout`, label `benchmark`, which times out by design). No
+known-red tests; `tst_metadataparser` went green with the Phase 1 re-pin
+(embed image-node fix landed upstream as `9a6a6b74`).
 
 Build and install the release preset (system-wide, separate config/data dirs from dev):
 
