@@ -1,5 +1,7 @@
 # Cluster J — Qutepart-Corbomite Fork
 
+> **⚠ OBSOLETE — archived 2026-06-10.** qutepart-corbomite was deleted 2026-04-20 (`da9a0a2c`); `Markoff::Source::Editor` supersedes. Confirmation of full intent-coverage (visual-line scroll, fold serialization, find/replace) tracked in PROJECT-STATE Open questions. Do not dispatch.
+
 > **Re-lettered 2026-04-26.** Was the standalone "Parallel long-term internal refactor" tracked outside the cluster scheme. Folded into the new A-onwards lettering as **Cluster J**. Phases 1+2 done (2026-04-15); Phase 3 (public find/replace API) is next.
 
 

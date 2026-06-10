@@ -1,8 +1,8 @@
 # Cluster V — Editor & Workspace UI Surfacing (Design)
 
 **Spec date:** 2026-04-20
-**Scouting doc:** [`../plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing-SCOUTING.md`](../plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing-SCOUTING.md)
-**Companion overflow cluster:** V.2 (debt cleanup) — scouting doc at [`../plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md`](../plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md)
+**Scouting doc:** [`../plans/archive/2026-04-20-cluster-v-editor-workspace-ui-surfacing-SCOUTING.md`](../plans/archive/2026-04-20-cluster-v-editor-workspace-ui-surfacing-SCOUTING.md)
+**Companion overflow cluster:** V.2 (debt cleanup, closed 2026-04-25) — scouting doc at [`../plans/archive/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md`](../plans/archive/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md)
 
 ## 1. Motivation
 
@@ -297,7 +297,7 @@ Cluster V is "done" when:
 
 ## 11. Handoff to V.2
 
-Everything omitted from V that was in the original scouting doc is captured in `../plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md` and cross-linked from `backlog.md`. At V closeout, the retro writes a one-line pointer per deferred item confirming it's tracked.
+Everything omitted from V that was in the original scouting doc is captured in `../plans/archive/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md` and cross-linked from `backlog.md`. At V closeout, the retro writes a one-line pointer per deferred item confirming it's tracked.
 
 ---
 

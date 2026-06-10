@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-27
 **Cluster:** D (Bases UI completion). Follows the formula editor (shipped 2026-05-27). After this, only D.5 (plugin API) remains in D.
-**Status:** Approved 2026-05-27.
+**Status:** Shipped 2026-05-28.
 
 ## Goal
 

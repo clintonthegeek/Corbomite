@@ -1,0 +1,159 @@
+# Corbomite ↔ Obsidian Parity Matrix
+
+> **Living document — established 2026-06-10** from a full code-verification audit
+> (every status below was confirmed by reading the cited code, not docs).
+> This replaces the **Corbomite-status columns** of
+> [`obsidian-audit/FEATURE-MATRIX.md`](obsidian-audit/FEATURE-MATRIX.md) and the
+> priority tables of [`obsidian-audit/GAP-ANALYSIS.md`](obsidian-audit/GAP-ANALYSIS.md),
+> both frozen at 2026-04-14 (pre-foundation-port) and stale in **both directions**
+> (they list shipped features as Missing and cite retired classes as implementations).
+> The Obsidian-side behavioral content of the obsidian-audit corpus remains the
+> compatibility target (verified ~95% accurate 2026-06-10; check
+> `obsidian-audit/addenda/README.md` § Corrections first).
+>
+> **Update discipline:** when you land or verify a feature, update its row (status +
+> evidence) in the same commit. Do not let this file become FEATURE-MATRIX 2.0 —
+> dead rows are worse than no rows.
+
+**Statuses:** ✅ DONE · 🟡 PARTIAL · ⭕ STUB (code exists, non-functional) · ❌ MISSING · ⚠ DIVERGENT (works differently; note if deliberate)
+
+**Submodule pin note (2026-06-10):** the markoff-family pin `ddf5e9a8` is ~33 commits
+behind Markoff master. Rows marked *post-pin* are fixed upstream and arrive with the
+contract-v2 re-pin (see the adoption brief).
+
+---
+
+## 1. Vault & file operations
+
+| Feature | Status | Evidence / notes |
+|---|---|---|
+| Vault open/load, tree build, `.obsidian`/`.trash` exclusion | ✅ | `libs/vault/src/Vault.cpp:78-105,634-678` |
+| read/cachedRead/readBinary + BOM handling | ✅ | `Vault.cpp:166-211`; BOM stripped on read, preserved on readBinary |
+| `modify`/`append`/`process` (atomic via QSaveFile, per-path mutex) | ✅ | `Vault.cpp:213-282`; `FileSystemAdapter.cpp:75-97` |
+| **`saveDocument` — main editor save path** | ⚠ **P0 BUG** | `Vault.cpp:755-767` raw non-atomic `QFile` write; crash mid-write truncates the note. The ONLY non-atomic write path. Punch-list P0 |
+| `modify()` reconciling open NoteDocuments | ❌ P1 | `Vault.cpp:213-239` never touches `m_docs` |
+| Path normalization (NFC etc.) | ✅ | `libs/vault/src/PathNormalization.cpp` |
+| Collision naming ("Untitled N") | ⚠ | `FileManager.cpp:583-597` starts at 2, case-sensitive; Obsidian starts at " 1" (addendum 2026-06-10) |
+| Rename + link rewrite (wiki/markdown/frontmatter) | ✅ | `FileManager.cpp:412-580`; 8-slot test. Gaps: percent-encoded URLs, `alwaysUpdateLinks` not consulted |
+| Delete/trash (system → local fallback) | 🟡 | `Vault.cpp:563-632`; mode read from KConfig, **ignores vault `app.json` trashOption** |
+| External watcher (create/modify/delete/rename) | 🟡 | `Watcher.cpp:120-207`; rename pairing by mtime only; folder-only events missed; O(vault) rescan per burst |
+| Self-write echo suppression | ✅ | `Vault.cpp:902-917` mtime ledger + byte-compare |
+| Vault.copy for folders | ❌ | `Vault.cpp:497-509` returns false (declared deferral) |
+
+## 2. Metadata, links, cache
+
+| Feature | Status | Evidence / notes |
+|---|---|---|
+| Links/embeds/tags/headings/blocks/footnotes extraction | ✅ | `MetadataParser.cpp:288-718`; 20-slot test. Sections cover 3 of 11 types |
+| Link resolution algorithm (6-step, shortest-path) | ✅ | `LinkResolver.cpp:100-209`; 20 tests. GAP-ANALYSIS P0.1 long fixed |
+| **LinkResolver freshness in-session** | ⚠ **BUG** | populated once at vault open (`MainWindow.cpp:2200-2207`); create/rename/delete never update it; only `.md` fed (attachments never resolve) |
+| Subpath resolution (#heading, #^block) + parseLinktext | ✅ | `LinkUtils.cpp:83+`, markoff parser |
+| resolvedLinks/unresolvedLinks aggregate maps | ⚠ | absent as API; SQLiteIndex `links` table serves backlinks/graph instead (deliberate divergence; plugin-API shape missing) |
+| Cache events (changed/resolved/finished + debounce) | ✅ | `MetadataCache.cpp:316-435` |
+| Cache persistence | ⚠ **P1** | SQLite **inside the vault** at `.obsidian/{index.sqlite,metadata-cache.db}` (`MainWindow.cpp:2181,2235,2240`) — pollutes synced vaults, churns watcher. Move to AppLocalDataLocation |
+| BOM'd files in bulk index | ⚠ BUG | `MetadataCache::rebuildVault` reads raw bytes, no BOM strip → frontmatter lost |
+| Frontmatter parse tolerance | 🟡 | byte-0/`\r\n`/EOF cases OK; closing-fence `\n---` matched without EOL check (false-close on `----`) — Markoff-owned |
+| processFrontMatter (ordered, append, strip-empty) | ✅ | `FileManager.cpp:308-358`; 7-slot test |
+| YAML re-emission byte format | ⚠ | ryml emit ≠ Obsidian js-yaml style; every Properties edit reformats the block; no byte-format test |
+| `.obsidian/*.json` read/write + unknown-key preservation | ✅ I/O · ⭕ consumption | `VaultConfig.cpp` + round-trip test; **but `app.json` and `hotkeys.json` are read by nothing** |
+
+## 3. Editor (Markoff three-leaf host)
+
+| Feature | Status | Evidence / notes |
+|---|---|---|
+| Three modes (Live/Source/Reading) + Ctrl+E + wire-format `{mode, source}` | ✅ | `NoteEditorWidget.cpp:175-303`; `ViewModeSerializer.cpp` |
+| **Link click → navigate** | ⭕ **P0** | NO `LinkService` consumer anywhere in src/; `MainWindow.cpp:1120` connects a never-emitted signal. Core PKM loop broken |
+| `[[`/`#` completion | ⭕ | suggesters registered but `maybeActivateSuggester` is a no-op; `CompletionPopup` never instantiated |
+| Live: headings/lists/tables(+cell edit)/code(+highlight)/checkbox toggle | ✅ | markoff-live delegates; `TableEditBinding` |
+| Reading (styled): tables | ❌ pin / ✅ post-pin | styled tables land with re-pin (avoid `8c13c5d..079ac1f` window) |
+| Reading: checkbox toggle, code highlight, math | ❌ | styled leaf is no-KF6; math Live-only (`MathRenderer.cpp`) |
+| Callouts | ❌ | no Callout BlockKind; renders as blockquote; Insert Callout dialog is a placebo (`MainWindow.cpp:543-567`) |
+| Footnotes / embeds `![[..]]` transclusion / mermaid | ❌ | embeds: parser image-node bug steered upstream (`b6ae2c0f`); mermaid renderer exists (mmdr) but nothing consumes it |
+| Images in Live | 🟡 | ImageDelegate works; `VaultResourceProvider` constructed but never plugged in (`NoteEditorWidget.cpp:82-92`) |
+| Format verbs (B/I/strike/code/link/heading) | 🟡 | Live+Source via dual dispatch (`MainWindow.cpp:1487-1605`); unified base verbs post-pin |
+| Undo/redo | ⚠ | Source mode uses `plainTextEdit()->undo()` — Qt stack diverges from D2 doc (INVARIANTS §3 anti-pattern); fixed by adoption brief |
+| Find in note | ✅ Live/Source · ⭕ Reading | `FindBar` + adapters; Reading find post-pin |
+| Replace | ❌ | no UI; hamburger Find…/Replace… actions connected to nothing (`MarkdownView.cpp:298-312`) |
+| Hover preview | ⭕ | `HoverPopover` state machine complete, renders nothing (`m_view = nullptr`), and scheduleShow never fires |
+| Word count / Ln,Col statusbar | ⭕ | labels exist; `cursorInfoChanged` connected to nothing; word count permanently 0 |
+| goToLine / ephemeral state (cursor+scroll persist) | ⭕ | Source-only goToLine; capture/restore `(void)` no-ops — post-pin + brief |
+| Theme propagation to leaves | ⭕ | `applyThemeToAllLeaves` no-op — post-pin + brief |
+| Templates / daily notes | 🟡 / ✅ | template inserts at END not cursor (`MainWindow.cpp:2573-2613`); daily notes wired |
+| Paste/drop images, paste HTML→MD | ❌ | no host hooks; Live clipboard is plain-text only |
+| Vim mode / spellcheck / RTL | ❌ | absent entirely (explicitly post-1.0 candidates) |
+| Zoom/font scale | 🟡 | Live only; Source/Reading post-pin via `setFontScale` |
+| Autosave | ✅ | `AutosaveReactor` (2 s debounce) → saveDocument (see P0 above) |
+
+## 4. Workspace, UI, settings
+
+| Feature | Status | Evidence / notes |
+|---|---|---|
+| Tabs: open/close/drag/split/undo-close | ✅ | KDDW; `Workspace.cpp:409-544`; Ctrl+Shift+T cap 10 |
+| Pin tabs | 🟡 | model+serialization done; **no UI/command**; pinned tabs still recycled by openLinkText |
+| Tab history back/forward | ⭕ | `LeafHistory` fully built+tested, zero app callers; opens bypass `navigate()`; no actions |
+| Stacked tabs | ⭕ | flag round-trips; no toggle, no visual treatment |
+| Popout windows | 🟡 | `popoutLeaf` works via drag-out; no command; **not persisted** (see next row) |
+| workspace.json fidelity | 🟡 | schema/dir correct, unknown keys preserved; **production save drops `floating` + `lastOpenFiles`** (`MainWindow.cpp:856-866`); split/tabs nodes get empty `id`, no `dimension` |
+| Sidebars (KateMDI tool views) | ✅ UI · ❌ persistence | save/restore code exists (`CorbomiteMDI.cpp:1351-1460`) but never called; width hardcoded 200 |
+| Ribbon | ⚠ | top KToolBar vs Obsidian's left vertical strip; hiddenItems persistence works, no UI to hide items |
+| Command palette | 🟡 | KCommandBar over ~70 KActions (many disabled stubs) + ~13 registry commands; Obsidian lists hundreds |
+| Quick switcher | 🟡 | faithful fuzzy scorer (`FuzzyMatcher.cpp`); filename-only — no path/alias match, hidden create flow |
+| Hotkeys | 🟡 | KShortcutsEditor page works (KConfig); `hotkeys.json` parsed but **never applied** |
+| Settings dialog | 🟡 | Editor/Files/Appearance/Daily-notes/Hotkeys/Plugins pages; missing Files&Links prefs, accent color, fonts, CSS snippets, About |
+| Themes | ⭕ | KColorScheme light/dark works; `ThemeService` body `#if 0` — theme combo empty, appearance.json apply no-ops, no CSS theme import |
+| File explorer | 🟡 | open/rename/delete/new-note + expansion persistence; no new-folder, drag-move, duplicate, reveal, sort |
+| Backlinks / outlinks / outline / properties panels | 🟡 | flat lists; no unlinked mentions, no context snippets; properties panel is the strongest |
+| Bookmarks | 🟡✅ | closest to parity: all types + subpaths + unknown-type round-trip |
+| Tags pane / fullscreen / Mod+1..9 | ❌ | absent |
+| New-note flow | ⚠ | modal name dialog vs Obsidian's inline "Untitled N" |
+| Multi-vault | ⚠ | single window, switch closes current (deliberate for now) |
+
+## 5. Search, graph, canvas, bases
+
+| Feature | Status | Evidence / notes |
+|---|---|---|
+| Search DSL parse (path/file/content/tag, phrases, regex, OR, -, parens, case) | ✅ | `SearchDSL.cpp`; quirk-faithful |
+| DSL backend honor | 🟡 | FTS5 + post-filters; `line:/block:/section:/task*:` parsed but unsupported; bareword is exact-token not substring (⚠) |
+| Search results UI | 🟡 | **one snippet per file** (`SQLiteIndex.cpp:461`); no history/sort/copy/context toggle |
+| Embedded `query` blocks | ❌ | absent |
+| Quick-switcher fuzzy scoring parity | ✅ | constants match audit exactly |
+| Global graph (layout, sliders, orphans, hover, ctx menu) | ✅ | `libs/forcegraph` + `GraphViewTab.cpp`; solid |
+| Graph: tag/attachment filters, color groups, screenshot | ❌ | TODOs in `GraphControlsPanel.cpp:79-80` |
+| graph.json persistence | ❌ | nothing persisted; sliders reset every session |
+| Local graph | 🟡 | depth hardcoded 2, zero controls (`LocalGraphView.cpp:72`) |
+| .canvas round-trip (unknown fields, defaults, V5 self-heal, rounding) | ✅ | `CanvasDocument.cpp` + 481-line test |
+| Canvas node/edge array order | ⚠ | `QHash` storage reorders on save — diff churn (`CanvasDocument.h:57-58`) |
+| Canvas: text/file/group nodes, edge render/label/arrows, export image | ✅ | scene + `CanvasFileView.cpp:82-162` |
+| **Canvas: edge creation UX** | ⭕ | `CreateEdgeTool`/`CreateCardTool` fully written, **never instantiated** (`CanvasScene.cpp:36`) |
+| Canvas: file-card path resolution | ⚠ BUG | relative to canvas dir, not vault root (`CanvasViewTab.cpp:26-33`) — subfolder canvases show empty cards |
+| Canvas: image/link nodes, edge color, z-order, readonly toggle, zoom-to-sel | ❌ | link nodes parsed but invisible |
+| Canvas card fidelity | 🟡 | StyledRenderEngine: 6 block kinds; no tables/images/math |
+| .base YAML round-trip + unrecognizedData | ✅ | `BasesQuery.cpp:256-363`; `tst_yaml_schema` |
+| Formula DSL (16 globals, ~58 typed methods, lambdas) | ✅ | `Builtins.cpp:42-196`, `Evaluator.cpp` |
+| Table view: group/sort/filter/summaries/edit/undo/+New/export/columns | ✅ | Cluster D; **all UI pending human eyeball** |
+| Built-in summaries | 🟡 | missing Range/Earliest/Latest/Checked/Unchecked/Empty/Filled (`BasesQueryResult.cpp:177-187`) |
+| Cards view / embedded ` ```base ` blocks | ❌ | table-only; no note embedding |
+| Icon/Image/markdown cell rendering | ❌ | no paint path in delegate |
+
+## 6. Plugin system (deprioritized for first release)
+
+Proxy/registry surface (11 registrars), permissions, manifest+data.json lifecycle,
+external-settings watch: ✅ and ahead of schedule (Cluster B). Editor plugin API
+(Cluster E): needs re-scope against D2. Bases plugin API (D.5): unspecced.
+Example plugins compile against current API (verified 2026-06-10).
+
+---
+
+## The eight headline holes (what a dogfooder hits in hour one)
+
+1. **Link clicks do nothing** in every mode (P0, wiring-only fix).
+2. **No completion** for `[[` or `#` — typed blind.
+3. **Editor save path can truncate notes on crash** (P0, ~5-line fix).
+4. **No back/forward navigation** despite a complete LeafHistory engine.
+5. **Reading mode is a downgrade** (no tables until re-pin, raw math, inert checkboxes).
+6. **Status bar lies** (Words: 0 forever); sidebar layout amnesia on every launch.
+7. **Whitespace corruption on save** (blank-line collapse, Markoff-owned, punch-list NT).
+8. **Canvas can't create edges**; subfolder canvases render empty file cards.
+
+The matching fix sequence lives in
+[`superpowers/plans/2026-06-10-road-to-dogfood.md`](superpowers/plans/2026-06-10-road-to-dogfood.md).

@@ -1,7 +1,7 @@
 # Replace the Ribbon Slot with a Second KToolBar
 
 **Date:** 2026-04-20
-**Status:** Draft — awaiting user approval before planning
+**Status:** Shipped 2026-04-20/25
 **Scope:** Delete `Corbomite::RibbonSlot`; replace with a KDE-native KToolBar pair; persist per-vault state into `workspace.json['left-ribbon']` via the existing `SessionManager`.
 
 ## Motivation

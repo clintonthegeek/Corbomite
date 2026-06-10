@@ -10,6 +10,17 @@ Conventions:
 
 ---
 
+## 2026-06-10 — Full code/docs audit + docs reset
+
+Nine-agent verification pass across four fronts: (1) live navigational docs vs code/git — CLAUDE.md library table was fiction in 4 of 9 rows, PROJECT-STATE carried a reading-mode triple-contradiction, OPS rituals cited dead paths/dirs; all fixed in place. (2) obsidian-audit corpus vs the decompiled source — ~95% accurate across ~230 spot-checked claims; refuted claims (getAvailablePath " 1"-start, unresolvedLinks casing, normalizePath internals, UTF-16 offsets, workspace window-node flat bounds, ViewState group placement, expandText timing, taxonomy's QueryController-as-DSL-parser) recorded as four correction addenda. (3) feature parity vs code — FEATURE-MATRIX/GAP-ANALYSIS (frozen 2026-04-14) stale in both directions; superseded by the new living `docs/PARITY-MATRIX.md`; both bannered. (4) code quality — MainWindow confirmed god class (2,778 lines, 18 responsibilities); ~1,000+ lines dead code catalogued (SourceEditor, CompletionPopup, four `#if 0` corpse files in libs/core, KateMDI session machinery); naming collisions (MarkdownView×2, VaultResourceProvider×2); release blockers (no LICENSE file, 34.8 MB mmdr binary blob in git, tracked qmarkdowntextedit symlink — symlink removed this session).
+
+Mechanical outcomes: punch list re-triaged (3 closed as already-fixed, ④ bucket re-labeled RE-TARGETABLE post-StyledRenderEngine, `.obsidian` artifacts P4→P1, 21 new code-verified items; 129 top-level items); 40 executed/obsolete plans+specs archived per the INDEX's own convention; cluster E/I/D stubs bannered (I's "phases not yet executed" header was false — Phases 1–4 shipped 2026-04-20 as legacy Cluster V); research notes archived; stale `build/` removed; test baseline verified 250/251 offscreen (`QT_QPA_PLATFORM=offscreen` mandatory — now documented). Roadmap to dogfood: `docs/superpowers/plans/2026-06-10-road-to-dogfood.md`.
+
+## 2026-06-10 — Backfill: 2026-05-29 → 2026-06-04 sessions (Ritual 2 was skipped)
+
+2026-05-29: reading mode shipped as read-only `Markoff::Styled::Editor` leaf (`775fa54e`), retired-Reading stub dropped (`ab242ab2`), read-only-Live steer formally retired (`c7daea89`); architecture snapshot `docs/audit-2026-05-29-architecture.md` (its Recs 4–5 since overtaken; disposition update appended 2026-06-10). 2026-05-30: `StyledRenderEngine` wrapping `Markoff::Styled::DocumentRenderer` (`e7a40ae2`), canvas card wiring/re-render/teardown (`dee26c2f`, `aaca39b7`, `658bbee8`), submodule advanced to `ddf5e9a8`. 2026-06-01: Ctrl+= zoom ambiguity ceded to editor (`d813fd21`). 2026-06-04: retired-renderer tests QSKIP-gated + EditorSuggest mock clamped (`a6a664d5`), `![[…]]` embed image-node bug steered to Markoff (`b6ae2c0f`).
+
+
 ## 2026-05-28 — Cluster D (Filter Builder) shipped
 
 Subagent-driven TDD execution of [`plans/2026-05-27-cluster-d-filter-builder.md`](superpowers/plans/2026-05-27-cluster-d-filter-builder.md) (spec [`specs/2026-05-27-cluster-d-filter-builder-design.md`](superpowers/specs/2026-05-27-cluster-d-filter-builder-design.md)). 4 feature commits (`73e67498..9591ce55`), each one through the implementer → spec-review → Qt-quality-review loop with no rework needed on any task.

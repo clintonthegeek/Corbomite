@@ -49,7 +49,7 @@ Execute every applicable step. Skip none silently.
    - Markoff-related: `docs/obsidian-audit/01-markoff-gaps.md` under a `## Implementation additions — <YYYY-MM>` heading (create if missing).
    - Plugin-extension surface: `docs/obsidian-audit/02-extension-surfaces.md` similarly.
    - Otherwise (general Corbomite-vs-Obsidian gap): a Recent-decisions bullet in PROJECT-STATE plus a `GAP-ANALYSIS` addendum if priority warrants it.
-6. **Run the relevant tests** (if you wrote/touched code). Check `cmake --build build && cd build && ctest --output-on-failure -R <pattern>`.
+6. **Run the relevant tests** (if you wrote/touched code). Check `cmake --build --preset dev -j 10 && cd build-dev && QT_QPA_PLATFORM=offscreen ctest --output-on-failure -j 10 -R <pattern>`. The `QT_QPA_PLATFORM=offscreen` env var is **required** — without it ~24 GUI tests abort. Tests only exist if the build was configured with `CORBOMITE_PORT_BUILD_TESTS=ON` (default OFF; the checked-in `build-dev` cache has it ON).
 7. **Commit** (only if user authorised), with message format:
    ```
    <type>(<area>): <subject>
@@ -82,7 +82,7 @@ Execute every applicable step.
 6. **Update `docs/superpowers/plans/INDEX.md`** Status column to `Done` for the completed cluster.
 7. **Add a Recent-decisions bullet** in PROJECT-STATE: `- **YYYY-MM-DD — Cluster <X> landed.** See cluster-retros/cluster-<letter>.md.`
 8. **Consider memory write.** If the cluster resolved a long-standing bug or established a load-bearing pattern, write a one-line memory entry per the auto-memory rules (`~/.claude/projects/.../memory/MEMORY.md`). Examples worth memorising: "vault-switch crash resolved by Kate-session destroy/rebuild pattern", "FrontMatter library is yaml-cpp configured per Obsidian options".
-9. **Run the full test suite.** `cd build && ctest --output-on-failure`. Confirm no regressions in unrelated tests.
+9. **Run the full test suite.** `cd build-dev && QT_QPA_PLATFORM=offscreen ctest --output-on-failure -j 10` (the offscreen env var is **required** — without it ~24 GUI tests abort; requires a configure with `CORBOMITE_PORT_BUILD_TESTS=ON`). Confirm no regressions in unrelated tests.
 10. **Commit** with the same message convention; subject like "feat(<area>): cluster <X> complete".
 11. **Tell the human:** "Cluster `<X>` complete; retrospective written; downstream `<list>` unblocked; suggest next focus is `<Y>`. Confirm or redirect?"
 12. **Archive the plan + spec files.** `git mv docs/superpowers/plans/<cluster-plan>.md docs/superpowers/plans/archive/` and the matching spec to `docs/superpowers/specs/archive/`. Update `docs/superpowers/plans/INDEX.md` so the cluster row's "Plan file" column points at the new `archive/...` path. **The retro file stays where it is** in `docs/cluster-retros/`.
@@ -91,55 +91,55 @@ Execute every applicable step.
 
 ## Ritual 5 — Working Markoff + Corbomite as one system (cross-repo)
 
-Goal: when the active work-unit is a Markoff Phase C item, keep both repos coherent and both sets of conventions honoured.
+Goal: when work touches Markoff, keep both repos coherent and both sets of conventions honoured.
 
 Applies whenever you touch `/home/clinton/dev/Markoff/` — directly, or via the submodule at `libs/markoff-family/`. Adds obligations on top of Rituals 1/2/3, it does not replace them.
 
-### Ownership scope
+> **Rewritten 2026-06-10.** The original version of this ritual described the Phase C ownership-handoff workflow (per-work-unit `v0.X.0` tags, `MARKOFF_READING_USE_REAL_COREDEPS` stub retirement, Phase B bridge code, the `phase-c-status.md` board). That era closed with Markoff's 2026-05-25 `v0.7.0-freeze` merge and the Corbomite re-pin. The retired text is preserved below under "Historical — Phase C workflow"; do not execute it.
 
-This agent holds commit authority on Markoff's `master` per `libs/markoff-family/docs/handoff/2026-04-20-phase-c-ownership-handoff.md`. You may:
+### Current workflow (post-`v0.7.0-freeze`)
+
+Markoff is a submodule pinned at `libs/markoff-family/`. Cross-repo work follows four rules:
+
+1. **Coordinate via dated handoff briefs** in both repos' `docs/handoff/` directories (Corbomite side: `docs/handoff/`; Markoff side: `libs/markoff-family/docs/handoff/`). Every cross-repo steer, freeze, or merge confirmation is a dated brief, not a chat-only agreement.
+2. **Advance the pin explicitly.** Pin bumps land as their own commits with subject `chore(submodule): advance markoff-family to <sha>`. **Pre-flight audit:** always run `git -C libs/markoff-family rev-list <new>..<current>` before committing the bump — see the `feedback_submodule_pin_audit` memory.
+3. **Never re-pin into a window a handoff brief warns against.** If a Markoff-side brief flags a commit range as unsafe for consumers, the pin skips past it or waits.
+4. **After every re-pin, run the full Corbomite suite** (`cmake --build --preset dev -j 10 && cd build-dev && QT_QPA_PLATFORM=offscreen ctest --output-on-failure -j 10` — the offscreen env var is required; configure needs `CORBOMITE_PORT_BUILD_TESTS=ON`) **and re-check the punch-list items gated on the pin** (items waiting on a Markoff-side fix).
+
+Smoke end-to-end (`./build-dev/bin/Corbomite` + ctest) before declaring any cross-repo work-unit shipped.
+
+### Commit-convention notes
+
+Markoff-side commits use Markoff's convention (no `Cluster X phase N` footer — Markoff isn't cluster-aware). Corbomite-side pin bumps use the `chore(submodule): advance markoff-family to <sha>` subject above. Both sides get the same `Co-Authored-By` trailer.
+
+### Historical — Phase C workflow (retired 2026-05-25; do not execute)
+
+> **Dated banner, 2026-06-10:** everything below describes the Phase C ownership era and is kept only as a record. The handoff briefs live under `libs/markoff-family/docs/handoff/`.
+
+#### Ownership scope (historical)
+
+This agent held commit authority on Markoff's `master` per the ownership-handoff brief in `libs/markoff-family/docs/handoff/`. Permitted:
 - Create and land specs, plans, implementation, and tags in the Markoff repo.
-- Retire Phase B bridge code (`MARKOFF_READING_USE_REAL_COREDEPS`, stubs) as Phase C work-units require.
-- Move types between repos when the interface design calls for it.
+- Retire Phase B bridge code (`MARKOFF_READING_USE_REAL_COREDEPS`, stubs) as Phase C work-units required.
+- Move types between repos when the interface design called for it.
 
-You may **not** (without user check-in):
+Not permitted (without user check-in):
 - Change Markoff's public API surface (class names under `Markoff::`, public header paths under `include/markoff/`) in a way not already in a landed spec.
 - Break the current Markoff tag that CorbomiteApp builds against without landing both sides in the same pin bump.
 - Vendor the `mmdr` Rust crate into Markoff (Phase B decision; reopenable only via user ok).
 
-### Markoff-side invariants (must hold after every Markoff commit)
+#### Markoff-side invariants (historical)
 
 1. **Standalone Markoff build green.** `cd /home/clinton/dev/Markoff && rm -rf build-dev && cmake -S . -B build-dev && cmake --build build-dev -j && cd build-dev && ctest` on a fresh checkout must pass with zero external projects present.
-2. **No `Corbomite`-named types in Markoff public interfaces.** The Phase B stubs under `libs/markoff-reading/stubs/corbomite/` are the one exception; they retire in Phase C work-unit C1.
+2. **No `Corbomite`-named types in Markoff public interfaces.** The Phase B stubs under `libs/markoff-reading/stubs/corbomite/` were the one exception; they retired in Phase C work-unit C1.
 3. **Tests that need Corbomite concretes gate on the CMake option** (Phase B) or its Phase C successor (the DI seam's host-injection mechanism).
 4. **Every Phase C work-unit tags a new Markoff minor version.** `v0.3.0`, `v0.4.0`, …. Tags are append-only; never force-move.
 5. **Markoff `master` is append-only.** No force-push. Revert commits are the only way to undo.
-6. **Commit identity is unified.** Same author + co-author trailer you use on Corbomite commits.
+6. **Commit identity is unified.** Same author + co-author trailer used on Corbomite commits.
 
-### Session flow for a Phase C work-unit
+#### Session flow for a Phase C work-unit (historical)
 
-Authoritative status board: **`libs/markoff-family/docs/phase-c-status.md`** in the Markoff submodule. Read it first and last.
-
-1. **Spec** in Markoff: `libs/markoff-family/docs/specs/YYYY-MM-DD-phase-c<N>-<topic>.md`. Update the status board to `spec drafted`. Commit + tag if non-trivial.
-2. **Plan** in Markoff: `libs/markoff-family/docs/plans/YYYY-MM-DD-phase-c<N>-<topic>.md`. Same format conventions as Phase A/B plans.
-3. **Implement on Markoff `master`** (per this repo's no-feature-branches convention; commits land directly). Green tests after each commit. Each work-unit commit set ends with a Markoff tag (`v0.X.0`).
-4. **Bump the submodule pin** in Corbomite: `cd libs/markoff-family && git checkout v0.X.0 && cd .. && git add libs/markoff-family`. **Pre-flight audit:** always run `git -C libs/markoff-family rev-list <new>..<current>` before committing the bump — see the `feedback_submodule_pin_audit` memory.
-5. **Adapt on the Corbomite side.** Write CorbomiteApp-side adapter code, migrate call sites, bump the Corbomite-side tests.
-6. **Smoke** end-to-end (`./build/Corbomite` + ctest) before declaring the work-unit shipped.
-7. **Retire bridge code** on the Markoff side if the work-unit replaces a prior mechanism (e.g. C1 retires the Phase B CMake option + stubs). Tag `v0.X.1` for the cleanup release.
-8. **Close** the work-unit on the status board. Append an activity-log entry in `phase-c-status.md`.
-9. **Update Corbomite's PROJECT-STATE** §Markoff Phase C summary table status column; add a Recent-decisions bullet.
-
-### Commit-convention notes
-
-Markoff-side commits use Markoff's convention (no `Cluster X phase N` footer — Markoff isn't cluster-aware). Corbomite-side commits that bump the pin or adapt to a new Markoff tag get `feat(markoff): Phase C <N> adaptation` style subjects. Both sides get the same `Co-Authored-By` trailer.
-
-### When Markoff work is "done"
-
-Phase C completes when: all seven work-units closed on the status board, the `MARKOFF_READING_USE_REAL_COREDEPS` option and its stubs are gone from Markoff, and Corbomite's CorbomiteApp is running on the final Phase C Markoff tag with no bridge code lingering. At that point:
-- Update the Markoff-side handoff doc with a "Phase C closed" header (append, don't rewrite).
-- Write a retrospective in `docs/cluster-retros/markoff-phase-c.md` on the Corbomite side (mirrors a cluster retro).
-- Consider whether Markoff ownership reverts (user decision).
+Authoritative status board was **`libs/markoff-family/docs/phase-c-status.md`** in the Markoff submodule: spec in `docs/specs/`, plan in `docs/plans/`, implement on Markoff `master`, tag `v0.X.0`, bump the submodule pin, adapt the Corbomite side, smoke end-to-end, retire bridge code (tag `v0.X.1`), close the work-unit on the status board, update Corbomite's PROJECT-STATE. Phase C completed when all seven work-units closed, the `MARKOFF_READING_USE_REAL_COREDEPS` option and its stubs were gone, and CorbomiteApp ran on the final Phase C Markoff tag with no bridge code lingering.
 
 ---
 
@@ -151,16 +151,16 @@ Goal: after a cluster lands or after a multi-session push of code, hunt for the 
 
 Execute every step in order.
 
-1. **Open the matrix.** `docs/test-coverage-matrix.md`. Skim the seams and lifecycle columns. Add any new seam introduced by recent work as a new row (blank cells); add any new lifecycle as a new column.
+1. **Open the matrix.** `docs/testing/test-coverage-matrix.md`. Skim the seams and lifecycle columns. Add any new seam introduced by recent work as a new row (blank cells); add any new lifecycle as a new column.
 2. **Refresh the test inventory.** Walk the existing tests in `tests/`, `libs/*/tests/` — for each test, identify which seam × lifecycle cell(s) it covers. Update the matrix cells (`✓ tst_<name>`).
-3. **Pick the cycle's targets.** Choose N highest-risk blank cells (default `N=6`). "Highest-risk" = recently-touched code, persistence-heavy, or known to interact with multiple subsystems. Document the picks in a new "Cycle M" section in `docs/test-coverage-bug-hunt.md` under "Cycle log".
+3. **Pick the cycle's targets.** Choose N highest-risk blank cells (default `N=6`). "Highest-risk" = recently-touched code, persistence-heavy, or known to interact with multiple subsystems. Document the picks in a new "Cycle M" section in `docs/testing/test-coverage-bug-hunt.md` under "Cycle log".
 4. **For each target cell, write a failing scenario test.** Use Tier B (cross-session, in `tests/integration/`) by default. Use Tier A (`tests/e2e/`) only when the bug is UI-display-only. Each test:
    - Sets up state representing the lifecycle (e.g. for L4 "schema bump": pre-populate persisted DBs at version N, simulate version-N+1 open).
    - Asserts the expected behaviour.
    - If it passes: the cell wasn't a gap after all — update the matrix to `✓` and move on.
    - If it fails: this is a bug. Mint a `BUG-YYYYMMDD-NNN` ID, wrap the asserts with `QEXPECT_FAIL("", "BUG-xxx: <short reason>", Continue)`, append a row to the inventory table, update the matrix cell to the BUG-ID.
 5. **Do NOT fix bugs in the same cycle.** The cycle is for hunting. Filing the bug = the deliverable. Fixes are scheduled separately by the human.
-6. **Cycle close-out.** In `docs/test-coverage-bug-hunt.md`, update the cycle log entry with: cells targeted, bugs filed (by ID), tests landed (by name).
+6. **Cycle close-out.** In `docs/testing/test-coverage-bug-hunt.md`, update the cycle log entry with: cells targeted, bugs filed (by ID), tests landed (by name).
 7. **Update PROJECT-STATE.** Add a "Recent decisions" bullet noting the cycle ran, link to the cycle's log entry.
 
 **Do NOT** mark a cell `✓` based on any test that doesn't actually exercise the lifecycle dimension. "Tested in isolation" ≠ "tested in this lifecycle." When in doubt, leave the cell blank and add a partial-coverage `~` only if a test definitively covers part of the cell.

@@ -1,5 +1,7 @@
 # Cluster D — Bases UI completion
 
+> **⚠ 2026-06-10:** 90% executed via D.1–D.4c + formula editor + filter builder (see [INDEX](INDEX.md)). Only D.5 (Bases plugin API) remains — and it is absent from the scope list below. Treat this file as historical; D.5 needs a fresh brainstorm+spec.
+
 > **Created 2026-04-26 from audit reset.** Stub plan; needs brainstorm + full plan expansion before dispatch. Cluster K (legacy) shipped the Bases runtime + data model + Pratt parser as MVP. The UI is skeletal: no formula editor, no group rendering, no properties drawer, no export, no drag, no hover, no undo, no multi-key sort UI. This cluster builds out those surfaces.
 
 ## Goal

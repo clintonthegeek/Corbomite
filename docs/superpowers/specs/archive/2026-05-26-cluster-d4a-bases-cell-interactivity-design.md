@@ -1,7 +1,7 @@
 # Cluster D.4a — Bases Cell Interactivity — Design
 
 **Date:** 2026-05-26
-**Status:** Approved (design phase)
+**Status:** Shipped 2026-05-26
 **Cluster:** D (Bases UI completion) — sub-project D.4a (first slice of D.4 "interactivity/export")
 **Predecessors:** D.1 (backend correctness), D.2 (read-side rendering), D.3 (toolbar menus + drawer + inline edit) — all shipped 2026-05-25/26
 **Library:** `libs/bases` (`Corbomite::Bases`)

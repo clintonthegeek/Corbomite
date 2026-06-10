@@ -1,5 +1,7 @@
 # Cluster E — Markoff Editor API parity (plugin shim)
 
+> **⚠ 2026-06-10:** Body below targets the RETIRED pre-port editor (qutepart, extraCursors, line/column API). Re-scope against the D2 block model + MarkdownView contract v2 before any dispatch. Sequencing note re Cluster B is dead (B closed 2026-04-28).
+
 > **Created 2026-04-26 from audit reset.** Stub plan; needs brainstorm + full plan expansion before dispatch. Markoff exposes a structurally-cleaner-than-CodeMirror API but is missing many of the Obsidian `Editor` methods that plugins assume. This cluster builds the shim.
 
 ## Goal

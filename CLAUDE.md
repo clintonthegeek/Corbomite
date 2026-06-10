@@ -1,19 +1,20 @@
-> **2026-05-25 — Foundation port landed on `master`.**
+> **State of the world (refreshed 2026-06-10).**
 >
-> The port from Markoff `master` (v0.6.x) to Markoff's D-arc + E-arc rebuild is
-> complete and **merged to Corbomite `master`**. Markoff merged its
-> `exploration/new-foundation` to Markoff `master` (tag `v0.7.0-freeze`) first;
-> Corbomite's submodule is pinned there. The old four-leaf QGraphicsView editor
-> is retired; the QML/D2 live editor is canonical. Day-to-day work is back on
-> `master` — no dedicated port branch.
+> The 2026-05-25 foundation port is history: Markoff's QML/D2 rebuild merged at
+> `v0.7.0-freeze`, the old four-leaf QGraphicsView editor is gone, and Corbomite
+> hosts the **three Markoff leaves** (Live QML, Source, Styled) via
+> `NoteEditorWidget`. **Reading mode is a read-only `Markoff::Styled::Editor`
+> leaf** (decided + shipped 2026-05-29; the earlier "read-only Live" steer is
+> retired). `StyledRenderEngine` (2026-05-30) renders canvas cards headlessly.
 >
-> History + the now-degraded feature list (each comes back per its Markoff
-> E-phase) is at [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md).
-> Markoff's merge-complete reply: `libs/markoff-family/docs/handoff/2026-05-25-to-corbomite-merge-complete.md`.
-> Reading-mode direction **decided**: read-only Live (`Capabilities::Editable=false`),
-> not a restored Reading leaf — steer sent to Markoff
-> (`docs/handoff/2026-05-25-to-markoff-reading-steer-and-merge-confirm.md`),
-> awaiting their spec. Unfreezes HoverPopover, checkbox-toggle, `setCursorLine`.
+> **Next major workfront:** adopt Markoff's MarkdownView contract v2 — re-pin
+> the submodule past Task 13 and execute
+> `/home/clinton/dev/Markoff/docs/handoff/2026-06-09-corbomite-api-adoption-brief.md`
+> (unstubs find-in-Reading, undo unification, theme propagation, Ln/Col,
+> goToLine, ephemeral state, format-verb dispatch).
+>
+> Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
+> Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).
 
 ## Long-term project state
 
@@ -25,7 +26,7 @@
 
 **Punch list (small fixes, severity P0–P6):** [`docs/punch-list.md`](docs/punch-list.md). Flat single file. Top of file is P0; pick from top. Mark `[x]` when committed; do not delete. **P0/P1 items are mostly silent vault-format-corruption risks — drain before strategic-cluster work unless explicitly redirected.**
 
-**Strategic cluster plans:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). Table of contents over the 10 active clusters (A–J at reset). Closed-cluster plans live under `plans/archive/` and are linked from INDEX.
+**Strategic cluster plans:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). Table of contents over the clusters (10 at the 2026-04-26 reset; most since closed or obsoleted — see INDEX for live status). Closed/obsolete plans live under `plans/archive/` and are linked from INDEX.
 
 **Audit (canonical task source — derived 2026-04-26):** [`docs/audit-2026-04-26/`](docs/audit-2026-04-26/). 14 per-domain sub-reports + synthesis README + 58-item priority list. Punch-list and audit-derived clusters all trace back here. Frozen snapshot — re-run audit cycle to refresh.
 
@@ -35,7 +36,7 @@
 
 **Archive directories are frozen.** `docs/archive/`, `docs/archive-2026-04-26/`, `docs/superpowers/plans/archive/`, and `docs/superpowers/specs/archive/` contain closed/pre-reset work. Don't follow links into them for live tasks.
 
-**Reverse-engineered Obsidian audit (canonical reference, read-only except via addenda):** [`docs/obsidian-audit/`](docs/obsidian-audit/). Pass 1 taxonomy + 15 Pass 2 domain docs + 5 Pass 3 synthesis docs. ~94k words of distilled spec. New facts discovered during implementation go in `docs/obsidian-audit/addenda/`, never as edits to the audit docs.
+**Reverse-engineered Obsidian audit (canonical reference, read-only except via addenda):** [`docs/obsidian-audit/`](docs/obsidian-audit/). Pass 1 taxonomy + 15 Pass 2 domain docs + 5 Pass 3 synthesis docs. ~94k words of distilled spec. New facts discovered during implementation go in `docs/obsidian-audit/addenda/`, never as edits to the audit docs. **Check `addenda/README.md` § Corrections before implementing from a domain doc** — a 2026-06-10 verification pass confirmed the corpus is ~95% accurate but refuted specific claims (vault naming/casing, workspace window-node shape, editor timing, taxonomy's QueryController). The Pass 3 synthesis docs `FEATURE-MATRIX.md`/`GAP-ANALYSIS.md` are frozen at 2026-04-14 and badly stale on the Corbomite side — use [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md) instead.
 
 **Local KDE source (do not clone from invent.kde.org):** `~/src/kde/src/<repo>` is checked out for kate, kdevelop, kio, kconfig, kparts, kxmlgui, kwidgetsaddons, ktexteditor, krunner, baloo, okular, poppler, qtkeychain, sonnet (and more). Cluster plans reference these by absolute local path.
 
@@ -69,13 +70,22 @@ Always pass `-j 10` to `cmake --build` — the default serial build is slow on t
 
 Run:
 ```bash
-./build-dev/Corbomite
+./build-dev/bin/Corbomite
 ```
 
-Run tests:
+Run tests — **two things are mandatory**: tests only exist if the build was
+configured with `-DCORBOMITE_PORT_BUILD_TESTS=ON` (default **OFF**; the
+checked-in `build-dev/` cache has it ON), and `QT_QPA_PLATFORM=offscreen` is
+required or ~24 GUI tests abort trying to reach the display:
+
 ```bash
-cd build-dev && ctest --output-on-failure -j 10
+cd build-dev && QT_QPA_PLATFORM=offscreen ctest --output-on-failure -j 10
 ```
+
+Baseline (2026-06-10): **250/251 pass** (excl. `tst_benchmark_layout`, label
+`benchmark`, which times out by design). The one failure is
+`tst_metadataparser` (2 slots) — the known `![[…]]` embed image-node bug,
+gated on a Markoff re-pin (steered upstream 2026-06-04, `b6ae2c0f`).
 
 Build and install the release preset (system-wide, separate config/data dirs from dev):
 
@@ -93,7 +103,7 @@ Corbomite requires these system libraries at build time:
 - ECM 6.0+ (`extra-cmake-modules`)
 - KDE Frameworks 6 (`CoreAddons I18n XmlGui WidgetsAddons IconThemes Config ConfigWidgets ColorScheme DBusAddons SyntaxHighlighting`)
 - **KDDockWidgets 2.0+** (`kddockwidgets-qt6` on Arch/Manjaro; provides tab-drag, split, and floating-window substrate)
-- tree-sitter (vendored in `libs/markoff-parser/`)
+- tree-sitter (vendored inside the `libs/markoff-family/` submodule, under `libs/markoff-parser/`)
 - jkqtmathtext (vendored at `libs/jkqtmathtext/`)
 - Optional: `qt6keychain` for persistent SecretStorage (auto-disables if absent)
 
@@ -111,15 +121,17 @@ Always configure with `-DCORBOMITE_DEV_BUILD=ON` so dev builds use isolated conf
 
 | Library | Target | Purpose |
 |---------|--------|---------|
-| `libs/core` | `Corbomite::Core` | Domain types: NoteMeta, NoteDocument |
-| `libs/storage` | `Corbomite::Storage` | File I/O: FileSystemAdapter, VaultScanner |
-| `libs/models` | `Corbomite::Models` | Qt item models: VaultModel, NotesTreeModel, TabModel |
-| `libs/markoff` | `Markoff::Markoff` | QGraphicsView-based Markdown editor + ReadingView |
-| `libs/markoff-parser` | `Markoff::Parser` | tree-sitter-based Markdown parser |
-| `libs/mmdr` | `mmdr` | Rust Mermaid renderer bridge |
-| `libs/canvas` | `Corbomite::Canvas` | Infinite-canvas (`.canvas` files) |
-| `libs/forcegraph` | `Corbomite::ForceGraph` | Force-directed graph layout |
-| `libs/jkqtmathtext` | `JKQTMathText` | LaTeX/MathJax-equivalent inline math rendering |
+| `libs/core` | `Corbomite::Core` | Workspace/docking (KDDockWidgets), view hierarchy, render engines, plugin proxy API + registries, themes, NoteMeta/NoteDocument |
+| `libs/vault` | `Corbomite::Vault` (SHARED) | Vault/TFile/TFolder model, file watcher, FileManager (link rewriting, trash), PluginManager + permissions |
+| `libs/storage` | `Corbomite::Storage` | MetadataCache/-Parser/-Worker, SQLiteIndex, LinkResolver, VaultConfig (`.obsidian/*.json` I/O), FileSystemAdapter |
+| `libs/models` | `Corbomite::Models` | NotesTreeModel, SearchResultsModel, DailyNoteService, TemplateService, property types |
+| `libs/search` | `Corbomite::Search` | SearchDSL parser, FuzzyMatcher (Obsidian-parity scoring) |
+| `libs/bases` | `Corbomite::Bases` | `.base` files: YAML schema, formula lexer/parser/evaluator, table view + toolbar panels (largest lib) |
+| `libs/canvas` | `canvas` | `.canvas` files: JSON round-trip, scene/items/tools, undo commands |
+| `libs/forcegraph` | `forcegraph` | Force-directed graph layout (Barnes-Hut, multilevel); zero Corbomite deps |
+| `libs/markoff-family` | (submodule) | The Markoff editor family: markoff-core (D2 CRDT model), markoff-live (QML), markoff-source, markoff-styled, markoff-parser (tree-sitter), collabtext, rapidyaml |
+| `libs/mmdr` | `mmdr` (IMPORTED) | Pre-built Rust Mermaid renderer (`libmermaid_rs_renderer.a` + C FFI header) |
+| `libs/jkqtmathtext` | `jkqtmathtext` | Vendored LaTeX math rendering (LGPL) |
 
 ## Testing
 
@@ -127,7 +139,7 @@ Tests define **expected behavior**. When a test fails, fix the code, not the tes
 
 Run a single test:
 ```bash
-cd build && ctest -R tst_notemeta --output-on-failure
+cd build-dev && QT_QPA_PLATFORM=offscreen ctest -R tst_notemeta --output-on-failure
 ```
 
 ## Code Conventions

@@ -251,3 +251,37 @@ surface "silent corruption risks first."
 8. Confirm `unrecognizedData` preserves Obsidian's `.base` `columnSize` round-trip.
 9. Plugin nits: dead bookmarks include; `X-Corbomite-ApiLevel` on all 9;
    `reinterpret_cast` → typed accessor; `OUTPUT_NAME` into the plugin helper.
+
+---
+
+## Disposition update — 2026-06-10
+
+> The findings above are a frozen snapshot of 2026-05-29 and have not been edited.
+> This appended section records what has changed since, verified against code/git
+> on 2026-06-10.
+
+**Overtaken since the audit:**
+
+- **Rec 4 (Reading-mode dead-end)** — resolved 2026-05-29 as a read-only Styled
+  leaf (`775fa54e`).
+- **Rec 5 (canvas `setRenderEngine` never called)** — wired 2026-05-30
+  (`dee26c2f`, `aaca39b7`, `658bbee8`).
+- **Zoom stubs** — fixed (`d813fd21`).
+- **"Three render engines, all broken"** — a fourth, working `StyledRenderEngine`
+  landed (`e7a40ae2`).
+- **Retired-renderer tests** — QSKIP-gated (`a6a664d5`).
+
+**Still open as of 2026-06-10 (verified):**
+
+- Non-atomic `Vault::saveDocument` (`libs/vault/src/Vault.cpp:755`) — **P0**.
+- `Vault::modify()` doesn't reconcile open `NoteDocument`s.
+- `#if 0` walls: `MarkdownRenderer` / `MarkoffAdapters` / `SystemThemeBuilder` /
+  `ThemeService`.
+- Tracked `qmarkdowntextedit` symlink (removal in progress 2026-06-10).
+- Stale empty `build/` dir (removal in progress).
+- `VaultScanner` zero production callers.
+- Ephemeral-state persistence no-op.
+- Status bar dead (no `cursorInfoChanged` emitter).
+
+Newer findings: see `docs/PARITY-MATRIX.md` (2026-06-10) and the punch-list
+refresh of the same date.

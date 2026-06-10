@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-25
 **Cluster:** D (Bases UI completion) — sub-project **D.2**, read-side rendering.
-**Status:** Design approved; plan to follow.
+**Status:** Shipped 2026-05-25.
 **Substrate:** Independent of the Markoff foundation rewrite (Bases is `QTableView`/`QTreeView`-based), except Markdown cells (deferred — frozen on the read-only-Live renderer).
 **Builds on:** D.1 (backend correctness), shipped 2026-05-25.
 

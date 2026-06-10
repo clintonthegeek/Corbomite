@@ -54,7 +54,7 @@ Captured 2026-04-19 from the Cluster R vs Obsidian exposure audit. Listed in rou
 
 **Impact.** A high-discoverability entry point Obsidian users rely on. Muscle-memory gap.
 
-**Resolution.** New cluster — scouting plan at [`../superpowers/plans/2026-04-19-cluster-u-file-explorer-enhancements-SCOUTING.md`](../superpowers/plans/2026-04-19-cluster-u-file-explorer-enhancements-SCOUTING.md). Reuses `FileManager::promptForFileRename/promptForMove/promptForDeletion` + `Platform::*` + `PathUtils::*` primitives already shipped in Cluster R. Audit addendum at [`../obsidian-audit/addenda/2026-04-19-file-explorer-context-menu.md`](../obsidian-audit/addenda/2026-04-19-file-explorer-context-menu.md).
+**Resolution.** New cluster — scouting plan at [`../superpowers/plans/archive/2026-04-19-cluster-u-file-explorer-enhancements-SCOUTING.md`](../superpowers/plans/archive/2026-04-19-cluster-u-file-explorer-enhancements-SCOUTING.md). Reuses `FileManager::promptForFileRename/promptForMove/promptForDeletion` + `Platform::*` + `PathUtils::*` primitives already shipped in Cluster R. Audit addendum at [`../obsidian-audit/addenda/2026-04-19-file-explorer-context-menu.md`](../obsidian-audit/addenda/2026-04-19-file-explorer-context-menu.md).
 
 ### 2. Plugin mid-construction menu injection **(BLOCKING for plugin API 1.0 — Cluster H follow-up)**
 

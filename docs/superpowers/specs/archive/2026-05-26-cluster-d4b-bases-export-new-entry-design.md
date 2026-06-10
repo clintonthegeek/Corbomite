@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-26
 **Cluster:** D (Bases UI completion), sub-project D.4b
-**Status:** Approved (brainstorm 2026-05-26)
+**Status:** Shipped 2026-05-26
 **Predecessors:** D.1 (backend correctness), D.2 (read-side rendering), D.3 (toolbar menus + properties drawer), D.4a (cell interactivity)
 
 ## Summary

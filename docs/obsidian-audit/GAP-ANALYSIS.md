@@ -1,5 +1,12 @@
 # GAP-ANALYSIS — Prioritised Corbomite compat gaps against Obsidian
 
+> **⚠ FROZEN AT 2026-04-14 — priorities here are obsolete.** Verified 2026-06-10:
+> P0.1/P0.2/P0.3/P0.5/P0.6, P1.1/P1.2/P1.3 are FIXED; P2.13 (Bases) and P2.19
+> (search DSL) substantially delivered; P2.5 prescribes a QGraphicsView migration
+> superseded by the QML foundation port. Do not plan from this file. Current gaps:
+> [`../PARITY-MATRIX.md`](../PARITY-MATRIX.md) + `docs/punch-list.md` + the roadmap
+> `docs/superpowers/plans/2026-06-10-road-to-dogfood.md`.
+
 This document ranks what Corbomite is missing, in-order, against the Obsidian behaviour specified in the Pass 2 domain docs. Each entry cites the domain doc that sources the Obsidian behaviour and the Corbomite file or library that would receive the fix. "Proposed work" is what a Corbomite engineer would implement; "Cluster" names the bundle of gaps that share a dependency.
 
 ## Prioritisation rubric

@@ -1,7 +1,7 @@
 # Design — markoff-styled headless rendering → Corbomite card-view + reading mode
 
 **Date:** 2026-05-29
-**Status:** Design (awaiting user review → writing-plans)
+**Status:** 2 of 3 surfaces shipped (reading leaf `775fa54e`, canvas cards `e7a40ae2`/`dee26c2f`); HoverPopover surface NOT implemented — this spec stays live as the reference for that remaining surface (updated 2026-06-10)
 **Track:** Cross-repo convergence (Corbomite consumer ↔ Markoff)
 **Companion handoff:** [`docs/handoff/2026-05-29-to-markoff-styled-document-renderer.md`](../../handoff/2026-05-29-to-markoff-styled-document-renderer.md)
 

@@ -4,7 +4,7 @@
 
 ## File naming
 
-`cluster-<letter>.md` — e.g. `cluster-a.md`, `cluster-b.md`. Lowercase letter, no date prefix (cluster IDs are unique).
+`cluster-<letter>.md` — e.g. `cluster-a.md`, `cluster-b.md`. Lowercase letter, no date prefix. **Caution: cluster letters are NOT globally unique.** Lettering restarted at A on 2026-04-26 (post-reset scheme), so a pre-reset (legacy) letter can collide with a post-reset one — existing retros here are mostly legacy-letter clusters. Qualify per the INDEX convention ("legacy Cluster Y" vs "Cluster Y (post-reset)"); if a post-reset cluster collides with an existing retro filename, disambiguate the new file's name and say so in its header.
 
 ## File format
 

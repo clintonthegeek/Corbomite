@@ -1,6 +1,6 @@
 # Cluster D.4c — Bases undo/redo for value edits
 
-> **Design spec, 2026-05-27.** Sub-project of [Cluster D — Bases UI completion](../plans/2026-04-26-cluster-d-bases-ui-completion.md), scope item #8 ("Undo stack integration — cell edits go through QUndoStack"). Follows D.4a (cell interactivity) and D.4b (export/+New). Pre-approved in brainstorm; no open questions.
+> **Design spec, 2026-05-27.** Sub-project of [Cluster D — Bases UI completion](../plans/2026-04-26-cluster-d-bases-ui-completion.md), scope item #8 ("Undo stack integration — cell edits go through QUndoStack"). Follows D.4a (cell interactivity) and D.4b (export/+New). Pre-approved in brainstorm; no open questions. **Shipped 2026-05-27.**
 
 ## Goal
 

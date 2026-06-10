@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-25
 **Cluster:** D (Bases UI completion) — sub-project **D.1**, the backend/value-layer foundation.
-**Status:** Design approved; plan to follow.
+**Status:** Shipped 2026-05-25.
 **Substrate:** Independent of the Markoff foundation rewrite (Bases is `QTableView`-based).
 
 ## Context

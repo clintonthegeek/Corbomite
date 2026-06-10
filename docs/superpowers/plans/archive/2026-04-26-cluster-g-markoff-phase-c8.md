@@ -1,5 +1,7 @@
 # Cluster G — Markoff Phase C8: Inline-ORC Canonical Coherence
 
+> **⚠ OBSOLETE — archived 2026-06-10.** Built entirely on the retired QGraphicsView/`QTextDocument` ORC-substitution substrate, deleted by the foundation port (Markoff `v0.7.0-freeze`, merged 2026-05-25). No `QTextDocument`, no ORC glyphs — the corruption class this plan guards against cannot occur. Superseded by Markoff E1 (InlineHighlighter). Do not dispatch.
+
 > **Re-lettered 2026-04-26.** This plan's body still references "Phase C8" — that's fine, it's the Markoff-side work-unit. From the Corbomite tracking POV, this is **Cluster G** (in-flight at reset time). Was: `2026-04-23-phase-c8-inline-orc-canonical-coherence.md`.
 
 

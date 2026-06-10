@@ -1,7 +1,7 @@
 # Cluster V — Editor & Workspace UI surfacing (retro)
 
 **Closed:** 2026-04-20
-**Plan:** [`superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md`](../superpowers/plans/2026-04-20-cluster-v-editor-workspace-ui-surfacing.md)
+**Plan:** [`superpowers/plans/2026-04-26-cluster-i-editor-workspace-ui-surfacing.md`](../superpowers/plans/2026-04-26-cluster-i-editor-workspace-ui-surfacing.md) (the plan executed as Cluster V was re-lettered **Cluster I** at the 2026-04-26 reset; the original scouting copy is archived at [`superpowers/plans/archive/2026-04-20-cluster-v-editor-workspace-ui-surfacing-SCOUTING.md`](../superpowers/plans/archive/2026-04-20-cluster-v-editor-workspace-ui-surfacing-SCOUTING.md))
 **Spec:** [`superpowers/specs/2026-04-20-cluster-v-editor-workspace-ui-surfacing-design.md`](../superpowers/specs/2026-04-20-cluster-v-editor-workspace-ui-surfacing-design.md)
 
 ## What shipped

@@ -1,5 +1,7 @@
 # Cluster H — Block-substitution widget promotion
 
+> **⚠ OBSOLETE — archived 2026-06-10.** The goal (promote blocks out of `QTextDocument` into peer items) is the new foundation's baseline — every block is a peer QML delegate (Markoff `v0.7.0-freeze`, merged 2026-05-25). Superseded by Markoff E5 (math/Mermaid Live parity). Do not dispatch.
+
 > **Re-lettered 2026-04-26 (was Cluster X, SCOUTING).** Body still references "Cluster X"; that's the legacy letter. New tracking letter is **H**. Plan is still scouting-grade — needs full plan expansion before dispatch (depends on Cluster G landing first per the original blocker).
 
 

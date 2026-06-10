@@ -1,8 +1,8 @@
 # Cluster S — Bookmarks core plugin
 
 **Closed:** 2026-04-20
-**Plan:** [2026-04-20-cluster-s-bookmarks.md](../superpowers/plans/2026-04-20-cluster-s-bookmarks.md)
-**Spec:** [2026-04-19-cluster-s-bookmarks-design.md](../superpowers/specs/2026-04-19-cluster-s-bookmarks-design.md)
+**Plan:** [2026-04-20-cluster-s-bookmarks.md](../superpowers/plans/archive/2026-04-20-cluster-s-bookmarks.md)
+**Spec:** [2026-04-19-cluster-s-bookmarks-design.md](../superpowers/specs/archive/2026-04-19-cluster-s-bookmarks-design.md)
 **Addendum:** [2026-04-19-bookmarks-core-plugin.md](../obsidian-audit/addenda/2026-04-19-bookmarks-core-plugin.md)
 
 ## What shipped

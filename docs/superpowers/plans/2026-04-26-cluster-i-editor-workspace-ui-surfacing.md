@@ -1,5 +1,7 @@
 # Cluster I — Editor & Workspace UI Surfacing
 
+> **⚠ 2026-06-10:** Header claim "phases not yet executed" is FALSE — Phases 1–4 shipped 2026-04-20 as legacy Cluster V (see [`cluster-retros/cluster-v.md`](../../cluster-retros/cluster-v.md); commits `c0e63f44..127530f4`). Phase 4 substrate (`libs/readingview`) since deleted. Live remnant = Phase 5 tail (move-to-new-window / link-with-active-pane UI) + Phase 6 (search regex/match-case toggles, `Notice::post`). Rewrite before dispatch.
+
 > **Re-lettered 2026-04-26 (was Cluster V).** Body still references "Cluster V"; that's the legacy letter. New tracking letter is **I**. In-flight at reset time; phases not yet executed.
 
 
@@ -15,7 +17,7 @@
 
 **Spec:** [`docs/superpowers/specs/2026-04-20-cluster-v-editor-workspace-ui-surfacing-design.md`](../specs/2026-04-20-cluster-v-editor-workspace-ui-surfacing-design.md)
 
-**V.2 handoff:** [`docs/superpowers/plans/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md`](2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md)
+**V.2 handoff:** [`docs/superpowers/plans/archive/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md`](archive/2026-04-20-cluster-v2-debt-cleanup-SCOUTING.md) (V.2 closed 2026-04-25)
 
 ---
 

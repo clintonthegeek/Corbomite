@@ -1,5 +1,14 @@
 # FEATURE-MATRIX — Obsidian feature inventory with Corbomite status
 
+> **⚠ FROZEN AT 2026-04-14 — Corbomite-status columns are obsolete.** A 2026-06-10
+> code-verification audit found this doc stale in *both* directions: shipped features
+> listed as Missing (live preview, Bases UI, search DSL, undo-close-tab, fuzzy
+> switcher…) and implementation pointers citing classes deleted by the 2026-05-25
+> foundation port (`libs/markoff/Editor`, `ReadingView`, `EditorViewManager`,
+> `src/sidebar/SearchPanel`…). The **Obsidian-side feature inventory remains valid**
+> as a checklist of what exists to clone. For current Corbomite status, use
+> [`../PARITY-MATRIX.md`](../PARITY-MATRIX.md) (living, code-verified).
+
 Every user-visible Obsidian feature, indexed by functional area (not by Obsidian file layout). Each entry cites the Pass 2 domain doc(s) where the feature is specified and records Corbomite's current implementation state.
 
 ## How to use this document

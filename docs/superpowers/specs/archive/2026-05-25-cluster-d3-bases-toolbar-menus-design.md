@@ -1,7 +1,7 @@
 # Cluster D.3 — Bases Toolbar Menus, Properties Drawer & Inline-Edit Polish — Design
 
 **Date:** 2026-05-25
-**Status:** Approved (design phase)
+**Status:** Shipped 2026-05-25
 **Cluster:** D (Bases UI completion) — sub-project D.3
 **Predecessors:** D.1 (backend correctness), D.2 (read-side rendering) — both shipped 2026-05-25
 **Library:** `libs/bases` (`Corbomite::Bases`)

@@ -7,10 +7,12 @@
 > **This doc is now historical** for the port mechanics. The work that was on
 > `port/foundation-exploration` is on `master`. Markoff merged its rebuild to
 > Markoff `master` (tag `v0.7.0-freeze`) first; Corbomite then re-pinned and
-> merged (Markoff-first ordering honoured). The **degradation table** below
-> remains the live reference for what's still missing and which Markoff phase
-> restores it. Roadmap reconciliation (clusters G/H/J obsoleted, E re-scoped):
-> see `docs/PROJECT-STATE.md` + `docs/decisions-archive.md` (2026-05-25 entry).
+> merged (Markoff-first ordering honoured). **2026-06-10:** This document is
+> now historical. Disposition of each degradation is tracked in the table
+> below (column added 2026-06-10); open items live in the punch list. Do not
+> plan from this doc. Roadmap reconciliation (clusters G/H/J obsoleted, E
+> re-scoped): see `docs/PROJECT-STATE.md` + `docs/decisions-archive.md`
+> (2026-05-25 entry).
 
 ## Cross-repo branch map (final)
 
@@ -19,7 +21,7 @@
 | Markoff (`/home/clinton/dev/Markoff`) | `master` | **Now the foundation tree.** D-arc + E-arc rebuild merged here 2026-05-25; tag `v0.7.0-freeze` (`1e0f332`). Old v0.6.x tree preserved at tag `v0.6.x-final`. |
 | Markoff | `exploration/new-foundation` | **Deleted** (merged into Markoff `master`; reachable via the merge commit). |
 | Corbomite (`/home/clinton/dev/Corbomite`) | `master` | **Now the foundation port.** Submodule pinned to Markoff `v0.7.0-freeze`. |
-| Corbomite | `port/foundation-exploration` | Merged into `master` 2026-05-25; disposition (retire/archive-tag) pending. |
+| Corbomite | `port/foundation-exploration` | Merged into `master` and **deleted** 2026-05-25; only `master` exists. |
 
 ## Merge plan back to masters — DONE
 
@@ -63,27 +65,29 @@
 
 ## Known degradations
 
-| # | Symptom | Probable cause | Next move |
-|---|---------|---------------|-----------|
-| 1 | Editing causes content to repeat at end of doc | Multiple `LiveListModelBindings` share one `MarkoffDocument` across tabs; each EditorWidget creates its own Session; edits fire on the shared doc → all bindings respond. | Corbomite-side restructuring. Either one binding per doc shared by views, or one doc per leaf with state replication. Brainstorm needed. (Task #8) |
-| 2 | Source mode renders empty | `SourceTextDocumentBinding` needs its own population trigger equivalent to EditorWidget's `flushPendingD2Changed`. | Probably a Markoff-side fix. Investigate when source port begins. (Task #9) |
-| 3 | Most toolbar actions stubbed | `Markoff::ActionId` enum restructured; Corbomite's editor-action registration block disabled wholesale. | Each comes back per feature port. Find UI port covers find-related ones. |
-| 4 | Sidebars don't show on vault open | Unknown — possibly plugin loading regression or sidebar-construction issue in MainWindow. Unrelated to editor port. | Investigate separately. Not editor-port-blocking. |
-| 5 | Reading mode = no-op fallback to Live | `Markoff::Reading::ReadingView` retired. | Restore reading leaf later OR rewire against read-only Live (`Capabilities::Editable`). |
-| 6 | MermaidRenderer is no-op | Abstract retired with old leaves (E5 work). | E5 Markoff phase. |
-| 7 | Embeds non-functional | Abstract restored, no concrete factories registered. | E3 Markoff phase. |
-| 8 | HoverPopover renders nothing | Used Reading::ReadingView. | Depends on Reading restoration OR Live-with-editing-disabled. |
-| 9 | Theme import from QOwnNotes .ini disabled | `Markoff::Theme::importFromQOwnNotesIni` retired. | Theme port. |
-| 10 | Word count not updated | `wordCountChanged` signal retired; no equivalent yet. | Small Markoff-side add (wordCount on MarkoffDocument). |
-| 11 | Undo/redo non-functional | `Markoff::Editor::undo/redo` retired; new path is `MarkoffDocument::d2UndoLog`. | Wire to d2UndoLog in a separate port pass. |
-| 12 | Ephemeral state round-trip non-functional | Line/column cursor model doesn't map directly to TextAnchor/BlockAnchor. | Revisit when EphemeralState pulls. |
+| # | Symptom | Probable cause | Next move | Disposition (2026-06-10) |
+|---|---------|---------------|-----------|--------------------------|
+| 1 | Editing causes content to repeat at end of doc | Multiple `LiveListModelBindings` share one `MarkoffDocument` across tabs; each EditorWidget creates its own Session; edits fire on the shared doc → all bindings respond. | Corbomite-side restructuring. Either one binding per doc shared by views, or one doc per leaf with state replication. Brainstorm needed. (Task #8) | **FIXED** 2026-05-25 (`0e970bb3`). |
+| 2 | Source mode renders empty | `SourceTextDocumentBinding` needs its own population trigger equivalent to EditorWidget's `flushPendingD2Changed`. | Probably a Markoff-side fix. Investigate when source port begins. (Task #9) | **FIXED** pre-merge (`Markoff::Source::Editor` hosted lazily). |
+| 3 | Most toolbar actions stubbed | `Markoff::ActionId` enum restructured; Corbomite's editor-action registration block disabled wholesale. | Each comes back per feature port. Find UI port covers find-related ones. | **MOSTLY FIXED** — LiveActionController (`aba3e30c`/`9fc6b949`), Find suite (`88ab1184..7f975120`), zoom (`d813fd21`); status-bar cursor info still dead. |
+| 4 | Sidebars don't show on vault open | Unknown — possibly plugin loading regression or sidebar-construction issue in MainWindow. Unrelated to editor port. | Investigate separately. Not editor-port-blocking. | **OPEN** (no fix commit found). |
+| 5 | Reading mode = no-op fallback to Live | `Markoff::Reading::ReadingView` retired. | Restore reading leaf later OR rewire against read-only Live (`Capabilities::Editable`). | **FIXED** 2026-05-29 (`775fa54e`) — via a third option neither "next move" listed: read-only Styled leaf. |
+| 6 | MermaidRenderer is no-op | Abstract retired with old leaves (E5 work). | E5 Markoff phase. | **HALF** — `MermaidRenderer` is real mmdr-backed (`libs/core/src/MermaidRenderer.cpp`) but nothing in the render path consumes it (E5-gated). |
+| 7 | Embeds non-functional | Abstract restored, no concrete factories registered. | E3 Markoff phase. | **HALF** — Live embeds render via Markoff E3 (one image-node bug, steered 2026-06-04, `b6ae2c0f`); Corbomite-side hover EmbedRenderer still dead. |
+| 8 | HoverPopover renders nothing | Used Reading::ReadingView. | Depends on Reading restoration OR Live-with-editing-disabled. | **OPEN** (machinery runs, renders nothing). |
+| 9 | Theme import from QOwnNotes .ini disabled | `Markoff::Theme::importFromQOwnNotesIni` retired. | Theme port. | **OPEN** (`ThemeService.cpp` still `#if 0`). |
+| 10 | Word count not updated | `wordCountChanged` signal retired; no equivalent yet. | Small Markoff-side add (wordCount on MarkoffDocument). | **OPEN** (`m_cachedWordCount` never written). |
+| 11 | Undo/redo non-functional | `Markoff::Editor::undo/redo` retired; new path is `MarkoffDocument::d2UndoLog`. | Wire to d2UndoLog in a separate port pass. | **FIXED** (`MainWindow.cpp:1267` routes to LiveActionController) — though Source-mode undo uses the Qt widget stack (separate punch-list item). |
+| 12 | Ephemeral state round-trip non-functional | Line/column cursor model doesn't map directly to TextAnchor/BlockAnchor. | Revisit when EphemeralState pulls. | **OPEN** (stub TODOs `NoteEditorWidget.cpp:233-255`). |
 
 ## Next session — priority order
 
-1. **Find UI port** (the original port-first target). Build a Corbomite-owned `FindBar` QWidget; instantiate `Markoff::FindController` per document; attach/detach on leaf swap; wire Ctrl+F + FindNext + FindPrevious. Should produce zero or one Markoff-side micro-spec.
-2. **Doc-sharing doubling.** Quality bug — needs its own brainstorm + micro-spec.
-3. **Source mode empty.** Probably Markoff-side fix.
-4. **`MarkoffDocument::resetContent` builds D2.** Markoff-side cleanup of the workaround we did in Vault.
+> All four items below are done or overtaken as of 2026-06-10.
+
+1. ~~**Find UI port** (the original port-first target). Build a Corbomite-owned `FindBar` QWidget; instantiate `Markoff::FindController` per document; attach/detach on leaf swap; wire Ctrl+F + FindNext + FindPrevious. Should produce zero or one Markoff-side micro-spec.~~ — Done: Find suite landed (`88ab1184..7f975120`).
+2. ~~**Doc-sharing doubling.** Quality bug — needs its own brainstorm + micro-spec.~~ — Done: fixed 2026-05-25 (`0e970bb3`).
+3. ~~**Source mode empty.** Probably Markoff-side fix.~~ — Done: fixed pre-merge (`Markoff::Source::Editor` hosted lazily).
+4. ~~**`MarkoffDocument::resetContent` builds D2.** Markoff-side cleanup of the workaround we did in Vault.~~ — Overtaken: `loadFromMarkdown` is the canonical path post-`v0.7.0-freeze`.
 
 ## Commit ledger (this branch only)
 
@@ -116,6 +120,8 @@ All on Markoff `exploration/new-foundation`. Listed for traceability:
 Plus this branch's own `876f...` (or wherever the handoff doc lands).
 
 ## How to resume
+
+> **Historical:** the branch was merged and deleted 2026-05-25; only `master` exists — these steps no longer apply.
 
 Fresh agent landing on this branch:
 

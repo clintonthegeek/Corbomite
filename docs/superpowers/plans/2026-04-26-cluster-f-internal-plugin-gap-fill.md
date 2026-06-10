@@ -20,7 +20,7 @@ A user opening Corbomite for the first time has the same out-of-box surface as O
 3. **Daily notes** (read `.obsidian/daily-notes.json` already; need the plugin: command + folder template + date-format + open-on-startup)
 4. **Templates** (read `.obsidian/templates.json` already; need the insert-template command + variable substitution + folder picker)
 5. **Page preview** (HoverPopover over `[[link]]` already works; needs to register as a real internal plugin so it's toggle-able)
-6. **Word count** (status bar widget — gated on Cluster B `addStatusBarItem`)
+6. **Word count** (status bar widget — gate cleared 2026-04-28: Cluster B closed, `StatusBarRegistry` exists)
 7. **File recovery** (Version History modal + backup store; addendum has full spec; significant work)
 8. **Note composer** (merge-file modal + split-file commands)
 
@@ -35,7 +35,7 @@ A user opening Corbomite for the first time has the same out-of-box surface as O
 
 ## Dependencies
 
-- #6 (word count) is gated on **Cluster B** delivering `addStatusBarItem`
+- #6 (word count) — gate cleared 2026-04-28: **Cluster B** closed; `StatusBarRegistry` exists
 - #7 (file recovery) wants `Cluster R`'s "Open version history" hamburger slot (already present per legacy retro)
 
 ## Phases

@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-27
 **Punch-list item:** P2 (shakedown) — "PropertiesView is read-mostly" (`docs/punch-list.md`, surfaced T-14 + T-17)
-**Status:** design approved; ready for implementation plan
+**Status:** Shipped 2026-05-27
 
 ## Background
 
