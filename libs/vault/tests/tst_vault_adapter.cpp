@@ -8,12 +8,15 @@
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/storage/DataAdapter.h"
+#include "corbomite/storage/FileSystemAdapter.h"
+#include "corbomite/core/NoteDocument.h"
 
 class TestVaultAdapter : public QObject
 {
     Q_OBJECT
 private slots:
     void buildTreeUsesAdapter();
+    void saveDocument_routesThroughAdapterWriteBinary();
 };
 
 namespace {
@@ -54,6 +57,26 @@ public:
     bool mkpath(const QString &) override { return true; }
     bool moveToTrash(const QString &) override { return false; }
 };
+
+/// Wraps FileSystemAdapter and records writeBinary calls so tests can verify
+/// that Vault::saveDocument routes through the adapter rather than a raw QFile.
+class SpyAdapter : public Corbomite::FileSystemAdapter
+{
+public:
+    int writeBinaryCalls = 0;
+    QString lastWritePath;
+    QByteArray lastWriteContent;
+
+    bool writeBinary(const QString &absolutePath,
+                     const QByteArray &content,
+                     const Corbomite::WriteHints &hints = {}) override
+    {
+        ++writeBinaryCalls;
+        lastWritePath    = absolutePath;
+        lastWriteContent = content;
+        return Corbomite::FileSystemAdapter::writeBinary(absolutePath, content, hints);
+    }
+};
 }
 
 void TestVaultAdapter::buildTreeUsesAdapter()
@@ -73,6 +96,35 @@ void TestVaultAdapter::buildTreeUsesAdapter()
     QVERIFY(adapter.statCalls > 0);
     QCOMPARE(vault.getFiles().size(), 2);
     QCOMPARE(vault.getMarkdownFiles().size(), 2);
+}
+
+void TestVaultAdapter::saveDocument_routesThroughAdapterWriteBinary()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    // Pre-create the file so it is in the vault tree.
+    const QString filePath = dir.path() + QStringLiteral("/note.md");
+    QFile f(filePath);
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write("initial");
+    f.close();
+
+    SpyAdapter adapter;
+    Corbomite::Vault vault(&adapter);
+    vault.load(dir.path());
+
+    auto *note = vault.openDocument(QStringLiteral("note.md"));
+    QVERIFY(note);
+
+    note->setModified(true);
+
+    const int writesBefore = adapter.writeBinaryCalls;
+    QVERIFY(vault.saveDocument(note));
+
+    // The adapter's writeBinary must have been called exactly once for the save.
+    QCOMPARE(adapter.writeBinaryCalls, writesBefore + 1);
+    QVERIFY(adapter.lastWritePath.endsWith(QStringLiteral("/note.md")));
 }
 
 QTEST_MAIN(TestVaultAdapter)

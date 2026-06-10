@@ -752,16 +752,13 @@ bool Vault::saveDocument(NoteDocument *doc)
     const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
     stampSelfWrite(rel, nowMs);
 
-    QFile f(abs);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+    // Route through the adapter for an atomic temp-file+rename write.
+    // Passing nowMs as the mtime hint mirrors the Obsidian mtime-hint contract
+    // and keeps the watcher's ledger consistent with the on-disk mtime.
+    WriteHints hints;
+    hints.mtimeMs = nowMs;
+    if (!m_adapter->writeBinary(abs, bytes, hints)) {
         // Remove the stamp — write never happened.
-        m_selfWriteMtimes.remove(rel);
-        return false;
-    }
-    const qint64 written = f.write(bytes);
-    f.close();
-
-    if (written != static_cast<qint64>(bytes.size())) {
         m_selfWriteMtimes.remove(rel);
         return false;
     }
