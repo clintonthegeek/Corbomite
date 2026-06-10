@@ -107,6 +107,16 @@ target_link_libraries(tst_mainwindow_link_resolver_freshness PRIVATE
 set_tests_properties(tst_mainwindow_link_resolver_freshness PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Task 0.7 P1 — DB location: verify that index.sqlite and metadata-cache.db
+# are written under AppLocalDataLocation (not inside the vault/.obsidian/),
+# and that legacy in-vault DB files are removed on vault open.
+add_executable(tst_mainwindow_db_paths tst_mainwindow_db_paths.cpp)
+add_test(NAME tst_mainwindow_db_paths COMMAND tst_mainwindow_db_paths)
+target_link_libraries(tst_mainwindow_db_paths PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core)
+set_tests_properties(tst_mainwindow_db_paths PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Phase C7 Task 14 — pin the Cluster R hamburger Find/Replace dispatch
 # (Task 12) and MainWindow's edit_find_next/_previous/_replace QAction
 # routing into the active leaf (Task 13). Synthetic MarkdownView wrapper

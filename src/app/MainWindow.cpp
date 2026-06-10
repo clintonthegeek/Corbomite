@@ -51,6 +51,7 @@
 #include "editor/MarkdownView.h"
 #include "canvas/CanvasFileView.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
+#include "corbomite/core/PathUtils.h"
 #include "corbomite/core/StatusBarRegistry.h"
 #include "corbomite/core/LucideIconRegistry.h"
 #include "corbomite/core/DecorationProviderRegistry.h"
@@ -2264,14 +2265,49 @@ void MainWindow::onVaultOpened(const QString &path)
 
     QDir().mkpath(configPath);
 
+    // Db files live in AppLocalDataLocation (outside the vault) so they don't
+    // pollute the vault directory, appear in Obsidian sync, or show up in git.
+    // The per-vault subdir uses the same basename+hash keying as the
+    // file-recovery path (PathUtils::vaultLocalDataDir).
+    const QString dbDir = PathUtils::vaultLocalDataDir(path);
+    if (!dbDir.isEmpty())
+        QDir().mkpath(dbDir);
+
+    // Legacy cleanup: if the DB files are still in the old .obsidian/ location
+    // (pre-Task-0.7), delete them so the vault stays clean. They are entirely
+    // regenerable. Best-effort only — never touch any other .obsidian/ files.
+    {
+        const QString legacyIndex   = configPath + QStringLiteral("/index.sqlite");
+        const QString legacyCache   = configPath + QStringLiteral("/metadata-cache.db");
+        if (QFile::exists(legacyIndex)) {
+            if (QFile::remove(legacyIndex))
+                qDebug() << "MainWindow: removed legacy in-vault DB" << legacyIndex;
+            else
+                qDebug() << "MainWindow: could not remove legacy in-vault DB" << legacyIndex;
+        }
+        if (QFile::exists(legacyCache)) {
+            if (QFile::remove(legacyCache))
+                qDebug() << "MainWindow: removed legacy in-vault DB" << legacyCache;
+            else
+                qDebug() << "MainWindow: could not remove legacy in-vault DB" << legacyCache;
+        }
+    }
+
+    const QString indexDbPath = dbDir.isEmpty()
+        ? configPath + QStringLiteral("/index.sqlite")      // fallback (AppLocalDataLocation unavailable)
+        : dbDir + QStringLiteral("/index.sqlite");
+    const QString cacheDbPath = dbDir.isEmpty()
+        ? configPath + QStringLiteral("/metadata-cache.db")
+        : dbDir + QStringLiteral("/metadata-cache.db");
+
     delete m_searchIndex;
     m_searchIndex = new SQLiteIndex(this);
-    m_searchIndex->open(configPath + QStringLiteral("/index.sqlite"));
+    m_searchIndex->open(indexDbPath);
     m_searchIndex->setVaultRoot(path);
     m_searchIndex->setMetadataCache(m_metadataCache);
     if (m_tagSuggest) m_tagSuggest->setIndex(m_searchIndex);
 
-    m_metadataCache->open(configPath + QStringLiteral("/metadata-cache.db"));
+    m_metadataCache->open(cacheDbPath);
 
     m_searchIndex->reconcileWithCache();
 

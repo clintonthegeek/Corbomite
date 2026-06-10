@@ -3,10 +3,10 @@
 #include "corbomite/core/TextFileView.h"
 #include "corbomite/core/DiffMatchPatch.h"
 #include "corbomite/core/NoteDocument.h"
+#include "corbomite/core/PathUtils.h"
 #include "corbomite/storage/DataAdapter.h"
 
 #include <QTimer>
-#include <QCryptographicHash>
 #include <QDateTime>
 #include <QFileInfo>
 #include <QStandardPaths>
@@ -145,18 +145,15 @@ void TextFileView::writeBackup(const QString &content)
         QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     if (dataRoot.isEmpty()) return;
 
-    // Per-vault subdir keyed by basename + stable hash of the absolute
-    // vault path so two vaults with the same basename can't collide.
-    const QByteArray vaultHash =
-        QCryptographicHash::hash(m_vaultRoot.toUtf8(),
-                                 QCryptographicHash::Sha256)
-            .toHex().left(12);
-    const QString vaultId =
-        QFileInfo(m_vaultRoot).fileName() + QLatin1Char('-')
-        + QString::fromLatin1(vaultHash);
+    // Per-vault subdir keyed by basename + stable 12-char SHA-256 prefix of
+    // the absolute vault path (same keying as PathUtils::vaultId / the index +
+    // metadata-cache location). Uses a sibling "file-recovery" subtree so the
+    // two concerns don't share a directory.
+    const QString id = PathUtils::vaultId(m_vaultRoot);
+    if (id.isEmpty()) return;
 
     const QString recoveryDir =
-        dataRoot + QStringLiteral("/file-recovery/") + vaultId;
+        dataRoot + QStringLiteral("/file-recovery/") + id;
     m_adapter->mkpath(recoveryDir);
 
     QString baseName = QFileInfo(m_file->relativePath()).baseName();

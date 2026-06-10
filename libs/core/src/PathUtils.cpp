@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/PathUtils.h"
 
+#include <QCryptographicHash>
+#include <QFileInfo>
+#include <QStandardPaths>
 #include <QUrl>
 
 namespace Corbomite::PathUtils {
@@ -39,6 +42,26 @@ QString corbomiteUrlFor(const QString &vaultName,
 {
     return buildUrl(QStringLiteral("corbomite"),
                     vaultName, relativePath, subpath);
+}
+
+QString vaultId(const QString &vaultRoot)
+{
+    if (vaultRoot.isEmpty()) return {};
+    const QByteArray vaultHash =
+        QCryptographicHash::hash(vaultRoot.toUtf8(), QCryptographicHash::Sha256)
+            .toHex().left(12);
+    return QFileInfo(vaultRoot).fileName() + QLatin1Char('-')
+           + QString::fromLatin1(vaultHash);
+}
+
+QString vaultLocalDataDir(const QString &vaultRoot)
+{
+    const QString id = vaultId(vaultRoot);
+    if (id.isEmpty()) return {};
+    const QString dataRoot =
+        QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (dataRoot.isEmpty()) return {};
+    return dataRoot + QStringLiteral("/index/") + id;
 }
 
 }  // namespace Corbomite::PathUtils
