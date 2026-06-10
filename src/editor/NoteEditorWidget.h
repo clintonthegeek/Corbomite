@@ -165,6 +165,12 @@ private:
     // Restores ephemeral state to the target leaf widget.
     void restoreEphemeralStateFor(ViewMode mode, const EphemeralState &s);
 
+    // Phase 1 (contract v2) — one-time wiring applied to each leaf at
+    // construction: theme application now; contextChanged + cursor
+    // forwarding are added by the toolbar-state and statusbar tasks.
+    // Takes the base pointer: wiring must stay leaf-agnostic.
+    void wireLeaf(Markoff::MarkdownView *leaf);
+
     QStackedWidget *m_stack = nullptr;
 
     // Shared link service forwarded to all editor leaves (Live + Reading).

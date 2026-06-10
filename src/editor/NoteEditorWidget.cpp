@@ -77,6 +77,8 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     // MarkoffDocument or LinkService. Each will be hooked back up as its
     // feature ports — find UI first.
     m_editor->installEventFilter(this);
+
+    wireLeaf(m_editor);
 }
 
 void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
@@ -139,10 +141,17 @@ void NoteEditorWidget::setThemeService(Core::ThemeService *service)
 void NoteEditorWidget::applyThemeToAllLeaves()
 {
     if (!m_themeService) return;
-    // TODO(port-foundation-exploration): theme propagation deferred — full
-    // theme port disabled (SystemThemeBuilder + ThemeService stubbed out).
-    // Live leaf's theme path is binding()->setTheme(...) but Markoff::Theme
-    // ctor / setters changed; revisit when the theme feature ports.
+    const Markoff::Theme t = m_themeService->currentTheme();
+    const std::initializer_list<Markoff::MarkdownView *> leaves{
+        m_editor, m_sourceEditor, m_styledReadingView};
+    for (Markoff::MarkdownView *view : leaves)
+        if (view) view->setTheme(t);
+}
+
+void NoteEditorWidget::wireLeaf(Markoff::MarkdownView *leaf)
+{
+    if (m_themeService)
+        leaf->setTheme(m_themeService->currentTheme());
 }
 
 void NoteEditorWidget::setMermaidRenderer(Markoff::MermaidRenderer *renderer)
@@ -191,7 +200,7 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
         if (!m_sourceEditor) {
             m_sourceEditor = new Markoff::Source::Editor(this);
             m_sourceIndex = m_stack->addWidget(m_sourceEditor);
-            // TODO(port-foundation-exploration): setViewTheme retired (theme port).
+            wireLeaf(m_sourceEditor);
         }
         break;
     case ViewMode::LivePreview:
@@ -205,6 +214,7 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
             // leaf are routed through the same onLinkActivated slot as Live mode.
             m_styledReadingView->setLinkService(m_linkService);
             m_readingIndex = m_stack->addWidget(m_styledReadingView);
+            wireLeaf(m_styledReadingView);
         }
         break;
     }
