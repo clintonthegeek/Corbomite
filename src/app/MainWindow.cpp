@@ -2227,12 +2227,13 @@ void MainWindow::onVaultOpened(const QString &path)
         return m_vaultObj->openDocument(relPath);
     });
 
-    // LinkResolver
+    // LinkResolver — populated with ALL files (not just .md) so that
+    // attachment embeds (e.g. ![[image.png]]) resolve alongside note wikilinks.
     delete m_linkResolver;
     m_linkResolver = new LinkResolver();
     {
         QStringList allPaths;
-        const auto files = m_vaultObj->getMarkdownFiles();
+        const auto files = m_vaultObj->getFiles();
         allPaths.reserve(files.size());
         for (auto *tf : files) {
             if (tf) allPaths.append(tf->path);
@@ -2307,7 +2308,11 @@ void MainWindow::onVaultOpened(const QString &path)
     connect(m_vaultObj, &Vault::created, this,
             [this](TAbstractFile *f) {
         auto *tf = dynamic_cast<TFile *>(f);
-        if (!tf || tf->extension != QLatin1String("md")) return;
+        if (!tf) return;
+        // Task 0.3 P1 — keep LinkResolver fresh; feed all file types so
+        // attachment embeds (e.g. ![[image.png]]) resolve without a reopen.
+        if (m_linkResolver) m_linkResolver->addVaultPath(tf->path);
+        if (tf->extension != QLatin1String("md")) return;
         if (!m_metadataCache) return;
         const QByteArray bytes = m_vaultObj->read(tf);
         const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;
@@ -2331,14 +2336,23 @@ void MainWindow::onVaultOpened(const QString &path)
         }
     });
     connect(m_vaultObj, &Vault::deletedFile, this, [this](TAbstractFile *f) {
-        if (!f || !m_metadataCache) return;
+        if (!f) return;
+        // Task 0.3 P1 — keep LinkResolver fresh on delete.
+        if (m_linkResolver) m_linkResolver->removeVaultPath(f->path);
+        if (!m_metadataCache) return;
         m_metadataCache->onFileDeleted(f->path);
     });
     connect(m_vaultObj, &Vault::renamed, this,
             [this](TAbstractFile *f, const QString &oldPath) {
-        if (!f || !m_metadataCache) return;
-        m_metadataCache->onFileDeleted(oldPath);
+        if (!f) return;
         auto *tf = dynamic_cast<TFile *>(f);
+        // Task 0.3 P1 — keep LinkResolver fresh on rename (all file types).
+        if (m_linkResolver && tf) {
+            m_linkResolver->removeVaultPath(oldPath);
+            m_linkResolver->addVaultPath(tf->path);
+        }
+        if (!m_metadataCache) return;
+        m_metadataCache->onFileDeleted(oldPath);
         if (!tf || tf->extension != QLatin1String("md")) return;
         const QByteArray bytes = m_vaultObj->read(tf);
         const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;

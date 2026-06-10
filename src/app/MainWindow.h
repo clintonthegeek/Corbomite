@@ -90,6 +90,8 @@ public:
     Vault *vaultObj() const { return m_vaultObj; }
     FileManager *fileManager() const { return m_fileManager; }
     CommandRegistry *commandRegistry() const { return m_commandRegistry; }
+    /// Exposed for integration tests that verify LinkResolver freshness.
+    LinkResolver *linkResolver() const { return m_linkResolver; }
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);

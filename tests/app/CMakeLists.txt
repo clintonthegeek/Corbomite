@@ -94,6 +94,19 @@ target_link_libraries(tst_mainwindow_link_navigation PRIVATE
 set_tests_properties(tst_mainwindow_link_navigation PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Task 0.3 P1 — LinkResolver freshness: verify that create/rename/delete in
+# an open vault immediately update the app-level LinkResolver (no reopen
+# needed), and that non-.md attachments are resolvable targets from vault open.
+# Driven through the real Vault signal path, not by calling addVaultPath directly.
+add_executable(tst_mainwindow_link_resolver_freshness
+    tst_mainwindow_link_resolver_freshness.cpp)
+add_test(NAME tst_mainwindow_link_resolver_freshness
+         COMMAND tst_mainwindow_link_resolver_freshness)
+target_link_libraries(tst_mainwindow_link_resolver_freshness PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Vault Corbomite::Storage)
+set_tests_properties(tst_mainwindow_link_resolver_freshness PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Phase C7 Task 14 — pin the Cluster R hamburger Find/Replace dispatch
 # (Task 12) and MainWindow's edit_find_next/_previous/_replace QAction
 # routing into the active leaf (Task 13). Synthetic MarkdownView wrapper
