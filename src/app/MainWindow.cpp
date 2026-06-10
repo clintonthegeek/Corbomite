@@ -3,9 +3,10 @@
 #include "WelcomeScreen.h"
 #include "CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
-// TODO(port): old Markoff::Editor retired
-// include <markoff/Editor.h>
-#include <markoff/source/Editor.h>
+// Leaf-agnostic consumption (Phase 1, contract v2): MainWindow dispatches
+// every editor operation through the Markoff::MarkdownView base — no
+// concrete leaf headers may appear in this file (Task 10 grep gate).
+#include <markoff/core/MarkdownView.h>
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/core/Command.h"
@@ -61,10 +62,6 @@
 #include "corbomite/core/MenuEventEmitter.h"
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/VaultResourceProvider.h"
-// TODO(port): Reading::EmbedRenderer retired
-#include <markoff/live/EditorWidget.h>
-#include <markoff/live/LiveActionController.h>
-#include <markoff/live/LiveListModelBinding.h>
 #include "editor/HoverPopover.h"
 #include "editor/TagSuggest.h"
 #include "editor/WikiLinkSuggest.h"
@@ -203,18 +200,9 @@ Markoff::FindController *findControllerFor(NoteEditorWidget *neWidget)
     return noteDoc->findController();
 }
 
-// Walks: editor → live EditorWidget → binding → actionController. Null-safe
-// at every step. Returns nullptr if the active leaf isn't a live editor or
-// hasn't been fully wired yet.
-Markoff::Live::LiveActionController *liveActionControllerFor(NoteEditorWidget *neWidget)
-{
-    if (!neWidget) return nullptr;
-    auto *editor = neWidget->editor();
-    if (!editor) return nullptr;
-    auto *binding = editor->binding();
-    if (!binding) return nullptr;
-    return binding->actionController();
-}
+// Matches the live leaf's kFontScaleStep so menu zoom and the editor's
+// own Ctrl+=/Ctrl+- shortcuts step identically.
+constexpr qreal kZoomStep = 1.10;
 
 } // namespace
 
@@ -528,8 +516,8 @@ void MainWindow::onInsertCallout()
     CalloutPickerDialog dlg(this);
     if (dlg.exec() != QDialog::Accepted) return;
     // TODO(port-foundation-exploration): insertCallout was on the old
-    // Markoff::Editor; not yet on Markoff::Live::EditorWidget. Insert path
-    // needs porting against the new Live API.
+    // pre-port editor; the contract-v2 MarkdownView base has no insert-
+    // callout verb yet. Re-steer upstream when callout insertion returns.
     (void)dlg.selectedType();
     (void)dlg.title();
 }
@@ -696,32 +684,35 @@ void MainWindow::onFindPrev()
     if (auto *fc = findControllerFor(activeEditor())) fc->findPrevious();
 }
 
-// Zoom is editor-owned: Markoff installs window-level Shortcuts (Ctrl+= /
+// Zoom keys are editor-owned: Markoff installs window-level Shortcuts (Ctrl+= /
 // Ctrl++ / Ctrl+Shift+= / Ctrl+- / Ctrl+0) in LiveView.qml as "editor-internal
 // viewport concerns the host has no opinion about." Corbomite therefore does
 // NOT bind those keys (doing so caused a KActionCollection ambiguity →
 // "Ctrl+= is ambiguous, no action triggered"). The View-menu zoom items remain
-// and forward to the active Live leaf's LiveActionController so menu clicks
-// still zoom. No-op in Source/Reading (no font-scale zoom there).
+// and dispatch setFontScale on the MarkdownView base (contract v2) — all three
+// leaves honor it, so zoom works in Source and Reading too.
 void MainWindow::onZoomIn()
 {
     auto *editor = activeEditor();
     if (!editor) return;
-    if (auto *lac = liveActionControllerFor(editor)) lac->zoomInAction()->trigger();
+    if (auto *leaf = editor->activeLeaf())
+        leaf->setFontScale(leaf->fontScale() * kZoomStep);   // base clamps to [0.25, 4.0]
 }
 
 void MainWindow::onZoomOut()
 {
     auto *editor = activeEditor();
     if (!editor) return;
-    if (auto *lac = liveActionControllerFor(editor)) lac->zoomOutAction()->trigger();
+    if (auto *leaf = editor->activeLeaf())
+        leaf->setFontScale(leaf->fontScale() / kZoomStep);
 }
 
 void MainWindow::onZoomReset()
 {
     auto *editor = activeEditor();
     if (!editor) return;
-    if (auto *lac = liveActionControllerFor(editor)) lac->zoomResetAction()->trigger();
+    if (auto *leaf = editor->activeLeaf())
+        leaf->setFontScale(1.0);
 }
 
 void MainWindow::onAboutApp()
