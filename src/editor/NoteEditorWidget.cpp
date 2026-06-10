@@ -13,7 +13,10 @@
 #include "corbomite/storage/EphemeralState.h"
 #include "dialogs/QuickSwitcherModel.h"
 
+#include <markoff/core/DefaultLinkService.h>
 #include <markoff/core/FindController.h>
+#include <markoff/core/LinkActivation.h>
+#include <markoff/core/LinkKind.h>
 #include <markoff/core/MarkdownView.h>
 #include <markoff/core/MarkoffDocument.h>
 #include <markoff/live/EditorWidget.h>
@@ -30,6 +33,7 @@
 // as feature ports land.
 
 #include <QCursor>
+#include <QDesktopServices>
 #include <QKeyEvent>
 #include <QStackedWidget>
 #include <QStringListModel>
@@ -39,6 +43,7 @@ namespace Corbomite {
 
 NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     : QWidget(parent)
+    , m_linkService(new Markoff::DefaultLinkService(this))
     , m_stack(new QStackedWidget(this))
     , m_editor(new Markoff::Live::EditorWidget(
           Markoff::Live::LiveListModelBinding::AllCapabilities, this))
@@ -55,6 +60,13 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
 
     m_livePreviewIndex = m_stack->addWidget(m_editor);
     m_stack->setCurrentIndex(m_livePreviewIndex);
+
+    // Wire the shared link service into the Live binding so link clicks in
+    // Live mode route through it. The service is also set on the Reading leaf
+    // in ensureWidgetConstructed(Reading).
+    m_editor->binding()->setLinkService(m_linkService);
+    connect(m_linkService, &Markoff::LinkService::linkActivated,
+            this, &NoteEditorWidget::onLinkActivated);
 
     // TODO(port-foundation-exploration): old Markoff::Editor exposed
     // textChanged / cursorPositionChanged(int line, int col) /
@@ -189,6 +201,9 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
         if (!m_styledReadingView) {
             m_styledReadingView = new Markoff::Styled::Editor(this);
             m_styledReadingView->setReadOnly(true);
+            // Share the same link service so link activations from the Reading
+            // leaf are routed through the same onLinkActivated slot as Live mode.
+            m_styledReadingView->setLinkService(m_linkService);
             m_readingIndex = m_stack->addWidget(m_styledReadingView);
         }
         break;
@@ -472,6 +487,33 @@ QString NoteEditorWidget::resolveTarget(const QString &target) const
     if (target.endsWith(QStringLiteral(".md")) || target.endsWith(QStringLiteral(".canvas")))
         return target;
     return target + QStringLiteral(".md");
+}
+
+void NoteEditorWidget::onLinkActivated(const Markoff::LinkActivation &activation)
+{
+    // External URLs (http/https/mailto) are opened by the OS browser.
+    if (activation.kind == Markoff::LinkKind::External) {
+        QDesktopServices::openUrl(activation.resolvedTarget);
+        return;
+    }
+
+    // For wikilinks, `page` is the resolved note name (e.g. "NoteName" or
+    // "folder/NoteName"). For plain markdown links to .md/.canvas files, use
+    // `rawText`. Build a raw target and let MainWindow's onNoteActivated or its
+    // link-resolver-aware override handle vault-wide disambiguation.
+    QString rawTarget;
+    if (!activation.page.isEmpty()) {
+        // WikiLink or Embed — page is the note name, section is the heading.
+        rawTarget = activation.page;
+    } else if (!activation.rawText.isEmpty()) {
+        rawTarget = activation.rawText;
+    } else {
+        return;
+    }
+
+    // Emit the resolved path signal. The receiver (MainWindow) is responsible
+    // for vault-aware disambiguation via LinkResolver.
+    Q_EMIT linkActivated(rawTarget);
 }
 
 // --- Find UI ---

@@ -241,3 +241,25 @@ add_test(NAME tst_reading_styled_leaf COMMAND tst_reading_styled_leaf)
 set_tests_properties(tst_reading_styled_leaf PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+# Task 0.2 — NoteEditorWidget::linkActivated is emitted when the Live
+# binding's LinkService fires, covering both Live and Reading modes plus
+# external-link suppression and shared-service no-double-emit invariants.
+add_executable(tst_link_activation
+    tst_link_activation.cpp
+)
+target_include_directories(tst_link_activation PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_link_activation PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    markoff_live
+    markoff_styled
+    Corbomite::Core
+)
+add_test(NAME tst_link_activation COMMAND tst_link_activation)
+set_tests_properties(tst_link_activation PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)

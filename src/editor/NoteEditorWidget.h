@@ -4,11 +4,14 @@
 #include <QJsonObject>
 #include <QWidget>
 
+#include <markoff/core/LinkActivation.h>
+
 class QStackedWidget;
 
 namespace Markoff {
 class MarkdownView;
 class MermaidRenderer;  // stub forward decl — type undefined post-port (E5 work)
+class DefaultLinkService;
 }
 
 namespace Markoff::Live {
@@ -140,6 +143,11 @@ private:
     // Link resolution
     QString resolveTarget(const QString &target) const;
 
+    // Receives Markoff::LinkService::linkActivated from either the Live
+    // binding's service or the Reading leaf's service, resolves the raw
+    // target to a relative path, and re-emits as NoteEditorWidget::linkActivated.
+    void onLinkActivated(const Markoff::LinkActivation &activation);
+
     // --- Mode-transition helpers ---
     int stackIndexFor(ViewMode mode) const;
     void ensureWidgetConstructed(ViewMode mode);
@@ -158,6 +166,10 @@ private:
     void restoreEphemeralStateFor(ViewMode mode, const EphemeralState &s);
 
     QStackedWidget *m_stack = nullptr;
+
+    // Shared link service forwarded to all editor leaves (Live + Reading).
+    // Owned by this widget; constructed eagerly in NoteEditorWidget().
+    Markoff::DefaultLinkService *m_linkService = nullptr;
 
     Markoff::Live::EditorWidget *m_editor = nullptr;
     // Source mode widget — lazy. Constructed on first `setViewMode(Source)`

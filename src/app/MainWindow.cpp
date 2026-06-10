@@ -1117,8 +1117,39 @@ void MainWindow::propagateServicesToView(View *view)
             // abstract retired (E5 work) — setMermaidRenderer is now a no-op.
             editor->setMermaidRenderer(nullptr);
 
-            connect(editor, &NoteEditorWidget::linkActivated,
-                    this, &MainWindow::onNoteActivated, Qt::UniqueConnection);
+            // Task 0.2: NoteEditorWidget::linkActivated now fires (via
+            // DefaultLinkService wired in NoteEditorWidget ctor + Reading
+            // construction). Resolve the raw wikilink target through
+            // LinkResolver for proper vault-wide disambiguation before
+            // dispatching to onNoteActivated.
+            if (!editor->property("_mw_linkact").toBool()) {
+                editor->setProperty("_mw_linkact", true);
+                connect(editor, &NoteEditorWidget::linkActivated,
+                        this, [this, editor](const QString &rawTarget) {
+                    if (rawTarget.isEmpty()) return;
+                    // If already a vault-relative path (has .md / .canvas),
+                    // dispatch directly; otherwise resolve via LinkResolver.
+                    if (rawTarget.endsWith(QStringLiteral(".canvas"))) {
+                        onNoteActivated(rawTarget);
+                        return;
+                    }
+                    if (m_linkResolver) {
+                        const QString fromCtx = editor->noteDocument()
+                            ? editor->noteDocument()->relativePath()
+                            : QString{};
+                        const auto resolved = m_linkResolver->resolve(fromCtx, rawTarget);
+                        if (resolved.resolved && !resolved.path.isEmpty()) {
+                            onNoteActivated(resolved.path);
+                            return;
+                        }
+                    }
+                    // Fall back: append .md and let onNoteActivated create
+                    // the note if it does not exist.
+                    onNoteActivated(rawTarget.endsWith(QStringLiteral(".md"))
+                                        ? rawTarget
+                                        : rawTarget + QStringLiteral(".md"));
+                });
+            }
             connect(editor, &NoteEditorWidget::cursorInfoChanged,
                     this, &MainWindow::onCursorInfoChanged, Qt::UniqueConnection);
             // Guard with property — Qt::UniqueConnection doesn't work for lambdas.
