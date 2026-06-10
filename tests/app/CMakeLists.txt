@@ -81,6 +81,19 @@ target_link_libraries(tst_mainwindow_settings_apply PRIVATE
 set_tests_properties(tst_mainwindow_settings_apply PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Task 0.2 Finding 1 — MainWindow wikilink navigation dispatch.
+# Verifies the navigation lambda in propagateServicesToView (88ad1b46):
+# (a) link to an existing note navigates to it, and
+# (b) link to a missing note creates the .md file on disk (create-on-click).
+# Runs offscreen — no display server required.
+add_executable(tst_mainwindow_link_navigation
+    tst_mainwindow_link_navigation.cpp)
+add_test(NAME tst_mainwindow_link_navigation COMMAND tst_mainwindow_link_navigation)
+target_link_libraries(tst_mainwindow_link_navigation PRIVATE
+    Qt6::Test CorbomiteApp)
+set_tests_properties(tst_mainwindow_link_navigation PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Phase C7 Task 14 — pin the Cluster R hamburger Find/Replace dispatch
 # (Task 12) and MainWindow's edit_find_next/_previous/_replace QAction
 # routing into the active leaf (Task 13). Synthetic MarkdownView wrapper

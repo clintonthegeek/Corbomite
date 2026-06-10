@@ -2174,6 +2174,8 @@ void MainWindow::onNoteActivated(const QString &relativePath)
     if (m_vaultObj && m_vaultObj->getAbstractFileByPath(relativePath)) {
         openFileInWorkspace(relativePath);
     } else if (m_fileManager) {
+        // Obsidian create-on-click parity: clicking a wikilink whose target
+        // does not exist eagerly creates the note file on disk, then opens it.
         QString name = relativePath;
         if (name.endsWith(QStringLiteral(".md"))) name.chop(3);
         QString folder;
