@@ -6,6 +6,7 @@
 #include "NoteEditorWidget.h"
 
 #include <markoff/styled/Editor.h>
+#include <markoff/core/FindController.h>
 #include <markoff/core/MarkdownView.h>
 #include <markoff/core/MarkoffDocument.h>
 
@@ -86,6 +87,45 @@ private Q_SLOTS:
         QCOMPARE(spy.count(), 2);
         QVERIFY(qobject_cast<Markoff::Styled::Editor *>(widget.activeLeaf())
                 == nullptr);  // back on the Live leaf
+    }
+
+    // Phase 1 (contract v2): showFindBar in Reading mode must attach the
+    // FindController to the styled leaf via the MarkdownView base virtual.
+    // Falsifiable: with the old Live/Source qobject_cast switch the styled
+    // leaf is never attached, navigation does not scroll, and this fails.
+    void findAttachesInReadingMode()
+    {
+        NoteEditorWidget widget;
+        widget.resize(600, 240);
+        widget.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&widget));
+
+        NoteDocument doc(QStringLiteral("/tmp/vault"), QStringLiteral("note.md"));
+        // 80 paragraphs; the needle only matches in the last one, far below
+        // the initial viewport.
+        QStringList blocks;
+        for (int i = 0; i < 79; ++i)
+            blocks << QStringLiteral("Filler paragraph %1.").arg(i);
+        blocks << QStringLiteral("ZZUNIQUEZZ at the bottom.");
+        doc.setMarkdown(blocks.join(QStringLiteral("\n\n")));
+        widget.setNoteDocument(&doc);
+        widget.setViewMode(NoteEditorWidget::ViewMode::Reading);
+
+        auto *leaf = widget.activeLeaf();
+        QVERIFY(leaf);
+        QCOMPARE(leaf->scrollPositionVisualLine(), 0.0f);
+
+        widget.showFindBar();
+        auto *fc = doc.findController();
+        fc->setNeedle(QStringLiteral("ZZUNIQUEZZ"));
+        QVERIFY(fc->matchCount() >= 1);
+        fc->findNext();
+        QTest::qWait(50);
+
+        // The attached StyledFindAdapter must have scrolled toward the match.
+        QVERIFY2(leaf->scrollPositionVisualLine() > 0.0f,
+                 "find navigation did not scroll the Reading leaf — "
+                 "attachFindController not reaching the styled leaf");
     }
 };
 

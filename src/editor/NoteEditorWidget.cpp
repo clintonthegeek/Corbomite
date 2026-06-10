@@ -278,12 +278,8 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
 
     // 2. Detach outgoing leaf from the canonical document.
     if (isFindBarVisible() && m_doc) {
-        if (auto *leaf = activeLeaf()) {
-            if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
-                live->detachFindController();
-            else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
-                src->detachFindController();
-        }
+        if (auto *leaf = activeLeaf())
+            leaf->detachFindController();
     }
     if (auto *leaf = activeLeaf()) {
         leaf->setDocument(nullptr);
@@ -303,12 +299,8 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
     }
     if (isFindBarVisible() && m_doc) {
         auto *fc = m_doc->findController();
-        if (auto *leaf = activeLeaf()) {
-            if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
-                live->attachFindController(fc);
-            else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
-                src->attachFindController(fc);
-        }
+        if (auto *leaf = activeLeaf())
+            leaf->attachFindController(fc);   // after setDocument, per contract
     }
 
     // 5. Restore scroll + fold + cursor (mode-appropriate).
@@ -523,16 +515,11 @@ void NoteEditorWidget::showFindBar()
     if (!m_doc) return;
     auto *fc = m_doc->findController();
     m_findBar->setController(fc);
-    if (auto *leaf = activeLeaf()) {
-        // Use the polymorphic attach hook present on both Live::EditorWidget
-        // and Source::Editor. Symmetric API; no leaf-type switch needed in
-        // the contract, but the call site needs a downcast since
-        // MarkdownView itself doesn't expose attachFindController.
-        if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
-            live->attachFindController(fc);
-        else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
-            src->attachFindController(fc);
-    }
+    // Polymorphic attach on the MarkdownView base (contract v2) — works for
+    // all three leaves; Reading (styled) gains find with this call. Must be
+    // called after setDocument (brief §2 find-attach behavioral note).
+    if (auto *leaf = activeLeaf())
+        leaf->attachFindController(fc);
     fc->activate();
     m_findBar->show();
     m_findBar->focusLineEdit();
@@ -541,12 +528,8 @@ void NoteEditorWidget::showFindBar()
 void NoteEditorWidget::hideFindBar()
 {
     if (m_doc) {
-        if (auto *leaf = activeLeaf()) {
-            if (auto *live = qobject_cast<Markoff::Live::EditorWidget*>(leaf))
-                live->detachFindController();
-            else if (auto *src = qobject_cast<Markoff::Source::Editor*>(leaf))
-                src->detachFindController();
-        }
+        if (auto *leaf = activeLeaf())
+            leaf->detachFindController();
         m_doc->findController()->deactivate();
     }
     m_findBar->hide();
