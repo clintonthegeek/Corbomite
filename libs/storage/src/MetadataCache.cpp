@@ -127,6 +127,22 @@ void MetadataCache::onFileChanged(const QString &path,
     m_worker->enqueueParse(path, content, mtimeMs, newSize);
 }
 
+// Obsidian spec §3: Vault.read strips a leading UTF-8 BOM (U+FEFF,
+// EF BB BF) before returning. rebuildVault reads raw bytes from disk and
+// must apply the same strip so the SHA-256 hash and parsed output match
+// what Vault::read would produce for the same file. Without this, a BOM'd
+// file hashes with the three BOM bytes included, diverging from the hash
+// seen by the single-file read path and causing spurious re-parses.
+static auto stripUtf8BomMC = [](QByteArray bytes) -> QByteArray {
+    if (bytes.size() >= 3
+        && static_cast<unsigned char>(bytes[0]) == 0xEF
+        && static_cast<unsigned char>(bytes[1]) == 0xBB
+        && static_cast<unsigned char>(bytes[2]) == 0xBF) {
+        bytes.remove(0, 3);
+    }
+    return bytes;
+};
+
 void MetadataCache::rebuildVault(const QString &vaultRoot,
                                  const QStringList &relativeNotePaths)
 {
@@ -143,7 +159,7 @@ void MetadataCache::rebuildVault(const QString &vaultRoot,
         if (!f.open(QIODevice::ReadOnly)) {
             continue;
         }
-        const QByteArray bytes = f.readAll();
+        const QByteArray bytes = stripUtf8BomMC(f.readAll());
         const qint64 mtimeMs = info.lastModified().toMSecsSinceEpoch();
         onFileChanged(rel, bytes, mtimeMs);
     }

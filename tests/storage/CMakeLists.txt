@@ -88,6 +88,12 @@ add_test(NAME tst_metadatacache_signals COMMAND tst_metadatacache_signals)
 target_link_libraries(tst_metadatacache_signals PRIVATE Qt6::Test Qt6::Core Corbomite::Storage Corbomite::Core)
 set_tests_properties(tst_metadatacache_signals PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# P1 regression: rebuildVault must strip a leading UTF-8 BOM before parsing.
+add_executable(tst_metadatacache_bom tst_metadatacache_bom.cpp)
+add_test(NAME tst_metadatacache_bom COMMAND tst_metadatacache_bom)
+target_link_libraries(tst_metadatacache_bom PRIVATE Qt6::Test Qt6::Core Corbomite::Storage)
+set_tests_properties(tst_metadatacache_bom PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster E Phase 1 — EphemeralState JSON round-trip.
 add_executable(tst_ephemeral_state tst_ephemeral_state.cpp)
 add_test(NAME tst_ephemeral_state COMMAND tst_ephemeral_state)
