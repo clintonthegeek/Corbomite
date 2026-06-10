@@ -147,7 +147,8 @@ signals:
     /// relative path so observers don't need to poke at the NoteDocument
     /// pointer lifetime.
     void documentSaved(const QString &relPath);
-    /// Fires when an external file modification is detected for an open
+    /// Fires when a file modification (external *or* a self-write routed
+    /// through modify()/reconcileOpenDocument) is detected for an open
     /// NoteDocument that has unsaved local edits (isModified() == true).
     /// The UI layer must present a merge modal and then call
     /// resolveExternalReload() with the chosen content.
