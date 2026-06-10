@@ -157,6 +157,11 @@ void NoteEditorWidget::wireLeaf(Markoff::MarkdownView *leaf)
                 if (leaf == activeLeaf())
                     Q_EMIT editorContextChanged(ctx);
             });
+    connect(leaf, &Markoff::MarkdownView::cursorPositionChanged, this,
+            [this, leaf](int line, int column) {
+                if (leaf == activeLeaf())
+                    onCursorPositionChanged(line, column);
+            });
 }
 
 void NoteEditorWidget::setMermaidRenderer(Markoff::MermaidRenderer *renderer)
@@ -321,6 +326,12 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
     // 5. Restore scroll + fold + cursor (mode-appropriate).
     restoreEphemeralStateFor(newMode, outgoing);
 
+    // Refresh statusbar cursor info for the incoming leaf.
+    if (auto *leaf = activeLeaf()) {
+        const Markoff::CursorPos pos = leaf->cursorPosition();
+        onCursorPositionChanged(pos.line, pos.column);
+    }
+
     Q_EMIT viewModeChanged(newMode);
 }
 
@@ -341,15 +352,14 @@ Markoff::Source::Editor *NoteEditorWidget::sourceEditor() const
 
 int NoteEditorWidget::currentLine() const
 {
-    // TODO(port-foundation-exploration): cursorLine retired; line/column
-    // accessor needs TextAnchor → line conversion on the new MarkoffDocument.
-    return 0;
+    auto *leaf = activeLeaf();
+    return leaf ? leaf->cursorPosition().line : 0;
 }
 
 int NoteEditorWidget::currentColumn() const
 {
-    // TODO(port-foundation-exploration): see currentLine.
-    return 0;
+    auto *leaf = activeLeaf();
+    return leaf ? leaf->cursorPosition().column : 0;
 }
 
 // Cluster E Phase 1 — ephemeral state round-trip. Now called from

@@ -75,12 +75,10 @@ set_tests_properties(tst_note_editor_widget_ephemeral PROPERTIES
 )
 endif()
 
-# Phase C3 — NoteEditorWidget signal-driven mode-transition glue. Covers
-# Source↔LivePreview↔Reading pairs + canonical-bytes preservation across swap
-# + viewModeChanged signal shape.
-# TODO(port-foundation-exploration): same cursorColumn-on-Live gap as the
-# ephemeral test above.
-if(FALSE)
+# Phase 1 (contract v2) — NoteEditorWidget signal-driven mode-transition
+# glue: cursorInfoChanged on leaf cursor move, canonical-bytes preservation
+# across swap, leaves reflecting canonical on attach, viewModeChanged shape.
+# Rewritten against the MarkdownView base contract (re-enabled 2026-06-10).
 add_executable(tst_note_editor_widget_mode_transition
     tst_note_editor_widget_mode_transition.cpp
 )
@@ -100,7 +98,6 @@ add_test(NAME tst_note_editor_widget_mode_transition
 set_tests_properties(tst_note_editor_widget_mode_transition PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
-endif()
 
 # Cluster R Task 3.2 — MarkdownView::insertFrontmatterProperty ensures a
 # YAML frontmatter block exists and appends a blank property row. Links

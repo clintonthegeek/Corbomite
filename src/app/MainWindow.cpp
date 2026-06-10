@@ -1158,9 +1158,8 @@ void MainWindow::propagateServicesToView(View *view)
             if (!editor->property("_mw_viewmode").toBool()) {
                 editor->setProperty("_mw_viewmode", true);
                 connect(editor, &NoteEditorWidget::viewModeChanged,
-                        this, [this](NoteEditorWidget::ViewMode mode) {
-                    if (mode == NoteEditorWidget::ViewMode::Reading)
-                        m_cursorPosLabel->setText(i18n("Reading"));
+                        this, [this](NoteEditorWidget::ViewMode) {
+                    updateEditorActionStates();
                 });
             }
         }
