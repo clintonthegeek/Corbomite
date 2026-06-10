@@ -22,7 +22,7 @@ committed, with PARITY-MATRIX rows updated. Phases 0–2 are strictly ordered;
 
 ## Phase 0 — Data safety (BLOCKS DOGFOODING; days, not weeks)
 
-**Status: COMPLETE (2026-06-10, branch `feature/phase0-data-safety`)** — 256/257 offscreen; lone red `tst_metadataparser` gated on the Phase 1 re-pin. Note: the blank-line-collapse interop decision (item 0.6) is OPEN — confirmed intentional Markoff normalization but a confirmed Obsidian round-trip-fidelity gap; see [`docs/handoff/2026-06-10-blank-line-collapse-triage.md`](../../handoff/2026-06-10-blank-line-collapse-triage.md). This bears on release criterion `:147` ("no unexplained diffs") and must be resolved before first public cut.
+**Status: COMPLETE (2026-06-10, branch `feature/phase0-data-safety`)** — 256/257 offscreen; lone red `tst_metadataparser` gated on the Phase 1 re-pin. Note: the blank-line-collapse interop decision (item 0.6) was **RESOLVED 2026-06-10 — accept + document** (user decision): Markoff's blank-line-run normalization is intentional (B1 §2) and is now treated as an expected, documented interop diff rather than a defect; release criterion below amended accordingly. See [`docs/handoff/2026-06-10-blank-line-collapse-triage.md`](../../handoff/2026-06-10-blank-line-collapse-triage.md).
 
 Nobody dogfoods an editor that can eat notes. All items are punch-listed with
 file:line evidence; most are <20-line fixes.
@@ -146,6 +146,6 @@ Dispatches to the two dedicated docs:
 - [ ] Phases 0–3 complete; Phase 4 canvas-edges + graph-persistence + tags pane done
 - [ ] Phase 5 legal items + dead-code purge + renames done; no `#if 0` corpse files; no `TODO(port-…)` markers
 - [ ] 2+ weeks of live-vault dogfooding without a data-loss or interop incident
-- [ ] Obsidian round-trip: a week of alternating sessions produces no unexplained diffs
+- [ ] Obsidian round-trip: a week of alternating sessions produces no *unexplained* diffs (blank-line-run normalization is an **expected, documented** diff — Markoff B1 §2; see [`docs/handoff/2026-06-10-blank-line-collapse-triage.md`](../../handoff/2026-06-10-blank-line-collapse-triage.md))
 - [ ] Docs: CLAUDE.md/PARITY-MATRIX current; README accurate (deps, third-party, build); LICENSE present
 - [ ] Eyeball backlog empty; 251/251 tests; zero disabled-but-visible menu actions

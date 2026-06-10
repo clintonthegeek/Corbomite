@@ -241,11 +241,15 @@ blank-line spacing will not survive a Corbomite save.
   them. They will be cleaned up when the testvault harness gets a
   dedicated reset fixture.
 
-**Status of this triage: OPEN.** The verdict (Corbomite-written) and the
-root cause (B1 §2 intentional normalization) are settled. The
-*disposition* — Branch 1 (steer) vs Branch 2 (accept + document) — is
-deferred to the user / roadmap and is the one thing this doc does not
-decide.
+**Status of this triage: RESOLVED 2026-06-10 — Branch 2 (accept + document).**
+The verdict (Corbomite-written) and the root cause (B1 §2 intentional
+normalization) are settled. Disposition chosen by the user: **accept the
+normalization as a known, documented interop limitation** rather than steer
+Markoff for a spacing-preserving save mode. Release criterion
+`road-to-dogfood.md` "no unexplained diffs" was amended to treat blank-line-run
+collapse as an *expected, documented* diff; PARITY-MATRIX row updated to
+⚠ ACCEPTED LIMITATION. Branch 1 (steer Markoff) remains a possible future
+enhancement but is not required for the first public cut.
 
 ---
 

@@ -53,7 +53,7 @@ contract-v2 re-pin (see the adoption brief).
 | Cache persistence | ✅ | `41b4f537`+`7fdbb25b` — DBs now under `<AppLocalDataLocation>/index/<vault-id>/` via `PathUtils::vaultLocalDataDir`; legacy in-`.obsidian/` copies cleaned on open; tests `tst_mainwindow_db_paths`, `tst_path_utils` |
 | BOM'd files in bulk index | ✅ | `1d7f477f` — BOM strip in `MetadataCache::rebuildVault`; eliminates hash-divergence/re-parse churn (`fromUtf8` already strips before parse, but explicit strip prevents churn); test `tst_metadatacache_bom` |
 | Frontmatter parse tolerance | 🟡 | byte-0/`\r\n`/EOF cases OK; closing-fence `\n---` matched without EOL check (false-close on `----`) — Markoff-owned (steered `69162236`+`7a87daf7`) |
-| **Blank-line round-trip fidelity** | ⚠ KNOWN GAP | Markoff D2 serializer normalizes consecutive blank lines; confirmed intentional (B1 spec §2) but confirmed Obsidian round-trip fidelity gap. Open decision: steer Markoff toward spacing-preserving save vs accept+document. See [`handoff/2026-06-10-blank-line-collapse-triage.md`](handoff/2026-06-10-blank-line-collapse-triage.md). Bears on release criterion "no unexplained diffs" |
+| **Blank-line round-trip fidelity** | ⚠ ACCEPTED LIMITATION | Markoff D2 serializer collapses consecutive blank-line runs (2+→1) on save — intentional (B1 spec §2). **Decision 2026-06-10: accept + document** (not a defect); release criterion "no unexplained diffs" amended to treat blank-line normalization as an expected, documented diff. See [`handoff/2026-06-10-blank-line-collapse-triage.md`](handoff/2026-06-10-blank-line-collapse-triage.md). |
 | processFrontMatter (ordered, append, strip-empty) | ✅ | `FileManager.cpp:308-358`; 7-slot test |
 | YAML re-emission byte format | ⚠ | ryml emit ≠ Obsidian js-yaml style; every Properties edit reformats the block; no byte-format test |
 | `.obsidian/*.json` read/write + unknown-key preservation | ✅ I/O · ⭕ consumption | `VaultConfig.cpp` + round-trip test; **but `app.json` and `hotkeys.json` are read by nothing** |
@@ -153,7 +153,7 @@ Example plugins compile against current API (verified 2026-06-10).
 4. **No back/forward navigation** despite a complete LeafHistory engine.
 5. **Reading mode is a downgrade** (no tables until re-pin, raw math, inert checkboxes).
 6. **Status bar lies** (Words: 0 forever); sidebar layout amnesia on every launch.
-7. **Whitespace corruption on save** (blank-line collapse, Markoff-owned, open decision — see triage doc).
+7. **Blank-line normalization on save** (2+ blank-line runs → 1, Markoff-owned, intentional per B1 §2 — **accepted + documented** 2026-06-10, not corruption; see triage doc).
 8. **Canvas can't create edges**; subfolder canvases render empty file cards.
 
 The matching fix sequence lives in
