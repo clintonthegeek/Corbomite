@@ -47,6 +47,8 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     : QWidget(parent)
     , m_linkService(new Markoff::DefaultLinkService(this))
     , m_stack(new QStackedWidget(this))
+    // leaf-specific: Live QML leaf construction — revisit if the canonical
+    // live view changes leaf class (user directive 2026-06-10).
     , m_editor(new Markoff::Live::EditorWidget(
           Markoff::Live::LiveListModelBinding::AllCapabilities, this))
 {
@@ -63,8 +65,8 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     m_livePreviewIndex = m_stack->addWidget(m_editor);
     m_stack->setCurrentIndex(m_livePreviewIndex);
 
-    // Wire the shared link service into the Live binding so link clicks in
-    // Live mode route through it. The service is also set on the Reading leaf
+    // leaf-specific: Live QML binding wiring — the shared link service routes
+    // link clicks in Live mode. The service is also set on the Reading leaf
     // in ensureWidgetConstructed(Reading).
     m_editor->binding()->setLinkService(m_linkService);
     connect(m_linkService, &Markoff::LinkService::linkActivated,
@@ -169,8 +171,9 @@ void NoteEditorWidget::wireLeaf(Markoff::MarkdownView *leaf)
 void NoteEditorWidget::setMermaidRenderer(Markoff::MermaidRenderer *renderer)
 {
     m_mermaidRenderer = renderer;
-    // TODO(port-foundation-exploration): Markoff::MermaidRenderer abstract
-    // retired (E5 work). No-op until restoration.
+    // leaf-specific (when restored): mermaid-renderer injection is per-leaf
+    // wiring. TODO(port-foundation-exploration): Markoff::MermaidRenderer
+    // abstract retired (E5 work). No-op until restoration.
     (void)renderer;
 }
 
@@ -210,6 +213,7 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
     switch (mode) {
     case ViewMode::Source:
         if (!m_sourceEditor) {
+            // leaf-specific: Source leaf construction.
             m_sourceEditor = new Markoff::Source::Editor(this);
             m_sourceIndex = m_stack->addWidget(m_sourceEditor);
             wireLeaf(m_sourceEditor);
@@ -220,10 +224,11 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
         break;
     case ViewMode::Reading:
         if (!m_styledReadingView) {
+            // leaf-specific: Reading is a read-only Styled leaf; it shares
+            // the link service so link activations route through the same
+            // onLinkActivated slot as Live mode.
             m_styledReadingView = new Markoff::Styled::Editor(this);
             m_styledReadingView->setReadOnly(true);
-            // Share the same link service so link activations from the Reading
-            // leaf are routed through the same onLinkActivated slot as Live mode.
             m_styledReadingView->setLinkService(m_linkService);
             m_readingIndex = m_stack->addWidget(m_styledReadingView);
             wireLeaf(m_styledReadingView);
