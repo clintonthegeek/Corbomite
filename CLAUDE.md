@@ -8,12 +8,22 @@
 > retired). `StyledRenderEngine` (2026-05-30) renders canvas cards headlessly.
 >
 > **Contract-v2 adoption COMPLETE (2026-06-10, road-to-dogfood Phase 1):**
-> submodule pinned at `8112833f`; find-in-Reading, undo unification, theme
+> submodule pinned at `af91a936`; find-in-Reading, undo unification, theme
 > propagation, Ln/Col, goToLine, ephemeral state, format-verb dispatch and
 > zoom all run through the `Markoff::MarkdownView` base (MainWindow is
 > grep-gated leaf-agnostic). **Next major workfront:** road-to-dogfood
 > Phase 2 (completion revival first) —
 > [`docs/superpowers/plans/2026-06-10-road-to-dogfood.md`](docs/superpowers/plans/2026-06-10-road-to-dogfood.md).
+>
+> **Dogfood loop started 2026-06-10 (Phase 6).** First real run surfaced a
+> first-run SIGSEGV (use-after-free): double-clicking a recent vault on the
+> welcome screen double-fired `vaultRequested`, so a second vault open tore the
+> vault down while a live editor was attached, and the live binding held the
+> freed `MarkoffDocument` by a never-detaching raw pointer. Fixed both ends —
+> `WelcomeScreen` single-activation + markoff-family retire-on-destroy (re-pin
+> `8112833f` → `af91a936`). Other first-run noise still open (see punch list):
+> repeated `kf.xmlgui: Index 18 is not within range (0-16)`, plugin Id-in-
+> metadata warnings, `qt.qml Invalid QML element name "Theme"`, portal app-id.
 >
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
 > Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).

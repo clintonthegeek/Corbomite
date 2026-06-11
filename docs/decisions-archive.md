@@ -10,6 +10,18 @@ Conventions:
 
 ---
 
+## 2026-06-10 — Dogfood loop: first-run SIGSEGV fixed (vault-teardown UAF + welcome-screen double-open)
+
+First real run of Corbomite (Phase 6 dogfood loop) crashed on opening a recent vault. Root cause (confirmed by gdb DTOR backtrace — the crashing `MarkoffDocument` address was freed by `Vault::unload → teardownTree → qDeleteAll(m_docs)` before the crash) was a timing-dependent use-after-free with two coupled defects:
+
+1. **Trigger (Corbomite):** `WelcomeScreen` wired the recent-vault list to **both** `itemDoubleClicked` and `itemActivated`, so one double-click emitted `vaultRequested` twice → two `openVault()` → the second `onVaultOpened` ran `Vault::load() → unload() → teardownTree()` freeing all `NoteDocument`s while the first restore's live editor was still attached. The deferred QML initial-focus seed (`LiveView.qml onCountChanged → requestTextCaretAtRow(0,0)`) then dereferenced the freed `MarkoffDocument`. Fixed by wiring only `itemActivated` (one emission per activation across all platform styles) — `WelcomeScreen.cpp`.
+
+2. **Robustness root cause (markoff-family, re-pin `8112833f` → `af91a936`):** `LiveListModelBinding` and `EditorWidget` held the document by a raw pointer that was never nulled on destruction. Every `LiveCursorState` access already guarded `m_binding->document()`; the guards were defeated by the never-nulled pointer. Fixed by connecting `MarkoffDocument::destroyed` and retiring the pointer (INVARIANTS #3): `LiveListModelBinding::detachDocumentState()` + `EditorWidget` qualified base `MarkdownView::setDocument(nullptr)`. Markoff commit `af91a936`.
+
+Two falsifiable regression tests, each SIGSEGV-without-fix / pass-with-fix: `tst_view_contract_live_doc_destroyed` (markoff-live, drives the QML-reached production callsites) and `tst_note_editor_widget_doc_lifetime` (Corbomite integration). Suites: markoff-live 269/272 (3 = known-red queue #10), Corbomite **260/260**. Corbomite commit `ddb1701d`, Markoff `af91a936`, both pushed to `master`.
+
+Still-open first-run noise (not yet triaged into the punch list): repeated `kf.xmlgui: Index 18 is not within range (0-16)` on every startup (broken `.rc` toolbar/menu index — most concerning), plugin "explicitly states an Id in the embedded metadata" warnings (`corbomite-template.so`, `note-stats.so`), `qt.qml.typeregistration: Invalid QML element name "Theme"` (Q_GADGET registered uppercase), and `qt.qpa.services` portal app-id registration failure for the Dev desktop file.
+
 ## 2026-06-10 — Phase 1 Markoff re-pin + MarkdownView contract-v2 adoption landed (road-to-dogfood)
 
 Phase 1 of `docs/superpowers/plans/2026-06-10-road-to-dogfood.md` is complete on `master` (plan: `superpowers/plans/2026-06-10-phase1-markoff-repin-contract-v2.md`; mid-execution handoff with the attach-window investigation record: `handoff/2026-06-10-phase1-contract-v2-progress.md`). The `libs/markoff-family` pin moved `ddf5e9a8` → `8112833f` (three re-pins), and every editor operation in MainWindow now dispatches through the polymorphic `Markoff::MarkdownView` base: find-attach (Reading gains find, `bfa2fa16`), undo/redo (Source dual-stack divergence retired, `b5a4b041`), theme propagation (`17b2cd00`), format verbs + heading (`20abc25a`), contextChanged → heading radio + `hasEditing()` enable-state (`d98c7abd`), Ln/Col statusbar in all modes (`ad0729e7`), ephemeral cursor/scroll + goToLine (`5d7fcc5e`), zoom via `setFontScale` (`c6a7afad`). Suite: 250/251 → **259/259** offscreen (excl. `benchmark`).
