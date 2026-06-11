@@ -34,10 +34,9 @@ struct EphemeralState;
 class NoteDocument;
 class Vault;
 class VaultResourceProvider;
-class CompletionPopup;
+class CompletionController;
 class HoverPopover;
 class EditorSuggestManager;
-class EditorSuggest;
 class FindBar;
 
 namespace Core {
@@ -130,19 +129,7 @@ Q_SIGNALS:
     void editorContextChanged(const Markoff::EditorContext &ctx);
 
 private:
-    bool eventFilter(QObject *obj, QEvent *event) override;
-
-    void onTextChanged();
     void onCursorPositionChanged(int line, int column);
-
-    // Completion via EditorSuggestManager (Cluster H Phase 3).
-    void maybeActivateSuggester();
-    void dismissCompletion();
-    void onCompletionAccepted(const QString &text, const QString &data);
-    void positionCompletionPopup();
-    void updateCompletionFilter();
-    int absoluteCursorPos() const;
-    QString currentLineText() const;
 
     // Link resolution
     QString resolveTarget(const QString &target) const;
@@ -218,11 +205,9 @@ private:
 
     FindBar *m_findBar = nullptr;
 
-    // Completion state
-    CompletionPopup *m_completionPopup = nullptr;
-    EditorSuggestManager *m_suggestManager = nullptr;
-    EditorSuggest *m_activeSuggester = nullptr;
-    int m_completionTriggerPos = -1;
+    // Completion (Phase 2 revival). Leaf-agnostic driver; owns the popup and
+    // trigger session. Re-pointed at the active leaf on every mode switch.
+    CompletionController *m_completion = nullptr;
 };
 
 } // namespace Corbomite

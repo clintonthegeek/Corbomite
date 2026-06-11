@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "NoteEditorWidget.h"
-#include "CompletionPopup.h"
+#include "CompletionController.h"
 #include "FindBar.h"
 #include "HoverPopover.h"
 #include "ViewModeSerializer.h"
@@ -34,7 +34,6 @@
 
 #include <QCursor>
 #include <QDesktopServices>
-#include <QKeyEvent>
 #include <QStackedWidget>
 #include <QStringListModel>
 #include <QVBoxLayout>
@@ -80,9 +79,14 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     // via cursorChanged(); text/word/link signals need ad-hoc wiring through
     // MarkoffDocument or LinkService. Each will be hooked back up as its
     // feature ports — find UI first.
-    m_editor->installEventFilter(this);
 
     wireLeaf(m_editor);
+
+    // Phase 2 completion revival — leaf-agnostic driver. Re-pointed at the
+    // active leaf on every mode switch (see setViewMode). The Live leaf is
+    // valid here, so seed it immediately.
+    m_completion = new CompletionController(this);
+    m_completion->setLeaf(activeLeaf());
 }
 
 void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
@@ -118,6 +122,8 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
         // on EditorWidget; closing the document detaches via setDocument(nullptr).
         m_editor->setDocument(nullptr);
     }
+
+    if (m_completion) m_completion->setNoteDocument(m_doc);
 }
 
 void NoteEditorWidget::setHoverPopover(HoverPopover *popover)
@@ -127,7 +133,7 @@ void NoteEditorWidget::setHoverPopover(HoverPopover *popover)
 
 void NoteEditorWidget::setEditorSuggestManager(EditorSuggestManager *manager)
 {
-    m_suggestManager = manager;
+    if (m_completion) m_completion->setManager(manager);
 }
 
 void NoteEditorWidget::setThemeService(Core::ThemeService *service)
@@ -317,6 +323,11 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
             leaf->setDocument(m_doc->markoff());
         }
     }
+
+    // Re-point the completion driver at the now-active leaf (dismisses any
+    // open session). Leaf-agnostic — base pointer only.
+    if (m_completion) m_completion->setLeaf(activeLeaf());
+
     if (isFindBarVisible() && m_doc) {
         auto *fc = m_doc->findController();
         if (auto *leaf = activeLeaf())
@@ -384,116 +395,10 @@ void NoteEditorWidget::restoreEphemeralState(const EphemeralState &state)
     restoreEphemeralStateFor(mode, state);
 }
 
-bool NoteEditorWidget::eventFilter(QObject *obj, QEvent *event)
-{
-    if (obj != m_editor) return QWidget::eventFilter(obj, event);
-
-    // Editor focus-out while a popup is up → dismiss.
-    if (event->type() == QEvent::FocusOut && m_completionPopup) {
-        dismissCompletion();
-        return false;
-    }
-
-    if (event->type() == QEvent::KeyPress && m_completionPopup) {
-        auto *keyEvent = static_cast<QKeyEvent *>(event);
-        switch (keyEvent->key()) {
-        case Qt::Key_Down:
-            m_completionPopup->selectNext();
-            return true;
-        case Qt::Key_Up:
-            m_completionPopup->selectPrevious();
-            return true;
-        case Qt::Key_Return:
-        case Qt::Key_Enter:
-        case Qt::Key_Tab:
-            if (m_completionPopup->acceptCurrent()) return true;
-            break;
-        case Qt::Key_Escape:
-            dismissCompletion();
-            return true;
-        default:
-            break;
-        }
-    }
-    return QWidget::eventFilter(obj, event);
-}
-
-void NoteEditorWidget::onTextChanged()
-{
-    // Phase C3: canonical content is authoritative — m_editor pushes changes
-    // through MarkdownDelta commands onto the shared QUndoStack, so we no
-    // longer need to flush toPlainText() back to m_doc here. We keep this
-    // slot only to service completion filter updates.
-    if (m_completionPopup) updateCompletionFilter();
-}
-
 void NoteEditorWidget::onCursorPositionChanged(int line, int column)
 {
     if (!m_doc) return;
     Q_EMIT cursorInfoChanged(line, column, m_cachedWordCount);
-}
-
-// --- Completion ---
-
-void NoteEditorWidget::maybeActivateSuggester()
-{
-    // TODO(port-foundation-exploration): completion dispatch depended on the
-    // old Markoff::Editor's cursorLine/cursorColumn/viewport/toPlainText.
-    // Completion port is its own feature (separate from the find port).
-    // No-op until that feature lands.
-}
-
-void NoteEditorWidget::positionCompletionPopup()
-{
-    // TODO(port-foundation-exploration): see maybeActivateSuggester.
-}
-
-int NoteEditorWidget::absoluteCursorPos() const
-{
-    // TODO(port-foundation-exploration): see maybeActivateSuggester.
-    return -1;
-}
-
-QString NoteEditorWidget::currentLineText() const
-{
-    // TODO(port-foundation-exploration): toPlainText retired on EditorWidget.
-    return {};
-}
-
-void NoteEditorWidget::updateCompletionFilter()
-{
-    if (!m_completionPopup) return;
-    const int absPos = absoluteCursorPos();
-    if (absPos < 0 || absPos < m_completionTriggerPos) {
-        dismissCompletion();
-        return;
-    }
-    // TODO(port-foundation-exploration): toPlainText accessor retired on
-    // EditorWidget — completion port will reimplement against MarkoffDocument.
-    dismissCompletion();
-    (void)absPos;
-}
-
-void NoteEditorWidget::dismissCompletion()
-{
-    if (m_completionPopup) {
-        auto *p = m_completionPopup;
-        m_completionPopup = nullptr;
-        p->hide();
-        p->deleteLater();
-    }
-    m_activeSuggester = nullptr;
-    m_completionTriggerPos = -1;
-}
-
-void NoteEditorWidget::onCompletionAccepted(const QString &text, const QString &data)
-{
-    Q_UNUSED(text)
-    Q_UNUSED(data)
-    // TODO(port-foundation-exploration): completion-write path used the
-    // retired Markoff::MarkdownDelta + undoStack APIs. Port to applyFlatEdit
-    // + d2UndoLog when the completion feature lands. No-op for now.
-    dismissCompletion();
 }
 
 // --- Link Resolution ---

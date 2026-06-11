@@ -2230,7 +2230,11 @@ void MainWindow::onVaultOpened(const QString &path)
 
     // Wire suggesters + hover popover against the live vault.
     m_hoverPopover->setVault(m_vaultObj);
-    if (m_wikiSuggest) m_wikiSuggest->setVault(m_vaultObj);
+    if (m_wikiSuggest) {
+        m_wikiSuggest->setVault(m_vaultObj);
+        m_wikiSuggest->setLinkResolver(m_linkResolver);
+        // setMetadataCache arrives in Phase A2 (aliases/headings).
+    }
 
     QDir().mkpath(configPath);
 
@@ -2530,7 +2534,10 @@ void MainWindow::onVaultClosed()
     delete m_dailyNoteService;
     m_dailyNoteService = nullptr;
 
-    if (m_wikiSuggest) m_wikiSuggest->setVault(nullptr);
+    if (m_wikiSuggest) {
+        m_wikiSuggest->setVault(nullptr);
+        m_wikiSuggest->setLinkResolver(nullptr);
+    }
     if (m_tagSuggest) m_tagSuggest->setIndex(nullptr);
     if (m_hoverPopover) m_hoverPopover->setVault(nullptr);
 
