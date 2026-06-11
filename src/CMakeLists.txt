@@ -28,6 +28,8 @@ add_library(CorbomiteApp STATIC
     editor/NoteEditorWidget.cpp
     editor/SourceEditor.cpp
     editor/ViewModeSerializer.cpp
+    editor/CompletionController.cpp
+    editor/CompletionController.h
     editor/CompletionPopup.cpp
     editor/CompletionDelegate.cpp
     editor/HoverPopover.cpp

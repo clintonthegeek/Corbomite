@@ -309,3 +309,14 @@ target_link_libraries(tst_tag_suggest PRIVATE
     Qt6::Test Qt6::Widgets CorbomiteApp Corbomite::Core Corbomite::Storage)
 add_test(NAME tst_tag_suggest COMMAND tst_tag_suggest)
 set_tests_properties(tst_tag_suggest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Completion revival Task 9 — CompletionController: reactive trigger/dismiss
+# over the MarkdownView base. A FakeLeaf supplies caretRect/cursorPosition; a
+# real NoteDocument supplies the edit path; a stub '@' suggester isolates
+# controller logic. The 2 accept-path slots are committed RED (Task 10 fills).
+add_executable(tst_completion_controller tst_completion_controller.cpp)
+target_include_directories(tst_completion_controller PRIVATE ${CMAKE_SOURCE_DIR}/src/editor)
+target_link_libraries(tst_completion_controller PRIVATE
+    Qt6::Test Qt6::Widgets CorbomiteApp Corbomite::Core markoff_core)
+add_test(NAME tst_completion_controller COMMAND tst_completion_controller)
+set_tests_properties(tst_completion_controller PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
