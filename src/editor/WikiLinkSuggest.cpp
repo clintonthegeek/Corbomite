@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "WikiLinkSuggest.h"
 
+#include "corbomite/core/NoteDocument.h"
+#include "corbomite/storage/LinkResolver.h"
+#include "corbomite/storage/MetadataCache.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/Vault.h"
-#include "corbomite/search/FuzzyMatcher.h"
 
 namespace Corbomite {
 
@@ -15,7 +17,7 @@ WikiLinkSuggest::WikiLinkSuggest(Vault *vault)
 std::optional<EditorSuggestTriggerInfo>
 WikiLinkSuggest::onTrigger(int cursorPos, const QString &lineText, NoteDocument *file)
 {
-    Q_UNUSED(file)
+    m_sourcePath = file ? file->relativePath() : QString();
     // Walk back from the cursor (column-relative) looking for `[[`. Bail on
     // newline (caller passes a single line so this is implicit) or `]` that
     // would close the link.
@@ -29,6 +31,10 @@ WikiLinkSuggest::onTrigger(int cursorPos, const QString &lineText, NoteDocument 
             info.start = i + 1;     // after the second '['
             info.end = cursorPos;
             info.query = lineText.mid(info.start, info.end - info.start);
+            // Consume a pre-existing "]]" right after the cursor so accepting
+            // a candidate doesn't produce "]]]]" (spec §8).
+            if (lineText.mid(cursorPos, 2) == QLatin1String("]]"))
+                info.replaceEnd = cursorPos + 2;
             return info;
         }
         --i;
@@ -38,19 +44,29 @@ WikiLinkSuggest::onTrigger(int cursorPos, const QString &lineText, NoteDocument 
 
 EditorSuggestionSet WikiLinkSuggest::getSuggestions(const EditorSuggestTriggerInfo &ctx)
 {
-    // Mechanical v2 conversion (Task 6): return the full candidate universe;
-    // the popup's fuzzy proxy filters against set.filter. insertText carries
-    // the closing `]]` that the retired selectSuggestion used to append.
-    // Behavioral richness (replaceEnd, path disambiguation, sub-target
-    // headings) lands in Task 7.
     EditorSuggestionSet set;
     set.filter = ctx.query;
     if (!m_vault) return set;
+
     const auto files = m_vault->getMarkdownFiles();
     set.items.reserve(files.size());
     for (auto *tf : files) {
         if (!tf) continue;
-        set.items.append({tf->basename, tf->basename + QStringLiteral("]]"), {}});
+        EditorSuggestItem item;
+        item.display = tf->basename;
+        // Shortest target that resolves uniquely: basename when unique
+        // vault-wide, else the relative path (sans .md). LinkResolver's
+        // name map is keyed by the lowercased filename WITH extension
+        // (its basenameOf strips folders but keeps `.md`), which equals
+        // TAbstractFile::name — NOT the extension-less TFile::basename.
+        QString target = tf->basename;
+        if (m_resolver && m_resolver->candidateCount(tf->name.toLower()) > 1) {
+            target = tf->path;
+            if (target.endsWith(QStringLiteral(".md"))) target.chop(3);
+        }
+        item.insertText = target + QStringLiteral("]]");
+        item.detail = tf->path;
+        set.items.append(item);
     }
     return set;
 }

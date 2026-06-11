@@ -2,7 +2,6 @@
 #include "TagSuggest.h"
 
 #include "corbomite/storage/SQLiteIndex.h"
-#include "corbomite/search/FuzzyMatcher.h"
 
 namespace Corbomite {
 

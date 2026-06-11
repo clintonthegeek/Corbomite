@@ -280,3 +280,22 @@ add_test(NAME tst_link_activation COMMAND tst_link_activation)
 set_tests_properties(tst_link_activation PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+# Completion revival A1 — WikiLinkSuggest names mode: trigger detection,
+# replaceEnd (consuming a trailing "]]"), names universe with basename vs
+# path disambiguation via LinkResolver::candidateCount.
+add_executable(tst_wikilink_suggest tst_wikilink_suggest.cpp)
+target_include_directories(tst_wikilink_suggest PRIVATE ${CMAKE_SOURCE_DIR}/src/editor)
+target_link_libraries(tst_wikilink_suggest PRIVATE
+    Qt6::Test Qt6::Widgets CorbomiteApp Corbomite::Core Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_wikilink_suggest COMMAND tst_wikilink_suggest)
+set_tests_properties(tst_wikilink_suggest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Completion revival A1 — TagSuggest trigger detection + null-index empty
+# universe. (Real-index allTags() path is exercised in storage tests.)
+add_executable(tst_tag_suggest tst_tag_suggest.cpp)
+target_include_directories(tst_tag_suggest PRIVATE ${CMAKE_SOURCE_DIR}/src/editor)
+target_link_libraries(tst_tag_suggest PRIVATE
+    Qt6::Test Qt6::Widgets CorbomiteApp Corbomite::Core Corbomite::Storage)
+add_test(NAME tst_tag_suggest COMMAND tst_tag_suggest)
+set_tests_properties(tst_tag_suggest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
