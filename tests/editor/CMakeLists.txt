@@ -72,6 +72,29 @@ set_tests_properties(tst_note_editor_widget_ephemeral PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+# Completion revival A1 exit — CompletionController against the REAL Live leaf
+# (real QML caretRect, real document propagation): trigger -> popup -> accept
+# -> single-undo, end-to-end.
+add_executable(tst_note_editor_widget_completion
+    tst_note_editor_widget_completion.cpp
+)
+target_include_directories(tst_note_editor_widget_completion PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_note_editor_widget_completion PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    markoff_live
+    markoff_styled
+    Markoff::Source
+    Corbomite::Core
+)
+add_test(NAME tst_note_editor_widget_completion COMMAND tst_note_editor_widget_completion)
+set_tests_properties(tst_note_editor_widget_completion PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 # Regression: NoteDocument freed under a live NoteEditorWidget must not crash
 # (2026-06-10 first-run SIGSEGV; vault teardown frees the doc while the live
 # leaf's deferred QML seed is pending).
