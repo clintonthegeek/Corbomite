@@ -72,6 +72,29 @@ set_tests_properties(tst_note_editor_widget_ephemeral PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+# Regression: NoteDocument freed under a live NoteEditorWidget must not crash
+# (2026-06-10 first-run SIGSEGV; vault teardown frees the doc while the live
+# leaf's deferred QML seed is pending).
+add_executable(tst_note_editor_widget_doc_lifetime
+    tst_note_editor_widget_doc_lifetime.cpp
+)
+target_include_directories(tst_note_editor_widget_doc_lifetime PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_note_editor_widget_doc_lifetime PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    markoff_live
+    markoff_styled
+    Markoff::Source
+    Corbomite::Core
+)
+add_test(NAME tst_note_editor_widget_doc_lifetime COMMAND tst_note_editor_widget_doc_lifetime)
+set_tests_properties(tst_note_editor_widget_doc_lifetime PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 # Phase 1 (contract v2) — NoteEditorWidget signal-driven mode-transition
 # glue: cursorInfoChanged on leaf cursor move, canonical-bytes preservation
 # across swap, leaves reflecting canonical on attach, viewModeChanged shape.

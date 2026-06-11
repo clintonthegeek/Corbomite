@@ -69,13 +69,12 @@ WelcomeScreen::WelcomeScreen(CorbomiteApp *app, QWidget *parent)
     m_recentList->setSelectionMode(QAbstractItemView::SingleSelection);
     contentLayout->addWidget(m_recentList);
 
-    connect(m_recentList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
-        QString path = item->data(Qt::UserRole).toString();
-        if (!path.isEmpty()) {
-            Q_EMIT vaultRequested(path);
-        }
-    });
-
+    // Use ONLY itemActivated. It is emitted once per activation across all
+    // platforms — keyboard Enter, single-click-activate styles, and
+    // double-click-activate styles alike. Also wiring itemDoubleClicked would
+    // double-emit on the default desktop style (a double-click fires BOTH
+    // signals), and two vaultRequested → two openVault() calls race a vault
+    // teardown against a just-restored editor (2026-06-10 first-run SIGSEGV).
     connect(m_recentList, &QListWidget::itemActivated, this, [this](QListWidgetItem *item) {
         QString path = item->data(Qt::UserRole).toString();
         if (!path.isEmpty()) {
