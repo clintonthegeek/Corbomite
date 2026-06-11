@@ -21,6 +21,8 @@ add_library(CorbomiteApp STATIC
     mdi/CorbomiteMDI.cpp
     sidebar/PropertyEditorWidget.cpp
     sidebar/PropertyRow.cpp
+    editor/LineResolve.cpp
+    editor/LineResolve.h
     editor/MarkdownView.cpp
     editor/MarkdownView.h
     editor/NoteEditorWidget.cpp

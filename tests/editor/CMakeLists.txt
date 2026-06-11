@@ -291,6 +291,16 @@ target_link_libraries(tst_wikilink_suggest PRIVATE
 add_test(NAME tst_wikilink_suggest COMMAND tst_wikilink_suggest)
 set_tests_properties(tst_wikilink_suggest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Completion revival Task 8 — LineResolve: contract-v2 flat visual line ⟷
+# (block, offsets, lineText) against a MarkoffDocument. Pure coordinate
+# bridge; no widget deps. Links CorbomiteApp (for the LineResolve TU) +
+# markoff_core (for MarkoffDocument).
+add_executable(tst_line_resolve tst_line_resolve.cpp)
+target_include_directories(tst_line_resolve PRIVATE ${CMAKE_SOURCE_DIR}/src/editor)
+target_link_libraries(tst_line_resolve PRIVATE Qt6::Test Qt6::Widgets CorbomiteApp markoff_core)
+add_test(NAME tst_line_resolve COMMAND tst_line_resolve)
+set_tests_properties(tst_line_resolve PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Completion revival A1 — TagSuggest trigger detection + null-index empty
 # universe. (Real-index allTags() path is exercised in storage tests.)
 add_executable(tst_tag_suggest tst_tag_suggest.cpp)
