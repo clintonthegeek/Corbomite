@@ -1,6 +1,5 @@
 {
     "KPlugin": {
-        "Id": "example.note-stats",
         "Name": "Note Statistics",
         "Description": "Shows vault-wide note count, word count, tags, and links",
         "Version": "0.1.0",

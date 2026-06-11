@@ -1,6 +1,5 @@
 {
     "KPlugin": {
-        "Id": "example.template",
         "Name": "Template Plugin",
         "Description": "Skeleton to copy when starting a new Corbomite plugin",
         "Version": "0.1.0",
