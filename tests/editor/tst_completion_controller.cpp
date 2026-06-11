@@ -169,6 +169,37 @@ private Q_SLOTS:
                  QStringLiteral("hello @a\n"));
         Q_UNUSED(popup)
     }
+
+    // ---- Task 11 behavior (keyboard navigation via the scoped app filter) ----
+
+    void keys_navigateAndAcceptViaAppFilter()
+    {
+        Rig rig(QStringLiteral("hello @"));
+        rig.placeCursor(1, 8);                       // right after '@' (col = len+1)
+        QTRY_VERIFY(rig.ctl.isActive());
+        QCOMPARE(rig.ctl.popup()->visibleRowCount(), 2);   // empty query → both
+
+        // Keys are sent to the LEAF (the focused editor in production);
+        // the controller's app-level filter must intercept them.
+        // CompletionPopup pre-highlights row 0 (apple) on show, so a single
+        // Key_Down lands on row 1 (banana).
+        QTest::keyClick(&rig.leaf, Qt::Key_Down);    // second row: banana
+        QTest::keyClick(&rig.leaf, Qt::Key_Return);
+        QTRY_COMPARE(QString::fromUtf8(rig.doc->markoff()->serializeForSave()),
+                     QStringLiteral("hello @banana!\n"));
+        QVERIFY(!rig.ctl.isActive());
+    }
+
+    void escape_dismissesWithoutEdit()
+    {
+        Rig rig(QStringLiteral("hello @"));
+        rig.placeCursor(1, 8);
+        QTRY_VERIFY(rig.ctl.isActive());
+        QTest::keyClick(&rig.leaf, Qt::Key_Escape);
+        QTRY_VERIFY(!rig.ctl.isActive());
+        QCOMPARE(QString::fromUtf8(rig.doc->markoff()->serializeForSave()),
+                 QStringLiteral("hello @\n"));
+    }
 };
 
 QTEST_MAIN(CompletionControllerTest)
