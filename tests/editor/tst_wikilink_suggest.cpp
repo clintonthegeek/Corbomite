@@ -179,6 +179,26 @@ private Q_SLOTS:
         QVERIFY(info.has_value());
         QVERIFY(s.getSuggestions(*info).items.isEmpty());
     }
+
+    void blocks_existingIdsListed()
+    {
+        WikiLinkSuggest s(m_vault.get());
+        s.setLinkResolver(&m_resolver);
+        s.setMetadataCache(m_cache.get());
+        auto info = s.onTrigger(12, QStringLiteral("[[Aliased#^b"), nullptr);
+        QVERIFY(info.has_value());
+        const auto set = s.getSuggestions(*info);
+        QCOMPARE(set.filter, QStringLiteral("b"));
+        QVERIFY(!set.items.isEmpty());
+        bool found = false;
+        for (const auto &it : set.items) {
+            if (it.display == QStringLiteral("^blockid1")) {
+                QCOMPARE(it.insertText, QStringLiteral("Aliased#^blockid1]]"));
+                found = true;
+            }
+        }
+        QVERIFY2(found, "existing ^blockid1 not offered");
+    }
 };
 
 QTEST_MAIN(WikiLinkSuggestTest)

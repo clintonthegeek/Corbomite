@@ -147,7 +147,20 @@ EditorSuggestionSet WikiLinkSuggest::blockSuggestions(const QString &target,
 {
     EditorSuggestionSet set;
     set.filter = sub;
-    return set;   // Task 16 (A3) fills this in.
+    if (!m_resolver || !m_cache) return set;
+    const ResolvedLink link = m_resolver->resolve(m_sourcePath, target);
+    if (!link.resolved) return set;
+    const auto md = m_cache->getFileCache(link.path);
+    if (!md || !md->blocks) return set;     // existing ids only (spec §1)
+    // `blocks` is QHash<QString, BlockCache> keyed by id sans leading `^`.
+    for (auto it = md->blocks->cbegin(); it != md->blocks->cend(); ++it) {
+        EditorSuggestItem item;
+        item.display = QStringLiteral("^") + it.key();
+        item.insertText = target + QStringLiteral("#^") + it.key() + QStringLiteral("]]");
+        item.detail = link.path;
+        set.items.append(item);
+    }
+    return set;
 }
 
 } // namespace Corbomite
