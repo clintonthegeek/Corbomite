@@ -71,6 +71,17 @@ EditorSuggestionSet WikiLinkSuggest::getSuggestions(const EditorSuggestTriggerIn
     set.filter = ctx.query;
     if (!m_vault) return set;
 
+    // Sub-target modes: `target#headingQuery` / `target#^blockQuery`.
+    const int hash = ctx.query.indexOf(QLatin1Char('#'));
+    if (hash >= 0) {
+        const QString target = ctx.query.left(hash);
+        const QString sub = ctx.query.mid(hash + 1);
+        if (sub.startsWith(QLatin1Char('^'))) {
+            return blockSuggestions(target, sub.mid(1));   // A3 (returns empty until then)
+        }
+        return headingSuggestions(target, sub);
+    }
+
     const auto files = m_vault->getMarkdownFiles();
     set.items.reserve(files.size());
     for (auto *tf : files) {
@@ -109,6 +120,34 @@ EditorSuggestionSet WikiLinkSuggest::getSuggestions(const EditorSuggestTriggerIn
         }
     }
     return set;
+}
+
+EditorSuggestionSet WikiLinkSuggest::headingSuggestions(const QString &target,
+                                                        const QString &sub)
+{
+    EditorSuggestionSet set;
+    set.filter = sub;
+    if (!m_resolver || !m_cache) return set;
+    const ResolvedLink link = m_resolver->resolve(m_sourcePath, target);
+    if (!link.resolved) return set;
+    const auto md = m_cache->getFileCache(link.path);
+    if (!md || !md->headings) return set;
+    for (const auto &h : *md->headings) {
+        EditorSuggestItem item;
+        item.display = h.heading;
+        item.insertText = target + QStringLiteral("#") + h.heading + QStringLiteral("]]");
+        item.detail = link.path;
+        set.items.append(item);
+    }
+    return set;
+}
+
+EditorSuggestionSet WikiLinkSuggest::blockSuggestions(const QString &target,
+                                                      const QString &sub)
+{
+    EditorSuggestionSet set;
+    set.filter = sub;
+    return set;   // Task 16 (A3) fills this in.
 }
 
 } // namespace Corbomite

@@ -28,6 +28,9 @@ public:
     void setMetadataCache(MetadataCache *cache) { m_cache = cache; }
 
 private:
+    EditorSuggestionSet headingSuggestions(const QString &target, const QString &sub);
+    EditorSuggestionSet blockSuggestions(const QString &target, const QString &sub);
+
     Vault *m_vault;
     LinkResolver *m_resolver = nullptr;
     MetadataCache *m_cache = nullptr;       // used from A2 (aliases/headings)

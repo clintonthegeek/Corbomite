@@ -149,6 +149,36 @@ private Q_SLOTS:
             if (it.display == QStringLiteral("TheOne")) found = true;
         QVERIFY(found);
     }
+
+    void headings_listedForResolvedTarget()
+    {
+        WikiLinkSuggest s(m_vault.get());
+        s.setLinkResolver(&m_resolver);
+        s.setMetadataCache(m_cache.get());
+        auto info = s.onTrigger(11, QStringLiteral("[[Aliased#S"), nullptr);
+        QVERIFY(info.has_value());
+        const auto set = s.getSuggestions(*info);
+        QCOMPARE(set.filter, QStringLiteral("S"));
+        QStringList displays;
+        for (const auto &it : set.items) displays << it.display;
+        QVERIFY(displays.contains(QStringLiteral("Section One")));
+        QVERIFY(displays.contains(QStringLiteral("Section Two")));
+        for (const auto &it : set.items)
+            if (it.display == QStringLiteral("Section One"))
+                QCOMPARE(it.insertText, QStringLiteral("Aliased#Section One]]"));
+    }
+
+    void headings_unresolvedTarget_emptyUniverse()
+    {
+        WikiLinkSuggest s(m_vault.get());
+        s.setLinkResolver(&m_resolver);
+        s.setMetadataCache(m_cache.get());
+        // "[[Nope#x" is 8 chars; cursorPos must equal the string length
+        // (onTrigger returns nullopt for cursorPos > length).
+        auto info = s.onTrigger(8, QStringLiteral("[[Nope#x"), nullptr);
+        QVERIFY(info.has_value());
+        QVERIFY(s.getSuggestions(*info).items.isEmpty());
+    }
 };
 
 QTEST_MAIN(WikiLinkSuggestTest)
