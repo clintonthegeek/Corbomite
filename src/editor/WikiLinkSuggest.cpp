@@ -7,6 +7,29 @@
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/Vault.h"
 
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+
+namespace {
+QStringList aliasesFromFrontmatter(const QJsonObject &fm)
+{
+    QStringList out;
+    for (const char *key : {"aliases", "alias"}) {
+        const QJsonValue v = fm.value(QLatin1String(key));
+        if (v.isString()) {
+            out << v.toString();
+        } else if (v.isArray()) {
+            const QJsonArray arr = v.toArray();
+            for (const QJsonValue &e : arr)
+                if (e.isString()) out << e.toString();
+        }
+    }
+    out.removeAll(QString());
+    return out;
+}
+} // namespace
+
 namespace Corbomite {
 
 WikiLinkSuggest::WikiLinkSuggest(Vault *vault)
@@ -67,6 +90,23 @@ EditorSuggestionSet WikiLinkSuggest::getSuggestions(const EditorSuggestTriggerIn
         item.insertText = target + QStringLiteral("]]");
         item.detail = tf->path;
         set.items.append(item);
+
+        // Aliases: frontmatter `aliases`/`alias` entries become candidates
+        // that insert `target|alias]]` (the alias is the display text).
+        if (m_cache) {
+            if (const auto md = m_cache->getFileCache(tf->path)) {
+                if (md->frontmatter) {
+                    const QStringList aliases = aliasesFromFrontmatter(*md->frontmatter);
+                    for (const QString &alias : aliases) {
+                        EditorSuggestItem ai;
+                        ai.display = alias;
+                        ai.insertText = target + QStringLiteral("|") + alias + QStringLiteral("]]");
+                        ai.detail = QStringLiteral("→ ") + tf->basename;
+                        set.items.append(ai);
+                    }
+                }
+            }
+        }
     }
     return set;
 }

@@ -2233,7 +2233,7 @@ void MainWindow::onVaultOpened(const QString &path)
     if (m_wikiSuggest) {
         m_wikiSuggest->setVault(m_vaultObj);
         m_wikiSuggest->setLinkResolver(m_linkResolver);
-        // setMetadataCache arrives in Phase A2 (aliases/headings).
+        m_wikiSuggest->setMetadataCache(m_metadataCache);
     }
 
     QDir().mkpath(configPath);
@@ -2537,6 +2537,7 @@ void MainWindow::onVaultClosed()
     if (m_wikiSuggest) {
         m_wikiSuggest->setVault(nullptr);
         m_wikiSuggest->setLinkResolver(nullptr);
+        m_wikiSuggest->setMetadataCache(nullptr);
     }
     if (m_tagSuggest) m_tagSuggest->setIndex(nullptr);
     if (m_hoverPopover) m_hoverPopover->setVault(nullptr);
