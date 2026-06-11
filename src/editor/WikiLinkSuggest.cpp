@@ -36,29 +36,23 @@ WikiLinkSuggest::onTrigger(int cursorPos, const QString &lineText, NoteDocument 
     return std::nullopt;
 }
 
-QStringList WikiLinkSuggest::getSuggestions(const EditorSuggestTriggerInfo &ctx)
+EditorSuggestionSet WikiLinkSuggest::getSuggestions(const EditorSuggestTriggerInfo &ctx)
 {
-    if (!m_vault) return {};
-    QStringList names;
+    // Mechanical v2 conversion (Task 6): return the full candidate universe;
+    // the popup's fuzzy proxy filters against set.filter. insertText carries
+    // the closing `]]` that the retired selectSuggestion used to append.
+    // Behavioral richness (replaceEnd, path disambiguation, sub-target
+    // headings) lands in Task 7.
+    EditorSuggestionSet set;
+    set.filter = ctx.query;
+    if (!m_vault) return set;
     const auto files = m_vault->getMarkdownFiles();
-    names.reserve(files.size());
+    set.items.reserve(files.size());
     for (auto *tf : files) {
         if (!tf) continue;
-        names.append(tf->basename);
+        set.items.append({tf->basename, tf->basename + QStringLiteral("]]"), {}});
     }
-    if (ctx.query.isEmpty()) return names;
-    auto prepared = FuzzyMatcher::prepareQuery(ctx.query);
-    QStringList ranked;
-    for (const QString &n : names) {
-        if (FuzzyMatcher::fuzzySearch(prepared, n).has_value()) ranked.append(n);
-    }
-    return ranked;
-}
-
-QString WikiLinkSuggest::selectSuggestion(const QString &chosen,
-                                            const EditorSuggestTriggerInfo &)
-{
-    return chosen + QStringLiteral("]]");
+    return set;
 }
 
 } // namespace Corbomite

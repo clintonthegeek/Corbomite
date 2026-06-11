@@ -17,9 +17,7 @@ public:
     std::optional<EditorSuggestTriggerInfo> onTrigger(int cursorPos,
                                                         const QString &lineText,
                                                         NoteDocument *file) override;
-    QStringList getSuggestions(const EditorSuggestTriggerInfo &ctx) override;
-    QString selectSuggestion(const QString &chosen,
-                              const EditorSuggestTriggerInfo &ctx) override;
+    EditorSuggestionSet getSuggestions(const EditorSuggestTriggerInfo &ctx) override;
 
     void setIndex(SQLiteIndex *index) { m_index = index; }
 

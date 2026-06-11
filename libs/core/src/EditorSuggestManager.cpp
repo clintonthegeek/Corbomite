@@ -24,6 +24,9 @@ EditorSuggestManager::dispatch(int cursorPos,
                                  const QString &lineText,
                                  NoteDocument *file) const
 {
+    // Defensive clamp (punch-list P3): rapid-edit races can hand us a
+    // cursorPos one past the line end; suggesters slice lineText with it.
+    cursorPos = qBound(0, cursorPos, int(lineText.length()));
     for (EditorSuggest *s : m_suggesters) {
         auto trig = s->onTrigger(cursorPos, lineText, file);
         if (trig) return DispatchResult{s, *trig};

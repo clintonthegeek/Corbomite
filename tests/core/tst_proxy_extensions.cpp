@@ -41,9 +41,7 @@ class StubSuggest : public EditorSuggest
 public:
     std::optional<EditorSuggestTriggerInfo>
     onTrigger(int, const QString &, NoteDocument *) override { return std::nullopt; }
-    QStringList getSuggestions(const EditorSuggestTriggerInfo &) override { return {}; }
-    QString selectSuggestion(const QString &, const EditorSuggestTriggerInfo &) override
-    { return {}; }
+    EditorSuggestionSet getSuggestions(const EditorSuggestTriggerInfo &) override { return {}; }
 };
 
 class StubRibbon : public RibbonHandle

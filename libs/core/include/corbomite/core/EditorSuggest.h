@@ -13,16 +13,37 @@ namespace Corbomite {
 // Trigger range + filter query produced by EditorSuggest::onTrigger.
 // Mirrors Obsidian's EditorSuggestTriggerInfo (domains/editor.md §3).
 //
-//   start, end : absolute character offsets in the document (UTF-16 code
-//                units) bracketing the text the suggester will replace on
-//                accept.
-//   query      : the substring between [start, end) — what the suggester
-//                ranks its candidates against. Typically also what it
-//                feeds to FuzzyMatcher.
+//   start, end : UTF-16 char offsets WITHIN lineText (line-relative)
+//                bracketing the text the suggester will replace on accept.
+//                end is the cursor position.
+//   replaceEnd : optional replacement-range end (>= end); -1 means "same
+//                as end". Lets wiki-link consume a pre-existing "]]"
+//                after the cursor instead of producing "]]]]".
+//   query      : lineText.mid(start, end - start) — what the popup's
+//                fuzzy proxy will be fed (via EditorSuggestionSet::filter).
 struct EditorSuggestTriggerInfo {
     int start = -1;
     int end = -1;
+    int replaceEnd = -1;
     QString query;
+};
+
+// One completion candidate. insertText is the FULL literal replacement
+// for [start, replaceEnd) — closing punctuation included; there is no
+// post-selection transform step (selectSuggestion is retired).
+struct EditorSuggestItem {
+    QString display;       // shown in the popup (also what fuzzy filters)
+    QString insertText;    // literal replacement text
+    QString detail;        // optional context (path, target note); may be empty
+};
+
+// The candidate UNIVERSE for the current trigger mode plus the string the
+// popup's fuzzy proxy should filter by. The split matters for sub-target
+// modes: in `[[Note#se` the universe is *headings of Note* and the filter
+// is `se` — the popup must never fuzzy-match `Note#se` against headings.
+struct EditorSuggestionSet {
+    QList<EditorSuggestItem> items;
+    QString filter;
 };
 
 class NoteDocument;
@@ -50,15 +71,11 @@ public:
                                                                 const QString &lineText,
                                                                 NoteDocument *file) = 0;
 
-    // Produce ranked candidate strings for the given trigger context.
-    // Implementations typically pass `ctx.query` through Corbomite::FuzzyMatcher.
-    virtual QStringList getSuggestions(const EditorSuggestTriggerInfo &ctx) = 0;
-
-    // Convert a chosen candidate into the literal text that replaces
-    // [ctx.start, ctx.end). Implementations append closing punctuation
-    // (e.g. `]]` for wiki-link).
-    virtual QString selectSuggestion(const QString &chosen,
-                                       const EditorSuggestTriggerInfo &ctx) = 0;
+    // Produce the candidate universe for the given trigger context. The
+    // popup's CompletionFilterProxy does the fuzzy filtering/ranking
+    // against set.filter — implementations return ALL mode-appropriate
+    // candidates and do NOT pre-filter.
+    virtual EditorSuggestionSet getSuggestions(const EditorSuggestTriggerInfo &ctx) = 0;
 };
 
 } // namespace Corbomite

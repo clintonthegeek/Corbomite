@@ -18,9 +18,7 @@ public:
                                                         const QString &lineText,
                                                         NoteDocument *) override
     {
-        // Clamp the scan start to the last valid index: a cursor positioned
-        // at (or past) end-of-line must not index past the string.
-        int i = qMin(cursorPos, static_cast<int>(lineText.size())) - 1;
+        int i = cursorPos - 1;
         while (i >= 0) {
             if (lineText.at(i) == m_sigil) {
                 EditorSuggestTriggerInfo info;
@@ -35,15 +33,13 @@ public:
         return std::nullopt;
     }
 
-    QStringList getSuggestions(const EditorSuggestTriggerInfo &) override
+    EditorSuggestionSet getSuggestions(const EditorSuggestTriggerInfo &ctx) override
     {
-        return m_items;
-    }
-
-    QString selectSuggestion(const QString &chosen,
-                              const EditorSuggestTriggerInfo &) override
-    {
-        return chosen;
+        EditorSuggestionSet set;
+        set.filter = ctx.query;
+        for (const QString &c : m_items)
+            set.items.append({c, c, {}});
+        return set;
     }
 
 private:
@@ -124,6 +120,18 @@ private Q_SLOTS:
         QCOMPARE(r->info.query, QStringLiteral("hi!"));
         QCOMPARE(r->info.start, 1);
         QCOMPARE(r->info.end, 4);
+    }
+
+    void testDispatchClampsCursorPastLineEnd()
+    {
+        EditorSuggestManager manager;
+        SigilSuggest s(QLatin1Char('@'), {QStringLiteral("hit")});
+        manager.registerSuggest(&s);
+        // line length 4; cursorPos 9 must clamp to 4, not assert/slice OOB.
+        auto result = manager.dispatch(9, QStringLiteral("@hi!"), nullptr);
+        QVERIFY(result.has_value());
+        QCOMPARE(result->info.end, 4);
+        QCOMPARE(result->info.query, QStringLiteral("hi!"));
     }
 };
 

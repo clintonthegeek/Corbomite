@@ -38,28 +38,23 @@ TagSuggest::onTrigger(int cursorPos, const QString &lineText, NoteDocument *file
     return std::nullopt;
 }
 
-QStringList TagSuggest::getSuggestions(const EditorSuggestTriggerInfo &ctx)
+EditorSuggestionSet TagSuggest::getSuggestions(const EditorSuggestTriggerInfo &ctx)
 {
-    if (!m_index) return {};
+    // Mechanical v2 conversion (Task 6): return the full candidate universe;
+    // the popup's fuzzy proxy filters against set.filter. Tag insertion is
+    // just the tag text — the leading '#' is already in place — so display
+    // and insertText coincide. Behavioral richness lands in Task 7.
+    EditorSuggestionSet set;
+    set.filter = ctx.query;
+    if (!m_index) return set;
     // SQLiteIndex surfaces tags with the leading '#' verbatim. Strip it so
     // suggestions match the contract the old VaultModel::allTags used.
     QStringList tags = m_index->allTags();
     for (QString &t : tags) {
         if (t.startsWith(QLatin1Char('#'))) t.remove(0, 1);
+        set.items.append({t, t, {}});
     }
-    if (ctx.query.isEmpty()) return tags;
-    auto prepared = FuzzyMatcher::prepareQuery(ctx.query);
-    QStringList ranked;
-    for (const QString &t : tags) {
-        if (FuzzyMatcher::fuzzySearch(prepared, t).has_value()) ranked.append(t);
-    }
-    return ranked;
-}
-
-QString TagSuggest::selectSuggestion(const QString &chosen,
-                                      const EditorSuggestTriggerInfo &)
-{
-    return chosen;  // tag insertion is just the tag text; '#' is already in place
+    return set;
 }
 
 } // namespace Corbomite
