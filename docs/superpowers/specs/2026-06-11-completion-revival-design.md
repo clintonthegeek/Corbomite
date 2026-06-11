@@ -234,9 +234,10 @@ a misplaced popup).
 **Popup lifecycle:** popup created lazily per trigger session, parented to
 the active leaf widget, `deleteLater` on dismissal (matches the existing
 `dismissCompletion` pattern). It is constructed over a controller-owned
-`QStandardItemModel` (roles: `DisplayRole` = display, `UserRole` =
-insertText, `UserRole+1` = detail) which is **repopulated (clear + refill) on
-every refresh** from `getSuggestions(ctx)` — candidate sets are small, and
+`QStandardItemModel` (roles: `DisplayRole` = display, `UserRole+1` =
+insertText — the role `CompletionPopup::itemSelected`/`selectedData()`
+already emit — `UserRole+2` = detail) which is **repopulated (clear +
+refill) on every refresh** from `getSuggestions(ctx)` — candidate sets are small, and
 refill-always eliminates the stale-mode bug when a session morphs, e.g.
 `[[Note` → `[[Note#`;
 `setFilterText(set.filter)` applies the popup's fuzzy proxy (§7 defines
