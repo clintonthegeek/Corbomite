@@ -42,6 +42,11 @@ public:
     bool hasSelection() const;
     int visibleRowCount() const;
 
+    /// Content-driven size: width is fixed; height grows with the number
+    /// of visible rows (capped, then the list scrolls). The controller
+    /// anchors against this hint, so it must reflect the real shown size.
+    QSize sizeHint() const override;
+
     /// Emit `itemSelected` for the currently-highlighted row. Returns
     /// false if no row is selected.
     bool acceptCurrent();
@@ -56,6 +61,9 @@ protected:
 
 private:
     void onActivated(const QModelIndex &index);
+    int contentHeight() const;       ///< pixel height for the current row count
+    int contentWidth() const;        ///< pixel width to fit display + detail
+    void resizeToContents();         ///< apply content width/height to the widget
 
     QListView *m_listView;
     QSortFilterProxyModel *m_proxyModel;

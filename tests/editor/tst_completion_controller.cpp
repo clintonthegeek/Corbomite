@@ -4,6 +4,7 @@
 // text + edit path; a stub '@' suggester isolates controller logic.
 #include "CompletionController.h"
 #include "CompletionPopup.h"
+#include "CompletionDelegate.h"
 #include "corbomite/core/EditorSuggest.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/NoteDocument.h"
@@ -11,8 +12,11 @@
 #include <markoff/core/MarkdownView.h>
 #include <markoff/core/MarkoffDocument.h>
 
+#include <QFontMetrics>
 #include <QObject>
+#include <QStandardItemModel>
 #include <QTest>
+#include <QWidget>
 
 using namespace Corbomite;
 
@@ -199,6 +203,53 @@ private Q_SLOTS:
         QTRY_VERIFY(!rig.ctl.isActive());
         QCOMPARE(QString::fromUtf8(rig.doc->markoff()->serializeForSave()),
                  QStringLiteral("hello @\n"));
+    }
+
+    // Regression: the popup must size its height to the number of visible
+    // rows. Before this was fixed it rendered one row tall regardless, so
+    // multi-candidate sets (e.g. Beta vs sub/Beta) were invisible and
+    // arrow-navigation moved an unseen selection.
+    void popupHeight_growsWithRowCount()
+    {
+        Rig two(QStringLiteral("hello @"));      // empty query → apple + banana
+        two.placeCursor(1, 8);
+        QTRY_VERIFY(two.ctl.isActive());
+        QCOMPARE(two.ctl.popup()->visibleRowCount(), 2);
+        const int h2 = two.ctl.popup()->sizeHint().height();
+
+        Rig one(QStringLiteral("hello @ap"));     // fuzzy 'ap' → apple only
+        one.placeCursor(1, 10);
+        QTRY_VERIFY(one.ctl.isActive());
+        QCOMPARE(one.ctl.popup()->visibleRowCount(), 1);
+        const int h1 = one.ctl.popup()->sizeHint().height();
+
+        QVERIFY2(h2 > h1,
+                 qPrintable(QStringLiteral("two-row popup (%1px) must be taller "
+                                           "than one-row (%2px)").arg(h2).arg(h1)));
+    }
+
+    // Regression: the popup must widen to fit the dim detail column so a
+    // path like a deeply-nested note isn't needlessly elided. Before this,
+    // the detail was capped at half the row and the popup at a fixed width.
+    void popupWidth_fitsDetailWithoutEliding()
+    {
+        QWidget host;
+        host.resize(500, 400);
+        QStandardItemModel model;
+        auto *item = new QStandardItem(QStringLiteral("Beta"));
+        const QString detail = QStringLiteral("deeply/nested/folder/Beta.md");
+        item->setData(detail, Qt::UserRole + 1);
+        item->setData(detail, Qt::UserRole + 2);
+        model.appendRow(item);
+
+        CompletionPopup popup(&model, &host);
+        popup.setFilterText(QString());
+        const int natural = CompletionDelegate::rowNaturalWidth(
+            QFontMetrics(popup.font()), QStringLiteral("Beta"), detail);
+        QVERIFY2(popup.sizeHint().width() >= natural,
+                 qPrintable(QStringLiteral("popup width %1px must fit the row's "
+                                           "natural width %2px")
+                                .arg(popup.sizeHint().width()).arg(natural)));
     }
 };
 

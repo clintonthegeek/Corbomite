@@ -6,10 +6,21 @@
 
 #include <QAbstractItemView>
 #include <QApplication>
+#include <QFontMetrics>
 #include <QGraphicsDropShadowEffect>
+#include <QScrollBar>
 #include <QVBoxLayout>
 
 namespace Corbomite {
+
+// Show up to this many rows before the list starts scrolling. Keeps the
+// popup from swallowing the editor while still revealing multi-candidate
+// sets (path-disambiguated names, headings, blocks).
+static constexpr int kMaxVisibleRows = 10;
+
+// Width clamps: grow to fit display + detail, but never absurdly wide.
+static constexpr int kMinWidth = 240;
+static constexpr int kMaxWidth = 640;
 
 // Fuzzy proxy for completion — shares the Corbomite::FuzzyMatcher pipeline with
 // QuickSwitcher and (eventually) every other suggester so ranking is uniform.
@@ -70,8 +81,8 @@ CompletionPopup::CompletionPopup(QAbstractItemModel *sourceModel, QWidget *paren
     setFocusPolicy(Qt::NoFocus);
     setAttribute(Qt::WA_ShowWithoutActivating);
 
-    setFixedWidth(300);
-    setMaximumHeight(200);
+    // Both dimensions are content-driven (resizeToContents()): width grows
+    // to fit the widest display + dim detail, height to the row count.
     setFrameShape(QFrame::StyledPanel);
     raise();
 
@@ -114,12 +125,61 @@ void CompletionPopup::setFilterText(const QString &text)
         m_listView->setCurrentIndex(m_proxyModel->index(0, 0));
     }
 
+    resizeToContents();
     m_listView->viewport()->update();
 }
 
 int CompletionPopup::visibleRowCount() const
 {
     return m_proxyModel->rowCount();
+}
+
+int CompletionPopup::contentHeight() const
+{
+    const int rows = qBound(1, m_proxyModel->rowCount(), kMaxVisibleRows);
+    // Mirror CompletionDelegate::sizeHint (fontMetrics.height() + 8).
+    const int rowH = QFontMetrics(m_listView->font()).height() + 8;
+    const QMargins m = layout()->contentsMargins();
+    return rows * rowH + frameWidth() * 2 + m.top() + m.bottom();
+}
+
+int CompletionPopup::contentWidth() const
+{
+    const QFontMetrics fm(m_listView->font());
+    int widest = 0;
+    for (int r = 0; r < m_proxyModel->rowCount(); ++r) {
+        const QModelIndex idx = m_proxyModel->index(r, 0);
+        widest = qMax(widest,
+                      CompletionDelegate::rowNaturalWidth(
+                          fm, idx.data(Qt::DisplayRole).toString(),
+                          idx.data(Qt::UserRole + 2).toString()));
+    }
+    const QMargins m = layout()->contentsMargins();
+    int chrome = frameWidth() * 2 + m.left() + m.right();
+    if (m_proxyModel->rowCount() > kMaxVisibleRows)
+        chrome += m_listView->verticalScrollBar()->sizeHint().width();
+    return qBound(kMinWidth, widest + chrome, kMaxWidth);
+}
+
+void CompletionPopup::resizeToContents()
+{
+    const int w = contentWidth();
+    const int h = contentHeight();
+    setFixedSize(w, h);   // apply immediately so size()/positioning are correct pre-show
+    // Force every row to the viewport width so the dim detail right-aligns
+    // to a stable column instead of the row's own (ragged) natural edge.
+    const QMargins m = layout()->contentsMargins();
+    int viewportW = w - frameWidth() * 2 - m.left() - m.right();
+    if (m_proxyModel->rowCount() > kMaxVisibleRows)
+        viewportW -= m_listView->verticalScrollBar()->sizeHint().width();
+    m_delegate->setRowWidth(viewportW);
+    m_listView->doItemsLayout();   // pick up the new per-row width
+    updateGeometry();
+}
+
+QSize CompletionPopup::sizeHint() const
+{
+    return QSize(contentWidth(), contentHeight());
 }
 
 void CompletionPopup::selectNext()
@@ -171,6 +231,7 @@ void CompletionPopup::showEvent(QShowEvent *event)
 {
     QFrame::showEvent(event);
     raise();
+    resizeToContents();
     if (m_proxyModel->rowCount() > 0) {
         m_listView->setCurrentIndex(m_proxyModel->index(0, 0));
     }
