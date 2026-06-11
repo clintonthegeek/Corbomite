@@ -60,6 +60,16 @@
 
 ---
 
+## Added 2026-06-11 — completion revival follow-ups
+
+> Deferrals from the completion-revival closeout (A1–A3 shipped; spec [`superpowers/specs/2026-06-11-completion-revival-design.md`](superpowers/specs/2026-06-11-completion-revival-design.md) §14). All three are user-approved deferrals, not regressions — filed so the closeout doesn't lose them.
+
+- [ ] [editor][completion][P3][completion-revival] **`^id` creation on block pick.** Picking a `[[note#^…]]` candidate inserts only *existing* block ids; choosing a block that has no id yet should mint a `^id` on the target block (append + persist) and link to it. Today the A3 picker is existing-ids-only. Spec §14.
+- [ ] [editor][completion][P4][completion-revival] **Code-block trigger suppression via `EditorContext`.** `[[`/`#`/`^` triggers fire inside fenced/inline code spans where completion is unwanted; suppress when the caret's `EditorContext` reports a code context. Needs a code-context flag surfaced on the editor context. Spec §14.
+- [ ] [editor][completion][P5][completion-revival] **Popup `detail` column rendering polish.** The completion popup's secondary `detail` column (alias source, heading path, block preview) renders unstyled/cramped; needs layout + elide polish. Cosmetic. Spec §14.
+
+---
+
 ## Added 2026-05-25 (post-port / D.1 close-out)
 
 - [x] **[RESOLVED 2026-05-26 — `1be8a577`.]** [bases][parsing][P1] **`.base` `unrecognizedData` truncates non-scalar shapes** — top-level path in `BasesQuery.cpp` dropped nested YAML (the unrecognizedData switch `default: break;` skipped Seq/Map Kinds). Fix: promoted the recursive `yamlToVariant` helper out of `BasesViewConfig.cpp`'s anon namespace to a shared decl in `BasesViewConfig.h`, and use it for top-level unrecognizedData so nested maps/lists round-trip. Emit side (`emitMap`/`emitList`/`emitValue`) already handled nested shapes — no writer change. Test: `tst_bases_yaml_schema::testUnknownTopLevelNestedShapePreserved` (nested map + list survive load→save→load). `BasesViewConfig.cpp` already used `yamlToVariant` correctly. Forward-compat round-trip risk: a future Obsidian `.base` feature that nests YAML would be silently lost on first save. Deferred out of Cluster D.1 (evaluator-only) as a sibling of the Cluster A key-order fix. See [audit-2026-04-26/bases.md](audit-2026-04-26/bases.md) §"Missing — Structural #1/#3".

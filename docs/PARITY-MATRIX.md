@@ -64,7 +64,7 @@ contract-v2 re-pin (see the adoption brief).
 |---|---|---|
 | Three modes (Live/Source/Reading) + Ctrl+E + wire-format `{mode, source}` | ✅ | `NoteEditorWidget.cpp:175-303`; `ViewModeSerializer.cpp` |
 | **Link click → navigate** | ✅ | `88ad1b46`+`8c9d8c8d` — shared `DefaultLinkService` wired to Live binding + Styled Reading leaf; MainWindow resolves via LinkResolver → navigates; create-on-click for missing targets; tests `tst_link_activation`, `tst_mainwindow_link_navigation` |
-| `[[` note-name completion | ✅ | completion revival A1 (spec `docs/superpowers/specs/2026-06-11-completion-revival-design.md`): `CompletionController` driven by real caretRect across all editable leaves; `WikiLinkSuggest` names ✅ + aliases ✅ (A2) + `[[note#` headings ✅ (A2, resolved-target `HeadingCache` lookup); `#^block` pending A3; tests `tst_wikilink_suggest`, `tst_completion_controller`, `tst_note_editor_widget_completion` (live-leaf e2e) |
+| `[[` note-name completion | ✅ | completion revival A1–A3 (spec `docs/superpowers/specs/2026-06-11-completion-revival-design.md`): `CompletionController` driven by real caretRect across all editable leaves; `WikiLinkSuggest` names ✅ + aliases ✅ (A2) + `[[note#` headings ✅ (A2, resolved-target `HeadingCache` lookup) + `[[note#^` existing-block ids ✅ (A3); block-id *creation* on pick deferred (follow-up — punch-list P3); tests `tst_wikilink_suggest`, `tst_completion_controller`, `tst_note_editor_widget_completion` (live-leaf e2e) |
 | `#` tag completion | ✅ | completion revival A1 (same spec); `TagSuggest` v2; `tst_tag_suggest` |
 | Live: headings/lists/tables(+cell edit)/code(+highlight)/checkbox toggle | ✅ | markoff-live delegates; `TableEditBinding` |
 | Reading (styled): tables | ✅ | re-pin `8112833f` (past styled-table arc, outside the `8c13c5d..079ac1f` window); renders real `QTextTable` grids |
@@ -149,7 +149,7 @@ Example plugins compile against current API (verified 2026-06-10).
 ## The eight headline holes (what a dogfooder hits in hour one)
 
 1. ~~**Link clicks do nothing** in every mode (P0, wiring-only fix).~~ **FIXED `88ad1b46`+`8c9d8c8d` (Phase 0)**
-2. ~~**No completion** for `[[` or `#` — typed blind.~~ **FIXED — completion revival A1 (`[[` names + `#` tags, all editable leaves); aliases + `[[note#` headings done (A2); `#^` blocks pending A3.**
+2. ~~**No completion** for `[[` or `#` — typed blind.~~ **FIXED — completion revival A1–A3 (`[[` names + `#` tags, all editable leaves); aliases + `[[note#` headings (A2); `[[note#^` existing-block ids (A3). Block-id *creation* on pick deferred (follow-up).**
 3. ~~**Editor save path can truncate notes on crash** (P0, ~5-line fix).~~ **FIXED `51d62910` (Phase 0)**
 4. **No back/forward navigation** despite a complete LeafHistory engine.
 5. **Reading mode is a downgrade** (no tables until re-pin, raw math, inert checkboxes).

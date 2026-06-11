@@ -10,6 +10,16 @@ Conventions:
 
 ---
 
+## 2026-06-11 — Completion revival (A1–A3)
+
+The `[[`/`#` "typed blind" hole (PARITY-MATRIX headline #2) is closed. Five completion modes now work across **all editable leaves** via the polymorphic `Markoff::MarkdownView` base: `[[` note-names, `[[note|alias` aliases (frontmatter `aliases:` insert `target|alias`), `[[note#` headings (resolved-target `HeadingCache` lookup), `[[note#^` existing-block ids, and `#` tags. Spec [`superpowers/specs/2026-06-11-completion-revival-design.md`](superpowers/specs/2026-06-11-completion-revival-design.md); plan [`superpowers/plans/2026-06-11-completion-revival.md`](superpowers/plans/2026-06-11-completion-revival.md) (17 tasks).
+
+**Upstream `caretRect()` contract addition (markoff-family).** The popup must anchor to the real caret pixel rect, which no leaf exposed. Added a `Markoff::MarkdownView::caretRect()` virtual to the contract: base default + `Source`/`Styled` overrides (inner text-widget `cursorRect` mapped to editor coords, `3ed3e44c`) + a `Live` override (window `activeFocusItem` `cursorRectangle`, `cdd2bd3c`), plus a caret-rect contract mini-spec (`e2fefbd2`). Submodule re-pinned `af91a936` → **`e2fefbd2`**; markoff commits pushed to its `master`.
+
+**EditorSuggest interface-v2 ABI break (pre-1.0).** The suggester interface was reshaped to v2: structured suggestion items (replacing the prior flat strings, carrying a `detail` column + insertion payload) and a dispatch-side `cursorPos` clamp (closes the pre-existing `tst_editorsuggest` out-of-range SIGABRT in production, not just the test mock — see punch-list). `WikiLinkSuggest`/`TagSuggest` reimplemented against v2. The ABI break is acceptable pre-1.0; no external plugin consumers exist yet.
+
+**User-approved deferrals (punch-listed 2026-06-11):** `^id` *creation* on block pick (A3 picks existing ids only) — P3; code-block trigger suppression via `EditorContext` — P4; `app.json` link-format consultation (`useMarkdownLinks`/`newLinkFormat` — wikilink-only today) — tracked with the existing P2 app.json item; popup `detail`-column rendering polish — P5. Suites at closeout: markoff 270/273 (3 known queue-#10 reds: `tst_live_render_e2_nav_shift_extend`, `tst_live_render_focus_chokepoint_invariant`, `tst_live_render_cursor_typing_invariant`), Corbomite **265/265** offscreen. Popup look-and-feel across all modes is offscreen-verified only and joins the eyeball-verification backlog.
+
 ## 2026-06-10 — Dogfood loop: first-run SIGSEGV fixed (vault-teardown UAF + welcome-screen double-open)
 
 First real run of Corbomite (Phase 6 dogfood loop) crashed on opening a recent vault. Root cause (confirmed by gdb DTOR backtrace — the crashing `MarkoffDocument` address was freed by `Vault::unload → teardownTree → qDeleteAll(m_docs)` before the crash) was a timing-dependent use-after-free with two coupled defects:
