@@ -131,6 +131,11 @@ Q_SIGNALS:
 private:
     void onCursorPositionChanged(int line, int column);
 
+    // Recompute the active document's word count (cheap; NoteDocument caches
+    // it) and re-ship it on cursorInfoChanged at the current caret so the
+    // status bar tracks edits without waiting for a cursor move.
+    void refreshWordCount();
+
     // Link resolution
     QString resolveTarget(const QString &target) const;
 
@@ -193,6 +198,9 @@ private:
     Vault *m_vault = nullptr;
     VaultResourceProvider *m_resourceProvider = nullptr;
     int m_cachedWordCount = 0;
+    // Tracks the active document's textChanged → refreshWordCount() wiring so
+    // it is torn down when the document is swapped or detached.
+    QMetaObject::Connection m_wordCountConn;
 
     // Hover preview (lifetime owned by MainWindow).
     HoverPopover *m_hoverPopover = nullptr;

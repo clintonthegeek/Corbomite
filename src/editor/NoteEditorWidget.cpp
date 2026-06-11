@@ -98,6 +98,9 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
         leaf->setDocument(nullptr);
     }
 
+    // Drop the previous document's word-count wiring before swapping.
+    disconnect(m_wordCountConn);
+
     m_doc = doc;
 
     if (m_doc) {
@@ -117,7 +120,16 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
         if (auto *leaf = activeLeaf()) {
             leaf->setDocument(m_doc->markoff());
         }
+
+        // Status-bar word count: track every edit (NoteDocument caches the
+        // count and invalidates on change) and seed the initial value so the
+        // count is correct the moment the document opens, without waiting for
+        // a cursor move.
+        m_wordCountConn = connect(m_doc, &NoteDocument::textChanged,
+                                  this, &NoteEditorWidget::refreshWordCount);
+        refreshWordCount();
     } else {
+        m_cachedWordCount = 0;
         // TODO(port-foundation-exploration): no equivalent of Editor::clear()
         // on EditorWidget; closing the document detaches via setDocument(nullptr).
         m_editor->setDocument(nullptr);
@@ -399,6 +411,18 @@ void NoteEditorWidget::onCursorPositionChanged(int line, int column)
 {
     if (!m_doc) return;
     Q_EMIT cursorInfoChanged(line, column, m_cachedWordCount);
+}
+
+void NoteEditorWidget::refreshWordCount()
+{
+    if (!m_doc) {
+        m_cachedWordCount = 0;
+        return;
+    }
+    m_cachedWordCount = m_doc->wordCount();
+    const Markoff::CursorPos pos =
+        activeLeaf() ? activeLeaf()->cursorPosition() : Markoff::CursorPos{};
+    Q_EMIT cursorInfoChanged(pos.line, pos.column, m_cachedWordCount);
 }
 
 // --- Link Resolution ---

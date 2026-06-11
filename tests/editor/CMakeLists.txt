@@ -118,6 +118,29 @@ set_tests_properties(tst_note_editor_widget_doc_lifetime PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+# Phase 2 (road-to-dogfood) — status-bar word count honesty: attaching a
+# document seeds the count and every edit re-emits a fresh count on
+# cursorInfoChanged.
+add_executable(tst_note_editor_widget_word_count
+    tst_note_editor_widget_word_count.cpp
+)
+target_include_directories(tst_note_editor_widget_word_count PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_note_editor_widget_word_count PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    markoff_live
+    markoff_styled
+    Markoff::Source
+    Corbomite::Core
+)
+add_test(NAME tst_note_editor_widget_word_count COMMAND tst_note_editor_widget_word_count)
+set_tests_properties(tst_note_editor_widget_word_count PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 # Phase 1 (contract v2) — NoteEditorWidget signal-driven mode-transition
 # glue: cursorInfoChanged on leaf cursor move, canonical-bytes preservation
 # across swap, leaves reflecting canonical on attach, viewModeChanged shape.
