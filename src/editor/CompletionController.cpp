@@ -7,6 +7,7 @@
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/NoteDocument.h"
 
+#include <markoff/core/BlockEdit.h>
 #include <markoff/core/MarkoffDocument.h>
 
 #include <QApplication>
@@ -174,8 +175,39 @@ bool CompletionController::eventFilter(QObject *obj, QEvent *event)
 void CompletionController::accept(const QString &display, const QString &insertText)
 {
     Q_UNUSED(display)
-    Q_UNUSED(insertText)
-    dismiss();   // Task 10 implements the real accept path.
+    // Re-resolve from the live snapshot — the popup's view of the world may
+    // be one coalesced refresh stale. If the trigger no longer holds, abort
+    // silently (spec §6): never insert against a guessed range.
+    if (!m_manager || !m_leaf || !m_doc || !m_doc->markoff() || insertText.isEmpty()) {
+        dismiss();
+        return;
+    }
+    Markoff::MarkoffDocument *mdoc = m_doc->markoff();
+    const Markoff::CursorPos pos = m_leaf->cursorPosition();
+    const auto line = LineResolve::resolveLine(mdoc, pos.line);
+    if (!line) { dismiss(); return; }
+    auto res = m_manager->dispatch(pos.column - 1, line->lineText, m_doc);
+    if (!res) { dismiss(); return; }
+    const auto &info = res->info;
+    const int replaceEnd = (info.replaceEnd >= info.end) ? info.replaceEnd : info.end;
+
+    const QString blockStr = QString::fromUtf8(mdoc->blockText(line->blockId));
+    const uint32_t b0 = LineResolve::byteOffsetForChar(
+        blockStr, line->lineStartCharInBlock + info.start);
+    const uint32_t b1 = LineResolve::byteOffsetForChar(
+        blockStr, line->lineStartCharInBlock + replaceEnd);
+
+    Markoff::BlockEdit edit;
+    edit.blockId = line->blockId;
+    edit.withinBlockByteOffset = b0;
+    edit.removedBytes = b1 - b0;
+    edit.insertedUtf8 = insertText.toUtf8();
+    mdoc->applyBlockEdit(edit);          // undo-integrated; propagates to all leaves
+
+    // Deterministic post-insert caret — never rely on a leaf's own
+    // post-edit cursor behavior (spec §5).
+    m_leaf->setCursorPosition({pos.line, info.start + int(insertText.length()) + 1});
+    dismiss();
 }
 
 } // namespace Corbomite
