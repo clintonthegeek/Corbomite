@@ -112,6 +112,14 @@ public:
     /// caret while read-only). Returns false only when no leaf exists yet.
     bool goToLine(int line);
 
+    /// Insert `text` at the active leaf's caret as one undo-integrated D2 edit
+    /// (propagates to every leaf), instead of appending at end-of-document.
+    /// If `caretMarker` is non-empty and present in `text`, it is stripped and
+    /// the caret lands at its position; otherwise the caret lands after the
+    /// inserted text. Returns false when there is no document. Used by
+    /// template insertion (road-to-dogfood Phase 2).
+    bool insertAtCursor(const QString &text, const QString &caretMarker = {});
+
     // Cluster E Phase 1/7 — ephemeral-state round-trip. Captures / restores
     // scroll, cursor, mode, and fold through `Corbomite::EphemeralState`.
     // Phase 7 wires these through `EditorViewManager::{build,apply}PaneLayout`

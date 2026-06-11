@@ -141,6 +141,28 @@ set_tests_properties(tst_note_editor_widget_word_count PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+# Phase 2 (road-to-dogfood) — template-at-cursor: insertAtCursor lands the
+# text at the caret (one D2 edit) instead of appending at end-of-document.
+add_executable(tst_note_editor_widget_insert_at_cursor
+    tst_note_editor_widget_insert_at_cursor.cpp
+)
+target_include_directories(tst_note_editor_widget_insert_at_cursor PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_note_editor_widget_insert_at_cursor PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    markoff_live
+    markoff_styled
+    Markoff::Source
+    Corbomite::Core
+)
+add_test(NAME tst_note_editor_widget_insert_at_cursor COMMAND tst_note_editor_widget_insert_at_cursor)
+set_tests_properties(tst_note_editor_widget_insert_at_cursor PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 # Phase 1 (contract v2) — NoteEditorWidget signal-driven mode-transition
 # glue: cursorInfoChanged on leaf cursor move, canonical-bytes preservation
 # across swap, leaves reflecting canonical on attach, viewModeChanged shape.

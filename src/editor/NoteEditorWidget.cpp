@@ -2,6 +2,7 @@
 #include "NoteEditorWidget.h"
 #include "CompletionController.h"
 #include "FindBar.h"
+#include "LineResolve.h"
 #include "HoverPopover.h"
 #include "ViewModeSerializer.h"
 #include "VaultResourceProvider.h"
@@ -19,6 +20,7 @@
 #include <markoff/core/LinkKind.h>
 #include <markoff/core/MarkdownView.h>
 #include <markoff/core/MarkoffDocument.h>
+#include <markoff/core/Origin.h>
 #include <markoff/live/EditorWidget.h>
 #include <markoff/live/LiveListModelBinding.h>
 #include <markoff/source/Editor.h>
@@ -423,6 +425,53 @@ void NoteEditorWidget::refreshWordCount()
     const Markoff::CursorPos pos =
         activeLeaf() ? activeLeaf()->cursorPosition() : Markoff::CursorPos{};
     Q_EMIT cursorInfoChanged(pos.line, pos.column, m_cachedWordCount);
+}
+
+bool NoteEditorWidget::insertAtCursor(const QString &text, const QString &caretMarker)
+{
+    if (!m_doc || !m_doc->markoff()) return false;
+    Markoff::MarkoffDocument *mdoc = m_doc->markoff();
+    Markoff::MarkdownView *leaf = activeLeaf();
+
+    const Markoff::CursorPos pos =
+        leaf ? leaf->cursorPosition() : Markoff::CursorPos{};
+
+    // Insert point in applyFlatEdit's no-separator coordinate space. If the
+    // caret line can't be resolved, fall back to end-of-document (the old
+    // append behaviour) rather than dropping the edit.
+    uint32_t at;
+    if (const auto off = LineResolve::globalByteOffsetForCursor(mdoc, pos.line, pos.column)) {
+        at = *off;
+    } else {
+        uint32_t total = 0;
+        for (const auto &id : mdoc->iterateBlocks())
+            total += uint32_t(mdoc->blockText(id).size());
+        at = total;
+    }
+
+    // Strip the cursor marker (if any); the caret lands where it was, else at
+    // the end of the inserted text.
+    QString body = text;
+    int caretCharIdx = caretMarker.isEmpty() ? -1 : int(body.indexOf(caretMarker));
+    if (caretCharIdx >= 0)
+        body.remove(caretCharIdx, caretMarker.size());
+    else
+        caretCharIdx = int(body.length());
+
+    // One undo-integrated transaction; propagates to every leaf. NB:
+    // applyFlatEdit canonicalises the inserted text (collapses newline-runs,
+    // never creates empty blocks), so a structural break at a block boundary
+    // is absorbed rather than producing a blank paragraph — text-insertion
+    // semantics, matching the flat-view leaves' own edit path.
+    mdoc->applyFlatEdit(at, at, body.toUtf8(), Markoff::Origin::UserEdit);
+
+    // Deterministic caret — never trust a leaf's own post-edit cursor (mirrors
+    // CompletionController). The flat-line arithmetic is the pure, unit-tested
+    // LineResolve::caretAfterFlatInsert.
+    if (Markoff::MarkdownView *l = activeLeaf())
+        l->setCursorPosition(
+            LineResolve::caretAfterFlatInsert(pos, body.left(caretCharIdx)));
+    return true;
 }
 
 // --- Link Resolution ---

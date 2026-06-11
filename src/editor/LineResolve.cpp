@@ -37,4 +37,35 @@ uint32_t byteOffsetForChar(const QString &blockText, int charPos)
     return uint32_t(QStringView(blockText).left(clamped).toUtf8().size());
 }
 
+std::optional<uint32_t> globalByteOffsetForCursor(
+    const Markoff::MarkoffDocument *doc, int line, int column)
+{
+    const auto rl = resolveLine(doc, line);
+    if (!rl) return std::nullopt;
+
+    // applyFlatEdit's coordinate space concatenates blockText with NO
+    // separators, so the cursor block's base offset is the sum of preceding
+    // block byte sizes only.
+    const auto ids = doc->iterateBlocks();
+    uint32_t base = 0;
+    for (int r = 0; r < rl->blockRow; ++r)
+        base += uint32_t(doc->blockText(ids[size_t(r)]).size());
+
+    const QString blockStr = QString::fromUtf8(doc->blockText(rl->blockId));
+    const int col0 = qBound(0, column - 1, int(rl->lineText.length()));
+    return base + byteOffsetForChar(blockStr, rl->lineStartCharInBlock + col0);
+}
+
+Markoff::CursorPos caretAfterFlatInsert(Markoff::CursorPos origin,
+                                        const QString &before)
+{
+    const int nlBefore = int(before.count(QLatin1Char('\n')));
+    const qsizetype lastNl = before.lastIndexOf(QLatin1Char('\n'));
+    Markoff::CursorPos out;
+    out.line = origin.line + nlBefore;
+    out.column = (lastNl < 0) ? origin.column + int(before.length())
+                              : int(before.length() - lastNl);
+    return out;
+}
+
 } // namespace Corbomite::LineResolve

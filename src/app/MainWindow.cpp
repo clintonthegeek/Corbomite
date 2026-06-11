@@ -2650,22 +2650,10 @@ void MainWindow::insertTemplate()
     QString expanded = m_templateService->loadAndExpand(name, editor->noteDocument()->name());
     if (expanded.isEmpty()) return;
 
-    const QString marker = TemplateService::cursorMarker();
-    const bool wasEmpty = editor->noteDocument()->markdown().trimmed().isEmpty();
-    QString finalBody = wasEmpty
-        ? expanded
-        : editor->noteDocument()->markdown() + expanded;
-
-    const int cursorIdx = finalBody.indexOf(marker);
-    if (cursorIdx >= 0) {
-        finalBody.remove(cursorIdx, marker.size());
-    }
-    editor->noteDocument()->setMarkdown(finalBody);
-
-    if (cursorIdx >= 0) {
-        const int line = finalBody.left(cursorIdx).count(QLatin1Char('\n'));
-        editor->goToLine(line + 1);   // count('\n') is 0-based; CursorPos is 1-based
-    }
+    // Insert at the caret (one undo-integrated D2 edit) rather than appending
+    // at end-of-document. The {{cursor}} marker, if present, positions the
+    // caret post-insert. (road-to-dogfood Phase 2 — template-at-cursor.)
+    editor->insertAtCursor(expanded, TemplateService::cursorMarker());
 }
 
 void MainWindow::openDailyNote()
