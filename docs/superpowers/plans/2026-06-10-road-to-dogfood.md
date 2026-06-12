@@ -88,9 +88,13 @@ What a writer needs hourly. Order within phase is suggested, not binding.
   (Biggest single UX win after links.)
 - **Status bar honesty** — word count (connect `NoteDocument::textChanged` →
   existing `wordCount()` cache) + Ln/Col (arrives via Phase 1).
-- **Hover preview** — re-target `HoverPopover::renderTarget` at
-  `StyledRenderEngine`; wire a hover-trigger source (the 05-29 convergence
-  design's third surface, still live in specs/).
+- **Hover preview** — ✅ DONE 2026-06-11 (pending live eyeball). `HoverPopover::renderTarget`
+  re-targeted at `StyledRenderEngine` + a `VaultResourceProvider` resolver into a
+  `QTextBrowser`; trigger wired through the shared `LinkService` (`linkHovered`/
+  `linkHoverLeft`), covering Live + Reading at once — no upstream Markoff work or
+  re-pin needed. Subpath (`#heading`/`#^block`) slicing + modifier-gated hover deferred.
+  Spec/plan: `specs/2026-06-11-hover-preview-relight-design.md`,
+  `plans/2026-06-11-hover-preview-relight.md`.
 - **Placebo removal** — Insert Table/Callout dialogs + hamburger Find/Replace:
   wire or hide (punch-list P3). Disabled-stub menu actions: hide from menus
   until functional (keep registered for discovery).

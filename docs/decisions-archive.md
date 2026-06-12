@@ -10,6 +10,24 @@ Conventions:
 
 ---
 
+## 2026-06-11 — Phase 2 hover preview re-light
+
+Road-to-dogfood **Phase 2** "hover preview" item shipped on `master` across three commits (`2ac999cb`, `fff4bd4a`, `6999df1a`; test-double doc note `920b5547`). Executed via subagent-driven-development against the approved spec [`specs/2026-06-11-hover-preview-relight-design.md`](superpowers/specs/2026-06-11-hover-preview-relight-design.md) + plan [`plans/2026-06-11-hover-preview-relight.md`](superpowers/plans/2026-06-11-hover-preview-relight.md). Each task passed a spec-compliance review then a Qt code-quality review; a final holistic integration review confirmed the end-to-end seam.
+
+`HoverPopover` had a complete, tested state machine (300 ms delay → Pending → Visible, 500 ms grace, Ctrl-pin, Esc/outside dismiss) but was **dark on both ends**: its content path was built on the retired `Markoff::Reading::ReadingView`/`EmbedRenderer` (so `m_view == nullptr`, `renderTarget` a no-op, the two render/pinning tests `if(FALSE)`-gated), and nothing ever called `scheduleShow()`. The key discovery was that the seams already existed — no upstream Markoff work, no submodule re-pin.
+
+**Content path (Task 1, `2ac999cb`).** Swapped the retired API for `setRenderEngine(MarkdownRenderEngine*)` + `setResources(Core::VaultResourceProvider*)` + `previewPlainText()`, with a read-only frameless `QTextBrowser m_display` (QObject-parented). `renderTarget` now `splitTarget`s the target, `resolveEmbed`s the path to markdown bytes, renders via the engine and copies `RenderedDocument::toQTextDocument()->toHtml()` into the browser (ownership-safe — no `RenderedDocument` lifetime member). Unresolved/missing → typed `*(unresolved: …)*` placeholder; null engine → raw-markdown fallback; never crashes. Subpath (`#heading`/`#^block`) slicing deferred (whole note rendered). Re-enabled `tst_hover_popover_render` (rewritten, 3 slots) + `tst_hover_popover_pinning` (state machine untouched). The two `MainWindow.cpp` `setVault→setResources` call-site swaps were folded in here to keep the build green.
+
+**Trigger (Task 2, `fff4bd4a`).** Two connects in `NoteEditorWidget` from the shared `Markoff::LinkService` — `linkHovered` → `scheduleShow(target, anchor)` (target = `act.page` else `act.rawText`; `LinkKind::External` and empty filtered out), `linkHoverLeft` → `linkHoverEnded()`. Because both the Live binding and the Styled reading leaf pump the same `m_linkService`, this single pair lights up **Live and Reading** at once; Source (Qutepart) deliberately does not participate (matches Obsidian). New end-to-end `tst_note_editor_widget_hover` (2 slots) drives the real service via `notifyHover`/`notifyHoverLeft` — genuine TDD red (state Hidden) → green.
+
+**Host wiring (Task 3, `6999df1a`).** `MainWindow` sets the engine once at construction (reuses the stateless app-lifetime `m_cardRenderEngine`, also shared with canvas cards) and the per-vault `VaultScopedResources` on open / `nullptr` on close; dead `EmbedRenderer` comment blocks purged from ctor + dtor. Lifetime is sound: `m_cardRenderEngine` (member `unique_ptr`) is declared after `m_hoverPopover` so it outlives the QObject child, and the popover only dereferences the engine from `renderTarget` during live hover — never during teardown — so (unlike the canvas views) it needs no explicit clear.
+
+**Runtime-resolution check.** The integration review specifically traced the target-string handoff: the bare name passed to `scheduleShow` (`"Target"`) resolves correctly because production `VaultScopedResources::resolveEmbed` normalizes `"Target" → "Target.md"`; the unit-test `InMemoryResources` doubles intentionally match bare keys and now carry a comment warning not to copy that into a real provider (`920b5547`).
+
+Full offscreen suite **270/270** (excl. `benchmark`). **Live eyeball still pending** — offscreen Qt can't drive hover; PARITY-MATRIX row marked 🟡 until a human confirms the styled preview appears in Live + Reading, dismisses on grace, pins on Ctrl. **Tracked follow-ups (out of scope):** subpath (`#heading`/`#^block`) slicing in the preview; optional modifier-gated hover (Obsidian's edit-mode default); nested-embed expansion in previews; hover over Source mode; child-popover chains from links inside a pinned preview; a `LinkKind::External`-ignored test slot + tighter render-timeout in the trigger test.
+
+---
+
 ## 2026-06-11 — Phase 2 status-bar word count + template-at-cursor
 
 Two self-contained road-to-dogfood **Phase 2** items shipped on `master`; checkbox-toggle-in-Reading scoped and deferred upstream.
