@@ -73,6 +73,26 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     connect(m_linkService, &Markoff::LinkService::linkActivated,
             this, &NoteEditorWidget::onLinkActivated);
 
+    // Hover preview (2026-06-11) — forward the shared LinkService hover
+    // stream to the host-owned popover. Both Live and Reading leaves emit
+    // through this one service, so this covers both. m_hoverPopover is set
+    // later by the host (setHoverPopover), so read it lazily at signal time.
+    connect(m_linkService, &Markoff::LinkService::linkHovered, this,
+            [this](const Markoff::LinkActivation &act, const QPoint &globalPos) {
+                if (!m_hoverPopover) return;
+                if (act.kind == Markoff::LinkKind::External) return;
+                const QString target =
+                    !act.page.isEmpty() ? act.page : act.rawText;
+                if (target.isEmpty()) return;
+                m_hoverPopover->scheduleShow(target, globalPos);
+            });
+    connect(m_linkService, &Markoff::LinkService::linkHoverLeft, this,
+            [this](const QString & /*linkText*/) {
+                // The popover tracks a single active target, so cancellation is
+                // global — the specific link we left doesn't matter here.
+                if (m_hoverPopover) m_hoverPopover->linkHoverEnded();
+            });
+
     // TODO(port-foundation-exploration): old Markoff::Editor exposed
     // textChanged / cursorPositionChanged(int line, int col) /
     // wordCountChanged / linkClicked / linkHovered / completionDismissHint.

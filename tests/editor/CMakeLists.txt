@@ -341,6 +341,15 @@ set_tests_properties(tst_link_activation PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+# Hover preview re-light (2026-06-11) — NoteEditorWidget forwards the shared
+# LinkService hover signals to the HoverPopover (Live + Reading via one service).
+add_executable(tst_note_editor_widget_hover tst_note_editor_widget_hover.cpp)
+target_include_directories(tst_note_editor_widget_hover PRIVATE ${CMAKE_SOURCE_DIR}/src/editor)
+target_link_libraries(tst_note_editor_widget_hover PRIVATE
+    Qt6::Test Qt6::Widgets CorbomiteApp markoff_live markoff_styled Corbomite::Core)
+add_test(NAME tst_note_editor_widget_hover COMMAND tst_note_editor_widget_hover)
+set_tests_properties(tst_note_editor_widget_hover PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Completion revival A1 — WikiLinkSuggest names mode: trigger detection,
 # replaceEnd (consuming a trailing "]]"), names universe with basename vs
 # path disambiguation via LinkResolver::candidateCount.
