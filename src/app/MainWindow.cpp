@@ -1105,6 +1105,8 @@ void MainWindow::propagateServicesToView(View *view)
             if (!tfile) return;
             Corbomite::ExportToPdf::exportFile(tfile, vaultObj, parent);
         });
+        mv->setFindTrigger([this](QWidget *) { onFind(); });
+        mv->setReplaceTrigger([this](QWidget *) { onReplace(); });
 
         auto *editor = mv->editorWidget();
         if (editor) {

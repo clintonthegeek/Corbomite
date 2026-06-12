@@ -72,6 +72,10 @@ public:
     using PdfExportTrigger = std::function<void(QWidget *parent)>;
     void setPdfExportTrigger(PdfExportTrigger trigger);
 
+    using FindTrigger = std::function<void(QWidget *parent)>;
+    void setFindTrigger(FindTrigger trigger);
+    void setReplaceTrigger(FindTrigger trigger);
+
     /// Cluster R Task 3.4 — hamburger-menu contribution: Split/Reading/Source/
     /// AddProperty/ExportPDF/... plus the view.linked submenu. Chains up to
     /// EditableFileView::onMoreOptionsMenu for universal file-menu items.
@@ -86,6 +90,8 @@ private:
     NoteEditorWidget *m_editorWidget;
     CommandDispatch m_markdownCommandDispatcher;
     PdfExportTrigger m_pdfExportTrigger;
+    FindTrigger m_findTrigger;
+    FindTrigger m_replaceTrigger;
 };
 
 } // namespace Corbomite
