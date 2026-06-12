@@ -2229,7 +2229,7 @@ void MainWindow::onVaultOpened(const QString &path)
     // if (m_embedRenderer) { m_embedRenderer->setMetadataCache(...); ... }
 
     // Wire suggesters + hover popover against the live vault.
-    m_hoverPopover->setVault(m_vaultObj);
+    m_hoverPopover->setResources(m_popoverResources.get());
     if (m_wikiSuggest) {
         m_wikiSuggest->setVault(m_vaultObj);
         m_wikiSuggest->setLinkResolver(m_linkResolver);
@@ -2540,7 +2540,7 @@ void MainWindow::onVaultClosed()
         m_wikiSuggest->setMetadataCache(nullptr);
     }
     if (m_tagSuggest) m_tagSuggest->setIndex(nullptr);
-    if (m_hoverPopover) m_hoverPopover->setVault(nullptr);
+    if (m_hoverPopover) m_hoverPopover->setResources(nullptr);
 
 
     // TODO(port-foundation-exploration): EmbedRenderer teardown disabled.

@@ -6,14 +6,12 @@
 #include <QString>
 #include <QTimer>
 
-namespace Markoff::Reading {
-class EmbedRenderer;
-class ReadingView;
-} // namespace Markoff::Reading
+class QTextBrowser;
 
 namespace Corbomite {
 
-class Vault;
+class MarkdownRenderEngine;
+namespace Core { class VaultResourceProvider; }
 
 // Floating preview that pops up after a 300ms hover over a wiki/markdown
 // link. Per docs/obsidian-audit/domains/ui-bundle.md §7 — the delay constant
@@ -24,10 +22,11 @@ class Vault;
 //   (2) the hover-link signal carries (sourceId, target, anchor),
 //   (3) HoverPopover (this widget) mounts at the cursor and renders content.
 //
-// Cluster J Phase 6 (2026-04-15) — content is rendered via
-// `Markoff::Reading::EmbedRenderer` into an embedded
-// `Markoff::Reading::ReadingView`. Math, mermaid, wiki-links, images,
-// and nested embeds all Just Work in previews.
+// Content is rendered headlessly: a non-owning `MarkdownRenderEngine`
+// (the app's StyledRenderEngine) turns the target note's markdown — resolved
+// via a `Core::VaultResourceProvider` — into a styled QTextDocument shown in
+// an embedded read-only `QTextBrowser` (hover-preview re-light, 2026-06-11).
+// Subpath (#heading/#^block) slicing is deferred; the whole note is shown.
 //
 // 2026-04-27 — Mod-key pinning + 500 ms grace timer (P2 #4 sub-items 1+4).
 // State machine is explicit; pinning is latching via Ctrl-press while
@@ -49,16 +48,14 @@ public:
     explicit HoverPopover(QWidget *parent = nullptr);
     ~HoverPopover() override;
 
-    // Set the canonical Vault used to look up target paths → markdown
-    // bodies via the legacy fallback path when no EmbedRenderer is wired.
-    void setVault(Vault *vault);
+    // Headless render engine (non-owning) used to turn resolved markdown
+    // bytes into a styled QTextDocument. Caller retains ownership.
+    void setRenderEngine(MarkdownRenderEngine *engine);
 
-    // Cluster J Phase 6 — supply the per-vault `EmbedRenderer`. When set,
-    // `renderTarget` routes through `EmbedRenderer::render` so math /
-    // mermaid / wiki-links / images / nested embeds all render in the
-    // preview. Caller retains ownership; pass `nullptr` to clear (e.g.,
-    // on vault close).
-    void setEmbedRenderer(Markoff::Reading::EmbedRenderer *renderer);
+    // Per-vault resource provider (non-owning) used to resolve a hover
+    // target (note name) to its markdown bytes via resolveEmbed(). Pass
+    // nullptr on vault close.
+    void setResources(Core::VaultResourceProvider *resources);
 
     // Schedule a popover for `target`. Cancels any pending show; if the
     // hover is still active 300ms later, the popover appears at `anchor`
@@ -85,10 +82,8 @@ public:
     State stateForTest() const { return m_state; }
     bool isPinned() const { return m_state == State::Pinned; }
 
-    // Test hook — returns the embedded ReadingView so integration tests
-    // can assert the preview contains the expected sections / shapes.
-    // Returns nullptr until the widget is fully constructed.
-    Markoff::Reading::ReadingView *readingViewForTest() const;
+    // Test hook — current plain-text content of the preview widget.
+    QString previewPlainText() const;
 
 protected:
     void leaveEvent(QEvent *event) override;
@@ -103,9 +98,9 @@ private:
     void onGraceTimeout();
     void applyPinnedAccent(bool on);
 
-    Markoff::Reading::ReadingView *m_view = nullptr;
-    Vault *m_vault = nullptr;
-    Markoff::Reading::EmbedRenderer *m_embedRenderer = nullptr;
+    QTextBrowser *m_display = nullptr;
+    MarkdownRenderEngine *m_renderEngine = nullptr;
+    Core::VaultResourceProvider *m_resources = nullptr;
     QTimer m_delayTimer;
     QTimer m_graceTimer;
     QString m_pendingTarget;

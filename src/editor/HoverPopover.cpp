@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "HoverPopover.h"
 
-#include <markoff/core/EmbedRegistry.h>
-#include "corbomite/core/MarkdownRenderChild.h"
-#include "corbomite/core/NoteDocument.h"
-#include "corbomite/vault/Vault.h"
-// TODO(port): Reading::EmbedRenderer retired
-// TODO(port): Reading::ReadingView retired
+#include "corbomite/core/MarkdownRenderEngine.h"
+#include "corbomite/core/RenderedDocument.h"
+#include "corbomite/core/VaultResourceProvider.h"
+
+#include <QTextBrowser>
+#include <QTextDocument>
+
+#include <optional>
 
 #include <QApplication>
 #include <QCursor>
@@ -45,7 +47,7 @@ void splitTarget(const QString &raw, QString *path, QString *subpath)
 // True when `point` (global screen coords) falls inside `popover`'s frame
 // or the frame of any descendant. Walks the parent chain from the widget
 // returned by `QApplication::widgetAt` so child widgets (the embedded
-// ReadingView, scroll bars, etc.) count as "inside".
+// QTextBrowser, scroll bars, etc.) count as "inside".
 bool cursorIsOverPopover(const QWidget *popover, const QPoint &globalPos)
 {
     if (!popover || !popover->isVisible()) return false;
@@ -78,11 +80,12 @@ HoverPopover::HoverPopover(QWidget *parent)
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(0);
 
-    // TODO(port-foundation-exploration): preview was a Markoff::Reading::
-    // ReadingView; Reading retired. Hover preview is dark until the
-    // markoff-reading-lite restoration OR Live-with-editing-disabled lands.
-    m_view = nullptr;
-    (void)layout;
+    m_display = new QTextBrowser(this);
+    m_display->setOpenLinks(false);
+    m_display->setOpenExternalLinks(false);
+    m_display->setReadOnly(true);
+    m_display->setFrameShape(QFrame::NoFrame);
+    layout->addWidget(m_display);
 
     m_delayTimer.setSingleShot(true);
     m_delayTimer.setInterval(kHoverDelayMs);
@@ -102,19 +105,19 @@ HoverPopover::~HoverPopover()
     }
 }
 
-void HoverPopover::setVault(Vault *vault)
+void HoverPopover::setRenderEngine(MarkdownRenderEngine *engine)
 {
-    m_vault = vault;
+    m_renderEngine = engine;
 }
 
-void HoverPopover::setEmbedRenderer(Markoff::Reading::EmbedRenderer *renderer)
+void HoverPopover::setResources(Core::VaultResourceProvider *resources)
 {
-    m_embedRenderer = renderer;
+    m_resources = resources;
 }
 
-Markoff::Reading::ReadingView *HoverPopover::readingViewForTest() const
+QString HoverPopover::previewPlainText() const
 {
-    return m_view;
+    return m_display ? m_display->toPlainText() : QString();
 }
 
 void HoverPopover::scheduleShow(const QString &target, const QPoint &anchor)
@@ -229,11 +232,30 @@ void HoverPopover::showNow()
 
 void HoverPopover::renderTarget(const QString &target)
 {
-    // TODO(port-foundation-exploration): renderTarget pumped resolved
-    // markdown into a Markoff::Reading::ReadingView (m_view) — retired.
-    // No-op until HoverPopover is rewired against Live-with-editing-disabled
-    // or markoff-reading-lite is restored.
-    (void)target;
+    if (!m_display) return;
+
+    QString path;
+    QString subpath;
+    splitTarget(target, &path, &subpath);
+
+    const std::optional<QString> md =
+        m_resources ? m_resources->resolveEmbed(path) : std::nullopt;
+    // Subpath (#heading / #^block) slicing is deferred — render whole note.
+    const QString markdown =
+        md ? *md
+           : QStringLiteral("*(unresolved: %1)*").arg(target);
+
+    if (m_renderEngine) {
+        const auto rendered = m_renderEngine->render(markdown);
+        if (rendered && rendered->toQTextDocument()) {
+            // Copy the styled content into the browser's own document
+            // (ownership-safe; mirrors RenderedDocument::createWidget()).
+            m_display->setHtml(rendered->toQTextDocument()->toHtml());
+            return;
+        }
+    }
+    // Defensive fallback: no engine wired — show raw markdown.
+    m_display->setPlainText(markdown);
 }
 
 void HoverPopover::onGraceTimeout()

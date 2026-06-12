@@ -1,41 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Cluster J Phase 6 — HoverPopover renders rich content via EmbedRenderer.
-//
-// These tests exercise HoverPopover with an in-memory
-// `Corbomite::Core::VaultResourceProvider` + a fully-built
-// `Markoff::EmbedRegistry` populated by `registerBuiltinEmbedFactories`.
-// They verify that the popover (a) routes through the renderer when one is
-// wired (b) gets the expanded markdown text into its embedded
-// ReadingView (c) survives subpath, image-shim, and nested-embed cases
-// without falling back to the raw-text fallback path.
+// Hover preview re-light (2026-06-11) — HoverPopover renders a resolvable
+// link target through StyledRenderEngine into its QTextBrowser. Resolution
+// is supplied by a VaultResourceProvider; rendering by the headless engine.
 
 #include <QApplication>
-#include <QByteArray>
 #include <QHash>
+#include <QPoint>
 #include <QString>
 #include <QTest>
-#include <QUrl>
 
 #include <optional>
 
+#include "corbomite/core/StyledRenderEngine.h"
 #include "corbomite/core/VaultResourceProvider.h"
-#include "markoff/EmbedRegistry.h"
-#include "markoff/reading/EmbedRenderer.h"
-#include "corbomite/markoff_adapters/Adapters.h"
-#include "corbomite/storage/LinkResolver.h"
-#include "markoff/reading/ReadingView.h"
 #include "editor/HoverPopover.h"
 
 using namespace Corbomite;
 
 namespace {
-
 class InMemoryResources : public Corbomite::Core::VaultResourceProvider
 {
 public:
-    void addNote(const QString &path, const QString &content)
+    void addNote(const QString &name, const QString &content)
     {
-        m_notes.insert(path, content);
+        m_notes.insert(name, content);
     }
     QUrl resolveImage(const QString &name) const override
     {
@@ -60,141 +48,57 @@ public:
 private:
     QHash<QString, QString> m_notes;
 };
-
-/// Build a registry + renderer pair pre-wired with the built-in factory
-/// set (md / images / media stubs). Caller owns both.
-struct RenderHarness
-{
-    Markoff::EmbedRegistry registry;
-    Corbomite::LinkResolver linkResolver;
-    Corbomite::MarkoffAdapters::MetadataParserImpl metadataParser;
-    std::unique_ptr<Markoff::Reading::EmbedRenderer> renderer;
-
-    explicit RenderHarness(Corbomite::Core::VaultResourceProvider *resources)
-        : metadataParser(&linkResolver)
-    {
-        renderer = std::make_unique<Markoff::Reading::EmbedRenderer>(
-            &registry, /*cache=*/nullptr, resources);
-        renderer->setMetadataParser(&metadataParser);
-        Markoff::Reading::registerBuiltinEmbedFactories(registry, *renderer);
-    }
-};
-
 } // namespace
 
 class TstHoverPopoverRender : public QObject
 {
     Q_OBJECT
-
 private slots:
-    void renderRoutesThroughEmbedRenderer();
-    void renderHandlesWikilinkSubpath();
-    void renderExpandsImageEmbedToShim();
-    void renderExpandsNestedEmbed();
-    void scheduleShowEmptyTargetCancels();
+    void rendersResolvableTarget();
+    void rendersPlaceholderForUnresolved();
+    void emptyTargetDoesNotShow();
 };
 
-void TstHoverPopoverRender::renderRoutesThroughEmbedRenderer()
+void TstHoverPopoverRender::rendersResolvableTarget()
 {
     InMemoryResources resources;
     resources.addNote(QStringLiteral("Note.md"),
                       QStringLiteral("# Title\n\nSome body text.\n"));
-    RenderHarness h(&resources);
+    StyledRenderEngine engine;
 
     HoverPopover popover;
-    popover.setEmbedRenderer(h.renderer.get());
+    popover.setRenderEngine(&engine);
+    popover.setResources(&resources);
 
-    // scheduleShow(...) starts a 300ms timer; instead drive the render
-    // path directly via the test surface — call scheduleShow then advance
-    // until the popover is visible.
     popover.scheduleShow(QStringLiteral("Note.md"), QPoint(10, 10));
     QTRY_VERIFY_WITH_TIMEOUT(popover.isVisible(), 1000);
 
-    auto *view = popover.readingViewForTest();
-    QVERIFY(view != nullptr);
-    // The ReadingView pipeline owns parsing + section emission async; the
-    // textual content fed in is the only deterministic synchronous signal
-    // we can reach. The test's correctness gate is "the popover routed
-    // through EmbedRenderer", which is implied by the popover being
-    // visible after a successful scheduleShow on a known-resolvable
-    // target. (The legacy fallback would call NoteService::openNote with
-    // a null service and produce the placeholder "(unresolved: ...)"
-    // string instead.)
+    const QString shown = popover.previewPlainText();
+    QVERIFY2(shown.contains(QStringLiteral("Some body text")),
+             qPrintable(shown));
 }
 
-void TstHoverPopoverRender::renderHandlesWikilinkSubpath()
+void TstHoverPopoverRender::rendersPlaceholderForUnresolved()
 {
-    InMemoryResources resources;
-    resources.addNote(QStringLiteral("Note.md"),
-                      QStringLiteral("# A\nfirst.\n\n# B\nwanted slice.\n"));
-    RenderHarness h(&resources);
+    InMemoryResources resources; // empty — nothing resolves
+    StyledRenderEngine engine;
 
     HoverPopover popover;
-    popover.setEmbedRenderer(h.renderer.get());
-    popover.scheduleShow(QStringLiteral("Note.md#B"), QPoint(10, 10));
+    popover.setRenderEngine(&engine);
+    popover.setResources(&resources);
+
+    popover.scheduleShow(QStringLiteral("Missing.md"), QPoint(10, 10));
     QTRY_VERIFY_WITH_TIMEOUT(popover.isVisible(), 1000);
-    QVERIFY(popover.readingViewForTest() != nullptr);
 
-    // Direct renderer probe — the EmbedRenderer must slice on `#B`.
-    Markoff::EmbedRequest req{QStringLiteral("Note.md"),
-                              QStringLiteral("#B"),
-                              &resources,
-                              /*depth=*/1};
-    auto child = h.renderer->render(req);
-    QVERIFY(child);
-    QVERIFY2(child->renderedText().contains(QStringLiteral("wanted slice")),
-             qPrintable(child->renderedText()));
-    QVERIFY2(!child->renderedText().contains(QStringLiteral("first.")),
-             qPrintable(child->renderedText()));
+    const QString shown = popover.previewPlainText();
+    QVERIFY2(shown.contains(QStringLiteral("unresolved")), qPrintable(shown));
 }
 
-void TstHoverPopoverRender::renderExpandsImageEmbedToShim()
+void TstHoverPopoverRender::emptyTargetDoesNotShow()
 {
-    // The image-shim built-in registered in Phase 5 produces a
-    // `![](path)` snippet; the popover's ReadingView consumes it as
-    // ordinary inline markdown.
-    InMemoryResources resources;
-    RenderHarness h(&resources);
-    Markoff::EmbedRequest req{QStringLiteral("logo.png"),
-                              QString(),
-                              &resources,
-                              /*depth=*/1};
-    auto child = h.renderer->render(req);
-    QVERIFY(child);
-    QCOMPARE(child->renderedText(), QStringLiteral("![](logo.png)"));
-}
-
-void TstHoverPopoverRender::renderExpandsNestedEmbed()
-{
-    // `Outer.md` embeds `Inner.md` via `![[Inner]]`. EmbedRenderer's
-    // recursive expansion pass inlines Inner's body into Outer's
-    // rendered text — the hover preview gets the expanded view.
-    InMemoryResources resources;
-    resources.addNote(QStringLiteral("Outer.md"),
-                      QStringLiteral("Outer text.\n\n![[Inner]]\n"));
-    resources.addNote(QStringLiteral("Inner.md"),
-                      QStringLiteral("Inner body."));
-    RenderHarness h(&resources);
-
-    Markoff::EmbedRequest req{QStringLiteral("Outer.md"),
-                              QString(),
-                              &resources,
-                              /*depth=*/1};
-    auto child = h.renderer->render(req);
-    QVERIFY(child);
-    const QString text = child->renderedText();
-    QVERIFY2(text.contains(QStringLiteral("Outer text")), qPrintable(text));
-    QVERIFY2(text.contains(QStringLiteral("Inner body")), qPrintable(text));
-}
-
-void TstHoverPopoverRender::scheduleShowEmptyTargetCancels()
-{
-    // Regression: an empty target (the leaveEvent / linkHovered("")
-    // signal payload) cancels rather than tries to render.
-    InMemoryResources resources;
-    RenderHarness h(&resources);
+    StyledRenderEngine engine;
     HoverPopover popover;
-    popover.setEmbedRenderer(h.renderer.get());
+    popover.setRenderEngine(&engine);
     popover.scheduleShow(QString(), QPoint(0, 0));
     QTest::qWait(350);
     QVERIFY(!popover.isVisible());

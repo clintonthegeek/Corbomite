@@ -237,16 +237,10 @@ set_tests_properties(tst_mermaid_injection PROPERTIES
 )
 endif()
 
-# TODO(port-foundation-exploration): HoverPopover currently uses
-# Markoff::Reading::ReadingView, which is retired in foundation-exploration.
-# Both tests below are disabled until HoverPopover is reworked against
-# Live-with-editing-disabled (E1) or a markoff-reading-lite leaf is reintroduced.
-if(FALSE)
+# Hover preview re-light (2026-06-11) — HoverPopover renders via
+# StyledRenderEngine into a QTextBrowser. Both tests re-enabled.
 
-# Cluster J Phase 6 — HoverPopover renders rich content via EmbedRenderer.
-# The popover is part of CorbomiteApp, but the test only exercises a small
-# rendering surface; it pulls the .cpp/.h directly to keep link surface
-# small (HoverPopover only depends on Core, ReadingView, and Models).
+# tst_hover_popover_render: 3 slots verifying resolve → render → display.
 add_executable(tst_hover_popover_render
     tst_hover_popover_render.cpp
     ${CMAKE_SOURCE_DIR}/src/editor/HoverPopover.cpp
@@ -258,8 +252,8 @@ target_link_libraries(tst_hover_popover_render PRIVATE
     Qt6::Test
     Qt6::Widgets
     Corbomite::Core
-    Corbomite::Models
-    Markoff::Reading
+    markoff_styled
+    markoff_core
 )
 add_test(NAME tst_hover_popover_render COMMAND tst_hover_popover_render)
 set_tests_properties(tst_hover_popover_render PROPERTIES
@@ -279,15 +273,13 @@ target_link_libraries(tst_hover_popover_pinning PRIVATE
     Qt6::Test
     Qt6::Widgets
     Corbomite::Core
-    Corbomite::Models
-    Markoff::Reading
+    markoff_styled
+    markoff_core
 )
 add_test(NAME tst_hover_popover_pinning COMMAND tst_hover_popover_pinning)
 set_tests_properties(tst_hover_popover_pinning PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
-
-endif()  # FALSE — HoverPopover tests disabled pending port
 
 # Find UI port (2026-05-20) — host-owned FindBar consumes Markoff::FindController.
 add_executable(tst_findbar
