@@ -7,6 +7,7 @@ class QLineEdit;
 class QLabel;
 class QPushButton;
 class QToolButton;
+class QWidget;
 
 namespace Markoff { class FindController; }
 
@@ -30,8 +31,16 @@ public:
     /// Focus the line edit. Called by NoteEditorWidget::showFindBar.
     void focusLineEdit();
 
+    /// Toggle the replace row (a second row with a replacement field + Replace
+    /// / Replace All). Hidden by default; find-only behavior is unchanged.
+    void setReplaceMode(bool on);
+    bool isReplaceMode() const { return m_replaceMode; }
+    QString replacementText() const;
+
 Q_SIGNALS:
     void closeRequested();
+    void replaceRequested();
+    void replaceAllRequested();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -51,6 +60,12 @@ private:
     QToolButton *m_closeButton = nullptr;
     Markoff::FindController *m_controller = nullptr;
     bool m_applyingControllerNeedle = false;
+
+    QWidget     *m_replaceRow       = nullptr;
+    QLineEdit   *m_replaceLineEdit  = nullptr;
+    QPushButton *m_replaceButton    = nullptr;
+    QPushButton *m_replaceAllButton = nullptr;
+    bool         m_replaceMode      = false;
 };
 
 } // namespace Corbomite

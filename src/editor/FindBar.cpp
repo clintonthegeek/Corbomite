@@ -4,6 +4,7 @@
 #include <markoff/core/FindController.h>
 
 #include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QLabel>
@@ -48,15 +49,50 @@ FindBar::FindBar(QWidget *parent)
     m_nextButton->setToolTip(tr("Next match (F3)"));
     m_nextButton->setEnabled(false);
 
-    auto *layout = new QHBoxLayout(this);
+    // --- find row ---
+    auto *findRow = new QWidget(this);
+    auto *findLayout = new QHBoxLayout(findRow);
+    findLayout->setContentsMargins(0, 0, 0, 0);
+    findLayout->setSpacing(4);
+    findLayout->addWidget(m_closeButton);
+    findLayout->addWidget(label);
+    findLayout->addWidget(m_lineEdit, 1);
+    findLayout->addWidget(m_countLabel);
+    findLayout->addWidget(m_prevButton);
+    findLayout->addWidget(m_nextButton);
+
+    // --- replace row (hidden until setReplaceMode(true)) ---
+    m_replaceRow = new QWidget(this);
+    auto *replaceLabel = new QLabel(tr("Repla&ce:"), m_replaceRow);
+    m_replaceLineEdit = new QLineEdit(m_replaceRow);
+    m_replaceLineEdit->setObjectName(QStringLiteral("findBarReplaceLineEdit"));
+    m_replaceLineEdit->setClearButtonEnabled(true);
+    replaceLabel->setBuddy(m_replaceLineEdit);
+    m_replaceButton = new QPushButton(tr("Replace"), m_replaceRow);
+    m_replaceButton->setObjectName(QStringLiteral("findBarReplace"));
+    m_replaceAllButton = new QPushButton(tr("Replace All"), m_replaceRow);
+    m_replaceAllButton->setObjectName(QStringLiteral("findBarReplaceAll"));
+    auto *replaceLayout = new QHBoxLayout(m_replaceRow);
+    replaceLayout->setContentsMargins(0, 0, 0, 0);
+    replaceLayout->setSpacing(4);
+    // Pad-left so the replace field aligns under the find field.
+    replaceLayout->addSpacing(m_closeButton->sizeHint().width() + 4);
+    replaceLayout->addWidget(replaceLabel);
+    replaceLayout->addWidget(m_replaceLineEdit, 1);
+    replaceLayout->addWidget(m_replaceButton);
+    replaceLayout->addWidget(m_replaceAllButton);
+    m_replaceRow->setVisible(false);
+
+    auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(6, 2, 6, 2);
-    layout->setSpacing(4);
-    layout->addWidget(m_closeButton);
-    layout->addWidget(label);
-    layout->addWidget(m_lineEdit, 1);
-    layout->addWidget(m_countLabel);
-    layout->addWidget(m_prevButton);
-    layout->addWidget(m_nextButton);
+    layout->setSpacing(2);
+    layout->addWidget(findRow);
+    layout->addWidget(m_replaceRow);
+
+    QObject::connect(m_replaceButton, &QPushButton::clicked,
+                     this, &FindBar::replaceRequested);
+    QObject::connect(m_replaceAllButton, &QPushButton::clicked,
+                     this, &FindBar::replaceAllRequested);
 
     QObject::connect(m_prevButton, &QPushButton::clicked, this, [this]() {
         if (m_controller) m_controller->findPrevious();
@@ -106,6 +142,17 @@ void FindBar::focusLineEdit()
 {
     m_lineEdit->setFocus();
     m_lineEdit->selectAll();
+}
+
+void FindBar::setReplaceMode(bool on)
+{
+    m_replaceMode = on;
+    m_replaceRow->setVisible(on);
+}
+
+QString FindBar::replacementText() const
+{
+    return m_replaceLineEdit->text();
 }
 
 bool FindBar::eventFilter(QObject *obj, QEvent *event)
