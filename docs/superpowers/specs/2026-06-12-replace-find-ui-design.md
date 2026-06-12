@@ -53,22 +53,41 @@ lives (`applyFlatEdit`).
 /// single undo transaction. Matches are mapped to global no-separator flat
 /// offsets and applied in descending start order so earlier-applied edits
 /// never shift the offsets of edits not yet applied. Empty list is a no-op.
-void replaceMatches(const QList<FindController::Match> &matches,
-                    const QString &replacement);
+void replaceMatches(const QList<SearchHit> &matches, const QString &replacement);
 ```
 
-Mechanism:
-- Global flat start of a match = `blockByteRange(match.block).start + match.byteOffset`
-  (same no-separator coordinate space `applyFlatEdit` uses).
-- Sort matches **descending by global start**; apply each via
-  `applyFlatEdit(globalStart, globalStart + byteLength, replacementUtf8, Origin::UserEdit)`.
-- Fold the per-match transactions into **one** UndoLog transaction (sequential
-  `applyFlatEdit` + `coalesceLastUndo()`), so a single `undoD2()` reverses an
-  entire Replace-All.
+The primitive takes `Markoff::SearchHit` (`{BlockId blockId; uint32_t matchStart;
+uint32_t matchLen}`, from `SearchEngine.h`) — NOT `FindController::Match`, because
+`MarkoffDocument.h` is included *by* `FindController.h` (taking the nested type
+would be a circular include). `BlockAnchor` is a `using` alias for `BlockId` and
+`SearchHit` is structurally identical to `FindController::Match`, so the Corbomite
+call site converts in one line (§3). `SearchEngine.h` forward-declares
+`MarkoffDocument`, so `MarkoffDocument.h` including it is non-circular.
+
+Mechanism (the coordinate conversion is why this is upstream — it needs the
+no-separator flat layout that only the document knows):
+- `matchStart`/`matchLen` are **block-local** byte offsets. Build a base-offset
+  map by walking the public `iterateBlocks()` and accumulating `blockText(id).size()`;
+  a match's **global** start = `base[blockId] + matchStart`. This is
+  `applyFlatEdit`'s no-separator coordinate space. (Do NOT use `blockByteRange` —
+  that reports parse-source space *with* separators, a different coordinate system.)
+- Skip any match whose `blockId` is absent from the current block set (stale match).
+- Sort the resulting global ranges **descending by start**; apply each via
+  `applyFlatEdit(globalStart, globalStart + matchLen, replacementUtf8, Origin::UserEdit)`.
+- Fold into **one** UndoLog entry: after the first `applyFlatEdit`, call
+  `coalesceLastUndo()` following each subsequent `applyFlatEdit`, so a single
+  `undoD2()` reverses an entire Replace-All.
 - Literal replacement only: the matched span (even a regex match) is replaced
   with `replacement` verbatim. The replacement comes from a single-line
   `QLineEdit`, so it carries no newlines; if one is ever present, `applyFlatEdit`'s
   existing canonicalization governs (well-defined, not a special case here).
+- **Deterministic post-state:** `applyFlatEdit` emits `d2DocumentChanged` via a
+  `QTimer::singleShot(0)` debounce, so after the edits land the active
+  `FindController` has *not* yet recomputed. `replaceMatches` ends with a single
+  `flushPendingD2Changed()` so `d2DocumentChanged` fires **synchronously** — the
+  controller recomputes before `replaceMatches` returns, and the Corbomite caller
+  can immediately call `selectMatchAtOrAfter` on a fresh match list. (One flush
+  for the whole batch, not one per edit.)
 
 Invariant note (Markoff `docs/INVARIANTS.md`): this primitive touches the
 **edit path**, not the focus/caret/block-change seam, so the seam rules (L4
@@ -97,15 +116,18 @@ in find-only mode and shown via `setReplaceMode(bool)`. Layout follows Kate/Okul
 (as the find-ui-port design already modeled). No match-count coloring on the
 replacement field (same neutral-feedback rule as find).
 
+Corbomite converts `FindController::Match` → `Markoff::SearchHit` at the call
+site (one line, fields line up: `SearchHit{m.block, m.byteOffset, m.byteLength}`).
+
 - **Replace:** capture the current match, then
-  `noteDoc->markoff()->replaceMatches({currentMatch}, replacementText)`; the
-  controller recomputes; call `controller->selectMatchAtOrAfter(currentMatch.block,
-  currentMatch.byteOffset + replacementUtf8.size())` to advance **past** the
+  `noteDoc->markoff()->replaceMatches({SearchHit{cur.block, cur.byteOffset, cur.byteLength}}, replacementText)`;
+  the controller recomputes; call `controller->selectMatchAtOrAfter(cur.block,
+  cur.byteOffset + replacementText.toUtf8().size())` to advance **past** the
   just-inserted replacement (otherwise a replacement that itself contains the
   needle — e.g. replacing `foo`→`foobar` while searching `foo` — would re-select
   the text we just wrote).
-- **Replace All:** `replaceMatches(controller->matches(), replacementText)` — one
-  undo step.
+- **Replace All:** convert `controller->matches()` to `QList<SearchHit>` and call
+  `replaceMatches(hits, replacementText)` — one undo step.
 - Esc → `closeRequested` (unchanged). Find row behavior unchanged.
 
 `NoteEditorWidget` already owns the `FindBar` and the per-`NoteDocument`
