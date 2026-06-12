@@ -16,6 +16,7 @@
 
 #include <markoff/core/DefaultLinkService.h>
 #include <markoff/core/FindController.h>
+#include <markoff/core/SearchEngine.h>
 #include <markoff/core/LinkActivation.h>
 #include <markoff/core/LinkKind.h>
 #include <markoff/core/MarkdownView.h>
@@ -62,6 +63,10 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     layout->addWidget(m_findBar);
     QObject::connect(m_findBar, &FindBar::closeRequested,
                      this, &NoteEditorWidget::hideFindBar);
+    connect(m_findBar, &FindBar::replaceRequested,
+            this, &NoteEditorWidget::onReplaceRequested);
+    connect(m_findBar, &FindBar::replaceAllRequested,
+            this, &NoteEditorWidget::onReplaceAllRequested);
 
     m_livePreviewIndex = m_stack->addWidget(m_editor);
     m_stack->setCurrentIndex(m_livePreviewIndex);
@@ -546,6 +551,7 @@ void NoteEditorWidget::showFindBar()
     fc->activate();
     m_findBar->show();
     m_findBar->focusLineEdit();
+    m_findBar->setReplaceMode(false);
 }
 
 void NoteEditorWidget::hideFindBar()
@@ -562,6 +568,42 @@ void NoteEditorWidget::hideFindBar()
 bool NoteEditorWidget::isFindBarVisible() const
 {
     return m_findBar && m_findBar->isVisible();
+}
+
+void NoteEditorWidget::showReplaceBar()
+{
+    showFindBar();                  // shares attach/activate/focus path
+    m_findBar->setReplaceMode(true);
+}
+
+void NoteEditorWidget::onReplaceRequested()
+{
+    if (!m_doc) return;
+    auto *fc = m_doc->findController();
+    const int idx = fc->currentMatchIndex();
+    if (idx < 0 || idx >= fc->matchCount()) return;
+    const auto cur = fc->matches().at(idx);
+    const QString repl = m_findBar->replacementText();
+
+    m_doc->markoff()->replaceMatches(
+        { Markoff::SearchHit{ cur.block, cur.byteOffset, cur.byteLength } },
+        repl);
+    // replaceMatches flushes synchronously, so fc has already recomputed.
+    // Advance past the inserted replacement (avoids re-selecting a replacement
+    // that itself contains the needle).
+    fc->selectMatchAtOrAfter(cur.block,
+                             cur.byteOffset + static_cast<quint32>(repl.toUtf8().size()));
+}
+
+void NoteEditorWidget::onReplaceAllRequested()
+{
+    if (!m_doc) return;
+    auto *fc = m_doc->findController();
+    QList<Markoff::SearchHit> hits;
+    hits.reserve(fc->matchCount());
+    for (const auto &m : fc->matches())
+        hits.append(Markoff::SearchHit{ m.block, m.byteOffset, m.byteLength });
+    m_doc->markoff()->replaceMatches(hits, m_findBar->replacementText());
 }
 
 } // namespace Corbomite

@@ -63,6 +63,7 @@ public:
     void setVault(Vault *vault);
 
     void showFindBar();
+    void showReplaceBar();
     void hideFindBar();
     bool isFindBarVisible() const;
 
@@ -138,6 +139,8 @@ Q_SIGNALS:
 
 private:
     void onCursorPositionChanged(int line, int column);
+    void onReplaceRequested();
+    void onReplaceAllRequested();
 
     // Recompute the active document's word count (cheap; NoteDocument caches
     // it) and re-ship it on cursorInfoChanged at the current caret so the
