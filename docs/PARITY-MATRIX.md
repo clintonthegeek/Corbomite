@@ -76,7 +76,7 @@ contract-v2 re-pin (see the adoption brief).
 | Undo/redo | ✅ | all leaves via `MarkdownView` base → `undoD2` (`b5a4b041`); Source dual-stack divergence retired |
 | Find in note | ✅ all modes | base `attachFindController` (`bfa2fa16`); in-table matches counted but not painted (Markoff brief §3, known v1 limit) |
 | Replace | ❌ | no UI; hamburger Find…/Replace… actions connected to nothing (`MarkdownView.cpp:298-312`) |
-| Hover preview | 🟡 | Re-lit 2026-06-11: `HoverPopover` renders the target note via `StyledRenderEngine`+`VaultResourceProvider` into a `QTextBrowser`; trigger wired through the shared `LinkService` (Live + Reading). Subpath (`#heading`/`#^block`) slicing deferred. Offscreen-tested end-to-end; ✅ pending live eyeball |
+| Hover preview | ✅ | Re-lit 2026-06-11, eyeball-confirmed 2026-06-12: `HoverPopover` renders the target note via `StyledRenderEngine`+`VaultResourceProvider` into a `QTextBrowser`; trigger wired through the shared `LinkService`. **Reading = plain hover; Live = Ctrl-then-hover** (`LiveView.qml` gates emission on Ctrl — Obsidian-faithful, kept by user decision). Subpath (`#heading`/`#^block`) slicing deferred |
 | Word count / Ln,Col statusbar | ✅ Ln/Col · ⭕ word count | Ln/Col live in all modes via base `cursorPositionChanged` (`ad0729e7`); word count stays 0 — Phase 2 |
 | goToLine / ephemeral state (cursor+scroll persist) | ✅ | contract-v2 `CursorPos` + 0.0–1.0 scroll fraction via base (`5d7fcc5e`); Live attach-window writes fixed upstream (`8112833f`) |
 | Theme propagation to leaves | ✅ | `applyThemeToAllLeaves` + `wireLeaf` at lazy construction (`17b2cd00`) |

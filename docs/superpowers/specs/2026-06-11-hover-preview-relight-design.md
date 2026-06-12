@@ -1,9 +1,24 @@
 # Hover Preview Re-light — Design
 
 **Date:** 2026-06-11
-**Status:** Approved (brainstorming) — ready for plan
+**Status:** IMPLEMENTED + eyeball-confirmed 2026-06-12 (`master`)
 **Track:** road-to-dogfood Phase 2
 **Supersedes the hover-preview slice of:** [`2026-05-29-styled-headless-rendering-convergence-design.md`](2026-05-29-styled-headless-rendering-convergence-design.md) §3 (the third, unimplemented surface)
+
+> **Post-implementation correction (2026-06-12).** This spec's "always-on hover,
+> no modifier gate in v1" UX claim (§1) and its "Key discovery: both editor
+> leaves already pump hover signals" premise were **true for Reading, wrong for
+> Live**. The shared `LinkService` wiring is correct, but the two leaves differ
+> in *when* they emit: the Styled (Reading) leaf's `LinkInteraction::handleMove`
+> emits `notifyHover` on plain mouse-move (no modifier), while the Live leaf's
+> `LiveView.qml` `onPositionChanged` only calls `hoverLinkAt`→`notifyHover` when
+> **Ctrl is held** (`LiveView.qml:394`; Ctrl+click activates, Ctrl+hover previews).
+> Net runtime behaviour: **Reading = plain hover; Live = Ctrl-then-hover** — which
+> matches Obsidian's own default (Page Preview is hover in reading mode, Ctrl/Cmd
+> in edit mode). User decision 2026-06-12: **keep the Ctrl-gate** (Obsidian-faithful;
+> avoids preview flicker while writing). Making Live plain-hover would need an
+> upstream `markoff-live` `LiveView.qml` change + a re-pin — explicitly NOT done.
+> No Corbomite code change resulted from this finding.
 
 ## Problem
 
