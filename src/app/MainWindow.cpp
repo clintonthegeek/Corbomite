@@ -366,13 +366,9 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     m_embedRegistry = std::make_unique<Markoff::EmbedRegistry>();
     m_mermaidRenderer = std::make_unique<Corbomite::Core::MermaidRenderer>();
     m_cardRenderEngine = std::make_unique<Corbomite::StyledRenderEngine>();
-    // TODO(port-foundation-exploration): Markoff::Reading::EmbedRenderer +
-    // registerBuiltinEmbedFactories retired with Reading. Hover preview is
-    // disabled until either the Reading leaf is restored or HoverPopover is
-    // rewired against Live-with-editing-disabled.
-    // m_embedRenderer = std::make_unique<Markoff::Reading::EmbedRenderer>(...);
-    // Markoff::Reading::registerBuiltinEmbedFactories(...);
-    // m_hoverPopover->setEmbedRenderer(m_embedRenderer.get());
+    // Hover preview (2026-06-11) — reuse the canvas-card render engine; it is
+    // stateless and read-only. Per-vault resources are set in onVaultOpened.
+    m_hoverPopover->setRenderEngine(m_cardRenderEngine.get());
 
     m_suggestManager = new EditorSuggestManager(this);
     // Suggesters start nullptr-bound; MainWindow rebinds on vault
@@ -407,6 +403,9 @@ MainWindow::~MainWindow()
     // own teardown. Clear it now — while the engine is still alive — so nothing
     // can dereference a freed engine. (Reordering the member can't fix this:
     // QObject children always outlive every member destructor.)
+    // (m_hoverPopover also holds a non-owning pointer to the same engine, but
+    // it only dereferences it from renderTarget() during live hover — never
+    // during teardown — so it needs no equivalent clear here.)
     if (m_workspace) {
         for (auto *leaf : m_workspace->allLeaves()) {
             auto *view = leaf ? leaf->view() : nullptr;
@@ -423,10 +422,6 @@ MainWindow::~MainWindow()
     delete m_sessionManager;
     m_sessionManager = nullptr;
 
-    // TODO(port-foundation-exploration): EmbedRenderer disabled — see ctor.
-    // if (m_embedRenderer) { m_embedRenderer->setMetadataCache(nullptr);
-    //                       m_embedRenderer->setResources(nullptr); }
-    // if (m_hoverPopover) m_hoverPopover->setEmbedRenderer(nullptr);
     m_popoverResources.reset();
 
     if (m_metadataCache) {
