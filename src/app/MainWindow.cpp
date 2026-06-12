@@ -669,6 +669,13 @@ void MainWindow::onFind()
     neWidget->showFindBar();
 }
 
+void MainWindow::onReplace()
+{
+    auto *neWidget = activeEditor();
+    if (!neWidget) return;
+    neWidget->showReplaceBar();
+}
+
 void MainWindow::onFindNext()
 {
     if (auto *fc = findControllerFor(activeEditor())) fc->findNext();
@@ -1303,6 +1310,7 @@ void MainWindow::setupActions()
     }, ac);
 
     KStandardAction::find(this, &MainWindow::onFind, ac);
+    KStandardAction::replace(this, &MainWindow::onReplace, ac);
     KStandardAction::findNext(this, &MainWindow::onFindNext, ac);
     KStandardAction::findPrev(this, &MainWindow::onFindPrev, ac);
 
