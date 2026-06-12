@@ -28,6 +28,10 @@ using Corbomite::NoteEditorWidget;
 using Corbomite::StyledRenderEngine;
 
 namespace {
+// Minimal test double. NOTE: unlike the production VaultScopedResources,
+// resolveEmbed() here matches the bare key verbatim — it intentionally omits
+// the ".md" normalization production applies. Tests therefore add notes under
+// the exact key they hover; don't copy this into a real provider.
 class InMemoryResources : public Corbomite::Core::VaultResourceProvider
 {
 public:
