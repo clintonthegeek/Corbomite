@@ -249,12 +249,14 @@ void MarkoffDocument::replaceMatches(const QList<SearchHit> &matches,
               [](const Edit &a, const Edit &b) { return a.start > b.start; });
 
     const QByteArray repl = replacement.toUtf8();
-    bool first = true;
-    for (const Edit &e : edits) {
-        applyFlatEdit(e.start, e.end, repl, Origin::UserEdit);
-        if (!first)
-            coalesceLastUndo();
-        first = false;
+    {
+        // One outer D2 transaction; applyFlatEdit's own transaction nests
+        // inside and shares the entry, so one undoD2() reverses the whole
+        // Replace-All. NOTE: coalesceLastUndo() does NOT work here — it acts
+        // only on the legacy flat-buffer undo stack, not the D2 UndoLog.
+        UndoLog::Transaction outerTx(d2UndoLog());
+        for (const Edit &e : edits)
+            applyFlatEdit(e.start, e.end, repl, Origin::UserEdit);
     }
 
     // applyFlatEdit debounces d2DocumentChanged (QTimer::singleShot(0)); flush
