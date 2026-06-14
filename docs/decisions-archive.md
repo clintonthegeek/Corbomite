@@ -10,6 +10,60 @@ Conventions:
 
 ---
 
+## 2026-06-14 — Find/Replace shipped (Phase 2 placebo removal) + two dogfood fixes
+
+Built Replace for the editor on branch `feature/find-replace` (pushed to
+Codeberg, **green and user-verified, NOT yet merged to `master`**). Spec
+[`docs/superpowers/specs/2026-06-12-replace-find-ui-design.md`](superpowers/specs/2026-06-12-replace-find-ui-design.md),
+plan [`docs/superpowers/plans/2026-06-12-replace-find-ui.md`](superpowers/plans/2026-06-12-replace-find-ui.md).
+
+**Architecture (option C — minimal upstream primitive, consumer-owned UI).**
+Two small Markoff additions: `MarkoffDocument::replaceMatches(QList<SearchHit>,
+QString)` (maps block-local match offsets → global no-separator flat offsets via
+`iterateBlocks()`/`blockText()`, applies descending-by-start so earlier edits
+don't shift later ones, wraps the batch in one `UndoLog::Transaction` so a single
+`undoD2()` reverses a Replace-All, then `flushPendingD2Changed()` for a
+synchronous post-state) and the mutation-free `FindController::selectMatchAtOrAfter`
+(re-anchors the selection past a replacement). `FindController` stays mutation-free
+(invariant D3). Corbomite side: `FindBar` grew a replace row (`setReplaceMode`,
+`replaceRequested`/`replaceAllRequested`); `NoteEditorWidget` owns the replace
+orchestration + `showReplaceBar`; `MainWindow` added `onReplace` +
+`KStandardAction::replace`; the hamburger **Find…/Replace…** placebos
+(`MarkdownView.cpp`) are wired to host triggers (mirrors `setPdfExportTrigger`).
+Literal-only replacement (regex backreferences explicitly out of scope, YAGNI).
+Implemented subagent-driven (TDD per task, spec + code-quality review each).
+
+**Subagent caught a spec bug:** `coalesceLastUndo()` acts only on the legacy
+flat-buffer undo stack, not the D2 `UndoLog`; the implementer switched to a nested
+`UndoLog::Transaction` (spec/plan corrected).
+
+**Dogfood fix 1 — black find-highlights.** `Corbomite::Core::ThemeService` is
+`#if 0`-disabled pending the theme port; its active *stub* returned an empty
+`Markoff::Theme{}`, so every unset Slot fell back through `Theme::color()` to
+`TextDefault` (a dark color). QML text survives via its own fallbacks, but the C++
+`InlineHighlighter` reads slots directly → find-pass painted black (and inline
+code/link/tag formats too). Fixed: the stub now returns a palette-based
+`defaultLight()/defaultDark()`. Re-enabled `tst_theme_service` with a focused
+regression guard. (`51294db2`.)
+
+**Dogfood fix 2 — find-highlight stuck after a replace.** A real markoff-live bug:
+`LiveBlockModel::applyOps` wholesale-assigned a fresh parse record (no `findSpans`)
+on a text-changing edit, wiping the adapter-owned find spans **without** listing
+`FindSpansRole` in the `dataChanged` roles — so the delegate kept painting stale
+spans (old offset/length behind the new text), and the adapter's follow-up
+`setFindSpans({})` no-op'd against the already-wiped value (uncleared by
+needle-delete or Esc). Fixed upstream by preserving `findSpans` across the row
+update (the same pattern already used for `inlineSpans`); falsifiable regression
+test `apply_ops_preserves_adapter_owned_find_spans_on_text_change`. Markoff
+`master` `c3b5070f`; Corbomite re-pinned (`49f8ac7a`).
+
+**Known follow-ups:** `Markoff::Theme::defaultDark()` omits the search-highlight
+slots (Markoff queue #14, dark half) — dark mode highlights fall back to the light
+text color, not black. Part B of the plan is unstarted: Insert Table/Callout
+dialogs apply-at-caret, and multi-snippet search results (`SQLiteIndex.cpp:461`).
+Baseline: Corbomite 271/271 offscreen; Markoff fast suite green except the 3 known
+queue-#10 reds.
+
 ## 2026-06-11 — Phase 2 hover preview re-light
 
 Road-to-dogfood **Phase 2** "hover preview" item shipped on `master` across three commits (`2ac999cb`, `fff4bd4a`, `6999df1a`; test-double doc note `920b5547`). Executed via subagent-driven-development against the approved spec [`specs/2026-06-11-hover-preview-relight-design.md`](superpowers/specs/2026-06-11-hover-preview-relight-design.md) + plan [`plans/2026-06-11-hover-preview-relight.md`](superpowers/plans/2026-06-11-hover-preview-relight.md). Each task passed a spec-compliance review then a Qt code-quality review; a final holistic integration review confirmed the end-to-end seam.
