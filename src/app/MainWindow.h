@@ -104,6 +104,7 @@ public Q_SLOTS:
 
 private Q_SLOTS:
     void onFind();
+    void onReplace();
     void onFindNext();
     void onFindPrev();
     void onSettingsApplied();

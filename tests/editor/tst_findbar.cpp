@@ -28,6 +28,8 @@ private Q_SLOTS:
     void prevButton_callsFindPrev();
     void escapeKey_emitsCloseRequested();
     void closeButton_emitsCloseRequested();
+    void replaceMode_hiddenByDefault_shownWhenEnabled();
+    void replaceButtons_emitSignals();
 };
 
 void TstFindBar::unbound_safe()
@@ -224,6 +226,36 @@ void TstFindBar::closeButton_emitsCloseRequested()
     QSignalSpy spy(&bar, &FindBar::closeRequested);
     QTest::mouseClick(closeBtn, Qt::LeftButton);
     QCOMPARE(spy.count(), 1);
+}
+
+void TstFindBar::replaceMode_hiddenByDefault_shownWhenEnabled()
+{
+    FindBar bar;
+    auto *replaceEdit = bar.findChild<QLineEdit*>("findBarReplaceLineEdit");
+    QVERIFY(replaceEdit != nullptr);
+    QVERIFY(!replaceEdit->isVisibleTo(&bar));   // hidden until replace mode
+    bar.setReplaceMode(true);
+    QVERIFY(bar.isReplaceMode());
+    QVERIFY(replaceEdit->isVisibleTo(&bar));
+    bar.setReplaceMode(false);
+    QVERIFY(!replaceEdit->isVisibleTo(&bar));
+}
+
+void TstFindBar::replaceButtons_emitSignals()
+{
+    FindBar bar;
+    bar.setReplaceMode(true);
+    auto *replaceEdit = bar.findChild<QLineEdit*>("findBarReplaceLineEdit");
+    auto *replaceBtn  = bar.findChild<QPushButton*>("findBarReplace");
+    auto *replaceAll  = bar.findChild<QPushButton*>("findBarReplaceAll");
+    replaceEdit->setText("zzz");
+    QSignalSpy replaceSpy(&bar, &FindBar::replaceRequested);
+    QSignalSpy allSpy(&bar, &FindBar::replaceAllRequested);
+    replaceBtn->click();
+    replaceAll->click();
+    QCOMPARE(replaceSpy.count(), 1);
+    QCOMPARE(allSpy.count(), 1);
+    QCOMPARE(bar.replacementText(), QString("zzz"));
 }
 
 QTEST_MAIN(TstFindBar)

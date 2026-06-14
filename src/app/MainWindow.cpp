@@ -669,6 +669,13 @@ void MainWindow::onFind()
     neWidget->showFindBar();
 }
 
+void MainWindow::onReplace()
+{
+    auto *neWidget = activeEditor();
+    if (!neWidget) return;
+    neWidget->showReplaceBar();
+}
+
 void MainWindow::onFindNext()
 {
     if (auto *fc = findControllerFor(activeEditor())) fc->findNext();
@@ -1098,6 +1105,8 @@ void MainWindow::propagateServicesToView(View *view)
             if (!tfile) return;
             Corbomite::ExportToPdf::exportFile(tfile, vaultObj, parent);
         });
+        mv->setFindTrigger([this](QWidget *) { onFind(); });
+        mv->setReplaceTrigger([this](QWidget *) { onReplace(); });
 
         auto *editor = mv->editorWidget();
         if (editor) {
@@ -1303,6 +1312,7 @@ void MainWindow::setupActions()
     }, ac);
 
     KStandardAction::find(this, &MainWindow::onFind, ac);
+    KStandardAction::replace(this, &MainWindow::onReplace, ac);
     KStandardAction::findNext(this, &MainWindow::onFindNext, ac);
     KStandardAction::findPrev(this, &MainWindow::onFindPrev, ac);
 

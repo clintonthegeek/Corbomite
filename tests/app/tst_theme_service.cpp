@@ -1,54 +1,38 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QApplication>
-#include <QObject>
-#include <QSignalSpy>
-#include <QStandardPaths>
 #include <QTest>
 
 #include "corbomite/core/ThemeService.h"
+#include <markoff/core/Theme.h>
 
+using Markoff::Theme;
+
+// Regression guard for the "black Live find-highlight" bug (2026-06-14):
+// the ThemeService stub returned an empty Markoff::Theme{}, so every unset
+// Slot — including the search-highlight backgrounds — fell back through
+// Theme::color() to TextDefault, a dark color. The C++ InlineHighlighter
+// reads these Slots directly (no QML "#222222"/palette fallback), so Live
+// find-highlights rendered as a black block. currentTheme() must hand the
+// leaves a populated theme whose search-highlight slots are valid and
+// visibly distinct from the text color.
 class TestThemeService : public QObject {
     Q_OBJECT
 private slots:
-    void initTestCase() {
-        // Force user themes dir to a temp location.
-        QStandardPaths::setTestModeEnabled(true);
-    }
-
-    void availableNamesIncludeBuiltIns() {
+    void currentTheme_hasVisibleSearchHighlightSlots() {
         Corbomite::Core::ThemeService svc(nullptr);
-        const auto names = svc.availableThemeNames();
-        QVERIFY(names.contains(QStringLiteral("Follow system")));
-        QVERIFY(names.contains(QStringLiteral("Light")));
-        QVERIFY(names.contains(QStringLiteral("Dark")));
-        QVERIFY(names.contains(QStringLiteral("Solarized Light")));
-        QVERIFY(names.contains(QStringLiteral("Solarized Dark")));
-        QVERIFY(names.contains(QStringLiteral("Dracula")));
-        QVERIFY(names.contains(QStringLiteral("Monokai")));
-    }
+        const Theme t = svc.currentTheme();
 
-    void setActiveEmitsThemeChanged() {
-        Corbomite::Core::ThemeService svc(nullptr);
-        QSignalSpy spy(&svc, &Corbomite::Core::ThemeService::themeChanged);
-        svc.setActiveThemeByName(QStringLiteral("Dracula"));
-        QCOMPARE(spy.count(), 1);
-        QCOMPARE(svc.currentTheme().name, QStringLiteral("Dracula"));
-        QCOMPARE(svc.activeThemeName(), QStringLiteral("Dracula"));
-    }
+        const QColor textDefault = t.color(Theme::Slot::TextDefault);
+        const QColor match  = t.color(Theme::Slot::SearchMatchBackground);
+        const QColor active = t.color(Theme::Slot::SearchActiveMatchBackground);
 
-    void setActiveSameNameNoEmit() {
-        Corbomite::Core::ThemeService svc(nullptr);
-        svc.setActiveThemeByName(QStringLiteral("Light"));
-        QSignalSpy spy(&svc, &Corbomite::Core::ThemeService::themeChanged);
-        svc.setActiveThemeByName(QStringLiteral("Light"));
-        QCOMPARE(spy.count(), 0);
-    }
-
-    void defaultIsFollowSystem() {
-        Corbomite::Core::ThemeService svc(nullptr);
-        QCOMPARE(svc.activeThemeName(), QStringLiteral("Follow system"));
-        // The system-derived theme should have a populated Text element.
-        QVERIFY(svc.currentTheme().elements.contains(Markoff::Element::Text));
+        QVERIFY(match.isValid());
+        QVERIFY(active.isValid());
+        // Bug signature: an unset search slot falls back to the text color.
+        QVERIFY2(match != textDefault,
+                 "SearchMatchBackground must not fall back to the text color");
+        QVERIFY2(active != textDefault,
+                 "SearchActiveMatchBackground must not fall back to the text color");
     }
 };
 

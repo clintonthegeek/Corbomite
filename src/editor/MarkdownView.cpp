@@ -194,6 +194,16 @@ void MarkdownView::setPdfExportTrigger(PdfExportTrigger trigger)
     m_pdfExportTrigger = std::move(trigger);
 }
 
+void MarkdownView::setFindTrigger(FindTrigger trigger)
+{
+    m_findTrigger = std::move(trigger);
+}
+
+void MarkdownView::setReplaceTrigger(FindTrigger trigger)
+{
+    m_replaceTrigger = std::move(trigger);
+}
+
 void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
 {
     // ---- pane: Split right / Split down ----
@@ -295,19 +305,20 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
     });
     helper.addToSection(exportPdfAct, QStringLiteral("action"));
 
-    // ---- find: TODO(port-foundation-exploration) — MarkdownView::showFindBar
-    // / showReplaceBar virtuals removed by find-session-scope. Find is now
-    // consumer-owned; the find UI port (the next feature work) will reconnect
-    // these menu actions to Markoff::FindController-driven UI on the
-    // Corbomite side. Replace is deferred until then.
     auto *findAct = new QAction(
         QIcon::fromTheme(QStringLiteral("edit-find")),
         i18n("Find..."), this);
+    connect(findAct, &QAction::triggered, this, [this] {
+        if (m_findTrigger) m_findTrigger(this);
+    });
     helper.addToSection(findAct, QStringLiteral("find"));
 
     auto *replaceAct = new QAction(
         QIcon::fromTheme(QStringLiteral("edit-find-replace")),
         i18n("Replace..."), this);
+    connect(replaceAct, &QAction::triggered, this, [this] {
+        if (m_replaceTrigger) m_replaceTrigger(this);
+    });
     helper.addToSection(replaceAct, QStringLiteral("find"));
 
     // ---- view.linked submenu: open the five sidebar dock panels ----
