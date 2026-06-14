@@ -112,11 +112,28 @@ void ThemeService::rebuildAndEmit() {
 // can still link. TODO(port-foundation-exploration): replace with real impl
 // when the theme port lands.
 #include "corbomite/core/ThemeService.h"
+
+#include <QApplication>
+#include <QPalette>
+
 namespace Corbomite::Core {
 ThemeService::ThemeService(KColorSchemeManager *, QObject *parent)
     : QObject(parent) {}
 ThemeService::~ThemeService() = default;
-Markoff::Theme ThemeService::currentTheme() const { return {}; }
+// Return a POPULATED default theme, not an empty Theme{}. An empty theme
+// leaves every Slot unset, so Theme::color() falls back to TextDefault (a
+// dark color) for the search-highlight backgrounds — and the C++
+// InlineHighlighter reads those Slots directly (no QML fallback), rendering
+// Live find-highlights as a black block. Pick light/dark from the app
+// palette so we roughly follow the system until the full theme port lands.
+// NOTE: Markoff::Theme::defaultDark() does not yet populate the search-
+// highlight slots (queue #14, dark half) — dark mode highlights fall back to
+// the (light) text color rather than black; tracked as a follow-up.
+Markoff::Theme ThemeService::currentTheme() const {
+    const QColor window = QApplication::palette().color(QPalette::Window);
+    return window.lightness() < 128 ? Markoff::Theme::defaultDark()
+                                    : Markoff::Theme::defaultLight();
+}
 QString      ThemeService::activeThemeName() const { return {}; }
 QStringList  ThemeService::availableThemeNames() const { return {}; }
 void         ThemeService::setActiveThemeByName(const QString &) {}
