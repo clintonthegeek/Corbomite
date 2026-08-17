@@ -561,8 +561,10 @@ void NoteEditorWidget::onLinkActivated(const Markoff::LinkActivation &activation
     }
 
     // Emit the resolved path signal. The receiver (MainWindow) is responsible
-    // for vault-aware disambiguation via LinkResolver.
-    Q_EMIT linkActivated(rawTarget);
+    // for vault-aware disambiguation via LinkResolver. openInNewTab carries
+    // through unchanged — this method's whole job is target resolution, not
+    // tab-placement policy.
+    Q_EMIT linkActivated(rawTarget, activation.openInNewTab);
 }
 
 // --- Find UI ---

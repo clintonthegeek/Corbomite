@@ -509,7 +509,7 @@ private Q_SLOTS:
         // The signal is what Ctrl+Click produces — test the end-to-end connection
         QString targetNote = QStringLiteral("Start Here.md");
         if (m_mainWindow->vaultObj()->getAbstractFileByPath(targetNote)) {
-            Q_EMIT editor->linkActivated(targetNote);
+            Q_EMIT editor->linkActivated(targetNote, false);
             settle(300);
 
             // Should have opened the target note in a tab

@@ -136,7 +136,11 @@ public:
 
 Q_SIGNALS:
     void cursorInfoChanged(int line, int column, int wordCount);
-    void linkActivated(const QString &targetPath);
+    // openInNewTab mirrors Markoff::LinkActivation::openInNewTab (true for
+    // an explicit middle-click; false for a plain click, which should
+    // navigate the current leaf in place instead of always creating a new
+    // one — see MainWindow's connection for the in-place-vs-new-tab split).
+    void linkActivated(const QString &targetPath, bool openInNewTab);
     void viewModeChanged(ViewMode mode);
     // Contract v2: re-emitted from whichever leaf is active. Inactive leaves
     // are detached from the document and silent, but the leaf == activeLeaf()

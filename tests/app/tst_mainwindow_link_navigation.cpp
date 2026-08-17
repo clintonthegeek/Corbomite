@@ -123,7 +123,7 @@ private Q_SLOTS:
 
         // Emit linkActivated with the raw wikilink target (no .md suffix,
         // as the DefaultLinkService/onLinkActivated path produces).
-        Q_EMIT editor->linkActivated(QStringLiteral("Target"));
+        Q_EMIT editor->linkActivated(QStringLiteral("Target"), false);
         QTest::qWait(300);
 
         const QString docPath = activeDocumentPath(&mw);
@@ -163,7 +163,7 @@ private Q_SLOTS:
         // Fire the link — the fallback path in the navigation lambda appends
         // .md and calls onNoteActivated, which calls FileManager::createMarkdownNote
         // because the file does not exist in the vault.
-        Q_EMIT editor->linkActivated(QStringLiteral("NewNote"));
+        Q_EMIT editor->linkActivated(QStringLiteral("NewNote"), false);
         QTest::qWait(300);
 
         // The file must now exist on disk (eager create-on-click).
@@ -173,6 +173,91 @@ private Q_SLOTS:
         // And it must be open in the active editor.
         const QString docPath = activeDocumentPath(&mw);
         QCOMPARE(docPath, QStringLiteral("NewNote.md"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Test 3: a plain click (openInNewTab == false) navigates the active
+    //         leaf IN PLACE — leaf count must not grow. Regression test for
+    //         the bug where every link click (plain or middle) always went
+    //         through onNoteActivated/openFileInWorkspace, which only ever
+    //         creates-or-switches-to-a-leaf and never navigates in place, so
+    //         the tab-frame's back/forward buttons never had any history to
+    //         work with.
+    // -----------------------------------------------------------------------
+    void plainClick_navigatesActiveLeafInPlace_noNewLeaf()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+
+        createFile(tmp.path() + QStringLiteral("/source.md"),
+                   QStringLiteral("# Source\n[[Target]]\n"));
+        createFile(tmp.path() + QStringLiteral("/Target.md"),
+                   QStringLiteral("# Target\n"));
+
+        CorbomiteApp app;
+        MainWindow mw(&app);
+
+        QVERIFY(app.openVault(tmp.path()));
+        QTest::qWait(500);
+        QVERIFY(app.isOpen());
+
+        mw.onNoteActivated(QStringLiteral("source.md"));
+        QTest::qWait(300);
+
+        auto *editor = activeEditor(&mw);
+        QVERIFY2(editor, "NoteEditorWidget must be active after onNoteActivated(source.md)");
+
+        auto *ws = mw.findChild<Workspace *>();
+        QVERIFY(ws);
+        const int leafCountBefore = ws->allLeaves().size();
+
+        Q_EMIT editor->linkActivated(QStringLiteral("Target"), /*openInNewTab=*/false);
+        QTest::qWait(300);
+
+        QCOMPARE(activeDocumentPath(&mw), QStringLiteral("Target.md"));
+        QCOMPARE(ws->allLeaves().size(), leafCountBefore);
+        QVERIFY2(ws->activeLeaf() && ws->activeLeaf()->history().canGoBack(),
+                  "navigate() must push the pre-navigation state so the "
+                  "back button has something to go back to");
+    }
+
+    // -----------------------------------------------------------------------
+    // Test 4: an explicit middle-click (openInNewTab == true) still opens a
+    //         NEW leaf, same as before this fix — the split must not have
+    //         regressed the middle-click "open in new tab" path.
+    // -----------------------------------------------------------------------
+    void middleClick_opensNewLeaf()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+
+        createFile(tmp.path() + QStringLiteral("/source.md"),
+                   QStringLiteral("# Source\n[[Target]]\n"));
+        createFile(tmp.path() + QStringLiteral("/Target.md"),
+                   QStringLiteral("# Target\n"));
+
+        CorbomiteApp app;
+        MainWindow mw(&app);
+
+        QVERIFY(app.openVault(tmp.path()));
+        QTest::qWait(500);
+        QVERIFY(app.isOpen());
+
+        mw.onNoteActivated(QStringLiteral("source.md"));
+        QTest::qWait(300);
+
+        auto *editor = activeEditor(&mw);
+        QVERIFY2(editor, "NoteEditorWidget must be active after onNoteActivated(source.md)");
+
+        auto *ws = mw.findChild<Workspace *>();
+        QVERIFY(ws);
+        const int leafCountBefore = ws->allLeaves().size();
+
+        Q_EMIT editor->linkActivated(QStringLiteral("Target"), /*openInNewTab=*/true);
+        QTest::qWait(300);
+
+        QCOMPARE(activeDocumentPath(&mw), QStringLiteral("Target.md"));
+        QCOMPARE(ws->allLeaves().size(), leafCountBefore + 1);
     }
 };
 

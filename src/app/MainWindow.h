@@ -167,6 +167,25 @@ private:
     void triggerEditorAction(Markoff::ActionId id);
     bool confirmCloseUnsaved();
     void saveSessionState();
+
+    /// Resolves `relativePath` to an existing note, eagerly creating it
+    /// (Obsidian create-on-click parity) if it does not exist and canvas
+    /// files are excluded from creation. Returns the final relative path,
+    /// or an empty string if creation was needed and failed. Shared by
+    /// `onNoteActivated` (always a new/reused leaf) and
+    /// `navigateActiveLeafTo` (in-place navigation) so the create-on-click
+    /// behavior can't drift between the two entry points.
+    QString resolveOrCreateNoteTarget(const QString &relativePath);
+
+    /// Plain-click wikilink navigation: unlike `onNoteActivated` (which
+    /// always opens a new leaf, or switches to one where the file is
+    /// already open), this navigates the CURRENTLY ACTIVE leaf in place via
+    /// `WorkspaceLeaf::navigate()` — which also pushes the leaf's own
+    /// back/forward history, the mechanism the tab-frame's nav buttons
+    /// already read from but that nothing previously called into for link
+    /// clicks. Falls back to `onNoteActivated` if there is no active leaf
+    /// to navigate (e.g. no vault open yet).
+    void navigateActiveLeafTo(const QString &relativePath);
     void propagateServicesToView(View *view);
 
     /// Look up the loaded plugin by id and host its createView() output

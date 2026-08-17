@@ -1122,12 +1122,21 @@ void MainWindow::propagateServicesToView(View *view)
             if (!editor->property("_mw_linkact").toBool()) {
                 editor->setProperty("_mw_linkact", true);
                 connect(editor, &NoteEditorWidget::linkActivated,
-                        this, [this, editor](const QString &rawTarget) {
+                        this, [this, editor](const QString &rawTarget, bool openInNewTab) {
                     if (rawTarget.isEmpty()) return;
+                    // Plain click (openInNewTab == false) navigates the
+                    // currently active leaf in place; an explicit
+                    // middle-click (true) keeps the existing
+                    // open-or-switch-to-new-leaf behavior. See
+                    // navigateActiveLeafTo's doc comment (MainWindow.h).
+                    const auto dispatch = [this, openInNewTab](const QString &path) {
+                        if (openInNewTab) onNoteActivated(path);
+                        else navigateActiveLeafTo(path);
+                    };
                     // If already a vault-relative path (has .md / .canvas),
                     // dispatch directly; otherwise resolve via LinkResolver.
                     if (rawTarget.endsWith(QStringLiteral(".canvas"))) {
-                        onNoteActivated(rawTarget);
+                        dispatch(rawTarget);
                         return;
                     }
                     if (m_linkResolver) {
@@ -1136,15 +1145,15 @@ void MainWindow::propagateServicesToView(View *view)
                             : QString{};
                         const auto resolved = m_linkResolver->resolve(fromCtx, rawTarget);
                         if (resolved.resolved && !resolved.path.isEmpty()) {
-                            onNoteActivated(resolved.path);
+                            dispatch(resolved.path);
                             return;
                         }
                     }
-                    // Fall back: append .md and let onNoteActivated create
-                    // the note if it does not exist.
-                    onNoteActivated(rawTarget.endsWith(QStringLiteral(".md"))
-                                        ? rawTarget
-                                        : rawTarget + QStringLiteral(".md"));
+                    // Fall back: append .md and let the dispatch target
+                    // create the note if it does not exist.
+                    dispatch(rawTarget.endsWith(QStringLiteral(".md"))
+                                 ? rawTarget
+                                 : rawTarget + QStringLiteral(".md"));
                 });
             }
             connect(editor, &NoteEditorWidget::cursorInfoChanged,
@@ -2139,30 +2148,68 @@ void MainWindow::showQuickSwitcher()
     switcher->show();
 }
 
+QString MainWindow::resolveOrCreateNoteTarget(const QString &relativePath)
+{
+    if (relativePath.endsWith(QStringLiteral(".canvas")))
+        return relativePath;
+
+    if (m_vaultObj && m_vaultObj->getAbstractFileByPath(relativePath))
+        return relativePath;
+
+    if (!m_fileManager)
+        return {};
+
+    // Obsidian create-on-click parity: clicking a wikilink whose target
+    // does not exist eagerly creates the note file on disk, then opens it.
+    QString name = relativePath;
+    if (name.endsWith(QStringLiteral(".md"))) name.chop(3);
+    QString folder;
+    int lastSlash = name.lastIndexOf(QLatin1Char('/'));
+    if (lastSlash >= 0) {
+        folder = name.left(lastSlash);
+        name = name.mid(lastSlash + 1);
+    }
+    auto *tf = m_fileManager->createMarkdownNote(name, folder);
+    return tf ? tf->path : QString();
+}
+
 void MainWindow::onNoteActivated(const QString &relativePath)
 {
-    if (relativePath.endsWith(QStringLiteral(".canvas"))) {
-        openFileInWorkspace(relativePath);
+    const QString target = resolveOrCreateNoteTarget(relativePath);
+    if (!target.isEmpty())
+        openFileInWorkspace(target);
+}
+
+void MainWindow::navigateActiveLeafTo(const QString &relativePath)
+{
+    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
+    if (!leaf) {
+        onNoteActivated(relativePath);
         return;
     }
 
-    if (m_vaultObj && m_vaultObj->getAbstractFileByPath(relativePath)) {
-        openFileInWorkspace(relativePath);
-    } else if (m_fileManager) {
-        // Obsidian create-on-click parity: clicking a wikilink whose target
-        // does not exist eagerly creates the note file on disk, then opens it.
-        QString name = relativePath;
-        if (name.endsWith(QStringLiteral(".md"))) name.chop(3);
-        QString folder;
-        int lastSlash = name.lastIndexOf(QLatin1Char('/'));
-        if (lastSlash >= 0) {
-            folder = name.left(lastSlash);
-            name = name.mid(lastSlash + 1);
-        }
-        auto *tf = m_fileManager->createMarkdownNote(name, folder);
-        if (tf)
-            openFileInWorkspace(tf->path);
-    }
+    const QString target = resolveOrCreateNoteTarget(relativePath);
+    if (target.isEmpty())
+        return;
+
+    QString ext = QFileInfo(target).suffix().toLower();
+    QString type = m_viewRegistry ? m_viewRegistry->getTypeByExtension(ext) : QString();
+    if (type.isEmpty()) type = QStringLiteral("markdown");
+
+    QJsonObject viewState;
+    viewState[QStringLiteral("type")] = type;
+    viewState[QStringLiteral("state")] = QJsonObject{
+        {QStringLiteral("file"), target}
+    };
+    // navigate() pushes the leaf's PRE-navigation state to its own
+    // LeafHistory before swapping content — this is the same mechanism
+    // WorkspaceLeaf::goBack/goForward (already wired to the tab-frame's
+    // nav buttons, ItemView.cpp) read from; nothing previously called
+    // navigate() from the link-click path, which is why those buttons have
+    // never had anything to go back TO.
+    leaf->navigate(viewState);
+    m_workspace->setActiveLeaf(leaf);
+    m_workspace->pushLastOpenFile(target);
 }
 
 void MainWindow::onVaultOpened(const QString &path)
