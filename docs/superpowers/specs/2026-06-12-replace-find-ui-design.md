@@ -74,9 +74,11 @@ no-separator flat layout that only the document knows):
 - Skip any match whose `blockId` is absent from the current block set (stale match).
 - Sort the resulting global ranges **descending by start**; apply each via
   `applyFlatEdit(globalStart, globalStart + matchLen, replacementUtf8, Origin::UserEdit)`.
-- Fold into **one** UndoLog entry: after the first `applyFlatEdit`, call
-  `coalesceLastUndo()` following each subsequent `applyFlatEdit`, so a single
-  `undoD2()` reverses an entire Replace-All.
+- Fold into **one** undo entry by wrapping the whole loop in an outer
+  `UndoLog::Transaction outerTx(d2UndoLog())` — `applyFlatEdit`'s own transaction
+  nests inside it and shares the entry, so a single `undoD2()` reverses an entire
+  Replace-All. (Do NOT use `coalesceLastUndo()` — verified during implementation
+  to act only on the *legacy* flat-buffer undo stack, not the D2 `UndoLog`.)
 - Literal replacement only: the matched span (even a regex match) is replaced
   with `replacement` verbatim. The replacement comes from a single-line
   `QLineEdit`, so it carries no newlines; if one is ever present, `applyFlatEdit`'s

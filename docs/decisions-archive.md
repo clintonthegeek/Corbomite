@@ -74,6 +74,78 @@ Submodule advanced `794e28ec` → `1e45ae8e` (4 new commits on top of the existi
 
 ---
 
+## 2026-08-17 — Cluster K Phase 3: findings 11-13 closed (title-band rename, readable-line-width, reveal-radius); `feature/find-replace` merged to master
+
+Knocked out the 3 remaining actionable `[cluster-k]` findings (the 4th, callouts, stays FROZEN — blocked on Markoff E3, out of scope for this cluster):
+
+1. **Document-title header not surfaced.** Canvas already shipped the title band (`View::setInlineTitle`/`titleEdited`) — the gap was purely that nobody called it. `NoteEditorWidget` now seeds it from the note's filename on every attach/detach/mode-switch and on `NoteDocument::pathChanged` (external-rename resync); a debounced `titleEdited` (fires per keystroke) commits a real rename via a new `MainWindow::titleRenameRequested` handler → `FileManager::renameFileByPath`, rejecting a literal `/` in the typed text rather than silently turning it into a folder move. New test `tst_mainwindow_title_rename.cpp` (4 cases). Commit `0f3a8792`.
+2. **No readable-line-width setting.** Turned out to be a pure wrapper-exposure gap — `View` already fully implemented `ContentWidthPolicy` (`FullWidth`/`FixedColumn(700px)`, Obsidian's own `--file-line-width` default). Added the `EditorWidget` pass-through (submodule `1fd3ef11`), a new `ReadableLineWidth` kcfg entry (canvas-only, default true), and an Editor-page checkbox that force-enables + disables "Wrap long lines" while checked, wired live through the existing `onSettingsApplied` chokepoint.
+3. **Format-verb reveal radius too wide.** `InlineFormatting.cpp`'s `touchedByAnyCursor` padded the "caret touches this span" test by an extra `±1` QChar position on both sides. Fixed with an asymmetric interval (`parentCharStart < c <= parentCharEnd`): the gap immediately BEFORE a span no longer counts as touching (the bug's headline case), but the gap immediately AFTER the closing delimiter still does — the legitimate "just finished typing the closing marker" position. Exposed and fixed 4 existing tests that had conflated "1 Right-keypress" with "1 byte of movement." Submodule `2a9167af`.
+
+**All 13 actionable Cluster K dogfood findings are now closed.** Re-enabling `CORBOMITE_PORT_BUILD_TESTS` (had silently drifted OFF in this build-dev cache, excluding `tests/app`/`tests/editor`/`tests/e2e` from every suite run this session until caught) surfaced one unrelated pre-existing failure, `tst_e2e_gui::testSaveShortcut` — logged as a new P2 punch-list entry, not fixed here (needs its own triage; deterministic, not caused by this session's changes, plausibly a Qt-6.11 regression of the 2026-05-26 watermark fix for the same test).
+
+Also added a GPLv3 `LICENSE.txt` and expanded `README.md` (feature list, alpha-status/backup warning, Markoff/collabtext/Graffodil relationship) — commit `ad3491ba`.
+
+`feature/find-replace` (which had accumulated Find/Replace, hover-preview re-light, and this whole Cluster K arc since 2026-06-12) merged into `master` at the user's request. This merge also reconciled with `master`'s own independent post-2026-06-14 work (the entries directly below — Find/Replace's own dogfood fixes, plus a subsequent `findSpans`-preserve fix and an EditorSuggest test-mock guard that had landed straight on `master` in a separate line of work) — submodule pin resolved to the newer/superset commit (`1fd3ef11`, a strict descendant of `master`'s prior `2a551cde` pin); no source-file conflicts, only these two docs needed manual reconciliation.
+
+---
+
+## 2026-06-14 — Find/Replace shipped (Phase 2 placebo removal) + two dogfood fixes
+
+Built Replace for the editor on branch `feature/find-replace` (pushed to
+Codeberg, **green and user-verified, merged to `master` 2026-08-17**). Spec
+[`docs/superpowers/specs/2026-06-12-replace-find-ui-design.md`](superpowers/specs/2026-06-12-replace-find-ui-design.md),
+plan [`docs/superpowers/plans/2026-06-12-replace-find-ui.md`](superpowers/plans/2026-06-12-replace-find-ui.md).
+
+**Architecture (option C — minimal upstream primitive, consumer-owned UI).**
+Two small Markoff additions: `MarkoffDocument::replaceMatches(QList<SearchHit>,
+QString)` (maps block-local match offsets → global no-separator flat offsets via
+`iterateBlocks()`/`blockText()`, applies descending-by-start so earlier edits
+don't shift later ones, wraps the batch in one `UndoLog::Transaction` so a single
+`undoD2()` reverses a Replace-All, then `flushPendingD2Changed()` for a
+synchronous post-state) and the mutation-free `FindController::selectMatchAtOrAfter`
+(re-anchors the selection past a replacement). `FindController` stays mutation-free
+(invariant D3). Corbomite side: `FindBar` grew a replace row (`setReplaceMode`,
+`replaceRequested`/`replaceAllRequested`); `NoteEditorWidget` owns the replace
+orchestration + `showReplaceBar`; `MainWindow` added `onReplace` +
+`KStandardAction::replace`; the hamburger **Find…/Replace…** placebos
+(`MarkdownView.cpp`) are wired to host triggers (mirrors `setPdfExportTrigger`).
+Literal-only replacement (regex backreferences explicitly out of scope, YAGNI).
+Implemented subagent-driven (TDD per task, spec + code-quality review each).
+
+**Subagent caught a spec bug:** `coalesceLastUndo()` acts only on the legacy
+flat-buffer undo stack, not the D2 `UndoLog`; the implementer switched to a nested
+`UndoLog::Transaction` (spec/plan corrected).
+
+**Dogfood fix 1 — black find-highlights.** `Corbomite::Core::ThemeService` is
+`#if 0`-disabled pending the theme port; its active *stub* returned an empty
+`Markoff::Theme{}`, so every unset Slot fell back through `Theme::color()` to
+`TextDefault` (a dark color). QML text survives via its own fallbacks, but the C++
+`InlineHighlighter` reads slots directly → find-pass painted black (and inline
+code/link/tag formats too). Fixed: the stub now returns a palette-based
+`defaultLight()/defaultDark()`. Re-enabled `tst_theme_service` with a focused
+regression guard. (`51294db2`.)
+
+**Dogfood fix 2 — find-highlight stuck after a replace.** A real markoff-live bug:
+`LiveBlockModel::applyOps` wholesale-assigned a fresh parse record (no `findSpans`)
+on a text-changing edit, wiping the adapter-owned find spans **without** listing
+`FindSpansRole` in the `dataChanged` roles — so the delegate kept painting stale
+spans (old offset/length behind the new text), and the adapter's follow-up
+`setFindSpans({})` no-op'd against the already-wiped value (uncleared by
+needle-delete or Esc). Fixed upstream by preserving `findSpans` across the row
+update (the same pattern already used for `inlineSpans`); falsifiable regression
+test `apply_ops_preserves_adapter_owned_find_spans_on_text_change`. Markoff
+`master` `c3b5070f`; Corbomite re-pinned (`49f8ac7a`).
+
+**Known follow-ups:** `Markoff::Theme::defaultDark()` omits the search-highlight
+slots (Markoff queue #14, dark half) — dark mode highlights fall back to the light
+text color, not black. Part B of the plan is unstarted: Insert Table/Callout
+dialogs apply-at-caret, and multi-snippet search results (`SQLiteIndex.cpp:461`).
+Baseline: Corbomite 271/271 offscreen; Markoff fast suite green except the 3 known
+queue-#10 reds.
+
+---
+
 ## 2026-06-11 — Phase 2 hover preview re-light
 
 Road-to-dogfood **Phase 2** "hover preview" item shipped on `master` across three commits (`2ac999cb`, `fff4bd4a`, `6999df1a`; test-double doc note `920b5547`). Executed via subagent-driven-development against the approved spec [`specs/2026-06-11-hover-preview-relight-design.md`](superpowers/specs/2026-06-11-hover-preview-relight-design.md) + plan [`plans/2026-06-11-hover-preview-relight.md`](superpowers/plans/2026-06-11-hover-preview-relight.md). Each task passed a spec-compliance review then a Qt code-quality review; a final holistic integration review confirmed the end-to-end seam.
