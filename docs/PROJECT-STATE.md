@@ -25,7 +25,7 @@ The P0/P1 bands were re-verified 2026-06-10 and drained in Phase 0 (branch `feat
 | E | Markoff Editor API parity | **Re-scope vs D2 block model** — stub body targets the retired editor (see banner in plan file) | Audit |
 | F | Internal-plugin gap fill | Plan-needed (stub) — substrate-independent, dispatchable after brainstorm | Audit |
 | I | Editor & Workspace UI surfacing | **Needs rewrite** — its header was false (Phases 1–4 shipped 2026-04-20 as legacy Cluster V); live remnant = Phase 5 tail + Phase 6 | Carried (was Cluster V) |
-| K | Markoff canvas leaf adoption | **In progress** — Phase 0–1 + 2 done; Phase 3 partial (5/14 dogfood findings fixed 2026-08-17, 9 open on punch list `[cluster-k]`); Phase 4–5 not started | New 2026-08-15 |
+| K | Markoff canvas leaf adoption | **In progress** — Phase 0–1 + 2 done; Phase 3 near-done (10/14 dogfood findings fixed, 5 user-confirmed + 5 offscreen-fixed pending live eyeball; 4 remain genuinely open — 1 frozen-elsewhere, 3 low-severity polish); Phase 4–5 not started | New 2026-08-15 |
 
 Closed (post-reset): A (2026-04-27), B (2026-04-28), C (2026-04-27).
 
@@ -61,6 +61,8 @@ Older closeouts (2026-04-26 reset → 2026-04-28) and all full closeout paragrap
 - **Eyeball-verification backlog.** Eight UI work-packages shipped offscreen-only and have never been seen by a human: D.2 grouped rendering, D.3 panels/drawer, D.4a cell clicks, D.4b export/+New, D.4c undo + drift banner, formula editor popups, filter builder dialog, properties panel. One consolidated session in front of the running app would clear all eight. (Completion popup **eyeball DONE 2026-06-11** — all five modes confirmed; surfaced + fixed two popup-sizing bugs, `62e63a24`.)
 
 ## Last touched
+
+2026-08-17 — **Cluster K Phase 3: 5 more canvas findings fixed via subagent TDD (10/14 total).** Wikilink/middle-click nav parity, double/triple-click select, Ctrl+Scroll zoom, F3 scroll-to-match, and unpromoted-paragraph image/embed placeholder all fixed directly in `libs/markoff-family` (re-pinned `794e28ec` → `1e45ae8e`); full markoff-family suite 316/316, Corbomite suite 154/154 offscreen. **Fixed but not yet eyeballed live — next session should re-test these 5 against the running app before calling Phase 3 done.** Closeout: `decisions-archive.md`.
 
 2026-08-17 — **Cluster K Phase 2/3: canvas dogfood pass, 5/14 findings fixed.** First hands-on test of the `Markoff::Canvas::EditorWidget` LivePreview toggle surfaced 14 bugs (filed to punch-list `[cluster-k]`); 5 were fixed directly in the `libs/markoff-family` submodule and user-confirmed against the running app (empty-note lockup, `$$` math lockup, undo phantom-link, doubled list marker, Tab focus leak) — full detail + commit shas in punch-list.md and `decisions-archive.md`. **Next step:** pick up the remaining 9 `[cluster-k]` findings from the punch list (wikilink click/middle-click nav is next by severity), or move to Phase 4 (dogfood-as-default) once satisfied with Phase 3 coverage — user's call. Closeout: [`decisions-archive.md`](decisions-archive.md).
 
