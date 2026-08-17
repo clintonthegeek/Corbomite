@@ -10,6 +10,28 @@ Conventions:
 
 ---
 
+## 2026-08-17 — Cluster K Phase 3 closed: live re-test confirms 10/14, surfaces + fixes a tab-navigation bug
+
+Live re-test of the 5 findings fixed in "session 2" (below), against the running app with `CanvasLivePreview` on.
+
+**4 confirmed working as-is:** F3 find-next scroll ("works great"), double/triple-click select ("works great"), Ctrl+Scroll zoom (confirmed), image/embed placeholders ("properly show placeholders").
+
+**1 (wikilink click/middle-click) needed a second, deeper fix — outside the submodule.** The canvas-side click-activation fix (`7b386915`) was correct: plain click now activates a link when the caret is elsewhere. But the user's actual complaint was different from what got filed originally — every click, plain or middle, opened the target in a **new tab**, making plain click indistinguishable from middle-click, with the tab-frame's visible back/forward nav buttons never doing anything. Root cause, found by reading `MainWindow::openFileInWorkspace`: it only ever creates a new leaf or switches to one where the file is already open — there was no code path anywhere that navigated the *currently active* leaf in place. `WorkspaceLeaf::navigate()` (pushes to `LeafHistory`, which the nav buttons already read from via `ItemView.cpp`'s `goBack`/`goForward` connections) existed and worked, but nothing in the link-activation path had ever called it. This predates Cluster K entirely — Live and Styled leaves would have hit the identical bug, since `NoteEditorWidget::linkActivated` is the same leaf-agnostic signal for all three.
+
+Fixed in two parts:
+1. `Markoff::LinkActivation::openInNewTab` (added during the original click-activation fix, canvas commit `7b386915`) was being silently dropped in `NoteEditorWidget::onLinkActivated`'s conversion to the plain `linkActivated(QString)` signal — the signal signature had no way to carry it. Now `linkActivated(QString, bool openInNewTab)`.
+2. `MainWindow` branches on the flag: `true` (middle-click) keeps existing `onNoteActivated`/`openFileInWorkspace` behavior; `false` (plain click) calls a new `navigateActiveLeafTo()`, which resolves/creates the target (shared `resolveOrCreateNoteTarget()` helper, factored out of `onNoteActivated` so the two paths can't drift) and calls the active leaf's `navigate()` directly.
+
+Commit `44d9eb66` (Corbomite `src/`, not the submodule). Four call sites updated for the new signal arity: `MainWindow.cpp`'s connection lambda, and three test files (`tst_mainwindow_link_navigation.cpp` — plus two new regression tests asserting leaf count doesn't grow on a plain click but does on middle-click, and that `history().canGoBack()` becomes true after an in-place navigation; `tst_e2e_gui.cpp`).
+
+**Also fixed this session, found by the same live pass:** Ctrl+=/Ctrl+-/Ctrl+0 keyboard zoom did nothing (only Ctrl+Scroll had been wired). Root cause: the QML Live leaf's keyboard zoom shortcuts are window-level QML `Shortcut` items, not KActions (MainWindow's own zoom-action wiring has a comment explaining why — binding these keys as KActions collides/is ambiguous with the QML shortcuts), so there was never a KAction path for canvas to inherit from, and canvas had no local-shortcut equivalent of its own. Fixed by adding the same three keys to `View::keyPressEvent`, reusing the `fontScaleStepRequested` signal `wheelEvent`'s Ctrl+Scroll fix (session 2, below) already established, plus a new `fontScaleResetRequested` for Ctrl+0. Deliberately kept as its own signal-based mechanism, not a KAction, for the same collision reason. Commit `03f7ceb1` (submodule).
+
+Submodule re-pinned `1e45ae8e` → `03f7ceb1` (one commit: the Ctrl-key zoom fix; the tab-navigation fix is Corbomite-side only). markoff-family suite 316/316 (Ctrl-key fix verified against `-R canvas`, 39/39). Corbomite suite 154/154 offscreen (one `tst_canvas_perf_500` failure under `-j10` parallel contention, confirmed flaky/unrelated — passes standalone).
+
+**10 of 14 Cluster K dogfood findings are now closed and live-confirmed.** Remaining 4 (callouts frozen on Markoff E3, document-title header, readable-line-width setting, format-verb reveal-radius) are all low-severity polish/feature-gap, not correctness bugs — see punch-list `[cluster-k]` for detail. Wrote a G2-closing status report to Markoff: [`docs/handoff/2026-08-17-to-markoff-canvas-g2-adoption-report.md`](handoff/2026-08-17-to-markoff-canvas-g2-adoption-report.md) — recommendation is to proceed to Phase 4 (dogfood-as-default) rather than pause for further upstream engine work; nothing found in two dogfood sessions suggested canvas itself needs more development before Corbomite continues.
+
+---
+
 ## 2026-08-17 — Cluster K Phase 2/3: canvas dogfood pass, 5/14 findings fixed
 
 First hands-on session with `Markoff::Canvas::EditorWidget` as an alternate LivePreview engine, behind the `CanvasLivePreview` settings toggle (Phase 1 wiring — `NoteEditorWidget`/`.h`, `corbomite.kcfg`, `SettingsDialog`, `src/CMakeLists.txt` — had already landed in the working tree from a prior session; this session built, tested, and dogfooded it). Launched Corbomite with the toggle on, exercised it against the starter vault, captured stdout/stderr to a log file for post-session analysis.

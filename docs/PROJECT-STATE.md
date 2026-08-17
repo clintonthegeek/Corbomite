@@ -25,7 +25,7 @@ The P0/P1 bands were re-verified 2026-06-10 and drained in Phase 0 (branch `feat
 | E | Markoff Editor API parity | **Re-scope vs D2 block model** — stub body targets the retired editor (see banner in plan file) | Audit |
 | F | Internal-plugin gap fill | Plan-needed (stub) — substrate-independent, dispatchable after brainstorm | Audit |
 | I | Editor & Workspace UI surfacing | **Needs rewrite** — its header was false (Phases 1–4 shipped 2026-04-20 as legacy Cluster V); live remnant = Phase 5 tail + Phase 6 | Carried (was Cluster V) |
-| K | Markoff canvas leaf adoption | **In progress** — Phase 0–1 + 2 done; Phase 3 near-done (10/14 dogfood findings fixed, 5 user-confirmed + 5 offscreen-fixed pending live eyeball; 4 remain genuinely open — 1 frozen-elsewhere, 3 low-severity polish); Phase 4–5 not started | New 2026-08-15 |
+| K | Markoff canvas leaf adoption | **Phase 3 done** — 10/14 dogfood findings fixed, all 10 user-confirmed live (one, wikilink nav, needed a second fix after live-testing exposed a pre-existing non-canvas tab-navigation bug); 4 remain open, all low-severity (1 frozen-elsewhere, 3 cosmetic/feature-gap polish). Phase 4 (dogfood-as-default) not started — pause point, see decisions-archive | New 2026-08-15 |
 
 Closed (post-reset): A (2026-04-27), B (2026-04-28), C (2026-04-27).
 
@@ -62,7 +62,7 @@ Older closeouts (2026-04-26 reset → 2026-04-28) and all full closeout paragrap
 
 ## Last touched
 
-2026-08-17 — **Cluster K Phase 3: 5 more canvas findings fixed via subagent TDD (10/14 total).** Wikilink/middle-click nav parity, double/triple-click select, Ctrl+Scroll zoom, F3 scroll-to-match, and unpromoted-paragraph image/embed placeholder all fixed directly in `libs/markoff-family` (re-pinned `794e28ec` → `1e45ae8e`); full markoff-family suite 316/316, Corbomite suite 154/154 offscreen. **Fixed but not yet eyeballed live — next session should re-test these 5 against the running app before calling Phase 3 done.** Closeout: `decisions-archive.md`.
+2026-08-17 — **Cluster K Phase 3 closed: 10/14 dogfood findings fixed and live-user-confirmed.** Live re-test of the 5 fixed via subagent TDD (wikilink nav, double/triple-click, Ctrl+Scroll zoom, F3 scroll, image/embed placeholders) confirmed 4 as-is and surfaced a deeper bug in #5 (wikilink click always opened a new tab — a pre-existing Corbomite-side navigation gap, not canvas-specific, fixed in `44d9eb66`); also fixed Ctrl+=/Ctrl+-/Ctrl+0 keyboard zoom (`03f7ceb1`). Remaining 4 findings are low-severity polish, not blockers. **Next: Phase 4 (dogfood-as-default) — recommended over pausing for more Markoff engine work; see the G2-closing handoff doc.** Closeout: `decisions-archive.md`.
 
 2026-08-17 — **Cluster K Phase 2/3: canvas dogfood pass, 5/14 findings fixed.** First hands-on test of the `Markoff::Canvas::EditorWidget` LivePreview toggle surfaced 14 bugs (filed to punch-list `[cluster-k]`); 5 were fixed directly in the `libs/markoff-family` submodule and user-confirmed against the running app (empty-note lockup, `$$` math lockup, undo phantom-link, doubled list marker, Tab focus leak) — full detail + commit shas in punch-list.md and `decisions-archive.md`. **Next step:** pick up the remaining 9 `[cluster-k]` findings from the punch list (wikilink click/middle-click nav is next by severity), or move to Phase 4 (dogfood-as-default) once satisfied with Phase 3 coverage — user's call. Closeout: [`decisions-archive.md`](decisions-archive.md).
 
