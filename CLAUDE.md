@@ -25,6 +25,24 @@
 > repeated `kf.xmlgui: Index 18 is not within range (0-16)`, plugin Id-in-
 > metadata warnings, `qt.qml Invalid QML element name "Theme"`, portal app-id.
 >
+> **Cluster K — Markoff canvas leaf adoption, in progress (2026-08-17).**
+> Markoff's canvas production arc (D5 part 1) closed 2026-08-15 at 315/315
+> tests; this cluster is Corbomite's side of adopting
+> `Markoff::Canvas::EditorWidget` as an alternate LivePreview engine
+> alongside the QML leaf, behind a `CanvasLivePreview` settings toggle (off
+> by default) —
+> [plan](docs/superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md).
+> Phase 0 (re-pin) and Phase 1 (settings-gated wiring) landed; Phase 2
+> (feature-parity dogfood) surfaced 14 findings, filed to the punch list
+> under `[cluster-k]`. **5 of 14 fixed and user-confirmed** directly in the
+> `libs/markoff-family` submodule (empty-note keystroke lockup, `$$`
+> math-block Enter/Backspace lockup, undo leaving a phantom link on
+> unrelated text, doubled list-item marker, Tab leaking focus to the
+> toolbar) — see punch-list `[cluster-k]` entries for root causes and
+> commit shas. **9 findings remain open**, still severity-ordered at the
+> top of the punch list; Phase 4 (dogfood-as-default) and Phase 5
+> (QML-leaf retirement) haven't started.
+>
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
 > Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).
 
