@@ -127,6 +127,11 @@ private:
     void applyTheme();
     void applyVaultPortableSettings();
     void applyAutosaveDelay();
+    /// Cluster K punch-list P5 — iterates open leaves, calling each
+    /// NoteEditorWidget::applyReadableLineWidth (canvas-only, no-op on the
+    /// QML engine). MainWindow stays leaf-type-agnostic here; the
+    /// Markoff::Canvas type only appears inside NoteEditorWidget.cpp.
+    void applyReadableLineWidth();
     void setupSidebars();
     void setupStatusBar();
     void setupEditor();

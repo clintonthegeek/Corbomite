@@ -92,6 +92,19 @@ target_link_libraries(tst_mainwindow_link_navigation PRIVATE
 set_tests_properties(tst_mainwindow_link_navigation PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster K — canvas leaf's inline title band (rename-via-header
+# affordance) surfaced in Corbomite: seeded from filename on attach,
+# debounced edit commits a real FileManager rename, '/' in the typed text
+# is rejected rather than silently becoming a folder move.
+# Requires canvasLivePreview=true (leaf backend decided at construction).
+add_executable(tst_mainwindow_title_rename
+    tst_mainwindow_title_rename.cpp)
+add_test(NAME tst_mainwindow_title_rename COMMAND tst_mainwindow_title_rename)
+target_link_libraries(tst_mainwindow_title_rename PRIVATE
+    Qt6::Test CorbomiteApp)
+set_tests_properties(tst_mainwindow_title_rename PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Task 0.3 P1 — LinkResolver freshness: verify that create/rename/delete in
 # an open vault immediately update the app-level LinkResolver (no reopen
 # needed), and that non-.md attachments are resolvable targets from vault open.

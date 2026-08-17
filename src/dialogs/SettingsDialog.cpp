@@ -75,6 +75,26 @@ void SettingsDialog::setupEditorPage()
     lineWrap->setObjectName(QStringLiteral("lineWrap"));
     layout->addRow(i18n("Wrap long lines:"), lineWrap);
 
+    // Readable line width implies word-wrap (a fixed-width column with
+    // wrap off would just clip text at the column edge, not read as
+    // "readable") — reflect that dependency in the UI itself rather than
+    // silently overriding lineWrap's saved value at apply time. Canvas
+    // engine only (View::ContentWidthPolicy); no effect on the QML leaf,
+    // so the checkbox stays visible/settable regardless of the engine
+    // toggle below — it just won't do anything until canvas is active.
+    auto *readableLineWidth = new QCheckBox;
+    readableLineWidth->setChecked(settings->readableLineWidth());
+    readableLineWidth->setObjectName(QStringLiteral("readableLineWidth"));
+    readableLineWidth->setToolTip(i18n("Centers a fixed-width readable column, matching Obsidian's default. Canvas Live Preview engine only."));
+    layout->addRow(i18n("Readable line width:"), readableLineWidth);
+
+    auto syncLineWrapToReadableWidth = [lineWrap](bool readable) {
+        lineWrap->setChecked(lineWrap->isChecked() || readable);
+        lineWrap->setDisabled(readable);
+    };
+    syncLineWrapToReadableWidth(readableLineWidth->isChecked());
+    connect(readableLineWidth, &QCheckBox::toggled, lineWrap, syncLineWrapToReadableWidth);
+
     auto *autoSave = new QSpinBox;
     autoSave->setRange(500, 30000);
     autoSave->setSingleStep(500);
@@ -269,6 +289,8 @@ void SettingsDialog::applySettings()
         settings->setLineNumbers(w->isChecked());
     if (auto *w = findChild<QCheckBox *>(QStringLiteral("lineWrap")))
         settings->setLineWrap(w->isChecked());
+    if (auto *w = findChild<QCheckBox *>(QStringLiteral("readableLineWidth")))
+        settings->setReadableLineWidth(w->isChecked());
     if (auto *w = findChild<QSpinBox *>(QStringLiteral("autoSaveDelay")))
         settings->setAutoSaveDelayMs(w->value());
     if (auto *w = findChild<QCheckBox *>(QStringLiteral("canvasLivePreview")))

@@ -40,8 +40,10 @@
 
 #include <QCursor>
 #include <QDesktopServices>
+#include <QFileInfo>
 #include <QStackedWidget>
 #include <QStringListModel>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -82,6 +84,17 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
         // reached through the composed View escape hatch, per
         // Markoff::Canvas::EditorWidget::view()'s doc comment.
         m_canvasEditor->view()->setLinkService(m_linkService);
+        // Inline title band (rename-via-header): only canvas exposes this,
+        // so wiring lives here rather than in the leaf-agnostic wireLeaf().
+        connect(m_canvasEditor, &Markoff::Canvas::EditorWidget::titleEdited,
+                this, &NoteEditorWidget::onTitleEdited);
+        applyReadableLineWidth(CorbomiteSettings::self()->readableLineWidth());
+        m_titleRenameTimer = new QTimer(this);
+        m_titleRenameTimer->setSingleShot(true);
+        m_titleRenameTimer->setInterval(600);
+        connect(m_titleRenameTimer, &QTimer::timeout, this, [this]() {
+            Q_EMIT titleRenameRequested(m_pendingTitleRename);
+        });
     } else {
         // leaf-specific: Live QML leaf construction — revisit if the canonical
         // live view changes leaf class (user directive 2026-06-10).
@@ -148,6 +161,7 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
 
     // Drop the previous document's word-count wiring before swapping.
     disconnect(m_wordCountConn);
+    disconnect(m_pathChangedConn);
 
     m_doc = doc;
 
@@ -176,6 +190,11 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
         m_wordCountConn = connect(m_doc, &NoteDocument::textChanged,
                                   this, &NoteEditorWidget::refreshWordCount);
         refreshWordCount();
+
+        // Re-seed the title band on an external rename (file explorer,
+        // another leaf's rename dialog) while this note is open.
+        m_pathChangedConn = connect(m_doc, &NoteDocument::pathChanged,
+                                    this, &NoteEditorWidget::syncInlineTitleForCanvas);
     } else {
         m_cachedWordCount = 0;
         // TODO(port-foundation-exploration): no equivalent of Editor::clear()
@@ -185,6 +204,8 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
         // (Cluster K — exactly one of m_editor/m_canvasEditor is constructed).
         if (m_editor) m_editor->setDocument(nullptr);
     }
+
+    syncInlineTitleForCanvas();
 
     if (m_completion) m_completion->setNoteDocument(m_doc);
 }
@@ -391,6 +412,7 @@ void NoteEditorWidget::setViewMode(ViewMode newMode)
             leaf->setDocument(m_doc->markoff());
         }
     }
+    syncInlineTitleForCanvas();
 
     // Re-point the completion driver at the now-active leaf (dismisses any
     // open session). Leaf-agnostic — base pointer only.
@@ -479,6 +501,42 @@ void NoteEditorWidget::refreshWordCount()
     const Markoff::CursorPos pos =
         activeLeaf() ? activeLeaf()->cursorPosition() : Markoff::CursorPos{};
     Q_EMIT cursorInfoChanged(pos.line, pos.column, m_cachedWordCount);
+}
+
+void NoteEditorWidget::syncInlineTitleForCanvas()
+{
+    // Only the canvas leaf has an inline title band today — a no-op on the
+    // QML engine keeps this call safe to sprinkle at every doc attach/
+    // detach/rename point without a leaf-type check at each call site.
+    if (!m_canvasEditor) return;
+
+    if (!m_doc) {
+        m_canvasEditor->setInlineTitleVisible(false);
+        return;
+    }
+    m_canvasEditor->setInlineTitle(QFileInfo(m_doc->relativePath()).completeBaseName());
+    m_canvasEditor->setInlineTitleVisible(true);
+}
+
+void NoteEditorWidget::applyReadableLineWidth(bool readable)
+{
+    if (!m_canvasEditor) return;
+    m_canvasEditor->setContentWidthPolicy(
+        readable ? Markoff::Canvas::ContentWidthPolicy::fixedColumn(700.0)
+                 : Markoff::Canvas::ContentWidthPolicy::fullWidth());
+}
+
+void NoteEditorWidget::onTitleEdited(const QString &newTitle)
+{
+    // Debounced — see m_titleRenameTimer's doc comment (NoteEditorWidget.h).
+    // The band's own text IS the new title (not a path); the eventual
+    // titleRenameRequested is a pure forward — MainWindow resolves it
+    // against the current note's folder/extension and performs the actual
+    // rename via FileManager, the same way the file-explorer's
+    // context-menu rename does, just without the confirmation dialog
+    // (matching Obsidian's live-typed-header UX).
+    m_pendingTitleRename = newTitle;
+    if (m_titleRenameTimer) m_titleRenameTimer->start();
 }
 
 bool NoteEditorWidget::insertAtCursor(const QString &text, const QString &caretMarker)

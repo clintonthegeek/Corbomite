@@ -8,6 +8,7 @@
 #include <markoff/core/LinkActivation.h>
 
 class QStackedWidget;
+class QTimer;
 
 namespace Markoff {
 class MarkdownView;
@@ -84,6 +85,19 @@ public:
 
     Markoff::Live::EditorWidget *editor() const;
     Markoff::Source::Editor *sourceEditor() const;
+    // Cluster K — null unless CorbomiteSettings::canvasLivePreview() was on
+    // at construction (see ctor). Exposed for tests exercising the canvas
+    // engine's title band; mirrors editor()'s precedent.
+    Markoff::Canvas::EditorWidget *canvasEditor() const { return m_canvasEditor; }
+
+    // Cluster K punch-list P5 (readable-line-width): canvas-only (View
+    // already had the ContentWidthPolicy mechanism fully implemented —
+    // FullWidth/FixedColumn(700px) — it just wasn't exposed past
+    // EditorWidget). No-op when the QML engine is active. Live-updatable
+    // (unlike canvasLivePreview itself), called both at construction (from
+    // the current setting) and from MainWindow::applyReadableLineWidth on
+    // every settings-dialog apply.
+    void applyReadableLineWidth(bool readable);
 
     // Returns the active MarkdownView leaf (any of the three), or nullptr if
     // none has been constructed yet. Cluster R / C7 consumers (MarkdownView
@@ -141,6 +155,16 @@ Q_SIGNALS:
     // navigate the current leaf in place instead of always creating a new
     // one — see MainWindow's connection for the in-place-vs-new-tab split).
     void linkActivated(const QString &targetPath, bool openInNewTab);
+
+    // Cluster K: the canvas leaf's inline document-title band (its own
+    // filename-rename affordance — Obsidian's big-header-at-top) doubles as
+    // a rename request when the user finishes editing it. Forwarded
+    // verbatim from `Markoff::Canvas::EditorWidget::titleEdited`; carries
+    // the NEW title text, not a path — the host resolves it against the
+    // current note's folder/extension. Canvas-only for now (no other leaf
+    // exposes an inline title), so this only ever fires when the canvas
+    // engine is the active LivePreview backend.
+    void titleRenameRequested(const QString &newTitle);
     void viewModeChanged(ViewMode mode);
     // Contract v2: re-emitted from whichever leaf is active. Inactive leaves
     // are detached from the document and silent, but the leaf == activeLeaf()
@@ -151,6 +175,20 @@ private:
     void onCursorPositionChanged(int line, int column);
     void onReplaceRequested();
     void onReplaceAllRequested();
+
+    // Cluster K: seeds/hides the canvas leaf's inline title band from the
+    // current document's filename. Called after every doc attach/detach
+    // (setNoteDocument, setViewMode) and on NoteDocument::pathChanged (an
+    // external rename while the note is open) so the band never goes
+    // stale. No-op when m_canvasEditor is null (QML engine active).
+    void syncInlineTitleForCanvas();
+    // `titleEdited` fires on every keystroke in the band (View.h's own doc
+    // comment) — committing a vault rename (disk I/O + vault-wide link
+    // rewriting via FileManager) per keystroke would be both wasteful and
+    // prone to mid-typing collisions, so this debounces via
+    // m_titleRenameTimer, the same restart-on-each-event QTimer idiom
+    // AutosaveReactor already uses for save debouncing.
+    void onTitleEdited(const QString &newTitle);
 
     // Recompute the active document's word count (cheap; NoteDocument caches
     // it) and re-ship it on cursorInfoChanged at the current caret so the
@@ -228,6 +266,9 @@ private:
     // Tracks the active document's textChanged → refreshWordCount() wiring so
     // it is torn down when the document is swapped or detached.
     QMetaObject::Connection m_wordCountConn;
+    QMetaObject::Connection m_pathChangedConn;
+    QTimer *m_titleRenameTimer = nullptr;
+    QString m_pendingTitleRename;
 
     // Hover preview (lifetime owned by MainWindow).
     HoverPopover *m_hoverPopover = nullptr;

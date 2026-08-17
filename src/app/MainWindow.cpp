@@ -1156,6 +1156,40 @@ void MainWindow::propagateServicesToView(View *view)
                                  : rawTarget + QStringLiteral(".md"));
                 });
             }
+            // Cluster K: canvas leaf's inline title band doubles as a
+            // rename affordance. Property-guarded like linkActivated above
+            // — this block re-runs on every leaf re-attach.
+            if (!editor->property("_mw_titlerename").toBool()) {
+                editor->setProperty("_mw_titlerename", true);
+                connect(editor, &NoteEditorWidget::titleRenameRequested,
+                        this, [this, editor](const QString &newTitle) {
+                    if (!m_fileManager || !editor->noteDocument()) return;
+                    const QString trimmed = newTitle.trimmed();
+                    // The band is plain text with no character filtering
+                    // (View::handleTitleKeyPress accepts anything) — a
+                    // literal '/' would silently turn this into a folder
+                    // move via renameFileByPath's path-join below, which is
+                    // not what typing a slash into a title means. Reject
+                    // rather than guess a substitution.
+                    if (trimmed.isEmpty() || trimmed.contains(QLatin1Char('/'))) return;
+                    const QString oldRel = editor->noteDocument()->relativePath();
+                    const QString ext = QFileInfo(oldRel).suffix();
+                    QString folder = QFileInfo(oldRel).path();
+                    if (folder == QStringLiteral(".")) folder.clear();
+                    QString newRel = folder.isEmpty() ? trimmed : folder + QStringLiteral("/") + trimmed;
+                    if (!ext.isEmpty()) newRel += QStringLiteral(".") + ext;
+                    if (newRel == oldRel) return;
+                    // Silent no-op on collision (Vault::rename's own
+                    // contract) — matches the band re-syncing to the actual
+                    // on-disk name on the next syncInlineTitleForCanvas
+                    // call (NoteDocument::pathChanged only fires on an
+                    // actual rename, so a failed one leaves the band
+                    // showing the rejected text until the next attach/
+                    // detach; acceptable for a first pass, no crash/data
+                    // loss risk either way).
+                    m_fileManager->renameFileByPath(oldRel, newRel);
+                });
+            }
             connect(editor, &NoteEditorWidget::cursorInfoChanged,
                     this, &MainWindow::onCursorInfoChanged, Qt::UniqueConnection);
             // Guard with property — Qt::UniqueConnection doesn't work for lambdas.
@@ -2864,11 +2898,24 @@ void MainWindow::applyAutosaveDelay()
     m_autosave->setDelayMs(ms);
 }
 
+void MainWindow::applyReadableLineWidth()
+{
+    if (!m_workspace) return;
+    const bool readable = CorbomiteSettings::self()->readableLineWidth();
+    for (auto *leaf : m_workspace->allLeaves()) {
+        if (leaf->isDeferred()) continue;
+        auto *mv = qobject_cast<MarkdownView *>(leaf->view());
+        auto *editor = mv ? mv->editorWidget() : nullptr;
+        if (editor) editor->applyReadableLineWidth(readable);
+    }
+}
+
 void MainWindow::onSettingsApplied()
 {
     applyTheme();
     applyVaultPortableSettings();
     applyAutosaveDelay();
+    applyReadableLineWidth();
 }
 
 } // namespace Corbomite
