@@ -19,6 +19,12 @@ namespace Markoff::Live {
 class EditorWidget;
 }
 
+namespace Markoff::Canvas {
+// Cluster K — alternate LivePreview backend, behind a settings toggle
+// (CorbomiteSettings::canvasLivePreview). See NoteEditorWidget.cpp ctor.
+class EditorWidget;
+}
+
 namespace Markoff::Source {
 // renamed: SourceEditor → Editor (2026-05-20 port)
 class Editor;
@@ -188,7 +194,13 @@ private:
     // Owned by this widget; constructed eagerly in NoteEditorWidget().
     Markoff::DefaultLinkService *m_linkService = nullptr;
 
+    // Cluster K — exactly one of m_editor / m_canvasEditor backs the
+    // LivePreview slot, decided once at construction from
+    // CorbomiteSettings::canvasLivePreview(). Whichever is unused stays
+    // nullptr for this widget's lifetime (no runtime engine switching yet —
+    // see plan's "Runtime engine switching" open question).
     Markoff::Live::EditorWidget *m_editor = nullptr;
+    Markoff::Canvas::EditorWidget *m_canvasEditor = nullptr;
     // Source mode widget — lazy. Constructed on first `setViewMode(Source)`
     // and cached in the stack thereafter. Accessor returns nullptr until
     // first construction. See `ensureWidgetConstructed`.

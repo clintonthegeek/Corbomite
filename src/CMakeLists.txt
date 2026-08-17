@@ -88,6 +88,11 @@ target_link_libraries(CorbomiteApp
         #   Markoff::Reading
         Markoff::Source
         markoff_styled
+        # Cluster K — experimental alternate LivePreview engine, behind a
+        # settings toggle (CorbomiteSettings::canvasLivePreview). NOT the
+        # `canvas` target below (that's Corbomite's own libs/canvas .canvas
+        # whiteboard library — unrelated, different name, easy to confuse).
+        Markoff::Canvas
         forcegraph
         canvas
 )

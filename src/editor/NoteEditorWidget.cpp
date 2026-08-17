@@ -12,8 +12,11 @@
 #include "corbomite/core/ThemeService.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/storage/EphemeralState.h"
+#include "corbomitesettings.h"
 #include "dialogs/QuickSwitcherModel.h"
 
+#include <markoff/canvas/EditorWidget.h>
+#include <markoff/canvas/View.h>
 #include <markoff/core/DefaultLinkService.h>
 #include <markoff/core/FindController.h>
 #include <markoff/core/SearchEngine.h>
@@ -49,10 +52,6 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     : QWidget(parent)
     , m_linkService(new Markoff::DefaultLinkService(this))
     , m_stack(new QStackedWidget(this))
-    // leaf-specific: Live QML leaf construction — revisit if the canonical
-    // live view changes leaf class (user directive 2026-06-10).
-    , m_editor(new Markoff::Live::EditorWidget(
-          Markoff::Live::LiveListModelBinding::AllCapabilities, this))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -68,13 +67,35 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     connect(m_findBar, &FindBar::replaceAllRequested,
             this, &NoteEditorWidget::onReplaceAllRequested);
 
-    m_livePreviewIndex = m_stack->addWidget(m_editor);
+    // Cluster K — LivePreview backend decided once at construction from the
+    // settings toggle (restart-to-apply; no runtime engine switching yet).
+    // Exactly one of m_editor / m_canvasEditor is constructed; the other
+    // stays nullptr for this widget's lifetime.
+    Markoff::MarkdownView *livePreviewLeaf = nullptr;
+    if (CorbomiteSettings::self()->canvasLivePreview()) {
+        // leaf-specific: canvas widget construction (Cluster K, experimental).
+        m_canvasEditor = new Markoff::Canvas::EditorWidget(this);
+        livePreviewLeaf = m_canvasEditor;
+        m_livePreviewIndex = m_stack->addWidget(m_canvasEditor);
+        // Same "reference, not owner" link-service wiring as Live's
+        // binding()->setLinkService and Reading's setLinkService — just
+        // reached through the composed View escape hatch, per
+        // Markoff::Canvas::EditorWidget::view()'s doc comment.
+        m_canvasEditor->view()->setLinkService(m_linkService);
+    } else {
+        // leaf-specific: Live QML leaf construction — revisit if the canonical
+        // live view changes leaf class (user directive 2026-06-10).
+        m_editor = new Markoff::Live::EditorWidget(
+            Markoff::Live::LiveListModelBinding::AllCapabilities, this);
+        livePreviewLeaf = m_editor;
+        m_livePreviewIndex = m_stack->addWidget(m_editor);
+        // leaf-specific: Live QML binding wiring — the shared link service
+        // routes link clicks in Live mode. The service is also set on the
+        // Reading leaf in ensureWidgetConstructed(Reading).
+        m_editor->binding()->setLinkService(m_linkService);
+    }
     m_stack->setCurrentIndex(m_livePreviewIndex);
 
-    // leaf-specific: Live QML binding wiring — the shared link service routes
-    // link clicks in Live mode. The service is also set on the Reading leaf
-    // in ensureWidgetConstructed(Reading).
-    m_editor->binding()->setLinkService(m_linkService);
     connect(m_linkService, &Markoff::LinkService::linkActivated,
             this, &NoteEditorWidget::onLinkActivated);
 
@@ -107,7 +128,7 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     // MarkoffDocument or LinkService. Each will be hooked back up as its
     // feature ports — find UI first.
 
-    wireLeaf(m_editor);
+    wireLeaf(livePreviewLeaf);
 
     // Phase 2 completion revival — leaf-agnostic driver. Re-pointed at the
     // active leaf on every mode switch (see setViewMode). The Live leaf is
@@ -159,7 +180,10 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
         m_cachedWordCount = 0;
         // TODO(port-foundation-exploration): no equivalent of Editor::clear()
         // on EditorWidget; closing the document detaches via setDocument(nullptr).
-        m_editor->setDocument(nullptr);
+        // Redundant with the activeLeaf() detach above when Live/canvas is the
+        // active leaf; guarded because m_editor is nullptr in canvas-engine mode
+        // (Cluster K — exactly one of m_editor/m_canvasEditor is constructed).
+        if (m_editor) m_editor->setDocument(nullptr);
     }
 
     if (m_completion) m_completion->setNoteDocument(m_doc);
@@ -191,8 +215,11 @@ void NoteEditorWidget::applyThemeToAllLeaves()
 {
     if (!m_themeService) return;
     const Markoff::Theme t = m_themeService->currentTheme();
+    // Cluster K: m_canvasEditor is included alongside m_editor — exactly one
+    // of the pair is non-null (see ctor), so this stays a flat literal list
+    // rather than a loop, matching the existing convention.
     const std::initializer_list<Markoff::MarkdownView *> leaves{
-        m_editor, m_sourceEditor, m_styledReadingView};
+        m_editor, m_canvasEditor, m_sourceEditor, m_styledReadingView};
     for (Markoff::MarkdownView *view : leaves)
         if (view) view->setTheme(t);
 }
@@ -286,7 +313,9 @@ Markoff::MarkdownView *NoteEditorWidget::leafFor(ViewMode mode) const
 {
     switch (mode) {
     case ViewMode::Source:      return m_sourceEditor;
-    case ViewMode::LivePreview: return m_editor;
+    // Cluster K: exactly one of m_editor/m_canvasEditor is non-null.
+    case ViewMode::LivePreview: return m_editor ? static_cast<Markoff::MarkdownView *>(m_editor)
+                                                 : static_cast<Markoff::MarkdownView *>(m_canvasEditor);
     case ViewMode::Reading:     return m_styledReadingView;
     }
     return nullptr;

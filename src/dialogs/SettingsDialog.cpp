@@ -83,6 +83,15 @@ void SettingsDialog::setupEditorPage()
     autoSave->setObjectName(QStringLiteral("autoSaveDelay"));
     layout->addRow(i18n("Autosave delay:"), autoSave);
 
+    // Cluster K — experimental Markoff canvas Live Preview engine, off by
+    // default. Read once at NoteEditorWidget construction; changing this
+    // requires a restart to take effect (no live leaf-rebuild yet).
+    auto *canvasLivePreview = new QCheckBox;
+    canvasLivePreview->setChecked(settings->canvasLivePreview());
+    canvasLivePreview->setObjectName(QStringLiteral("canvasLivePreview"));
+    canvasLivePreview->setToolTip(i18n("Requires restart. Experimental — the canvas widget is Markoff's replacement for the QML Live Preview leaf, currently being verified for parity."));
+    layout->addRow(i18n("Live Preview engine (experimental, requires restart):"), canvasLivePreview);
+
     auto item = addPage(page, i18n("Editor"));
     item->setIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
 }
@@ -262,6 +271,8 @@ void SettingsDialog::applySettings()
         settings->setLineWrap(w->isChecked());
     if (auto *w = findChild<QSpinBox *>(QStringLiteral("autoSaveDelay")))
         settings->setAutoSaveDelayMs(w->value());
+    if (auto *w = findChild<QCheckBox *>(QStringLiteral("canvasLivePreview")))
+        settings->setCanvasLivePreview(w->isChecked());
     if (auto *w = findChild<QComboBox *>(QStringLiteral("trashOption")))
         settings->setTrashOption(w->currentData().toString());
     if (auto *w = findChild<QCheckBox *>(QStringLiteral("promptDelete")))

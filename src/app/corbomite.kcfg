@@ -26,6 +26,10 @@
       <label>Wrap long lines</label>
       <default>true</default>
     </entry>
+    <entry name="CanvasLivePreview" type="Bool">
+      <label>Use the experimental Markoff canvas widget as the Live Preview engine instead of the QML leaf (Cluster K, restart to apply)</label>
+      <default>false</default>
+    </entry>
     <entry name="AutoSaveDelayMs" type="Int">
       <label>Autosave delay in milliseconds</label>
       <default>2000</default>
