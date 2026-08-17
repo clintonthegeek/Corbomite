@@ -174,17 +174,13 @@ bool Workspace::eventFilter(QObject *watched, QEvent *event)
 
 Workspace::~Workspace()
 {
-    // Snapshot-then-clear before deleting: leaf destruction triggers KDDW
-    // DockWidget destructors which emit signals (isOpenChanged etc.) that
-    // run lambdas re-entering Workspace state (m_leaves iteration in the
-    // focus router). If m_leaves still contains the half-destructed leaf
-    // pointers during qDeleteAll, those lambdas read freed memory.
-    QVector<WorkspaceLeaf *> leavesCopy = m_leaves;
-    m_leaves.clear();
-    m_leavesById.clear();
-    m_tabGroupOf.clear();
-    m_activeLeaf = nullptr;
-    qDeleteAll(leavesCopy);
+    // destroyLeaves unregisters each leaf immediately before deleting it
+    // (Phase L1 / A1-A2), so a KDDW DockWidget destructor signal firing
+    // re-entrantly (isOpenChanged etc., which used to run lambdas that read
+    // freed memory out of a stale m_leaves/m_leavesById) always sees
+    // already-consistent Workspace state rather than a snapshot cleared all
+    // at once up front.
+    destroyLeaves(m_leaves, TeardownMode::Immediate);
 
     // Closed-but-pending leaves (closeLeaf path: deleteLater scheduled but
     // not yet processed) are still QObject children of `this`. Detach
@@ -275,6 +271,45 @@ void Workspace::pushLastOpenFile(const QString &path)
     m_lastOpenFiles.prepend(path);
     if (m_lastOpenFiles.size() > 50)
         m_lastOpenFiles.removeLast();
+}
+
+void Workspace::destroyLeaves(QVector<WorkspaceLeaf *> leaves, TeardownMode mode)
+{
+    // Iterate a value-copy of the caller's vector: unregisterLeaf() mutates
+    // m_leaves via removeOne(), so iterating m_leaves itself here would be
+    // iterator-invalidation. Passing by value (rather than const&) forces
+    // every call site to hand over a snapshot rather than accidentally
+    // aliasing m_leaves.
+    for (auto *leaf : leaves) {
+        if (!leaf)
+            continue;
+
+        // Unregister first. This is the actual A1 fix: previously
+        // deserialize/resetToDefaultLayout deleted every leaf via
+        // qDeleteAll(m_leaves) and only cleared m_leaves/m_leavesById
+        // afterwards, so a KDDW signal firing re-entrantly off leaf N's
+        // destruction (isCurrentTabChanged/isOpenChanged cascades) could
+        // still find leaf N+1..end "registered" while they were mid-batch-
+        // delete. Unregistering each leaf immediately before it is touched
+        // makes "is this leaf still alive" match "is it still registered"
+        // at every point in the loop, not just at the start and end.
+        unregisterLeaf(leaf);
+        if (m_activeLeaf == leaf)
+            m_activeLeaf = nullptr;
+
+        // Defense in depth on top of A3 (wireLeafKddwSignals now uses `leaf`
+        // itself as the connect context, so those connections auto-
+        // disconnect structurally when the leaf dies). Cut them explicitly
+        // here too so this primitive doesn't depend on every future signal
+        // wired against a leaf remembering to use the right context object.
+        if (auto *dw = leaf->dockWidget())
+            dw->disconnect(leaf);
+
+        if (mode == TeardownMode::Immediate)
+            delete leaf;
+        else
+            leaf->deleteLater();
+    }
 }
 
 void Workspace::registerLeaf(WorkspaceLeaf *leaf)
@@ -436,8 +471,7 @@ void Workspace::closeLeaf(WorkspaceLeaf *leaf)
         m_activeLeaf = nullptr;
 
     Q_EMIT leafClosed(leaf);
-    unregisterLeaf(leaf);
-    leaf->deleteLater();   // ~WorkspaceLeaf disposes its DockWidget
+    destroyLeaves({leaf}, TeardownMode::Deferred);   // ~WorkspaceLeaf disposes its DockWidget
 
     if (!m_activeLeaf && !m_leaves.isEmpty())
         setActiveLeaf(m_leaves.first());
@@ -813,10 +847,13 @@ void Workspace::deserialize(const QJsonObject &json)
     // Suppress activeLeafChanged emissions while we materialize the layout.
     setLayoutReady(false);
 
-    qDeleteAll(m_leaves);
-    m_leaves.clear();
-    m_leavesById.clear();
-    m_tabGroupOf.clear();
+    // A1 fix: route through destroyLeaves so every leaf is unregistered
+    // immediately before its dock widget is deleted, instead of the old
+    // qDeleteAll(m_leaves) that deleted the whole batch first and cleared
+    // the bookkeeping hashes only afterwards.
+    destroyLeaves(m_leaves, TeardownMode::Immediate);
+    // m_stackedGroups is keyed by tab-group id, not by leaf, so
+    // destroyLeaves (which unregisters per-leaf) doesn't touch it.
     m_stackedGroups.clear();
     m_activeLeaf = nullptr;
     m_undoHistory.clear();
@@ -932,10 +969,11 @@ void Workspace::writeWorkspaceJson(const QString &vaultPath)
 
 void Workspace::resetToDefaultLayout()
 {
-    qDeleteAll(m_leaves);
-    m_leaves.clear();
-    m_leavesById.clear();
-    m_tabGroupOf.clear();
+    // A1's twin: same qDeleteAll-before-clear hazard as deserialize, same
+    // fix. A4 fix: also clear m_stackedGroups, which this function used to
+    // leak across resets (deserialize already cleared it).
+    destroyLeaves(m_leaves, TeardownMode::Immediate);
+    m_stackedGroups.clear();
     m_activeLeaf = nullptr;
     m_undoHistory.clear();
     Q_EMIT layoutChanged();

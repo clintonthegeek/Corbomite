@@ -301,6 +301,27 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    /// Whether `destroyLeaves` deletes its leaves synchronously or schedules
+    /// `deleteLater`. `Immediate` is for batch teardown paths
+    /// (`~Workspace`, `deserialize`, `resetToDefaultLayout`) where the whole
+    /// tree is being replaced and nothing downstream needs the leaf to
+    /// survive to the next event-loop turn. `Deferred` is for `closeLeaf`,
+    /// which must outlive the KDDW signal handler that's still unwinding on
+    /// the call stack when it's invoked.
+    enum class TeardownMode { Immediate, Deferred };
+
+    /// The single leaf-destruction primitive (Cluster L Phase L1 / finding
+    /// A1-A2). Unregisters each leaf from `m_leaves`/`m_leavesById`/
+    /// `m_tabGroupOf` (and clears it as `m_activeLeaf` if applicable)
+    /// *before* touching its dock widget, so any KDDW signal that fires
+    /// re-entrantly while a sibling leaf in the same batch is being torn
+    /// down sees this leaf as already gone rather than mid-flight. Cuts the
+    /// dock widget's signal connections as a defense-in-depth measure on
+    /// top of A3's context-object fix, then deletes per `mode`. Does not
+    /// touch `m_stackedGroups` (not leaf-keyed) or emit `layoutChanged`/
+    /// `leafClosed` — callers own those.
+    void destroyLeaves(QVector<WorkspaceLeaf *> leaves, TeardownMode mode);
+
     void registerLeaf(WorkspaceLeaf *leaf);
     void unregisterLeaf(WorkspaceLeaf *leaf);
     void wireLeafKddwSignals(WorkspaceLeaf *leaf);
