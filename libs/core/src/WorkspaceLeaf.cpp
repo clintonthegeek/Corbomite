@@ -49,7 +49,7 @@ WorkspaceLeaf::WorkspaceLeaf(ViewRegistry *registry, QObject *parent)
 WorkspaceLeaf::~WorkspaceLeaf()
 {
     closeCurrentView();
-    // The owning Workspace clears m_dockWidget via dropDockWidget() in its
+    // The owning Workspace clears m_dockWidget via releaseDockWidget() in its
     // destructor before tearing down the KDDW MainWindow (which would
     // double-free leaves that are still QObject-children of Workspace and
     // thus get cleaned up by ~QObject after KDDW already disposed their

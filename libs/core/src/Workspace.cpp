@@ -348,16 +348,23 @@ void Workspace::wireLeafKddwSignals(WorkspaceLeaf *leaf)
     // Re-emit "user clicked this tab" as Workspace::tabSelectRequested(leaf).
     // Programmatic setAsCurrentTab also triggers this, but setActiveLeaf's
     // m_activeLeaf == leaf early-return guards against feedback loops.
+    //
+    // A3 fix: `leaf` (not `this`) is the connect context object, so Qt
+    // auto-disconnects this connection when leaf dies, regardless of what
+    // order Workspace's own bookkeeping gets updated in. The
+    // m_leavesById.contains() check is kept as belt-and-suspenders for the
+    // narrow window in closeLeaf's Deferred teardown where a leaf is
+    // unregistered but not yet actually destroyed.
     connect(dw, &KDDockWidgets::QtWidgets::DockWidget::isCurrentTabChanged,
-            this, [this, leaf](bool isCurrent) {
+            leaf, [this, leaf](bool isCurrent) {
         if (isCurrent && m_leavesById.contains(leaf->id()))
             Q_EMIT tabSelectRequested(leaf);
     });
 
     // Re-emit "user closed this tab" as Workspace::tabCloseRequested(leaf).
-    // Hosts (MainWindow) call closeLeaf in response.
+    // Hosts (MainWindow) call closeLeaf in response. See A3 note above.
     connect(dw, &KDDockWidgets::QtWidgets::DockWidget::isOpenChanged,
-            this, [this, leaf](bool isOpen) {
+            leaf, [this, leaf](bool isOpen) {
         if (!isOpen && m_leavesById.contains(leaf->id()))
             Q_EMIT tabCloseRequested(leaf);
     });
