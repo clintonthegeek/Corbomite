@@ -14,15 +14,11 @@ namespace Markoff {
 class MarkdownView;
 class MermaidRenderer;  // stub forward decl — type undefined post-port (E5 work)
 class DefaultLinkService;
-}
-
-namespace Markoff::Live {
-class EditorWidget;
+class LinkService;
 }
 
 namespace Markoff::Canvas {
-// Cluster K — alternate LivePreview backend, behind a settings toggle
-// (CorbomiteSettings::canvasLivePreview). See NoteEditorWidget.cpp ctor.
+// Cluster K Phase 5 — sole LivePreview backend (QML Live leaf retired).
 class EditorWidget;
 }
 
@@ -55,11 +51,10 @@ class NoteEditorWidget : public QWidget {
 
 public:
     // Three-mode encoding per Cluster E plan. `LivePreview` is Markoff's
-    // cursor-in-block-reveals-source widget; `Source` is the plain-text
-    // editor widget; `Reading` is a read-only `Markoff::Styled::Editor` leaf
-    // (QWidget, no QML). On the wire these map through `ViewModeSerializer` to
-    // Obsidian's compound `{mode, source}` shape — we do not persist the enum
-    // integer.
+    // canvas projection-view leaf; `Source` is the plain-text editor;
+    // `Reading` is a read-only `Markoff::Styled::Editor` leaf (QWidget, no
+    // QML). On the wire these map through `ViewModeSerializer` to Obsidian's
+    // compound `{mode, source}` shape — we do not persist the enum integer.
     enum class ViewMode { Source, LivePreview, Reading };
     Q_ENUM(ViewMode)
 
@@ -83,20 +78,21 @@ public:
     void setViewMode(ViewMode mode);
     ViewMode viewMode() const;
 
-    Markoff::Live::EditorWidget *editor() const;
-    Markoff::Source::Editor *sourceEditor() const;
-    // Cluster K — null unless CorbomiteSettings::canvasLivePreview() was on
-    // at construction (see ctor). Exposed for tests exercising the canvas
-    // engine's title band; mirrors editor()'s precedent.
+    // Canvas LivePreview leaf — always constructed (Cluster K Phase 5).
+    // Exposed for tests exercising the title band and for host wiring.
     Markoff::Canvas::EditorWidget *canvasEditor() const { return m_canvasEditor; }
+    Markoff::Source::Editor *sourceEditor() const;
 
-    // Cluster K punch-list P5 (readable-line-width): canvas-only (View
-    // already had the ContentWidthPolicy mechanism fully implemented —
-    // FullWidth/FixedColumn(700px) — it just wasn't exposed past
-    // EditorWidget). No-op when the QML engine is active. Live-updatable
-    // (unlike canvasLivePreview itself), called both at construction (from
-    // the current setting) and from MainWindow::applyReadableLineWidth on
-    // every settings-dialog apply.
+    // Shared LinkService injected into every leaf. Tests drive
+    // activate/notifyHover through this rather than reaching into a
+    // leaf-specific binding API (the retired QML Live leaf's
+    // LiveListModelBinding::linkService()).
+    Markoff::LinkService *linkService() const;
+
+    // Readable-line-width (Obsidian's --file-line-width): FixedColumn(700px)
+    // vs FullWidth on the canvas LivePreview leaf. Live-updatable; called at
+    // construction and from MainWindow::applyReadableLineWidth on every
+    // settings-dialog apply.
     void applyReadableLineWidth(bool readable);
 
     // Returns the active MarkdownView leaf (any of the three), or nullptr if
@@ -119,10 +115,9 @@ public:
     // future themeChanged emissions. Lifetime owned by the caller.
     void setThemeService(Core::ThemeService *service);
 
-    // C4 Task 14 — inject the host Mermaid renderer into both the Live leaf
-    // (eagerly constructed) and the Reading leaf (applied on lazy construction).
+    // C4 Task 14 — inject the host Mermaid renderer into constructed leaves.
     // Lifetime owned by the caller (typically MainWindow). Passing nullptr
-    // clears the renderer; both leaves fall back to DefaultMermaidRenderer.
+    // clears the renderer. Currently a no-op until E5 restores MermaidRenderer.
     void setMermaidRenderer(Markoff::MermaidRenderer *renderer);
 
     int currentLine() const;
@@ -156,14 +151,11 @@ Q_SIGNALS:
     // one — see MainWindow's connection for the in-place-vs-new-tab split).
     void linkActivated(const QString &targetPath, bool openInNewTab);
 
-    // Cluster K: the canvas leaf's inline document-title band (its own
-    // filename-rename affordance — Obsidian's big-header-at-top) doubles as
-    // a rename request when the user finishes editing it. Forwarded
-    // verbatim from `Markoff::Canvas::EditorWidget::titleEdited`; carries
-    // the NEW title text, not a path — the host resolves it against the
-    // current note's folder/extension. Canvas-only for now (no other leaf
-    // exposes an inline title), so this only ever fires when the canvas
-    // engine is the active LivePreview backend.
+    // Canvas leaf's inline document-title band (filename-rename affordance —
+    // Obsidian's big-header-at-top). Forwarded from
+    // `Markoff::Canvas::EditorWidget::titleEdited`; carries the NEW title
+    // text, not a path — the host resolves it against the current note's
+    // folder/extension.
     void titleRenameRequested(const QString &newTitle);
     void viewModeChanged(ViewMode mode);
     // Contract v2: re-emitted from whichever leaf is active. Inactive leaves
@@ -176,18 +168,13 @@ private:
     void onReplaceRequested();
     void onReplaceAllRequested();
 
-    // Cluster K: seeds/hides the canvas leaf's inline title band from the
-    // current document's filename. Called after every doc attach/detach
-    // (setNoteDocument, setViewMode) and on NoteDocument::pathChanged (an
-    // external rename while the note is open) so the band never goes
-    // stale. No-op when m_canvasEditor is null (QML engine active).
+    // Seeds/hides the canvas leaf's inline title band from the current
+    // document's filename. Called after every doc attach/detach
+    // (setNoteDocument, setViewMode) and on NoteDocument::pathChanged.
     void syncInlineTitleForCanvas();
-    // `titleEdited` fires on every keystroke in the band (View.h's own doc
-    // comment) — committing a vault rename (disk I/O + vault-wide link
-    // rewriting via FileManager) per keystroke would be both wasteful and
-    // prone to mid-typing collisions, so this debounces via
-    // m_titleRenameTimer, the same restart-on-each-event QTimer idiom
-    // AutosaveReactor already uses for save debouncing.
+    // `titleEdited` fires on every keystroke in the band — debounced via
+    // m_titleRenameTimer before emitting titleRenameRequested (same idiom
+    // as AutosaveReactor).
     void onTitleEdited(const QString &newTitle);
 
     // Recompute the active document's word count (cheap; NoteDocument caches
@@ -198,9 +185,9 @@ private:
     // Link resolution
     QString resolveTarget(const QString &target) const;
 
-    // Receives Markoff::LinkService::linkActivated from either the Live
-    // binding's service or the Reading leaf's service, resolves the raw
-    // target to a relative path, and re-emits as NoteEditorWidget::linkActivated.
+    // Receives Markoff::LinkService::linkActivated from the shared service
+    // (LivePreview canvas + Reading), resolves the raw target to a relative
+    // path, and re-emits as NoteEditorWidget::linkActivated.
     void onLinkActivated(const Markoff::LinkActivation &activation);
 
     // --- Mode-transition helpers ---
@@ -211,10 +198,7 @@ private:
     // == leafFor(m_viewMode).
     Markoff::MarkdownView *leafFor(ViewMode mode) const;
 
-    // (activeLeaf is now a public accessor — declared above with editor()/
-    // sourceEditor(). Internal callers below also use it.)
-
-    // C2 — apply current theme to every constructed leaf (Live/Source/Reading).
+    // C2 — apply current theme to every constructed leaf.
     void applyThemeToAllLeaves();
 
     // Captures ephemeral state (scroll/cursor/fold) from the current active
@@ -225,31 +209,23 @@ private:
     void restoreEphemeralStateFor(ViewMode mode, const EphemeralState &s);
 
     // Phase 1 (contract v2) — one-time wiring applied to each leaf at
-    // construction: theme application now; contextChanged + cursor
-    // forwarding are added by the toolbar-state and statusbar tasks.
-    // Takes the base pointer: wiring must stay leaf-agnostic.
+    // construction. Takes the base pointer: wiring must stay leaf-agnostic.
     void wireLeaf(Markoff::MarkdownView *leaf);
 
     QStackedWidget *m_stack = nullptr;
 
-    // Shared link service forwarded to all editor leaves (Live + Reading).
-    // Owned by this widget; constructed eagerly in NoteEditorWidget().
+    // Shared link service forwarded to all editor leaves. Owned by this
+    // widget; constructed eagerly in NoteEditorWidget().
     Markoff::DefaultLinkService *m_linkService = nullptr;
 
-    // Cluster K — exactly one of m_editor / m_canvasEditor backs the
-    // LivePreview slot, decided once at construction from
-    // CorbomiteSettings::canvasLivePreview(). Whichever is unused stays
-    // nullptr for this widget's lifetime (no runtime engine switching yet —
-    // see plan's "Runtime engine switching" open question).
-    Markoff::Live::EditorWidget *m_editor = nullptr;
+    // LivePreview — Markoff::Canvas::EditorWidget (Cluster K Phase 5;
+    // QML Markoff::Live leaf retired). Eagerly constructed in the ctor.
     Markoff::Canvas::EditorWidget *m_canvasEditor = nullptr;
     // Source mode widget — lazy. Constructed on first `setViewMode(Source)`
-    // and cached in the stack thereafter. Accessor returns nullptr until
-    // first construction. See `ensureWidgetConstructed`.
+    // and cached in the stack thereafter.
     Markoff::Source::Editor *m_sourceEditor = nullptr;
-    // Reading mode widget — a read-only Markoff::Styled::Editor (QWidget, no
-    // QML). Lazy, same pattern as m_sourceEditor. Replaces the retired
-    // Markoff::Reading::ReadingView stub.
+    // Reading mode widget — a read-only Markoff::Styled::Editor (QWidget).
+    // Lazy, same pattern as m_sourceEditor.
     Markoff::Styled::Editor *m_styledReadingView = nullptr;
     ViewMode m_viewMode = ViewMode::LivePreview;
 

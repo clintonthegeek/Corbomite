@@ -76,16 +76,13 @@ void SettingsDialog::setupEditorPage()
     layout->addRow(i18n("Wrap long lines:"), lineWrap);
 
     // Readable line width implies word-wrap (a fixed-width column with
-    // wrap off would just clip text at the column edge, not read as
-    // "readable") — reflect that dependency in the UI itself rather than
-    // silently overriding lineWrap's saved value at apply time. Canvas
-    // engine only (View::ContentWidthPolicy); no effect on the QML leaf,
-    // so the checkbox stays visible/settable regardless of the engine
-    // toggle below — it just won't do anything until canvas is active.
+    // wrap off would just clip text at the column edge) — reflect that
+    // dependency in the UI rather than silently overriding lineWrap's
+    // saved value at apply time.
     auto *readableLineWidth = new QCheckBox;
     readableLineWidth->setChecked(settings->readableLineWidth());
     readableLineWidth->setObjectName(QStringLiteral("readableLineWidth"));
-    readableLineWidth->setToolTip(i18n("Centers a fixed-width readable column, matching Obsidian's default. Canvas Live Preview engine only."));
+    readableLineWidth->setToolTip(i18n("Centers a fixed-width readable column, matching Obsidian's default."));
     layout->addRow(i18n("Readable line width:"), readableLineWidth);
 
     auto syncLineWrapToReadableWidth = [lineWrap](bool readable) {
@@ -102,15 +99,6 @@ void SettingsDialog::setupEditorPage()
     autoSave->setValue(settings->autoSaveDelayMs());
     autoSave->setObjectName(QStringLiteral("autoSaveDelay"));
     layout->addRow(i18n("Autosave delay:"), autoSave);
-
-    // Cluster K — experimental Markoff canvas Live Preview engine, off by
-    // default. Read once at NoteEditorWidget construction; changing this
-    // requires a restart to take effect (no live leaf-rebuild yet).
-    auto *canvasLivePreview = new QCheckBox;
-    canvasLivePreview->setChecked(settings->canvasLivePreview());
-    canvasLivePreview->setObjectName(QStringLiteral("canvasLivePreview"));
-    canvasLivePreview->setToolTip(i18n("Requires restart. Experimental — the canvas widget is Markoff's replacement for the QML Live Preview leaf, currently being verified for parity."));
-    layout->addRow(i18n("Live Preview engine (experimental, requires restart):"), canvasLivePreview);
 
     auto item = addPage(page, i18n("Editor"));
     item->setIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
@@ -293,8 +281,6 @@ void SettingsDialog::applySettings()
         settings->setReadableLineWidth(w->isChecked());
     if (auto *w = findChild<QSpinBox *>(QStringLiteral("autoSaveDelay")))
         settings->setAutoSaveDelayMs(w->value());
-    if (auto *w = findChild<QCheckBox *>(QStringLiteral("canvasLivePreview")))
-        settings->setCanvasLivePreview(w->isChecked());
     if (auto *w = findChild<QComboBox *>(QStringLiteral("trashOption")))
         settings->setTrashOption(w->currentData().toString());
     if (auto *w = findChild<QCheckBox *>(QStringLiteral("promptDelete")))

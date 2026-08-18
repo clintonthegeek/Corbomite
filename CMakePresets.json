@@ -28,6 +28,22 @@
                 "CMAKE_INSTALL_PREFIX": "/usr/local",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
+        },
+        {
+            "name": "appimage",
+            "displayName": "AppImage Build",
+            "description": "Release build staged into an AppDir (prefix /usr, RPATH $ORIGIN)",
+            "binaryDir": "${sourceDir}/build-appimage",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CORBOMITE_DEV_BUILD": "OFF",
+                "CORBOMITE_PORT_BUILD_TESTS": "OFF",
+                "CMAKE_INSTALL_PREFIX": "/usr",
+                "CMAKE_INSTALL_RPATH": "$ORIGIN/../lib",
+                "CMAKE_INSTALL_RPATH_USE_LINK_PATH": "ON",
+                "KDE_INSTALL_PLUGINDIR": "lib/plugins",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -38,6 +54,10 @@
         {
             "name": "release",
             "configurePreset": "release"
+        },
+        {
+            "name": "appimage",
+            "configurePreset": "appimage"
         }
     ]
 }

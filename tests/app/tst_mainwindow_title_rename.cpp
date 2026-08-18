@@ -8,9 +8,8 @@
 //   (c) the open NoteDocument's path (and the band itself, via
 //       pathChanged) tracks the rename.
 //
-// Runs under QT_QPA_PLATFORM=offscreen. Requires CorbomiteSettings::
-// canvasLivePreview() set BEFORE MainWindow construction (leaf backend is
-// decided once, at construction — see NoteEditorWidget's ctor).
+// Runs under QT_QPA_PLATFORM=offscreen. LivePreview is always the canvas
+// leaf (Cluster K Phase 5).
 
 #include <QTest>
 #include <QTemporaryDir>
@@ -70,20 +69,6 @@ private Q_SLOTS:
         KAboutData::setApplicationData(about);
     }
 
-    void init()
-    {
-        // Leaf backend is decided once at NoteEditorWidget construction —
-        // must be set before each MainWindow is built.
-        CorbomiteSettings::self()->setCanvasLivePreview(true);
-        CorbomiteSettings::self()->save();
-    }
-
-    void cleanup()
-    {
-        CorbomiteSettings::self()->setCanvasLivePreview(false);
-        CorbomiteSettings::self()->save();
-    }
-
     void titleBand_seededFromFilename_onAttach()
     {
         QTemporaryDir tmp;
@@ -102,7 +87,7 @@ private Q_SLOTS:
         auto *editor = activeEditor(&mw);
         QVERIFY2(editor, "NoteEditorWidget must be active after onNoteActivated");
         auto *canvas = editor->canvasEditor();
-        QVERIFY2(canvas, "canvasEditor() must be non-null with canvasLivePreview=true");
+        QVERIFY2(canvas, "canvasEditor() must be non-null (canvas is the sole LivePreview engine)");
 
         QCOMPARE(canvas->inlineTitle(), QStringLiteral("Source"));
         QVERIFY(canvas->inlineTitleVisible());

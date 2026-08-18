@@ -26,12 +26,8 @@
       <label>Wrap long lines</label>
       <default>true</default>
     </entry>
-    <entry name="CanvasLivePreview" type="Bool">
-      <label>Use the experimental Markoff canvas widget as the Live Preview engine instead of the QML leaf (Cluster K, restart to apply)</label>
-      <default>false</default>
-    </entry>
     <entry name="ReadableLineWidth" type="Bool">
-      <label>Constrain the editor to a centered, fixed-width readable column instead of using the full window width (Obsidian's --file-line-width). Canvas Live Preview engine only; no effect on the QML leaf.</label>
+      <label>Constrain the editor to a centered, fixed-width readable column instead of using the full window width (Obsidian's --file-line-width).</label>
       <default>true</default>
     </entry>
     <entry name="AutoSaveDelayMs" type="Int">

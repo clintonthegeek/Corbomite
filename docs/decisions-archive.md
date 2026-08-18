@@ -10,6 +10,29 @@ Conventions:
 
 ---
 
+## 2026-08-18 — Cluster K Phase 5 closed: Canvas-only LivePreview; QML leaf retired
+
+User redirected from packaging work and signed off skipping Cluster K Phase 4 (soft "dogfood-as-default" with reversible toggle) in favour of Phase 5 (full QML retirement). LivePreview is now solely `Markoff::Canvas::EditorWidget`.
+
+**Corbomite changes:**
+- `NoteEditorWidget` always constructs canvas; removed `Markoff::Live::EditorWidget` / `editor()` accessor; added leaf-agnostic `linkService()`.
+- Dropped `markoff_live` / `markoff_liveplugin` / `markoff_liveplugin_init` from `src/CMakeLists.txt`; removed `Quick`/`QuickWidgets`/`Qml` from top-level `find_package(Qt6)`.
+- Removed `CanvasLivePreview` kcfg entry + Settings dialog toggle; `ReadableLineWidth` kept (now always applies).
+- `MainWindow` insert-callout/table guards use `activeLeaf()` instead of `editor()`.
+- Tests retargeted (`tst_link_activation`, hover, doc-lifetime, completion, title-rename); `tests/editor/CMakeLists.txt` links `Markoff::Canvas` instead of `markoff_live`.
+
+**Markoff submodule:**
+- New `MARKOFF_BUILD_LIVE` option (default ON for standalone Markoff; Corbomite forces OFF). Demo apps gated on LIVE.
+- Canvas retire-on-destroy bug: `EditorWidget`'s `destroyed` handler nulled only the MarkdownView base pointer, leaving `View` (and `CanvasActionController`) holding a freed `MarkoffDocument` — UAF on subsequent resize/paint. Fixed by also calling `m_view->setDocument(nullptr)` + `m_actionController->setDocument(nullptr)`.
+
+**Verification:** `cmake --preset dev` + build green; **308/308** offscreen (`ctest -E 'benchmark|realistic|perf'`). `readelf -d bin/Corbomite` no longer NEEDs `libQt6QuickWidgets` (Quick/Qml may still appear transitively via KDDockWidgets / `qt6-declarative`). Debug binary ~122MB → ~95MB.
+
+**Still open / out of scope:** callouts frozen on Markoff E3; Markoff-side G3 archive of `libs/markoff-live` is a separate Markoff decision (handoff optional); packaging (AppImage/PKGBUILD) deferred until after this closeout. Cluster L L5 soak remains the other live workfront.
+
+Plan: [`superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md`](superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md).
+
+---
+
 ## 2026-08-18 — Cluster L Phase L5: Obsidian round-trip nested-split scrambling found and fixed
 
 First real Phase L5 soak-dogfood finding. The user built a 3-pane test vault in real Obsidian (`~/Documents/WindowArrange...`): `TopLeft` in the top-left, `BottomLeft`/`BottomLeftTwo` stacked bottom-left below a horizontal splitter, and `RightFull` + a Graph View tab sharing the entire right column. Opening that vault in Corbomite scrambled every pane except `TopLeft` — first report had `BottomLeft`/`BottomLeftTwo` on the right and `RightFull`+Graph in the bottom-left; a fresh copy showed the same underlying corruption. Root causes, both in `libs/core/src/WorkspaceSerializer.cpp`:

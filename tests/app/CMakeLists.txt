@@ -96,7 +96,7 @@ set_tests_properties(tst_mainwindow_link_navigation PROPERTIES
 # affordance) surfaced in Corbomite: seeded from filename on attach,
 # debounced edit commits a real FileManager rename, '/' in the typed text
 # is rejected rather than silently becoming a folder move.
-# Requires canvasLivePreview=true (leaf backend decided at construction).
+# LivePreview is always Markoff::Canvas (Cluster K Phase 5).
 add_executable(tst_mainwindow_title_rename
     tst_mainwindow_title_rename.cpp)
 add_test(NAME tst_mainwindow_title_rename COMMAND tst_mainwindow_title_rename)

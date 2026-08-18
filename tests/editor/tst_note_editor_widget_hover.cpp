@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Hover preview re-light (2026-06-11) — NoteEditorWidget forwards the shared
-// LinkService hover signals to the HoverPopover. Both Live and Reading leaves
-// share m_linkService, so driving notifyHover() here proves the wiring.
+// Hover preview — NoteEditorWidget forwards the shared LinkService hover
+// signals to the HoverPopover. Canvas LivePreview and Reading share
+// m_linkService, so driving notifyHover() here proves the wiring.
 
 #include "NoteEditorWidget.h"
 #include "HoverPopover.h"
 
-#include <markoff/core/DefaultLinkService.h>
 #include <markoff/core/LinkActivation.h>
 #include <markoff/core/LinkKind.h>
-#include <markoff/live/EditorWidget.h>
-#include <markoff/live/LiveListModelBinding.h>
+#include <markoff/core/LinkService.h>
 
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/StyledRenderEngine.h"
@@ -28,10 +26,6 @@ using Corbomite::NoteEditorWidget;
 using Corbomite::StyledRenderEngine;
 
 namespace {
-// Minimal test double. NOTE: unlike the production VaultScopedResources,
-// resolveEmbed() here matches the bare key verbatim — it intentionally omits
-// the ".md" normalization production applies. Tests therefore add notes under
-// the exact key they hover; don't copy this into a real provider.
 class InMemoryResources : public Corbomite::Core::VaultResourceProvider
 {
 public:
@@ -86,7 +80,7 @@ private Q_SLOTS:
         popover.setResources(&resources);
         widget.setHoverPopover(&popover);
 
-        auto *svc = widget.editor()->binding()->linkService();
+        auto *svc = widget.linkService();
         QVERIFY(svc);
 
         Markoff::LinkActivation act;
@@ -95,10 +89,8 @@ private Q_SLOTS:
         act.rawText = QStringLiteral("[[Target]]");
 
         svc->notifyHover(act, QPoint(50, 50));
-        // scheduleShow() entered the Pending state synchronously.
         QCOMPARE(popover.stateForTest(), HoverPopover::State::Pending);
 
-        // After the 300ms delay the popover shows the rendered target.
         QTRY_VERIFY_WITH_TIMEOUT(popover.isVisible(), 1000);
         QVERIFY2(popover.previewPlainText().contains(QStringLiteral("hovered body")),
                  qPrintable(popover.previewPlainText()));
@@ -115,7 +107,8 @@ private Q_SLOTS:
         HoverPopover popover;
         widget.setHoverPopover(&popover);
 
-        auto *svc = widget.editor()->binding()->linkService();
+        auto *svc = widget.linkService();
+        QVERIFY(svc);
         Markoff::LinkActivation act;
         act.kind    = Markoff::LinkKind::WikiLink;
         act.page    = QStringLiteral("Target");

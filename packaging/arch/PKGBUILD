@@ -1,0 +1,74 @@
+# Maintainer: Clinton Molyneux <clinton@concernednetizen.com>
+#
+# Local build (from this directory inside a Corbomite checkout):
+#   makepkg -f
+#
+# AUR / release build: replace the `source=` line with a tagged git URL, e.g.
+#   source=("${pkgname}-${pkgver}::git+https://codeberg.org/clintonthegeek/Corbomite.git#tag=v${pkgver}")
+# and regenerate .SRCINFO.
+
+pkgname=corbomite
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Native Obsidian-inspired knowledge management application"
+arch=('x86_64')
+url="https://codeberg.org/clintonthegeek/Corbomite"
+license=('GPL-3.0-or-later')
+depends=(
+  'qt6-base'
+  'qt6-svg'
+  'qt6-declarative'
+  'kf6-kcoreaddons'
+  'kf6-ki18n'
+  'kf6-kxmlgui'
+  'kf6-kwidgetsaddons'
+  'kf6-kiconthemes'
+  'kf6-kconfig'
+  'kf6-kconfigwidgets'
+  'kf6-kcolorscheme'
+  'kf6-kdbusaddons'
+  'kf6-ksyntaxhighlighting'
+  'kddockwidgets'
+  'tree-sitter'
+)
+optdepends=(
+  'qt6keychain: persistent SecretStorage for plugin secrets'
+)
+makedepends=(
+  'cmake'
+  'ninja'
+  'extra-cmake-modules'
+  'git'
+)
+provides=("${pkgname}")
+conflicts=("${pkgname}-git")
+
+# Build the enclosing repository (packaging/arch → repo root). Submodules must
+# already be initialized in that tree (`git submodule update --init --recursive`).
+_repo="$(realpath "${startdir}/../..")"
+source=("${pkgname}-${pkgver}::git+file://${_repo}#HEAD")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  # file:// clone does not always bring submodule working trees; sync from the
+  # source checkout when present.
+  if [[ -d "${_repo}/libs/markoff-family/.git" || -f "${_repo}/libs/markoff-family/.git" ]]; then
+    git submodule sync --recursive
+    git submodule update --init --recursive
+  fi
+}
+
+build() {
+  cmake -S "${srcdir}/${pkgname}-${pkgver}" -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCORBOMITE_DEV_BUILD=OFF \
+    -DCORBOMITE_PORT_BUILD_TESTS=OFF \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -Wno-dev
+  cmake --build build -j"$(nproc)"
+}
+
+package() {
+  DESTDIR="${pkgdir}" cmake --install build
+}

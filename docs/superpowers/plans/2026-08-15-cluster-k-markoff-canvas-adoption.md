@@ -2,13 +2,12 @@
 
 **Date:** 2026-08-15
 **Type:** Full plan
-**Status (2026-08-17):** Phase 0 (re-pin) + Phase 1 (settings-gated wiring)
-done. Phase 2 (feature-parity dogfood) done — 14 findings filed to
-`docs/punch-list.md` under `[cluster-k]`. Phase 3 (gap-fix) partial: 5/14
-fixed and user-confirmed against the running app; 9 remain, still
-severity-ordered on the punch list. Phase 4 (dogfood-as-default) and
-Phase 5 (retirement) not started. Full session account:
-[`docs/decisions-archive.md`](../../decisions-archive.md) § 2026-08-17.
+**Status (2026-08-18): CLOSED — Phase 5.** Phases 0–3 done earlier; user
+signed off skipping Phase 4 soft-default and going straight to Phase 5
+(QML retirement). Canvas is the sole LivePreview engine; `markoff_live`
+unlinked from Corbomite. Callouts remain frozen on Markoff E3. Closeout:
+[`docs/decisions-archive.md`](../../decisions-archive.md) § 2026-08-18
+Cluster K Phase 5.
 **Depends on:** Markoff's canvas production arc (D5 part 1), which closed
 2026-08-15 pending its own **G2 (Corbomite adoption)** gate. Markoff spec:
 `libs/markoff-family/docs/specs/2026-08-13-canvas-production-design.md`

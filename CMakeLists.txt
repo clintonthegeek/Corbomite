@@ -4,10 +4,10 @@ project(Corbomite VERSION 0.1.0 LANGUAGES CXX)
 option(CORBOMITE_DEV_BUILD "Build with dev identity (isolated config/data, [Dev] suffix)" OFF)
 option(CORBOMITE_BUILD_EXAMPLES "Build example plugins" OFF)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets DBus Sql Svg PrintSupport
-    # TODO(port-foundation-exploration): QuickWidgets for Markoff::Live::EditorWidget;
-    # Quick + Qml are transitive deps of markoff_live's QML module.
-    Quick QuickWidgets Qml)
+# Cluster K Phase 5: Corbomite no longer links markoff_live / Qt QuickWidgets.
+# KDDockWidgets may still pull qt6-declarative transitively at the system
+# package level; we do not need Quick/Qml for our own targets.
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets DBus Sql Svg PrintSupport)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOUIC ON)
@@ -93,6 +93,8 @@ set(MARKOFF_LIVE_BUILD_TESTS   OFF CACHE BOOL "" FORCE)
 set(MARKOFF_SOURCE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(MARKOFF_PARSER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(MARKOFF_STYLED_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+# Cluster K Phase 5 — do not build the QML Live leaf into Corbomite.
+set(MARKOFF_BUILD_LIVE OFF CACHE BOOL "" FORCE)
 # Phase B bridge (MARKOFF_READING_USE_REAL_COREDEPS) retired in Markoff
 # v0.3.0 (Phase C1). markoff-reading now consumes host-provided
 # implementations of `Markoff::*` / `Markoff::Vault::*` interfaces via
@@ -167,7 +169,10 @@ install(TARGETS Corbomite CorbomiteApp
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_xmlgui_rcfile}
         DESTINATION ${KDE_INSTALL_KXMLGUIDIR}/${CORBOMITE_COMPONENT_NAME})
 
-install(FILES data/org.corbomite.Corbomite.desktop DESTINATION ${KDE_INSTALL_APPDIR})
+install(FILES data/com.concernednetizen.Corbomite.desktop DESTINATION ${KDE_INSTALL_APPDIR})
+
+install(FILES data/icons/hicolor/scalable/apps/com.concernednetizen.Corbomite.svg
+        DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
 
 # CMake package-config: lets third-party plugins do find_package(Corbomite)
 # to pull in Corbomite::Core / Vault / Storage / Models targets and the

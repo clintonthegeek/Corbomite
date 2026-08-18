@@ -62,7 +62,7 @@ target_link_libraries(tst_note_editor_widget_ephemeral PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    markoff_live
+    Markoff::Canvas
     markoff_styled
     Markoff::Source
     Corbomite::Core
@@ -85,7 +85,7 @@ target_link_libraries(tst_note_editor_widget_completion PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    markoff_live
+    Markoff::Canvas
     markoff_styled
     Markoff::Source
     Corbomite::Core
@@ -108,7 +108,7 @@ target_link_libraries(tst_note_editor_widget_doc_lifetime PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    markoff_live
+    Markoff::Canvas
     markoff_styled
     Markoff::Source
     Corbomite::Core
@@ -131,7 +131,7 @@ target_link_libraries(tst_note_editor_widget_word_count PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    markoff_live
+    Markoff::Canvas
     markoff_styled
     Markoff::Source
     Corbomite::Core
@@ -153,7 +153,7 @@ target_link_libraries(tst_note_editor_widget_insert_at_cursor PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    markoff_live
+    Markoff::Canvas
     markoff_styled
     Markoff::Source
     Corbomite::Core
@@ -177,7 +177,7 @@ target_link_libraries(tst_note_editor_widget_mode_transition PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    markoff_live
+    Markoff::Canvas
     Markoff::Source
     Corbomite::Core
 )
@@ -227,7 +227,7 @@ target_link_libraries(tst_mermaid_injection PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    markoff_live
+    Markoff::Canvas
     Markoff::Core
     Corbomite::Core
 )
@@ -332,7 +332,7 @@ target_link_libraries(tst_link_activation PRIVATE
     Qt6::Test
     Qt6::Widgets
     CorbomiteApp
-    markoff_live
+    Markoff::Canvas
     markoff_styled
     Corbomite::Core
 )
@@ -346,7 +346,7 @@ set_tests_properties(tst_link_activation PROPERTIES
 add_executable(tst_note_editor_widget_hover tst_note_editor_widget_hover.cpp)
 target_include_directories(tst_note_editor_widget_hover PRIVATE ${CMAKE_SOURCE_DIR}/src/editor)
 target_link_libraries(tst_note_editor_widget_hover PRIVATE
-    Qt6::Test Qt6::Widgets CorbomiteApp markoff_live markoff_styled Corbomite::Core)
+    Qt6::Test Qt6::Widgets CorbomiteApp Markoff::Canvas markoff_styled Corbomite::Core)
 add_test(NAME tst_note_editor_widget_hover COMMAND tst_note_editor_widget_hover)
 set_tests_properties(tst_note_editor_widget_hover PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 

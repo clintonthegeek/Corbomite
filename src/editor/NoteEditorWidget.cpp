@@ -22,21 +22,15 @@
 #include <markoff/core/SearchEngine.h>
 #include <markoff/core/LinkActivation.h>
 #include <markoff/core/LinkKind.h>
+#include <markoff/core/LinkService.h>
 #include <markoff/core/MarkdownView.h>
 #include <markoff/core/MarkoffDocument.h>
 #include <markoff/core/Origin.h>
-#include <markoff/live/EditorWidget.h>
-#include <markoff/live/LiveListModelBinding.h>
 #include <markoff/source/Editor.h>
 #include <markoff/styled/Editor.h>
-// TODO(port-foundation-exploration): old Markoff::Editor / MarkdownDelta /
-// Markoff::Reading / Markoff::MermaidRenderer all retired with the leaf
-// reshuffling — the live leaf is now hosted via Markoff::Live::EditorWidget
-// (this commit). Many of the editor's old signals (textChanged,
-// wordCountChanged, linkClicked, linkHovered, completionDismissHint,
-// cursorPositionChanged-with-line/col) have no direct equivalents on
-// LiveListModelBinding yet; their wiring is stubbed and will be reinstated
-// as feature ports land.
+// Cluster K Phase 5: LivePreview is Markoff::Canvas::EditorWidget only.
+// The QML Markoff::Live leaf (and its Qt Quick / markoff_live link) is
+// retired from Corbomite.
 
 #include <QCursor>
 #include <QDesktopServices>
@@ -69,53 +63,32 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     connect(m_findBar, &FindBar::replaceAllRequested,
             this, &NoteEditorWidget::onReplaceAllRequested);
 
-    // Cluster K — LivePreview backend decided once at construction from the
-    // settings toggle (restart-to-apply; no runtime engine switching yet).
-    // Exactly one of m_editor / m_canvasEditor is constructed; the other
-    // stays nullptr for this widget's lifetime.
-    Markoff::MarkdownView *livePreviewLeaf = nullptr;
-    if (CorbomiteSettings::self()->canvasLivePreview()) {
-        // leaf-specific: canvas widget construction (Cluster K, experimental).
-        m_canvasEditor = new Markoff::Canvas::EditorWidget(this);
-        livePreviewLeaf = m_canvasEditor;
-        m_livePreviewIndex = m_stack->addWidget(m_canvasEditor);
-        // Same "reference, not owner" link-service wiring as Live's
-        // binding()->setLinkService and Reading's setLinkService — just
-        // reached through the composed View escape hatch, per
-        // Markoff::Canvas::EditorWidget::view()'s doc comment.
-        m_canvasEditor->view()->setLinkService(m_linkService);
-        // Inline title band (rename-via-header): only canvas exposes this,
-        // so wiring lives here rather than in the leaf-agnostic wireLeaf().
-        connect(m_canvasEditor, &Markoff::Canvas::EditorWidget::titleEdited,
-                this, &NoteEditorWidget::onTitleEdited);
-        applyReadableLineWidth(CorbomiteSettings::self()->readableLineWidth());
-        m_titleRenameTimer = new QTimer(this);
-        m_titleRenameTimer->setSingleShot(true);
-        m_titleRenameTimer->setInterval(600);
-        connect(m_titleRenameTimer, &QTimer::timeout, this, [this]() {
-            Q_EMIT titleRenameRequested(m_pendingTitleRename);
-        });
-    } else {
-        // leaf-specific: Live QML leaf construction — revisit if the canonical
-        // live view changes leaf class (user directive 2026-06-10).
-        m_editor = new Markoff::Live::EditorWidget(
-            Markoff::Live::LiveListModelBinding::AllCapabilities, this);
-        livePreviewLeaf = m_editor;
-        m_livePreviewIndex = m_stack->addWidget(m_editor);
-        // leaf-specific: Live QML binding wiring — the shared link service
-        // routes link clicks in Live mode. The service is also set on the
-        // Reading leaf in ensureWidgetConstructed(Reading).
-        m_editor->binding()->setLinkService(m_linkService);
-    }
+    // Cluster K Phase 5 — LivePreview is always the canvas leaf.
+    m_canvasEditor = new Markoff::Canvas::EditorWidget(this);
+    m_livePreviewIndex = m_stack->addWidget(m_canvasEditor);
+    // Same "reference, not owner" link-service wiring as Reading's
+    // setLinkService — reached through the composed View escape hatch, per
+    // Markoff::Canvas::EditorWidget::view()'s doc comment.
+    m_canvasEditor->view()->setLinkService(m_linkService);
+    // Inline title band (rename-via-header): canvas-only affordance.
+    connect(m_canvasEditor, &Markoff::Canvas::EditorWidget::titleEdited,
+            this, &NoteEditorWidget::onTitleEdited);
+    applyReadableLineWidth(CorbomiteSettings::self()->readableLineWidth());
+    m_titleRenameTimer = new QTimer(this);
+    m_titleRenameTimer->setSingleShot(true);
+    m_titleRenameTimer->setInterval(600);
+    connect(m_titleRenameTimer, &QTimer::timeout, this, [this]() {
+        Q_EMIT titleRenameRequested(m_pendingTitleRename);
+    });
     m_stack->setCurrentIndex(m_livePreviewIndex);
 
     connect(m_linkService, &Markoff::LinkService::linkActivated,
             this, &NoteEditorWidget::onLinkActivated);
 
-    // Hover preview (2026-06-11) — forward the shared LinkService hover
-    // stream to the host-owned popover. Both Live and Reading leaves emit
-    // through this one service, so this covers both. m_hoverPopover is set
-    // later by the host (setHoverPopover), so read it lazily at signal time.
+    // Hover preview — forward the shared LinkService hover stream to the
+    // host-owned popover. Canvas LivePreview and Reading both emit through
+    // this one service. m_hoverPopover is set later by the host
+    // (setHoverPopover), so read it lazily at signal time.
     connect(m_linkService, &Markoff::LinkService::linkHovered, this,
             [this](const Markoff::LinkActivation &act, const QPoint &globalPos) {
                 if (!m_hoverPopover) return;
@@ -127,25 +100,13 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
             });
     connect(m_linkService, &Markoff::LinkService::linkHoverLeft, this,
             [this](const QString & /*linkText*/) {
-                // The popover tracks a single active target, so cancellation is
-                // global — the specific link we left doesn't matter here.
                 if (m_hoverPopover) m_hoverPopover->linkHoverEnded();
             });
 
-    // TODO(port-foundation-exploration): old Markoff::Editor exposed
-    // textChanged / cursorPositionChanged(int line, int col) /
-    // wordCountChanged / linkClicked / linkHovered / completionDismissHint.
-    // None of these has a direct equivalent on Live's LiveListModelBinding
-    // yet. Cursor info will need to come from binding()->cursorState()
-    // via cursorChanged(); text/word/link signals need ad-hoc wiring through
-    // MarkoffDocument or LinkService. Each will be hooked back up as its
-    // feature ports — find UI first.
+    wireLeaf(m_canvasEditor);
 
-    wireLeaf(livePreviewLeaf);
-
-    // Phase 2 completion revival — leaf-agnostic driver. Re-pointed at the
-    // active leaf on every mode switch (see setViewMode). The Live leaf is
-    // valid here, so seed it immediately.
+    // Completion revival — leaf-agnostic driver. Re-pointed at the active
+    // leaf on every mode switch (see setViewMode).
     m_completion = new CompletionController(this);
     m_completion->setLeaf(activeLeaf());
 }
@@ -166,43 +127,29 @@ void NoteEditorWidget::setNoteDocument(NoteDocument *doc)
     m_doc = doc;
 
     if (m_doc) {
-        // TODO(port-foundation-exploration): setResourceProvider lived on the
-        // old Markoff::Editor; on Live's binding it's not directly exposed.
-        // Resource resolution now flows through services (Markoff::Vault::
-        // ResourceProvider, MarkoffServices). Wire-up deferred to a follow-up
-        // micro-spec.
+        // Resource resolution flows through services (Markoff::Vault::
+        // ResourceProvider). Wire-up of m_resourceProvider into the
+        // document's services is still deferred.
         delete m_resourceProvider;
         m_resourceProvider = nullptr;
         if (m_vault) {
             m_resourceProvider = new VaultResourceProvider(m_vault, m_doc->relativePath());
-            // TODO(port): plug m_resourceProvider into the document's services.
         }
 
-        // Attach the active leaf to the new document.
         if (auto *leaf = activeLeaf()) {
             leaf->setDocument(m_doc->markoff());
         }
 
-        // Status-bar word count: track every edit (NoteDocument caches the
-        // count and invalidates on change) and seed the initial value so the
-        // count is correct the moment the document opens, without waiting for
-        // a cursor move.
+        // Status-bar word count: track every edit and seed the initial value.
         m_wordCountConn = connect(m_doc, &NoteDocument::textChanged,
                                   this, &NoteEditorWidget::refreshWordCount);
         refreshWordCount();
 
-        // Re-seed the title band on an external rename (file explorer,
-        // another leaf's rename dialog) while this note is open.
+        // Re-seed the title band on an external rename while this note is open.
         m_pathChangedConn = connect(m_doc, &NoteDocument::pathChanged,
                                     this, &NoteEditorWidget::syncInlineTitleForCanvas);
     } else {
         m_cachedWordCount = 0;
-        // TODO(port-foundation-exploration): no equivalent of Editor::clear()
-        // on EditorWidget; closing the document detaches via setDocument(nullptr).
-        // Redundant with the activeLeaf() detach above when Live/canvas is the
-        // active leaf; guarded because m_editor is nullptr in canvas-engine mode
-        // (Cluster K — exactly one of m_editor/m_canvasEditor is constructed).
-        if (m_editor) m_editor->setDocument(nullptr);
     }
 
     syncInlineTitleForCanvas();
@@ -236,11 +183,8 @@ void NoteEditorWidget::applyThemeToAllLeaves()
 {
     if (!m_themeService) return;
     const Markoff::Theme t = m_themeService->currentTheme();
-    // Cluster K: m_canvasEditor is included alongside m_editor — exactly one
-    // of the pair is non-null (see ctor), so this stays a flat literal list
-    // rather than a loop, matching the existing convention.
     const std::initializer_list<Markoff::MarkdownView *> leaves{
-        m_editor, m_canvasEditor, m_sourceEditor, m_styledReadingView};
+        m_canvasEditor, m_sourceEditor, m_styledReadingView};
     for (Markoff::MarkdownView *view : leaves)
         if (view) view->setTheme(t);
 }
@@ -279,9 +223,6 @@ void NoteEditorWidget::setVault(Vault *vault)
 {
     m_vault = vault;
     if (m_doc && m_vault) {
-        // TODO(port-foundation-exploration): setResourceProvider on Live
-        // editor not yet exposed — see setNoteDocument above. Resource
-        // provider is constructed for future wire-up.
         delete m_resourceProvider;
         m_resourceProvider = new VaultResourceProvider(m_vault, m_doc->relativePath());
     }
@@ -317,9 +258,8 @@ void NoteEditorWidget::ensureWidgetConstructed(ViewMode mode)
         break;
     case ViewMode::Reading:
         if (!m_styledReadingView) {
-            // leaf-specific: Reading is a read-only Styled leaf; it shares
-            // the link service so link activations route through the same
-            // onLinkActivated slot as Live mode.
+            // Reading is a read-only Styled leaf; it shares the link service
+            // so activations route through the same onLinkActivated slot.
             m_styledReadingView = new Markoff::Styled::Editor(this);
             m_styledReadingView->setReadOnly(true);
             m_styledReadingView->setLinkService(m_linkService);
@@ -334,9 +274,7 @@ Markoff::MarkdownView *NoteEditorWidget::leafFor(ViewMode mode) const
 {
     switch (mode) {
     case ViewMode::Source:      return m_sourceEditor;
-    // Cluster K: exactly one of m_editor/m_canvasEditor is non-null.
-    case ViewMode::LivePreview: return m_editor ? static_cast<Markoff::MarkdownView *>(m_editor)
-                                                 : static_cast<Markoff::MarkdownView *>(m_canvasEditor);
+    case ViewMode::LivePreview: return m_canvasEditor;
     case ViewMode::Reading:     return m_styledReadingView;
     }
     return nullptr;
@@ -441,14 +379,14 @@ NoteEditorWidget::ViewMode NoteEditorWidget::viewMode() const
     return m_viewMode;
 }
 
-Markoff::Live::EditorWidget *NoteEditorWidget::editor() const
-{
-    return m_editor;
-}
-
 Markoff::Source::Editor *NoteEditorWidget::sourceEditor() const
 {
     return m_sourceEditor;
+}
+
+Markoff::LinkService *NoteEditorWidget::linkService() const
+{
+    return m_linkService;
 }
 
 int NoteEditorWidget::currentLine() const
@@ -505,9 +443,6 @@ void NoteEditorWidget::refreshWordCount()
 
 void NoteEditorWidget::syncInlineTitleForCanvas()
 {
-    // Only the canvas leaf has an inline title band today — a no-op on the
-    // QML engine keeps this call safe to sprinkle at every doc attach/
-    // detach/rename point without a leaf-type check at each call site.
     if (!m_canvasEditor) return;
 
     if (!m_doc) {

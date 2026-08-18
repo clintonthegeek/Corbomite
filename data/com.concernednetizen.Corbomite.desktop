@@ -1,9 +1,9 @@
 [Desktop Entry]
 Name=Corbomite
 GenericName=Knowledge Manager
-Comment=A native Qt6/KDE Obsidian-inspired note-taking application
+Comment=A native Obsidian-inspired note-taking application
 Exec=Corbomite %F
-Icon=accessories-text-editor
+Icon=com.concernednetizen.Corbomite
 Type=Application
 Terminal=false
 Categories=Office;TextEditor;

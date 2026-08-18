@@ -77,21 +77,13 @@ target_link_libraries(CorbomiteApp
         Corbomite::Models
         Corbomite::Vault
         Corbomite::Bases
-        markoff_live
-        # Static QML module — also link the auto-generated plugin lib so the
-        # `import org.markoff.live 1.0` resolves at runtime. qt_add_qml_module
-        # generates the *plugin / *plugin_init targets when STATIC is set.
-        markoff_liveplugin
-        markoff_liveplugin_init
-        # TODO(port-foundation-exploration): Markoff::Reading retired; NoteEditorWidget
-        # stubs Reading mode pending Live-with-editing-disabled (E1) decision.
-        #   Markoff::Reading
+        # Cluster K Phase 5 — LivePreview is Markoff::Canvas only; QML
+        # markoff_live / markoff_liveplugin retired from Corbomite.
+        # Reading is Markoff::Styled (read-only). NOT confused with the
+        # `canvas` target below (Corbomite's own libs/canvas .canvas
+        # whiteboard library — unrelated name).
         Markoff::Source
         markoff_styled
-        # Cluster K — experimental alternate LivePreview engine, behind a
-        # settings toggle (CorbomiteSettings::canvasLivePreview). NOT the
-        # `canvas` target below (that's Corbomite's own libs/canvas .canvas
-        # whiteboard library — unrelated, different name, easy to confuse).
         Markoff::Canvas
         forcegraph
         canvas

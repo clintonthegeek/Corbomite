@@ -169,7 +169,7 @@ Corbomite requires the following at build time:
 | C++ compiler | C++20 (GCC 13+ / Clang 16+) | `gcc` |
 | CMake | 3.19+ | `cmake` |
 | Ninja (recommended) | any | `ninja` |
-| Qt6 | **6.8+** — `Core Widgets DBus Sql Svg PrintSupport Quick QuickWidgets Qml` | `qt6-base qt6-svg qt6-declarative qt6-5compat` |
+| Qt6 | **6.8+** — `Core Widgets DBus Sql Svg PrintSupport` (Declarative still pulled transitively by KDDockWidgets) | `qt6-base qt6-svg qt6-declarative qt6-5compat` |
 | Extra CMake Modules (ECM) | 6.0+ | `extra-cmake-modules` |
 | KDE Frameworks 6 | `CoreAddons I18n XmlGui WidgetsAddons IconThemes Config ConfigWidgets ColorScheme DBusAddons SyntaxHighlighting` | `kf6-kcoreaddons kf6-ki18n kf6-kxmlgui kf6-kwidgetsaddons kf6-kiconthemes kf6-kconfig kf6-kconfigwidgets kf6-kcolorscheme kf6-kdbusaddons kf6-ksyntaxhighlighting` |
 | KDDockWidgets | **2.0+** (Qt6 build) | `kddockwidgets-qt6` (AUR) |
@@ -225,6 +225,60 @@ cmake --preset release
 cmake --build build-release -j"$(nproc)"
 sudo cmake --install build-release
 ```
+
+### Packaging (AppImage / Arch)
+
+More detail lives in [`packaging/README.md`](packaging/README.md). Both formats
+are **Release** builds (`CORBOMITE_DEV_BUILD=OFF`) with Canvas-only LivePreview.
+Desktop / D-Bus identity is `com.concernednetizen.Corbomite`.
+
+#### AppImage (portable)
+
+Needs network once to fetch `linuxdeploy` / `appimagetool` into
+`packaging/appimage/tools/` (cached on later runs), plus the usual Corbomite
+build dependencies.
+
+```bash
+# From the repository root:
+./packaging/appimage/build-appimage.sh
+# → packaging/appimage/out/Corbomite-0.1.0-x86_64.AppImage
+```
+
+Smoke / run:
+
+```bash
+./packaging/appimage/out/Corbomite-0.1.0-x86_64.AppImage --version
+./packaging/appimage/out/Corbomite-0.1.0-x86_64.AppImage --help
+./packaging/appimage/out/Corbomite-0.1.0-x86_64.AppImage /path/to/vault
+```
+
+If FUSE is unavailable, the script extracts the tools automatically. You can
+also run with `--appimage-extract-and-run` if the host cannot mount AppImages.
+
+#### Arch package (`makepkg`)
+
+Requires the same system packages as a normal Corbomite build (Qt6, KF6,
+`kddockwidgets`, `tree-sitter`, …) — see **Dependencies** above. Submodules
+must already be initialized in this checkout.
+
+```bash
+cd packaging/arch
+makepkg -f
+# optional metadata for AUR:
+makepkg --printsrcinfo > .SRCINFO
+sudo pacman -U corbomite-0.1.0-1-x86_64.pkg.tar.zst
+```
+
+The PKGBUILD builds from the enclosing git work tree by default. For a
+published AUR package, point `source=` at a Codeberg tag (e.g. `v0.1.0`) and
+bump `pkgrel` as needed.
+
+#### CMake presets used by packaging
+
+| Preset | Prefix | Notes |
+|---|---|---|
+| `release` | `/usr/local` | Local `cmake --install` |
+| `appimage` | `/usr` (via `DESTDIR=AppDir`) | RPATH `$ORIGIN/../lib`; plugins under `lib/plugins` |
 
 The dev and release builds use **separate** config and data directories, so an
 installed release and a local dev build never interfere:

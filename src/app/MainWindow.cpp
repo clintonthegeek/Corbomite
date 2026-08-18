@@ -83,7 +83,7 @@
 
 #include <KColorSchemeManager>
 #include <KColorSchemeModel>
-#include <KHelpMenu>
+
 #include <KCommandBar>
 #include <KLocalizedString>
 #include <KStandardAction>
@@ -507,7 +507,7 @@ void MainWindow::onSetHeading(int level)
 void MainWindow::onInsertCallout()
 {
     auto *editor = activeEditor();
-    if (!editor || !editor->editor()) return;
+    if (!editor || !editor->activeLeaf()) return;
     CalloutPickerDialog dlg(this);
     if (dlg.exec() != QDialog::Accepted) return;
     // TODO(port-foundation-exploration): insertCallout was on the old
@@ -520,7 +520,7 @@ void MainWindow::onInsertCallout()
 void MainWindow::onInsertTable()
 {
     auto *editor = activeEditor();
-    if (!editor || !editor->editor()) return;
+    if (!editor || !editor->activeLeaf()) return;
     InsertTableDialog dlg(this);
     if (dlg.exec() != QDialog::Accepted) return;
     // TODO(port-foundation-exploration): insertTable was on the old
@@ -721,15 +721,6 @@ void MainWindow::onAboutApp()
 {
     KAboutApplicationDialog dlg(KAboutData::applicationData(), this);
     dlg.exec();
-}
-
-void MainWindow::onAboutKde()
-{
-    // KF6 removed KAboutKdeDialog; KHelpMenu::aboutKDE() opens the canonical
-    // "About KDE" dialog. KHelpMenu owns the dialog it spawns, so we parent
-    // the helper to `this` to outlive this function call.
-    auto *helpMenu = new KHelpMenu(this);
-    helpMenu->aboutKDE();
 }
 
 void MainWindow::cycleEditorMode()
@@ -1364,7 +1355,8 @@ void MainWindow::setupActions()
     KStandardAction::findPrev(this, &MainWindow::onFindPrev, ac);
 
     KStandardAction::aboutApp(this, &MainWindow::onAboutApp, ac);
-    KStandardAction::aboutKDE(this, &MainWindow::onAboutKde, ac);
+    // No About KDE — Corbomite is not a KDE-branded product; Help only
+    // exposes About Corbomite (homepage + Codeberg via KAboutData).
 
     auto *toggleLeft = ac->addAction(QStringLiteral("view_toggle_left_sidebar"));
     toggleLeft->setText(i18n("Toggle Left Sidebar"));

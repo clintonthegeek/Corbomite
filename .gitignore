@@ -42,6 +42,15 @@ testvaults/obsidian-hub-main.zip
 testvaults/obsidian-skills/
 testvaults/sweet-setup-obsidian-starter-vault.zip
 
+# Packaging build products (scripts stay tracked)
+packaging/appimage/tools/
+packaging/appimage/AppDir/
+packaging/appimage/out/
+packaging/arch/pkg/
+packaging/arch/src/
+packaging/arch/*.pkg.tar.*
+packaging/arch/*.log
+
 # Local scratch
 Testing/
 docs/archive/HandbookGraphDrawing.txt
