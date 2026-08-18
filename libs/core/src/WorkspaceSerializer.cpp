@@ -330,7 +330,11 @@ LeafNode buildLeafNode(const QString &uniqueName,
 // leaf nodes carry a guestId pointing into the sibling `frames` dict.
 //
 // orientation maps to Qt::Orientation values: Horizontal=1, Vertical=2.
-// Obsidian's "vertical" split == top/bottom siblings == Qt::Vertical (2).
+// Obsidian's "vertical" split == left/right siblings == Qt::Horizontal (1);
+// Obsidian's "horizontal" split == top/bottom siblings == Qt::Vertical (2).
+// (Obsidian's "direction" names the orientation of the divider *line*, not
+// the stacking direction of its children — verified against a real
+// Obsidian-authored workspace.json; see docs/obsidian-audit/domains/workspace.md.)
 void walkLayoutNode(const QJsonObject &layoutNode,
                     const QJsonObject &frames,
                     SplitNode &parent,
@@ -343,8 +347,8 @@ void walkLayoutContainer(const QJsonObject &containerNode,
 {
     const int orient = containerNode.value(QStringLiteral("orientation")).toInt();
     out.direction = (orient == 2)
-        ? QStringLiteral("vertical")
-        : QStringLiteral("horizontal");
+        ? QStringLiteral("horizontal")
+        : QStringLiteral("vertical");
     const auto children = containerNode.value(QStringLiteral("children")).toArray();
     for (const auto &v : children)
         walkLayoutNode(v.toObject(), frames, out, workspace);
@@ -463,7 +467,9 @@ QJsonObject findFloatingWindowEntry(const QJsonObject &saverRoot,
 }
 
 // Translate an Obsidian split direction + position to a KDDW Location.
-// "horizontal" = left↔right siblings; "vertical" = top↔bottom siblings.
+// "vertical" = left↔right siblings (vertical divider line); "horizontal" =
+// top↔bottom siblings (horizontal divider line) — Obsidian names the
+// direction of the divider, not the stacking axis of its children.
 KDDockWidgets::Location directionToKddwLocation(const QString &direction,
                                                 bool firstInParent)
 {
@@ -474,8 +480,8 @@ KDDockWidgets::Location directionToKddwLocation(const QString &direction,
         return KDDockWidgets::Location_OnLeft;
     }
     return direction == QStringLiteral("horizontal")
-        ? KDDockWidgets::Location_OnRight
-        : KDDockWidgets::Location_OnBottom;
+        ? KDDockWidgets::Location_OnBottom
+        : KDDockWidgets::Location_OnRight;
 }
 
 // Dock `dw` at `location` relative to `relativeTo`, routing through the
@@ -583,14 +589,114 @@ materializeTabs(const TabsNode &tabs,
     return first;
 }
 
-// Forward declaration — materializeSplit recurses on itself.
-KDDockWidgets::QtWidgets::DockWidget *
-materializeSplit(const SplitNode &split,
-                 KDDockWidgets::QtWidgets::MainWindow *main,
-                 KDDockWidgets::QtWidgets::DockWidget *relativeTo,
-                 KDDockWidgets::Location baseLocation,
-                 Corbomite::Workspace *workspace);
+// Effective child order: the real childOrder when present, else a
+// tabs-then-splits fallback synthesized on the fly (defensive — should
+// not happen for parsed/programmatic nodes).
+QList<QPair<bool, int>> effectiveChildOrder(const SplitNode &split)
+{
+    if (!split.childOrder.isEmpty()) return split.childOrder;
+    QList<QPair<bool, int>> order;
+    for (int i = 0; i < split.tabsChildren.size(); ++i) order.append({false, i});
+    for (int i = 0; i < split.splitChildren.size(); ++i) order.append({true, i});
+    return order;
+}
 
+// DFS down childOrder[0] (drilling through nested splits) to find the
+// leaf-most TabsNode of a split's subtree, without materializing anything.
+// Used to seed a nested split's *representative* widget: docking one leaf
+// group at the parent level, so the parent's sibling row/column is laid
+// out correctly, before that nested split's own internal structure (which
+// only affects its own now-isolated cell) is filled in. See
+// fillSplitChildren for why this two-phase order matters.
+const TabsNode *firstLeafTabs(const SplitNode &split)
+{
+    const auto order = effectiveChildOrder(split);
+    if (order.isEmpty()) return nullptr;
+    const auto &[isSplit, idx] = order.first();
+    if (isSplit) {
+        if (idx >= split.splitChildren.size()) return nullptr;
+        return firstLeafTabs(split.splitChildren[idx]);
+    }
+    if (idx >= split.tabsChildren.size()) return nullptr;
+    return &split.tabsChildren[idx];
+}
+
+// Forward declaration — fillSplitChildren recurses on itself.
+void fillSplitChildren(const SplitNode &split,
+                       KDDockWidgets::QtWidgets::MainWindow *main,
+                       KDDockWidgets::QtWidgets::DockWidget *firstRep,
+                       Corbomite::Workspace *workspace);
+
+// Given that `split`'s childOrder[0] subtree has already had its own
+// first-leaf placed (as `firstRep` — the anchor produced by an outer
+// materializeSplit/firstLeafTabs seed step), place the rest of `split`:
+// its later siblings at this level (anchored off firstRep, matching KDDW's
+// same-orientation-extends-the-existing-splitter behaviour so they land in
+// the correct row/column), and then recursively fill in the internal
+// structure of every split-type child — including child 0, whose own
+// later siblings still need placing beneath/beside its seeded leaf.
+//
+// Doing this in two passes (place this level's siblings first, *then*
+// recurse into each child's internals) is required: KDDW's addDockWidget
+// only ever splits the single frame it's relative to, not that frame's
+// whole containing subtree. Filling a nested child's internals before its
+// outer siblings are placed would carve up the wrong cell — that ordering
+// bug is what scrambled nested Obsidian layouts on load (punch-list
+// [cluster-l] "Obsidian round-trip scrambles nested splits").
+void fillSplitChildren(const SplitNode &split,
+                       KDDockWidgets::QtWidgets::MainWindow *main,
+                       KDDockWidgets::QtWidgets::DockWidget *firstRep,
+                       Corbomite::Workspace *workspace)
+{
+    const auto order = effectiveChildOrder(split);
+    if (order.isEmpty()) return;
+
+    KDDockWidgets::QtWidgets::DockWidget *prevRep = firstRep;
+    QList<KDDockWidgets::QtWidgets::DockWidget *> laterReps;
+    for (int i = 1; i < order.size(); ++i) {
+        const auto &[isSplit, idx] = order[i];
+        auto loc = directionToKddwLocation(split.direction, /*firstInParent=*/false);
+        // Orphan recovery: if a previous sibling failed to materialize
+        // (e.g. an empty tabs node in the input JSON), prevRep is null;
+        // KDDW's addDockWidget treats a null relativeTo as "dock to the
+        // main window root", which is the safe fallback. Log it so a
+        // surprising layout doesn't go unnoticed.
+        if (!prevRep) {
+            qCWarning(lcWorkspaceSerializer)
+                << "orphaned child in split" << split.id
+                << "— previous sibling produced no anchor; re-homing to root";
+            loc = KDDockWidgets::Location_OnRight;
+        }
+        KDDockWidgets::QtWidgets::DockWidget *rep = nullptr;
+        if (isSplit && idx < split.splitChildren.size()) {
+            if (const TabsNode *seed = firstLeafTabs(split.splitChildren[idx]))
+                rep = materializeTabs(*seed, main, prevRep, loc, workspace);
+        } else if (!isSplit && idx < split.tabsChildren.size()) {
+            rep = materializeTabs(split.tabsChildren[idx], main, prevRep, loc, workspace);
+        }
+        laterReps.append(rep);
+        if (rep) prevRep = rep;
+    }
+
+    // Only *after* every sibling at this level has a correctly-placed
+    // seed (so this level's row/column is fully carved out and isolated)
+    // do we recurse into each split-type child's own internal structure —
+    // including child 0. Recursing earlier would carve up a child's cell
+    // before its outer siblings exist to be carved around.
+    const auto &firstSlot = order.first();
+    if (firstSlot.first /*isSplit*/ && firstSlot.second < split.splitChildren.size())
+        fillSplitChildren(split.splitChildren[firstSlot.second], main, firstRep, workspace);
+    for (int i = 1; i < order.size(); ++i) {
+        const auto &[isSplit, idx] = order[i];
+        if (isSplit && idx < split.splitChildren.size() && laterReps[i - 1])
+            fillSplitChildren(split.splitChildren[idx], main, laterReps[i - 1], workspace);
+    }
+}
+
+// Materialize a whole SplitNode subtree: seed its top-left-most leaf group
+// at (baseLocation, relativeTo), then fill in the rest via
+// fillSplitChildren. See fillSplitChildren for why materialization is
+// split into a seed step and a fill step.
 KDDockWidgets::QtWidgets::DockWidget *
 materializeSplit(const SplitNode &split,
                  KDDockWidgets::QtWidgets::MainWindow *main,
@@ -598,70 +704,16 @@ materializeSplit(const SplitNode &split,
                  KDDockWidgets::Location baseLocation,
                  Corbomite::Workspace *workspace)
 {
-    bool first = true;
-    KDDockWidgets::QtWidgets::DockWidget *anchorForNext = relativeTo;
-    KDDockWidgets::QtWidgets::DockWidget *firstAnchor = nullptr;
-
-    auto placeChild = [&](auto &&placeFn) {
-        auto loc = first
-            ? baseLocation
-            : directionToKddwLocation(split.direction, /*firstInParent=*/false);
-        // Orphan recovery: if a previous sibling failed to materialize
-        // (e.g. an empty tabs node in the input JSON), anchorForNext is
-        // null; KDDW's addDockWidget treats a null relativeTo as "dock to
-        // the main window root", which is the safe fallback.  Log it so a
-        // surprising layout doesn't go unnoticed.
-        if (!first && !anchorForNext) {
-            qCWarning(lcWorkspaceSerializer)
-                << "orphaned child in split" << split.id
-                << "— previous sibling produced no anchor; re-homing to root";
-            loc = KDDockWidgets::Location_OnRight;
-        }
-        auto *placed = placeFn(loc, anchorForNext);
-        if (placed) {
-            if (!firstAnchor) firstAnchor = placed;
-            anchorForNext = placed;
-        }
-        first = false;
-    };
-
-    // Walk childOrder so siblings are docked left-to-right (or top-to-bottom)
-    // in their JSON order. Falls back to tabs-then-splits if childOrder is
-    // empty (defensive — should not happen for parsed/programmatic nodes).
-    if (!split.childOrder.isEmpty()) {
-        for (const auto &slot : split.childOrder) {
-            const bool isSplit = slot.first;
-            const int idx = slot.second;
-            if (isSplit && idx < split.splitChildren.size()) {
-                const auto &childSplit = split.splitChildren[idx];
-                placeChild([&](KDDockWidgets::Location loc,
-                               KDDockWidgets::QtWidgets::DockWidget *rel) {
-                    return materializeSplit(childSplit, main, rel, loc, workspace);
-                });
-            } else if (!isSplit && idx < split.tabsChildren.size()) {
-                const auto &childTabs = split.tabsChildren[idx];
-                placeChild([&](KDDockWidgets::Location loc,
-                               KDDockWidgets::QtWidgets::DockWidget *rel) {
-                    return materializeTabs(childTabs, main, rel, loc, workspace);
-                });
-            }
-        }
-    } else {
-        for (const auto &childTabs : split.tabsChildren) {
-            placeChild([&](KDDockWidgets::Location loc,
-                           KDDockWidgets::QtWidgets::DockWidget *rel) {
-                return materializeTabs(childTabs, main, rel, loc, workspace);
-            });
-        }
-        for (const auto &childSplit : split.splitChildren) {
-            placeChild([&](KDDockWidgets::Location loc,
-                           KDDockWidgets::QtWidgets::DockWidget *rel) {
-                return materializeSplit(childSplit, main, rel, loc, workspace);
-            });
-        }
-    }
-
-    return firstAnchor;
+    const TabsNode *seed = firstLeafTabs(split);
+    if (!seed) return relativeTo;
+    KDDockWidgets::QtWidgets::DockWidget *firstRep =
+        materializeTabs(*seed, main, relativeTo, baseLocation, workspace);
+    // firstRep can be null if the seed tabs node itself has zero leaves
+    // (e.g. a pane with every tab closed) — fall back to the incoming
+    // anchor so later siblings still get a chance to materialize instead
+    // of the whole split silently dropping.
+    fillSplitChildren(split, main, firstRep ? firstRep : relativeTo, workspace);
+    return firstRep ? firstRep : relativeTo;
 }
 
 // DFS to find the leftmost-first leaf id in a SplitNode tree. Used to

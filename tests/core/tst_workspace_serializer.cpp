@@ -15,6 +15,7 @@
 #include <kddockwidgets/core/DockRegistry.h>
 #include <kddockwidgets/qtwidgets/DockWidget.h>
 #include <kddockwidgets/qtwidgets/MainWindow.h>
+#include <kddockwidgets/qtcommon/View.h>
 
 // Included via private path — serializer is not in the public API
 #include "WorkspaceSerializer.h"
@@ -51,6 +52,7 @@ private slots:
     void fixture08b_unknownKeys_workspaceRoundTrip();
     void fixture04b_stacked_workspaceRoundTrip();
     void fixture14_deferSet_perGroupCurrentTabRespected();
+    void fixture16_nestedSplitFirstChild_matchesObsidianGeometry();
 };
 
 void TestWorkspaceSerializer::initTestCase()
@@ -499,6 +501,75 @@ void TestWorkspaceSerializer::fixture14_deferSet_perGroupCurrentTabRespected()
     QCOMPARE(isDeferred(QStringLiteral("f14A3aaaaaaaaaaa")), true);
     QCOMPARE(isDeferred(QStringLiteral("f14B2aaaaaaaaaaa")), true);
     QCOMPARE(isDeferred(QStringLiteral("f14B3aaaaaaaaaaa")), true);
+}
+
+// Regression test for a live-dogfood bug (Cluster L Phase L5, 2026-08-18):
+// a real Obsidian-authored workspace.json with the split shape
+// root(direction=vertical)[ nested(direction=horizontal)[topLeft, botLeft],
+// right ] loaded with topLeft/botLeft/right scrambled across quadrants
+// instead of matching Obsidian's own rendering (topLeft above botLeft in a
+// left column, right spanning the full right column). Root causes: (1)
+// "vertical"/"horizontal" were mapped to KDDW locations backwards —
+// Obsidian's "direction" names the divider line's orientation, not the
+// stacking axis of its children (verified against docs/obsidian-audit/
+// domains/workspace.md); (2) materializeSplit's nested nested-split
+// anchor threading placed later top-level siblings relative to the wrong
+// descendant. Fixture 16 reproduces the exact shape that broke; this test
+// asserts on-screen geometry, not just JSON shape, because the bug
+// round-tripped a structurally-plausible-looking JSON while still
+// rendering in the wrong quadrants — see fixture03 above, which passed
+// throughout this bug's lifetime because it only checks group/tab counts.
+void TestWorkspaceSerializer::fixture16_nestedSplitFirstChild_matchesObsidianGeometry()
+{
+    auto json = readFixture(QStringLiteral("16-nested-split-first-child.json"));
+    QVERIFY(!json.isEmpty());
+    auto mainWindow = std::make_unique<KDDockWidgets::QtWidgets::MainWindow>(
+        QStringLiteral("test-f16"), KDDockWidgets::MainWindowOption_None);
+    mainWindow->show();
+
+    Corbomite::WorkspaceSerializer::fromJson(json, mainWindow.get(), nullptr);
+
+    auto *registry = KDDockWidgets::DockRegistry::self();
+    QCOMPARE(registry->dockwidgets().size(), 3);
+    auto *topLeft = registry->dockByName(QStringLiteral("leaf16topleftaaa"));
+    auto *botLeft = registry->dockByName(QStringLiteral("leaf16botleftaaa"));
+    auto *right = registry->dockByName(QStringLiteral("leaf16rightaaaaa"));
+    QVERIFY(topLeft);
+    QVERIFY(botLeft);
+    QVERIFY(right);
+
+    auto *topLeftW = KDDockWidgets::QtCommon::View_qt::asQWidget(topLeft);
+    auto *botLeftW = KDDockWidgets::QtCommon::View_qt::asQWidget(botLeft);
+    auto *rightW = KDDockWidgets::QtCommon::View_qt::asQWidget(right);
+    QVERIFY(topLeftW);
+    QVERIFY(botLeftW);
+    QVERIFY(rightW);
+
+    mainWindow->resize(1200, 800);
+    QCoreApplication::processEvents();
+    QTest::qWait(50);
+
+    const QPoint topLeftPos = topLeftW->mapTo(mainWindow.get(), QPoint(0, 0));
+    const QPoint botLeftPos = botLeftW->mapTo(mainWindow.get(), QPoint(0, 0));
+    const QPoint rightPos = rightW->mapTo(mainWindow.get(), QPoint(0, 0));
+
+    // topLeft sits directly above botLeft in the same (left) column.
+    QVERIFY2(topLeftPos.y() < botLeftPos.y(),
+             "topLeft must be above botLeft, not beside or below it");
+    QVERIFY2(qAbs(topLeftPos.x() - botLeftPos.x()) < 5,
+             "topLeft and botLeft must share the same left column");
+
+    // right sits in its own column, to the right of both — not stacked
+    // below either one (empty leaf widgets report height()==0 offscreen,
+    // so height-based span assertions aren't reliable here; the x-position
+    // checks below are what actually distinguish the two known-wrong
+    // layouts this bug produced from the correct one).
+    QVERIFY2(rightPos.x() > topLeftPos.x() + topLeftW->width() - 5,
+             "right must be to the right of the left column, not stacked below it");
+    QVERIFY2(rightPos.x() > botLeftPos.x() + botLeftW->width() - 5,
+             "right must be to the right of the left column, not stacked below it");
+    QVERIFY2(rightPos.y() <= topLeftPos.y() + 5,
+             "right must start at the top of the left column");
 }
 
 QTEST_MAIN(TestWorkspaceSerializer)

@@ -320,13 +320,23 @@ KActionCollection where applicable, D4 sidebar persistence revival
 (wire the dormant KateMDI save/restore; delete the hardcoded
 200/false). Each lands as its own small commit against the punch list.
 
-### Phase L5 — Soak & closeout — **Not started**
+### Phase L5 — Soak & closeout — **In progress (2026-08-18)**
 
 One dedicated dogfood session hammering tabs: drag between groups,
 split, popout, close-undo, vault switch, Obsidian round-trip (open the
 vault in Obsidian, rearrange, reopen in Corbomite, and back). File
 findings `[cluster-l]` to the punch list; Ritual 3 closeout; update
 `PARITY-MATRIX.md` workspace rows.
+
+**Obsidian round-trip pass (2026-08-18): found + fixed a P0 nested-split
+scrambling bug**, resolved — see punch-list `[cluster-l]` and
+`decisions-archive.md` for full root-cause detail (a
+divider-line-vs-stacking-axis direction inversion plus a
+materialization anchor-ordering bug in `WorkspaceSerializer.cpp`; fix
+verified live against a real Obsidian-authored vault, two round trips).
+New geometry-asserting regression test `fixture16` added. Remaining
+soak scenarios (drag between groups, split, popout, close-undo, vault
+switch) not yet run.
 
 ---
 

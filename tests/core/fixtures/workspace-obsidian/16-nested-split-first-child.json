@@ -1,0 +1,39 @@
+{
+  "main": {
+    "id": "root16aaaaaaaaaaa",
+    "type": "split",
+    "direction": "vertical",
+    "children": [
+      {
+        "id": "inner16aaaaaaaaa",
+        "type": "split",
+        "direction": "horizontal",
+        "children": [
+          {
+            "id": "topleft16aaaaaaa",
+            "type": "tabs",
+            "children": [
+              { "id": "leaf16topleftaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+            ]
+          },
+          {
+            "id": "botleft16aaaaaaa",
+            "type": "tabs",
+            "children": [
+              { "id": "leaf16botleftaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "right16aaaaaaaaa",
+        "type": "tabs",
+        "children": [
+          { "id": "leaf16rightaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+        ]
+      }
+    ]
+  },
+  "active": "leaf16topleftaaa",
+  "lastOpenFiles": []
+}
