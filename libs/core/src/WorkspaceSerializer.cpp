@@ -10,7 +10,10 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRandomGenerator>
 #include <QSignalBlocker>
+
+#include <optional>
 
 #include <QLoggingCategory>
 
@@ -60,16 +63,39 @@ QHash<QString, LeafNode> &leafSidecar()
     return map;
 }
 
+// B3 fix: generate a 16-hex-char id, matching the shape WorkspaceLeaf and
+// Workspace's tab-group ids already use (see WorkspaceLeaf::generateId /
+// Workspace::freshTabGroupId). Split/tabs nodes previously round-tripped
+// with an empty `id`, which Obsidian's own re-open tolerates but which
+// breaks any consumer that expects node ids to be stable+unique.
+QString generateNodeId()
+{
+    static const char chars[] = "0123456789abcdef";
+    QString result;
+    result.reserve(16);
+    auto *rng = QRandomGenerator::global();
+    for (int i = 0; i < 16; ++i)
+        result.append(QLatin1Char(chars[rng->bounded(16)]));
+    return result;
+}
+
 struct TabsNode {
     QString id;
     int currentTab = 0;
     bool stacked = false;
+    // B3 fix: flex-grow ratio in (0, 100); null/missing = flexible, per
+    // Obsidian's WorkspaceParent.dimension. Parsed and carried unchanged;
+    // not yet wired into actual KDDW relative sizing (round-trip only —
+    // see docs/superpowers/plans/2026-08-17-cluster-l-workspace-stabilization.md
+    // Phase L2 step 3's stated fallback).
+    std::optional<double> dimension;
     QList<LeafNode> children;
 };
 
 struct SplitNode {
     QString id;
     QString direction; // "horizontal" or "vertical"
+    std::optional<double> dimension; // B3: see TabsNode::dimension.
     QList<SplitNode> splitChildren;
     QList<TabsNode> tabsChildren;
     // Original interleaved order of children. Each entry is (isSplit, index)
@@ -128,6 +154,8 @@ TabsNode parseTabs(const QJsonObject &o)
     n.id = o.value(QStringLiteral("id")).toString();
     n.currentTab = o.value(QStringLiteral("currentTab")).toInt(0);
     n.stacked = o.value(QStringLiteral("stacked")).toBool(false);
+    if (o.contains(QStringLiteral("dimension")) && o.value(QStringLiteral("dimension")).isDouble())
+        n.dimension = o.value(QStringLiteral("dimension")).toDouble();
     for (auto v : o.value(QStringLiteral("children")).toArray()) {
         n.children.append(parseLeaf(v.toObject()));
     }
@@ -143,6 +171,8 @@ SplitNode parseSplit(const QJsonObject &o)
     n.id = o.value(QStringLiteral("id")).toString();
     n.direction =
         o.value(QStringLiteral("direction")).toString(QStringLiteral("vertical"));
+    if (o.contains(QStringLiteral("dimension")) && o.value(QStringLiteral("dimension")).isDouble())
+        n.dimension = o.value(QStringLiteral("dimension")).toDouble();
     for (auto v : o.value(QStringLiteral("children")).toArray()) {
         auto childObj = v.toObject();
         auto type = childObj.value(QStringLiteral("type")).toString();
@@ -192,22 +222,27 @@ QJsonObject renderLeaf(const LeafNode &n)
 QJsonObject renderTabs(const TabsNode &n)
 {
     QJsonObject o;
-    o[QStringLiteral("id")] = n.id;
+    // B3 fix: never write an empty id — Obsidian's own writer never
+    // produces one, and a stable id is what lets other tooling (and
+    // future Corbomite code) address this node.
+    o[QStringLiteral("id")] = n.id.isEmpty() ? generateNodeId() : n.id;
     o[QStringLiteral("type")] = QStringLiteral("tabs");
     QJsonArray kids;
     for (const auto &c : n.children) kids.append(renderLeaf(c));
     o[QStringLiteral("children")] = kids;
     if (n.currentTab != 0) o[QStringLiteral("currentTab")] = n.currentTab;
     if (n.stacked) o[QStringLiteral("stacked")] = true;
+    if (n.dimension.has_value()) o[QStringLiteral("dimension")] = *n.dimension;
     return o;
 }
 
 QJsonObject renderSplit(const SplitNode &n)
 {
     QJsonObject o;
-    o[QStringLiteral("id")] = n.id;
+    o[QStringLiteral("id")] = n.id.isEmpty() ? generateNodeId() : n.id;
     o[QStringLiteral("type")] = QStringLiteral("split");
     o[QStringLiteral("direction")] = n.direction;
+    if (n.dimension.has_value()) o[QStringLiteral("dimension")] = *n.dimension;
     QJsonArray kids;
     // Walk childOrder to preserve original interleaved ordering. Falls back
     // to splits-then-tabs if childOrder wasn't populated (defensive — should
@@ -768,6 +803,15 @@ void fromJson(const QJsonObject &json,
               KDDockWidgets::QtWidgets::MainWindow *main,
               Workspace *workspace)
 {
+    // B4 fix: leafSidecar()/stackedSidecar() are process-global statics
+    // that used to accumulate every leaf ever parsed across every vault
+    // switch in the process lifetime, unbounded. Each parse only needs the
+    // leaves/tabs-groups from *this* JSON payload — clearing here bounds
+    // the maps to the size of the most recent parse instead of growing
+    // forever, and eliminates cross-vault-switch contamination.
+    leafSidecar().clear();
+    stackedSidecar().clear();
+
     auto installDefault = [&]() {
         // Default tree: one empty leaf in a single tabs node inside a
         // vertical root split.
