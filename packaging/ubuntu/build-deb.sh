@@ -51,8 +51,10 @@ apt-get install -y -qq --no-install-recommends \
     extra-cmake-modules \
     qt6-base-dev \
     qt6-base-dev-tools \
+    qt6-base-private-dev \
     qt6-svg-dev \
     qt6-declarative-dev \
+    qt6-declarative-private-dev \
     qt6-tools-dev \
     qt6-wayland \
     libqt6sql6-sqlite \
@@ -86,11 +88,12 @@ git clone --depth 1 --branch "${KDDOCK_VERSION}" \
     https://github.com/KDAB/KDDockWidgets.git "${KDDOCK_SRC}"
 
 echo "==> Build + install KDDockWidgets → /usr/local"
+# KDDockWidgets 2.4+: Qt6 is the default frontend; disable examples/tests/docs.
+# Needs qt6-*-private-dev for Qt6::WidgetsPrivate / QuickPrivate.
 cmake -S "${KDDOCK_SRC}" -B "${BUILD_ROOT}/build-kddw" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DKDDockWidgets_QT6=ON \
-    -DKDDockWidgets_QT5=OFF \
+    -DKDDockWidgets_FRONTENDS='qtwidgets;qtquick' \
     -DKDDockWidgets_EXAMPLES=OFF \
     -DKDDockWidgets_TESTS=OFF \
     -DKDDockWidgets_DOCS=OFF \
