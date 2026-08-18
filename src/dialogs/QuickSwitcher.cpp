@@ -25,7 +25,9 @@ public:
     {
         m_pattern = pattern;
         m_prepared = FuzzyMatcher::prepareQuery(pattern);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+// beginFilterChange landed in 6.9; endFilterChange only in 6.10. On 6.9.x
+        // (Ubuntu 25.10) keep using invalidateFilter().
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
         beginFilterChange();
         endFilterChange();
 #else
