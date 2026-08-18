@@ -32,16 +32,28 @@
 > alongside the QML leaf, behind a `CanvasLivePreview` settings toggle (off
 > by default) —
 > [plan](docs/superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md).
-> Phase 0 (re-pin) and Phase 1 (settings-gated wiring) landed; Phase 2
+> Phase 0 (re-pin) and Phase 1 (settings-gated wiring) landed; Phase 2/3
 > (feature-parity dogfood) surfaced 14 findings, filed to the punch list
-> under `[cluster-k]`. **5 of 14 fixed and user-confirmed** directly in the
-> `libs/markoff-family` submodule (empty-note keystroke lockup, `$$`
-> math-block Enter/Backspace lockup, undo leaving a phantom link on
-> unrelated text, doubled list-item marker, Tab leaking focus to the
-> toolbar) — see punch-list `[cluster-k]` entries for root causes and
-> commit shas. **9 findings remain open**, still severity-ordered at the
-> top of the punch list; Phase 4 (dogfood-as-default) and Phase 5
-> (QML-leaf retirement) haven't started.
+> under `[cluster-k]`. **10 of 14 fixed and live-user-confirmed** (Phase 3
+> closed 2026-08-17) — see punch-list `[cluster-k]` entries for root
+> causes and commit shas. **4 findings remain, all low-severity
+> polish/blocked, not blockers.** Phase 4 (dogfood-as-default) and Phase 5
+> (QML-leaf retirement) haven't started; Phase 4 is now unblocked by
+> Cluster L's crash-safety phase (below).
+>
+> **Cluster L — workspace/KDDW stabilization & nativization, Phases
+> L0-L2 landed (2026-08-17).** Full re-evaluation of the tab/dock layer
+> found a teardown-UAF crash class, persistence split-brain (production
+> save dropping `floating`/`lastOpenFiles`, Corbomite-private keys leaking
+> into the Obsidian-shared `workspace.json`), and Obsidian-literalism
+> residue. L0 set the compat doctrine (schema-at-rest fidelity to Obsidian
+> is the only contract; in-memory shape is free to be idiomatic Qt/KDE) —
+> [spec](docs/superpowers/specs/2026-08-17-workspace-compat-boundary.md).
+> L1 fixed the crash class (`Workspace::destroyLeaves`, ASAN-clean),
+> unblocking Cluster K Phase 4 above. L2 made `workspace.json` persistence
+> full-fidelity and split Corbomite-native state into the doctrine's
+> three tiers. L3 (cruft removal) and L4 (native UX polish) not started —
+> [plan](docs/superpowers/plans/2026-08-17-cluster-l-workspace-stabilization.md).
 >
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
 > Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).
