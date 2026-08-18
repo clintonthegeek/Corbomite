@@ -10,6 +10,12 @@ Conventions:
 
 ---
 
+## 2026-08-18 — Cluster L Phase L4 closed: live dogfood pass confirms D1/D4
+
+User ran a live dogfood pass against the running app and confirmed both outstanding items from the L4 code-landed entry below work as intended: **D1** (KDDW chrome — `Flag_HideTitleBarWhenTabsVisible`/`Flag_ShowButtonsOnTabBarIfTitleBarHidden`, middle-click tab close) and **D4** (sidebar-width persistence — real widths saved/restored across vault-open, replacing the old hardcoded `200, false, 200`). This clears the standing gate noted at L4 code-landed time (project memory: an offscreen-green keyboard-focus fix was previously found broken live, so D1/D4 specifically needed eyes-on before the phase could be called done). D2 (back/forward) and D3 (tab commands) were lower-risk and not called out as blocking, but also benefited from the same session.
+
+Phase L4 is now **done**. Cluster L status: L0-L4 landed and closed. **Next: Phase L5** (soak & closeout dogfood session — drag between groups, split, popout, close-undo, vault switch, Obsidian `workspace.json` round-trip; files `[cluster-l]` punch-list findings and updates `PARITY-MATRIX.md` workspace rows per the plan file).
+
 ## 2026-08-17 — Cluster L Phase L4 code landed: native UX polish (live verification still pending)
 
 Four commits: `9fa87398` (D1), `8fddb2b5` (D2), `0e6f4906` (D3), `03dd494e` (D4). Baseline going in and final state both 311/312 offscreen (excl. benchmark), sole failure the known `tst_e2e_gui::testSaveShortcut` flake — no regressions. **This entry records code landed, not a closed phase** — D1 and D4 explicitly need a live dogfood pass (project memory: offscreen-green history has previously hidden a broken keyboard-focus fix; do not repeat that here).

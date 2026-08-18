@@ -2,11 +2,9 @@
 
 **Date:** 2026-08-17
 **Type:** Full plan
-**Status:** **L0-L3 landed 2026-08-17. L4 code landed same day but NOT
-YET LIVE-VERIFIED** — D1 (title-bar/tab chrome) and D4 (sidebar width
-restore) explicitly need a live dogfood pass before being called done;
-offscreen-green is not sufficient for this phase (see project memory on
-keyboard/focus-change fixes). L5 not started. See `docs/PROJECT-STATE.md`
+**Status:** **L0-L4 landed and closed** (L4 live-verified 2026-08-18 —
+D1 title-bar/tab chrome and D4 sidebar width restore both confirmed
+working in a live dogfood pass). L5 not started. See `docs/PROJECT-STATE.md`
 (Cluster L row) for the one-line current state and
 `docs/decisions-archive.md` (dated 2026-08-17, five "Cluster L
 Phase..." entries) for full closeout detail per phase, including exact
@@ -296,7 +294,7 @@ C4 router hash, C5 debounces, C6 tab-group cache slimming, `eState.scroll`
 with `2026-06-10-release-hygiene.md`'s dead-code purge so nothing is
 deleted twice or resurrected.
 
-### Phase L4 — Native UX polish — **Code landed, live verification pending**
+### Phase L4 — Native UX polish — **DONE (live-verified 2026-08-18)**
 
 Landed: D1 (`9fa87398` — `Flag_HideTitleBarWhenTabsVisible` +
 `Flag_ShowButtonsOnTabBarIfTitleBarHidden`, middle-click tab close via
@@ -311,10 +309,11 @@ Phase L2 had built the tier-2/3 storage but never connected real width
 values, only visibility — keyboard toolview focus turned out to already
 exist via `GUIClient::registerToolView`'s per-toolview Focus action, no
 change needed; KXMLGUI "Index 18" merge-index noise left to its existing
-punch-list entry rather than an unscoped archaeology dig). **D1's
-title-bar removal and D4's width restore have not been seen rendered
-live** — this is the gate before Phase L4 can be marked done, not a
-formality. Original phase description follows for context: D1 KDDW flag/chrome pass (live eyeball with user — per memory:
+punch-list entry rather than an unscoped archaeology dig). **Live dogfood
+pass completed 2026-08-18: user confirmed D1 (title-bar removal,
+middle-click tab close) and D4 (sidebar width restore) both work as
+intended.** Phase L4 is closed. Original phase description follows for
+context: D1 KDDW flag/chrome pass (live eyeball with user — per memory:
 keyboard/focus changes need live confirmation, not just offscreen
 green), D2 back/forward completion, D3 tab commands via KStandardAction/
 KActionCollection where applicable, D4 sidebar persistence revival
