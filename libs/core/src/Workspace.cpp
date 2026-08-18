@@ -20,16 +20,20 @@
 #include <kddockwidgets/core/FloatingWindow.h>
 #include <kddockwidgets/qtwidgets/DockWidget.h>
 #include <kddockwidgets/qtwidgets/MainWindow.h>
+#include <kddockwidgets/qtwidgets/views/TabBar.h>
+#include <kddockwidgets/core/TabBar.h>
 
 #include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QMouseEvent>
 #include <QPointer>
 #include <QRandomGenerator>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QTabBar>
 #include <QTimer>
 #include <QWidget>
 
@@ -148,6 +152,14 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     // same way Obsidian's `Workspace.on("resize")` works.
     m_kddwMain->installEventFilter(this);
 
+    // Cluster L Phase L4 (D1): KDDW has no built-in middle-click-close-tab
+    // flag (checked Config::Flag_* — nothing named Middle/Close for tabs).
+    // Tab bars are QTabBar-derived widgets created/destroyed dynamically as
+    // groups form and merge, so there's no single stable widget to install
+    // a filter on; watch application-wide instead and scope to this
+    // workspace's KDDW main window inside eventFilter().
+    qApp->installEventFilter(this);
+
     // Phase 5: floating-window (popout) container. The Obsidian-shape
     // root/sidedock bookkeeping shells that used to live here were
     // removed in Cluster L Phase L3 (C1) — dead weight with no real
@@ -157,6 +169,36 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
 
 bool Workspace::eventFilter(QObject *watched, QEvent *event)
 {
+    // Cluster L Phase L4 (D1): middle-click on a tab closes it, matching
+    // KDE tab-bar convention (Kate, Konsole, Dolphin). Cheap type check
+    // first since this runs application-wide.
+    if (event && event->type() == QEvent::MouseButtonRelease) {
+        if (auto *tabBar = qobject_cast<QTabBar *>(watched)) {
+            if (m_kddwMain && m_kddwMain->isAncestorOf(tabBar)) {
+                auto *mouseEvent = static_cast<QMouseEvent *>(event);
+                if (mouseEvent->button() == Qt::MiddleButton) {
+                    const int index = tabBar->tabAt(mouseEvent->pos());
+                    if (index >= 0) {
+                        if (auto *kddwTabBar =
+                                qobject_cast<KDDockWidgets::QtWidgets::TabBar *>(tabBar)) {
+                            if (auto *coreBar = kddwTabBar->tabBar()) {
+                                if (auto *coreDw = coreBar->dockWidgetAt(index)) {
+                                    for (auto *leaf : std::as_const(m_leaves)) {
+                                        auto *qtDw = leaf->dockWidget();
+                                        if (qtDw && qtDw->dockWidget() == coreDw) {
+                                            closeLeaf(leaf);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (watched == m_kddwMain && event && event->type() == QEvent::Resize) {
         // Cluster L Phase L3, C5: a single window-manager resize (e.g. a
         // live-resize drag) can drive many QEvent::Resize deliveries in
