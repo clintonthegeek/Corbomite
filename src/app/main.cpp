@@ -35,8 +35,8 @@ int main(int argc, char *argv[])
     aboutData.setDesktopFileName(desktopFile);
     aboutData.setHomepage(QStringLiteral("https://concernednetizen.com"));
     aboutData.setOtherText(i18n(
-        "Source code: <a href=\"https://codeberg.org/clintonthegeek/Corbomite\">"
-        "https://codeberg.org/clintonthegeek/Corbomite</a>"));
+        "Source code: <a href=\"https://github.com/clintonthegeek/Corbomite\">"
+        "https://github.com/clintonthegeek/Corbomite</a>"));
     KAboutData::setApplicationData(aboutData);
     app.setWindowIcon(QIcon::fromTheme(QStringLiteral("com.concernednetizen.Corbomite"),
                                        QIcon::fromTheme(QStringLiteral("accessories-text-editor"))));

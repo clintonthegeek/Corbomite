@@ -72,7 +72,7 @@ continuously-updated breakdown of feature parity against Obsidian.
 Corbomite is built on top of a small family of sibling projects, developed
 alongside it and shared where useful:
 
-- **[Markoff](https://codeberg.org/clintonthegeek/Markoff)** is the Markdown
+- **[Markoff](https://github.com/clintonthegeek/Markoff)** is the Markdown
   editor widget family Corbomite embeds as a git submodule
   (`libs/markoff-family`) — it owns the actual text-editing surface: the
   CRDT-backed document model, the tree-sitter Markdown parser, and the
@@ -81,14 +81,14 @@ alongside it and shared where useful:
   independent, reusable library — not Corbomite-specific — but Corbomite is
   currently its primary consumer and the two are developed in close
   coordination.
-- **[collabtext](https://codeberg.org/clintonthegeek/collabtext)** is a CRDT
+- **[collabtext](https://github.com/clintonthegeek/collabtext)** is a CRDT
   (conflict-free replicated data type) text-editing engine, nested as a
   submodule inside Markoff (`libs/markoff-family/libs/collabtext`). It gives
   Markoff's document model real-time collaborative-editing semantics — local
   edits and (future) remote/multi-user edits converge deterministically —
   even though Corbomite doesn't yet expose any multi-user collaboration
   feature itself.
-- **[Graffodil](https://codeberg.org/clintonthegeek/Graffodil)** is a
+- **[Graffodil](https://github.com/clintonthegeek/Graffodil)** is a
   standalone force-directed graph visualization project. Corbomite's graph
   view (`libs/forcegraph`) shares lineage and layout-algorithm heritage with
   Graffodil (Barnes-Hut approximation, multilevel layout) but is vendored
@@ -110,7 +110,7 @@ build fails at configure time with errors like
 ### Clone with submodules (recommended)
 
 ```bash
-git clone --recurse-submodules git@codeberg.org:clintonthegeek/Corbomite.git
+git clone --recurse-submodules git@github.com:clintonthegeek/Corbomite.git
 cd Corbomite
 ```
 
@@ -126,13 +126,13 @@ The `--recursive` flag is **required**, not optional: it pulls the nested
 
 ```
 Corbomite
-└── libs/markoff-family        → Markoff      (git@codeberg.org:clintonthegeek/Markoff.git)
-    └── libs/collabtext        → collabtext   (git@codeberg.org:clintonthegeek/collabtext.git)
+└── libs/markoff-family        → Markoff      (git@github.com:clintonthegeek/Markoff.git)
+    └── libs/collabtext        → collabtext   (git@github.com:clintonthegeek/collabtext.git)
 ```
 
 > **Access note:** the submodules are hosted on Codeberg over SSH. You need an
 > SSH key registered with a Codeberg account that can read these repositories.
-> Test with `ssh -T git@codeberg.org` — it should greet you by username.
+> Test with `ssh -T git@github.com` — it should authenticate successfully.
 
 ### Keeping submodules in sync after a pull
 
@@ -305,7 +305,7 @@ cd build-dev && ctest --output-on-failure -j"$(nproc)"
 |---|---|---|
 | `Target "..." links to: Markoff::Parser but the target was not found` | Markoff submodule missing or at the wrong commit | `git submodule update --init --recursive` |
 | `libs/collabtext is empty — the collabtext submodule has not been initialized` | Nested submodule not initialized | `git submodule update --init --recursive` (note `--recursive`) |
-| `Could not read from remote repository` during submodule update | No SSH access to Codeberg | Register an SSH key on Codeberg; test `ssh -T git@codeberg.org` |
+| `Could not read from remote repository` during submodule update | No SSH access to GitHub | Register an SSH key on GitHub; test `ssh -T git@github.com` |
 | `find_package(KDDockWidgets-qt6 2.0 REQUIRED)` fails | KDDockWidgets not installed | Install `kddockwidgets-qt6` (AUR on Arch/Manjaro) |
 | `Could NOT find ECM` | extra-cmake-modules missing | Install `extra-cmake-modules` |
 

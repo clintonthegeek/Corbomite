@@ -4,7 +4,7 @@
 #   makepkg -f
 #
 # AUR / release build: replace the `source=` line with a tagged git URL, e.g.
-#   source=("${pkgname}-${pkgver}::git+https://codeberg.org/clintonthegeek/Corbomite.git#tag=v${pkgver}")
+#   source=("${pkgname}-${pkgver}::git+https://github.com/clintonthegeek/Corbomite.git#tag=v${pkgver}")
 # and regenerate .SRCINFO.
 
 pkgname=corbomite
@@ -12,7 +12,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="Native Obsidian-inspired knowledge management application"
 arch=('x86_64')
-url="https://codeberg.org/clintonthegeek/Corbomite"
+url="https://github.com/clintonthegeek/Corbomite"
 license=('GPL-3.0-or-later')
 depends=(
   'qt6-base'
