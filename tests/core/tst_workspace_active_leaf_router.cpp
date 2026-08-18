@@ -30,6 +30,7 @@ private Q_SLOTS:
     void setLayoutReadyFalseToTrueEmitsLayoutReadyOnce();
     void setLayoutReadySameValueIsNoOp();
     void focusInsideLeafWidgetMarksLeafActive();
+    void focusOutsideMainWindowDoesNotChangeActiveLeaf();
     void resizeOnMainWindowEmitsResizeSignal();
     void popoutAndReparentEmitWindowFrameChange();
 };
@@ -139,6 +140,30 @@ void TestWorkspaceActiveLeafRouter::focusInsideLeafWidgetMarksLeafActive()
     QApplication::processEvents();
 
     QTRY_COMPARE(ws.activeLeaf(), second);
+}
+
+void TestWorkspaceActiveLeafRouter::focusOutsideMainWindowDoesNotChangeActiveLeaf()
+{
+    // Cluster L Phase L3, C4: onFocusChanged early-outs when the newly
+    // focused widget isn't under the KDDW main window (e.g. a sidebar
+    // toolview or a standalone dialog). Regression coverage: such a focus
+    // move must not perturb the active leaf.
+    ViewRegistry registry;
+    Workspace ws(QStringLiteral("test-vault-focus-outside"), &registry);
+    ws.kddwMainWindow()->show();
+
+    auto *first = ws.createLeafInActiveGroup();
+    QVERIFY(first);
+    ws.setActiveLeaf(first);
+    QCOMPARE(ws.activeLeaf(), first);
+
+    QWidget outside;
+    outside.setFocusPolicy(Qt::StrongFocus);
+    outside.show();
+    outside.setFocus(Qt::OtherFocusReason);
+    QApplication::processEvents();
+
+    QCOMPARE(ws.activeLeaf(), first);
 }
 
 void TestWorkspaceActiveLeafRouter::resizeOnMainWindowEmitsResizeSignal()
