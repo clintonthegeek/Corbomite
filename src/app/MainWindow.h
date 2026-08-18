@@ -15,6 +15,7 @@
 #include <memory>
 
 class QMenu;
+class QAction;
 
 class KRecentFilesAction;
 
@@ -193,6 +194,13 @@ private:
     void navigateActiveLeafTo(const QString &relativePath);
     void propagateServicesToView(View *view);
 
+    /// Cluster L Phase L4 (D2): refresh the global back/forward QActions'
+    /// enabled state from the active leaf's `LeafHistory::canGoBack()`/
+    /// `canGoForward()`. Called on `Workspace::activeLeafChanged` and on
+    /// the active leaf's `viewChanged` (fired after every navigate/
+    /// goBack/goForward) so the actions never go stale mid-leaf.
+    void updateBackForwardActions();
+
     /// Look up the loaded plugin by id and host its createView() output
     /// into a tool view determined by X-Corbomite-DockArea metadata.
     /// Triggered from PluginManager::pluginLoaded.
@@ -223,6 +231,11 @@ private:
     std::unique_ptr<VaultConfig> m_pluginVaultConfig;
     FileManager *m_fileManager = nullptr;
     Workspace *m_workspace = nullptr;
+    // D2 back/forward: global actions + the connection to the currently
+    // active leaf's viewChanged, rebound on every activeLeafChanged.
+    QAction *m_actionGoBack = nullptr;
+    QAction *m_actionGoForward = nullptr;
+    QMetaObject::Connection m_activeLeafHistoryConnection;
     // Stable QWidget wrapper for the Workspace widget tree; owned by
     // m_centralStack so that Workspace::layoutChanged restructurings can
     // re-parent the root widget inside this container without needing to

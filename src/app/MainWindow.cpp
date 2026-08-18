@@ -1519,6 +1519,32 @@ void MainWindow::setupActions()
             m_workspace->undoCloseLeaf();
     });
 
+    // Back/forward (D2): per-leaf navigation history, already wired to the
+    // tab-frame's nav buttons (ItemView) via WorkspaceLeaf::goBack/
+    // goForward. Ctrl+Alt+Left/Right is the KDE/browser convention for the
+    // same action at the keyboard-shortcut level.
+    m_actionGoBack = ac->addAction(QStringLiteral("go_back"));
+    m_actionGoBack->setText(i18n("Navigate Back"));
+    m_actionGoBack->setIcon(QIcon::fromTheme(QStringLiteral("go-previous")));
+    ac->setDefaultShortcut(m_actionGoBack, QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Left));
+    m_actionGoBack->setEnabled(false);
+    connect(m_actionGoBack, &QAction::triggered, this, [this]() {
+        if (m_workspace)
+            if (auto *leaf = m_workspace->activeLeaf())
+                leaf->goBack();
+    });
+
+    m_actionGoForward = ac->addAction(QStringLiteral("go_forward"));
+    m_actionGoForward->setText(i18n("Navigate Forward"));
+    m_actionGoForward->setIcon(QIcon::fromTheme(QStringLiteral("go-next")));
+    ac->setDefaultShortcut(m_actionGoForward, QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Right));
+    m_actionGoForward->setEnabled(false);
+    connect(m_actionGoForward, &QAction::triggered, this, [this]() {
+        if (m_workspace)
+            if (auto *leaf = m_workspace->activeLeaf())
+                leaf->goForward();
+    });
+
     // -----------------------------------------------------------------
     // Cluster V Phase 2+3 — Markoff editor actions (Format/Heading/
     // Insert/Table/Fold/Edit Find extensions). Each entry registers a
@@ -1919,6 +1945,18 @@ void MainWindow::setupEditor()
             propagateServicesToView(leaf->view());
         updateWindowTitle(activeEditor());
 
+        // D2: rebind the global back/forward actions' enablement to
+        // whichever leaf is now active. viewChanged fires after every
+        // navigate()/goBack()/goForward() on that leaf, so this stays
+        // live for the whole time the leaf remains active.
+        disconnect(m_activeLeafHistoryConnection);
+        if (leaf) {
+            m_activeLeafHistoryConnection =
+                connect(leaf, &WorkspaceLeaf::viewChanged,
+                        this, &MainWindow::updateBackForwardActions);
+        }
+        updateBackForwardActions();
+
         auto *editor = activeEditor();
         // Update sidebar panels
         // All sidebar panels (Backlinks/Outlinks/Outline/Properties/
@@ -2241,6 +2279,15 @@ void MainWindow::navigateActiveLeafTo(const QString &relativePath)
     leaf->navigate(viewState);
     m_workspace->setActiveLeaf(leaf);
     m_workspace->pushLastOpenFile(target);
+}
+
+void MainWindow::updateBackForwardActions()
+{
+    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
+    const bool canBack = leaf && leaf->history().canGoBack();
+    const bool canForward = leaf && leaf->history().canGoForward();
+    if (m_actionGoBack) m_actionGoBack->setEnabled(canBack);
+    if (m_actionGoForward) m_actionGoForward->setEnabled(canForward);
 }
 
 void MainWindow::onVaultOpened(const QString &path)

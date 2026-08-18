@@ -197,6 +197,24 @@ bool Workspace::eventFilter(QObject *watched, QEvent *event)
                 }
             }
         }
+
+        // Cluster L Phase L4 (D2): mouse buttons 4/5 (back/forward) —
+        // standard on most mice, KDE-wide convention (Konqueror/Dolphin/
+        // Firefox). Applies to the currently active leaf, matching the
+        // Ctrl+Alt+Left/Right shortcut and the per-leaf nav buttons.
+        if (auto *w = qobject_cast<QWidget *>(watched)) {
+            if (m_kddwMain && m_kddwMain->isAncestorOf(w)) {
+                auto *mouseEvent = static_cast<QMouseEvent *>(event);
+                if (mouseEvent->button() == Qt::BackButton) {
+                    if (m_activeLeaf) m_activeLeaf->goBack();
+                    return true;
+                }
+                if (mouseEvent->button() == Qt::ForwardButton) {
+                    if (m_activeLeaf) m_activeLeaf->goForward();
+                    return true;
+                }
+            }
+        }
     }
 
     if (watched == m_kddwMain && event && event->type() == QEvent::Resize) {
