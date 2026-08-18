@@ -34,12 +34,21 @@ ARCH="$(dpkg --print-architecture)"
 DEB_NAME="corbomite_${PKG_VERSION}_${ARCH}.deb"
 
 export DEBIAN_FRONTEND=noninteractive
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
 
 echo "==> Corbomite Ubuntu .deb ${PKG_VERSION} (${ARCH})"
 echo "    repo: ${REPO_ROOT}"
 
 echo "==> apt update + build dependencies"
+# Ensure universe is available (tree-sitter, some KF6 bits).
 apt-get update -qq
+apt-get install -y -qq --no-install-recommends software-properties-common \
+    || true
+if command -v add-apt-repository >/dev/null 2>&1; then
+    add-apt-repository -y universe >/dev/null 2>&1 || true
+    apt-get update -qq
+fi
 apt-get install -y -qq --no-install-recommends \
     ca-certificates \
     curl \
@@ -58,9 +67,11 @@ apt-get install -y -qq --no-install-recommends \
     qt6-tools-dev \
     qt6-wayland \
     libqt6sql6-sqlite \
+    libcups2-dev \
     libgl-dev \
     libglx-dev \
     libopengl-dev \
+    libtree-sitter-dev \
     libkf6coreaddons-dev \
     libkf6i18n-dev \
     libkf6xmlgui-dev \
@@ -79,6 +90,10 @@ apt-get install -y -qq --no-install-recommends \
 # Optional SecretStorage backend (best-effort).
 apt-get install -y -qq --no-install-recommends qtkeychain-qt6-dev \
     || echo "note: qtkeychain-qt6-dev unavailable; SecretStorage will use in-process fallback"
+
+# Docker bind-mounts are owned by the host user; silence git's safe.directory check.
+git config --global --add safe.directory "${REPO_ROOT}" || true
+git config --global --add safe.directory '*' || true
 
 rm -rf "${BUILD_ROOT}"
 mkdir -p "${BUILD_ROOT}" "${OUT_DIR}" "${STAGE}"
@@ -147,7 +162,7 @@ Section: editors
 Priority: optional
 Homepage: https://github.com/clintonthegeek/Corbomite
 Installed-Size: ${INSTALLED_SIZE}
-Depends: libc6, libstdc++6, libgcc-s1, libgl1, libglib2.0-0t64, libx11-6, libxcb1, libxcb-cursor0, libfontconfig1, libfreetype6, libharfbuzz0b, libpng16-16t64, zlib1g, libzstd1, libdouble-conversion3, libpcre2-16-0, libicu76 | libicu74 | libicu72, libdbus-1-3, libssl3t64 | libssl3, libsqlite3-0, libqt6core6t64 (>= 6.8), libqt6gui6 (>= 6.8), libqt6widgets6 (>= 6.8), libqt6dbus6 (>= 6.8), libqt6network6 (>= 6.8), libqt6sql6 (>= 6.8), libqt6sql6-sqlite, libqt6svg6 (>= 6.8), libqt6printsupport6 (>= 6.8), libqt6opengl6 (>= 6.8), libqt6qml6 (>= 6.8), libqt6quick6 (>= 6.8), qt6-qpa-plugins, qt6-wayland, libkf6coreaddons6, libkf6i18n6, libkf6xmlgui6, libkf6widgetsaddons6, libkf6iconthemes6, libkf6configcore6, libkf6configgui6, libkf6configwidgets6, libkf6colorscheme6, libkf6dbusaddons6, libkf6syntaxhighlighting6, libkf6breezeicons6, libkf6archive6, libkf6guiaddons6, libkf6itemviews6, libkf6globalaccel6, libkf6codecs6
+Depends: libc6, libstdc++6, libgcc-s1, libgl1, libglib2.0-0t64, libx11-6, libxcb1, libxcb-cursor0, libfontconfig1, libfreetype6, libharfbuzz0b, libpng16-16t64, zlib1g, libzstd1, libdouble-conversion3, libpcre2-16-0, libicu76 | libicu74 | libicu72, libdbus-1-3, libssl3t64 | libssl3, libsqlite3-0, libtree-sitter0.22 | libtree-sitter0, libqt6core6t64 (>= 6.8), libqt6gui6 (>= 6.8), libqt6widgets6 (>= 6.8), libqt6dbus6 (>= 6.8), libqt6network6 (>= 6.8), libqt6sql6 (>= 6.8), libqt6sql6-sqlite, libqt6svg6 (>= 6.8), libqt6printsupport6 (>= 6.8), libqt6opengl6 (>= 6.8), libqt6qml6 (>= 6.8), libqt6quick6 (>= 6.8), qt6-qpa-plugins, qt6-wayland, libkf6coreaddons6, libkf6i18n6, libkf6xmlgui6, libkf6widgetsaddons6, libkf6iconthemes6, libkf6configcore6, libkf6configgui6, libkf6configwidgets6, libkf6colorscheme6, libkf6dbusaddons6, libkf6syntaxhighlighting6, libkf6breezeicons6, libkf6archive6, libkf6guiaddons6, libkf6itemviews6, libkf6globalaccel6, libkf6codecs6
 Recommends: qt6-gtk-platformtheme, fonts-noto-color-emoji
 Description: Native Obsidian-compatible knowledge base for Linux
  Corbomite is a GPLv3 Qt6/KF6 desktop app for Obsidian-compatible vaults:
