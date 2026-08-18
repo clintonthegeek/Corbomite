@@ -2,9 +2,9 @@
 
 **Date:** 2026-08-17
 **Type:** Full plan
-**Status:** **L0, L1, L2 landed 2026-08-17 (this session).** L3/L4/L5 not
+**Status:** **L0, L1, L2, L3 landed 2026-08-17 (this session).** L4/L5 not
 started. See `docs/PROJECT-STATE.md` (Cluster L row) for the one-line
-current state and `docs/decisions-archive.md` (dated 2026-08-17, three
+current state and `docs/decisions-archive.md` (dated 2026-08-17, four
 "Cluster L Phase..." entries) for full closeout detail per phase,
 including exact commit shas and test results. This plan file's phase
 descriptions below are left as originally written (the *intent*); do not
@@ -266,13 +266,31 @@ Original phase description follows for context:
    known-allowed rewrites. This is the interop contract made
    executable.
 
-### Phase L3 — Cruft removal — **Not started**
+### Phase L3 — Cruft removal — **DONE (C6 deliberately skipped, C5 partial, eState.scroll left as-is)**
 
-C1 shell decision (delete or honest-absence), C3 single init, C4 router
-hash, C5 debounces, C6 tab-group cache slimming, `eState.scroll` (B6)
-re-anchored to a visual line for future interop. Coordinate C1/C7 with
-`2026-06-10-release-hygiene.md`'s dead-code purge so nothing is deleted
-twice or resurrected.
+Landed: C1 (`0060cedc` — deleted `WorkspaceRoot`/`WorkspaceContainer`/
+`WorkspaceSidedock` + the nullptr-returning `leftSplit()`/`rightSplit()`;
+kept `WorkspaceFloating`/`WorkspaceWindow`, which have real popout-window
+callers), C3 (`0b3bd503` — consolidated `ensureKddwInit`), C4 (`98204f9b`
+— router early-out + single `allLeaves()` fetch per focus change). C5
+partial (`2f4cd239` — `Workspace::resize()` debounced; `activeLeafChanged`
+deliberately left synchronous — it has real synchronous production
+consumers and existing tests assert exact-count emission; debouncing it
+is a workspace-wide UX-timing change judged out of scope for this
+session). **C6 skipped**: `m_tabGroupOf` turned out to have two live
+production uses beyond the serializer key, one on the deferred-tab
+materialization path Phase L1 specifically hardened — judged not a
+marginal-win case, left alone per the plan's own "err toward not
+touching it" guidance. `eState.scroll` (B6) confirmed still accurately
+described on the punch list (fraction, not Obsidian's line-number
+convention) but not fixed — the value lives in the Markoff submodule's
+contract-v2 API, so a real fix needs a Markoff-side change, out of scope
+for a Corbomite-only phase. Original phase description follows for
+context: C1 shell decision (delete or honest-absence), C3 single init,
+C4 router hash, C5 debounces, C6 tab-group cache slimming, `eState.scroll`
+(B6) re-anchored to a visual line for future interop. Coordinate C1/C7
+with `2026-06-10-release-hygiene.md`'s dead-code purge so nothing is
+deleted twice or resurrected.
 
 ### Phase L4 — Native UX polish — **Not started**
 

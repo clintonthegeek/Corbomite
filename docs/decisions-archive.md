@@ -10,6 +10,26 @@ Conventions:
 
 ---
 
+## 2026-08-17 — Cluster L Phase L3 landed: cruft removal (C6 deliberately skipped)
+
+Four commits: `0060cedc` (C1), `0b3bd503` (C3), `98204f9b` (C4), `2f4cd239` (C5 partial). Baseline going in: 311/312 offscreen (excl. benchmark), sole failure the known `tst_e2e_gui::testSaveShortcut` flake. No regressions from any change below.
+
+**C1 (dead Obsidian-shape shells) — fixed.** Deleted `WorkspaceRoot`/`WorkspaceContainer`/`WorkspaceSidedock` (headers, sources, CMakeLists entries) after `grep -rn` confirmed no real callers outside their own dedicated test — `WorkspaceContainer` never stored children, `WorkspaceRoot` was constructed but never populated, `leftSplit()`/`rightSplit()` always returned literal `nullptr` (the exact "compiling ≠ compatible" crash-invitation the L0 doctrine calls out). `WorkspaceFloating`/`WorkspaceWindow` were **kept** — confirmed live callers backing the real popout-window lifecycle (`popoutLeaf`, `reparentToMain`, `floatingSplit()->windows()`). No overlap with `2026-06-10-release-hygiene.md`'s dead-code purge.
+
+**C3 (duplicated `ensureKddwInit`) — fixed.** Two identical static-guard copies (`Workspace.cpp`, `WorkspaceLeaf.cpp`) consolidated into `Corbomite::detail::ensureKddwInit()` in new `libs/core/src/WorkspaceKddwInit.h/.cpp`.
+
+**C4 (router O(chain × leaves) perf) — fixed.** `WorkspaceActiveLeafRouter::onFocusChanged` now early-outs via `mainWin->isAncestorOf(current)` before any leaf walk, and fetches `allLeaves()` once instead of re-copying it per ancestor. New test `focusOutsideMainWindowDoesNotChangeActiveLeaf`.
+
+**C5 (undebounced event mirrors) — partial, by design.** `Workspace::resize()` now coalesces `QEvent::Resize` bursts via a zero-delay `QTimer::singleShot` guard (Obsidian-parity debounce); new test `rapidResizeBurstCoalescesToOneEmission`. **`activeLeafChanged` deliberately left synchronous**: it has real synchronous production consumers (MainWindow title/ribbon, `BasesView` refresh, link-resolver freshness) and existing tests assert exact-count emission without pumping the event loop — debouncing it is a workspace-wide UX-timing change, judged too broad to live-verify in one session for a signal no plugin currently hooks.
+
+**C6 (`m_tabGroupOf`/`m_stackedGroups` cache slimming) — skipped, per the plan's own escape hatch.** More entangled than the plan's framing suggested: `m_tabGroupOf` has two live production uses beyond the serializer key — `WorkspaceSerializer::walkLayoutContainer`'s `stacked`-bit lookup, and `Workspace::deserialize`'s correlation of live KDDW group membership back to the JSON's original grouping for deferred-tab materialization, a path Phase L1 specifically hardened after a real dogfood bug. Deriving both from live `DockRegistry::groups()` is possible but touches that crash-sensitive path for a marginal cleanliness win — left alone rather than forced through, honoring the plan's explicit "err toward NOT touching it if the win is marginal and the blast radius is workspace-wide."
+
+**`eState.scroll` (B6) — confirmed accurate on the punch list, not fixed.** Traced to `Markoff::MarkdownView::scrollPositionVisualLine()`, a 0.0–1.0 fraction that's part of the Markoff submodule's contract-v2 API (identical across all four leaves). Re-anchoring to a real visual-line number needs either a Markoff-side contract change or a Corbomite-side fraction↔line conversion requiring total-line-count context at both save and restore — genuinely bigger than this phase. Existing `[workspace][P4][phase1-2026-06-10]` punch-list entry already describes this correctly; left as-is.
+
+**Test bar:** 311/312 offscreen, same single pre-existing flake, no new failures.
+
+**Next:** Phase L4 (native UX polish — D1 KDDW chrome pass with live eyeball, D2 back/forward completion, D3 tab commands, D4 sidebar persistence revival) or Phase L5 (soak & closeout dogfood session). No hard ordering between them.
+
 ## 2026-08-17 — Cluster L Phase L2 landed: one writer, full fidelity (implements the L0 tier doctrine)
 
 Implements the three-tier storage model from the L0 spec (`docs/superpowers/specs/2026-08-17-workspace-compat-boundary.md`) in code. Three commits: `2f5d5760` (B3 id-assignment + B4 sidecar-bound), `13396015` (B1 full-fidelity writer + C2 promotion + `_corbomite`/`left-ribbon` denylist + golden fixture), `03511566` (`SessionManager` split into tier-2/tier-3 writers + `MainWindow` wiring).
