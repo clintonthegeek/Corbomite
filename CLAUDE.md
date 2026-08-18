@@ -41,18 +41,30 @@
 > (QML-leaf retirement) haven't started; Phase 4 is now unblocked by
 > Cluster L's crash-safety phase (below).
 >
-> **Cluster L — workspace/KDDW stabilization & nativization, Phases
-> L0-L2 landed (2026-08-17).** Full re-evaluation of the tab/dock layer
-> found a teardown-UAF crash class, persistence split-brain (production
-> save dropping `floating`/`lastOpenFiles`, Corbomite-private keys leaking
-> into the Obsidian-shared `workspace.json`), and Obsidian-literalism
-> residue. L0 set the compat doctrine (schema-at-rest fidelity to Obsidian
-> is the only contract; in-memory shape is free to be idiomatic Qt/KDE) —
+> **Cluster L — workspace/KDDW stabilization & nativization, L0-L3
+> landed+closed, L4 code landed but NOT LIVE-VERIFIED (2026-08-17/18).**
+> Full re-evaluation of the tab/dock layer found a teardown-UAF crash
+> class, persistence split-brain (production save dropping
+> `floating`/`lastOpenFiles`, Corbomite-private keys leaking into the
+> Obsidian-shared `workspace.json`), and Obsidian-literalism residue. L0
+> set the compat doctrine (schema-at-rest fidelity to Obsidian is the
+> only contract; in-memory shape is free to be idiomatic Qt/KDE) —
 > [spec](docs/superpowers/specs/2026-08-17-workspace-compat-boundary.md).
 > L1 fixed the crash class (`Workspace::destroyLeaves`, ASAN-clean),
 > unblocking Cluster K Phase 4 above. L2 made `workspace.json` persistence
 > full-fidelity and split Corbomite-native state into the doctrine's
-> three tiers. L3 (cruft removal) and L4 (native UX polish) not started —
+> three tiers. L3 removed dead Obsidian-shape shells, consolidated KDDW
+> init, and fixed router/resize perf. **L4 (native UX polish) landed
+> 2026-08-18**: KDDW chrome (hidden redundant title bar, middle-click tab
+> close), back/forward completion (Ctrl+Alt+←/→, mouse buttons 4/5, real
+> enablement state), tab commands (Ctrl+1..9 jump, pin-tab,
+> move-to-new-window, advisory-only toggle-stacked), and sidebar-width
+> persistence (Phase L2 had built the storage but never wired real
+> values through) — all offscreen-green (311/312), but D1 (title-bar
+> chrome) and D4 (width restore) still need a live dogfood pass before
+> the phase can be called closed, per standing project policy on
+> keyboard/focus-affecting changes. **Next: live-verify D1/D4, then
+> Phase L5** (soak & closeout) —
 > [plan](docs/superpowers/plans/2026-08-17-cluster-l-workspace-stabilization.md).
 >
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
