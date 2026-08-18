@@ -7,26 +7,43 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSaveFile>
+#include <QStandardPaths>
+#include <QUuid>
 
 namespace Corbomite {
 
 namespace {
 
-constexpr auto kMain = "main";
-constexpr auto kActive = "active";
-constexpr auto kCorbomite = "_corbomite";
-constexpr auto kLeftRibbon = "left-ribbon";
+constexpr auto kVaultId = "vaultId";
+constexpr auto kExpandedFolders = "expandedFolders";
+constexpr auto kLeftRibbon = "leftRibbon";
+constexpr auto kSidebar = "sidebar";
+constexpr auto kSidebarLeftVisible = "leftVisible";
+constexpr auto kSidebarRightVisible = "rightVisible";
+constexpr auto kSidebarActivePanel = "activePanel";
 
 constexpr auto kWindowGeometry = "windowGeometry";
 constexpr auto kWindowState = "windowState";
-constexpr auto kSidebar = "sidebar";
-constexpr auto kSidebarLeftVisible = "leftVisible";
 constexpr auto kSidebarLeftWidth = "leftWidth";
-constexpr auto kSidebarRightVisible = "rightVisible";
 constexpr auto kSidebarRightWidth = "rightWidth";
-constexpr auto kSidebarActivePanel = "activePanel";
-constexpr auto kExpandedFolders = "expandedFolders";
 constexpr auto kPlugins = "plugins";
+
+bool writeJsonAtomically(const QString &path, const QJsonObject &obj)
+{
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    file.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
+    return file.commit();
+}
+
+QJsonObject readJson(const QString &path)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) return {};
+    const auto doc = QJsonDocument::fromJson(f.readAll());
+    return doc.isObject() ? doc.object() : QJsonObject{};
+}
 
 } // namespace
 
@@ -40,59 +57,111 @@ SessionManager::SessionManager(QObject *parent)
 
 SessionManager::~SessionManager() = default;
 
-void SessionManager::setSessionPath(const QString &path)
+void SessionManager::setVaultPath(const QString &vaultRootPath)
 {
-    m_sessionPath = path;
+    m_vaultRootPath = vaultRootPath;
+    m_tier2Path = vaultRootPath + QStringLiteral("/.obsidian/corbomite/state.json");
+    // Tier 3 path depends on vaultId, resolved in load()/ensureVaultId().
+    m_tier3Path.clear();
+}
+
+QString SessionManager::tier3Dir() const
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+         + QStringLiteral("/vaults/") + m_vaultId;
+}
+
+QJsonObject SessionManager::buildTier2Json() const
+{
+    QJsonObject o;
+    o.insert(QLatin1String(kVaultId), m_vaultId);
+    if (!m_expandedFolders.isEmpty()) {
+        QJsonArray arr;
+        for (const auto &f : m_expandedFolders) arr.append(f);
+        o.insert(QLatin1String(kExpandedFolders), arr);
+    }
+    if (!m_leftRibbon.isEmpty())
+        o.insert(QLatin1String(kLeftRibbon), m_leftRibbon);
+    QJsonObject sidebar;
+    sidebar.insert(QLatin1String(kSidebarLeftVisible), m_sidebarLeftVisible);
+    sidebar.insert(QLatin1String(kSidebarRightVisible), m_sidebarRightVisible);
+    if (!m_sidebarActivePanel.isEmpty())
+        sidebar.insert(QLatin1String(kSidebarActivePanel), m_sidebarActivePanel);
+    o.insert(QLatin1String(kSidebar), sidebar);
+    return o;
+}
+
+void SessionManager::ensureVaultId()
+{
+    if (m_vaultId.isEmpty()) {
+        m_vaultId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        // Persist immediately (not debounced) — tier 3's directory name
+        // depends on this, and other in-process consumers may read
+        // vaultId() right after load() returns.
+        writeJsonAtomically(m_tier2Path, buildTier2Json());
+    }
+    m_tier3Path = tier3Dir() + QStringLiteral("/session.json");
 }
 
 bool SessionManager::load()
 {
     m_loaded = false;
-    m_corbomiteTail = {};
-    m_unknownRoot = {};
-    m_mainJson = {};
+    m_vaultId.clear();
+    m_expandedFolders.clear();
     m_leftRibbon = {};
-    m_activeLeafId.clear();
-    m_sidebarDirty = false;
+    m_sidebarLeftVisible = true;
+    m_sidebarRightVisible = false;
+    m_sidebarActivePanel.clear();
+    m_windowGeometry.clear();
+    m_windowState.clear();
+    m_sidebarLeftWidth = 200;
+    m_sidebarRightWidth = 200;
+    m_pluginSessionStates = {};
 
-    if (m_sessionPath.isEmpty()) return false;
+    if (m_tier2Path.isEmpty()) return false;
 
-    QFile f(m_sessionPath);
-    if (!f.open(QIODevice::ReadOnly)) return false;
-    const auto doc = QJsonDocument::fromJson(f.readAll());
-    if (!doc.isObject()) return false;
+    bool foundAny = false;
 
-    const QJsonObject root = doc.object();
-
-    if (root.contains(QLatin1String(kMain))
-            && root.value(QLatin1String(kMain)).isObject()) {
-        m_mainJson = root.value(QLatin1String(kMain)).toObject();
+    // --- Tier 2 ---
+    const QJsonObject tier2 = readJson(m_tier2Path);
+    if (!tier2.isEmpty()) {
+        foundAny = true;
+        m_vaultId = tier2.value(QLatin1String(kVaultId)).toString();
+        for (const auto &v : tier2.value(QLatin1String(kExpandedFolders)).toArray())
+            if (v.isString()) m_expandedFolders.append(v.toString());
+        if (tier2.value(QLatin1String(kLeftRibbon)).isObject())
+            m_leftRibbon = tier2.value(QLatin1String(kLeftRibbon)).toObject();
+        const auto sidebar = tier2.value(QLatin1String(kSidebar)).toObject();
+        if (!sidebar.isEmpty()) {
+            m_sidebarLeftVisible = sidebar.value(QLatin1String(kSidebarLeftVisible)).toBool(true);
+            m_sidebarRightVisible = sidebar.value(QLatin1String(kSidebarRightVisible)).toBool(false);
+            m_sidebarActivePanel = sidebar.value(QLatin1String(kSidebarActivePanel)).toString();
+        }
     }
 
-    m_activeLeafId = root.value(QLatin1String(kActive)).toString();
+    // Mint vaultId if this is a first-ever open (persists tier 2
+    // immediately) and derive the tier-3 path from it.
+    ensureVaultId();
 
-    // Corbomite-specific tail.
-    if (root.contains(QLatin1String(kCorbomite))) {
-        m_corbomiteTail = root.value(QLatin1String(kCorbomite)).toObject();
-    }
-
-    if (root.contains(QLatin1String(kLeftRibbon))
-            && root.value(QLatin1String(kLeftRibbon)).isObject()) {
-        m_leftRibbon = root.value(QLatin1String(kLeftRibbon)).toObject();
-    }
-
-    // Everything else (Obsidian's left/right/floating/lastOpenFiles/ribbon/
-    // etc.) goes into m_unknownRoot to round-trip unchanged on save.
-    for (auto it = root.begin(); it != root.end(); ++it) {
-        if (it.key() == QLatin1String(kMain)
-                || it.key() == QLatin1String(kActive)
-                || it.key() == QLatin1String(kCorbomite)
-                || it.key() == QLatin1String(kLeftRibbon)) continue;
-        m_unknownRoot.insert(it.key(), it.value());
+    // --- Tier 3 ---
+    const QJsonObject tier3 = readJson(m_tier3Path);
+    if (!tier3.isEmpty()) {
+        foundAny = true;
+        m_windowGeometry = QByteArray::fromBase64(
+            tier3.value(QLatin1String(kWindowGeometry)).toString().toLatin1());
+        m_windowState = QByteArray::fromBase64(
+            tier3.value(QLatin1String(kWindowState)).toString().toLatin1());
+        const auto sidebar = tier3.value(QLatin1String(kSidebar)).toObject();
+        if (!sidebar.isEmpty()) {
+            m_sidebarLeftWidth = sidebar.value(QLatin1String(kSidebarLeftWidth)).toInt(200);
+            m_sidebarRightWidth = sidebar.value(QLatin1String(kSidebarRightWidth)).toInt(200);
+        }
+        if (tier3.value(QLatin1String(kPlugins)).isObject())
+            m_pluginSessionStates = tier3.value(QLatin1String(kPlugins)).toObject();
     }
 
     m_loaded = true;
-    return true;
+    return foundAny;
 }
 
 void SessionManager::saveNow()
@@ -120,13 +189,10 @@ void SessionManager::unblockSaving()
 
 // --- Granular setters ---
 
-void SessionManager::saveWindowGeometry(const QByteArray &geometry,
-                                        const QByteArray &state)
+void SessionManager::saveWindowGeometry(const QByteArray &geometry, const QByteArray &state)
 {
-    m_corbomiteTail.insert(QLatin1String(kWindowGeometry),
-                           QString::fromLatin1(geometry.toBase64()));
-    m_corbomiteTail.insert(QLatin1String(kWindowState),
-                           QString::fromLatin1(state.toBase64()));
+    m_windowGeometry = geometry;
+    m_windowState = state;
     scheduleSave();
 }
 
@@ -134,48 +200,27 @@ void SessionManager::saveSidebarState(bool leftVisible, int leftWidth,
                                       bool rightVisible, int rightWidth,
                                       const QString &activePanel)
 {
-    QJsonObject sidebar;
-    sidebar.insert(QLatin1String(kSidebarLeftVisible), leftVisible);
-    sidebar.insert(QLatin1String(kSidebarLeftWidth), leftWidth);
-    sidebar.insert(QLatin1String(kSidebarRightVisible), rightVisible);
-    sidebar.insert(QLatin1String(kSidebarRightWidth), rightWidth);
-    if (!activePanel.isEmpty()) {
-        sidebar.insert(QLatin1String(kSidebarActivePanel), activePanel);
-    }
-    // Detect user-driven divergence from the on-disk sidebar so doSave
-    // knows whether to drop the passed-through Obsidian `left`/`right`
-    // sub-trees. MainWindow::saveSessionState calls this on every flush
-    // (including session-restore replays), so identity must be the
-    // gating signal — not call count.
-    const auto previous = m_corbomiteTail.value(QLatin1String(kSidebar)).toObject();
-    if (sidebar != previous)
-        m_sidebarDirty = true;
-    m_corbomiteTail.insert(QLatin1String(kSidebar), sidebar);
+    m_sidebarLeftVisible = leftVisible;
+    m_sidebarRightVisible = rightVisible;
+    if (!activePanel.isEmpty()) m_sidebarActivePanel = activePanel;
+    m_sidebarLeftWidth = leftWidth;
+    m_sidebarRightWidth = rightWidth;
     scheduleSave();
 }
 
 void SessionManager::saveExpandedFolders(const QStringList &folders)
 {
-    QJsonArray arr;
-    for (const auto &f : folders) arr.append(f);
-    m_corbomiteTail.insert(QLatin1String(kExpandedFolders), arr);
+    m_expandedFolders = folders;
     scheduleSave();
 }
 
-void SessionManager::setPluginSessionState(const QString &pluginId,
-                                           const QJsonObject &state)
+void SessionManager::setPluginSessionState(const QString &pluginId, const QJsonObject &state)
 {
     if (pluginId.isEmpty()) return;
-    QJsonObject plugins = m_corbomiteTail.value(QLatin1String(kPlugins)).toObject();
     if (state.isEmpty()) {
-        plugins.remove(pluginId);
+        m_pluginSessionStates.remove(pluginId);
     } else {
-        plugins.insert(pluginId, state);
-    }
-    if (plugins.isEmpty()) {
-        m_corbomiteTail.remove(QLatin1String(kPlugins));
-    } else {
-        m_corbomiteTail.insert(QLatin1String(kPlugins), plugins);
+        m_pluginSessionStates.insert(pluginId, state);
     }
     scheduleSave();
 }
@@ -186,99 +231,58 @@ void SessionManager::setLeftRibbonState(const QJsonObject &state)
     scheduleSave();
 }
 
-void SessionManager::setWorkspaceLayout(const QJsonObject &mainJson,
-                                        const QString &activeLeafId)
-{
-    m_mainJson = mainJson;
-    m_activeLeafId = activeLeafId;
-    scheduleSave();
-}
-
 // --- Accessors ---
 
-QByteArray SessionManager::windowGeometry() const
-{
-    return QByteArray::fromBase64(
-        m_corbomiteTail.value(QLatin1String(kWindowGeometry)).toString().toLatin1());
-}
-
-QByteArray SessionManager::windowState() const
-{
-    return QByteArray::fromBase64(
-        m_corbomiteTail.value(QLatin1String(kWindowState)).toString().toLatin1());
-}
+QByteArray SessionManager::windowGeometry() const { return m_windowGeometry; }
+QByteArray SessionManager::windowState() const { return m_windowState; }
 
 QJsonObject SessionManager::sidebarState() const
 {
-    return m_corbomiteTail.value(QLatin1String(kSidebar)).toObject();
+    QJsonObject sidebar;
+    sidebar.insert(QLatin1String(kSidebarLeftVisible), m_sidebarLeftVisible);
+    sidebar.insert(QLatin1String(kSidebarLeftWidth), m_sidebarLeftWidth);
+    sidebar.insert(QLatin1String(kSidebarRightVisible), m_sidebarRightVisible);
+    sidebar.insert(QLatin1String(kSidebarRightWidth), m_sidebarRightWidth);
+    if (!m_sidebarActivePanel.isEmpty())
+        sidebar.insert(QLatin1String(kSidebarActivePanel), m_sidebarActivePanel);
+    return sidebar;
 }
 
-QStringList SessionManager::expandedFolders() const
-{
-    QStringList out;
-    const auto arr = m_corbomiteTail.value(QLatin1String(kExpandedFolders)).toArray();
-    for (const auto &v : arr) if (v.isString()) out.append(v.toString());
-    return out;
-}
+QStringList SessionManager::expandedFolders() const { return m_expandedFolders; }
 
 QJsonObject SessionManager::pluginSessionState(const QString &pluginId) const
 {
     if (pluginId.isEmpty()) return {};
-    return m_corbomiteTail.value(QLatin1String(kPlugins)).toObject()
-        .value(pluginId).toObject();
+    return m_pluginSessionStates.value(pluginId).toObject();
 }
 
 QJsonObject SessionManager::leftRibbonState() const { return m_leftRibbon; }
-QJsonObject SessionManager::workspaceLayout() const { return m_mainJson; }
-QString SessionManager::activeLeafId() const { return m_activeLeafId; }
 
-QStringList SessionManager::lastOpenFiles() const
-{
-    QStringList files;
-    const auto arr = m_unknownRoot.value(QStringLiteral("lastOpenFiles")).toArray();
-    files.reserve(arr.size());
-    for (const auto &v : arr)
-        files.append(v.toString());
-    return files;
-}
+QString SessionManager::vaultId() const { return m_vaultId; }
 
 // --- Save ---
 
 void SessionManager::doSave()
 {
-    if (m_sessionPath.isEmpty()) return;
+    if (m_tier2Path.isEmpty()) return;
+    ensureVaultId(); // no-op if already minted; guarantees m_tier3Path is set
 
-    // Compose: unknownRoot (Obsidian keys we pass through) + main + active
-    // + _corbomite (our namespaced state).
-    QJsonObject root = m_unknownRoot;
-    // Obsidian's `left`/`right` sub-trees encode the sidedock split tree.
-    // Corbomite has no live model of that tree (the `WorkspaceSidedock`
-    // shells return nullptr; the real sidebar is `CorbomiteMDI::Sidebar`,
-    // owned outside the Workspace). While the user hasn't touched
-    // Corbomite's sidebar, we round-trip whatever Obsidian last wrote.
-    // Once they have, that subtree is stale and would freeze Obsidian's
-    // sidedock at an arbitrary past state on the next Obsidian-side
-    // session — drop it so Obsidian rebuilds from defaults.
-    if (m_sidebarDirty) {
-        root.remove(QStringLiteral("left"));
-        root.remove(QStringLiteral("right"));
-    }
-    root.insert(QLatin1String(kMain), m_mainJson);
-    if (!m_activeLeafId.isEmpty()) {
-        root.insert(QLatin1String(kActive), m_activeLeafId);
-    }
-    if (!m_corbomiteTail.isEmpty()) {
-        root.insert(QLatin1String(kCorbomite), m_corbomiteTail);
-    }
-    if (!m_leftRibbon.isEmpty()) {
-        root.insert(QLatin1String(kLeftRibbon), m_leftRibbon);
-    }
+    writeJsonAtomically(m_tier2Path, buildTier2Json());
 
-    QDir().mkpath(QFileInfo(m_sessionPath).absolutePath());
-    QSaveFile file(m_sessionPath);
-    if (!file.open(QIODevice::WriteOnly)) return;
-    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
-    file.commit();
+    QJsonObject tier3;
+    if (!m_windowGeometry.isEmpty())
+        tier3.insert(QLatin1String(kWindowGeometry),
+                     QString::fromLatin1(m_windowGeometry.toBase64()));
+    if (!m_windowState.isEmpty())
+        tier3.insert(QLatin1String(kWindowState),
+                     QString::fromLatin1(m_windowState.toBase64()));
+    QJsonObject sidebar3;
+    sidebar3.insert(QLatin1String(kSidebarLeftWidth), m_sidebarLeftWidth);
+    sidebar3.insert(QLatin1String(kSidebarRightWidth), m_sidebarRightWidth);
+    tier3.insert(QLatin1String(kSidebar), sidebar3);
+    if (!m_pluginSessionStates.isEmpty())
+        tier3.insert(QLatin1String(kPlugins), m_pluginSessionStates);
+    writeJsonAtomically(m_tier3Path, tier3);
 }
 
 } // namespace Corbomite

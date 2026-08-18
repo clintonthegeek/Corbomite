@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -29,12 +30,29 @@ QJsonObject readJson(const QString &path)
     return QJsonDocument::fromJson(f.readAll()).object();
 }
 
+// Left-ribbon state is tier 2 (vault-portable, Corbomite-native) under the
+// compat-boundary doctrine — it lives at
+// `<vault>/.obsidian/corbomite/state.json` (key `leftRibbon`), never in
+// Obsidian's own `.obsidian/workspace.json`.
+QString tier2Path(const QString &vaultRoot)
+{
+    return vaultRoot + QStringLiteral("/.obsidian/corbomite/state.json");
+}
+
 } // namespace
 
 class TestRibbonStateController : public QObject {
     Q_OBJECT
 
 private Q_SLOTS:
+    // SessionManager's tier 3 (machine-local) writer targets
+    // QStandardPaths::AppDataLocation — sandbox it so tests never touch the
+    // developer's real ~/.local/share.
+    void initTestCase()
+    {
+        QStandardPaths::setTestModeEnabled(true);
+    }
+
     void appliesHiddenItemsOnBind()
     {
         RibbonToolBar bar;
@@ -44,18 +62,17 @@ private Q_SLOTS:
                           QStringLiteral("B"), []() {});
 
         QTemporaryDir tmp;
-        const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
-        QJsonObject external;
         QJsonObject hidden;
         hidden.insert(QStringLiteral("core:a"), true);
         hidden.insert(QStringLiteral("core:b"), false);
         QJsonObject ribbon;
         ribbon.insert(QStringLiteral("hiddenItems"), hidden);
-        external.insert(QStringLiteral("left-ribbon"), ribbon);
-        writeJson(path, external);
+        QJsonObject tier2;
+        tier2.insert(QStringLiteral("leftRibbon"), ribbon);
+        writeJson(tier2Path(tmp.path()), tier2);
 
         SessionManager sm;
-        sm.setSessionPath(path);
+        sm.setVaultPath(tmp.path());
         QVERIFY(sm.load());
 
         RibbonStateController controller(&bar, &sm);
@@ -68,17 +85,16 @@ private Q_SLOTS:
     void appliesRetroactivelyToLateArrivingIcons()
     {
         QTemporaryDir tmp;
-        const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
-        QJsonObject external;
         QJsonObject hidden;
         hidden.insert(QStringLiteral("plugin-x:Thing"), true);
         QJsonObject ribbon;
         ribbon.insert(QStringLiteral("hiddenItems"), hidden);
-        external.insert(QStringLiteral("left-ribbon"), ribbon);
-        writeJson(path, external);
+        QJsonObject tier2;
+        tier2.insert(QStringLiteral("leftRibbon"), ribbon);
+        writeJson(tier2Path(tmp.path()), tier2);
 
         SessionManager sm;
-        sm.setSessionPath(path);
+        sm.setVaultPath(tmp.path());
         QVERIFY(sm.load());
 
         RibbonToolBar bar;
@@ -94,9 +110,8 @@ private Q_SLOTS:
     void visibilityChangeWritesThroughToSession()
     {
         QTemporaryDir tmp;
-        const QString path = tmp.path() + QStringLiteral("/.obsidian/workspace.json");
         SessionManager sm;
-        sm.setSessionPath(path);
+        sm.setVaultPath(tmp.path());
 
         RibbonToolBar bar;
         RibbonStateController controller(&bar, &sm);
@@ -108,8 +123,8 @@ private Q_SLOTS:
 
         sm.saveNow();
 
-        const QJsonObject root = readJson(path);
-        const QJsonObject hidden = root.value(QStringLiteral("left-ribbon"))
+        const QJsonObject root = readJson(tier2Path(tmp.path()));
+        const QJsonObject hidden = root.value(QStringLiteral("leftRibbon"))
             .toObject().value(QStringLiteral("hiddenItems")).toObject();
         QCOMPARE(hidden.value(QStringLiteral("core:graph")).toBool(), true);
     }
@@ -122,7 +137,7 @@ private Q_SLOTS:
 
         SessionManager sm1;
         QTemporaryDir t1;
-        sm1.setSessionPath(t1.path() + QStringLiteral("/.obsidian/workspace.json"));
+        sm1.setVaultPath(t1.path());
         QJsonObject hidden; hidden.insert(QStringLiteral("core:g"), true);
         QJsonObject ribbon; ribbon.insert(QStringLiteral("hiddenItems"), hidden);
         sm1.setLeftRibbonState(ribbon);
@@ -133,7 +148,7 @@ private Q_SLOTS:
 
         SessionManager sm2;
         QTemporaryDir t2;
-        sm2.setSessionPath(t2.path() + QStringLiteral("/.obsidian/workspace.json"));
+        sm2.setVaultPath(t2.path());
 
         controller.rebind(&sm2);
         controller.applyFromSession();

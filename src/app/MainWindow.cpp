@@ -844,21 +844,18 @@ bool MainWindow::confirmCloseUnsaved()
 
 void MainWindow::saveSessionState()
 {
+    // Tier 1 (Obsidian-schema workspace.json): full-fidelity, written
+    // directly by Workspace — main/active/floating/lastOpenFiles plus
+    // passthrough of any Obsidian key Workspace doesn't itself model.
+    if (m_workspace && m_vaultObj && m_vaultObj->isLoaded()) {
+        m_workspace->writeWorkspaceJson(m_vaultObj->basePath());
+    }
+
+    // Tiers 2/3 (Corbomite-native vault-portable + machine-local state).
     if (!m_sessionManager) return;
     m_sessionManager->blockSaving();
     m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
     m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
-    if (m_workspace) {
-        QJsonObject wsJson = m_workspace->serialize();
-        QString activeId = m_workspace->activeLeaf()
-            ? m_workspace->activeLeaf()->id() : QString();
-        if (!wsJson.contains(QStringLiteral("main"))) {
-            qWarning() << "MainWindow: Workspace::serialize() missing 'main' key; skipping workspace layout save";
-        } else {
-            m_sessionManager->setWorkspaceLayout(
-                wsJson[QStringLiteral("main")].toObject(), activeId);
-        }
-    }
     // Expanded-folder persistence moved into FileExplorer plugin
     // (Cluster Q Task 18); follow-up: surface a plugin-side helper
     // that SessionManager can query via WorkspaceController.
@@ -2451,10 +2448,12 @@ void MainWindow::onVaultOpened(const QString &path)
         m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);
     });
 
-    // Session manager — restore workspace
+    // Session manager — tier 2 (vault-portable) + tier 3 (machine-local)
+    // Corbomite-native state. Tier 1 (Obsidian-schema workspace.json) is
+    // handled directly by Workspace::readWorkspaceJson below.
     delete m_sessionManager;
     m_sessionManager = new SessionManager(this);
-    m_sessionManager->setSessionPath(path + QStringLiteral("/.obsidian/workspace.json"));
+    m_sessionManager->setVaultPath(path);
     m_sessionManager->load();
 
     if (!m_ribbonState) {
@@ -2523,20 +2522,13 @@ void MainWindow::onVaultOpened(const QString &path)
         }
     }
 
-    if (m_sessionManager->hasLoadedSession()) {
-        QJsonObject wsLayout = m_sessionManager->workspaceLayout();
-        if (!wsLayout.isEmpty()) {
-            // Wrap in the full workspace JSON expected by Workspace::deserialize
-            QJsonObject fullWs;
-            fullWs[QStringLiteral("main")] = wsLayout;
-            fullWs[QStringLiteral("active")] = m_sessionManager->activeLeafId();
-            QJsonArray lof;
-            for (const auto &f : m_sessionManager->lastOpenFiles())
-                lof.append(f);
-            if (!lof.isEmpty())
-                fullWs[QStringLiteral("lastOpenFiles")] = lof;
-            m_workspace->deserialize(fullWs);
-        }
+    // Tier 1 (Obsidian-schema workspace.json): Workspace owns full-fidelity
+    // load now (main/active/floating/lastOpenFiles + unknown-key
+    // passthrough with the _corbomite/left-ribbon denylist). Handles both
+    // "session found" and "no/invalid workspace.json" (installs a default
+    // layout + active leaf) — see Workspace::readWorkspaceJson.
+    if (m_workspace) {
+        m_workspace->readWorkspaceJson(path);
     }
 
     const auto folders = m_sessionManager->expandedFolders();
