@@ -83,6 +83,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/ViewRegistry.h
     src/WorkspaceLeaf.cpp
     include/corbomite/core/WorkspaceLeaf.h
+    src/WorkspaceKddwInit.cpp
+    src/WorkspaceKddwInit.h
     src/LeafHistory.cpp
     include/corbomite/core/LeafHistory.h
     src/Workspace.cpp

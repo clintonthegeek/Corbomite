@@ -4,6 +4,7 @@
 #include "corbomite/core/View.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/Workspace.h"
+#include "WorkspaceKddwInit.h"
 
 #include <kddockwidgets/Config.h>
 #include <kddockwidgets/KDDockWidgets.h>
@@ -15,21 +16,6 @@
 
 namespace Corbomite {
 
-namespace {
-void ensureKddwInit()
-{
-    static bool initialized = false;
-    if (initialized) return;
-    initialized = true;
-    KDDockWidgets::initFrontend(KDDockWidgets::FrontendType::QtWidgets);
-    auto &cfg = KDDockWidgets::Config::self();
-    cfg.setFlags(cfg.flags()
-                 | KDDockWidgets::Config::Flag_AlwaysShowTabs
-                 | KDDockWidgets::Config::Flag_AllowReorderTabs
-                 | KDDockWidgets::Config::Flag_TabsHaveCloseButton);
-}
-} // namespace
-
 WorkspaceLeaf::WorkspaceLeaf(ViewRegistry *registry, QObject *parent)
     : QObject(parent)
     , m_id(generateId())
@@ -38,7 +24,7 @@ WorkspaceLeaf::WorkspaceLeaf(ViewRegistry *registry, QObject *parent)
     // KDDW DockWidget construction needs an initialized frontend. Tests
     // sometimes construct a WorkspaceLeaf in isolation (no enclosing
     // Workspace), so don't rely on Workspace's ensureKddwInit having run.
-    ensureKddwInit();
+    detail::ensureKddwInit();
     // The unique name is finalized when the leaf is parented to a Workspace
     // (which knows the vaultId): Workspace::createLeafInGroupOf renames via
     // setUniqueName({vaultId}:{leafId}). Plain leaf-id is unique enough for
