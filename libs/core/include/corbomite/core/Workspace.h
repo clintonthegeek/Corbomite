@@ -355,6 +355,16 @@ private:
     LinkResolverFn m_linkResolver;
     WorkspaceRoot *m_rootSplit = nullptr;
     WorkspaceFloating *m_floating = nullptr;
+
+    /// Root-level keys from a loaded workspace.json that Workspace doesn't
+    /// itself model (e.g. `left`/`right` sidedock sub-trees, or any future
+    /// Obsidian schema key). Round-tripped unchanged by serialize() so a
+    /// Corbomite load->save cycle never destroys data Obsidian wrote.
+    /// Cluster L / workspace-compat-boundary doctrine: `_corbomite` and
+    /// `left-ribbon` are explicitly denylisted here — they were Corbomite's
+    /// own retired keys, not Obsidian schema, and must not be swept into
+    /// this passthrough (see SessionManager and the compat-boundary spec).
+    QJsonObject m_unknownRoot;
 };
 
 } // namespace Corbomite

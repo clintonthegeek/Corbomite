@@ -1,0 +1,66 @@
+{
+  "main": {
+    "id": "root1111aaaaaaaa",
+    "type": "split",
+    "direction": "vertical",
+    "dimension": 100,
+    "children": [
+      {
+        "id": "top1111aaaaaaaaa",
+        "type": "tabs",
+        "dimension": 60,
+        "children": [
+          { "id": "leaf01aaaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+        ]
+      },
+      {
+        "id": "inner1111aaaaaaa",
+        "type": "split",
+        "direction": "horizontal",
+        "dimension": 40,
+        "children": [
+          {
+            "id": "botleft1111aaaa",
+            "type": "tabs",
+            "dimension": 50,
+            "children": [
+              { "id": "leaf02aaaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} } }
+            ]
+          },
+          {
+            "id": "botright1111aaa",
+            "type": "tabs",
+            "dimension": 50,
+            "children": [
+              { "id": "leaf03aaaaaaaaaa", "type": "leaf", "state": { "type": "empty", "state": {} }, "pinned": true }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "left": {
+    "id": "leftdock11aaaaaa",
+    "type": "split",
+    "children": [],
+    "collapsed": true,
+    "width": 250
+  },
+  "right": {
+    "id": "rightdock1aaaaaa",
+    "type": "split",
+    "children": [],
+    "collapsed": false,
+    "width": 300
+  },
+  "active": "leaf01aaaaaaaaaa",
+  "lastOpenFiles": ["notes/Welcome.md", "notes/Daily/2026-08-17.md"],
+  "someFutureObsidianPluginKey": { "opaque": true, "values": [1, 2, 3] },
+  "_corbomite": {
+    "windowGeometry": "ZmFrZQ==",
+    "sidebar": { "leftVisible": true, "leftWidth": 200 }
+  },
+  "left-ribbon": {
+    "hiddenItems": { "core:graph_view": true }
+  }
+}

@@ -28,6 +28,7 @@
 #include <QJsonDocument>
 #include <QPointer>
 #include <QRandomGenerator>
+#include <QSet>
 #include <QSignalBlocker>
 #include <QWidget>
 
@@ -835,8 +836,16 @@ QJsonObject Workspace::serialize() const
     // tree topology + per-leaf state from this Workspace via findLeafById).
     // Active-leaf id and lastOpenFiles are appended here since they live
     // on Workspace, not in the layout substrate.
-    QJsonObject json = WorkspaceSerializer::toJson(
+    // Start from the unknown-root passthrough (Obsidian schema keys this
+    // Workspace doesn't model in memory — `left`/`right` sidedock
+    // sub-trees, any future Obsidian key) so a load->save cycle never
+    // drops data Obsidian wrote. Corbomite's own modeled keys are then
+    // overlaid on top.
+    QJsonObject json = m_unknownRoot;
+    const QJsonObject topology = WorkspaceSerializer::toJson(
         m_kddwMain, const_cast<Workspace *>(this));
+    for (auto it = topology.begin(); it != topology.end(); ++it)
+        json.insert(it.key(), it.value());
     json[QStringLiteral("active")] = m_activeLeaf
         ? m_activeLeaf->id()
         : QString{};
@@ -870,6 +879,25 @@ void Workspace::deserialize(const QJsonObject &json)
     // is populated by the serializer's createLeafUnplaced+setTabGroupOf
     // path.
     WorkspaceSerializer::fromJson(json, m_kddwMain, this);
+
+    // Capture root-level keys this Workspace doesn't itself model, so
+    // serialize() can round-trip them unchanged (Obsidian schema-at-rest
+    // fidelity — Cluster L workspace-compat-boundary doctrine). `main`,
+    // `active`, `lastOpenFiles`, and `floating` are Corbomite-modeled and
+    // regenerated fresh by serialize(); `_corbomite` and `left-ribbon` are
+    // Corbomite's own retired keys (never Obsidian schema) and are
+    // explicitly denylisted here rather than forwarded — a legacy dev-build
+    // vault must not carry them forward forever.
+    m_unknownRoot = {};
+    static const QSet<QString> kKnownOrDenylisted = {
+        QStringLiteral("main"), QStringLiteral("active"),
+        QStringLiteral("lastOpenFiles"), QStringLiteral("floating"),
+        QStringLiteral("_corbomite"), QStringLiteral("left-ribbon"),
+    };
+    for (auto it = json.begin(); it != json.end(); ++it) {
+        if (!kKnownOrDenylisted.contains(it.key()))
+            m_unknownRoot.insert(it.key(), it.value());
+    }
 
     // Resolve active leaf.
     QString activeId = json[QStringLiteral("active")].toString();
@@ -983,6 +1011,7 @@ void Workspace::resetToDefaultLayout()
     m_stackedGroups.clear();
     m_activeLeaf = nullptr;
     m_undoHistory.clear();
+    m_unknownRoot = {};
     Q_EMIT layoutChanged();
 }
 

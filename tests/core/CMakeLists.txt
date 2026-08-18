@@ -219,6 +219,8 @@ set_tests_properties(tst_workspace_integration PROPERTIES ENVIRONMENT "QT_QPA_PL
 add_executable(tst_workspace_session tst_workspace_session.cpp)
 add_test(NAME tst_workspace_session COMMAND tst_workspace_session)
 target_link_libraries(tst_workspace_session PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+target_compile_definitions(tst_workspace_session PRIVATE
+    CORBOMITE_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 set_tests_properties(tst_workspace_session PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_leaf_service_propagation tst_leaf_service_propagation.cpp)
