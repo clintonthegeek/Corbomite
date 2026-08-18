@@ -2,7 +2,13 @@
 
 **Date:** 2026-08-17
 **Type:** Full plan
-**Status:** Not started — evaluation complete, phases ready to dispatch.
+**Status:** **L0, L1, L2 landed 2026-08-17 (this session).** L3/L4/L5 not
+started. See `docs/PROJECT-STATE.md` (Cluster L row) for the one-line
+current state and `docs/decisions-archive.md` (dated 2026-08-17, three
+"Cluster L Phase..." entries) for full closeout detail per phase,
+including exact commit shas and test results. This plan file's phase
+descriptions below are left as originally written (the *intent*); do not
+infer completion status from this section — check PROJECT-STATE first.
 **Source:** Full re-evaluation of the workspace/tab/dock layer (this
 session), building on `docs/audit-2026-04-26/workspace.md` (many of whose
 top findings have since been fixed — this plan covers what's *still*
@@ -179,7 +185,13 @@ Severity-ordered. `[PL]` = already on the punch list.
 
 ## 3. Phases
 
-### Phase L0 — Compat-boundary doctrine (half a session)
+### Phase L0 — Compat-boundary doctrine (half a session) — **DONE**
+
+Landed as `docs/superpowers/specs/2026-08-17-workspace-compat-boundary.md`
+(Accepted, Clinton sign-off 2026-08-17). The three-tier model below was
+refined during design review beyond this phase's original two-option (a)/(b)
+framing — read the spec, not just this paragraph, before touching storage
+code. Original phase description follows for context:
 
 Write a short spec (`specs/2026-08-17-workspace-compat-boundary.md`)
 stating: schema-at-rest fidelity is mandatory; in-memory Obsidian
@@ -190,7 +202,13 @@ under `~/.local/share/corbomite[-dev]/vaults/<id>/session.json`, or
 `.obsidian/corbomite.json` if it should travel with the vault — pick
 one, document sync implications). Gate: user sign-off on the doctrine.
 
-### Phase L1 — Teardown unification (the crash killer)
+### Phase L1 — Teardown unification (the crash killer) — **DONE**
+
+Landed via `Workspace::destroyLeaves(QVector<WorkspaceLeaf*>, TeardownMode)`
+(`90d994f3` — A1 + A4; `93eb8e01` — A3). ASAN-clean (all 11
+`tst_workspace_*` binaries, zero diagnostics) — exit gate met. Live
+dogfood-a-session soak not separately done as its own gate; folded into
+ongoing use. Original phase description follows for context:
 
 1. Introduce one private primitive, e.g.
    `Workspace::destroyLeaves(QVector<WorkspaceLeaf*>, TeardownMode)`,
@@ -214,7 +232,18 @@ one, document sync implications). Gate: user sign-off on the doctrine.
 Exit gate: ASAN-clean workspace suite + user dogfoods vault switching
 without a crash for a session.
 
-### Phase L2 — One writer, full fidelity
+### Phase L2 — One writer, full fidelity — **DONE (one gap punch-listed)**
+
+Landed via `2f5d5760` (B3 id-assignment + B4), `13396015` (B1 + C2 +
+denylist + golden fixture), `03511566` (`SessionManager` tier-2/tier-3
+split). All sub-items done **except** the `dimension`-round-trip half of
+B3: ids are assigned and persist, but a parsed `dimension` does not
+survive a live load→save cycle (writer rebuilds the split/tabs tree fresh
+from KDDW's `LayoutSaver` dump each save, which has no id/dimension
+memory) — filed to `docs/punch-list.md` as `[cluster-l]`, not silently
+closed. Golden fixture at
+`tests/core/fixtures/workspace-obsidian/15-golden-full-fidelity.json`.
+Original phase description follows for context:
 
 1. Make production persistence consume the **full** `serialize()`
    payload: either `SessionManager` stores `floating`+`lastOpenFiles`
@@ -237,7 +266,7 @@ without a crash for a session.
    known-allowed rewrites. This is the interop contract made
    executable.
 
-### Phase L3 — Cruft removal
+### Phase L3 — Cruft removal — **Not started**
 
 C1 shell decision (delete or honest-absence), C3 single init, C4 router
 hash, C5 debounces, C6 tab-group cache slimming, `eState.scroll` (B6)
@@ -245,7 +274,7 @@ re-anchored to a visual line for future interop. Coordinate C1/C7 with
 `2026-06-10-release-hygiene.md`'s dead-code purge so nothing is deleted
 twice or resurrected.
 
-### Phase L4 — Native UX polish
+### Phase L4 — Native UX polish — **Not started**
 
 D1 KDDW flag/chrome pass (live eyeball with user — per memory:
 keyboard/focus changes need live confirmation, not just offscreen
@@ -254,7 +283,7 @@ KActionCollection where applicable, D4 sidebar persistence revival
 (wire the dormant KateMDI save/restore; delete the hardcoded
 200/false). Each lands as its own small commit against the punch list.
 
-### Phase L5 — Soak & closeout
+### Phase L5 — Soak & closeout — **Not started**
 
 One dedicated dogfood session hammering tabs: drag between groups,
 split, popout, close-undo, vault switch, Obsidian round-trip (open the
