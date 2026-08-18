@@ -130,8 +130,8 @@ Corbomite
     └── libs/collabtext        → collabtext   (git@github.com:clintonthegeek/collabtext.git)
 ```
 
-> **Access note:** the submodules are hosted on Codeberg over SSH. You need an
-> SSH key registered with a Codeberg account that can read these repositories.
+> **Access note:** the submodules are hosted on GitHub over SSH. You need an
+> SSH key registered with a GitHub account that can read these repositories.
 > Test with `ssh -T git@github.com` — it should authenticate successfully.
 
 ### Keeping submodules in sync after a pull
@@ -226,13 +226,13 @@ cmake --build build-release -j"$(nproc)"
 sudo cmake --install build-release
 ```
 
-### Packaging (AppImage / Arch)
+### Packaging (AppImage / Ubuntu .deb / Arch)
 
-More detail lives in [`packaging/README.md`](packaging/README.md). Both formats
+More detail lives in [`packaging/README.md`](packaging/README.md). All formats
 are **Release** builds (`CORBOMITE_DEV_BUILD=OFF`) with Canvas-only LivePreview.
 Desktop / D-Bus identity is `com.concernednetizen.Corbomite`.
 
-#### AppImage (portable)
+#### AppImage (portable — recommended on Ubuntu 24.04 LTS)
 
 Needs network once to fetch `linuxdeploy` / `appimagetool` into
 `packaging/appimage/tools/` (cached on later runs), plus the usual Corbomite
@@ -255,6 +255,16 @@ Smoke / run:
 If FUSE is unavailable, the script extracts the tools automatically. You can
 also run with `--appimage-extract-and-run` if the host cannot mount AppImages.
 
+#### Ubuntu `.deb` (25.10+)
+
+Corbomite needs Qt **6.8+**; Ubuntu 24.04 only has Qt 6.4, so the native `.deb`
+targets **Ubuntu 25.10+**. GitHub Actions builds it on every `v*` tag (KDDockWidgets
+is bundled). On 24.04 LTS, use the AppImage instead.
+
+```bash
+sudo apt install ./corbomite_0.1.0-1_amd64.deb
+```
+
 #### Arch package (`makepkg`)
 
 Requires the same system packages as a normal Corbomite build (Qt6, KF6,
@@ -270,7 +280,7 @@ sudo pacman -U corbomite-0.1.0-1-x86_64.pkg.tar.zst
 ```
 
 The PKGBUILD builds from the enclosing git work tree by default. For a
-published AUR package, point `source=` at a Codeberg tag (e.g. `v0.1.0`) and
+published AUR package, point `source=` at a GitHub tag (e.g. `v0.1.0`) and
 bump `pkgrel` as needed.
 
 #### CMake presets used by packaging

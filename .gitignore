@@ -46,6 +46,7 @@ testvaults/sweet-setup-obsidian-starter-vault.zip
 packaging/appimage/tools/
 packaging/appimage/AppDir/
 packaging/appimage/out/
+packaging/ubuntu/out/
 packaging/arch/pkg/
 packaging/arch/src/
 packaging/arch/*.pkg.tar.*
