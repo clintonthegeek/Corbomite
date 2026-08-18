@@ -236,6 +236,16 @@ private:
     QAction *m_actionGoBack = nullptr;
     QAction *m_actionGoForward = nullptr;
     QMetaObject::Connection m_activeLeafHistoryConnection;
+    // D3 tab commands: pin-tab/toggle-stacked reflect the active leaf's
+    // state, rebound on every activeLeafChanged alongside D2's history hook.
+    QAction *m_actionPinTab = nullptr;
+    QAction *m_actionToggleStacked = nullptr;
+    QMetaObject::Connection m_activeLeafPinnedConnection;
+
+    /// D3: rebinds m_actionPinTab/m_actionToggleStacked's checked state to
+    /// the active leaf. Called from the same Workspace::activeLeafChanged
+    /// handler that drives updateBackForwardActions().
+    void updateTabStateActions();
     // Stable QWidget wrapper for the Workspace widget tree; owned by
     // m_centralStack so that Workspace::layoutChanged restructurings can
     // re-parent the root widget inside this container without needing to

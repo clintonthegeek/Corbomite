@@ -1545,6 +1545,83 @@ void MainWindow::setupActions()
                 leaf->goForward();
     });
 
+    // D3: jump-to-tab. Ctrl+1..8 = that 1-based tab index in the active
+    // tab group; Ctrl+9 = the last tab. Standard browser/editor
+    // convention (Firefox, Chrome, most terminal emulators).
+    auto jumpToTab = [this](int index /* -1 == last */) {
+        if (!m_workspace) return;
+        auto *active = m_workspace->activeLeaf();
+        if (!active) return;
+        const QString groupId = m_workspace->tabGroupIdOf(active);
+        if (groupId.isEmpty()) return;
+        const auto members = m_workspace->groupMembers(groupId);
+        if (members.isEmpty()) return;
+        const int target = (index < 0) ? members.size() - 1
+                                        : qMin(index, members.size() - 1);
+        if (target < 0) return;
+        m_workspace->setActiveLeaf(members.at(target));
+    };
+    for (int i = 1; i <= 8; ++i) {
+        auto *act = ac->addAction(QStringLiteral("tab_jump_%1").arg(i));
+        act->setText(i18n("Go to Tab %1", i));
+        ac->setDefaultShortcut(act, QKeySequence(Qt::CTRL | (Qt::Key_0 + i)));
+        connect(act, &QAction::triggered, this, [jumpToTab, i]() { jumpToTab(i - 1); });
+    }
+    auto *jumpLastTab = ac->addAction(QStringLiteral("tab_jump_last"));
+    jumpLastTab->setText(i18n("Go to Last Tab"));
+    ac->setDefaultShortcut(jumpLastTab, QKeySequence(Qt::CTRL | Qt::Key_9));
+    connect(jumpLastTab, &QAction::triggered, this, [jumpToTab]() { jumpToTab(-1); });
+
+    // D3: pin-tab. Primitives (WorkspaceLeaf::pinned/setPinned,
+    // Workspace::propagatePinToGroup) already existed from Cluster K/L
+    // groundwork; this is the one-call command wrapper the plan asked for.
+    // No default shortcut — Obsidian/Kate both leave pin as a menu/
+    // command-palette-only action, not a global keybinding.
+    m_actionPinTab = ac->addAction(QStringLiteral("tab_pin_toggle"));
+    m_actionPinTab->setText(i18n("Pin Tab"));
+    m_actionPinTab->setIcon(QIcon::fromTheme(QStringLiteral("view-pin")));
+    m_actionPinTab->setCheckable(true);
+    connect(m_actionPinTab, &QAction::triggered, this, [this](bool checked) {
+        if (!m_workspace) return;
+        if (auto *leaf = m_workspace->activeLeaf()) {
+            leaf->setPinned(checked);
+            m_workspace->propagatePinToGroup(leaf);
+        }
+    });
+
+    // D3: move-to-new-window. One-call wrapper over the popout/floating
+    // primitive kept from Phase L3's C1 audit (WorkspaceWindow/popoutLeaf).
+    auto *moveToNewWindow = ac->addAction(QStringLiteral("tab_move_to_new_window"));
+    moveToNewWindow->setText(i18n("Move Tab to New Window"));
+    connect(moveToNewWindow, &QAction::triggered, this, [this]() {
+        if (!m_workspace) return;
+        if (auto *leaf = m_workspace->activeLeaf())
+            m_workspace->popoutLeaf(leaf);
+    });
+
+    // D3: toggle-stacked. Decision per the plan's "advisory-only or hide"
+    // choice: advisory-only. isTabGroupStacked/setTabGroupStacked already
+    // exist and round-trip the bit through workspace.json (Obsidian
+    // interop), but KDDW has no stacked-tabs rendering mode to hook —
+    // building one is out of scope for a "missing tab command" finding.
+    // The action flips the bit and tells the user via the status bar
+    // rather than silently doing nothing, so it isn't a dead button.
+    m_actionToggleStacked = ac->addAction(QStringLiteral("tab_toggle_stacked"));
+    m_actionToggleStacked->setText(i18n("Toggle Stacked Tabs"));
+    m_actionToggleStacked->setCheckable(true);
+    connect(m_actionToggleStacked, &QAction::triggered, this, [this](bool checked) {
+        if (!m_workspace) return;
+        auto *leaf = m_workspace->activeLeaf();
+        if (!leaf) return;
+        const QString groupId = m_workspace->tabGroupIdOf(leaf);
+        if (groupId.isEmpty()) return;
+        m_workspace->setTabGroupStacked(groupId, checked);
+        statusBar()->showMessage(
+            checked ? i18n("Stacked tabs: saved (advisory only — layout unchanged)")
+                    : i18n("Stacked tabs: off"),
+            3000);
+    });
+
     // -----------------------------------------------------------------
     // Cluster V Phase 2+3 — Markoff editor actions (Format/Heading/
     // Insert/Table/Fold/Edit Find extensions). Each entry registers a
@@ -1957,6 +2034,15 @@ void MainWindow::setupEditor()
         }
         updateBackForwardActions();
 
+        // D3: same rebind pattern for pin-tab/toggle-stacked state.
+        disconnect(m_activeLeafPinnedConnection);
+        if (leaf) {
+            m_activeLeafPinnedConnection =
+                connect(leaf, &WorkspaceLeaf::pinnedChanged,
+                        this, &MainWindow::updateTabStateActions);
+        }
+        updateTabStateActions();
+
         auto *editor = activeEditor();
         // Update sidebar panels
         // All sidebar panels (Backlinks/Outlinks/Outline/Properties/
@@ -2288,6 +2374,21 @@ void MainWindow::updateBackForwardActions()
     const bool canForward = leaf && leaf->history().canGoForward();
     if (m_actionGoBack) m_actionGoBack->setEnabled(canBack);
     if (m_actionGoForward) m_actionGoForward->setEnabled(canForward);
+}
+
+void MainWindow::updateTabStateActions()
+{
+    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
+    if (m_actionPinTab) {
+        m_actionPinTab->setEnabled(leaf != nullptr);
+        m_actionPinTab->setChecked(leaf && leaf->pinned());
+    }
+    if (m_actionToggleStacked) {
+        const QString groupId = (m_workspace && leaf) ? m_workspace->tabGroupIdOf(leaf) : QString();
+        m_actionToggleStacked->setEnabled(!groupId.isEmpty());
+        m_actionToggleStacked->setChecked(
+            !groupId.isEmpty() && m_workspace->isTabGroupStacked(groupId));
+    }
 }
 
 void MainWindow::onVaultOpened(const QString &path)
