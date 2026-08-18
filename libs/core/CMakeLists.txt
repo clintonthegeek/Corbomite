@@ -91,14 +91,8 @@ add_library(corbomite-core STATIC
     include/corbomite/core/WorkspaceActiveLeafRouter.h
     src/WorkspaceWindow.cpp
     include/corbomite/core/WorkspaceWindow.h
-    src/WorkspaceContainer.cpp
-    include/corbomite/core/WorkspaceContainer.h
-    src/WorkspaceRoot.cpp
-    include/corbomite/core/WorkspaceRoot.h
     src/WorkspaceFloating.cpp
     include/corbomite/core/WorkspaceFloating.h
-    src/WorkspaceSidedock.cpp
-    include/corbomite/core/WorkspaceSidedock.h
     src/PluginMetaData.cpp
     include/corbomite/core/PluginMetaData.h
     include/corbomite/core/PluginApi.h

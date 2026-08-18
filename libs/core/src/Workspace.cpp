@@ -5,8 +5,8 @@
 #include "corbomite/core/WorkspaceActiveLeafRouter.h"
 #include "corbomite/core/WorkspaceFloating.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "corbomite/core/WorkspaceRoot.h"
 #include "corbomite/core/WorkspaceWindow.h"
+#include "WorkspaceKddwInit.h"
 #include "WorkspaceSerializer.h"
 
 #include <kddockwidgets/core/DockRegistry.h>
@@ -41,19 +41,6 @@ QString uniqueNameFor(const QString &vaultId, const QString &leafId)
     return vaultId.isEmpty()
         ? leafId
         : QStringLiteral("%1:%2").arg(vaultId, leafId);
-}
-
-void ensureKddwInit()
-{
-    static bool initialized = false;
-    if (initialized) return;
-    initialized = true;
-    KDDockWidgets::initFrontend(KDDockWidgets::FrontendType::QtWidgets);
-    auto &cfg = KDDockWidgets::Config::self();
-    cfg.setFlags(cfg.flags()
-                 | KDDockWidgets::Config::Flag_AlwaysShowTabs
-                 | KDDockWidgets::Config::Flag_AllowReorderTabs
-                 | KDDockWidgets::Config::Flag_TabsHaveCloseButton);
 }
 
 QString generateTabGroupId()
@@ -127,7 +114,7 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     , m_vaultId(std::move(vaultId))
     , m_registry(registry)
 {
-    ensureKddwInit();
+    detail::ensureKddwInit();
 
     const QString mainName = QStringLiteral("corbomite:%1")
         .arg(m_vaultId.isEmpty() ? QStringLiteral("default") : m_vaultId);
@@ -160,9 +147,10 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     // same way Obsidian's `Workspace.on("resize")` works.
     m_kddwMain->installEventFilter(this);
 
-    // Phase 7.5: Obsidian-shape root + floating containers. Bookkeeping
-    // shells; the actual KDDW MainWindow remains the substrate.
-    m_rootSplit = new WorkspaceRoot(QStringLiteral("root"), this);
+    // Phase 5: floating-window (popout) container. The Obsidian-shape
+    // root/sidedock bookkeeping shells that used to live here were
+    // removed in Cluster L Phase L3 (C1) — dead weight with no real
+    // callers.
     m_floating = new WorkspaceFloating(this);
 }
 

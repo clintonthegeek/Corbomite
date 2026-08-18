@@ -21,8 +21,6 @@ namespace Corbomite {
 class ViewRegistry;
 class WorkspaceFloating;
 class WorkspaceLeaf;
-class WorkspaceRoot;
-class WorkspaceSidedock;
 class WorkspaceWindow;
 
 struct UndoEntry {
@@ -245,16 +243,15 @@ public:
     /// the live tab-group id on the write side.
     QString tabGroupIdOf(WorkspaceLeaf *leaf) const;
 
-    /// Obsidian-shape container accessors (Cluster Y Phase 7.5). The root
-    /// split holds the central tab/split tree. The two sidedock accessors
-    /// return `nullptr` until a future cluster migrates the
-    /// CorbomiteMDI-resident sidebars into the Workspace tree — having
-    /// the API here means plugin code that walks the workspace shape
-    /// from Obsidian compiles. `floatingSplit` is the popout-window
-    /// container; its `windows()` mirrors `Workspace::windows()`.
-    WorkspaceRoot *rootSplit() const { return m_rootSplit; }
-    WorkspaceSidedock *leftSplit() const { return nullptr; }
-    WorkspaceSidedock *rightSplit() const { return nullptr; }
+    /// Popout-window container (Cluster Y Phase 5); its `windows()`
+    /// mirrors `Workspace::windows()`. The Obsidian-shape `rootSplit()` /
+    /// `leftSplit()` / `rightSplit()` bookkeeping shells were removed in
+    /// Cluster L Phase L3 (C1) — they had no real callers and
+    /// `leftSplit()`/`rightSplit()` returned literal `nullptr`, a
+    /// crash invitation for any caller that assumed Obsidian-shape
+    /// compatibility. Left/right sidebars still live in `CorbomiteMDI`;
+    /// when Cluster F migrates them into the Workspace tree, add honest
+    /// accessors then.
     WorkspaceFloating *floatingSplit() const { return m_floating; }
 
     /// Re-emit `cssChange()` from the host. Called by MainWindow whenever
@@ -353,7 +350,6 @@ private:
     QVector<UndoEntry> m_undoHistory;
     QStringList m_lastOpenFiles;
     LinkResolverFn m_linkResolver;
-    WorkspaceRoot *m_rootSplit = nullptr;
     WorkspaceFloating *m_floating = nullptr;
 
     /// Root-level keys from a loaded workspace.json that Workspace doesn't
