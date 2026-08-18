@@ -855,7 +855,14 @@ void MainWindow::saveSessionState()
     if (!m_sessionManager) return;
     m_sessionManager->blockSaving();
     m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
-    m_sessionManager->saveSidebarState(sidebarsVisible(), 200, false, 200);
+    // D4: real pixel widths from CorbomiteMDI (Sidebar::lastSize),
+    // replacing the previous hardcoded 200/false/200. Left/Right share one
+    // visibility toggle at the CorbomiteMDI level (setSidebarsVisibleInternal
+    // hides/shows all sidebars together) — there's no independent
+    // right-sidebar visibility to persist, so both pass sidebarsVisible().
+    m_sessionManager->saveSidebarState(
+        sidebarsVisible(), sidebarWidth(KMultiTabBar::Left),
+        sidebarsVisible(), sidebarWidth(KMultiTabBar::Right));
     // Expanded-folder persistence moved into FileExplorer plugin
     // (Cluster Q Task 18); follow-up: surface a plugin-side helper
     // that SessionManager can query via WorkspaceController.
@@ -2621,6 +2628,17 @@ void MainWindow::onVaultOpened(const QString &path)
     if (!sidebar.isEmpty()) {
         const bool leftVisible = sidebar.value(QStringLiteral("leftVisible")).toBool(true);
         setSidebarsVisibleInternal(leftVisible, true);
+
+        // D4: the width half of "restore persisted widths/visibility" —
+        // visibility was already wired (above); widths were saved
+        // (SessionManager::saveSidebarState) but never read back into
+        // CorbomiteMDI. sidebarState()'s width fields default to 200 (the
+        // pre-existing hardcoded value) when absent, so this is a no-op on
+        // first run / old sessions.
+        setSidebarWidth(KMultiTabBar::Left,
+                        sidebar.value(QStringLiteral("leftWidth")).toInt(200));
+        setSidebarWidth(KMultiTabBar::Right,
+                        sidebar.value(QStringLiteral("rightWidth")).toInt(200));
     }
 
     m_sessionManager->blockSaving();

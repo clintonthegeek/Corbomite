@@ -272,6 +272,23 @@ public:
     void restoreSession(KConfigGroup &config);
     void saveSession(KConfigGroup &config);
 
+    /// Cluster L Phase L4 (D4): the pixel width (expanded splitter size)
+    /// this sidebar last had while visible — the same value updateSidebar()
+    /// re-applies on expand. Exposed so MainWindow can hand it to
+    /// SessionManager instead of the previous hardcoded 200 literal.
+    int lastSize() const { return m_lastSize; }
+    /// Sets the remembered width and, if the sidebar is currently expanded,
+    /// applies it immediately.
+    void setLastSize(int size)
+    {
+        m_lastSize = qMax(size, 160);
+        if (!isCollapsed()) {
+            QList<int> wsizes = m_splitter->sizes();
+            wsizes[m_ownSplitIndex] = m_lastSize;
+            m_splitter->setSizes(wsizes);
+        }
+    }
+
 public Q_SLOTS:
     void setVisible(bool visible) override;
 
@@ -414,6 +431,19 @@ public:
     bool sidebarsVisible() const;
 
     void setSidebarsVisibleInternal(bool visible, bool hideFullySilent);
+
+    /// Cluster L Phase L4 (D4): pixel width (Sidebar::lastSize) for the
+    /// sidebar at `pos`. 200 (Sidebar's own default) if that sidebar
+    /// doesn't exist. Exposed so the app layer can persist/restore real
+    /// widths instead of the previous hardcoded literal.
+    int sidebarWidth(KMultiTabBar::KMultiTabBarPosition pos) const
+    {
+        return m_sidebars[pos] ? m_sidebars[pos]->lastSize() : 200;
+    }
+    void setSidebarWidth(KMultiTabBar::KMultiTabBarPosition pos, int width)
+    {
+        if (m_sidebars[pos]) m_sidebars[pos]->setLastSize(width);
+    }
 
     ToolView *activeViewToolView(KMultiTabBar::KMultiTabBarPosition pos);
 
