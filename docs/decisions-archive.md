@@ -10,6 +10,22 @@ Conventions:
 
 ---
 
+## 2026-08-17 — Cluster L Phase L4 code landed: native UX polish (live verification still pending)
+
+Four commits: `9fa87398` (D1), `8fddb2b5` (D2), `0e6f4906` (D3), `03dd494e` (D4). Baseline going in and final state both 311/312 offscreen (excl. benchmark), sole failure the known `tst_e2e_gui::testSaveShortcut` flake — no regressions. **This entry records code landed, not a closed phase** — D1 and D4 explicitly need a live dogfood pass (project memory: offscreen-green history has previously hidden a broken keyboard-focus fix; do not repeat that here).
+
+**D1 (KDDW chrome) — landed, needs live eyeball.** Added `Flag_HideTitleBarWhenTabsVisible` + `Flag_ShowButtonsOnTabBarIfTitleBarHidden` to `KDDockWidgets::Config` (eliminates the redundant title-bar row `AlwaysShowTabs` alone was producing, keeps close/float/maximize reachable on the tab bar) and middle-click-to-close via an app-wide `Workspace::eventFilter` scoped to `isAncestorOf(m_kddwMain)` (KDDW has no built-in flag for this; tab bars are created/destroyed dynamically per group so app-wide + scoping was the only stable hook). Tab-bar KDE-palette styling and drop-indicator legibility: no code bug found (no hardcoded colors overriding the palette), so nothing was "fixed" there — those are purely visual and genuinely unassessable offscreen.
+
+**D2 (back/forward completion) — landed.** `Ctrl+Alt+Left/Right` via `KActionCollection`, mouse buttons 4/5 (`Qt::BackButton`/`Qt::ForwardButton`) in the same event filter as D1, and `MainWindow::updateBackForwardActions()` binding the global actions to the active leaf's `LeafHistory::canGoBack()`/`canGoForward()`, re-subscribed on every `activeLeafChanged` so state can't go stale mid-leaf. Lower live-risk than D1 (action-enablement wiring, not chrome/focus), but keyboard/mouse-button interaction itself hasn't been manually driven either.
+
+**D3 (missing tab commands) — landed.** `Ctrl+1..8`/`Ctrl+9` jump-to-tab on existing `tabGroupIdOf`/`groupMembers`; pin-tab as a one-call wrapper over pre-existing `WorkspaceLeaf::pinned/setPinned` + `propagatePinToGroup` (no default shortcut, matching Obsidian/Kate's menu-only precedent); move-to-new-window wrapping `Workspace::popoutLeaf`; toggle-stacked decided **advisory-only, not hide** — KDDW has no stacked-tabs rendering mode to hook, so the action flips the existing round-tripped `stacked` bit and posts a status-bar message rather than being silently dead.
+
+**D4 (sidebar behavior) — landed, needs live eyeball.** Root cause: Phase L2 built the tier-2/3 width *storage* but nothing wired real values through — `leftVisible` restore existed, widths didn't, and the save call passed literal `200, false, 200`. Fixed via `CorbomiteMDI::Sidebar::lastSize()`/`setLastSize()` + `MainWindow::sidebarWidth()`/`setSidebarWidth()`, with real widths now saved and restored on vault-open. Deliberately did **not** resurrect `CorbomiteMDI`'s separate dormant `startRestore`/`finishRestore`/`saveSession` KConfig mechanism — it persists an overlapping-but-different shape that would compete with the L2 tier model. Keyboard toolview focus turned out to already exist (`GUIClient::registerToolView`'s per-toolview "Focus %1" action, same unbound-by-design pattern as upstream Kate) — no change needed. KXMLGUI "Index 18" merge-index noise left on the punch list (`[ui][xmlgui][P5]`, root cause already identified there) rather than an unscoped dig.
+
+**Test bar:** 311/312 offscreen, same single pre-existing flake, no new failures. **Not independently driven with mouse/keyboard by the agent** for any of D1-D4 — all four are build+offscreen-test verified only.
+
+**Next:** live dogfood pass on D1 (title-bar removal, tab styling, drop indicators) and D4 (width restore on a real vault open) before this phase can close. D2/D3 are lower-risk but also unverified live. After that: Phase L5 (soak & closeout dogfood session, files `[cluster-l]` punch-list findings, updates `PARITY-MATRIX.md` workspace rows).
+
 ## 2026-08-17 — Cluster L Phase L3 landed: cruft removal (C6 deliberately skipped)
 
 Four commits: `0060cedc` (C1), `0b3bd503` (C3), `98204f9b` (C4), `2f4cd239` (C5 partial). Baseline going in: 311/312 offscreen (excl. benchmark), sole failure the known `tst_e2e_gui::testSaveShortcut` flake. No regressions from any change below.

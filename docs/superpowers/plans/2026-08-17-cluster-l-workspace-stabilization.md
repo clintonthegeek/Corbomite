@@ -2,13 +2,17 @@
 
 **Date:** 2026-08-17
 **Type:** Full plan
-**Status:** **L0, L1, L2, L3 landed 2026-08-17 (this session).** L4/L5 not
-started. See `docs/PROJECT-STATE.md` (Cluster L row) for the one-line
-current state and `docs/decisions-archive.md` (dated 2026-08-17, four
-"Cluster L Phase..." entries) for full closeout detail per phase,
-including exact commit shas and test results. This plan file's phase
-descriptions below are left as originally written (the *intent*); do not
-infer completion status from this section — check PROJECT-STATE first.
+**Status:** **L0-L3 landed 2026-08-17. L4 code landed same day but NOT
+YET LIVE-VERIFIED** — D1 (title-bar/tab chrome) and D4 (sidebar width
+restore) explicitly need a live dogfood pass before being called done;
+offscreen-green is not sufficient for this phase (see project memory on
+keyboard/focus-change fixes). L5 not started. See `docs/PROJECT-STATE.md`
+(Cluster L row) for the one-line current state and
+`docs/decisions-archive.md` (dated 2026-08-17, five "Cluster L
+Phase..." entries) for full closeout detail per phase, including exact
+commit shas and test results. This plan file's phase descriptions below
+are left as originally written (the *intent*); do not infer completion
+status from this section — check PROJECT-STATE first.
 **Source:** Full re-evaluation of the workspace/tab/dock layer (this
 session), building on `docs/audit-2026-04-26/workspace.md` (many of whose
 top findings have since been fixed — this plan covers what's *still*
@@ -292,9 +296,25 @@ C4 router hash, C5 debounces, C6 tab-group cache slimming, `eState.scroll`
 with `2026-06-10-release-hygiene.md`'s dead-code purge so nothing is
 deleted twice or resurrected.
 
-### Phase L4 — Native UX polish — **Not started**
+### Phase L4 — Native UX polish — **Code landed, live verification pending**
 
-D1 KDDW flag/chrome pass (live eyeball with user — per memory:
+Landed: D1 (`9fa87398` — `Flag_HideTitleBarWhenTabsVisible` +
+`Flag_ShowButtonsOnTabBarIfTitleBarHidden`, middle-click tab close via
+event filter; tab-bar/KDE-palette styling and drop-indicator legibility
+not independently fixed — no code bug found, purely visual, can't be
+assessed offscreen), D2 (`8fddb2b5` — Ctrl+Alt+←/→, mouse buttons 4/5,
+`LeafHistory`-backed enablement), D3 (`0e6f4906` — Ctrl+1..9 jump-to-tab,
+pin-tab wrapper, move-to-new-window wrapper, toggle-stacked decided
+**advisory-only** since KDDW has no stacked-rendering mode to hook), D4
+(`03dd494e` — sidebar pixel-width persistence wired end-to-end; found
+Phase L2 had built the tier-2/3 storage but never connected real width
+values, only visibility — keyboard toolview focus turned out to already
+exist via `GUIClient::registerToolView`'s per-toolview Focus action, no
+change needed; KXMLGUI "Index 18" merge-index noise left to its existing
+punch-list entry rather than an unscoped archaeology dig). **D1's
+title-bar removal and D4's width restore have not been seen rendered
+live** — this is the gate before Phase L4 can be marked done, not a
+formality. Original phase description follows for context: D1 KDDW flag/chrome pass (live eyeball with user — per memory:
 keyboard/focus changes need live confirmation, not just offscreen
 green), D2 back/forward completion, D3 tab commands via KStandardAction/
 KActionCollection where applicable, D4 sidebar persistence revival
