@@ -346,6 +346,9 @@ private:
 
     WorkspaceLeaf *m_activeLeaf = nullptr;
     bool m_layoutReady = true;
+    /// C5 resize-event coalescing guard: true while a singleShot(0) flush
+    /// of `resize()` is already scheduled for the current event-loop turn.
+    bool m_resizeCoalesceScheduled = false;
     QVector<WorkspaceWindow *> m_windows;
     QVector<UndoEntry> m_undoHistory;
     QStringList m_lastOpenFiles;

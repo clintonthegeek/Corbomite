@@ -30,6 +30,7 @@
 #include <QRandomGenerator>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QTimer>
 #include <QWidget>
 
 namespace Corbomite {
@@ -156,8 +157,21 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
 
 bool Workspace::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == m_kddwMain && event && event->type() == QEvent::Resize)
-        Q_EMIT resize();
+    if (watched == m_kddwMain && event && event->type() == QEvent::Resize) {
+        // Cluster L Phase L3, C5: a single window-manager resize (e.g. a
+        // live-resize drag) can drive many QEvent::Resize deliveries in
+        // one layout pass; mirroring every one of them 1:1 as
+        // Workspace::resize() is not what Obsidian's own debounced
+        // `resize` event does. Coalesce a burst into a single emission
+        // via a zero-delay singleShot timer.
+        if (!m_resizeCoalesceScheduled) {
+            m_resizeCoalesceScheduled = true;
+            QTimer::singleShot(0, this, [this]() {
+                m_resizeCoalesceScheduled = false;
+                Q_EMIT resize();
+            });
+        }
+    }
     return QObject::eventFilter(watched, event);
 }
 

@@ -32,6 +32,7 @@ private Q_SLOTS:
     void focusInsideLeafWidgetMarksLeafActive();
     void focusOutsideMainWindowDoesNotChangeActiveLeaf();
     void resizeOnMainWindowEmitsResizeSignal();
+    void rapidResizeBurstCoalescesToOneEmission();
     void popoutAndReparentEmitWindowFrameChange();
 };
 
@@ -179,6 +180,28 @@ void TestWorkspaceActiveLeafRouter::resizeOnMainWindowEmitsResizeSignal()
     QApplication::processEvents();
 
     QVERIFY(spy.count() >= 1);
+}
+
+void TestWorkspaceActiveLeafRouter::rapidResizeBurstCoalescesToOneEmission()
+{
+    // Cluster L Phase L3, C5: a burst of QEvent::Resize deliveries within
+    // the same event-loop turn (e.g. a live window-manager resize drag)
+    // must coalesce into a single Workspace::resize() emission rather
+    // than mirroring every QEvent::Resize 1:1.
+    ViewRegistry registry;
+    Workspace ws(QStringLiteral("test-vault-resize-burst"), &registry);
+    ws.kddwMainWindow()->show();
+
+    QSignalSpy spy(&ws, &Workspace::resize);
+    // No processEvents() between these — the coalescing guard should
+    // collapse them into exactly one scheduled emission.
+    ws.kddwMainWindow()->resize(640, 480);
+    ws.kddwMainWindow()->resize(700, 520);
+    ws.kddwMainWindow()->resize(800, 600);
+    QCOMPARE(spy.count(), 0);  // emission deferred to the event loop
+
+    QApplication::processEvents();
+    QCOMPARE(spy.count(), 1);
 }
 
 void TestWorkspaceActiveLeafRouter::popoutAndReparentEmitWindowFrameChange()
