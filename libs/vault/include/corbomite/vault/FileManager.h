@@ -63,6 +63,13 @@ public:
     TFile   *createNewMarkdownFile(TFolder *parent,
                                    const QString &name,
                                    const QByteArray &content = {});
+    /// Generalized new-file placement for an arbitrary extension (M2.6:
+    /// "Create new canvas"). Same collision-dedup rule as
+    /// createNewMarkdownFile (" 1", " 2", ... starting at 1, Obsidian's
+    /// numbering); an empty `name` yields "Untitled.<ext>". `parent`
+    /// defaults to the vault root when null.
+    TFile   *createNewFile(TFolder *parent, const QString &name,
+                           const QString &ext, const QByteArray &content = {});
     TFile   *createNewMarkdownFileFromLinktext(const QString &linkText,
                                                const QString &hintPath);
     TFolder *createNewFolder(TFolder *parent);

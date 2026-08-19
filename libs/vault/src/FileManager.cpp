@@ -617,10 +617,16 @@ TFile *FileManager::createNewMarkdownFile(TFolder *parent,
                                           const QString &name,
                                           const QByteArray &content)
 {
+    return createNewFile(parent, name, QStringLiteral("md"), content);
+}
+
+TFile *FileManager::createNewFile(TFolder *parent, const QString &name,
+                                  const QString &ext, const QByteArray &content)
+{
     if (!m_vault) return nullptr;
     if (!parent) parent = m_vault->getRoot();
     const QString prefix = parent->getParentPrefix();
-    const QString path = collisionFreeName(m_vault, prefix, name, QStringLiteral("md"));
+    const QString path = collisionFreeName(m_vault, prefix, name, ext);
     return m_vault->create(path, content);
 }
 

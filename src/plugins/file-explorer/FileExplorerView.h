@@ -45,6 +45,7 @@ private:
     void showContextMenu(const QPoint &pos);
     void onNoteActivated(const QString &relativePath);
     void onNewNoteIn(const QString &folder);
+    void onNewCanvasIn(const QString &folder);
     void onDeleteNote(const QString &relativePath);
     void onRenameNote(const QString &relativePath);
 

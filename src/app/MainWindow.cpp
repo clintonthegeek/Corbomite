@@ -1320,20 +1320,7 @@ void MainWindow::setupActions()
     auto *newCanvas = ac->addAction(QStringLiteral("file_new_canvas"));
     newCanvas->setText(i18n("New Canvas"));
     newCanvas->setIcon(QIcon::fromTheme(QStringLiteral("draw-rectangle")));
-    connect(newCanvas, &QAction::triggered, this, [this]() {
-        if (!m_app->isOpen()) return;
-        bool ok;
-        QString name = QInputDialog::getText(this, i18n("New Canvas"),
-                                              i18n("Canvas name:"), QLineEdit::Normal,
-                                              QString(), &ok);
-        if (ok && !name.isEmpty()) {
-            QString relPath = name + QStringLiteral(".canvas");
-            QString absPath = m_vaultObj->basePath() + QLatin1Char('/') + relPath;
-            Canvas::CanvasDocument emptyDoc;
-            emptyDoc.saveToFile(absPath);
-            openFileInWorkspace(relPath);
-        }
-    });
+    connect(newCanvas, &QAction::triggered, this, [this]() { createNewCanvas(); });
 
     auto *save = ac->addAction(QStringLiteral("file_save"));
     save->setText(i18n("Save"));
@@ -2232,6 +2219,50 @@ void MainWindow::createNewNote()
         if (tf)
             openFileInWorkspace(tf->path);
     }
+}
+
+void MainWindow::createNewCanvas(const QString &folder)
+{
+    // M2.6 — "Create new canvas": Obsidian-style create-then-rename, not
+    // createNewNote()'s upfront QInputDialog prompt. Creates
+    // "Untitled.canvas" (dedup-numbered on collision, same
+    // FileManager::createNewFile()/collisionFreeName() rule
+    // createMarkdownNote() uses), opens it, then triggers a rename.
+    //
+    // Divergence from the plan's literal wording: there is no existing
+    // "inline-rename-on-creation" mechanism to mirror — createNewNote()
+    // and FileExplorerView::onNewNoteIn() both prompt for a name via
+    // QInputDialog *before* creating the file, not after. Building a new
+    // inline-edit-on-creation mechanism (tab-title or tree-row inline
+    // editor triggered automatically post-create) is out of scope here;
+    // this instead reuses FileManager::promptForFileRename() — the same
+    // modal rename dialog F2 / the tree's "Rename..." action already use
+    // — as the closest existing "start a rename" primitive. Noted for a
+    // follow-up if a true inline-rename-on-creation flow gets built for
+    // notes generally.
+    if (!m_app->isOpen()) {
+        openVaultDialog();
+        if (!m_app->isOpen()) return;
+    }
+    if (!m_fileManager || !m_vaultObj) return;
+
+    TFolder *parent = m_vaultObj->getRoot();
+    if (!folder.isEmpty()) {
+        if (auto *existing = m_vaultObj->getFolderByPath(folder))
+            parent = existing;
+        else if (auto *created = m_vaultObj->createFolder(folder))
+            parent = created;
+    }
+
+    Canvas::CanvasDocument emptyDoc; // {"nodes":[],"edges":[]}
+    const QByteArray content = QJsonDocument(emptyDoc.toJson()).toJson(QJsonDocument::Indented);
+
+    auto *tf = m_fileManager->createNewFile(parent, QString(), QStringLiteral("canvas"), content);
+    if (!tf)
+        return;
+
+    openFileInWorkspace(tf->path);
+    m_fileManager->promptForFileRename(tf, this);
 }
 
 void MainWindow::saveCurrentNote()

@@ -35,6 +35,10 @@ public:
     bool     setFrontMatter(TFile *f, const QList<FileManager::FrontMatterEntry> &ordered);
     TFile   *createNewMarkdownFile(TFolder *parent, const QString &name,
                                    const QByteArray &content = {});
+    /// M2.6 — generalized new-file placement (e.g. ".canvas"). See
+    /// FileManager::createNewFile.
+    TFile   *createNewFile(TFolder *parent, const QString &name,
+                           const QString &ext, const QByteArray &content = {});
     TFolder *createNewFolder(TFolder *parent);
     bool     insertIntoFile(TFile *f, const QByteArray &content,
                             FileManager::InsertMode mode);

@@ -155,6 +155,38 @@ void FileExplorerView::onNewNoteIn(const QString &folder)
     }
 }
 
+void FileExplorerView::onNewCanvasIn(const QString &folder)
+{
+    // M2.6 — "Create new canvas" (FileExplorer folder-context-menu half of
+    // the command; see MainWindow::createNewCanvas() for the command-
+    // palette half, which this mirrors). No name prompt: creates
+    // "Untitled.canvas" (dedup-numbered on collision via the same
+    // FileManager::createNewFile()/collisionFreeName() rule
+    // createNewMarkdownFile() uses), opens it, then triggers a rename via
+    // promptForFileRename() — the closest existing "start a rename"
+    // primitive, since no true inline-rename-on-creation flow exists for
+    // notes either (see MainWindow::createNewCanvas()'s comment).
+    if (!m_fmProxy || !m_vault) return;
+    TFolder *parent = nullptr;
+    if (!folder.isEmpty()) parent = m_vault->getFolderByPath(folder);
+
+    // Literal empty `.canvas` JSON contract shape (CanvasDocument::toJson()'s
+    // defaults for a document with no nodes/edges) — this plugin doesn't
+    // link against libs/canvas, so the shape is inlined rather than pulling
+    // in a new dependency for one JSON literal.
+    static const QByteArray kEmptyCanvasJson = QByteArrayLiteral("{\n    \"nodes\": [],\n    \"edges\": []\n}\n");
+
+    auto *tf = m_fmProxy->createNewFile(parent, QString(), QStringLiteral("canvas"), kEmptyCanvasJson);
+    if (!tf) {
+        QMessageBox::warning(this, i18n("Could not create canvas"),
+            i18n("A file named \"Untitled.canvas\" already exists in this folder "
+                 "(case-insensitive match)."));
+        return;
+    }
+    onNoteActivated(tf->path);
+    m_fmProxy->promptForFileRename(tf, this);
+}
+
 void FileExplorerView::onDeleteNote(const QString &path)
 {
     if (!m_fmProxy || !m_vault) return;
@@ -183,6 +215,10 @@ void FileExplorerView::showContextMenu(const QPoint &pos)
                                            i18n("New Note Here"));
             connect(newNote, &QAction::triggered, this,
                     [this, p = contextPath]() { onNewNoteIn(p); });
+            auto *newCanvas = menu.addAction(QIcon::fromTheme(QStringLiteral("draw-rectangle")),
+                                             i18n("New Canvas Here"));
+            connect(newCanvas, &QAction::triggered, this,
+                    [this, p = contextPath]() { onNewCanvasIn(p); });
             // Don't offer rename/delete on the root row.
             if (!contextPath.isEmpty() && contextPath != QStringLiteral("/")) {
                 menu.addSeparator();
@@ -211,6 +247,10 @@ void FileExplorerView::showContextMenu(const QPoint &pos)
                                        i18n("New Note"));
         connect(newNote, &QAction::triggered, this,
                 [this]() { onNewNoteIn(QString()); });
+        auto *newCanvas = menu.addAction(QIcon::fromTheme(QStringLiteral("draw-rectangle")),
+                                         i18n("New Canvas"));
+        connect(newCanvas, &QAction::triggered, this,
+                [this]() { onNewCanvasIn(QString()); });
     }
     menu.exec(m_treeView->viewport()->mapToGlobal(pos));
 }

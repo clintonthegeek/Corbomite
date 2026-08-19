@@ -66,6 +66,16 @@ TFile *FileManagerProxy::createNewMarkdownFile(TFolder *parent,
     return m_fm ? m_fm->createNewMarkdownFile(parent, name, content) : nullptr;
 }
 
+TFile *FileManagerProxy::createNewFile(TFolder *parent, const QString &name,
+                                       const QString &ext, const QByteArray &content)
+{
+    if (!canWrite()) {
+        logDenied("createNewFile", "vault.write");
+        return nullptr;
+    }
+    return m_fm ? m_fm->createNewFile(parent, name, ext, content) : nullptr;
+}
+
 TFolder *FileManagerProxy::createNewFolder(TFolder *parent)
 {
     if (!canWrite()) {
