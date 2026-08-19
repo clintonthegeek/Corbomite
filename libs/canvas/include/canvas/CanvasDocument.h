@@ -56,6 +56,13 @@ Q_SIGNALS:
 private:
     QHash<QString, CanvasNode> m_nodes;
     QHash<QString, CanvasEdge> m_edges;
+    // Insertion/load order of node and edge ids. QHash has no stable
+    // iteration order, so nodes()/edges()/toJson() would otherwise reorder
+    // the .canvas file's JSON arrays on every save relative to what was
+    // originally loaded (or what Obsidian wrote) — pure diff-churn noise.
+    // Kept in lockstep with m_nodes/m_edges by add*/remove*/loadFromJson.
+    QVector<QString> m_nodeOrder;
+    QVector<QString> m_edgeOrder;
     // Unknown top-level JSON keys preserved verbatim across load→save
     // (Obsidian spreads ...unknownData on the root object; we must too,
     // otherwise plugin- or future-Obsidian-written canvases lose data).

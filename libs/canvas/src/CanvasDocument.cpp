@@ -89,6 +89,8 @@ bool CanvasDocument::loadFromJson(const QJsonObject &json)
 {
     m_nodes.clear();
     m_edges.clear();
+    m_nodeOrder.clear();
+    m_edgeOrder.clear();
     m_extraTopLevel = captureExtras(
         json, {QStringLiteral("nodes"), QStringLiteral("edges")});
 
@@ -124,6 +126,8 @@ bool CanvasDocument::loadFromJson(const QJsonObject &json)
         node.backgroundStyle = obj[QStringLiteral("backgroundStyle")].toString();
         node.extraData = captureExtras(obj, knownNodeKeys());
 
+        if (!m_nodes.contains(node.id))
+            m_nodeOrder.append(node.id);
         m_nodes.insert(node.id, node);
     }
 
@@ -170,6 +174,8 @@ bool CanvasDocument::loadFromJson(const QJsonObject &json)
         edge.label = obj[QStringLiteral("label")].toString();
         edge.extraData = captureExtras(obj, knownEdgeKeys());
 
+        if (!m_edges.contains(edge.id))
+            m_edgeOrder.append(edge.id);
         m_edges.insert(edge.id, edge);
     }
 
@@ -182,7 +188,8 @@ QJsonObject CanvasDocument::toJson() const
     QJsonObject json;
 
     QJsonArray nodesArray;
-    for (const auto &node : m_nodes) {
+    for (const auto &id : m_nodeOrder) {
+        const auto &node = m_nodes[id];
         QJsonObject obj;
         obj[QStringLiteral("id")] = node.id;
 
@@ -226,7 +233,8 @@ QJsonObject CanvasDocument::toJson() const
     }
 
     QJsonArray edgesArray;
-    for (const auto &edge : m_edges) {
+    for (const auto &id : m_edgeOrder) {
+        const auto &edge = m_edges[id];
         QJsonObject obj;
         obj[QStringLiteral("id")] = edge.id;
         obj[QStringLiteral("fromNode")] = edge.fromNode;
@@ -278,6 +286,8 @@ bool CanvasDocument::saveToFile(const QString &filePath)
 
 void CanvasDocument::addNode(const CanvasNode &node)
 {
+    if (!m_nodes.contains(node.id))
+        m_nodeOrder.append(node.id);
     m_nodes.insert(node.id, node);
     m_modified = true;
     Q_EMIT nodeAdded(node.id);
@@ -287,6 +297,7 @@ void CanvasDocument::addNode(const CanvasNode &node)
 void CanvasDocument::removeNode(const QString &id)
 {
     m_nodes.remove(id);
+    m_nodeOrder.removeAll(id);
     // Remove connected edges
     QStringList edgesToRemove;
     for (const auto &edge : m_edges) {
@@ -296,6 +307,7 @@ void CanvasDocument::removeNode(const QString &id)
     }
     for (const auto &edgeId : edgesToRemove) {
         m_edges.remove(edgeId);
+        m_edgeOrder.removeAll(edgeId);
         Q_EMIT edgeRemoved(edgeId);
     }
     m_modified = true;
@@ -319,7 +331,11 @@ CanvasNode CanvasDocument::node(const QString &id) const
 
 QVector<CanvasNode> CanvasDocument::nodes() const
 {
-    return QVector<CanvasNode>(m_nodes.cbegin(), m_nodes.cend());
+    QVector<CanvasNode> result;
+    result.reserve(m_nodeOrder.size());
+    for (const auto &id : m_nodeOrder)
+        result.append(m_nodes.value(id));
+    return result;
 }
 
 bool CanvasDocument::hasNode(const QString &id) const
@@ -329,6 +345,8 @@ bool CanvasDocument::hasNode(const QString &id) const
 
 void CanvasDocument::addEdge(const CanvasEdge &edge)
 {
+    if (!m_edges.contains(edge.id))
+        m_edgeOrder.append(edge.id);
     m_edges.insert(edge.id, edge);
     m_modified = true;
     Q_EMIT edgeAdded(edge.id);
@@ -338,6 +356,7 @@ void CanvasDocument::addEdge(const CanvasEdge &edge)
 void CanvasDocument::removeEdge(const QString &id)
 {
     m_edges.remove(id);
+    m_edgeOrder.removeAll(id);
     m_modified = true;
     Q_EMIT edgeRemoved(id);
     Q_EMIT modificationChanged(true);
@@ -359,7 +378,11 @@ CanvasEdge CanvasDocument::edge(const QString &id) const
 
 QVector<CanvasEdge> CanvasDocument::edges() const
 {
-    return QVector<CanvasEdge>(m_edges.cbegin(), m_edges.cend());
+    QVector<CanvasEdge> result;
+    result.reserve(m_edgeOrder.size());
+    for (const auto &id : m_edgeOrder)
+        result.append(m_edges.value(id));
+    return result;
 }
 
 QVector<CanvasEdge> CanvasDocument::edgesForNode(const QString &nodeId) const

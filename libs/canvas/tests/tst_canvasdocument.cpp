@@ -475,6 +475,75 @@ private Q_SLOTS:
         QCOMPARE(edge.toEnd, Canvas::EndType::Arrow);
         QCOMPARE(edge.fromEnd, Canvas::EndType::None);
     }
+
+    void testLoadSavePreservesNodeAndEdgeOrder()
+    {
+        // Punch-list P2 (audit-2026-06-10) — QHash storage has no stable
+        // iteration order, so a plain load->save would reorder the
+        // nodes/edges JSON arrays relative to what was loaded (and thus
+        // vs. whatever Obsidian/the user originally wrote), producing pure
+        // diff-churn noise. Assert the round-trip is byte-identical in
+        // array order — deliberately using ids that would sort/hash into a
+        // different order than declaration order, to catch any accidental
+        // reliance on QHash iteration or id sorting.
+        auto json = QJsonDocument::fromJson(R"({
+            "nodes": [
+                {"id":"z-third","type":"text","x":0,"y":0,"width":100,"height":50,"text":"third"},
+                {"id":"a-first","type":"text","x":100,"y":0,"width":100,"height":50,"text":"first"},
+                {"id":"m-second","type":"text","x":200,"y":0,"width":100,"height":50,"text":"second"}
+            ],
+            "edges": [
+                {"id":"e-last","fromNode":"z-third","toNode":"a-first","fromSide":"right","toSide":"left"},
+                {"id":"e-early","fromNode":"a-first","toNode":"m-second","fromSide":"right","toSide":"left"}
+            ]
+        })").object();
+
+        Canvas::CanvasDocument doc;
+        QVERIFY(doc.loadFromJson(json));
+
+        const auto nodes = doc.nodes();
+        QCOMPARE(nodes.size(), 3);
+        QCOMPARE(nodes[0].id, QStringLiteral("z-third"));
+        QCOMPARE(nodes[1].id, QStringLiteral("a-first"));
+        QCOMPARE(nodes[2].id, QStringLiteral("m-second"));
+
+        const auto edges = doc.edges();
+        QCOMPARE(edges.size(), 2);
+        QCOMPARE(edges[0].id, QStringLiteral("e-last"));
+        QCOMPARE(edges[1].id, QStringLiteral("e-early"));
+
+        // Round-trip through toJson(): array order must match the
+        // originally-loaded declaration order exactly.
+        const QJsonObject saved = doc.toJson();
+        const auto savedNodes = saved[QStringLiteral("nodes")].toArray();
+        QCOMPARE(savedNodes.size(), 3);
+        QCOMPARE(savedNodes[0].toObject()[QStringLiteral("id")].toString(), QStringLiteral("z-third"));
+        QCOMPARE(savedNodes[1].toObject()[QStringLiteral("id")].toString(), QStringLiteral("a-first"));
+        QCOMPARE(savedNodes[2].toObject()[QStringLiteral("id")].toString(), QStringLiteral("m-second"));
+
+        const auto savedEdges = saved[QStringLiteral("edges")].toArray();
+        QCOMPARE(savedEdges.size(), 2);
+        QCOMPARE(savedEdges[0].toObject()[QStringLiteral("id")].toString(), QStringLiteral("e-last"));
+        QCOMPARE(savedEdges[1].toObject()[QStringLiteral("id")].toString(), QStringLiteral("e-early"));
+
+        // A newly added node/edge appends at the end of the order, and
+        // removal drops it from the order without disturbing the rest.
+        Canvas::CanvasNode extra;
+        extra.id = QStringLiteral("n-new");
+        extra.type = Canvas::NodeType::Text;
+        extra.x = 300; extra.y = 0; extra.width = 100; extra.height = 50;
+        doc.addNode(extra);
+        auto nodesAfterAdd = doc.nodes();
+        QCOMPARE(nodesAfterAdd.size(), 4);
+        QCOMPARE(nodesAfterAdd.last().id, QStringLiteral("n-new"));
+
+        doc.removeNode(QStringLiteral("a-first"));
+        auto nodesAfterRemove = doc.nodes();
+        QCOMPARE(nodesAfterRemove.size(), 3);
+        QCOMPARE(nodesAfterRemove[0].id, QStringLiteral("z-third"));
+        QCOMPARE(nodesAfterRemove[1].id, QStringLiteral("m-second"));
+        QCOMPARE(nodesAfterRemove[2].id, QStringLiteral("n-new"));
+    }
 };
 
 QTEST_MAIN(TestCanvasDocument)
