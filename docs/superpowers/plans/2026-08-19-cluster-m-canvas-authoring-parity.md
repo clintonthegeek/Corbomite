@@ -119,91 +119,367 @@ Broken / missing (the authoring cliff):
 - Exit: pinned Graffodil revision building inside Corbomite's dev preset.
 
 ### Phase M1 — Substrate rebase, feature-frozen
-Port `libs/canvas` onto Graffodil::Core with **zero intended behavior change**; the
-existing test suite (`tst_canvasdocument`, `tst_canvasscene`, `tst_canvas_export`,
-`tst_canvasviewtab_vaultroot_paths`) plus a new golden round-trip fixture is the gate.
-- `CanvasScene : Graffodil::GraphScene`; item maps/tool state machine deleted
-  (~1.3–1.8k LOC per audit §11.2 estimate).
-- Node items implement `IGraphNode`; **fix gap #1 for free** by routing selection/
-  move/resize through Graffodil's type-blind node protocol (file cards become
-  first-class citizens).
-- `CanvasBezierStrategy`: `clamp(dist/2, 70, 150)` control offset, 7px face inset,
-  13×10.4 arrow polygon, face-midpoint anchors (`AnchorIds::{Top,Right,Bottom,Left}`).
-- Undo: Graffodil tools emit intent (`nodeMoved`, `edgeRequested`, `deleteRequested`)
-  → existing `Cmd*` classes push to the stack; tools never mutate `CanvasDocument`.
-- i18n sweep of all canvas user-visible strings while touching the menus (gap #9).
-- Exit: current feature set intact live (eyeball against both reference vaults),
-  suite green, export unchanged.
+
+**Full migration contract (read it before touching code — every class mapping,
+signal→command table, file disposition, and test name is specified there):**
+[`../specs/2026-08-19-cluster-m1-graffodil-rebase-design.md`](../specs/2026-08-19-cluster-m1-graffodil-rebase-design.md).
+Only three intended behavior changes (spec §7): file cards become
+selectable/movable, wheel=pan + Ctrl+wheel=zoom, 24px edge hit zone.
+
+Tasks (sequence matters; each ends with a green build + the tests named in spec §5):
+- [ ] **M1.0 Verification pass** — answer spec §6 V1–V4 by reading
+      `libs/graffodil/src/core/src/{GraphScene,CompositeTool,DefaultGraphTool,SelectMoveTool}.cpp`;
+      append answers to the spec under §6 before writing code.
+- [ ] **M1.1 `CanvasNodeItem` base** (spec §3.1) — new class; rebase
+      `TextCardItem`/`FileCardItem`/`GroupItem` onto it; delete
+      `ConnectableItem.h`, the 3 duplicated `ResizeMode` enums and
+      `resizeModeAtPos` bodies, and `connectionPoint(Side)`. Anchor identity:
+      `sideToString()` strings == Graffodil compass anchor ids (spec §2).
+- [ ] **M1.2 `CanvasEdgeItem`** (spec §3.2) — rewrite `EdgeItem` as a
+      `Graffodil::GraphEdgeItem` subclass: stock `BezierPathStrategy`
+      (identical math to current: `min(dist*0.4, 80)`), `TriangleTerminus`/
+      `NoTerminus` per `fromEnd`/`toEnd`, Graffodil 6c label,
+      `setHitWidth(24)`, `edgeId()` override returning the document id.
+      Test: `testEdgeIdPreserved`.
+- [ ] **M1.3 Scene rebase** (spec §3.4) — `CanvasScene : Graffodil::GraphScene`;
+      delete item hashes + mouse/key tool dispatch (keep only the edit-proxy
+      pre-check); keep every public method the app calls; i18n-sweep all
+      user-visible menu strings.
+- [ ] **M1.4 Tools** (spec §3.5, §4.3) — delete `CanvasTool.{h,cpp}`;
+      `DefaultGraphTool` + consumer `CanvasResizeTool` (verbatim port of the
+      resize math, `kMinSize=40`, emits `resizeCommitted`) routed by resize-zone
+      predicate; slim `CanvasView` (spec §3.7).
+- [ ] **M1.5 Undo wiring** (spec §3.6 table) — `dragBegan/dragEnded` →
+      `CmdMoveCards`; `deleteRequested` → compound remove; `resizeCommitted` →
+      `CmdResizeCard`. Tools never touch `CanvasDocument`.
+- [ ] **M1.6 Tests** (spec §5) — port `tst_canvasscene` to new seams keeping
+      every assertion; add the six named new tests (incl.
+      `testFileCardSelectableAndMovable`, which must FAIL against pre-M1 code —
+      prove it, then fix forward).
+- [ ] **M1.7 Live eyeball gate** — both reference vaults: select/move/resize
+      every node kind, inline edits, export PNG+SVG, undo/redo, save →
+      `.canvas` diff must be byte-identical for a move+undo+save cycle.
+      NOT closable on offscreen-green alone (project memory).
+
+Exit: current feature set intact live, suite green (313 baseline + new tests),
+export unchanged, `git rm`'d files match spec §8 disposition table.
 
 ### Phase M2 — Node creation flows (audit §9.4)
-- Double-click empty → new text card in edit mode (`mouseDoubleClickEventBackground`
-  hook); Obsidian defaults: text 250×60, file 400×400.
-- Context menu: New text card / **New file card** (fuzzy vault-file picker) / New
-  group; "New canvas" command + file-explorer context entry (`canvas:new-file`
-  parity, opens with rename state).
-- Drag-drop: file(s) from FileExplorer or OS → file node(s) at drop point (grid
-  layout for multiple); text drop → text card.
-- Paste: plain text → text card; canvas-JSON subgraph → clone + re-ID (16-hex);
-  copy of selection produces that JSON (enables cross-canvas copy with Obsidian).
-- Alt/Ctrl-drag duplicate.
-- Exit: user can build the business-model canvas layout from an empty file without
-  touching JSON.
+
+Every creation path goes through `CmdAddCard` on the scene's undo stack; new
+nodes get `CanvasDocument::generateId()` (16 lowercase hex) and are selected
+after creation. Defaults (Appendix A): **text 250×60, file 400×400**.
+
+- [ ] **M2.1 Double-click empty → text card** — override
+      `GraphScene::mouseDoubleClickEventBackground(scenePos)` in `CanvasScene`:
+      `CmdAddCard` (text, 250×60 centered on click per Obsidian: node placed at
+      click point) → select → `beginInlineEdit` immediately (card is born in
+      edit mode). Test: `testDoubleClickEmptyCreatesTextCardInEditMode`.
+- [ ] **M2.2 Context menu create** — replace "New Text Card"/"New Group" with
+      i18n'd "New text card" / "New file card…" / "New group"; file picker =
+      new `CanvasFilePickerDialog` reusing the vault fuzzy suggest
+      (`libs/search` FuzzyMatcher over vault markdown+attachment paths; see how
+      `CompletionController` sources `[[` candidates — same source, modal
+      shell). File path stored **vault-relative** (disk contract §3.4). Test:
+      `testContextMenuCreatesFileCard` (inject picker result).
+- [ ] **M2.3 Drag-drop** — `CanvasScene::{dragEnterEvent,dragMoveEvent,dropEvent}`:
+      `text/uri-list` from FileExplorer/OS → one file node per file at drop
+      point, multiple files laid out in a grid (Obsidian: grid of file nodes;
+      spacing = one gridSpacing gap, 20px), paths made vault-relative when
+      inside the vault, else rejected (M1 scope: no copy-into-vault; note in
+      punch list if users hit it); `text/plain` drop → text card. One compound
+      undo command per drop. Requires `setAcceptDrops` on view+scene wiring.
+      Tests: `testDropSingleFileCreatesFileCard`, `testDropTextCreatesTextCard`.
+- [ ] **M2.4 Clipboard** — Copy (Ctrl+C): selection serialized as `.canvas`-
+      shaped JSON `{nodes:[…],edges:[…]}` (edges only when both ends selected)
+      to `QMimeData` `text/plain` — this is what Obsidian puts on the
+      clipboard, enabling cross-app paste. Paste (Ctrl+V): if clipboard parses
+      as canvas JSON → clone + **re-ID every node/edge** (16-hex, remap edge
+      endpoints), offset +16px, single compound command; else plain text →
+      text card at viewport center. Cut = Copy + delete-compound. Tests:
+      `testCopyPasteRoundTripReIds`, `testPastePlainTextCreatesCard`.
+- [ ] **M2.5 Alt-drag duplicate** — Alt+press-drag on a selected node
+      duplicates the selection (new ids, edges among selection cloned) and
+      drags the copies; implement as a mouse route ahead of SelectMoveTool
+      (predicate: Alt modifier + press on node). Obsidian uses Alt/Ctrl-drag;
+      pick **Alt only** (Ctrl toggles selection in Graffodil). Test:
+      `testAltDragDuplicates`.
+- [ ] **M2.6 New-canvas command** — app side: "Create new canvas" in the
+      command palette + FileExplorer folder context menu → creates
+      `Untitled.canvas` (`{"nodes":[],"edges":[]}`, dedupe name suffix) in the
+      target folder, opens it, triggers rename edit (same flow as new-note
+      rename). Grep `DailyNoteService`/new-note creation for the existing
+      create-then-rename pattern.
+- Exit: user can build the business-model canvas layout from an empty file
+  without touching JSON — live-verified by actually rebuilding ~6 cards of it.
 
 ### Phase M3 — Edge authoring (audit §9.3, §8 inv. 2/3/10)
-- Hover chrome: 4 face-midpoint connection points appear on node hover
-  (`AnchorHighlight`); drag from a point runs `CreateEdgeTool` with live preview.
-- Works against **all** node kinds (text/file/group).
-- Endpoint reconnect: drag an existing edge end to re-anchor (A3 nearest-face
-  snap); drop on empty space deletes the edge (Obsidian semantics) — via undo cmd.
-- Edge context menu: direction none/unidirectional/bidirectional (supersedes bare
-  "Reverse"); label editing stays (Graffodil 6c can take over rendering at t=0.5).
-- Stretch (Obsidian: edge-drag to empty → node-create menu): defer if noisy.
-- Exit: draw, label, redirect, reconnect, and delete edges entirely with the mouse;
-  files written are Obsidian-clean (concrete sides, default omission).
+
+Graffodil v0.2.3 supplies the gesture machinery: `CreateEdgeTool` does
+press-drag-release AND click-click (use `setDragOnly(true)` for
+Obsidian-strict cancel), snaps preview to nearest anchor with
+`AnchorHighlight` dots, emits `edgeRequested(src, srcAnchor, tgt, tgtAnchor)`
+and `edgeDroppedOnEmpty(src, srcAnchor, scenePos)` — the tool never mutates
+the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
+
+- [ ] **M3.1 Obsidian-exact bezier** — new `CanvasBezierStrategy :
+      Graffodil::EdgePathStrategy` replacing M1's stock one: control offset
+      `clamp(dist/2, 70, 150)` along each anchor's `outwardDirection`, path
+      inset 7px from the face, straight `L` fill segment when that end has no
+      arrowhead. Arrow terminus: Obsidian's triangle is 13×10.4 px
+      (`polygon 0,0 / 6.5,10.4 / −6.5,10.4`), rotated per side, placed AT the
+      face — implement as `CanvasArrowTerminus : TerminusStyle` if
+      `TriangleTerminus` visibly differs at the M1 eyeball (else keep stock).
+      Test: `testBezierMatchesObsidianConstants` (assert control points for a
+      known geometry).
+- [ ] **M3.2 Hover connection points + create gesture** — route a
+      `CreateEdgeTool` (dragOnly=true, `setAnchorHoverRadius(12)`) into the
+      composite tool with a predicate "press within N px of a face-midpoint
+      anchor of a hovered/selected node" (N=12 to match hover radius; this is
+      how the same left-button press serves both select-move and edge-create,
+      Obsidian-style connection dots on the interaction layer). Handler for
+      `edgeRequested`: build `CanvasEdge` (id=generateId, sides =
+      `sideFromString(anchorId)`, defaults fromEnd=none/toEnd=arrow) →
+      `CmdAddEdge`. Works on all three node kinds by construction. Tests:
+      `testEdgeCreateDragBetweenFileCards`, `testEdgeCreateDefaultsToArrowHead`.
+- [ ] **M3.3 Drop-on-empty → create-and-connect menu** — connect
+      `edgeDroppedOnEmpty`: popup menu at `scenePos` (i18n: "New text card",
+      "New file card…", "Cancel"); on choice, one compound command =
+      `CmdAddCard` + `CmdAddEdge` (toSide = side facing the source, via the
+      existing `pickSideToward()`). Obsidian parity: edge-drag to empty
+      offers node creation. Test: `testEdgeDropOnEmptyCreatesConnectedCard`.
+- [ ] **M3.4 Endpoint reconnect** — drag an existing edge's endpoint
+      (hit-test: within 8px of the edge terminus point, before the edge-create
+      route) → new `ReconnectEdgeTool` (consumer, ~100 LOC, mirrors
+      CreateEdgeTool's preview) → on release over a node: new
+      `CmdReconnectEdge` (add to `CanvasCommands`: stores old/new
+      node+side for that end); over empty: `CmdRemoveEdge` (Obsidian
+      semantics: dropping an endpoint on nothing deletes the edge). Tests:
+      `testReconnectEdgeEndpoint`, `testEndpointDropOnEmptyDeletesEdge`.
+- [ ] **M3.5 Direction menu** — edge context menu gains
+      "Direction ▸ Nondirectional / Unidirectional / Bidirectional" mapped to
+      (`fromEnd`,`toEnd`) = (none,none)/(none,arrow)/(arrow,arrow), via new
+      `CmdSetEdgeEnds`; keep "Reverse direction" (swaps
+      fromNode/fromSide↔toNode/toSide — `GraphEdgeItem::reverse()` handles the
+      visual; the command updates the document). Wire
+      `SelectMoveTool::reverseRequested` (R key) to the same command. Test:
+      `testDirectionMenuWritesEndFields`.
+- Exit: draw, label, redirect, reconnect, and delete edges entirely with the
+  mouse; a save after each operation is Obsidian-clean (concrete sides,
+  defaults omitted — assert via existing `tst_canvasdocument` invariants).
 
 ### Phase M4 — Move/snap/selection polish (audit §9.5, §9.2)
-- `IAlignmentStrategy` impl: snapToGrid (zoom-dependent spacing 20/40/80/160) +
-  snapToObjects (corners+centers of nearby nodes, 15px/scale tolerance, accent
-  guide lines); both default ON, persisted; no-snap modifier Alt.
-- Shift axis-lock on move; shift aspect-lock on resize; arrow-key nudge =
-  gridSpacing (×5 with shift) replacing today's 1px/10px.
-- Group semantics: full-containment membership recomputed at grab time; dragging a
-  group moves enclosed nodes; `zIndex = -width*height`.
-- Visible 8-handle resize chrome (zoom-constant via `ItemIgnoresTransformations`),
-  cursor feedback.
-- Exit: cards align as effortlessly as in Obsidian; a saved file's geometry stays
-  integer + stable.
+
+- [ ] **M4.1 `CanvasAlignmentStrategy : Graffodil::IAlignmentStrategy`** —
+      installed via `SelectMoveTool::setAlignmentStrategy` (tool paints the
+      returned guide lines itself). Two snap modes, both default ON:
+      *snapToGrid* — snap the primary node's top-left to gridSpacing, where
+      gridSpacing is zoom-dependent: 20/40/80/160 scene units (pick the step
+      whose on-screen size ≥ ~10px: 20 at scale ≥ 1, 40 at ≥ 0.5, 80 at ≥ 0.25,
+      else 160); *snapToObjects* — candidate lines = corners + centers (x and
+      y independently) of all other nodes, snap within **15/scale** scene
+      units, return the matched lines as guides. No-snap modifier: **Alt**
+      (Obsidian: Ctrl on mac / Alt elsewhere; we ship Alt) — but Alt is taken
+      by M2.5 duplicate-drag at *press* time; Alt during an already-running
+      drag = no-snap (disambiguate on press vs. hold; document in code).
+      Settings persisted as canvas view options (tier-3 app-data, alongside
+      M5.4's read-only store; NOT in `.canvas`, NOT in workspace.json). Pure
+      logic = unit-testable without a scene: `tst_canvas_alignment` (new
+      file): `testGridSnapPitchByZoom`, `testObjectSnapCornerAndCenter`,
+      `testToleranceScalesInverseZoom`, `testAltDisablesSnap`.
+- [ ] **M4.2 Modifier polish** — Shift axis-lock on move (larger |Δ| axis
+      wins); Shift aspect-lock on resize (in `CanvasResizeTool`); arrow-key
+      nudge = current gridSpacing, ×5 with Shift (replaces today's 1px/10px —
+      lives in the delete/nudge key handler, still one `CmdMoveCards` per
+      keypress, merge-compress repeats via `QUndoCommand::mergeWith` id if
+      churn is annoying). Edge auto-pan while dragging near the viewport edge
+      (Obsidian: 60Hz when cursor nears wrapper edge) — QTimer-driven view
+      scroll; keep simple.
+- [ ] **M4.3 Group grab semantics** — replace `GroupItem`'s `itemChange`
+      move-children (center-test, live) with Obsidian's model: membership
+      computed **once at drag start** by full containment
+      (`group.sceneRect.contains(node.sceneRect)`), captured into the drag
+      set (hook `dragBegan`: if a group is in the drag set, union in its
+      contained nodes). Group stacking: `setZValue(-width*height)` on every
+      geometry change (bigger groups behind). Tests:
+      `testGroupDragMovesFullyContainedOnly`, `testGroupZOrderByArea`.
+- [ ] **M4.4 Resize/connection chrome** — visible 8 resize handles + 4
+      connection dots on the selected/hovered node, zoom-constant
+      (counter-scale by 1/viewScale or `ItemIgnoresTransformations` on a
+      handle overlay item — one overlay retargeted to the active node,
+      mirroring Obsidian's single interaction layer, NOT per-node children);
+      cursor feedback per zone (SizeFDiag/SizeBDiag/SizeHor/SizeVer).
+      Eyeball-gated.
+- Exit: cards align as effortlessly as in Obsidian; a saved file's geometry
+  stays integer + stable (no snap-induced ±1 churn on reopen).
 
 ### Phase M5 — Viewport, commands, persistence (audit §9.6, §6, §2-ephemeral)
-- Eased camera (`QVariantAnimation`), zoom clamp log2 [-4, 1], zoom about cursor;
-  Shift+1 zoom-to-fit / Shift+2 zoom-to-selection; on-canvas control cluster
-  (lock, zoom ±/reset/fit, undo/redo).
-- Viewport `{x, y, zoom(log2)}` persisted in workspace leaf eState — **Obsidian
-  schema-at-rest fidelity per Cluster L0 doctrine** (this travels in the shared
-  `workspace.json`; coordinate with `WorkspaceSerializer` tiers).
-- Read-only lock: machine-local (Obsidian uses localStorage) → tier-3 app-data
-  store, keyed by path; gates all editing.
-- Commands: `jump-to-group` (fuzzy suggest → zoomToBbox), `convert-to-file`
-  (single selected text node → new note + file node swap).
-- Exit: reopening a canvas restores the view; lock works; both commands in palette.
+
+- [ ] **M5.1 Camera** — zoom clamped to log2 ∈ [−4, 1] (scale 0.0625..2);
+      zoom always about cursor (PanZoomTool already does); eased transitions
+      for programmatic moves (zoom-to-fit/selection/jump): `QVariantAnimation`
+      driving the view transform, ~500ms ease-out (Obsidian:
+      `1 − 0.984^dt` rAF easing — an OutExpo-ish curve; eyeball-match, don't
+      overthink). Keyboard/UI: Shift+1 = zoom-to-fit, Shift+2 =
+      zoom-to-selection, Ctrl+= / Ctrl+− / Ctrl+0 = in/out/reset (mirror the
+      editor's zoom keys, `View::keyPressEvent` precedent in markoff-canvas).
+- [ ] **M5.2 On-canvas control cluster** — floating widget column,
+      bottom-right of the view (plain QWidgets overlaid on the viewport, not
+      scene items): lock toggle, zoom in/out/reset/fit, undo/redo, matching
+      Obsidian's gear/lock/zoom/undo cluster. Actions reuse the existing
+      QActions/undo stack.
+- [ ] **M5.3 Viewport persistence (eState)** — save `{x, y, zoom}` (zoom =
+      **log2 of scale**, x/y = scene point at viewport center) into the
+      canvas leaf's ephemeral state so it round-trips through
+      `workspace.json` exactly as Obsidian writes it (audit §2-ephemeral;
+      grep `WorkspaceSerializer` for how markdown leaves persist
+      `eState.scroll` — same channel; L0 doctrine: this is the shared
+      Obsidian-schema file, field names must match). Restore on open.
+      **Coordinate with Cluster L**: if L5 soak is still open when this lands,
+      keep the eState diff minimal and run one Obsidian round-trip check.
+      Test: `testCanvasEStateRoundTrip` (fixture with a real
+      Obsidian-written canvas leaf eState).
+- [ ] **M5.4 Read-only lock** — per-file, machine-local (Obsidian keeps it in
+      localStorage `canvas-<path>` → for us: tier-3 app-data `session.json`-
+      adjacent store, per L2's tier split; NEVER in `.canvas` or
+      workspace.json). Gates: all tools except pan/zoom/select, context-menu
+      mutations, inline edits, drops, paste. UI: lock button (M5.2) + padlock
+      status. Test: `testReadOnlyBlocksMutations`.
+- [ ] **M5.5 Commands** — palette: "Canvas: Jump to group" (fuzzy list of
+      group labels → eased zoomToBbox), "Canvas: Convert text card to file"
+      (exactly one text node selected → prompt filename → write `.md` with
+      the card text via FileManager → replace node type/file in one compound
+      command), plus M2.6's "Create new canvas" if not yet landed. Test:
+      `testConvertToFileSwapsNodePreservingGeometry`.
+- Exit: reopening a canvas restores the view; lock survives restart; both
+  commands work from the palette; an Obsidian-written workspace.json with a
+  canvas leaf opens at the right viewport (and vice versa).
 
 ### Phase M6 — Vault integration (audit §7, §9.9)
-- Index canvas text-node wikilinks + file-node paths into
-  `MetadataCache`/`SQLiteIndex` → backlinks/outgoing/unresolved parity.
-- Rename rewrite: vault file rename updates `file`/`background` fields and
-  `subpath`s in canvases (FileManager link-rewrite path); canvas rename updates
-  inbound links.
-- Missing-file placeholder card (create/swap/remove) that self-resolves on vault
-  create/rename events.
-- Exit: a canvas behaves like a first-class vault citizen in search/backlinks.
+
+Obsidian's mechanism (audit §7): a `linkUpdaters["canvas"]` contract on the
+metadata cache — canvas supplies reference iteration + rewrite; the cache
+supplies rename events. Corbomite equivalent: teach the indexing pipeline
+that `.canvas` is a link-bearing file type. **Run the M6 Explore prompt
+(below) before starting M6.1 — the exact seams are pipeline-specific.**
+
+- [ ] **M6.1 Index canvas references** — for each `.canvas` file, extract:
+      file-node `file` paths (+`subpath`), group `background` paths, and
+      `[[wikilinks]]`/`[](…)` inside text-node `text` (reuse the markdown
+      link extraction the metadata parser already runs on note bodies).
+      Feed them into `SQLiteIndex` as outgoing links from the canvas file →
+      backlinks ("linked from My Canvas"), outgoing-links, and
+      unresolved-links all light up. Test: `tst_canvas_link_index` (new):
+      canvas fixture with one file node + one wikilink in a text card →
+      both appear as links from the canvas.
+- [ ] **M6.2 Rename rewrite** — when `FileManager` rewrites links on a vault
+      rename, include canvases: update `file`/`background` fields (exact
+      path match, and prefix match for folder renames), `subpath` heading/
+      block renames if the existing rewrite handles them for notes, and
+      wikilinks inside text-node `text`. Writes go through `CanvasDocument`
+      load→mutate→save (NOT regex over raw JSON — preserves unknown fields
+      and field order). If the canvas is open, the document instance must be
+      the one mutated (single-writer; grep how open notes handle external
+      rename reconciliation). Test: rename a note referenced by a fixture
+      canvas → canvas file updated, unknown fields intact.
+- [ ] **M6.3 Missing-file placeholder** — `FileCardItem` whose `file`
+      doesn't resolve renders the existing empty state plus an i18n'd
+      "File not found: <path>" + buttons Create / Locate… / Remove;
+      auto-resolve: on vault create/rename events matching the path,
+      re-render the card (subscribe via the vault watcher the scene's host
+      already has — thread through `CanvasViewTab`). Test: fixture with a
+      dangling file node → placeholder; create the file → card renders.
+- Exit: a canvas behaves like a first-class vault citizen — its links appear
+  in backlinks/outgoing/unresolved panels, renames never break it, and a
+  dangling card is a recoverable state, not a blank.
 
 ## Explore-agent dispatch prompts
 
-- *M0:* "Read ~/dev/Graffodil/src/core/{GraphScene,SelectMoveTool,CreateEdgeTool,PanZoomTool,Anchors,AnchorHighlight,IAlignmentStrategy,GroupItem}.h and docs/graffodil-design.md. Report: exact zoom/easing behavior of PanZoomTool; how anchors are declared per-node and whether a 4-compass-anchor restriction is native; CreateEdgeTool's snap + preview contract and its signals; how consumers feed undo; what 6f (v0.2.2 affordances) added. Cite headers by path:line."
-- *M1:* "Map every behavior in Corbomite libs/canvas/src/{CanvasScene,CanvasTool}.cpp (selection, marquee, resize modes, inline-edit proxies, context menus, key handling) to its Graffodil::Core equivalent or mark it consumer-retained. Output a two-column migration table."
-- *M6:* "Trace how Corbomite indexes markdown wikilinks end-to-end (MetadataCache → SQLiteIndex → LinkResolver → backlinks UI) and where FileManager rewrites links on rename; identify the seams a canvas link source must plug into."
+- *M0 / M1 mapping:* **superseded** — both were executed 2026-08-19; the answers
+  ARE the design spec (`../specs/2026-08-19-cluster-m1-graffodil-rebase-design.md`).
+  Only spec §6's V1–V4 verification reads remain (task M1.0, .cpp files, not headers).
+- *M6:* "Trace how Corbomite indexes markdown wikilinks end-to-end (MetadataCache → MetadataParser/Worker → SQLiteIndex → LinkResolver → backlinks UI) and where FileManager rewrites links on rename (renameFileByPath and its link-rewrite pass). Identify the exact seams where a `.canvas` file type can (a) contribute outgoing links at index time and (b) receive path rewrites at rename time. Report seam functions by path:line and note whether the parser pipeline is extension-gated anywhere that would drop `.canvas` files before parsing."
 
-## Definition of done
+## Definition of done — per task
+
+Every checkbox task above lands as **one TDD commit** (test first where the
+task names a test), builds with `cmake --build --preset dev -j 10`, and keeps
+the full offscreen suite green (`cd build-dev && QT_QPA_PLATFORM=offscreen
+ctest -E benchmark -j 10`). A phase closes only after its Exit line is
+satisfied INCLUDING the live-eyeball items — offscreen-green alone never
+closes canvas interaction work (project memory: an offscreen-green
+keyboard-focus fix was previously broken live).
+
+## Appendix A — Obsidian canvas constants card (normative numbers)
+
+All values verified against decompiled Obsidian (`domains/canvas.md`); cite
+this card in code comments as "Appendix A" rather than re-deriving.
+
+| Constant | Value |
+|---|---|
+| New text node size | **250×60** |
+| New file node size | **400×400** |
+| Embeddable-URL (link) node size | 640×360 *(link nodes deferred)* |
+| Node/edge id | 16 lowercase hex, `[0-9a-f]{16}` |
+| Edge defaults | `fromEnd:"none"` (omit), `toEnd:"arrow"` (omit) |
+| Bezier control offset | `clamp(dist/2, 70, 150)` world units, perpendicular to attach face |
+| Edge path inset from face | 7px (straight `L` fills the gap when no arrowhead) |
+| Arrowhead | triangle 13×10.4 px: `(0,0) (6.5,10.4) (−6.5,10.4)`, rotated per side, at the face |
+| Edge visible / hit stroke | 2px visible / **24px** invisible hit path |
+| Edge label position | bezier t = 0.5 |
+| Grid snap spacing | zoom-dependent **20/40/80/160** scene units |
+| Object-snap tolerance | **15 / scale** scene units; candidates = corners + centers |
+| No-snap modifier | Ctrl (mac) / **Alt** (ours: Alt) |
+| Arrow-key nudge | gridSpacing; **×5 with Shift** |
+| Zoom clamp | log2 scale ∈ **[−4, 1]** (scale 0.0625..2); eState `zoom` stores **log2(scale)** |
+| Camera easing | rAF factor `1 − 0.984^dt` (≈ ease-out; match by eye) |
+| Group z-order | `zValue = −width×height` (bigger → further back) |
+| Group membership | **full containment**, recomputed at grab time; no stored parent |
+| Node color | `"1".."6"` preset index (see `colorFromCanvasColor`) or `#rrggbb` |
+| Save debounce | ~2000 ms, force-save on unload (host-side; already Corbomite's pattern) |
+| Node chrome | 8 resize handles + 4 connection points on ONE shared overlay retargeted to the active node |
+| Node min size (ours) | 40×40 (`kMinSize` — Corbomite value, Obsidian's unverified; keep) |
+
+## Appendix B — standing rules & traps (read before every phase)
+
+1. **Tools/gestures never mutate `CanvasDocument`.** Every mutation is a
+   `Cmd*` on `CanvasScene::undoStack()`. If you find yourself calling
+   `document()->addNode(...)` outside a command's `redo()`, stop.
+2. **Never let a `.canvas` write regress the disk contract.** Unknown-field
+   passthrough, default omission, concrete edge sides, integer geometry, and
+   node/edge order are all guarded by `tst_canvasdocument` — run it after any
+   change that touches `CanvasNode`/`CanvasEdge` construction. New node/edge
+   builders must set only real values and leave defaults absent.
+3. **Anchor ids are the `sideToString()` strings** (`"top"/"right"/"bottom"/
+   "left"`). Empty anchor id = Graffodil swivel mode = a `.canvas` invariant
+   violation. Grep for `""` anchor arguments in review.
+4. **The `dynamic_cast`-per-node-type pattern is banned.** It caused the
+   file-cards-unselectable bug. Type-blind code paths go through
+   `CanvasNodeItem`/`IGraphNode`; type-specific behavior goes through virtual
+   methods or `nodeData().type`.
+5. **Canvas groups are NOT `Graffodil::GroupItem`** (decorative,
+   non-hit-testable, bounds-follow). Canvas groups are persisted, resizable,
+   connectable nodes. See spec §3.3.
+6. **`QSignalSpy` on Graffodil signals** needs
+   `qRegisterMetaType<Graffodil::IGraphNode*>("IGraphNode*")` in
+   `initTestCase` — otherwise the spy silently fails to record.
+7. **i18n:** every new user-visible string is `i18n(...)`; the pre-M1 canvas
+   violated this — do not copy old `QStringLiteral` menu code as a template.
+8. **Ephemeral vs. document vs. machine-local state:** viewport → workspace
+   leaf eState (shared Obsidian schema, L0 doctrine); snap settings +
+   read-only flag → tier-3 app-data; NOTHING UI-ish ever goes into the
+   `.canvas` file.
+9. **Live-eyeball gate** on anything touching mouse/keyboard/focus (project
+   memory `feedback_verify_ui_fixes_live`). Offscreen Qt cannot drive real
+   focus chains; QGraphicsView interaction has burned us before.
+10. **Stage by path** (`testvaults/` is deliberately dirty; never `git add -A`),
+    build with `-j 10`, `QT_QPA_PLATFORM=offscreen` for ctest — see CLAUDE.md.
+11. **Session ritual:** on picking up this cluster, read `PROJECT-STATE.md`,
+    this plan's checkboxes, then the spec §6 answers (if M1.0 is done). Tick
+    checkboxes as tasks land; update PROJECT-STATE "Last touched" + this plan
+    at phase close (CONTRIBUTING-OPS rituals 2/3).
+
+## Definition of done — cluster
 
 - All six phase exit criteria met; each phase closes with the standard ritual
   (offscreen suite green **plus live eyeball** — project memory: canvas/editor
