@@ -10,6 +10,18 @@ Conventions:
 
 ---
 
+## 2026-08-18 — v0.1.0 tagged and released; canonical host moved Codeberg → GitHub
+
+Discovered via git-log audit (docs had not been updated since the Cluster K Phase 5 closeout commit, despite five further commits landing same day). Sequence, in order: `db51acd6` retargeted `origin` from `git@codeberg.org:clintonthegeek/Corbomite.git` to `git@github.com:clintonthegeek/Corbomite.git` (the `codeberg` remote is still configured locally but is no longer canonical — `.gitmodules`, README clone instructions, and `packaging/arch/PKGBUILD`'s `source=` template all updated to GitHub URLs); `16b27bdb` repointed the `libs/markoff-family` submodule at GitHub Markoff; `50a4f424` added Ubuntu 25.10 `.deb` packaging + GitHub Actions CI building on every `v*` tag, plus AppImage build script and Arch `PKGBUILD` (`v0.1.0` tag created same session, first packaged release); `f288cadd`/`884e63c3` fixed the CI build (Qt6 private-dev packages for KDDockWidgets, `libtree-sitter-dev` for the `.deb` configure step); `313586de` bumped markoff-family for a Qt 6.9 `qHash` fix; `95167dde` gated `endFilterChange` on `Qt >= 6.10` instead of 6.9; `80a1e605` rewrote README with install/build instructions and screenshots.
+
+**Known loose end:** a comment in `src/app/MainWindow.cpp` (Help-menu wiring, near `KStandardAction::aboutApp`) still reads "homepage + Codeberg via KAboutData" — cosmetic, `KAboutData` itself only sets the `concernednetizen.com` homepage, no functional impact.
+
+**Cross-repo follow-up needed:** `~/dev/CLAUDE.md`'s project registry still lists Corbomite under Codeberg-owned repos and the per-repo remote table doesn't mention this migration — out of scope for this session (that file isn't part of the Corbomite repo) but should be corrected so the dev-environment docs match reality.
+
+**Effect on Cluster L:** L5 soak (drag/split/popout/close-undo/vault-switch) was mid-flight when this release push started and was not resumed same-day — treat as **paused, not closed**.
+
+---
+
 ## 2026-08-18 — Cluster K Phase 5 closed: Canvas-only LivePreview; QML leaf retired
 
 User redirected from packaging work and signed off skipping Cluster K Phase 4 (soft "dogfood-as-default" with reversible toggle) in favour of Phase 5 (full QML retirement). LivePreview is now solely `Markoff::Canvas::EditorWidget`.

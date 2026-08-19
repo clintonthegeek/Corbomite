@@ -77,7 +77,7 @@ contract-v2 re-pin (see the adoption brief).
 | Find in note | ✅ all modes | base `attachFindController` (`bfa2fa16`); in-table matches counted but not painted (Markoff brief §3, known v1 limit) |
 | Replace | ❌ | no UI; hamburger Find…/Replace… actions connected to nothing (`MarkdownView.cpp:298-312`) |
 | Hover preview | ✅ | Re-lit 2026-06-11, eyeball-confirmed 2026-06-12: `HoverPopover` renders the target note via `StyledRenderEngine`+`VaultResourceProvider` into a `QTextBrowser`; trigger wired through the shared `LinkService`. **Reading = plain hover; Live = Ctrl-then-hover** (`LiveView.qml` gates emission on Ctrl — Obsidian-faithful, kept by user decision). Subpath (`#heading`/`#^block`) slicing deferred |
-| Word count / Ln,Col statusbar | ✅ Ln/Col · ⭕ word count | Ln/Col live in all modes via base `cursorPositionChanged` (`ad0729e7`); word count stays 0 — Phase 2 |
+| Word count / Ln,Col statusbar | ✅ | Fixed 2026-06-11 (`fb47120e`) — `NoteEditorWidget` seeds + re-emits word count off `NoteDocument::textChanged`; Ln/Col live in all modes via base `cursorPositionChanged` (`ad0729e7`) |
 | goToLine / ephemeral state (cursor+scroll persist) | ✅ | contract-v2 `CursorPos` + 0.0–1.0 scroll fraction via base (`5d7fcc5e`); Live attach-window writes fixed upstream (`8112833f`) |
 | Theme propagation to leaves | ✅ | `applyThemeToAllLeaves` + `wireLeaf` at lazy construction (`17b2cd00`) |
 | Templates / daily notes | 🟡 / ✅ | template body still appends at END, but the `{{cursor}}` marker now moves the caret via `goToLine` (`5d7fcc5e`); daily notes wired |
@@ -92,10 +92,10 @@ contract-v2 re-pin (see the adoption brief).
 |---|---|---|
 | Tabs: open/close/drag/split/undo-close | ✅ | KDDW; `Workspace.cpp:409-544`; Ctrl+Shift+T cap 10 |
 | Pin tabs | 🟡 | model+serialization done; **no UI/command**; pinned tabs still recycled by openLinkText |
-| Tab history back/forward | ⭕ | `LeafHistory` fully built+tested, zero app callers; opens bypass `navigate()`; no actions |
+| Tab history back/forward | ✅ | Cluster L Phase L4, live-verified 2026-08-18 — `navigateActiveLeafTo` calls `leaf->navigate()`; Ctrl+Alt+←/→ + mouse buttons 4/5 + tab-frame nav buttons all wired to `goBack()`/`goForward()`; enablement tracks `LeafHistory::canGoBack/canGoForward` per active leaf |
 | Stacked tabs | ⭕ | flag round-trips; no toggle, no visual treatment |
 | Popout windows | 🟡 | `popoutLeaf` works via drag-out; no command; **not persisted** (see next row) |
-| workspace.json fidelity | 🟡 | schema/dir correct, unknown keys preserved; **production save drops `floating` + `lastOpenFiles`** (`MainWindow.cpp:856-866`); split/tabs nodes get empty `id`, no `dimension` |
+| workspace.json fidelity | ✅ | Cluster L2 — `MainWindow::saveSessionState` routes Tier 1 through `Workspace::writeWorkspaceJson` (full main/active/floating/lastOpenFiles + unknown-key passthrough); split/tabs `dimension` round-trip still gapped (punch-list P3, `[cluster-l]`) |
 | Sidebars (KateMDI tool views) | ✅ UI · ❌ persistence | save/restore code exists (`CorbomiteMDI.cpp:1351-1460`) but never called; width hardcoded 200 |
 | Ribbon | ⚠ | top KToolBar vs Obsidian's left vertical strip; hiddenItems persistence works, no UI to hide items |
 | Command palette | 🟡 | KCommandBar over ~70 KActions (many disabled stubs) + ~13 registry commands; Obsidian lists hundreds |
@@ -151,9 +151,9 @@ Example plugins compile against current API (verified 2026-06-10).
 1. ~~**Link clicks do nothing** in every mode (P0, wiring-only fix).~~ **FIXED `88ad1b46`+`8c9d8c8d` (Phase 0)**
 2. ~~**No completion** for `[[` or `#` — typed blind.~~ **FIXED — completion revival A1–A3 (`[[` names + `#` tags, all editable leaves); aliases + `[[note#` headings (A2); `[[note#^` existing-block ids (A3). Block-id *creation* on pick deferred (follow-up).**
 3. ~~**Editor save path can truncate notes on crash** (P0, ~5-line fix).~~ **FIXED `51d62910` (Phase 0)**
-4. **No back/forward navigation** despite a complete LeafHistory engine.
+4. ~~**No back/forward navigation** despite a complete LeafHistory engine.~~ **FIXED — Cluster L Phase L4, live-verified 2026-08-18.**
 5. **Reading mode is a downgrade** (no tables until re-pin, raw math, inert checkboxes).
-6. **Status bar lies** (Words: 0 forever); sidebar layout amnesia on every launch.
+6. ~~**Status bar lies** (Words: 0 forever)~~ **FIXED `fb47120e` (2026-06-11).** Sidebar layout amnesia on every launch remains open (punch-list P2 — `Sidebar::saveSession/restoreSession` exist but are never called).
 7. **Blank-line normalization on save** (2+ blank-line runs → 1, Markoff-owned, intentional per B1 §2 — **accepted + documented** 2026-06-10, not corruption; see triage doc).
 8. **Canvas can't create edges**; subfolder canvases render empty file cards.
 

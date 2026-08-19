@@ -53,10 +53,32 @@
 > inverted divider-direction convention plus a materialization
 > anchor-ordering bug in `WorkspaceSerializer.cpp` — fixed and
 > live-verified across two round trips against the real vault (punch-list
-> `[cluster-l]`, `decisions-archive.md`). **Next: continue L5 soak**
-> (drag between groups, split, popout, close-undo, vault switch), then
-> closeout —
+> `[cluster-l]`, `decisions-archive.md`). **L5 soak paused, not closed** —
+> superseded same-day by the v0.1.0 release push below; remaining soak
+> items (drag between groups, split, popout, close-undo, vault switch)
+> are still open —
 > [plan](docs/superpowers/plans/2026-08-17-cluster-l-workspace-stabilization.md).
+>
+> **v0.1.0 tagged and released (2026-08-18), canonical host moved to
+> GitHub.** Same day as the Cluster K Phase 5 closeout: `origin` retargeted
+> from Codeberg to `git@github.com:clintonthegeek/Corbomite.git` (the
+> `codeberg` remote still exists but is no longer canonical — **the
+> `~/dev/CLAUDE.md` ownership registry has not been updated to match and
+> now conflicts with reality**); `libs/markoff-family` submodule repointed
+> to GitHub Markoff; app identity rebranded to
+> `com.concernednetizen.Corbomite`. Packaging added: AppImage build script,
+> Arch `PKGBUILD`, and a GitHub Actions Ubuntu 25.10 `.deb` CI building on
+> every `v*` tag — plus post-tag fixups (`libtree-sitter-dev` for the `.deb`
+> configure step, Qt6 private-dev packages for KDDockWidgets, a
+> markoff-family bump for a Qt 6.9 `qHash` fix, and a `Qt >= 6.10`
+> version-gate on `endFilterChange`). README rewritten with install/build
+> instructions and screenshots. One stale artifact from the migration: a
+> code comment in `MainWindow.cpp`'s Help-menu wiring still says "homepage
+> + Codeberg" even though `KAboutData` only sets the concernednetizen.com
+> homepage. No docs (`PROJECT-STATE.md`, `decisions-archive.md`) were
+> updated for any of this until now — see the 2026-08-18 decisions-archive
+> entry for full detail. **Next: resume Cluster L5 soak**, or continue
+> hardening the release (multi-distro packaging, CI matrix).
 >
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
 > Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).

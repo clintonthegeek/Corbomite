@@ -1356,7 +1356,7 @@ void MainWindow::setupActions()
 
     KStandardAction::aboutApp(this, &MainWindow::onAboutApp, ac);
     // No About KDE — Corbomite is not a KDE-branded product; Help only
-    // exposes About Corbomite (homepage + Codeberg via KAboutData).
+    // exposes About Corbomite (homepage via KAboutData).
 
     auto *toggleLeft = ac->addAction(QStringLiteral("view_toggle_left_sidebar"));
     toggleLeft->setText(i18n("Toggle Left Sidebar"));
