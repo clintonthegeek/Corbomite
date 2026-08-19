@@ -69,7 +69,23 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
                 const QFileInfo fi(abs);
                 if (!kAttachmentExts.contains(fi.suffix().toLower()))
                     continue;
-                candidates << root.relativeFilePath(abs);
+                const QString rel = root.relativeFilePath(abs);
+                // Skip dot-prefixed path segments (.obsidian, .trash, .git,
+                // ...) — this scan has no Vault object to consult the real
+                // config-dir/exclude list (see comment above), but hiding
+                // dotfiles/dot-dirs matches Obsidian's own baseline
+                // behavior and keeps internal config/plugin JSON out of the
+                // picker.
+                bool dotSegment = false;
+                for (const auto &part : rel.split(QLatin1Char('/'), Qt::SkipEmptyParts)) {
+                    if (part.startsWith(QLatin1Char('.'))) {
+                        dotSegment = true;
+                        break;
+                    }
+                }
+                if (dotSegment)
+                    continue;
+                candidates << rel;
             }
             candidates.sort(Qt::CaseInsensitive);
         }
