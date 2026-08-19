@@ -19,6 +19,7 @@
 #include <markoff/core/FindController.h>
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
+#include <canvas/CanvasScene.h>
 #include "corbomite/bases/BasesView.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/vault/TAbstractFile.h"
@@ -657,6 +658,13 @@ Corbomite::Bases::BasesView *MainWindow::activeBasesView() const
         return nullptr;
     return qobject_cast<Corbomite::Bases::BasesView *>(
         m_workspace->activeLeaf()->view());
+}
+
+CanvasFileView *MainWindow::activeCanvasView() const
+{
+    if (!m_workspace || !m_workspace->activeLeaf())
+        return nullptr;
+    return qobject_cast<CanvasFileView *>(m_workspace->activeLeaf()->view());
 }
 
 NoteEditorWidget *MainWindow::activeEditor() const
@@ -1338,6 +1346,12 @@ void MainWindow::setupActions()
             bv->undo();
             return;
         }
+        if (auto *cv = activeCanvasView()) {
+            if (auto *tab = cv->canvasWidget())
+                if (auto *scene = tab->canvasScene())
+                    scene->undoStack()->undo();
+            return;
+        }
         if (auto *editor = activeEditor())
             if (auto *leaf = editor->activeLeaf())
                 leaf->undo();   // base-implemented: doc->undoD2(); no-op while read-only
@@ -1346,6 +1360,12 @@ void MainWindow::setupActions()
     KStandardAction::redo(this, [this]() {
         if (auto *bv = activeBasesView()) {
             bv->redo();
+            return;
+        }
+        if (auto *cv = activeCanvasView()) {
+            if (auto *tab = cv->canvasWidget())
+                if (auto *scene = tab->canvasScene())
+                    scene->undoStack()->redo();
             return;
         }
         if (auto *editor = activeEditor())
