@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include <QGraphicsScene>
+#include <graffodil/GraphScene.h>
 #include <QHash>
 #include <QImage>
+#include <QPointF>
 #include <QRectF>
 #include <functional>
 #include "CanvasTypes.h"
@@ -18,18 +19,25 @@ namespace Corbomite {
 class MarkdownRenderEngine;
 }
 
+namespace Graffodil {
+class CompositeTool;
+class SelectMoveTool;
+class PanZoomTool;
+class IGraphNode;
+class IGraphEdge;
+}
+
 namespace Canvas {
 
 class CanvasDocument;
-class CanvasTool;
-class SelectMoveTool;
-class ConnectableItem;
+class CanvasNodeItem;
 class TextCardItem;
 class FileCardItem;
 class GroupItem;
 class EdgeItem;
+class CanvasResizeTool;
 
-class CanvasScene : public QGraphicsScene {
+class CanvasScene : public Graffodil::GraphScene {
     Q_OBJECT
 
 public:
@@ -38,15 +46,11 @@ public:
     void setDocument(CanvasDocument *doc);
     CanvasDocument *document() const;
 
-    // Tool management
-    void setActiveTool(CanvasTool *tool);
-    CanvasTool *activeTool() const;
-
-    // Item lookup
+    // Item lookup (typed convenience wrappers over GraphScene::nodeForId/edgeForId)
     TextCardItem *textCardItem(const QString &id) const;
     GroupItem *groupItem(const QString &id) const;
     EdgeItem *edgeItem(const QString &id) const;
-    ConnectableItem *connectableItem(const QString &id) const;
+    CanvasNodeItem *connectableItem(const QString &id) const;
 
     // Render engine for file/text card rendering
     void setRenderEngine(Corbomite::MarkdownRenderEngine *engine);
@@ -64,7 +68,7 @@ public:
     TextCardItem *addTextCardItem(const CanvasNode &node);
     FileCardItem *addFileCardItem(const CanvasNode &node);
     GroupItem *addGroupItemToScene(const CanvasNode &node);
-    EdgeItem *addEdgeItemToScene(ConnectableItem *from, ConnectableItem *to, const CanvasEdge &edge);
+    EdgeItem *addEdgeItemToScene(CanvasNodeItem *from, CanvasNodeItem *to, const CanvasEdge &edge);
     void removeTextCardItem(const QString &id);
     void removeFileCardItem(const QString &id);
     void removeGroupItem(const QString &id);
@@ -117,6 +121,13 @@ private Q_SLOTS:
     void finishInlineEdit();
     void finishGroupLabelEdit();
 
+    // --- M1.5 undo wiring (Graffodil tool intent signals -> Cmd*) ---
+    void onDragBegan(const QList<Graffodil::IGraphNode *> &nodes);
+    void onDragEnded(const QList<Graffodil::IGraphNode *> &nodes);
+    void onDeleteRequested(const QList<Graffodil::IGraphNode *> &nodes,
+                            const QList<Graffodil::IGraphEdge *> &edges);
+    void onResizeCommitted(const QString &nodeId, const QRect &oldRect, const QRect &newRect);
+
 private:
     void populateFromDocument();
     void clearAllItems();
@@ -125,13 +136,17 @@ private:
     void addColorSubmenu(QMenu *parentMenu, const QString &nodeId, const QString &currentColor);
 
     CanvasDocument *m_document = nullptr;
-    CanvasTool *m_activeTool = nullptr;
-    SelectMoveTool *m_defaultTool = nullptr;
+
+    // Tool assembly (spec §3.5 / §6a V3 — bespoke CompositeTool, NOT
+    // DefaultGraphTool: DefaultGraphTool pre-registers its own routes at
+    // construction time, leaving no way to prepend the resize route ahead
+    // of plain-left-button select/move).
+    Graffodil::CompositeTool *m_compositeTool = nullptr;
+    Graffodil::SelectMoveTool *m_selectTool = nullptr;
+    Graffodil::PanZoomTool *m_panZoomTool = nullptr;
+    CanvasResizeTool *m_resizeTool = nullptr;
+
     QUndoStack *m_undoStack = nullptr;
-    QHash<QString, TextCardItem *> m_textCardItems;
-    QHash<QString, FileCardItem *> m_fileCardItems;
-    QHash<QString, GroupItem *> m_groupItems;
-    QHash<QString, EdgeItem *> m_edgeItems;
     Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;
     FileResolver m_fileResolver;
     FileSaver m_fileSaver;
@@ -146,6 +161,9 @@ private:
     QMetaObject::Connection m_focusConnection;
     QGraphicsProxyWidget *m_labelEditProxy = nullptr;
     QString m_editingGroupId;
+
+    // Move-drag undo snapshot (dragBegan -> dragEnded)
+    QHash<QString, QPointF> m_dragSnapshot;
 };
 
 } // namespace Canvas

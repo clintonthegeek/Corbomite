@@ -4,11 +4,8 @@
 #include "canvas/CanvasDocument.h"
 
 #include <QKeyEvent>
-#include <QMouseEvent>
 #include <QPainter>
-#include <QScrollBar>
 #include <QUndoStack>
-#include <QWheelEvent>
 
 namespace Canvas {
 
@@ -60,13 +57,6 @@ void CanvasView::zoomOut()
     scale(1.0 / kZoomFactor, 1.0 / kZoomFactor);
 }
 
-void CanvasView::wheelEvent(QWheelEvent *event)
-{
-    const double factor = (event->angleDelta().y() > 0) ? kZoomFactor : (1.0 / kZoomFactor);
-    scale(factor, factor);
-    event->accept();
-}
-
 void CanvasView::keyPressEvent(QKeyEvent *event)
 {
     const bool ctrl = event->modifiers() & Qt::ControlModifier;
@@ -102,42 +92,6 @@ void CanvasView::keyPressEvent(QKeyEvent *event)
 
     // Delegate other keys to scene (tools handle Delete, arrows, Ctrl+A)
     QGraphicsView::keyPressEvent(event);
-}
-
-void CanvasView::mousePressEvent(QMouseEvent *event)
-{
-    if (event->button() == Qt::MiddleButton) {
-        m_panning = true;
-        m_lastPanPos = event->pos();
-        setCursor(Qt::ClosedHandCursor);
-        event->accept();
-        return;
-    }
-    QGraphicsView::mousePressEvent(event);
-}
-
-void CanvasView::mouseMoveEvent(QMouseEvent *event)
-{
-    if (m_panning) {
-        QPoint delta = event->pos() - m_lastPanPos;
-        m_lastPanPos = event->pos();
-        horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta.x());
-        verticalScrollBar()->setValue(verticalScrollBar()->value() - delta.y());
-        event->accept();
-        return;
-    }
-    QGraphicsView::mouseMoveEvent(event);
-}
-
-void CanvasView::mouseReleaseEvent(QMouseEvent *event)
-{
-    if (event->button() == Qt::MiddleButton && m_panning) {
-        m_panning = false;
-        setCursor(Qt::ArrowCursor);
-        event->accept();
-        return;
-    }
-    QGraphicsView::mouseReleaseEvent(event);
 }
 
 void CanvasView::drawBackground(QPainter *painter, const QRectF &rect)

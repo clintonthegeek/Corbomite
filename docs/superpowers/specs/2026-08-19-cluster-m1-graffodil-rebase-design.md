@@ -293,6 +293,71 @@ selection (Graffodil) where Shift+click previously toggled (Shift now
 strictly adds) — Obsidian's shift is additive/XOR, close enough for M1;
 exact reconciliation happens in M4 with the rest of §9.5.
 
+## 6a. Verification answers (M1.0, 2026-08-19)
+
+Read in full: `GraphScene.cpp/.h`, `CompositeTool.cpp/.h`, `DefaultGraphTool.cpp/.h`,
+`SelectMoveTool.cpp/.h`, plus `IGraphNode.h`, `IGraphEdge.h`, `GraphEdgeItem.{h,cpp}`,
+`GraphTool.h`, `Anchors.h`, `EdgePathStrategy.h`, `TerminusStyle.h`, `PanZoomTool.h`,
+`Types.h`, `GroupStyle.h`.
+
+- **V1 (ownership/lookup):** `removeNode(id)` calls `removeItem(node->graphicsItem())`
+  only — it does **not** `delete` the item; ownership stays 100% with the consumer
+  (confirmed by the header doc: "The scene never deletes items"). Same for
+  `removeEdge`. By-id lookup exists: `nodeForId(id)` / `edgeForId(id)`. `addNode`/
+  `addEdge` call `QGraphicsScene::addItem()` themselves. **Decision: do NOT keep the
+  four consumer-side `QHash` maps.** `CanvasScene::textCardItem/fileCardItem/
+  groupItem/edgeItem/connectableItem` become one-line wrappers around
+  `nodeForId()`/`edgeForId()` + a single `dynamic_cast`/`qgraphicsitem_cast` to the
+  requested subtype (this is a *typed accessor*, not the banned "dynamic_cast
+  dispatch in interaction logic" pattern from Appendix B item 4 — internal tool/scene
+  logic stays type-blind through `CanvasNodeItem`/`IGraphNode`).
+- **V2 (edge auto-adjust):** `GraphScene` does **not** self-subscribe to node
+  position changes for edges (only groups hook `QGraphicsScene::changed` — see
+  `addGroup`/`refreshGroupsFromSceneChange`). `SelectMoveTool::mouseMoveEvent`
+  explicitly calls `m_scene->adjustEdgesForNode(n->nodeId())` per dragged node
+  during an interactive drag, so live dragging is covered without any node-level
+  hook. But **programmatic** position writes (undo/redo replaying `CmdMoveCards`/
+  `CmdResizeCard` via `CanvasDocument::nodeChanged` → `CanvasNodeItem::setNodeData`
+  → `setPos`) are NOT covered by the tool and would leave edges stale after
+  undo/redo or a document-driven move. **Decision: add the `itemChange
+  (ItemPositionHasChanged)` hook in `CanvasNodeItem`** (spec §3.1's conditional
+  hook) calling `scene()->adjustEdgesForNode(nodeId())` when the item's scene is a
+  `Graffodil::GraphScene`. This double-fires during interactive drag (tool call +
+  itemChange call) but `adjustEdgesForNode`/`GraphEdgeItem::adjust()` is idempotent
+  (recomputes from current anchor positions), so redundant calls are harmless and
+  cheap for canvas-scale node counts.
+- **V3 (CompositeTool route order):** `CompositeTool::addMouseRoute` **appends**
+  (`m_mouseRoutes.append`); only `addAnchorRoute` prepends, and only for its own
+  anchor-hit-radius route. `DefaultGraphTool`'s constructor registers `m_select`'s
+  4 matchers (incl. plain `Left+NoModifier`) and `m_panZoom`'s middle-button
+  matcher **at construction time**, before any consumer code runs. Consequently a
+  `CanvasResizeTool` route added via `addMouseRoute` *after* constructing a
+  `DefaultGraphTool` would always lose to `m_select`'s plain-left-button route
+  (first-match-wins, and `m_select`'s route matches every left-press including
+  ones that land on a resize handle). **Decision, per the spec's own fallback
+  instruction: do NOT use `Graffodil::DefaultGraphTool`.** Build a bespoke
+  `Graffodil::CompositeTool` in `CanvasScene`'s constructor, owning our own
+  `Graffodil::SelectMoveTool` and `Graffodil::PanZoomTool` (both constructible
+  standalone), and register routes in this order: (1) `CanvasResizeTool` gated by
+  the `resizeHit()` predicate, (2) `SelectMoveTool` for
+  Left+{NoModifier,Shift,Control,Meta}, (3) `PanZoomTool` for Middle (pan) +
+  wheel (Ctrl+wheel zoom, matching `DefaultGraphTool`'s own bindings). This is a
+  **divergence from spec §3.5's literal code sample** (which shows constructing
+  `Graffodil::DefaultGraphTool` then calling `addMouseRoute` on it) — the
+  underlying intent (resize routed ahead of select, same key/wheel bindings as
+  `DefaultGraphTool` ships) is preserved exactly, only the assembly mechanism
+  changes to a hand-built `CompositeTool`.
+- **V4 (focused-editor key routing):** Confirmed both layers guard on
+  `focusItem()`: `GraphScene::keyPressEvent`/`keyReleaseEvent` route to
+  `focusItem()` first when non-null (before ever reaching `m_activeTool`), and
+  `SelectMoveTool::keyPressEvent` independently no-ops when
+  `m_scene->focusItem()` is set (belt-and-suspenders per its own doc comment).
+  So the inline-edit `QTextEdit` proxy (added via `addWidget()` + `setFocus()`)
+  keeps receiving all keys, including Delete/Backspace, once it holds scene
+  focus — the base `GraphScene::keyPressEvent` we now delegate to after our
+  edit-proxy pre-check already has this contract; no additional guard needed in
+  `CanvasScene` beyond the existing "click outside proxy finishes editing" logic.
+
 ## 8. File disposition summary
 
 | File | Fate |

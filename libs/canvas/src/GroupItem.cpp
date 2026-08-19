@@ -10,35 +10,18 @@ namespace Canvas {
 
 static constexpr qreal kLabelPadding = 8.0;
 static constexpr qreal kHandleSize = 6.0;
-static constexpr qreal kResizeZone = 8.0;
 
 GroupItem::GroupItem(const CanvasNode &data, QGraphicsItem *parent)
-    : QGraphicsObject(parent)
-    , m_data(data)
+    : CanvasNodeItem(data, parent)
     , m_lastPos(data.x, data.y)
 {
-    setFlags(ItemIsMovable | ItemIsSelectable | ItemSendsGeometryChanges);
     setZValue(-1);
-    setPos(data.x, data.y);
 }
 
 void GroupItem::setNodeData(const CanvasNode &data)
 {
-    prepareGeometryChange();
-    m_data = data;
-    setPos(data.x, data.y);
+    CanvasNodeItem::setNodeData(data);
     m_lastPos = pos();
-    update();
-}
-
-CanvasNode GroupItem::nodeData() const
-{
-    return m_data;
-}
-
-QString GroupItem::nodeId() const
-{
-    return m_data.id;
 }
 
 QRectF GroupItem::boundingRect() const
@@ -131,27 +114,6 @@ void GroupItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
     }
 }
 
-QPointF GroupItem::connectionPoint(Side side) const
-{
-    const QRectF rect = boundingRect();
-    QPointF local;
-    switch (side) {
-    case Side::Top:
-        local = QPointF(rect.width() / 2.0, 0);
-        break;
-    case Side::Right:
-        local = QPointF(rect.width(), rect.height() / 2.0);
-        break;
-    case Side::Bottom:
-        local = QPointF(rect.width() / 2.0, rect.height());
-        break;
-    case Side::Left:
-        local = QPointF(0, rect.height() / 2.0);
-        break;
-    }
-    return mapToScene(local);
-}
-
 QVector<QGraphicsItem *> GroupItem::containedItems() const
 {
     QVector<QGraphicsItem *> result;
@@ -174,34 +136,6 @@ QVector<QGraphicsItem *> GroupItem::containedItems() const
     return result;
 }
 
-GroupItem::ResizeMode GroupItem::resizeModeAtPos(const QPointF &localPos) const
-{
-    const QRectF rect = boundingRect();
-    const qreal x = localPos.x();
-    const qreal y = localPos.y();
-    const qreal w = rect.width();
-    const qreal h = rect.height();
-
-    const bool nearLeft   = x < kResizeZone;
-    const bool nearRight  = x > w - kResizeZone;
-    const bool nearTop    = y < kResizeZone;
-    const bool nearBottom = y > h - kResizeZone;
-
-    // Corners first (have priority)
-    if (nearTop && nearLeft)     return TopLeft;
-    if (nearTop && nearRight)    return TopRight;
-    if (nearBottom && nearRight) return BottomRight;
-    if (nearBottom && nearLeft)  return BottomLeft;
-
-    // Edges
-    if (nearTop)    return Top;
-    if (nearRight)  return Right;
-    if (nearBottom) return Bottom;
-    if (nearLeft)   return Left;
-
-    return NoResize;
-}
-
 QVariant GroupItem::itemChange(GraphicsItemChange change, const QVariant &value)
 {
     if (change == ItemPositionHasChanged && !m_movingChildren) {
@@ -214,10 +148,10 @@ QVariant GroupItem::itemChange(GraphicsItemChange change, const QVariant &value)
             item->moveBy(delta.x(), delta.y());
         }
         m_movingChildren = false;
-
-        Q_EMIT positionChanged();
     }
-    return QGraphicsObject::itemChange(change, value);
+    // Base handles edge-adjustment-on-move for this node itself (M4 replaces
+    // the whole center-test move-children scheme; kept verbatim for M1).
+    return CanvasNodeItem::itemChange(change, value);
 }
 
 void GroupItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)

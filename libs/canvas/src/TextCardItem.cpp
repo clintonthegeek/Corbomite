@@ -4,7 +4,6 @@
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QTextDocument>
-#include <QGraphicsSceneMouseEvent>
 #include <QRegularExpression>
 
 namespace Canvas {
@@ -13,39 +12,17 @@ static constexpr qreal kCornerRadius = 8.0;
 static constexpr qreal kColorStripeHeight = 20.0;
 static constexpr qreal kTextPadding = 8.0;
 static constexpr qreal kHandleSize = 6.0;
-static constexpr qreal kResizeZone = 8.0;
 
 TextCardItem::TextCardItem(const CanvasNode &data, QGraphicsItem *parent)
-    : QGraphicsObject(parent)
-    , m_data(data)
+    : CanvasNodeItem(data, parent)
 {
-    setFlags(ItemIsMovable | ItemIsSelectable | ItemSendsGeometryChanges);
     setZValue(1);
-    setPos(data.x, data.y);
 }
 
 void TextCardItem::setRenderedDocument(std::unique_ptr<Corbomite::RenderedDocument> doc)
 {
     m_renderedDoc = std::move(doc);
     update();
-}
-
-void TextCardItem::setNodeData(const CanvasNode &data)
-{
-    prepareGeometryChange();
-    m_data = data;
-    setPos(data.x, data.y);
-    update();
-}
-
-CanvasNode TextCardItem::nodeData() const
-{
-    return m_data;
-}
-
-QString TextCardItem::nodeId() const
-{
-    return m_data.id;
 }
 
 QRectF TextCardItem::boundingRect() const
@@ -234,69 +211,6 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
         painter->drawRect(QRectF(w / 2.0 - hh, h - hh, hs, hs));             // Bottom
         painter->drawRect(QRectF(-hh, h / 2.0 - hh, hs, hs));                // Left
     }
-}
-
-QPointF TextCardItem::connectionPoint(Side side) const
-{
-    const QRectF rect = boundingRect();
-    QPointF local;
-    switch (side) {
-    case Side::Top:
-        local = QPointF(rect.width() / 2.0, 0);
-        break;
-    case Side::Right:
-        local = QPointF(rect.width(), rect.height() / 2.0);
-        break;
-    case Side::Bottom:
-        local = QPointF(rect.width() / 2.0, rect.height());
-        break;
-    case Side::Left:
-        local = QPointF(0, rect.height() / 2.0);
-        break;
-    }
-    return mapToScene(local);
-}
-
-TextCardItem::ResizeMode TextCardItem::resizeModeAtPos(const QPointF &localPos) const
-{
-    const QRectF rect = boundingRect();
-    const qreal x = localPos.x();
-    const qreal y = localPos.y();
-    const qreal w = rect.width();
-    const qreal h = rect.height();
-
-    const bool nearLeft   = x < kResizeZone;
-    const bool nearRight  = x > w - kResizeZone;
-    const bool nearTop    = y < kResizeZone;
-    const bool nearBottom = y > h - kResizeZone;
-
-    // Corners first (have priority)
-    if (nearTop && nearLeft)     return TopLeft;
-    if (nearTop && nearRight)    return TopRight;
-    if (nearBottom && nearRight) return BottomRight;
-    if (nearBottom && nearLeft)  return BottomLeft;
-
-    // Edges
-    if (nearTop)    return Top;
-    if (nearRight)  return Right;
-    if (nearBottom) return Bottom;
-    if (nearLeft)   return Left;
-
-    return NoResize;
-}
-
-QVariant TextCardItem::itemChange(GraphicsItemChange change, const QVariant &value)
-{
-    if (change == ItemPositionHasChanged) {
-        Q_EMIT positionChanged();
-    }
-    return QGraphicsObject::itemChange(change, value);
-}
-
-void TextCardItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
-{
-    Q_UNUSED(event);
-    Q_EMIT editRequested();
 }
 
 } // namespace Canvas

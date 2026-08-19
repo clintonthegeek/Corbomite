@@ -127,39 +127,102 @@ Only three intended behavior changes (spec §7): file cards become
 selectable/movable, wheel=pan + Ctrl+wheel=zoom, 24px edge hit zone.
 
 Tasks (sequence matters; each ends with a green build + the tests named in spec §5):
-- [ ] **M1.0 Verification pass** — answer spec §6 V1–V4 by reading
+- [x] **M1.0 Verification pass** — answer spec §6 V1–V4 by reading
       `libs/graffodil/src/core/src/{GraphScene,CompositeTool,DefaultGraphTool,SelectMoveTool}.cpp`;
-      append answers to the spec under §6 before writing code.
-- [ ] **M1.1 `CanvasNodeItem` base** (spec §3.1) — new class; rebase
+      append answers to the spec under §6 before writing code. Answers landed
+      as spec §6a (2026-08-19). V3 concluded `DefaultGraphTool` can't be used
+      as-is (see divergence note below the checklist).
+- [x] **M1.1 `CanvasNodeItem` base** (spec §3.1) — new class; rebase
       `TextCardItem`/`FileCardItem`/`GroupItem` onto it; delete
       `ConnectableItem.h`, the 3 duplicated `ResizeMode` enums and
       `resizeModeAtPos` bodies, and `connectionPoint(Side)`. Anchor identity:
       `sideToString()` strings == Graffodil compass anchor ids (spec §2).
-- [ ] **M1.2 `CanvasEdgeItem`** (spec §3.2) — rewrite `EdgeItem` as a
+- [x] **M1.2 `CanvasEdgeItem`** (spec §3.2) — rewrite `EdgeItem` as a
       `Graffodil::GraphEdgeItem` subclass: stock `BezierPathStrategy`
       (identical math to current: `min(dist*0.4, 80)`), `TriangleTerminus`/
       `NoTerminus` per `fromEnd`/`toEnd`, Graffodil 6c label,
       `setHitWidth(24)`, `edgeId()` override returning the document id.
       Test: `testEdgeIdPreserved`.
-- [ ] **M1.3 Scene rebase** (spec §3.4) — `CanvasScene : Graffodil::GraphScene`;
+- [x] **M1.3 Scene rebase** (spec §3.4) — `CanvasScene : Graffodil::GraphScene`;
       delete item hashes + mouse/key tool dispatch (keep only the edit-proxy
       pre-check); keep every public method the app calls; i18n-sweep all
       user-visible menu strings.
-- [ ] **M1.4 Tools** (spec §3.5, §4.3) — delete `CanvasTool.{h,cpp}`;
-      `DefaultGraphTool` + consumer `CanvasResizeTool` (verbatim port of the
-      resize math, `kMinSize=40`, emits `resizeCommitted`) routed by resize-zone
-      predicate; slim `CanvasView` (spec §3.7).
-- [ ] **M1.5 Undo wiring** (spec §3.6 table) — `dragBegan/dragEnded` →
+- [x] **M1.4 Tools** (spec §3.5, §4.3) — delete `CanvasTool.{h,cpp}`;
+      consumer `CanvasResizeTool` (verbatim port of the resize math,
+      `kMinSize=40`, emits `resizeCommitted`) routed by resize-zone predicate
+      ahead of select/move in a bespoke `Graffodil::CompositeTool` (see
+      divergence note — `DefaultGraphTool` itself couldn't be used); slim
+      `CanvasView` (spec §3.7).
+- [x] **M1.5 Undo wiring** (spec §3.6 table) — `dragBegan/dragEnded` →
       `CmdMoveCards`; `deleteRequested` → compound remove; `resizeCommitted` →
       `CmdResizeCard`. Tools never touch `CanvasDocument`.
-- [ ] **M1.6 Tests** (spec §5) — port `tst_canvasscene` to new seams keeping
+- [x] **M1.6 Tests** (spec §5) — port `tst_canvasscene` to new seams keeping
       every assertion; add the six named new tests (incl.
       `testFileCardSelectableAndMovable`, which must FAIL against pre-M1 code —
-      prove it, then fix forward).
+      prove it, then fix forward). All 19 slots green
+      (13 ported + 6 new); full offscreen suite 313/313.
 - [ ] **M1.7 Live eyeball gate** — both reference vaults: select/move/resize
       every node kind, inline edits, export PNG+SVG, undo/redo, save →
       `.canvas` diff must be byte-identical for a move+undo+save cycle.
-      NOT closable on offscreen-green alone (project memory).
+      NOT closable on offscreen-green alone (project memory). **Not run this
+      session — requires a human at the running app.**
+
+**M1 divergences from the literal spec text (all noted per the spec's own
+"note, don't silently improvise" instruction; none change the class-mapping
+intent, only the assembly mechanics):**
+
+1. **§3.5's `Graffodil::DefaultGraphTool` is not used at all.** M1.0/V3 found
+   `DefaultGraphTool`'s constructor pre-registers its own select/pan mouse
+   routes via plain `addMouseRoute` (append-only; only `addAnchorRoute`
+   prepends). A `CanvasResizeTool` route added afterward would always lose to
+   `m_select`'s already-registered plain-left-button route. Per the spec's own
+   fallback instruction ("build a bespoke CompositeTool from parts"),
+   `CanvasScene` now owns its own `Graffodil::SelectMoveTool` +
+   `Graffodil::PanZoomTool` + `Graffodil::CompositeTool`, with the resize
+   route registered first. Same key/pan bindings as `DefaultGraphTool` ships,
+   only the assembly differs.
+2. **Wheel-zoom modifier is Ctrl (PanZoomTool's own default), not
+   `DefaultGraphTool`'s `NoModifier`.** Spec §7 item 2 states intent as
+   "bare wheel scrolls, Ctrl+wheel zooms" and attributes that to "Graffodil's
+   default" — but `DefaultGraphTool`'s constructor actually sets
+   `setZoomWheelModifier(Qt::NoModifier)` ("plain wheel zooms"), contradicting
+   both its own inline comment and the spec's stated intent. Since M1 already
+   builds a bespoke `CompositeTool` (divergence 1), this scene simply leaves
+   `PanZoomTool`'s built-in default (`Qt::ControlModifier`) untouched, which
+   matches the spec's actual intent rather than `DefaultGraphTool`'s literal
+   behavior.
+3. **Ctrl+A (select-all) and arrow-key nudge (1px / 10px+Shift) are
+   preserved in `CanvasScene::keyPressEvent` as a consumer-side stopgap.**
+   `Graffodil::SelectMoveTool` only owns Delete/Backspace/R — it has no
+   select-all or arrow-nudge handling. These were both live pre-M1 features
+   (plan "Working today" list) and the spec is silent on them for M1 (M4.2
+   formally redesigns nudge with grid-snap stepping later). Rather than
+   silently regressing them mid-migration, they're re-implemented directly
+   in `CanvasScene::keyPressEvent`, guarded on `!focusItem()` so they never
+   steal keys from an in-place label/text editor.
+4. **`CanvasNodeItem::itemChange`/`setGeometry` call
+   `scene()->adjustEdgesForNode()` directly** (the §3.1 conditional hook),
+   confirmed necessary by V2: `GraphScene` does not self-subscribe to node
+   position changes for edges (only groups get that treatment). This also
+   required adding the same call inside `setGeometry()` for the width/height-
+   only case (a right/bottom-edge resize that doesn't move `pos()` would
+   otherwise leave edges stale — `itemChange(ItemPositionHasChanged)` alone
+   doesn't fire for a size-only change).
+5. **Class file naming:** `EdgeItem.h`/`EdgeItem.cpp` keep their filenames
+   (per spec §8's disposition table) but the class is documented as
+   `CanvasEdgeItem` via a `using CanvasEdgeItem = EdgeItem;` alias — the spec
+   text alternates between calling it `EdgeItem` (§3.2 heading says "rename
+   of `EdgeItem`") and `CanvasEdgeItem` elsewhere; resolved in favor of
+   keeping the existing `Canvas::EdgeItem` symbol (zero call-site churn) with
+   the alias available for spec-literal references.
+
+**M1.0–M1.6 commit note:** landed as two commits rather than one-per-task —
+the rebase (M1.0 spec-answers + M1.1–M1.5 code) is one deeply interdependent
+change (CanvasScene's constructor alone reaches into every new class), so
+splitting it into individually-green intermediate commits would have meant
+building throwaway stub scaffolding with no lasting value; M1.6 (the new
+tests) is the one piece that was genuinely separable and landed as its own
+commit.
 
 Exit: current feature set intact live, suite green (313 baseline + new tests),
 export unchanged, `git rm`'d files match spec §8 disposition table.

@@ -1,34 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include <QGraphicsObject>
-#include "CanvasTypes.h"
+#include "CanvasNodeItem.h"
 
 namespace Canvas {
 
-class GroupItem : public QGraphicsObject {
+class GroupItem : public CanvasNodeItem {
     Q_OBJECT
 
 public:
     GroupItem(const CanvasNode &data, QGraphicsItem *parent = nullptr);
 
-    void setNodeData(const CanvasNode &data);
-    CanvasNode nodeData() const;
-    QString nodeId() const;
+    void setNodeData(const CanvasNode &data) override;
 
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
-    QPointF connectionPoint(Side side) const;
     QVector<QGraphicsItem *> containedItems() const;
 
-    // Resize detection (same pattern as TextCardItem)
-    enum ResizeMode { NoResize = 0, TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left };
-    ResizeMode resizeModeAtPos(const QPointF &localPos) const;
-
 Q_SIGNALS:
-    void positionChanged();
-    void sizeChanged();
     void labelEditRequested();
 
 protected:
@@ -36,7 +26,6 @@ protected:
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) override;
 
 private:
-    CanvasNode m_data;
     QPointF m_lastPos;
     bool m_movingChildren = false;
 };

@@ -26,18 +26,12 @@ Q_SIGNALS:
     void selectionChanged(const QStringList &selectedIds);
 
 protected:
-    void wheelEvent(QWheelEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-    void mouseReleaseEvent(QMouseEvent *event) override;
     void drawBackground(QPainter *painter, const QRectF &rect) override;
 
 private:
     CanvasScene *m_scene = nullptr;
     CanvasDocument *m_document = nullptr;
-    bool m_panning = false;
-    QPoint m_lastPanPos;
 };
 
 } // namespace Canvas

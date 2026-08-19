@@ -2,14 +2,20 @@
 #include "canvas/CanvasScene.h"
 #include "canvas/CanvasCommands.h"
 #include "canvas/CanvasDocument.h"
-#include "canvas/CanvasTool.h"
-#include "canvas/ConnectableItem.h"
+#include "canvas/CanvasNodeItem.h"
+#include "canvas/CanvasResizeTool.h"
 #include "canvas/TextCardItem.h"
 #include "canvas/FileCardItem.h"
 #include "canvas/GroupItem.h"
 #include "canvas/EdgeItem.h"
 #include "corbomite/core/MarkdownRenderEngine.h"
 #include "corbomite/core/RenderOptions.h"
+
+#include <graffodil/CompositeTool.h>
+#include <graffodil/SelectMoveTool.h>
+#include <graffodil/PanZoomTool.h>
+#include <graffodil/IGraphNode.h>
+#include <graffodil/IGraphEdge.h>
 
 #include <QApplication>
 #include <QGraphicsProxyWidget>
@@ -25,16 +31,69 @@
 #include <QSvgGenerator>
 #include <QTextEdit>
 #include <QUndoStack>
+#include <KLocalizedString>
 
 namespace Canvas {
 
 CanvasScene::CanvasScene(QObject *parent)
-    : QGraphicsScene(parent)
+    : Graffodil::GraphScene(parent)
     , m_undoStack(new QUndoStack(this))
 {
-    // Create the default tool
-    m_defaultTool = new SelectMoveTool(this, this);
-    setActiveTool(m_defaultTool);
+    // Bespoke CompositeTool assembly — see spec §6a V3: Graffodil::
+    // DefaultGraphTool pre-registers its own select/pan routes at
+    // construction time, so a resize route added afterward would always
+    // lose to its plain-left-button select route. Building our own
+    // CompositeTool from parts lets the resize predicate go first.
+    m_selectTool = new Graffodil::SelectMoveTool(this);
+    m_panZoomTool = new Graffodil::PanZoomTool(this);
+    m_resizeTool = new CanvasResizeTool(this);
+    m_compositeTool = new Graffodil::CompositeTool(this);
+
+    // Same bindings as Graffodil::DefaultGraphTool, with the resize route
+    // prepended ahead of select/move.
+    m_compositeTool->addMouseRoute(m_resizeTool, [this](QGraphicsSceneMouseEvent *ev) {
+        return ev->button() == Qt::LeftButton
+            && findResizeTarget(this, ev->scenePos()) != nullptr;
+    });
+    m_compositeTool->addMouseRoute(m_selectTool,
+        Graffodil::CompositeTool::matchButton(Qt::LeftButton, Qt::NoModifier));
+    m_compositeTool->addMouseRoute(m_selectTool,
+        Graffodil::CompositeTool::matchButton(Qt::LeftButton, Qt::ShiftModifier));
+    m_compositeTool->addMouseRoute(m_selectTool,
+        Graffodil::CompositeTool::matchButton(Qt::LeftButton, Qt::ControlModifier));
+    m_compositeTool->addMouseRoute(m_selectTool,
+        Graffodil::CompositeTool::matchButton(Qt::LeftButton, Qt::MetaModifier));
+
+    m_panZoomTool->setPanButton(Qt::MiddleButton);
+    m_panZoomTool->setZoomButton(Qt::NoButton);
+    // Deliberately NOT overriding setZoomWheelModifier(): PanZoomTool's own
+    // default (Qt::ControlModifier) is what gives us spec §7 item 2 — bare
+    // wheel scrolls (falls through unaccepted to QGraphicsView's native
+    // scrollbar handling), Ctrl+wheel zooms about the cursor. NOTE:
+    // Graffodil::DefaultGraphTool itself sets NoModifier ("plain wheel
+    // zooms"), which contradicts both its own comment and this spec's
+    // stated intent — one more reason (besides V3's route-order issue) this
+    // scene builds its own CompositeTool instead of using DefaultGraphTool.
+    m_compositeTool->addMouseRoute(m_panZoomTool,
+        Graffodil::CompositeTool::matchButton(Qt::MiddleButton));
+    m_compositeTool->addWheelRoute(m_panZoomTool, Graffodil::CompositeTool::matchAnyWheel());
+
+    m_compositeTool->addKeyRoute(m_selectTool);
+
+    setActiveTool(m_compositeTool);
+
+    // M1.5 undo wiring: tool intent signals -> Cmd* on the undo stack.
+    // Tools never touch CanvasDocument directly (plan Appendix B rule 1).
+    connect(m_selectTool, &Graffodil::SelectMoveTool::dragBegan,
+            this, &CanvasScene::onDragBegan);
+    connect(m_selectTool, &Graffodil::SelectMoveTool::dragEnded,
+            this, &CanvasScene::onDragEnded);
+    connect(m_selectTool, &Graffodil::SelectMoveTool::deleteRequested,
+            this, &CanvasScene::onDeleteRequested);
+    // reverseRequested (R key) intentionally ignored in M1 — new behavior,
+    // wired through an edge-direction command in M3 (spec §3.6).
+    connect(m_resizeTool, &CanvasResizeTool::resizeCommitted,
+            this, &CanvasScene::onResizeCommitted);
 }
 
 // ---------------------------------------------------------------------------
@@ -107,11 +166,11 @@ void CanvasScene::clearAllItems()
     finishFileCardEdit();
     finishGroupLabelEdit();
 
-    m_textCardItems.clear();
-    m_fileCardItems.clear();
-    m_groupItems.clear();
-    m_edgeItems.clear();
-    clear();
+    // GraphScene::clearGraph() removes items from the scene registry (and
+    // the QGraphicsScene) but does not delete them — we still own them.
+    const auto cleared = clearGraph();
+    qDeleteAll(cleared.edges);
+    qDeleteAll(cleared.nodes);
 }
 
 // ---------------------------------------------------------------------------
@@ -121,25 +180,10 @@ void CanvasScene::clearAllItems()
 TextCardItem *CanvasScene::addTextCardItem(const CanvasNode &node)
 {
     auto *item = new TextCardItem(node);
-    addItem(item);
-    m_textCardItems.insert(node.id, item);
+    addNode(item);
 
-    // Connect editRequested to inline editing
     connect(item, &TextCardItem::editRequested, this, [this, item]() {
         beginInlineEdit(item);
-    });
-
-    // Forward position changes to edge adjustment
-    connect(item, &TextCardItem::positionChanged, this, [this, item]() {
-        // Adjust all edges connected to this card
-        if (!m_document)
-            return;
-        const auto edges = m_document->edgesForNode(item->nodeId());
-        for (const auto &edge : edges) {
-            if (auto *edgeItem = this->edgeItem(edge.id)) {
-                edgeItem->adjust();
-            }
-        }
     });
 
     // Render text card content via engine if available
@@ -154,10 +198,8 @@ TextCardItem *CanvasScene::addTextCardItem(const CanvasNode &node)
 GroupItem *CanvasScene::addGroupItemToScene(const CanvasNode &node)
 {
     auto *item = new GroupItem(node);
-    addItem(item);
-    m_groupItems.insert(node.id, item);
+    addNode(item);
 
-    // Connect label edit
     connect(item, &GroupItem::labelEditRequested, this, [this, item]() {
         beginGroupLabelEdit(item);
     });
@@ -165,34 +207,33 @@ GroupItem *CanvasScene::addGroupItemToScene(const CanvasNode &node)
     return item;
 }
 
-EdgeItem *CanvasScene::addEdgeItemToScene(ConnectableItem *from, ConnectableItem *to, const CanvasEdge &edge)
+EdgeItem *CanvasScene::addEdgeItemToScene(CanvasNodeItem *from, CanvasNodeItem *to, const CanvasEdge &edge)
 {
     auto *item = new EdgeItem(from, to, edge);
-    addItem(item);
-    m_edgeItems.insert(edge.id, item);
+    addEdge(item);
     return item;
 }
 
 void CanvasScene::removeTextCardItem(const QString &id)
 {
-    if (auto *item = m_textCardItems.take(id)) {
-        removeItem(item);
+    if (auto *item = textCardItem(id)) {
+        removeNode(id);
         delete item;
     }
 }
 
 void CanvasScene::removeGroupItem(const QString &id)
 {
-    if (auto *item = m_groupItems.take(id)) {
-        removeItem(item);
+    if (auto *item = groupItem(id)) {
+        removeNode(id);
         delete item;
     }
 }
 
 void CanvasScene::removeEdgeItem(const QString &id)
 {
-    if (auto *item = m_edgeItems.take(id)) {
-        removeItem(item);
+    if (auto *item = edgeItem(id)) {
+        removeEdge(id);
         delete item;
     }
 }
@@ -214,19 +255,17 @@ void CanvasScene::reRenderAllCards()
     if (!m_renderEngine)
         return;
 
-    for (auto *card : std::as_const(m_textCardItems)) {
-        if (!card)
-            continue;
-        const QString text = card->nodeData().text;
-        if (text.isEmpty()) {
-            card->setRenderedDocument(nullptr);
-            continue;
+    for (auto *node : nodes()) {
+        if (auto *card = dynamic_cast<TextCardItem *>(node)) {
+            const QString text = card->nodeData().text;
+            if (text.isEmpty()) {
+                card->setRenderedDocument(nullptr);
+                continue;
+            }
+            card->setRenderedDocument(m_renderEngine->render(text));
+        } else if (auto *file = dynamic_cast<FileCardItem *>(node)) {
+            renderFileCard(file);
         }
-        card->setRenderedDocument(m_renderEngine->render(text));
-    }
-
-    for (auto *card : std::as_const(m_fileCardItems)) {
-        renderFileCard(card);
     }
 }
 
@@ -252,22 +291,10 @@ void CanvasScene::setFileSaver(FileSaver saver)
 FileCardItem *CanvasScene::addFileCardItem(const CanvasNode &node)
 {
     auto *item = new FileCardItem(node);
-    addItem(item);
-    m_fileCardItems.insert(node.id, item);
+    addNode(item);
 
     connect(item, &FileCardItem::editRequested, this, [this, item]() {
         beginFileCardEdit(item);
-    });
-
-    connect(item, &FileCardItem::positionChanged, this, [this, item]() {
-        if (!m_document)
-            return;
-        const auto edges = m_document->edgesForNode(item->nodeId());
-        for (const auto &edge : edges) {
-            if (auto *edgeItem = this->edgeItem(edge.id)) {
-                edgeItem->adjust();
-            }
-        }
     });
 
     renderFileCard(item);
@@ -276,15 +303,15 @@ FileCardItem *CanvasScene::addFileCardItem(const CanvasNode &node)
 
 void CanvasScene::removeFileCardItem(const QString &id)
 {
-    if (auto *item = m_fileCardItems.take(id)) {
-        removeItem(item);
+    if (auto *item = fileCardItem(id)) {
+        removeNode(id);
         delete item;
     }
 }
 
 FileCardItem *CanvasScene::fileCardItem(const QString &id) const
 {
-    return m_fileCardItems.value(id, nullptr);
+    return dynamic_cast<FileCardItem *>(nodeForId(id));
 }
 
 void CanvasScene::renderFileCard(FileCardItem *item)
@@ -310,49 +337,27 @@ void CanvasScene::renderFileCard(FileCardItem *item)
 }
 
 // ---------------------------------------------------------------------------
-// Tool management
-// ---------------------------------------------------------------------------
-
-void CanvasScene::setActiveTool(CanvasTool *tool)
-{
-    if (m_activeTool)
-        m_activeTool->deactivate();
-    m_activeTool = tool;
-    if (m_activeTool)
-        m_activeTool->activate();
-}
-
-CanvasTool *CanvasScene::activeTool() const
-{
-    return m_activeTool;
-}
-
-// ---------------------------------------------------------------------------
 // Item lookup
 // ---------------------------------------------------------------------------
 
 TextCardItem *CanvasScene::textCardItem(const QString &id) const
 {
-    return m_textCardItems.value(id, nullptr);
+    return dynamic_cast<TextCardItem *>(nodeForId(id));
 }
 
 GroupItem *CanvasScene::groupItem(const QString &id) const
 {
-    return m_groupItems.value(id, nullptr);
+    return dynamic_cast<GroupItem *>(nodeForId(id));
 }
 
 EdgeItem *CanvasScene::edgeItem(const QString &id) const
 {
-    return m_edgeItems.value(id, nullptr);
+    return dynamic_cast<EdgeItem *>(edgeForId(id));
 }
 
-ConnectableItem *CanvasScene::connectableItem(const QString &id) const
+CanvasNodeItem *CanvasScene::connectableItem(const QString &id) const
 {
-    if (auto *card = textCardItem(id))
-        return card;
-    if (auto *file = fileCardItem(id))
-        return file;
-    return nullptr;
+    return dynamic_cast<CanvasNodeItem *>(nodeForId(id));
 }
 
 QUndoStack *CanvasScene::undoStack()
@@ -370,7 +375,7 @@ void CanvasScene::onNodeAdded(const QString &id)
         return;
 
     // Skip if already present in scene
-    if (m_textCardItems.contains(id) || m_groupItems.contains(id) || m_fileCardItems.contains(id))
+    if (nodeForId(id))
         return;
 
     const CanvasNode node = m_document->node(id);
@@ -422,7 +427,7 @@ void CanvasScene::onEdgeAdded(const QString &id)
         return;
 
     // Skip if already present
-    if (m_edgeItems.contains(id))
+    if (edgeForId(id))
         return;
 
     const CanvasEdge edge = m_document->edge(id);
@@ -446,6 +451,80 @@ void CanvasScene::onEdgeChanged(const QString &id)
     if (auto *item = edgeItem(id)) {
         item->setEdgeData(m_document->edge(id));
     }
+}
+
+// ---------------------------------------------------------------------------
+// M1.5 undo wiring — Graffodil tool intent signals -> Cmd* (Appendix B rule 1:
+// tools never touch CanvasDocument directly)
+// ---------------------------------------------------------------------------
+
+void CanvasScene::onDragBegan(const QList<Graffodil::IGraphNode *> &nodes)
+{
+    m_dragSnapshot.clear();
+    for (auto *node : nodes)
+        m_dragSnapshot.insert(node->nodeId(), node->graphicsItem()->pos());
+}
+
+void CanvasScene::onDragEnded(const QList<Graffodil::IGraphNode *> &nodes)
+{
+    if (m_dragSnapshot.isEmpty() || !m_document) {
+        m_dragSnapshot.clear();
+        return;
+    }
+
+    QHash<QString, QPointF> oldPositions;
+    QHash<QString, QPointF> newPositions;
+    for (auto *node : nodes) {
+        const QString id = node->nodeId();
+        if (!m_dragSnapshot.contains(id))
+            continue;
+        const QPointF oldPos = m_dragSnapshot.value(id);
+        const QPointF newPos = node->graphicsItem()->pos();
+        oldPositions.insert(id, oldPos);
+        newPositions.insert(id, newPos);
+    }
+    m_dragSnapshot.clear();
+
+    if (!oldPositions.isEmpty() && oldPositions != newPositions) {
+        m_undoStack->push(new CmdMoveCards(m_document, oldPositions, newPositions));
+    }
+}
+
+void CanvasScene::onDeleteRequested(const QList<Graffodil::IGraphNode *> &nodes,
+                                     const QList<Graffodil::IGraphEdge *> &edges)
+{
+    if (!m_document)
+        return;
+
+    QStringList nodeIds;
+    for (auto *node : nodes)
+        nodeIds.append(node->nodeId());
+    QStringList edgeIds;
+    for (auto *edge : edges)
+        edgeIds.append(edge->edgeId());
+
+    if (nodeIds.isEmpty() && edgeIds.isEmpty())
+        return;
+
+    // Use a parent command so the entire deletion is a single undo step.
+    auto *parentCmd = new QUndoCommand(i18n("Delete Selection"));
+
+    // Remove standalone edge selections first.
+    for (const auto &edgeId : edgeIds)
+        new CmdRemoveEdge(m_document, edgeId, parentCmd);
+    // Remove nodes (CmdRemoveCard saves connected edges for undo; works for
+    // any node type — text, file, group — since it's generic doc removal).
+    for (const auto &nodeId : nodeIds)
+        new CmdRemoveCard(m_document, nodeId, parentCmd);
+
+    m_undoStack->push(parentCmd);
+}
+
+void CanvasScene::onResizeCommitted(const QString &nodeId, const QRect &oldRect, const QRect &newRect)
+{
+    if (!m_document)
+        return;
+    m_undoStack->push(new CmdResizeCard(m_document, nodeId, oldRect, newRect));
 }
 
 // ---------------------------------------------------------------------------
@@ -647,7 +726,9 @@ void CanvasScene::finishGroupLabelEdit()
 }
 
 // ---------------------------------------------------------------------------
-// Mouse event delegation
+// Mouse/key event delegation — only the edit-proxy pre-check is
+// consumer-owned; everything else routes to GraphScene's own dispatch
+// (active tool, focused-editor priority, edge-action/sub-item hooks).
 // ---------------------------------------------------------------------------
 
 void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
@@ -664,11 +745,7 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
         finishFileCardEdit();
     }
 
-    if (m_activeTool) {
-        m_activeTool->mousePressEvent(event);
-        return;
-    }
-    QGraphicsScene::mousePressEvent(event);
+    GraphScene::mousePressEvent(event);
 }
 
 void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
@@ -677,11 +754,7 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
         QGraphicsScene::mouseMoveEvent(event);
         return;
     }
-    if (m_activeTool) {
-        m_activeTool->mouseMoveEvent(event);
-        return;
-    }
-    QGraphicsScene::mouseMoveEvent(event);
+    GraphScene::mouseMoveEvent(event);
 }
 
 void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
@@ -690,11 +763,7 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
         QGraphicsScene::mouseReleaseEvent(event);
         return;
     }
-    if (m_activeTool) {
-        m_activeTool->mouseReleaseEvent(event);
-        return;
-    }
-    QGraphicsScene::mouseReleaseEvent(event);
+    GraphScene::mouseReleaseEvent(event);
 }
 
 void CanvasScene::keyPressEvent(QKeyEvent *event)
@@ -704,11 +773,38 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
         QGraphicsScene::keyPressEvent(event);
         return;
     }
-    if (m_activeTool) {
-        m_activeTool->keyPressEvent(event);
-        return;
+
+    // Ctrl+A (select all) and arrow-key nudge (1px / 10px with Shift) are
+    // pre-M1 canvas features (plan "Working today" list) that
+    // Graffodil::SelectMoveTool does not implement (it only owns
+    // Delete/Backspace/R). The migration spec is silent on them — M4.2
+    // formally redesigns nudge with grid-snap stepping later — so this is
+    // a feature-freeze stopgap kept here rather than silently dropped.
+    // Guarded on !focusItem() so it never steals keys from an in-place
+    // label/text editor (group-label, edge-label proxies).
+    if (!focusItem()) {
+        if ((event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_A) {
+            for (auto *node : nodes())
+                node->graphicsItem()->setSelected(true);
+            event->accept();
+            return;
+        }
+        if (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right ||
+            event->key() == Qt::Key_Up || event->key() == Qt::Key_Down) {
+            const qreal step = (event->modifiers() & Qt::ShiftModifier) ? 10.0 : 1.0;
+            qreal dx = 0, dy = 0;
+            if (event->key() == Qt::Key_Left) dx = -step;
+            else if (event->key() == Qt::Key_Right) dx = step;
+            else if (event->key() == Qt::Key_Up) dy = -step;
+            else dy = step;
+            for (auto *item : selectedItems())
+                item->moveBy(dx, dy);
+            event->accept();
+            return;
+        }
     }
-    QGraphicsScene::keyPressEvent(event);
+
+    GraphScene::keyPressEvent(event);
 }
 
 // ---------------------------------------------------------------------------
@@ -717,14 +813,14 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
 
 void CanvasScene::addColorSubmenu(QMenu *parentMenu, const QString &nodeId, const QString &currentColor)
 {
-    auto *colorMenu = parentMenu->addMenu(QStringLiteral("Color"));
+    auto *colorMenu = parentMenu->addMenu(i18n("Color"));
     const struct { QString name; QString code; } colors[] = {
-        { QStringLiteral("Red"),    QStringLiteral("1") },
-        { QStringLiteral("Orange"), QStringLiteral("2") },
-        { QStringLiteral("Yellow"), QStringLiteral("3") },
-        { QStringLiteral("Green"),  QStringLiteral("4") },
-        { QStringLiteral("Cyan"),   QStringLiteral("5") },
-        { QStringLiteral("Purple"), QStringLiteral("6") },
+        { i18n("Red"),    QStringLiteral("1") },
+        { i18n("Orange"), QStringLiteral("2") },
+        { i18n("Yellow"), QStringLiteral("3") },
+        { i18n("Green"),  QStringLiteral("4") },
+        { i18n("Cyan"),   QStringLiteral("5") },
+        { i18n("Purple"), QStringLiteral("6") },
     };
     for (const auto &c : colors) {
         colorMenu->addAction(c.name, [this, nodeId, oldColor = currentColor, code = c.code]() {
@@ -733,7 +829,7 @@ void CanvasScene::addColorSubmenu(QMenu *parentMenu, const QString &nodeId, cons
         });
     }
     colorMenu->addSeparator();
-    colorMenu->addAction(QStringLiteral("Remove Color"), [this, nodeId, oldColor = currentColor]() {
+    colorMenu->addAction(i18n("Remove Color"), [this, nodeId, oldColor = currentColor]() {
         if (!m_document) return;
         m_undoStack->push(new CmdChangeColor(m_document, nodeId, oldColor, QString()));
     });
@@ -772,13 +868,13 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
 
     if (cardItem) {
         // Right-click on a TextCardItem
-        menu.addAction(QStringLiteral("Edit"), [this, cardItem]() {
+        menu.addAction(i18n("Edit"), [this, cardItem]() {
             beginInlineEdit(cardItem);
         });
 
         addColorSubmenu(&menu, cardItem->nodeId(), cardItem->nodeData().color);
 
-        menu.addAction(QStringLiteral("Duplicate"), [this, cardItem, scenePos]() {
+        menu.addAction(i18n("Duplicate"), [this, cardItem, scenePos]() {
             if (!m_document)
                 return;
             CanvasNode data = cardItem->nodeData();
@@ -789,7 +885,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         });
 
         menu.addSeparator();
-        menu.addAction(QStringLiteral("Delete"), [this, cardItem]() {
+        menu.addAction(i18n("Delete"), [this, cardItem]() {
             if (!m_document)
                 return;
             m_undoStack->push(
@@ -800,7 +896,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         addColorSubmenu(&menu, fileItem->nodeId(), fileItem->nodeData().color);
 
         menu.addSeparator();
-        menu.addAction(QStringLiteral("Delete"), [this, fileItem]() {
+        menu.addAction(i18n("Delete"), [this, fileItem]() {
             if (!m_document)
                 return;
             m_undoStack->push(
@@ -808,13 +904,13 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         });
     } else if (grpItem) {
         // Right-click on a GroupItem
-        menu.addAction(QStringLiteral("Edit Label"), [this, grpItem]() {
+        menu.addAction(i18n("Edit Label"), [this, grpItem]() {
             beginGroupLabelEdit(grpItem);
         });
 
         addColorSubmenu(&menu, grpItem->nodeId(), grpItem->nodeData().color);
 
-        menu.addAction(QStringLiteral("Duplicate"), [this, grpItem]() {
+        menu.addAction(i18n("Duplicate"), [this, grpItem]() {
             if (!m_document)
                 return;
             CanvasNode data = grpItem->nodeData();
@@ -825,7 +921,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         });
 
         menu.addSeparator();
-        menu.addAction(QStringLiteral("Delete"), [this, grpItem]() {
+        menu.addAction(i18n("Delete"), [this, grpItem]() {
             if (!m_document)
                 return;
             m_undoStack->push(
@@ -833,7 +929,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         });
     } else if (edgItem) {
         // Right-click on an EdgeItem
-        menu.addAction(QStringLiteral("Edit Label"), [this, edgItem]() {
+        menu.addAction(i18n("Edit Label"), [this, edgItem]() {
             // Simple inline label edit: use an input dialog approach via proxy widget
             auto *lineEdit = new QLineEdit;
             lineEdit->setText(edgItem->edgeData().label);
@@ -861,7 +957,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             });
         });
 
-        menu.addAction(QStringLiteral("Reverse Direction"), [this, edgItem]() {
+        menu.addAction(i18n("Reverse Direction"), [this, edgItem]() {
             if (!m_document)
                 return;
             CanvasEdge data = edgItem->edgeData();
@@ -884,7 +980,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         });
 
         menu.addSeparator();
-        menu.addAction(QStringLiteral("Delete"), [this, edgItem]() {
+        menu.addAction(i18n("Delete"), [this, edgItem]() {
             if (!m_document)
                 return;
             m_undoStack->push(
@@ -892,7 +988,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         });
     } else {
         // Right-click on empty space
-        menu.addAction(QStringLiteral("New Text Card"), [this, scenePos]() {
+        menu.addAction(i18n("New Text Card"), [this, scenePos]() {
             if (!m_document)
                 return;
             CanvasNode node;
@@ -905,7 +1001,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             m_undoStack->push(new CmdAddCard(m_document, node));
         });
 
-        menu.addAction(QStringLiteral("New Group"), [this, scenePos]() {
+        menu.addAction(i18n("New Group"), [this, scenePos]() {
             if (!m_document)
                 return;
             CanvasNode node;
@@ -915,7 +1011,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             node.y = qRound(scenePos.y());
             node.width = 400;
             node.height = 300;
-            node.label = QStringLiteral("Group");
+            node.label = i18n("Group");
             m_undoStack->push(new CmdAddCard(m_document, node));
         });
     }
@@ -938,10 +1034,11 @@ QImage CanvasScene::renderToImage(const QRectF &bounds, bool transparentBg,
     // Hide edge items for "just the nodes" export when requested.
     QList<QGraphicsItem *> hidden;
     if (!showEdges) {
-        for (auto *edge : std::as_const(m_edgeItems)) {
-            if (edge && edge->isVisible()) {
-                edge->setVisible(false);
-                hidden.append(edge);
+        for (auto *edge : edges()) {
+            QGraphicsItem *gi = edge->graphicsItem();
+            if (gi && gi->isVisible()) {
+                gi->setVisible(false);
+                hidden.append(gi);
             }
         }
     }
@@ -970,10 +1067,11 @@ void CanvasScene::renderToSvg(const QRectF &bounds, QIODevice *out,
 
     QList<QGraphicsItem *> hidden;
     if (!showEdges) {
-        for (auto *edge : std::as_const(m_edgeItems)) {
-            if (edge && edge->isVisible()) {
-                edge->setVisible(false);
-                hidden.append(edge);
+        for (auto *edge : edges()) {
+            QGraphicsItem *gi = edge->graphicsItem();
+            if (gi && gi->isVisible()) {
+                gi->setVisible(false);
+                hidden.append(gi);
             }
         }
     }
