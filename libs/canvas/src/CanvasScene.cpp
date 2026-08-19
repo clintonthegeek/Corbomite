@@ -816,6 +816,38 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
 }
 
 // ---------------------------------------------------------------------------
+// M2.1 — double-click empty canvas -> new text card, born in edit mode
+// ---------------------------------------------------------------------------
+
+void CanvasScene::mouseDoubleClickEventBackground(const QPointF &scenePos)
+{
+    if (!m_document)
+        return;
+
+    // Appendix A default text-card size: 250x60. "Centered on click point"
+    // per Obsidian: the click point becomes the card's center, not its
+    // top-left corner.
+    static constexpr int kTextWidth = 250;
+    static constexpr int kTextHeight = 60;
+
+    CanvasNode node;
+    node.id = CanvasDocument::generateId();
+    node.type = NodeType::Text;
+    node.x = qRound(scenePos.x() - kTextWidth / 2.0);
+    node.y = qRound(scenePos.y() - kTextHeight / 2.0);
+    node.width = kTextWidth;
+    node.height = kTextHeight;
+
+    m_undoStack->push(new CmdAddCard(m_document, node));
+
+    if (auto *item = textCardItem(node.id)) {
+        clearSelection();
+        item->setSelected(true);
+        beginInlineEdit(item);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Context menu helpers
 // ---------------------------------------------------------------------------
 

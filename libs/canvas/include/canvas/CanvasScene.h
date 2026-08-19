@@ -109,6 +109,11 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
     void contextMenuEvent(QGraphicsSceneContextMenuEvent *event) override;
 
+    /// M2.1 — double-click on empty canvas creates a new text card
+    /// (250x60, centered on the click point), selects it, and immediately
+    /// begins inline-edit (card is "born" in edit mode).
+    void mouseDoubleClickEventBackground(const QPointF &scenePos) override;
+
 private Q_SLOTS:
     void onNodeAdded(const QString &id);
     void onNodeRemoved(const QString &id);

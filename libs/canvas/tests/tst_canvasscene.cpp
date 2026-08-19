@@ -653,6 +653,53 @@ private Q_SLOTS:
         QCOMPARE(item->edgeId(), QStringLiteral("custom-edge-id-1234"));
         QVERIFY(scene.edgeForId(QStringLiteral("custom-edge-id-1234")) != nullptr);
     }
+
+    // -----------------------------------------------------------------
+    // Phase M2 — node creation flows
+    // -----------------------------------------------------------------
+
+    void testDoubleClickEmptyCreatesTextCardInEditMode()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        QCOMPARE(doc.nodes().size(), 0);
+
+        QGraphicsSceneMouseEvent dblClick(QEvent::GraphicsSceneMouseDoubleClick);
+        dblClick.setScenePos(QPointF(500, 500));
+        dblClick.setButton(Qt::LeftButton);
+        dblClick.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &dblClick);
+
+        QCOMPARE(doc.nodes().size(), 1);
+        const auto node = doc.nodes().first();
+        QCOMPARE(node.type, Canvas::NodeType::Text);
+        QCOMPARE(node.width, 250);
+        QCOMPARE(node.height, 60);
+        // Click point is the card's center, not its top-left corner.
+        QCOMPARE(node.x, 500 - 125);
+        QCOMPARE(node.y, 500 - 30);
+
+        auto *item = scene.textCardItem(node.id);
+        QVERIFY(item != nullptr);
+        QVERIFY(item->isSelected());
+        QVERIFY(scene.isEditing());
+
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        // Close the in-place editor before the scene tears down (clicking
+        // outside the proxy is the normal way this happens in the app;
+        // leaving the QGraphicsProxyWidget alive across ~CanvasScene is a
+        // pre-existing teardown hazard unrelated to M2.1, not exercised
+        // by any other test in this file).
+        QGraphicsSceneMouseEvent outsideClick(QEvent::GraphicsSceneMousePress);
+        outsideClick.setScenePos(QPointF(-1000, -1000));
+        outsideClick.setButton(Qt::LeftButton);
+        outsideClick.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &outsideClick);
+        QVERIFY(!scene.isEditing());
+    }
 };
 
 QTEST_MAIN(TestCanvasScene)
