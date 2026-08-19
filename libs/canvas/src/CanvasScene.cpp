@@ -2,6 +2,7 @@
 #include "canvas/CanvasScene.h"
 #include "canvas/CanvasCommands.h"
 #include "canvas/CanvasDocument.h"
+#include "canvas/CanvasDuplicateDragTool.h"
 #include "canvas/CanvasNodeItem.h"
 #include "canvas/CanvasResizeTool.h"
 #include "canvas/TextCardItem.h"
@@ -65,6 +66,7 @@ CanvasScene::CanvasScene(QObject *parent)
     m_selectTool = new Graffodil::SelectMoveTool(this);
     m_panZoomTool = new Graffodil::PanZoomTool(this);
     m_resizeTool = new CanvasResizeTool(this);
+    m_duplicateDragTool = new CanvasDuplicateDragTool(this);
     m_compositeTool = new Graffodil::CompositeTool(this);
 
     // Same bindings as Graffodil::DefaultGraphTool, with the resize route
@@ -72,6 +74,16 @@ CanvasScene::CanvasScene(QObject *parent)
     m_compositeTool->addMouseRoute(m_resizeTool, [this](QGraphicsSceneMouseEvent *ev) {
         return ev->button() == Qt::LeftButton
             && findResizeTarget(this, ev->scenePos()) != nullptr;
+    });
+    // M2.5 — Alt-drag duplicate: also tried ahead of select/move. Alt isn't
+    // matched by any of the plain/Shift/Ctrl/Meta select routes below, so
+    // ordering isn't strictly load-bearing here, but this mirrors the
+    // resize route's placement per the plan's "tried before the normal
+    // select/move route" instruction.
+    m_compositeTool->addMouseRoute(m_duplicateDragTool, [this](QGraphicsSceneMouseEvent *ev) {
+        return ev->button() == Qt::LeftButton
+            && (ev->modifiers() & Qt::AltModifier)
+            && findAltDragDuplicateTarget(this, ev->scenePos()) != nullptr;
     });
     m_compositeTool->addMouseRoute(m_selectTool,
         Graffodil::CompositeTool::matchButton(Qt::LeftButton, Qt::NoModifier));

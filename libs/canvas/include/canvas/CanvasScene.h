@@ -37,6 +37,7 @@ class FileCardItem;
 class GroupItem;
 class EdgeItem;
 class CanvasResizeTool;
+class CanvasDuplicateDragTool;
 
 class CanvasScene : public Graffodil::GraphScene {
     Q_OBJECT
@@ -203,6 +204,7 @@ private:
     Graffodil::SelectMoveTool *m_selectTool = nullptr;
     Graffodil::PanZoomTool *m_panZoomTool = nullptr;
     CanvasResizeTool *m_resizeTool = nullptr;
+    CanvasDuplicateDragTool *m_duplicateDragTool = nullptr;
 
     QUndoStack *m_undoStack = nullptr;
     Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;

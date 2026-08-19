@@ -933,6 +933,105 @@ private Q_SLOTS:
         QCOMPARE(node.y, 500 - 30);
         QCOMPARE(scene.undoStack()->count(), 1);
     }
+
+    void testAltDragDuplicates()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("a"); n1.type = Canvas::NodeType::Text;
+        n1.x = 0; n1.y = 0; n1.width = 100; n1.height = 60;
+        n1.text = QStringLiteral("Alpha");
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("b"); n2.type = Canvas::NodeType::Text;
+        n2.x = 200; n2.y = 0; n2.width = 100; n2.height = 60;
+        n2.text = QStringLiteral("Beta");
+        doc.addNode(n1);
+        doc.addNode(n2);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("e1");
+        edge.fromNode = QStringLiteral("a");
+        edge.toNode = QStringLiteral("b");
+        doc.addEdge(edge);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *itemA = scene.textCardItem(QStringLiteral("a"));
+        auto *itemB = scene.textCardItem(QStringLiteral("b"));
+        QVERIFY(itemA && itemB);
+        itemA->setSelected(true);
+        itemB->setSelected(true);
+
+        // Alt+press on the already-selected node "a", drag by (50, 30).
+        const QPointF pressPos(50, 30); // inside itemA's 100x60 rect
+        const QPointF movePos = pressPos + QPointF(50, 30);
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(pressPos);
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        press.setModifiers(Qt::AltModifier);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(movePos);
+        move.setLastScenePos(pressPos);
+        move.setButtons(Qt::LeftButton);
+        move.setModifiers(Qt::AltModifier);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(movePos);
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        release.setModifiers(Qt::AltModifier);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        // Originals untouched, two new nodes + one new edge, single undo step.
+        QCOMPARE(doc.nodes().size(), 4);
+        QCOMPARE(doc.edges().size(), 2);
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        auto origA = doc.node(QStringLiteral("a"));
+        auto origB = doc.node(QStringLiteral("b"));
+        QCOMPARE(origA.x, 0);
+        QCOMPARE(origA.y, 0);
+        QCOMPARE(origB.x, 200);
+        QCOMPARE(origB.y, 0);
+
+        bool foundCloneA = false, foundCloneB = false;
+        for (const auto &n : doc.nodes()) {
+            if (n.id == QStringLiteral("a") || n.id == QStringLiteral("b"))
+                continue;
+            QCOMPARE(n.id.length(), 16);
+            if (n.text == QStringLiteral("Alpha")) {
+                QCOMPARE(n.x, 50);  // 0 + drag delta (50,30)
+                QCOMPARE(n.y, 30);
+                foundCloneA = true;
+            } else if (n.text == QStringLiteral("Beta")) {
+                QCOMPARE(n.x, 250); // 200 + drag delta (50,30)
+                QCOMPARE(n.y, 30);
+                foundCloneB = true;
+            }
+        }
+        QVERIFY(foundCloneA);
+        QVERIFY(foundCloneB);
+
+        bool foundClonedEdge = false;
+        for (const auto &e : doc.edges()) {
+            if (e.id == QStringLiteral("e1"))
+                continue;
+            QVERIFY(e.fromNode != QStringLiteral("a"));
+            QVERIFY(e.toNode != QStringLiteral("b"));
+            foundClonedEdge = true;
+        }
+        QVERIFY(foundClonedEdge);
+
+        // The clones (not the originals) end up selected.
+        QVERIFY(!itemA->isSelected());
+        QVERIFY(!itemB->isSelected());
+    }
 };
 
 QTEST_MAIN(TestCanvasScene)

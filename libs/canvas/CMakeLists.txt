@@ -14,6 +14,7 @@ add_library(canvas STATIC
     src/CanvasCommands.cpp
     src/CanvasNodeItem.cpp
     src/CanvasResizeTool.cpp
+    src/CanvasDuplicateDragTool.cpp
     src/TextCardItem.cpp
     src/GroupItem.cpp
     src/EdgeItem.cpp
@@ -25,6 +26,7 @@ add_library(canvas STATIC
     include/canvas/CanvasCommands.h
     include/canvas/CanvasNodeItem.h
     include/canvas/CanvasResizeTool.h
+    include/canvas/CanvasDuplicateDragTool.h
     include/canvas/TextCardItem.h
     include/canvas/GroupItem.h
     include/canvas/EdgeItem.h
