@@ -58,7 +58,7 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
 {
     FileView::onLoadFile(file);
     if (!m_canvasWidget && file) {
-        m_canvasWidget = new CanvasViewTab(file->filePath(), contentWidget());
+        m_canvasWidget = new CanvasViewTab(file->filePath(), file->vaultRoot(), contentWidget());
         auto *layout = new QVBoxLayout(contentWidget());
         layout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(m_canvasWidget);

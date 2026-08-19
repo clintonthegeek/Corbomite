@@ -12,7 +12,7 @@
 
 namespace Corbomite {
 
-CanvasViewTab::CanvasViewTab(const QString &filePath, QWidget *parent)
+CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, QWidget *parent)
     : QWidget(parent)
     , m_filePath(filePath)
 {
@@ -22,18 +22,20 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, QWidget *parent)
     m_document->loadFromFile(filePath);
     m_view->setDocument(m_document);
 
-    // Set up file resolver: resolve paths relative to the canvas file's directory
-    QString canvasDir = QFileInfo(filePath).absolutePath();
-    m_view->canvasScene()->setFileResolver([canvasDir](const QString &path) -> QString {
-        QString fullPath = canvasDir + QLatin1Char('/') + path;
+    // File-card paths in a .canvas file are vault-relative (Obsidian spec),
+    // not relative to the canvas file's own directory. Fall back to the
+    // canvas file's directory when no vault root is supplied.
+    QString resolveBase = vaultRoot.isEmpty() ? QFileInfo(filePath).absolutePath() : vaultRoot;
+    m_view->canvasScene()->setFileResolver([resolveBase](const QString &path) -> QString {
+        QString fullPath = resolveBase + QLatin1Char('/') + path;
         QFile file(fullPath);
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
             return {};
         return QString::fromUtf8(file.readAll());
     });
 
-    m_view->canvasScene()->setFileSaver([canvasDir](const QString &path, const QString &content) {
-        QString fullPath = canvasDir + QLatin1Char('/') + path;
+    m_view->canvasScene()->setFileSaver([resolveBase](const QString &path, const QString &content) {
+        QString fullPath = resolveBase + QLatin1Char('/') + path;
         QFile file(fullPath);
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             file.write(content.toUtf8());

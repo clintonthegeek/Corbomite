@@ -25,6 +25,11 @@ public:
     QString relativePath() const;
     QString name() const;
 
+    /// The vault root this document was constructed with. Used by views
+    /// (e.g. CanvasFileView) that need to resolve embedded/relative paths
+    /// against the vault root rather than the document's own directory.
+    QString vaultRoot() const;
+
     /// Update the document's vault-relative path. Used by `Vault::rename`
     /// to keep an open NoteDocument in sync with on-disk renames so views
     /// holding the document can refresh their title/tab caption. Emits

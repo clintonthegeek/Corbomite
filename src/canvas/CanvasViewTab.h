@@ -17,7 +17,14 @@ class CanvasViewTab : public QWidget {
     Q_OBJECT
 
 public:
-    explicit CanvasViewTab(const QString &filePath, QWidget *parent = nullptr);
+    /// @param filePath Absolute path of the .canvas file being opened.
+    /// @param vaultRoot Absolute path of the vault root. File-card paths
+    ///        embedded in the canvas are resolved/saved relative to this
+    ///        root (per Obsidian's `.canvas` spec), not the canvas file's
+    ///        own directory. Falls back to the canvas file's directory
+    ///        when left empty (e.g. ad-hoc/out-of-vault usage).
+    explicit CanvasViewTab(const QString &filePath, const QString &vaultRoot = QString(),
+                           QWidget *parent = nullptr);
     ~CanvasViewTab() override;
 
     void setRenderEngine(MarkdownRenderEngine *engine);

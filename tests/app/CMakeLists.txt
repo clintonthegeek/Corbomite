@@ -7,6 +7,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
+# Punch-list P2 (audit-2026-06-10) — canvas file-card paths must resolve
+# against the vault root, not the .canvas file's own directory.
+add_executable(tst_canvasviewtab_vaultroot_paths tst_canvasviewtab_vaultroot_paths.cpp)
+add_test(NAME tst_canvasviewtab_vaultroot_paths COMMAND tst_canvasviewtab_vaultroot_paths)
+target_link_libraries(tst_canvasviewtab_vaultroot_paths PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core)
+set_tests_properties(tst_canvasviewtab_vaultroot_paths PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_recent_vaults tst_recent_vaults.cpp)
 add_test(NAME tst_recent_vaults COMMAND tst_recent_vaults)
 target_link_libraries(tst_recent_vaults PRIVATE Qt6::Test CorbomiteApp)

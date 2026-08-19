@@ -74,6 +74,11 @@ QString NoteDocument::relativePath() const
     return d->relativePath;
 }
 
+QString NoteDocument::vaultRoot() const
+{
+    return d->vaultRoot;
+}
+
 void NoteDocument::setRelativePath(const QString &relativePath)
 {
     if (d->relativePath == relativePath)
