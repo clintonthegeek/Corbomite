@@ -2,12 +2,16 @@
 #include "CanvasViewTab.h"
 
 #include <canvas/CanvasDocument.h>
+#include <canvas/CanvasFilePickerDialog.h>
 #include <canvas/CanvasScene.h>
 #include <canvas/CanvasView.h>
 #include <corbomite/core/MarkdownRenderEngine.h>
 
+#include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QPointer>
 #include <QVBoxLayout>
 
 namespace Corbomite {
@@ -40,6 +44,39 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             file.write(content.toUtf8());
         }
+    });
+
+    // M2.2 — "New file card…" candidate source. No Vault object is
+    // reachable at this layer (CanvasViewTab only ever gets a vaultRoot
+    // path string), so this scans the vault tree directly for markdown +
+    // common attachment files rather than reusing Vault::getFiles(); a
+    // real Vault-backed source is app-side follow-up work (see plan M2.2
+    // note). CanvasFilePickerDialog does the actual fuzzy filter/rank.
+    QPointer<Canvas::CanvasView> viewPtr(m_view);
+    m_view->canvasScene()->setFilePickerRequestor([resolveBase, viewPtr]() -> QString {
+        static const QStringList kAttachmentExts = {
+            QStringLiteral("md"), QStringLiteral("png"), QStringLiteral("jpg"),
+            QStringLiteral("jpeg"), QStringLiteral("gif"), QStringLiteral("svg"),
+            QStringLiteral("pdf"), QStringLiteral("canvas"),
+        };
+
+        QStringList candidates;
+        if (!resolveBase.isEmpty()) {
+            const QDir root(resolveBase);
+            QDirIterator it(resolveBase, QDir::Files, QDirIterator::Subdirectories);
+            while (it.hasNext()) {
+                const QString abs = it.next();
+                const QFileInfo fi(abs);
+                if (!kAttachmentExts.contains(fi.suffix().toLower()))
+                    continue;
+                candidates << root.relativeFilePath(abs);
+            }
+            candidates.sort(Qt::CaseInsensitive);
+        }
+
+        if (!viewPtr)
+            return {};
+        return Canvas::CanvasFilePickerDialog::pickFile(viewPtr, candidates);
     });
 
     auto *layout = new QVBoxLayout(this);
