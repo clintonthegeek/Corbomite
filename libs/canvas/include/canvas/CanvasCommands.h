@@ -47,7 +47,7 @@ private:
 // 3. Add a card
 class CmdAddCard : public QUndoCommand {
 public:
-    CmdAddCard(CanvasDocument *doc, const CanvasNode &node);
+    CmdAddCard(CanvasDocument *doc, const CanvasNode &node, QUndoCommand *parent = nullptr);
     void redo() override;
     void undo() override;
 

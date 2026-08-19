@@ -2,8 +2,11 @@
 #include <QTest>
 #include <QUndoStack>
 #include <QCoreApplication>
+#include <QGraphicsSceneDragDropEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QKeyEvent>
+#include <QMimeData>
+#include <QUrl>
 #include <graffodil/IGraphNode.h>
 #include "canvas/CanvasDocument.h"
 #include "canvas/CanvasScene.h"
@@ -742,6 +745,103 @@ private Q_SLOTS:
 
         QCOMPARE(doc.nodes().size(), 0);
         QCOMPARE(scene.undoStack()->count(), 0);
+    }
+
+    void testDropSingleFileCreatesFileCard()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.setVaultPathResolver([](const QString &absPath) -> QString {
+            if (absPath == QStringLiteral("/vault/notes/dropped.md"))
+                return QStringLiteral("notes/dropped.md");
+            return QString(); // outside vault -> rejected
+        });
+
+        QMimeData mime;
+        mime.setUrls({QUrl::fromLocalFile(QStringLiteral("/vault/notes/dropped.md"))});
+
+        QGraphicsSceneDragDropEvent dropEv(QEvent::GraphicsSceneDrop);
+        dropEv.setMimeData(&mime);
+        dropEv.setScenePos(QPointF(100, 100));
+        QCoreApplication::sendEvent(&scene, &dropEv);
+
+        QCOMPARE(doc.nodes().size(), 1);
+        const auto node = doc.nodes().first();
+        QCOMPARE(node.type, Canvas::NodeType::File);
+        QCOMPARE(node.file, QStringLiteral("notes/dropped.md"));
+        QCOMPARE(node.width, 400);
+        QCOMPARE(node.height, 400);
+        QCOMPARE(node.x, 100);
+        QCOMPARE(node.y, 100);
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        auto *item = scene.fileCardItem(node.id);
+        QVERIFY(item != nullptr);
+        QVERIFY(item->isSelected());
+    }
+
+    void testDropTextCreatesTextCard()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        QMimeData mime;
+        mime.setText(QStringLiteral("Dropped plain text"));
+
+        QGraphicsSceneDragDropEvent dropEv(QEvent::GraphicsSceneDrop);
+        dropEv.setMimeData(&mime);
+        dropEv.setScenePos(QPointF(500, 500));
+        QCoreApplication::sendEvent(&scene, &dropEv);
+
+        QCOMPARE(doc.nodes().size(), 1);
+        const auto node = doc.nodes().first();
+        QCOMPARE(node.type, Canvas::NodeType::Text);
+        QCOMPARE(node.text, QStringLiteral("Dropped plain text"));
+        QCOMPARE(node.width, 250);
+        QCOMPARE(node.height, 60);
+        QCOMPARE(node.x, 500 - 125);
+        QCOMPARE(node.y, 500 - 30);
+        QCOMPARE(scene.undoStack()->count(), 1);
+    }
+
+    void testDropMultipleFilesLaysOutInGrid()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.setVaultPathResolver([](const QString &absPath) -> QString {
+            return absPath.mid(1); // strip leading '/' -> pretend vault root is "/"
+        });
+
+        QMimeData mime;
+        mime.setUrls({
+            QUrl::fromLocalFile(QStringLiteral("/a.md")),
+            QUrl::fromLocalFile(QStringLiteral("/b.md")),
+            QUrl::fromLocalFile(QStringLiteral("/c.md")),
+            QUrl::fromLocalFile(QStringLiteral("/d.md")),
+        });
+
+        QGraphicsSceneDragDropEvent dropEv(QEvent::GraphicsSceneDrop);
+        dropEv.setMimeData(&mime);
+        dropEv.setScenePos(QPointF(0, 0));
+        QCoreApplication::sendEvent(&scene, &dropEv);
+
+        QCOMPARE(doc.nodes().size(), 4);
+        // Single compound undo command for the whole drop.
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        // 2x2 grid, 400x400 nodes, 20px gap.
+        QSet<QPair<int, int>> positions;
+        for (const auto &n : doc.nodes())
+            positions.insert({n.x, n.y});
+        QSet<QPair<int, int>> expected = {
+            {0, 0}, {420, 0}, {0, 420}, {420, 420},
+        };
+        QCOMPARE(positions, expected);
     }
 };
 

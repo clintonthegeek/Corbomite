@@ -76,8 +76,8 @@ void CmdResizeCard::undo()
 // CmdAddCard
 // ---------------------------------------------------------------------------
 
-CmdAddCard::CmdAddCard(CanvasDocument *doc, const CanvasNode &node)
-    : QUndoCommand(QObject::tr("Add Card"))
+CmdAddCard::CmdAddCard(CanvasDocument *doc, const CanvasNode &node, QUndoCommand *parent)
+    : QUndoCommand(QObject::tr("Add Card"), parent)
     , m_doc(doc)
     , m_node(node)
 {

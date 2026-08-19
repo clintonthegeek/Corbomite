@@ -13,6 +13,7 @@ class QIODevice;
 class QMenu;
 class QUndoStack;
 class QGraphicsProxyWidget;
+class QGraphicsSceneDragDropEvent;
 class QTextEdit;
 
 namespace Corbomite {
@@ -78,6 +79,14 @@ public:
     /// default) at scenePos, storing the path vault-relative.
     void createFileCardViaPicker(const QPointF &scenePos);
 
+    // M2.3 — resolves an absolute filesystem path (from a text/uri-list
+    // drag-drop) to a vault-relative path, or returns an empty string if
+    // the path is outside the vault (rejected: M1/M2 scope has no
+    // copy-into-vault). If unset, absolute paths are stored as-is
+    // (test / no-vault convenience) — the real app always sets one.
+    using VaultPathResolver = std::function<QString(const QString &absoluteFilePath)>;
+    void setVaultPathResolver(VaultPathResolver resolver);
+
     // Item management (used by tools and undo commands)
     TextCardItem *addTextCardItem(const CanvasNode &node);
     FileCardItem *addFileCardItem(const CanvasNode &node);
@@ -128,6 +137,13 @@ protected:
     /// begins inline-edit (card is "born" in edit mode).
     void mouseDoubleClickEventBackground(const QPointF &scenePos) override;
 
+    // M2.3 — drag-drop node creation. setAcceptDrops(true) is required on
+    // the owning CanvasView; QGraphicsView forwards translated drag/drop
+    // events to these QGraphicsScene virtuals automatically.
+    void dragEnterEvent(QGraphicsSceneDragDropEvent *event) override;
+    void dragMoveEvent(QGraphicsSceneDragDropEvent *event) override;
+    void dropEvent(QGraphicsSceneDragDropEvent *event) override;
+
 private Q_SLOTS:
     void onNodeAdded(const QString &id);
     void onNodeRemoved(const QString &id);
@@ -170,6 +186,7 @@ private:
     FileResolver m_fileResolver;
     FileSaver m_fileSaver;
     FilePickerRequestor m_filePickerRequestor;
+    VaultPathResolver m_vaultPathResolver;
     void beginFileCardEdit(FileCardItem *card);
     void finishFileCardEdit();
     QString m_editingFileCardId;

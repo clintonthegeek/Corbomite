@@ -22,6 +22,9 @@ CanvasView::CanvasView(QWidget *parent)
     setDragMode(QGraphicsView::NoDrag); // Tools handle drag
     setTransformationAnchor(AnchorUnderMouse);
     setViewportUpdateMode(SmartViewportUpdate);
+    // M2.3 — required so QGraphicsView forwards drag/drop events to the
+    // scene's dragEnterEvent/dragMoveEvent/dropEvent.
+    setAcceptDrops(true);
 
     // Forward cardDoubleClicked from scene
     connect(m_scene, &CanvasScene::cardDoubleClicked,

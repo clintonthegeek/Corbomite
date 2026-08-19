@@ -20,6 +20,7 @@
 #include <QApplication>
 #include <QGraphicsProxyWidget>
 #include <QGraphicsSceneContextMenuEvent>
+#include <QGraphicsSceneDragDropEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QIODevice>
 #include <QImage>
@@ -27,10 +28,12 @@
 #include <QLineEdit>
 #include <QList>
 #include <QMenu>
+#include <QMimeData>
 #include <QPainter>
 #include <QSvgGenerator>
 #include <QTextEdit>
 #include <QUndoStack>
+#include <QtMath>
 #include <KLocalizedString>
 
 namespace Canvas {
@@ -325,6 +328,131 @@ void CanvasScene::createFileCardViaPicker(const QPointF &scenePos)
         clearSelection();
         item->setSelected(true);
     }
+}
+
+void CanvasScene::setVaultPathResolver(VaultPathResolver resolver)
+{
+    m_vaultPathResolver = std::move(resolver);
+}
+
+// ---------------------------------------------------------------------------
+// M2.3 — drag-drop node creation
+// ---------------------------------------------------------------------------
+
+void CanvasScene::dragEnterEvent(QGraphicsSceneDragDropEvent *event)
+{
+    if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
+        event->acceptProposedAction();
+        return;
+    }
+    QGraphicsScene::dragEnterEvent(event);
+}
+
+void CanvasScene::dragMoveEvent(QGraphicsSceneDragDropEvent *event)
+{
+    if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
+        event->acceptProposedAction();
+        return;
+    }
+    QGraphicsScene::dragMoveEvent(event);
+}
+
+void CanvasScene::dropEvent(QGraphicsSceneDragDropEvent *event)
+{
+    if (!m_document) {
+        QGraphicsScene::dropEvent(event);
+        return;
+    }
+
+    const QMimeData *mime = event->mimeData();
+    const QPointF dropPos = event->scenePos();
+
+    if (mime->hasUrls()) {
+        // text/uri-list: one file-card node per dropped file, vault-relative.
+        // Paths outside the vault are rejected (M1/M2 scope: no
+        // copy-into-vault — punch-list candidate if users hit this).
+        QStringList vaultRelPaths;
+        for (const QUrl &url : mime->urls()) {
+            if (!url.isLocalFile())
+                continue;
+            const QString absPath = url.toLocalFile();
+            QString relPath = absPath;
+            if (m_vaultPathResolver) {
+                relPath = m_vaultPathResolver(absPath);
+                if (relPath.isEmpty())
+                    continue;
+            }
+            vaultRelPaths << relPath;
+        }
+
+        if (vaultRelPaths.isEmpty()) {
+            event->ignore();
+            return;
+        }
+
+        // Appendix A file-card default: 400x400. Grid spacing = one
+        // gridSpacing gap (20px) between file nodes when multiple drop
+        // at once, laid out at the drop point.
+        static constexpr int kFileWidth = 400;
+        static constexpr int kFileHeight = 400;
+        static constexpr int kGridGap = 20;
+        const int cols = qMax(1, qCeil(qSqrt(static_cast<double>(vaultRelPaths.size()))));
+
+        auto *parentCmd = new QUndoCommand(i18n("Drop Files"));
+        QStringList newIds;
+        for (int i = 0; i < vaultRelPaths.size(); ++i) {
+            const int row = i / cols;
+            const int col = i % cols;
+            CanvasNode node;
+            node.id = CanvasDocument::generateId();
+            node.type = NodeType::File;
+            node.file = vaultRelPaths.at(i);
+            node.width = kFileWidth;
+            node.height = kFileHeight;
+            node.x = qRound(dropPos.x()) + col * (kFileWidth + kGridGap);
+            node.y = qRound(dropPos.y()) + row * (kFileHeight + kGridGap);
+            newIds << node.id;
+            new CmdAddCard(m_document, node, parentCmd);
+        }
+        m_undoStack->push(parentCmd);
+
+        clearSelection();
+        for (const auto &id : std::as_const(newIds)) {
+            if (auto *item = fileCardItem(id))
+                item->setSelected(true);
+        }
+
+        event->acceptProposedAction();
+        return;
+    }
+
+    if (mime->hasText() && !mime->text().isEmpty()) {
+        // text/plain -> new text card, centered on the drop point (same
+        // convention as M2.1's double-click creation).
+        static constexpr int kTextWidth = 250;
+        static constexpr int kTextHeight = 60;
+
+        CanvasNode node;
+        node.id = CanvasDocument::generateId();
+        node.type = NodeType::Text;
+        node.text = mime->text();
+        node.width = kTextWidth;
+        node.height = kTextHeight;
+        node.x = qRound(dropPos.x() - kTextWidth / 2.0);
+        node.y = qRound(dropPos.y() - kTextHeight / 2.0);
+
+        m_undoStack->push(new CmdAddCard(m_document, node));
+
+        if (auto *item = textCardItem(node.id)) {
+            clearSelection();
+            item->setSelected(true);
+        }
+
+        event->acceptProposedAction();
+        return;
+    }
+
+    event->ignore();
 }
 
 // ---------------------------------------------------------------------------

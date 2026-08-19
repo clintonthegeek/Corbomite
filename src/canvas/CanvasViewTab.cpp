@@ -79,6 +79,19 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
         return Canvas::CanvasFilePickerDialog::pickFile(viewPtr, candidates);
     });
 
+    // M2.3 — drag-drop candidate paths arrive as absolute filesystem paths
+    // (text/uri-list); resolve to vault-relative, rejecting anything
+    // outside resolveBase (no copy-into-vault in M1/M2 scope).
+    m_view->canvasScene()->setVaultPathResolver([resolveBase](const QString &absoluteFilePath) -> QString {
+        if (resolveBase.isEmpty())
+            return {};
+        const QDir root(resolveBase);
+        const QString rel = root.relativeFilePath(absoluteFilePath);
+        if (rel.startsWith(QStringLiteral("..")) || QDir::isAbsolutePath(rel))
+            return {}; // outside the vault
+        return rel;
+    });
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_view);
