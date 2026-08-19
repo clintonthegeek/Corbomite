@@ -1,22 +1,28 @@
 # Corbomite
 
-A native Obsidian-compatible knowledge base application built with C++20, Qt6, and KDE Frameworks 6.
+A native Obsidian-compatible knowledge base application built with C++20, Qt6, and KDE Frameworks 6. Because Electron-apps suck. 😉
+
+![Corbomite screenshot](docs/screenshot1.png)
+
 
 > ## ⚠️ Alpha software — back up your vaults
 >
 > Corbomite is under active, fast-moving development and has **not** had a
 > stable release. It reads and writes real Obsidian vaults on disk, including
 > destructive operations (rename, delete, trash, link rewriting on move).
-> While a great deal of care has gone into vault-format fidelity and
-> corruption-safety, this is alpha-quality software: expect rough edges,
-> incomplete features, and the occasional bug.
 >
-> **Do not point Corbomite at a vault you don't have a backup of.** Test
-> against a copy first, or use a vault under version control (git, or a
-> dedicated backup tool) so you can recover if something goes wrong. This
-> applies doubly to the experimental Markoff canvas Live Preview engine
-> (opt-in, off by default) and to any `.canvas`/Bases files, which are newer,
-> less-exercised code paths.
+> **Do not point Corbomite at a vault you don't have a backup of.**
+
+At present, **Corbmite is useful a text-based linked notes app**. So if you want a simple knowledge graph, you can start using it today!
+
+The canvas loading is relatively complete, but canvas creation tools are not. The Bases pages also seem to work, but you may find bugs! The Markdown rendering is basic at present, and most embeddeding features need to wait for Qt 6.12 to be released in coming months.
+
+There is a plugin system, and many features are in-fact implemented as plugins. These are *not* compatible with Obsidian plugins, but the system has been designed along similar lines for familiarity. Given the unstable nature of the Markoff markdown renderer, it is not advisable to attempt to create any plugins yet.
+
+One feature soon for experimental development will be enabling the collabtext CRDT engine, allowing live multi-user collaborative editing, Google Docs style! Basically, all that's left to implement is transport and UX.
+
+![Graph view screenshot](docs/screenshot2.png)
+
 
 ## License
 
@@ -94,7 +100,9 @@ alongside it and shared where useful:
   Graffodil (Barnes-Hut approximation, multilevel layout) but is vendored
   in-tree as its own independent library with zero Corbomite-specific
   dependencies, rather than a live submodule — the two are related by
-  shared origin, not a build-time link.
+  shared origin, not a build-time link. Corbomite-specific features will
+  likely soon be ported to Graffodil, which would then become a linked
+  dependency.
 
 ---
 
