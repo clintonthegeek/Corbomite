@@ -1065,6 +1065,48 @@ private Q_SLOTS:
         QVERIFY(!itemA->isSelected());
         QVERIFY(!itemB->isSelected());
     }
+
+    void testAltClickWithoutDragDoesNotDuplicate()
+    {
+        // Regression: mousePressEvent clones the selection eagerly (the
+        // tool needs live items to drag), but a bare Alt+click with no
+        // real movement used to still commit a duplicate on release. Below
+        // QApplication::startDragDistance(), the clones must be discarded
+        // and the original selection restored instead.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("a"); n1.type = Canvas::NodeType::Text;
+        n1.x = 0; n1.y = 0; n1.width = 100; n1.height = 60;
+        doc.addNode(n1);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *itemA = scene.textCardItem(QStringLiteral("a"));
+        QVERIFY(itemA);
+        itemA->setSelected(true);
+
+        const QPointF pressPos(50, 30);
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(pressPos);
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        press.setModifiers(Qt::AltModifier);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        // No move event — release at the exact press position.
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(pressPos);
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        release.setModifiers(Qt::AltModifier);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QCOMPARE(doc.nodes().size(), 1);
+        QCOMPARE(scene.undoStack()->count(), 0);
+        QVERIFY(itemA->isSelected());
+    }
 };
 
 QTEST_MAIN(TestCanvasScene)

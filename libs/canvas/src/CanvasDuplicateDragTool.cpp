@@ -11,7 +11,9 @@
 #include <graffodil/IGraphNode.h>
 
 #include <KLocalizedString>
+#include <QApplication>
 #include <QGraphicsSceneMouseEvent>
+#include <QLineF>
 #include <QUndoCommand>
 #include <QUndoStack>
 
@@ -67,6 +69,9 @@ void CanvasDuplicateDragTool::mousePressEvent(QGraphicsSceneMouseEvent *event)
     m_clones.clear();
     m_cloneStartPositions.clear();
     m_cloneEdges.clear();
+    m_originalIds.clear();
+    for (const auto &orig : originals)
+        m_originalIds.append(orig.id);
 
     for (const auto &orig : originals) {
         CanvasNode clone = orig;
@@ -127,24 +132,52 @@ void CanvasDuplicateDragTool::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
         it.value()->setPos(m_cloneStartPositions.value(it.key()) + delta);
 }
 
+void CanvasDuplicateDragTool::removeUncommittedClones()
+{
+    for (auto it = m_clones.constBegin(); it != m_clones.constEnd(); ++it) {
+        switch (it.value()->nodeData().type) {
+        case NodeType::Text: m_canvasScene->removeTextCardItem(it.key()); break;
+        case NodeType::File: m_canvasScene->removeFileCardItem(it.key()); break;
+        case NodeType::Group: m_canvasScene->removeGroupItem(it.key()); break;
+        case NodeType::Link: break;
+        }
+    }
+    // Restore the original selection so a discarded (below-threshold)
+    // Alt+click behaves like a plain click rather than leaving nothing
+    // selected.
+    for (const auto &id : std::as_const(m_originalIds)) {
+        if (auto *item = m_canvasScene->connectableItem(id))
+            item->setSelected(true);
+    }
+}
+
 void CanvasDuplicateDragTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
-    Q_UNUSED(event);
-
     if (!m_dragging || !m_canvasScene || m_clones.isEmpty()) {
         m_dragging = false;
         m_clones.clear();
         m_cloneStartPositions.clear();
         m_cloneEdges.clear();
+        m_originalIds.clear();
         return;
     }
 
     auto *document = m_canvasScene->document();
-    if (!document) {
+
+    // A bare Alt+click (press+release with no real drag) still clones the
+    // selection eagerly in mousePressEvent (the tool needs live items to
+    // drag), but committing a duplicate from a non-drag click would be a
+    // surprising side effect of what looks like a plain click. Below
+    // QApplication::startDragDistance() (Qt's own click-vs-drag threshold),
+    // discard the clones instead of committing them.
+    const qreal distance = event ? QLineF(QPointF(), event->scenePos() - m_pressScenePos).length() : 0.0;
+    if (!document || distance < QApplication::startDragDistance()) {
+        removeUncommittedClones();
         m_dragging = false;
         m_clones.clear();
         m_cloneStartPositions.clear();
         m_cloneEdges.clear();
+        m_originalIds.clear();
         return;
     }
 
@@ -167,6 +200,7 @@ void CanvasDuplicateDragTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
     m_clones.clear();
     m_cloneStartPositions.clear();
     m_cloneEdges.clear();
+    m_originalIds.clear();
 }
 
 void CanvasDuplicateDragTool::deactivate()
@@ -175,6 +209,7 @@ void CanvasDuplicateDragTool::deactivate()
     m_clones.clear();
     m_cloneStartPositions.clear();
     m_cloneEdges.clear();
+    m_originalIds.clear();
     GraphTool::deactivate();
 }
 

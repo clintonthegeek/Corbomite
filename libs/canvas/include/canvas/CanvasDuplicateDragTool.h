@@ -47,6 +47,11 @@ public:
     void deactivate() override;
 
 private:
+    /// Removes the clone items from the scene without committing anything
+    /// (used when release happens below the drag-distance threshold — see
+    /// mouseReleaseEvent).
+    void removeUncommittedClones();
+
     CanvasScene *m_canvasScene = nullptr;
     QPointF m_pressScenePos;
     bool m_dragging = false;
@@ -57,6 +62,10 @@ private:
     QHash<QString, QPointF> m_cloneStartPositions;
     // Clone edge data, endpoints already remapped to clone ids.
     QVector<CanvasEdge> m_cloneEdges;
+    // Original (pre-clone) node ids, so a below-threshold release can
+    // restore the original selection (a bare Alt+click should behave like
+    // a plain click, not leave nothing selected).
+    QVector<QString> m_originalIds;
 };
 
 } // namespace Canvas
