@@ -32,17 +32,57 @@
 // The QML Markoff::Live leaf (and its Qt Quick / markoff_live link) is
 // retired from Corbomite.
 
+#include <markoff/core/EmbedRegistry.h>
+
 #include <QCursor>
 #include <QDesktopServices>
 #include <QFileInfo>
+#include <QImage>
+#include <QPainter>
+#include <QPixmap>
 #include <QStackedWidget>
 #include <QStringListModel>
+#include <QSvgRenderer>
 #include <QTimer>
 #include <QVBoxLayout>
 
 #include <algorithm>
 
 namespace Corbomite {
+
+namespace {
+
+// P5.4 image seam: decode arbitrary vault-attachment bytes to a paintable
+// pixmap. QPixmap::loadFromData covers PNG/JPG/GIF/BMP via Qt's default
+// QImageIOHandler plugins; SVG is not guaranteed to be among those
+// plugins (the "svg" imageformats plugin is a separate deployable piece
+// from linking Qt6::Svg), so fall back to QSvgRenderer explicitly for
+// .svg targets rather than relying on plugin availability.
+QPixmap decodeImageBytes(const QByteArray &bytes, const QString &target)
+{
+    if (bytes.isEmpty()) return {};
+
+    QPixmap pixmap;
+    if (pixmap.loadFromData(bytes)) return pixmap;
+
+    if (target.endsWith(QStringLiteral(".svg"), Qt::CaseInsensitive)) {
+        QSvgRenderer renderer(bytes);
+        if (renderer.isValid()) {
+            QSize size = renderer.defaultSize();
+            if (size.isEmpty()) size = QSize(256, 256);
+            QImage img(size, QImage::Format_ARGB32_Premultiplied);
+            img.fill(Qt::transparent);
+            QPainter painter(&img);
+            renderer.render(&painter);
+            painter.end();
+            if (!img.isNull()) return QPixmap::fromImage(img);
+        }
+    }
+
+    return {};
+}
+
+} // namespace
 
 NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     : QWidget(parent)
@@ -104,6 +144,16 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
             });
 
     wireLeaf(m_canvasEditor);
+
+    // P5.4 image seam. Capture `this` and read m_resourceProvider fresh on
+    // every call rather than capturing the provider pointer directly — it
+    // is deleted/replaced on every setNoteDocument/setVault, and the lambda
+    // must not dangle in between (set once here; never needs re-setting).
+    m_canvasEditor->setImageResourceLookup([this](const QString &target) -> QPixmap {
+        if (!m_resourceProvider) return {};
+        const QByteArray bytes = m_resourceProvider->loadImageBytes(target);
+        return decodeImageBytes(bytes, target);
+    });
 
     // Completion revival — leaf-agnostic driver. Re-pointed at the active
     // leaf on every mode switch (see setViewMode).
@@ -205,13 +255,18 @@ void NoteEditorWidget::wireLeaf(Markoff::MarkdownView *leaf)
             });
 }
 
-void NoteEditorWidget::setMermaidRenderer(Markoff::MermaidRenderer *renderer)
+void NoteEditorWidget::setMermaidRenderer(Markoff::Canvas::MermaidRenderer *renderer)
 {
     m_mermaidRenderer = renderer;
-    // leaf-specific (when restored): mermaid-renderer injection is per-leaf
-    // wiring. TODO(port-foundation-exploration): Markoff::MermaidRenderer
-    // abstract retired (E5 work). No-op until restoration.
-    (void)renderer;
+    // Canvas-only seam for now (P5.4) — Source/Reading leaves have no
+    // mermaid-block rendering surface.
+    if (m_canvasEditor) m_canvasEditor->setMermaidRenderer(m_mermaidRenderer);
+}
+
+void NoteEditorWidget::setEmbedRegistry(Markoff::EmbedRegistry *registry)
+{
+    m_embedRegistry = registry;
+    if (m_canvasEditor) m_canvasEditor->setEmbedRegistry(m_embedRegistry);
 }
 
 NoteDocument *NoteEditorWidget::noteDocument() const

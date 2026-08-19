@@ -3,6 +3,7 @@
 #include "WelcomeScreen.h"
 #include "CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
+#include "editor/CanvasMermaidAdapter.h"
 // Leaf-agnostic consumption (Phase 1, contract v2): MainWindow dispatches
 // every editor operation through the Markoff::MarkdownView base — no
 // concrete leaf headers may appear in this file (Task 10 grep gate).
@@ -365,6 +366,8 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
 
     m_embedRegistry = std::make_unique<Markoff::EmbedRegistry>();
     m_mermaidRenderer = std::make_unique<Corbomite::Core::MermaidRenderer>();
+    // P5.4 canvas mermaid seam adapter — wraps m_mermaidRenderer.
+    m_canvasMermaidAdapter = std::make_unique<Corbomite::CanvasMermaidAdapter>(m_mermaidRenderer.get());
     m_cardRenderEngine = std::make_unique<Corbomite::StyledRenderEngine>();
     // Hover preview (2026-06-11) — reuse the canvas-card render engine; it is
     // stateless and read-only. Per-vault resources are set in onVaultOpened.
@@ -1105,9 +1108,10 @@ void MainWindow::propagateServicesToView(View *view)
 
         auto *editor = mv->editorWidget();
         if (editor) {
-            // TODO(port-foundation-exploration): Markoff::MermaidRenderer
-            // abstract retired (E5 work) — setMermaidRenderer is now a no-op.
-            editor->setMermaidRenderer(nullptr);
+            // P5.4 seams — mermaid rendering + embed dispatch on the canvas
+            // LivePreview leaf.
+            editor->setMermaidRenderer(m_canvasMermaidAdapter.get());
+            editor->setEmbedRegistry(m_embedRegistry.get());
 
             // Task 0.2: NoteEditorWidget::linkActivated now fires (via
             // DefaultLinkService wired in NoteEditorWidget ctor + Reading

@@ -38,6 +38,8 @@ add_library(CorbomiteApp STATIC
     editor/WikiLinkSuggest.cpp
     editor/TagSuggest.cpp
     editor/VaultResourceProvider.cpp
+    editor/CanvasMermaidAdapter.cpp
+    editor/CanvasMermaidAdapter.h
     reactors/AutosaveReactor.cpp
     dialogs/CalloutPickerDialog.cpp
     dialogs/CreateVaultDialog.cpp

@@ -52,6 +52,7 @@ class CorbomiteApp;
 class Workspace;
 class WorkspaceLeaf;
 class NoteEditorWidget;
+class CanvasMermaidAdapter;
 class MarkdownView;
 namespace Bases { class BasesView; }
 class AutosaveReactor;
@@ -287,6 +288,10 @@ private:
     // std::unique_ptr<Markoff::Reading::EmbedRenderer> m_embedRenderer;
     std::unique_ptr<Corbomite::Core::VaultResourceProvider> m_popoverResources;
     std::unique_ptr<Corbomite::Core::MermaidRenderer> m_mermaidRenderer;
+    // P5.4 canvas mermaid seam — adapts m_mermaidRenderer's SVG-bytes-out
+    // API to Markoff::Canvas::MermaidRenderer's pixmap-out contract. Built
+    // once alongside m_mermaidRenderer; outlives every NoteEditorWidget.
+    std::unique_ptr<Corbomite::CanvasMermaidAdapter> m_canvasMermaidAdapter;
     // Headless styled renderer handed to every CanvasFileView for card content.
     std::unique_ptr<Corbomite::StyledRenderEngine> m_cardRenderEngine;
     // std::unique_ptr<Corbomite::MarkoffAdapters::LinkResolverAdapter> m_linkResolverAdapter;

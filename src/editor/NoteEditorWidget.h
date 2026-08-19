@@ -12,14 +12,17 @@ class QTimer;
 
 namespace Markoff {
 class MarkdownView;
-class MermaidRenderer;  // stub forward decl — type undefined post-port (E5 work)
 class DefaultLinkService;
 class LinkService;
+class EmbedRegistry;
 }
 
 namespace Markoff::Canvas {
 // Cluster K Phase 5 — sole LivePreview backend (QML Live leaf retired).
 class EditorWidget;
+// P5.4 seam — Markoff::Canvas::MermaidRenderer (pixmap-out), replaces the
+// retired old-namespace Markoff::MermaidRenderer stub.
+class MermaidRenderer;
 }
 
 namespace Markoff::Source {
@@ -117,8 +120,14 @@ public:
 
     // C4 Task 14 — inject the host Mermaid renderer into constructed leaves.
     // Lifetime owned by the caller (typically MainWindow). Passing nullptr
-    // clears the renderer. Currently a no-op until E5 restores MermaidRenderer.
-    void setMermaidRenderer(Markoff::MermaidRenderer *renderer);
+    // clears the renderer. Forwards to the canvas leaf's P5.4 mermaid seam
+    // (Markoff::Canvas::EditorWidget::setMermaidRenderer).
+    void setMermaidRenderer(Markoff::Canvas::MermaidRenderer *renderer);
+
+    // P5.4 embed seam — forwards to the canvas leaf's
+    // Markoff::Canvas::EditorWidget::setEmbedRegistry. Lifetime owned by
+    // the caller (typically MainWindow). Passing nullptr clears it.
+    void setEmbedRegistry(Markoff::EmbedRegistry *registry);
 
     int currentLine() const;
     int currentColumn() const;
@@ -253,7 +262,9 @@ private:
     Core::ThemeService *m_themeService = nullptr;
 
     // C4 Task 14 — mermaid renderer (lifetime owned by MainWindow).
-    Markoff::MermaidRenderer *m_mermaidRenderer = nullptr;
+    Markoff::Canvas::MermaidRenderer *m_mermaidRenderer = nullptr;
+    // P5.4 embed seam (lifetime owned by MainWindow).
+    Markoff::EmbedRegistry *m_embedRegistry = nullptr;
 
     FindBar *m_findBar = nullptr;
 
