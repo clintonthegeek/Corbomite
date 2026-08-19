@@ -18,6 +18,7 @@ add_library(canvas STATIC
     src/GroupItem.cpp
     src/EdgeItem.cpp
     src/FileCardItem.cpp
+    src/CanvasFilePickerDialog.cpp
     include/canvas/CanvasDocument.h
     include/canvas/CanvasView.h
     include/canvas/CanvasScene.h
@@ -28,13 +29,14 @@ add_library(canvas STATIC
     include/canvas/GroupItem.h
     include/canvas/EdgeItem.h
     include/canvas/FileCardItem.h
+    include/canvas/CanvasFilePickerDialog.h
 )
 set_target_properties(canvas PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(canvas
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(canvas PUBLIC Qt6::Core Qt6::Widgets Qt6::Svg Corbomite::Core Graffodil::Core KF6::I18n)
+target_link_libraries(canvas PUBLIC Qt6::Core Qt6::Widgets Qt6::Svg Corbomite::Core Graffodil::Core KF6::I18n Corbomite::Search)
 
 if(NOT PROJECT_IS_TOP_LEVEL)
     # In-tree build

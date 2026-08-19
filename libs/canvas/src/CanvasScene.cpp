@@ -292,6 +292,41 @@ void CanvasScene::setFileSaver(FileSaver saver)
     m_fileSaver = std::move(saver);
 }
 
+void CanvasScene::setFilePickerRequestor(FilePickerRequestor requestor)
+{
+    m_filePickerRequestor = std::move(requestor);
+}
+
+void CanvasScene::createFileCardViaPicker(const QPointF &scenePos)
+{
+    if (!m_document || !m_filePickerRequestor)
+        return;
+
+    const QString path = m_filePickerRequestor();
+    if (path.isEmpty())
+        return;
+
+    // Appendix A default file-card size: 400x400.
+    static constexpr int kFileWidth = 400;
+    static constexpr int kFileHeight = 400;
+
+    CanvasNode node;
+    node.id = CanvasDocument::generateId();
+    node.type = NodeType::File;
+    node.file = path; // vault-relative (disk contract §3.4)
+    node.x = qRound(scenePos.x());
+    node.y = qRound(scenePos.y());
+    node.width = kFileWidth;
+    node.height = kFileHeight;
+
+    m_undoStack->push(new CmdAddCard(m_document, node));
+
+    if (auto *item = fileCardItem(node.id)) {
+        clearSelection();
+        item->setSelected(true);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // File card management
 // ---------------------------------------------------------------------------
@@ -1028,7 +1063,7 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         });
     } else {
         // Right-click on empty space
-        menu.addAction(i18n("New Text Card"), [this, scenePos]() {
+        menu.addAction(i18n("New text card"), [this, scenePos]() {
             if (!m_document)
                 return;
             CanvasNode node;
@@ -1037,11 +1072,15 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             node.x = qRound(scenePos.x());
             node.y = qRound(scenePos.y());
             node.width = 250;
-            node.height = 100;
+            node.height = 60;
             m_undoStack->push(new CmdAddCard(m_document, node));
         });
 
-        menu.addAction(i18n("New Group"), [this, scenePos]() {
+        menu.addAction(i18n("New file card…"), [this, scenePos]() {
+            createFileCardViaPicker(scenePos);
+        });
+
+        menu.addAction(i18n("New group"), [this, scenePos]() {
             if (!m_document)
                 return;
             CanvasNode node;

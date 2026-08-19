@@ -64,6 +64,20 @@ public:
     using FileSaver = std::function<void(const QString &filePath, const QString &content)>;
     void setFileSaver(FileSaver saver);
 
+    // M2.2 — file-card creation via a modal picker. The real app wires this
+    // to open a CanvasFilePickerDialog (vault fuzzy file-suggest); returns
+    // the chosen path (vault-relative) or an empty string if cancelled.
+    // Kept as an injectable callback so tests can supply a fixed result
+    // without driving a real modal dialog.
+    using FilePickerRequestor = std::function<QString()>;
+    void setFilePickerRequestor(FilePickerRequestor requestor);
+
+    /// Programmatic entry point mirroring the "New file card…" context-menu
+    /// action: invokes the file-picker requestor and, if a path is
+    /// returned, pushes a CmdAddCard for a 400x400 file node (Appendix A
+    /// default) at scenePos, storing the path vault-relative.
+    void createFileCardViaPicker(const QPointF &scenePos);
+
     // Item management (used by tools and undo commands)
     TextCardItem *addTextCardItem(const CanvasNode &node);
     FileCardItem *addFileCardItem(const CanvasNode &node);
@@ -155,6 +169,7 @@ private:
     Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;
     FileResolver m_fileResolver;
     FileSaver m_fileSaver;
+    FilePickerRequestor m_filePickerRequestor;
     void beginFileCardEdit(FileCardItem *card);
     void finishFileCardEdit();
     QString m_editingFileCardId;

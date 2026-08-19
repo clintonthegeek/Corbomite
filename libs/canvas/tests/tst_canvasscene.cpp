@@ -700,6 +700,49 @@ private Q_SLOTS:
         QCoreApplication::sendEvent(&scene, &outsideClick);
         QVERIFY(!scene.isEditing());
     }
+
+    void testContextMenuCreatesFileCard()
+    {
+        // M2.2 — the "New file card…" action invokes the injected picker
+        // requestor rather than driving a real modal.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.setFilePickerRequestor([]() -> QString {
+            return QStringLiteral("attachments/diagram.pdf");
+        });
+
+        QCOMPARE(doc.nodes().size(), 0);
+        scene.createFileCardViaPicker(QPointF(40, 60));
+
+        QCOMPARE(doc.nodes().size(), 1);
+        const auto node = doc.nodes().first();
+        QCOMPARE(node.type, Canvas::NodeType::File);
+        QCOMPARE(node.file, QStringLiteral("attachments/diagram.pdf"));
+        QCOMPARE(node.width, 400);
+        QCOMPARE(node.height, 400);
+        QCOMPARE(node.x, 40);
+        QCOMPARE(node.y, 60);
+
+        auto *item = scene.fileCardItem(node.id);
+        QVERIFY(item != nullptr);
+        QVERIFY(item->isSelected());
+        QCOMPARE(scene.undoStack()->count(), 1);
+    }
+
+    void testContextMenuFileCardCancelledPickerCreatesNothing()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.setFilePickerRequestor([]() -> QString { return QString(); });
+        scene.createFileCardViaPicker(QPointF(0, 0));
+
+        QCOMPARE(doc.nodes().size(), 0);
+        QCOMPARE(scene.undoStack()->count(), 0);
+    }
 };
 
 QTEST_MAIN(TestCanvasScene)
