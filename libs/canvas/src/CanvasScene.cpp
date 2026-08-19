@@ -39,6 +39,14 @@ CanvasScene::CanvasScene(QObject *parent)
     : Graffodil::GraphScene(parent)
     , m_undoStack(new QUndoStack(this))
 {
+    // CanvasView paints white via drawBackground() (view-level, not part of
+    // the scene). renderToImage/renderToSvg render straight from the scene
+    // and fall back to QGraphicsScene::backgroundBrush()'s default
+    // (Qt::NoBrush, .color() == black) when it's unset — that's what was
+    // producing black export backgrounds while the app showed white. Match
+    // the view's fill here so both paths agree. Full theme/dark-mode
+    // awareness for canvas is not wired anywhere yet — punch-listed.
+    setBackgroundBrush(Qt::white);
     // Bespoke CompositeTool assembly — see spec §6a V3: Graffodil::
     // DefaultGraphTool pre-registers its own select/pan routes at
     // construction time, so a resize route added afterward would always
