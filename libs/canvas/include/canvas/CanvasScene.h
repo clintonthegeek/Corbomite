@@ -44,6 +44,7 @@ class CanvasScene : public Graffodil::GraphScene {
 
 public:
     explicit CanvasScene(QObject *parent = nullptr);
+    ~CanvasScene() override;
 
     void setDocument(CanvasDocument *doc);
     CanvasDocument *document() const;

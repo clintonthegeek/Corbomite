@@ -704,6 +704,39 @@ private Q_SLOTS:
         QVERIFY(!scene.isEditing());
     }
 
+    void testSceneDestroyedWhileEditingDoesNotCrash()
+    {
+        // Regression for a heap-corruption bug surfaced during Cluster M
+        // M1.7 live testing: deleting a CanvasScene while an inline edit
+        // (or group-label edit) is still open used to crash. Root cause:
+        // beginInlineEdit()/beginGroupLabelEdit() connect
+        // QApplication::focusChanged back to the scene so losing focus
+        // auto-commits the edit. QGraphicsScene::~QGraphicsScene() deletes
+        // scene items (including the still-open edit proxy) before that
+        // connection is torn down; deleting the focused QTextEdit/QLineEdit
+        // synchronously re-emits focusChanged, re-entering
+        // finishInlineEdit()/finishGroupLabelEdit() and double-deleting an
+        // item that's already mid-teardown. Fixed by giving CanvasScene an
+        // explicit destructor that finishes any open edit BEFORE the base
+        // class starts deleting items. This test must not crash/ASAN-abort;
+        // a document commit is a bonus sanity check, not the main point.
+        Canvas::CanvasDocument doc;
+        {
+            Canvas::CanvasScene scene;
+            scene.setDocument(&doc);
+
+            QGraphicsSceneMouseEvent dblClick(QEvent::GraphicsSceneMouseDoubleClick);
+            dblClick.setScenePos(QPointF(500, 500));
+            dblClick.setButton(Qt::LeftButton);
+            dblClick.setButtons(Qt::LeftButton);
+            QCoreApplication::sendEvent(&scene, &dblClick);
+
+            QVERIFY(scene.isEditing());
+            // scene destructs here at end of scope, still mid-edit.
+        }
+        QCOMPARE(doc.nodes().size(), 1);
+    }
+
     void testContextMenuCreatesFileCard()
     {
         // M2.2 — the "New file card…" action invokes the injected picker

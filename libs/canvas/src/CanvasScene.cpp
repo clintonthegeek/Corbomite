@@ -126,6 +126,25 @@ CanvasScene::CanvasScene(QObject *parent)
             this, &CanvasScene::onResizeCommitted);
 }
 
+CanvasScene::~CanvasScene()
+{
+    // Commit/tear down any in-progress inline edit BEFORE
+    // QGraphicsScene::~QGraphicsScene() starts deleting items. Deleting a
+    // focused QTextEdit/QLineEdit synchronously fires
+    // QApplication::focusChanged, which the edit-start code connects back
+    // to this scene (m_focusConnection) to auto-finish on focus loss — if
+    // that connection is still live when the base-class destructor deletes
+    // the widget out from under it, the signal re-enters
+    // finishInlineEdit()/finishGroupLabelEdit() and double-removes/deletes
+    // an item that's already mid-teardown (heap corruption). Finishing
+    // explicitly here, while the scene is still fully intact, disconnects
+    // m_focusConnection as a side effect and leaves nothing for the base
+    // destructor to race with.
+    finishInlineEdit();
+    finishFileCardEdit();
+    finishGroupLabelEdit();
+}
+
 // ---------------------------------------------------------------------------
 // Document management
 // ---------------------------------------------------------------------------
