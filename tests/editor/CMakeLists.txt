@@ -118,6 +118,28 @@ set_tests_properties(tst_note_editor_widget_doc_lifetime PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+# Punch-list verification: callout blockquotes (`> [!note]`) along
+# Corbomite's real document-load path (Vault::openDocument's
+# loadFromMarkdown sequence), not just markoff-canvas's own synthetic
+# unit test of the same presentation branch.
+add_executable(tst_canvas_callout_live_load
+    tst_canvas_callout_live_load.cpp
+)
+target_include_directories(tst_canvas_callout_live_load PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/editor
+)
+target_link_libraries(tst_canvas_callout_live_load PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    CorbomiteApp
+    Markoff::Canvas
+    Corbomite::Core
+)
+add_test(NAME tst_canvas_callout_live_load COMMAND tst_canvas_callout_live_load)
+set_tests_properties(tst_canvas_callout_live_load PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 # Phase 2 (road-to-dogfood) — status-bar word count honesty: attaching a
 # document seeds the count and every edit re-emits a fresh count on
 # cursorInfoChanged.
