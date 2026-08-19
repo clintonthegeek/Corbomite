@@ -102,6 +102,11 @@ set(MARKOFF_BUILD_LIVE OFF CACHE BOOL "" FORCE)
 # libs/core/include/corbomite/markoff_adapters/.
 add_subdirectory(libs/markoff-family)
 
+# Cluster M — Graffodil graph-scene substrate (submodule pinned at v0.2.3).
+# GRAFFODIL_BUILD_DEMO/TESTS default OFF when not top-level; libs/canvas
+# adopts Graffodil::Core in Phase M1.
+add_subdirectory(libs/graffodil)
+
 add_subdirectory(libs/core)
 add_subdirectory(libs/search)
 add_subdirectory(libs/storage)

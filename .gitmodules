@@ -1,3 +1,6 @@
 [submodule "libs/markoff-family"]
 	path = libs/markoff-family
 	url = git@github.com:clintonthegeek/Markoff.git
+[submodule "libs/graffodil"]
+	path = libs/graffodil
+	url = git@github.com:clintonthegeek/Graffodil.git
