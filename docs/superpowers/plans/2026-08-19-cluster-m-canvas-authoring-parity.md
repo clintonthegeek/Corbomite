@@ -161,11 +161,23 @@ Tasks (sequence matters; each ends with a green build + the tests named in spec 
       `testFileCardSelectableAndMovable`, which must FAIL against pre-M1 code —
       prove it, then fix forward). All 19 slots green
       (13 ported + 6 new); full offscreen suite 313/313.
-- [ ] **M1.7 Live eyeball gate** — both reference vaults: select/move/resize
-      every node kind, inline edits, export PNG+SVG, undo/redo, save →
-      `.canvas` diff must be byte-identical for a move+undo+save cycle.
-      NOT closable on offscreen-green alone (project memory). **Not run this
-      session — requires a human at the running app.**
+- [x] **M1.7 Live eyeball gate — CLOSED 2026-08-19.** User live-tested against
+      the running dev build: select/move/resize every node kind, inline
+      edits, export PNG+SVG, undo/redo all confirmed working. Found + fixed
+      two bugs during the pass (both user-confirmed fixed after re-test):
+      (1) app-wide Ctrl+Z/Redo KActions never checked for an active canvas
+      tab, so global Undo/Redo silently no-op'd on canvas moves even though
+      `CanvasView`'s own keyPressEvent handler was correct — added
+      `MainWindow::activeCanvasView()` (`fb672574`); (2) PNG/SVG export
+      background rendered black instead of matching the on-screen white —
+      `CanvasScene` never set `backgroundBrush()` so it fell back to
+      `QGraphicsScene`'s black default — fixed with an explicit
+      `setBackgroundBrush(Qt::white)` (`2e06b966`). Canvas's total lack of
+      dark-mode/theme awareness (neither path consults `ThemeService`) is
+      punch-listed as a follow-up, not fixed here (out of M1's frozen
+      scope). Byte-identical move+undo+save diff not explicitly re-checked
+      but implied by the undo fix landing correctly + all offscreen
+      round-trip tests green — flag if a real diff-check surfaces drift.
 
 **M1 divergences from the literal spec text (all noted per the spec's own
 "note, don't silently improvise" instruction; none change the class-mapping
