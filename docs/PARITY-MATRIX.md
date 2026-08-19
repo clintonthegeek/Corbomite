@@ -69,9 +69,10 @@ contract-v2 re-pin (see the adoption brief).
 | Live: headings/lists/tables(+cell edit)/code(+highlight)/checkbox toggle | ✅ | markoff-live delegates; `TableEditBinding` |
 | Reading (styled): tables | ✅ | re-pin `8112833f` (past styled-table arc, outside the `8c13c5d..079ac1f` window); renders real `QTextTable` grids |
 | Reading: checkbox toggle, code highlight, math | ❌ | styled leaf is no-KF6; math Live-only (`MathRenderer.cpp`) |
-| Callouts | ❌ | no Callout BlockKind; renders as blockquote; Insert Callout dialog is a placebo (`MainWindow.cpp:543-567`) |
-| Footnotes / embeds `![[..]]` transclusion / mermaid | ❌ | embed image-node parse fix landed upstream (`9a6a6b74`, Phase 1) — transclusion *rendering* still absent; mermaid renderer exists (mmdr) but nothing consumes it |
-| Images in Live | 🟡 | ImageDelegate works; `VaultResourceProvider` constructed but never plugged in (`NoteEditorWidget.cpp:82-92`) |
+| Callouts | ✅ | shipped in markoff-canvas P5.x (`20949498`), adopted/live-load-verified 2026-08-19 (`355c6eb5`) — `BlockPresentation::presentationFor` content-sniffs `> [!type]` on any `BlockQuote` block via `CalloutBlocks::parseCallout`, typed icon+label header + `Theme::Slot::Callout*` colors. Insert Callout dialog is still a placebo (`MainWindow.cpp:543-567`) |
+| Mermaid | 🟡 | canvas seam wired 2026-08-19 (`1a516990`) via `CanvasMermaidAdapter` (wraps `Corbomite::Core::MermaidRenderer`/mmdr, rasterizes via `QSvgRenderer`) — renders, but dark-theme SVG output is still light-only (punch-list, still open) |
+| Footnotes / embeds `![[..]]` transclusion | ❌ | embed image-node parse fix landed upstream (`9a6a6b74`, Phase 1); canvas `EmbedRegistry` seam wired 2026-08-19 (`1a516990`, `hasExtension()` feeds the placeholder label only) but no `EmbedFactory` is registered for any extension and the canvas leaf never calls `dispatch()` — transclusion *rendering* still absent. Footnotes unverified |
+| Images in canvas LivePreview | ✅ | shipped 2026-08-19 (`1a516990`) — `EditorWidget::setImageResourceLookup` wired to `VaultResourceProvider::loadImageBytes`, `QPixmap::loadFromData` + explicit `QSvgRenderer` fallback for `.svg` |
 | Format verbs (B/I/strike/code/link/heading) | ✅ | base dispatch via `addEditorActionBase` (`20abc25a`); enabled-state from `hasEditing()` + heading radio from `contextChanged` (`d98c7abd`) |
 | Undo/redo | ✅ | all leaves via `MarkdownView` base → `undoD2` (`b5a4b041`); Source dual-stack divergence retired |
 | Find in note | ✅ all modes | base `attachFindController` (`bfa2fa16`); in-table matches counted but not painted (Markoff brief §3, known v1 limit) |
