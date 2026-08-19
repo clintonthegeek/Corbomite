@@ -843,6 +843,96 @@ private Q_SLOTS:
         };
         QCOMPARE(positions, expected);
     }
+
+    void testCopyPasteRoundTripReIds()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("a"); n1.type = Canvas::NodeType::Text;
+        n1.x = 0; n1.y = 0; n1.width = 100; n1.height = 60;
+        n1.text = QStringLiteral("Hello");
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("b"); n2.type = Canvas::NodeType::Text;
+        n2.x = 200; n2.y = 0; n2.width = 100; n2.height = 60;
+        doc.addNode(n1);
+        doc.addNode(n2);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("e1");
+        edge.fromNode = QStringLiteral("a");
+        edge.toNode = QStringLiteral("b");
+        doc.addEdge(edge);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *itemA = scene.textCardItem(QStringLiteral("a"));
+        auto *itemB = scene.textCardItem(QStringLiteral("b"));
+        QVERIFY(itemA && itemB);
+        itemA->setSelected(true);
+        itemB->setSelected(true);
+
+        const QString json = scene.serializeSelectionAsCanvasJson();
+        QVERIFY(!json.isEmpty());
+        QVERIFY(json.contains(QStringLiteral("\"nodes\"")));
+        QVERIFY(json.contains(QStringLiteral("\"edges\"")));
+
+        scene.pasteCanvasJsonOrText(json, QPointF(1000, 1000));
+
+        // Original 2 nodes + 1 edge, plus 2 pasted nodes + 1 pasted edge.
+        QCOMPARE(doc.nodes().size(), 4);
+        QCOMPARE(doc.edges().size(), 2);
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        bool foundOffsetA = false, foundOffsetB = false;
+        for (const auto &n : doc.nodes()) {
+            if (n.id == QStringLiteral("a") || n.id == QStringLiteral("b"))
+                continue;
+            // Fresh 16-hex id.
+            QCOMPARE(n.id.length(), 16);
+            if (n.text == QStringLiteral("Hello")) {
+                QCOMPARE(n.x, 16);
+                QCOMPARE(n.y, 16);
+                foundOffsetA = true;
+            } else {
+                QCOMPARE(n.x, 216);
+                QCOMPARE(n.y, 16);
+                foundOffsetB = true;
+            }
+        }
+        QVERIFY(foundOffsetA);
+        QVERIFY(foundOffsetB);
+
+        // Pasted edge references the new (remapped) node ids, not "a"/"b".
+        bool foundPastedEdge = false;
+        for (const auto &e : doc.edges()) {
+            if (e.id == QStringLiteral("e1"))
+                continue;
+            QVERIFY(e.fromNode != QStringLiteral("a"));
+            QVERIFY(e.toNode != QStringLiteral("b"));
+            QVERIFY(doc.hasNode(e.fromNode));
+            QVERIFY(doc.hasNode(e.toNode));
+            foundPastedEdge = true;
+        }
+        QVERIFY(foundPastedEdge);
+    }
+
+    void testPastePlainTextCreatesCard()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        scene.pasteCanvasJsonOrText(QStringLiteral("Just some plain text"), QPointF(500, 500));
+
+        QCOMPARE(doc.nodes().size(), 1);
+        const auto node = doc.nodes().first();
+        QCOMPARE(node.type, Canvas::NodeType::Text);
+        QCOMPARE(node.text, QStringLiteral("Just some plain text"));
+        QCOMPARE(node.x, 500 - 125);
+        QCOMPARE(node.y, 500 - 30);
+        QCOMPARE(scene.undoStack()->count(), 1);
+    }
 };
 
 QTEST_MAIN(TestCanvasScene)

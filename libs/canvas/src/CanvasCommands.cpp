@@ -126,8 +126,8 @@ void CmdRemoveCard::undo()
 // CmdAddEdge
 // ---------------------------------------------------------------------------
 
-CmdAddEdge::CmdAddEdge(CanvasDocument *doc, const CanvasEdge &edge)
-    : QUndoCommand(QObject::tr("Add Edge"))
+CmdAddEdge::CmdAddEdge(CanvasDocument *doc, const CanvasEdge &edge, QUndoCommand *parent)
+    : QUndoCommand(QObject::tr("Add Edge"), parent)
     , m_doc(doc)
     , m_edge(edge)
 {

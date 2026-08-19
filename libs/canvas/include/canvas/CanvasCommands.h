@@ -74,7 +74,7 @@ private:
 // 5. Add an edge
 class CmdAddEdge : public QUndoCommand {
 public:
-    CmdAddEdge(CanvasDocument *doc, const CanvasEdge &edge);
+    CmdAddEdge(CanvasDocument *doc, const CanvasEdge &edge, QUndoCommand *parent = nullptr);
     void redo() override;
     void undo() override;
 

@@ -3,6 +3,8 @@
 #include "canvas/CanvasScene.h"
 #include "canvas/CanvasDocument.h"
 
+#include <QClipboard>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QPainter>
 #include <QUndoStack>
@@ -75,6 +77,25 @@ void CanvasView::keyPressEvent(QKeyEvent *event)
         (ctrl && shift && event->key() == Qt::Key_Z)) {
         // Ctrl+Y or Ctrl+Shift+Z: redo
         m_scene->undoStack()->redo();
+        return;
+    }
+
+    // M2.4 clipboard. Note: when the inline-edit QTextEdit proxy has focus,
+    // OS-level keyboard focus is on that child widget directly, so these
+    // never fire during in-place text editing (same reasoning as the
+    // Ctrl+Z/Y handling above).
+    if (ctrl && event->key() == Qt::Key_C && !shift) {
+        m_scene->copySelectionToClipboard();
+        return;
+    }
+    if (ctrl && event->key() == Qt::Key_X && !shift) {
+        m_scene->cutSelectionToClipboard();
+        return;
+    }
+    if (ctrl && event->key() == Qt::Key_V && !shift) {
+        const QString text = QGuiApplication::clipboard()->text();
+        const QPointF center = mapToScene(viewport()->rect().center());
+        m_scene->pasteCanvasJsonOrText(text, center);
         return;
     }
 

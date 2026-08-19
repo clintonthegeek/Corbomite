@@ -18,18 +18,25 @@
 #include <graffodil/IGraphEdge.h>
 
 #include <QApplication>
+#include <QClipboard>
 #include <QGraphicsProxyWidget>
 #include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneDragDropEvent>
 #include <QGraphicsSceneMouseEvent>
+#include <QGuiApplication>
 #include <QIODevice>
 #include <QImage>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QList>
 #include <QMenu>
 #include <QMimeData>
 #include <QPainter>
+#include <QSet>
 #include <QSvgGenerator>
 #include <QTextEdit>
 #include <QUndoStack>
@@ -1008,6 +1015,134 @@ void CanvasScene::mouseDoubleClickEventBackground(const QPointF &scenePos)
         item->setSelected(true);
         beginInlineEdit(item);
     }
+}
+
+// ---------------------------------------------------------------------------
+// M2.4 — clipboard
+// ---------------------------------------------------------------------------
+
+QString CanvasScene::serializeSelectionAsCanvasJson() const
+{
+    if (!m_document)
+        return {};
+
+    QSet<QString> selectedIds;
+    for (auto *node : selectedNodes())
+        selectedIds.insert(node->nodeId());
+    if (selectedIds.isEmpty())
+        return {};
+
+    // Build the JSON via a scratch CanvasDocument so serialization stays a
+    // single source of truth with the real toJson() (same key set, same
+    // defaults-omission rules) instead of duplicating it here.
+    CanvasDocument temp;
+    for (const auto &id : std::as_const(selectedIds)) {
+        if (m_document->hasNode(id))
+            temp.addNode(m_document->node(id));
+    }
+    // Edge included only when both endpoints are selected.
+    for (const auto &edge : m_document->edges()) {
+        if (selectedIds.contains(edge.fromNode) && selectedIds.contains(edge.toNode))
+            temp.addEdge(edge);
+    }
+
+    return QString::fromUtf8(QJsonDocument(temp.toJson()).toJson(QJsonDocument::Compact));
+}
+
+void CanvasScene::pasteCanvasJsonOrText(const QString &clipboardText, const QPointF &pasteCenterScenePos)
+{
+    if (!m_document || clipboardText.isEmpty())
+        return;
+
+    // Canvas-JSON detection: valid JSON object with "nodes" and "edges"
+    // arrays — the exact shape serializeSelectionAsCanvasJson() emits and
+    // what Obsidian itself puts on the clipboard.
+    QJsonParseError err;
+    const QJsonDocument jdoc = QJsonDocument::fromJson(clipboardText.toUtf8(), &err);
+    if (err.error == QJsonParseError::NoError && jdoc.isObject()) {
+        const QJsonObject obj = jdoc.object();
+        if (obj.value(QStringLiteral("nodes")).isArray()
+            && obj.value(QStringLiteral("edges")).isArray()) {
+            CanvasDocument scratch;
+            scratch.loadFromJson(obj);
+
+            const auto srcNodes = scratch.nodes();
+            const auto srcEdges = scratch.edges();
+            if (srcNodes.isEmpty() && srcEdges.isEmpty())
+                return;
+
+            // Re-issue every node/edge a fresh 16-hex id; remap edge
+            // endpoints; offset position +16px. One compound undo command.
+            QHash<QString, QString> idMap;
+            auto *parentCmd = new QUndoCommand(i18n("Paste"));
+            QStringList newIds;
+            for (auto node : srcNodes) {
+                const QString newId = CanvasDocument::generateId();
+                idMap.insert(node.id, newId);
+                node.id = newId;
+                node.x += 16;
+                node.y += 16;
+                newIds << newId;
+                new CmdAddCard(m_document, node, parentCmd);
+            }
+            for (auto edge : srcEdges) {
+                if (!idMap.contains(edge.fromNode) || !idMap.contains(edge.toNode))
+                    continue; // both endpoints are always in the same clip by construction
+                edge.id = CanvasDocument::generateId();
+                edge.fromNode = idMap.value(edge.fromNode);
+                edge.toNode = idMap.value(edge.toNode);
+                new CmdAddEdge(m_document, edge, parentCmd);
+            }
+            m_undoStack->push(parentCmd);
+
+            clearSelection();
+            for (const auto &id : std::as_const(newIds)) {
+                if (auto *item = connectableItem(id))
+                    item->setSelected(true);
+            }
+            return;
+        }
+    }
+
+    // Plain text -> new text card, centered on pasteCenterScenePos (same
+    // convention as M2.1/M2.3 gesture-driven text-card creation).
+    static constexpr int kTextWidth = 250;
+    static constexpr int kTextHeight = 60;
+
+    CanvasNode node;
+    node.id = CanvasDocument::generateId();
+    node.type = NodeType::Text;
+    node.text = clipboardText;
+    node.width = kTextWidth;
+    node.height = kTextHeight;
+    node.x = qRound(pasteCenterScenePos.x() - kTextWidth / 2.0);
+    node.y = qRound(pasteCenterScenePos.y() - kTextHeight / 2.0);
+
+    m_undoStack->push(new CmdAddCard(m_document, node));
+
+    if (auto *item = textCardItem(node.id)) {
+        clearSelection();
+        item->setSelected(true);
+    }
+}
+
+void CanvasScene::copySelectionToClipboard()
+{
+    const QString json = serializeSelectionAsCanvasJson();
+    if (json.isEmpty())
+        return;
+
+    // Obsidian puts canvas-JSON on the clipboard as plain text (enables
+    // cross-app paste), so a plain setText() is correct here — no custom
+    // mime type.
+    QGuiApplication::clipboard()->setText(json);
+}
+
+void CanvasScene::cutSelectionToClipboard()
+{
+    copySelectionToClipboard();
+    // Reuse the exact same compound-delete path Delete/Backspace uses.
+    onDeleteRequested(selectedNodes(), selectedEdges());
 }
 
 // ---------------------------------------------------------------------------

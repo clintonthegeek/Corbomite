@@ -87,6 +87,29 @@ public:
     using VaultPathResolver = std::function<QString(const QString &absoluteFilePath)>;
     void setVaultPathResolver(VaultPathResolver resolver);
 
+    // M2.4 — clipboard. serializeSelectionAsCanvasJson()/pasteCanvasJsonOrText()
+    // are pure logic (no QClipboard access) so tests can round-trip them
+    // directly; copySelectionToClipboard()/cutSelectionToClipboard() are the
+    // real-app convenience wrappers that touch QGuiApplication::clipboard().
+
+    /// `.canvas`-shaped JSON (`{"nodes":[...],"edges":[...]}`) for the
+    /// current selection — this is literally what Obsidian puts on the
+    /// system clipboard, enabling cross-app paste. An edge is included
+    /// only when both its endpoints are selected. Empty string if nothing
+    /// is selected.
+    QString serializeSelectionAsCanvasJson() const;
+
+    /// If `clipboardText` parses as canvas JSON, clones every node/edge
+    /// with a fresh 16-hex id (edge endpoints remapped), offsets position
+    /// +16px, and pushes one compound undo command. Otherwise, if
+    /// non-empty, creates a new text card centered on `pasteCenterScenePos`
+    /// (typically the viewport center).
+    void pasteCanvasJsonOrText(const QString &clipboardText, const QPointF &pasteCenterScenePos);
+
+    void copySelectionToClipboard();
+    /// Copy + delete-compound (reuses the same delete path as the Delete key).
+    void cutSelectionToClipboard();
+
     // Item management (used by tools and undo commands)
     TextCardItem *addTextCardItem(const CanvasNode &node);
     FileCardItem *addFileCardItem(const CanvasNode &node);
