@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
 #include <QUndoStack>
+#include <QCoreApplication>
+#include <QGraphicsSceneMouseEvent>
+#include <QKeyEvent>
+#include <graffodil/IGraphNode.h>
 #include "canvas/CanvasDocument.h"
 #include "canvas/CanvasScene.h"
 #include "canvas/CanvasCommands.h"
@@ -14,6 +18,14 @@ class TestCanvasScene : public QObject {
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase()
+    {
+        // Upstream-documented wart (Graffodil ROADMAP/plan Appendix B rule 6):
+        // QSignalSpy on Graffodil tool signals carrying IGraphNode*/IGraphEdge*
+        // silently fails to record without this registration.
+        qRegisterMetaType<Graffodil::IGraphNode *>("IGraphNode*");
+    }
+
     void testAddTextCard()
     {
         // Create document, add text node -> scene should create TextCardItem
@@ -347,6 +359,299 @@ private Q_SLOTS:
         auto *edgeItem = scene.edgeItem(QStringLiteral("e1"));
         QVERIFY(edgeItem != nullptr);
         QVERIFY(!edgeItem->path().isEmpty());
+    }
+
+    // -----------------------------------------------------------------
+    // M1.6 — Graffodil rebase regression/behavior tests (spec §5)
+    // -----------------------------------------------------------------
+
+    void testFileCardSelectableAndMovable()
+    {
+        // Pre-M1 regression (gap #1, plan "Broken / missing" item 1):
+        // SelectMoveTool::mousePressEvent dynamic_cast'd only TextCardItem/
+        // GroupItem, so a press on a FileCardItem fell through to
+        // rubber-band selection instead of selecting+moving it. This test
+        // would FAIL against the pre-M1 CanvasTool.cpp SelectMoveTool
+        // (which never selects m_dragNode for an unrecognized item type,
+        // so the card position never changes and no CmdMoveCards is
+        // pushed). Graffodil::SelectMoveTool operates over IGraphNode, so
+        // it is type-blind by construction and this now passes.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("file1");
+        node.type = Canvas::NodeType::File;
+        node.file = QStringLiteral("note.md");
+        node.x = 0; node.y = 0; node.width = 200; node.height = 150;
+        doc.addNode(node);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *item = scene.fileCardItem(QStringLiteral("file1"));
+        QVERIFY(item != nullptr);
+        QVERIFY(item->flags() & QGraphicsItem::ItemIsSelectable);
+
+        const QPointF pressPos(100, 75);
+        const QPointF movePos(300, 75);
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(pressPos);
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QVERIFY(item->isSelected());
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(movePos);
+        move.setLastScenePos(pressPos);
+        move.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(movePos);
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QCOMPARE(item->pos(), QPointF(200, 0));
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        auto updated = doc.node(QStringLiteral("file1"));
+        QCOMPARE(updated.x, 200);
+        QCOMPARE(updated.y, 0);
+    }
+
+    void testRubberBandSelectsAllNodeKinds()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode textNode;
+        textNode.id = QStringLiteral("t1"); textNode.type = Canvas::NodeType::Text;
+        textNode.x = 0; textNode.y = 0; textNode.width = 100; textNode.height = 60;
+        doc.addNode(textNode);
+
+        Canvas::CanvasNode fileNode;
+        fileNode.id = QStringLiteral("f1"); fileNode.type = Canvas::NodeType::File;
+        fileNode.file = QStringLiteral("note.md");
+        fileNode.x = 200; fileNode.y = 0; fileNode.width = 100; fileNode.height = 60;
+        doc.addNode(fileNode);
+
+        Canvas::CanvasNode groupNode;
+        groupNode.id = QStringLiteral("g1"); groupNode.type = Canvas::NodeType::Group;
+        groupNode.x = 400; groupNode.y = 0; groupNode.width = 100; groupNode.height = 60;
+        groupNode.label = QStringLiteral("G");
+        doc.addNode(groupNode);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *textItem = scene.textCardItem(QStringLiteral("t1"));
+        auto *fileItem = scene.fileCardItem(QStringLiteral("f1"));
+        auto *grpItem = scene.groupItem(QStringLiteral("g1"));
+        QVERIFY(textItem && fileItem && grpItem);
+
+        // Press on empty space to start a rubber-band, drag across all three.
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(QPointF(-50, -50));
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(QPointF(600, 200));
+        move.setLastScenePos(QPointF(-50, -50));
+        move.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(QPointF(600, 200));
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QVERIFY(textItem->isSelected());
+        QVERIFY(fileItem->isSelected());
+        QVERIFY(grpItem->isSelected());
+    }
+
+    void testDeleteSelectionSingleUndoStep()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode textNode;
+        textNode.id = QStringLiteral("t1"); textNode.type = Canvas::NodeType::Text;
+        textNode.x = 0; textNode.y = 0; textNode.width = 100; textNode.height = 60;
+        doc.addNode(textNode);
+
+        Canvas::CanvasNode fileNode;
+        fileNode.id = QStringLiteral("f1"); fileNode.type = Canvas::NodeType::File;
+        fileNode.file = QStringLiteral("note.md");
+        fileNode.x = 200; fileNode.y = 0; fileNode.width = 100; fileNode.height = 60;
+        doc.addNode(fileNode);
+
+        Canvas::CanvasNode groupNode;
+        groupNode.id = QStringLiteral("g1"); groupNode.type = Canvas::NodeType::Group;
+        groupNode.x = 400; groupNode.y = 0; groupNode.width = 100; groupNode.height = 60;
+        doc.addNode(groupNode);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("e1");
+        edge.fromNode = QStringLiteral("t1");
+        edge.toNode = QStringLiteral("f1");
+        doc.addEdge(edge);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *textItem = scene.textCardItem(QStringLiteral("t1"));
+        auto *fileItem = scene.fileCardItem(QStringLiteral("f1"));
+        auto *grpItem = scene.groupItem(QStringLiteral("g1"));
+        QVERIFY(textItem && fileItem && grpItem);
+
+        // Select all three nodes (edge is deliberately left unselected —
+        // it should still vanish as a cascade of removing "t1").
+        textItem->setSelected(true);
+        fileItem->setSelected(true);
+        grpItem->setSelected(true);
+
+        QCOMPARE(scene.undoStack()->count(), 0);
+
+        QKeyEvent keyPress(QEvent::KeyPress, Qt::Key_Delete, Qt::NoModifier);
+        QCoreApplication::sendEvent(&scene, &keyPress);
+
+        // Single undo step for the whole mixed-kind selection.
+        QCOMPARE(scene.undoStack()->count(), 1);
+        QVERIFY(!doc.hasNode(QStringLiteral("t1")));
+        QVERIFY(!doc.hasNode(QStringLiteral("f1")));
+        QVERIFY(!doc.hasNode(QStringLiteral("g1")));
+        QCOMPARE(doc.edges().size(), 0);
+
+        scene.undoStack()->undo();
+
+        QVERIFY(doc.hasNode(QStringLiteral("t1")));
+        QVERIFY(doc.hasNode(QStringLiteral("f1")));
+        QVERIFY(doc.hasNode(QStringLiteral("g1")));
+        QCOMPARE(doc.edges().size(), 1);
+    }
+
+    void testResizeToolCommitsUndo()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("r1");
+        node.type = Canvas::NodeType::Text;
+        node.x = 0; node.y = 0; node.width = 200; node.height = 100;
+        doc.addNode(node);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *item = scene.textCardItem(QStringLiteral("r1"));
+        QVERIFY(item != nullptr);
+        item->setSelected(true);
+
+        // Press near the bottom-right resize handle (within kResizeZone=8 of
+        // both the right and bottom edges), then drag inward past the
+        // kMinSize=40 clamp.
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(QPointF(198, 98));
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(QPointF(10, 10)); // would shrink to ~10x10 without clamp
+        move.setLastScenePos(QPointF(198, 98));
+        move.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        // Live clamp applied during the drag (before commit).
+        QCOMPARE(item->nodeData().width, 40);
+        QCOMPARE(item->nodeData().height, 40);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(QPointF(10, 10));
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QCOMPARE(scene.undoStack()->count(), 1);
+        auto updated = doc.node(QStringLiteral("r1"));
+        QCOMPARE(updated.width, 40);
+        QCOMPARE(updated.height, 40);
+
+        scene.undoStack()->undo();
+        auto restored = doc.node(QStringLiteral("r1"));
+        QCOMPARE(restored.width, 200);
+        QCOMPARE(restored.height, 100);
+    }
+
+    void testEdgeFollowsNodeMove()
+    {
+        // Adjacency-index path: a node moved via a document-driven write
+        // (CmdMoveCards::redo(), same as undo/redo replay) must still keep
+        // the edge attached, even though no interactive drag ever ran
+        // through SelectMoveTool. Covers the CanvasNodeItem::itemChange ->
+        // GraphScene::adjustEdgesForNode() hook (spec §6a V2).
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("src"); n1.type = Canvas::NodeType::Text;
+        n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 80;
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("tgt"); n2.type = Canvas::NodeType::Text;
+        n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 80;
+        doc.addNode(n1);
+        doc.addNode(n2);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("e1");
+        edge.fromNode = QStringLiteral("src");
+        edge.toNode = QStringLiteral("tgt");
+        doc.addEdge(edge);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *edgeItem = scene.edgeItem(QStringLiteral("e1"));
+        QVERIFY(edgeItem != nullptr);
+        const QPointF pathBefore = edgeItem->path().pointAtPercent(0.0);
+
+        QHash<QString, QPointF> oldPos, newPos;
+        oldPos[QStringLiteral("src")] = QPointF(0, 0);
+        newPos[QStringLiteral("src")] = QPointF(300, 300);
+        scene.undoStack()->push(new Canvas::CmdMoveCards(&doc, oldPos, newPos));
+
+        const QPointF pathAfter = edgeItem->path().pointAtPercent(0.0);
+        QVERIFY(pathBefore != pathAfter);
+    }
+
+    void testEdgeIdPreserved()
+    {
+        // Guards the §3.2 override: GraphEdgeItem generates its own
+        // uuid-shaped id by default; CanvasEdgeItem::edgeId() must return
+        // the .canvas document id instead.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("a"); n1.type = Canvas::NodeType::Text;
+        n1.x = 0; n1.y = 0; n1.width = 100; n1.height = 60;
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("b"); n2.type = Canvas::NodeType::Text;
+        n2.x = 200; n2.y = 0; n2.width = 100; n2.height = 60;
+        doc.addNode(n1);
+        doc.addNode(n2);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("custom-edge-id-1234");
+        edge.fromNode = QStringLiteral("a");
+        edge.toNode = QStringLiteral("b");
+        doc.addEdge(edge);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *item = scene.edgeItem(QStringLiteral("custom-edge-id-1234"));
+        QVERIFY(item != nullptr);
+        QCOMPARE(item->edgeId(), QStringLiteral("custom-edge-id-1234"));
+        QVERIFY(scene.edgeForId(QStringLiteral("custom-edge-id-1234")) != nullptr);
     }
 };
 
