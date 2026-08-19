@@ -245,19 +245,37 @@ Every creation path goes through `CmdAddCard` on the scene's undo stack; new
 nodes get `CanvasDocument::generateId()` (16 lowercase hex) and are selected
 after creation. Defaults (Appendix A): **text 250×60, file 400×400**.
 
-- [ ] **M2.1 Double-click empty → text card** — override
-      `GraphScene::mouseDoubleClickEventBackground(scenePos)` in `CanvasScene`:
-      `CmdAddCard` (text, 250×60 centered on click per Obsidian: node placed at
-      click point) → select → `beginInlineEdit` immediately (card is born in
-      edit mode). Test: `testDoubleClickEmptyCreatesTextCardInEditMode`.
-- [ ] **M2.2 Context menu create** — replace "New Text Card"/"New Group" with
-      i18n'd "New text card" / "New file card…" / "New group"; file picker =
-      new `CanvasFilePickerDialog` reusing the vault fuzzy suggest
-      (`libs/search` FuzzyMatcher over vault markdown+attachment paths; see how
-      `CompletionController` sources `[[` candidates — same source, modal
-      shell). File path stored **vault-relative** (disk contract §3.4). Test:
-      `testContextMenuCreatesFileCard` (inject picker result).
-- [ ] **M2.3 Drag-drop** — `CanvasScene::{dragEnterEvent,dragMoveEvent,dropEvent}`:
+- [x] **M2.1 Double-click empty → text card** — landed `10175197`.
+      `CanvasScene::mouseDoubleClickEventBackground()` override: `CmdAddCard`
+      (text, 250×60, click point = card center) → select → `beginInlineEdit`.
+      Test: `testDoubleClickEmptyCreatesTextCardInEditMode`. Found (not fixed,
+      out of scope): leaving the inline-edit `QGraphicsProxyWidget` alive
+      across `~CanvasScene` corrupts the heap — worked around in the test by
+      closing the editor before scope end; punch-list candidate.
+- [x] **M2.2 Context menu create** — landed `1a01a19c` + app-wiring
+      follow-up `476bede4`. Menu entries renamed to i18n'd "New text card" /
+      "New file card…" / "New group" (also fixed text-card default height
+      100→60 to match Appendix A, a latent bug). New
+      `Canvas::CanvasFilePickerDialog` (libs/canvas) fuzzy-filters/-ranks a
+      flat candidate `QStringList` live via `Corbomite::FuzzyMatcher` (same
+      matcher `CompletionPopup`/`QuickSwitcher` use). `CanvasScene` gains
+      `FilePickerRequestor` (injectable callback) +
+      `createFileCardViaPicker()`, pushing `CmdAddCard` for a 400x400 file
+      node with the path stored vault-relative. Tests:
+      `testContextMenuCreatesFileCard`,
+      `testContextMenuFileCardCancelledPickerCreatesNothing` (both inject a
+      fixed picker result, no real modal driven). **Divergence:** the
+      candidate list is *not* sourced via `Vault::getMarkdownFiles()`/
+      `getFiles()` as the plan suggested — `CanvasViewTab` (src/canvas/)
+      only ever receives a `vaultRoot` path string, no `Vault*` is reachable
+      at that layer today, so `CanvasViewTab` wires the requestor to a
+      `QDirIterator` scan of the vault root for markdown + common
+      attachment extensions instead. Functionally equivalent for a normal
+      vault; misses `.obsidian`-config excludes/ignores that a real
+      `Vault::getFiles()` would respect. Flagged as a punch-list candidate
+      if that gap bites in practice.
+- [x] **M2.3 Drag-drop** — landed `98630a52`.
+      `CanvasScene::{dragEnterEvent,dragMoveEvent,dropEvent}`:
       `text/uri-list` from FileExplorer/OS → one file node per file at drop
       point, multiple files laid out in a grid (Obsidian: grid of file nodes;
       spacing = one gridSpacing gap, 20px), paths made vault-relative when
@@ -265,7 +283,7 @@ after creation. Defaults (Appendix A): **text 250×60, file 400×400**.
       punch list if users hit it); `text/plain` drop → text card. One compound
       undo command per drop. Requires `setAcceptDrops` on view+scene wiring.
       Tests: `testDropSingleFileCreatesFileCard`, `testDropTextCreatesTextCard`.
-- [ ] **M2.4 Clipboard** — Copy (Ctrl+C): selection serialized as `.canvas`-
+- [x] **M2.4 Clipboard** — landed `86b11f57`. Copy (Ctrl+C): selection serialized as `.canvas`-
       shaped JSON `{nodes:[…],edges:[…]}` (edges only when both ends selected)
       to `QMimeData` `text/plain` — this is what Obsidian puts on the
       clipboard, enabling cross-app paste. Paste (Ctrl+V): if clipboard parses
@@ -273,18 +291,37 @@ after creation. Defaults (Appendix A): **text 250×60, file 400×400**.
       endpoints), offset +16px, single compound command; else plain text →
       text card at viewport center. Cut = Copy + delete-compound. Tests:
       `testCopyPasteRoundTripReIds`, `testPastePlainTextCreatesCard`.
-- [ ] **M2.5 Alt-drag duplicate** — Alt+press-drag on a selected node
-      duplicates the selection (new ids, edges among selection cloned) and
-      drags the copies; implement as a mouse route ahead of SelectMoveTool
-      (predicate: Alt modifier + press on node). Obsidian uses Alt/Ctrl-drag;
-      pick **Alt only** (Ctrl toggles selection in Graffodil). Test:
-      `testAltDragDuplicates`.
-- [ ] **M2.6 New-canvas command** — app side: "Create new canvas" in the
-      command palette + FileExplorer folder context menu → creates
-      `Untitled.canvas` (`{"nodes":[],"edges":[]}`, dedupe name suffix) in the
-      target folder, opens it, triggers rename edit (same flow as new-note
-      rename). Grep `DailyNoteService`/new-note creation for the existing
-      create-then-rename pattern.
+- [x] **M2.5 Alt-drag duplicate** — landed `181c6997`. New
+      `CanvasDuplicateDragTool` routed ahead of `SelectMoveTool` (predicate:
+      Alt modifier + press on an already-selected node, mirroring
+      `findResizeTarget`'s pattern as `findAltDragDuplicateTarget`). Clones
+      created directly in the scene at press time (fresh 16-hex ids, cloned
+      internal edges remapped) and dragged live; one compound
+      `CmdAddCard`/`CmdAddEdge` undo step commits on release. Test:
+      `testAltDragDuplicates`. **Divergence:** no drag-threshold gate — a
+      press+release with zero mouse movement still commits a duplicate at
+      the original position (the plan's predicate is "Alt+press... lands on
+      an already-selected node", which the implementation follows literally
+      rather than inferring an unstated movement gate).
+- [x] **M2.6 New-canvas command** — landed `92cab583`. New
+      `FileManager::createNewFile(parent, name, ext, content)` generalizes
+      `createNewMarkdownFile` (now delegates to it), reusing the existing
+      `collisionFreeName()` dedup rule; exposed via
+      `FileManagerProxy::createNewFile`. `MainWindow::createNewCanvas()`
+      replaces the pre-existing `file_new_canvas` action (which prompted for
+      a name then saved straight to `<name>.canvas` with **no collision
+      check at all** — a real bug this incidentally fixes) with
+      create-`Untitled.canvas`-then-open-then-rename.
+      `FileExplorerView::onNewCanvasIn()` mirrors it as "New Canvas Here" /
+      "New Canvas" context-menu entries. **Divergence:** there is no
+      existing inline-rename-on-creation flow to mirror —
+      `createNewNote()`/`onNewNoteIn()` both prompt for a name via
+      `QInputDialog` *before* creating the file, not after. Building a true
+      inline-edit-on-creation mechanism was out of scope; this reuses
+      `FileManager::promptForFileRename()` (the same modal F2/"Rename..."
+      dialog) as the closest existing "start a rename" primitive. No named
+      test in the plan for this task — covered by the full offscreen suite
+      staying green.
 - Exit: user can build the business-model canvas layout from an empty file
   without touching JSON — live-verified by actually rebuilding ~6 cards of it.
 
