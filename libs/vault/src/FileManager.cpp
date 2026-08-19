@@ -2,6 +2,7 @@
 #include "corbomite/vault/FileManager.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
+#include "PathNormalization.h"
 
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFolder.h"
@@ -587,11 +588,15 @@ QString collisionFreeName(Corbomite::Vault *v, const QString &parentPrefix,
     const QString base = desired.isEmpty() ? QStringLiteral("Untitled") : desired;
     const QString suffix = ext.isEmpty() ? QString() : (QLatin1Char('.') + ext);
     QString candidate = parentPrefix + base + suffix;
-    if (!v->getAbstractFileByPath(candidate)) return candidate;
-    int n = 2;
+    // Case-insensitive so this agrees with Vault::create's own collision
+    // check (existsCaseInsensitive) and stays vault-portable across
+    // case-(in)sensitive filesystems, matching Obsidian.
+    if (!v->existsCaseInsensitive(Corbomite::VaultPaths::normalize(candidate))) return candidate;
+    // Obsidian's own fallback numbering starts at " 1", not " 2".
+    int n = 1;
     while (true) {
         candidate = parentPrefix + base + QStringLiteral(" ") + QString::number(n) + suffix;
-        if (!v->getAbstractFileByPath(candidate)) return candidate;
+        if (!v->existsCaseInsensitive(Corbomite::VaultPaths::normalize(candidate))) return candidate;
         ++n;
     }
 }

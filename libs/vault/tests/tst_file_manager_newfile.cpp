@@ -43,6 +43,20 @@ void TestFileManagerNewFile::collisionFreeNaming()
     auto *b = fm.createNewMarkdownFile(v.getRoot(), QStringLiteral("Note"));
     QVERIFY(a && b);
     QVERIFY(a->path != b->path);
+    // Obsidian's collision numbering starts at " 1", not " 2": the first
+    // collision on "Note.md" should yield "Note 1.md".
+    QCOMPARE(b->path, QStringLiteral("Note 1.md"));
+
+    // A collision against an existing file that differs only by case must
+    // still be detected (vault-portable, matches Vault::create's own
+    // case-insensitive collision check) rather than silently returning the
+    // bare candidate.
+    auto *other = fm.createNewMarkdownFile(v.getRoot(), QStringLiteral("Other"));
+    QVERIFY(other);
+    QCOMPARE(other->path, QStringLiteral("Other.md"));
+    auto *c = fm.createNewMarkdownFile(v.getRoot(), QStringLiteral("other"));
+    QVERIFY(c);
+    QCOMPARE(c->path, QStringLiteral("other 1.md"));
 }
 
 void TestFileManagerNewFile::getNewFileParentUsesHint()

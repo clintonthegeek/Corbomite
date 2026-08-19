@@ -190,12 +190,14 @@ public:
     /// that are silent on an insensitive FS but break on a sensitive one.
     bool isCaseSensitiveFilesystem() const;
 
-private:
     /// Returns true when any tracked path matches `rel` case-insensitively.
     /// Used by create()/createFolder() to keep vaults portable across
-    /// case-(in)sensitive filesystems.
+    /// case-(in)sensitive filesystems. Also reused by FileManager's
+    /// collision-free-name generation so new-file naming agrees with
+    /// Vault::create's own collision check.
     bool existsCaseInsensitive(const QString &rel) const;
 
+private:
     /// Reconcile an open NoteDocument with bytes just written by `modify()`.
     /// A self-write suppresses the watcher echo, so without this the live
     /// editor buffer would go stale vs disk. Refresh-if-clean, signal-if-dirty
