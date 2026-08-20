@@ -57,7 +57,7 @@ set(JKQTMATHTEXT_SOURCES
 qt_add_resources(FONT_RESOURCES resources/xits.qrc resources/firamath.qrc)
 
 # --- Static library target ---
-add_library(jkqtmathtext STATIC
+add_library(jkqtmathtext SHARED
     ${JKQTCOMMON_SOURCES}
     ${JKQTMATHTEXT_SOURCES}
     ${FONT_RESOURCES}
@@ -81,3 +81,17 @@ target_include_directories(jkqtmathtext
 target_link_libraries(jkqtmathtext
     PUBLIC  Qt6::Core Qt6::Gui Qt6::Widgets
 )
+
+# Install rule — needed now that consumers carry a runtime DT_NEEDED on
+# this library instead of embedding it statically. Not part of the
+# CorbomiteTargets export set (no Corbomite:: alias; vendored third-party
+# code). SHARED is also the licence-friendlier form for vendored LGPL code
+# (per the plan's Phase P3 note) — a static link would otherwise obligate
+# providing relinkable object files to satisfy LGPL §4/§6.
+if(DEFINED KDE_INSTALL_LIBDIR)
+    install(TARGETS jkqtmathtext
+        RUNTIME DESTINATION ${KDE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${KDE_INSTALL_LIBDIR}
+    )
+endif()
