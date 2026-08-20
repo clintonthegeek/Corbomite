@@ -1,5 +1,5 @@
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="@CORBOMITE_COMPONENT_NAME@" version="10">
+<gui name="@CORBOMITE_COMPONENT_NAME@" version="11">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -17,6 +17,18 @@
       <text>&amp;Edit</text>
       <Action name="edit_undo"/>
       <Action name="edit_redo"/>
+      <Separator/>
+      <Action name="edit_cut"/>
+      <Action name="edit_copy"/>
+      <Action name="edit_paste"/>
+      <Menu name="edit_copy_as">
+        <text>Copy as</text>
+        <Action name="edit_copy_as_markdown"/>
+        <Action name="edit_copy_as_plain"/>
+        <Action name="edit_copy_as_html"/>
+        <Action name="edit_copy_as_rtf"/>
+      </Menu>
+      <Action name="edit_paste_plain"/>
       <Separator/>
       <Action name="edit_find"/>
       <Action name="edit_find_next"/>

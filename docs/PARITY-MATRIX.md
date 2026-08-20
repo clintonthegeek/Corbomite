@@ -82,7 +82,7 @@ contract-v2 re-pin (see the adoption brief).
 | goToLine / ephemeral state (cursor+scroll persist) | ✅ | contract-v2 `CursorPos` + 0.0–1.0 scroll fraction via base (`5d7fcc5e`); Live attach-window writes fixed upstream (`8112833f`) |
 | Theme propagation to leaves | ✅ | `applyThemeToAllLeaves` + `wireLeaf` at lazy construction (`17b2cd00`) |
 | Templates / daily notes | 🟡 / ✅ | template body still appends at END, but the `{{cursor}}` marker now moves the caret via `goToLine` (`5d7fcc5e`); daily notes wired |
-| Paste/drop images, paste HTML→MD | ❌ | no host hooks; Live clipboard is plain-text only |
+| Paste/drop images, paste HTML→MD | 🟡 | Cluster N (`feature/rich-clipboard`): HTML/RTF→markdown smart paste + Copy as (markdown/plain/HTML/RTF) landed in Markoff `ClipboardCodec` and the canvas leaf. Image paste/drop still absent. Plan: [`superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md`](superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md) |
 | Vim mode / spellcheck / RTL | ❌ | absent entirely (explicitly post-1.0 candidates) |
 | Zoom/font scale | ✅ | all leaves via base `setFontScale` (`c6a7afad`); steps match Live's Ctrl+= shortcuts (1.10) |
 | Autosave | ✅ | `AutosaveReactor` (2 s debounce) → saveDocument (see P0 above) |

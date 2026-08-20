@@ -621,6 +621,18 @@ void MainWindow::updateEditorActionStates()
         QStringLiteral("format_inline_code"), QStringLiteral("insert_link")};
     for (const QString &name : verbActions)
         if (auto *a = ac->action(name)) a->setEnabled(canEdit);
+
+    const bool canCopy = leaf && leaf->hasCursor();
+    for (const QString &name : {QStringLiteral("edit_copy"),
+                                QStringLiteral("edit_copy_as_markdown"),
+                                QStringLiteral("edit_copy_as_plain"),
+                                QStringLiteral("edit_copy_as_html"),
+                                QStringLiteral("edit_copy_as_rtf")})
+        if (auto *a = ac->action(name)) a->setEnabled(canCopy);
+    for (const QString &name : {QStringLiteral("edit_cut"),
+                                QStringLiteral("edit_paste"),
+                                QStringLiteral("edit_paste_plain")})
+        if (auto *a = ac->action(name)) a->setEnabled(canEdit);
     for (int level = 1; level <= 6; ++level)
         if (auto *a = ac->action(QStringLiteral("heading_%1").arg(level)))
             a->setEnabled(canEdit);
@@ -1717,6 +1729,43 @@ void MainWindow::setupActions()
                         QStringLiteral("insert-link"), i18n("Insert Link"),
                         QKeySequence(Qt::CTRL | Qt::Key_K),
                         &Markoff::MarkdownView::insertLink);
+
+    // Clipboard: default Cut/Copy/Paste have no KStandardAction shortcuts —
+    // the leaf already handles Ctrl+X/C/V in keyPressEvent; registering the
+    // standard chords here would double-fire. Copy-as is exclusive (one
+    // MIME flavor) so Word/LibreOffice cannot prefer HTML over markdown.
+    addEditorActionBase(QStringLiteral("edit_cut"),
+                        QStringLiteral("edit-cut"), i18n("Cut"),
+                        QKeySequence(),
+                        &Markoff::MarkdownView::cut);
+    addEditorActionBase(QStringLiteral("edit_copy"),
+                        QStringLiteral("edit-copy"), i18n("Copy"),
+                        QKeySequence(),
+                        &Markoff::MarkdownView::copy);
+    addEditorActionBase(QStringLiteral("edit_paste"),
+                        QStringLiteral("edit-paste"), i18n("Paste"),
+                        QKeySequence(),
+                        &Markoff::MarkdownView::paste);
+    addEditorActionBase(QStringLiteral("edit_copy_as_markdown"),
+                        QString(), i18n("Copy as Markdown"),
+                        QKeySequence(),
+                        &Markoff::MarkdownView::copyAsMarkdown);
+    addEditorActionBase(QStringLiteral("edit_copy_as_plain"),
+                        QString(), i18n("Copy as Plain Text"),
+                        QKeySequence(),
+                        &Markoff::MarkdownView::copyAsPlain);
+    addEditorActionBase(QStringLiteral("edit_copy_as_html"),
+                        QString(), i18n("Copy as HTML"),
+                        QKeySequence(),
+                        &Markoff::MarkdownView::copyAsHtml);
+    addEditorActionBase(QStringLiteral("edit_copy_as_rtf"),
+                        QString(), i18n("Copy as RTF"),
+                        QKeySequence(),
+                        &Markoff::MarkdownView::copyAsRtf);
+    addEditorActionBase(QStringLiteral("edit_paste_plain"),
+                        QStringLiteral("edit-paste"), i18n("Paste as Plain Text"),
+                        QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_V),
+                        &Markoff::MarkdownView::pasteAsPlain);
     addEditorActionStub(QStringLiteral("insert_wiki_link"),
                         QStringLiteral("insert-link"), i18n("Insert Wiki Link"),
                         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));

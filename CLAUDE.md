@@ -80,6 +80,15 @@
 > entry for full detail. **Next: resume Cluster L5 soak**, or continue
 > hardening the release (multi-distro packaging, CI matrix).
 >
+> **Cluster N — rich clipboard (copy-as + smart paste), OPENED 2026-08-20.**
+> Parallel to Cluster M, isolated on `feature/rich-clipboard`
+> (worktree `.worktrees/rich-clipboard`; Markoff nested at that tree's
+> `libs/markoff-family`). Plan:
+> [plan](docs/superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md).
+> N0–N2 (codec + canvas leaf) + Live codec path + Corbomite Edit-menu
+> wiring are in the tree, uncommitted. **Next: N3 Source/Styled intercept,
+> then N5 live eyeball.** Post-reset N — not legacy Cluster N.
+>
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
 > Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).
 
