@@ -198,27 +198,29 @@ six `table_*`, all three fold actions. Every one needs a block-kind change that
 
 ### Phase O0 — Bookkeeping and boundary-setting (docs only, no code)
 
-- [ ] **O0.T1 — Fold Cluster I's live remnant into this plan.** Cluster I's remaining
+- [x] **O0.T1 — Fold Cluster I's live remnant into this plan.** Cluster I's remaining
       scope is Phase 5 tail (**link-with-active-pane** checkable toggle;
       **move-tab-left/right**) + Phase 6. The Phase 5 tail items are actions →
       they land here as O5.T5. `WorkspaceLeaf::setGroup(QString)`
       (`WorkspaceLeaf.h:62`) is the linked-pane primitive; "Open linked view" already
       ships in the hamburger from Cluster R.
-- [ ] **O0.T2 — Move Cluster I Phase 6 to the punch list** as two items: search
+- [x] **O0.T2 — Move Cluster I Phase 6 to the punch list** as two items: search
       regex/match-case toggles (`[search][P3]`), `Notice::post` at the 5 identified
       failure sites (`[ui-bundle][P3]`). Cite the Cluster I plan for the site list.
-- [ ] **O0.T3 — Punch-list the template-block-kind finding** from §D7, marked
+- [x] **O0.T3 — Punch-list the template-block-kind finding** from §D7, marked
       `[editor][P3][verify-first]`.
-- [ ] **O0.T4 — Punch-list `GraphControlsPanel` cross-talk** (report §4.3) as
+- [x] **O0.T4 — Punch-list `GraphControlsPanel` cross-talk** (report §4.3) as
       `[graph][P2][cluster-o]`, noting O6 fixes it structurally.
-- [ ] **O0.T5 — Close Cluster I.** Retro at `docs/cluster-retros/cluster-i.md`
+- [x] **O0.T5 — Close Cluster I.** Retro at `docs/cluster-retros/cluster-i.md`
       recording that Phases 1–4 shipped as legacy Cluster V, Phase 5 tail folded into
       O, Phase 6 punch-listed. `git mv` the plan to `plans/archive/`; update
       `plans/INDEX.md`.
-- [ ] **O0.T6 — Record the Cluster M boundary** (see §Cross-cluster below) in both
+- [x] **O0.T6 — Record the Cluster M boundary** (see §Cross-cluster below) in both
       plans.
 
-**Gate:** docs consistent; `INDEX.md` shows I closed and O planned.
+**Gate:** docs consistent; `INDEX.md` shows I closed and O planned. **DONE 2026-08-20
+(`524c5cdc`)** — checkboxes above were left unticked when the commit landed; fixed
+here, no scope change.
 
 ---
 
