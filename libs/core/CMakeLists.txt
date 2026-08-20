@@ -8,6 +8,9 @@ find_package(KF6I18n REQUIRED)
 find_package(KF6CoreAddons REQUIRED)
 find_package(KF6Config REQUIRED)
 find_package(KF6ColorScheme REQUIRED)
+# Cluster O Phase O3 (O3.T1) — ViewActions is a KXMLGUIClient (the Tier-A
+# provider mechanism), so libs/core now needs KF6::XmlGui.
+find_package(KF6XmlGui REQUIRED)
 
 add_library(corbomite-core STATIC
     src/NoteMeta.cpp
@@ -69,6 +72,9 @@ add_library(corbomite-core STATIC
     include/corbomite/core/DiffMatchPatch.h
     src/View.cpp
     include/corbomite/core/View.h
+    src/ViewActions.cpp
+    include/corbomite/core/ViewActions.h
+    include/corbomite/core/ToolBarPolicy.h
     src/EmptyView.cpp
     include/corbomite/core/EmptyView.h
     src/ItemView.cpp
@@ -165,6 +171,7 @@ target_link_libraries(corbomite-core
     PUBLIC
         Qt6::Core Qt6::Gui Qt6::Svg Qt6::Widgets Qt6::Network
         KF6::SyntaxHighlighting KF6::I18n KF6::CoreAddons KF6::ConfigCore KF6::ColorScheme
+        KF6::XmlGui
         KDAB::kddockwidgets
     # Submodule / bundled deps are linked only in the in-tree BUILD
     # interface. They are not shipped as part of the installed Corbomite
