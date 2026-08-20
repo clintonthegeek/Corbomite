@@ -143,4 +143,9 @@ Canvas::CanvasScene *CanvasViewTab::canvasScene() const
     return m_view ? m_view->canvasScene() : nullptr;
 }
 
+Canvas::CanvasView *CanvasViewTab::canvasView() const
+{
+    return m_view;
+}
+
 } // namespace Corbomite

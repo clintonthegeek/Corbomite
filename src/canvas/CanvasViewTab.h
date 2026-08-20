@@ -38,6 +38,13 @@ public:
     /// export pipeline.
     Canvas::CanvasScene *canvasScene() const;
 
+    /// Cluster O Phase O1.T3 — access to the underlying CanvasView so
+    /// CanvasFileView can dispatch the polymorphic View::zoomIn/Out/Reset
+    /// virtuals onto the real viewport transform. (O4.T1 will want this
+    /// same accessor for the canvas toolbar; landing it here is the
+    /// minimal plumbing O1.T3 needs, not scope creep into O4.)
+    Canvas::CanvasView *canvasView() const;
+
 Q_SIGNALS:
     void modificationChanged(bool modified);
 

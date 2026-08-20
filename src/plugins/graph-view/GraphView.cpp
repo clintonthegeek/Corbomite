@@ -5,6 +5,8 @@
 
 #include "corbomite/core/MenuSectionHelper.h"
 
+#include <forcegraph/ForceGraphView.h>
+
 #include <KLocalizedString>
 
 #include <QAction>
@@ -43,6 +45,27 @@ void GraphView::setControlsPanel(GraphControlsPanel *panel)
 }
 
 GraphViewTab *GraphView::graphWidget() const { return m_graphWidget; }
+
+void GraphView::zoomIn()
+{
+    if (m_graphWidget)
+        if (auto *gv = m_graphWidget->graphView())
+            gv->zoomIn();
+}
+
+void GraphView::zoomOut()
+{
+    if (m_graphWidget)
+        if (auto *gv = m_graphWidget->graphView())
+            gv->zoomOut();
+}
+
+void GraphView::zoomReset()
+{
+    if (m_graphWidget)
+        if (auto *gv = m_graphWidget->graphView())
+            gv->resetTransform();
+}
 
 void GraphView::onOpen()
 {

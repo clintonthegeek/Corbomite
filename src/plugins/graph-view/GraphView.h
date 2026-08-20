@@ -32,6 +32,14 @@ public:
     void setControlsPanel(GraphControlsPanel *panel);
     GraphViewTab *graphWidget() const;
 
+    // Cluster O Phase O1.T3 — re-light View::zoom*() onto the real
+    // ForceGraphView viewport transform (previously the graph had no zoom
+    // action at all — MainWindow's zoom slots only ever reached the
+    // markdown leaf).
+    void zoomIn() override;
+    void zoomOut() override;
+    void zoomReset() override;
+
     /// Cluster R Task 3.7 — command dispatcher injected by the graph
     /// plugin (captures CommandRegistrar from PluginContext). Wired so
     /// the hamburger Split / Copy-screenshot / Bookmark entries can

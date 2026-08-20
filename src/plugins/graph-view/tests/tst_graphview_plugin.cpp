@@ -5,7 +5,9 @@
 #include <KPluginMetaData>
 
 #include "../GraphControlsPanel.h"
+#include "../GraphView.h"
 #include "../GraphViewPlugin.h"
+#include "../GraphViewTab.h"
 
 #include "corbomite/core/Command.h"
 #include "corbomite/core/ViewRegistry.h"
@@ -13,8 +15,14 @@
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
+#include "corbomite/storage/proxies/SearchProxy.h"
 #include "corbomite/vault/PluginContext.h"
 #include "corbomite/vault/Vault.h"
+#include "corbomite/vault/proxies/VaultProxy.h"
+
+#include <forcegraph/ForceGraphView.h>
+
+#include <QTransform>
 
 using namespace Corbomite;
 
@@ -26,6 +34,7 @@ private slots:
     void createViewReturnsControlsPanel();
     void skipsViewRegistrationWithoutUiViewsPermission();
     void registersCopyScreenshotCommandWhenUiCommandsGranted();
+    void zoomDispatchesToViewportTransform();
 };
 
 static PluginMetaData makeMeta() { return PluginMetaData(KPluginMetaData{}); }
@@ -105,6 +114,51 @@ void TestGraphViewPlugin::registersCopyScreenshotCommandWhenUiCommandsGranted()
 
     QVERIFY(commands.findCommand(
         QStringLiteral("corbomite-graph-view:copy-screenshot")) != nullptr);
+}
+
+// Cluster O Phase O1.T3 — View::zoomIn/Out/Reset must reach the real
+// ForceGraphView viewport transform (previously the base View no-ops were
+// never overridden, so graph had no zoom action at all — report §4.1).
+void TestGraphViewPlugin::zoomDispatchesToViewportTransform()
+{
+    // GraphView::onOpen() only constructs its GraphViewTab once both a
+    // search and vault proxy are set (empty-permission stubs are enough —
+    // buildGraph()'s query surface gates on permissions and returns empty
+    // rather than dereferencing the null backends).
+    SearchProxy search(nullptr, {}, QStringLiteral("test"));
+    VaultProxy vault(nullptr, {}, QStringLiteral("test"));
+
+    // `host` must be declared before `view`: View::open() reparents `view`
+    // under `host`, and locals destruct in reverse declaration order. With
+    // `view` declared first, `host` would destruct first and (as `view`'s
+    // new Qt-ownership parent) delete it — then `view`'s own stack
+    // destructor would run a second time on already-freed memory.
+    QWidget host;
+    GraphView view(nullptr);
+    view.setSearch(&search);
+    view.setVault(&vault);
+    view.open(&host);
+
+    auto *tab = view.graphWidget();
+    QVERIFY(tab);
+    auto *gv = tab->graphView();
+    QVERIFY(gv);
+
+    const QTransform identity;
+    QCOMPARE(gv->transform(), identity);
+
+    View &base = view;
+    base.zoomIn();
+    QVERIFY2(gv->transform() != identity,
+             "View::zoomIn() must reach the ForceGraphView viewport transform");
+
+    const QTransform afterIn = gv->transform();
+    base.zoomOut();
+    QVERIFY2(gv->transform() != afterIn,
+             "View::zoomOut() must reach the ForceGraphView viewport transform");
+
+    base.zoomReset();
+    QCOMPARE(gv->transform(), identity);
 }
 
 QTEST_MAIN(TestGraphViewPlugin)

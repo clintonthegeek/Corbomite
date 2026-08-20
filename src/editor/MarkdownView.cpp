@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MarkdownView.h"
 #include "NoteEditorWidget.h"
+#include <markoff/core/MarkdownView.h>
 #include <markoff/source/Editor.h>
 #include "corbomite/core/EditableFileView.h"
 #include "corbomite/core/MenuSectionHelper.h"
@@ -84,22 +85,31 @@ bool MarkdownView::setCursorLine(int line)
     return m_editorWidget->goToLine(line);
 }
 
+namespace {
+// Cluster O Phase O1.T3 — moved out of MainWindow.cpp's onZoomIn/Out/Reset,
+// which used to bypass the View::zoomIn/Out/Reset virtuals entirely and
+// apply this directly to activeEditor()->activeLeaf(). Matches the live
+// leaf's own kFontScaleStep so menu zoom and the editor's Ctrl+=/Ctrl+-
+// shortcuts step identically.
+constexpr qreal kZoomStep = 1.10;
+}
+
 void MarkdownView::zoomIn()
 {
-    // TODO(port-foundation-exploration): zoom dispatch was leaf-specific and
-    // used Markoff::ActionId::ZoomIn / ZoomOut + per-leaf zoomIn/zoomOut/
-    // resetZoom methods that no longer exist on the new leaves. Zoom port
-    // is its own feature; no-op here for now.
+    if (auto *leaf = m_editorWidget->activeLeaf())
+        leaf->setFontScale(leaf->fontScale() * kZoomStep);   // base clamps to [0.25, 4.0]
 }
 
 void MarkdownView::zoomOut()
 {
-    // TODO: see zoomIn.
+    if (auto *leaf = m_editorWidget->activeLeaf())
+        leaf->setFontScale(leaf->fontScale() / kZoomStep);
 }
 
 void MarkdownView::zoomReset()
 {
-    // TODO: see zoomIn.
+    if (auto *leaf = m_editorWidget->activeLeaf())
+        leaf->setFontScale(1.0);
 }
 
 QJsonObject MarkdownView::getState() const

@@ -21,6 +21,12 @@ public:
     void clearHighlight();
     void zoomToFit();
     void zoomToNode(const QString &id);
+    // Corbomite Cluster O Phase O1.T3 — discrete step zoom, same factor as
+    // the existing wheel/keyboard handlers (now routed through these so
+    // there is one definition). resetTransform() (QGraphicsView, public
+    // already) covers zoom-reset — no wrapper needed.
+    void zoomIn();
+    void zoomOut();
 
     // Display settings — forwarded to scene
     void setNodeSizeScale(double scale);

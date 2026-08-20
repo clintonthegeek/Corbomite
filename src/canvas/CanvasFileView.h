@@ -26,6 +26,14 @@ public:
     void setRenderEngine(MarkdownRenderEngine *engine);
     CanvasViewTab *canvasWidget() const;
 
+    // Cluster O Phase O1.T3 — re-light the View::zoom*() polymorphic
+    // dispatch onto the real CanvasView viewport transform. Previously
+    // MainWindow's zoom actions bypassed the virtuals entirely and only
+    // ever reached the markdown leaf; canvas had no zoom action at all.
+    void zoomIn() override;
+    void zoomOut() override;
+    void zoomReset() override;
+
     /// Cluster R Task 3.6 — command-dispatch hook used by the hamburger
     /// menu's Split/pane/linked-view entries. Injected by MainWindow.
     using CommandDispatch = std::function<void(const QString &commandId)>;

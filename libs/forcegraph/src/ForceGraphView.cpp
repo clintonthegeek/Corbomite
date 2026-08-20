@@ -228,11 +228,21 @@ void ForceGraphView::wheelEvent(QWheelEvent *event)
         m_interactionTimer->start(); // reset the timer
 
     if (event->angleDelta().y() > 0) {
-        scale(ZoomFactor, ZoomFactor);
+        zoomIn();
     } else {
-        scale(1.0 / ZoomFactor, 1.0 / ZoomFactor);
+        zoomOut();
     }
     event->accept();
+}
+
+void ForceGraphView::zoomIn()
+{
+    scale(ZoomFactor, ZoomFactor);
+}
+
+void ForceGraphView::zoomOut()
+{
+    scale(1.0 / ZoomFactor, 1.0 / ZoomFactor);
 }
 
 void ForceGraphView::mousePressEvent(QMouseEvent *event)
@@ -336,10 +346,10 @@ void ForceGraphView::keyPressEvent(QKeyEvent *event)
         break;
     case Qt::Key_Plus:
     case Qt::Key_Equal:
-        scale(ZoomFactor, ZoomFactor);
+        zoomIn();
         break;
     case Qt::Key_Minus:
-        scale(1.0 / ZoomFactor, 1.0 / ZoomFactor);
+        zoomOut();
         break;
     default:
         QGraphicsView::keyPressEvent(event);

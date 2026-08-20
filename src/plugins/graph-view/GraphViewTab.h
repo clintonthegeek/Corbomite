@@ -28,6 +28,11 @@ public:
     void setControlsPanel(GraphControlsPanel *panel);
     void setMetadataCache(MetadataCacheReader *cache);
 
+    /// Cluster O Phase O1.T3 — access to the underlying ForceGraphView so
+    /// GraphView can dispatch View::zoomIn/Out/Reset onto the real
+    /// viewport transform.
+    ForceGraph::ForceGraphView *graphView() const { return m_graphView; }
+
 Q_SIGNALS:
     void noteActivated(const QString &relativePath);
     void openNoteInNewTabRequested(const QString &relativePath);

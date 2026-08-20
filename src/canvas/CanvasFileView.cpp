@@ -6,6 +6,7 @@
 #include "corbomite/core/NoteDocument.h"
 
 #include <canvas/CanvasScene.h>
+#include <canvas/CanvasView.h>
 
 #include <KLocalizedString>
 
@@ -53,6 +54,27 @@ void CanvasFileView::setRenderEngine(MarkdownRenderEngine *engine)
 }
 
 CanvasViewTab *CanvasFileView::canvasWidget() const { return m_canvasWidget; }
+
+void CanvasFileView::zoomIn()
+{
+    if (m_canvasWidget)
+        if (auto *view = m_canvasWidget->canvasView())
+            view->zoomIn();
+}
+
+void CanvasFileView::zoomOut()
+{
+    if (m_canvasWidget)
+        if (auto *view = m_canvasWidget->canvasView())
+            view->zoomOut();
+}
+
+void CanvasFileView::zoomReset()
+{
+    if (m_canvasWidget)
+        if (auto *view = m_canvasWidget->canvasView())
+            view->resetTransform();
+}
 
 void CanvasFileView::onLoadFile(NoteDocument *file)
 {
