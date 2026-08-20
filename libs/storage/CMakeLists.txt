@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Sql)
 
-add_library(corbomite-storage STATIC
+add_library(corbomite-storage SHARED
     src/FileSystemAdapter.cpp
     include/corbomite/storage/FileSystemAdapter.h
     src/MarkoffAdapters.cpp
