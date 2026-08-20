@@ -1178,8 +1178,17 @@ void CanvasScene::finishGroupLabelEdit()
     const QString newLabel = lineEdit ? lineEdit->text() : QString();
     const QString groupId = m_editingGroupId;
 
-    removeItem(m_labelEditProxy);
-    delete m_labelEditProxy;
+    // This method is connected directly to QLineEdit::returnPressed, which
+    // fires synchronously from inside the line edit's own keyPressEvent
+    // (QWidgetLineControl::processKeyEvent) -- still on the call stack
+    // here. A plain `delete proxy` would free the QLineEdit whose method is
+    // mid-call, corrupting the heap once control returns. removeItem()
+    // itself just detaches from the scene (safe synchronously); deleteLater()
+    // defers actual destruction past the current call stack. See the
+    // identical fix + rationale on the edge "Edit Label" action above.
+    auto *proxy = m_labelEditProxy;
+    removeItem(proxy);
+    proxy->deleteLater();
     m_labelEditProxy = nullptr;
     m_editingGroupId.clear();
 
@@ -1575,8 +1584,20 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             const QString edgeId = edgItem->edgeId();
             connect(lineEdit, &QLineEdit::returnPressed, this, [this, proxy, lineEdit, edgeId]() {
                 const QString newLabel = lineEdit->text();
+
+                // returnPressed fires synchronously from inside QLineEdit's
+                // own keyPressEvent (QWidgetLineControl::processKeyEvent),
+                // which is still executing on the call stack here. A plain
+                // `delete proxy` would free the QLineEdit whose method is
+                // mid-call -- control returns into freed memory once this
+                // lambda returns (use-after-free / heap corruption).
+                // removeItem() itself just detaches from the scene (safe
+                // synchronously); deleteLater() is Qt's standard idiom for
+                // safely destroying an object from within its own event
+                // handler, deferring actual destruction past the current
+                // call stack.
                 removeItem(proxy);
-                delete proxy;
+                proxy->deleteLater();
 
                 if (auto *edge = edgeItem(edgeId)) {
                     CanvasEdge data = edge->edgeData();
