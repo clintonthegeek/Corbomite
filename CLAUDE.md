@@ -80,6 +80,26 @@
 > entry for full detail. **Next: resume Cluster L5 soak**, or continue
 > hardening the release (multi-distro packaging, CI matrix).
 >
+> **Cluster N — rich clipboard (copy-as + smart paste), OPENED 2026-08-20.**
+> Parallel to Cluster M. **Do not implement on `master`.** Branch/worktree
+> `feature/rich-clipboard` at `.worktrees/rich-clipboard`. Plan (on that
+> branch): `docs/superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md`.
+> Next: N3 Source/Styled intercept, then N5 live eyeball. Post-reset N —
+> not legacy Cluster N.
+>
+> **Cluster O — context-sensitive menu/toolbar/sidebar, AUDITED + PLANNED
+> 2026-08-20, ready to dispatch at Phase O1.** Audit report:
+> [`docs/audit-2026-08-20-context-sensitive-ui.md`](docs/audit-2026-08-20-context-sensitive-ui.md);
+> [plan](docs/superpowers/plans/2026-08-20-cluster-o-context-sensitive-ui.md)
+> (doctrine §D1-D7 is normative; all 12 open questions answered by the user).
+> Headline: of ~79 KActions **zero** belong to canvas/bases/graph, 17 are
+> permanently disabled, 7 silently no-op off-markdown. Phase O0 (docs
+> bookkeeping) is done; **start at O1** — correctness only, no new mechanism.
+> Closed **Cluster I** by absorption in the same pass
+> ([retro](docs/cluster-retros/cluster-i-ui-surfacing.md) — note
+> `cluster-retros/cluster-i.md` is the *pre-reset* Cluster I, a different
+> cluster). Cluster M↔O boundary is recorded in the M plan's Phase M5 banner.
+>
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
 > Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).
 
@@ -105,7 +125,7 @@
 
 **Reverse-engineered Obsidian audit (canonical reference, read-only except via addenda):** [`docs/obsidian-audit/`](docs/obsidian-audit/). Pass 1 taxonomy + 15 Pass 2 domain docs + 5 Pass 3 synthesis docs. ~94k words of distilled spec. New facts discovered during implementation go in `docs/obsidian-audit/addenda/`, never as edits to the audit docs. **Check `addenda/README.md` § Corrections before implementing from a domain doc** — a 2026-06-10 verification pass confirmed the corpus is ~95% accurate but refuted specific claims (vault naming/casing, workspace window-node shape, editor timing, taxonomy's QueryController). The Pass 3 synthesis docs `FEATURE-MATRIX.md`/`GAP-ANALYSIS.md` are frozen at 2026-04-14 and badly stale on the Corbomite side — use [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md) instead.
 
-**Local KDE source (do not clone from invent.kde.org):** `~/src/kde/src/<repo>` is checked out for kate, kdevelop, kio, kconfig, kparts, kxmlgui, kwidgetsaddons, ktexteditor, krunner, baloo, okular, poppler, qtkeychain, sonnet (and more). Cluster plans reference these by absolute local path.
+**Local KDE source (do not clone from invent.kde.org):** `~/src/kde/src/<repo>` was checked out for kate, kdevelop, kio, kconfig, kparts, kxmlgui, kwidgetsaddons, ktexteditor, krunner, baloo, okular, poppler, qtkeychain, sonnet (and more), and older cluster plans reference these by absolute local path. **⚠ Verified absent 2026-08-20** — `~/src` currently holds only `codemirror`, `OrgModeParser`, `qtbase`. Re-clone if a plan needs it; in the meantime KF6 API questions can be settled against the installed headers under `/usr/include/KF6/<Component>/` and the installed `.rc` files under `/usr/share/kxmlgui5/`.
 
 **Do not regrow `PROJECT-STATE.md`.** Slim is non-negotiable. When a cluster or phase closes, write at most 3 sentences in PROJECT-STATE §Current focus (replacing the previous top entry) and the full closeout paragraph into `decisions-archive.md` under a new dated H2 header. The `**Previously:** …` cascade pattern is banned.
 

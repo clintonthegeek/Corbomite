@@ -449,6 +449,30 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
 
 ### Phase M5 — Viewport, commands, persistence (audit §9.6, §6, §2-ephemeral)
 
+> **Cluster O boundary (recorded 2026-08-20, Cluster O task O0.T6 — normative).**
+> Cluster O ([plan](2026-08-20-cluster-o-context-sensitive-ui.md)) now owns the
+> **KAction / menu / toolbar surface** for canvas; **M5 owns the underlying
+> capabilities**. Concretely:
+>
+> - **M5 builds:** the zoom clamp + eased transitions (M5.1), the read-only lock
+>   flag and its gating (M5.4), `jump-to-group` and `convert-to-file` as callable
+>   operations (M5.5), viewport persistence (M5.3). All are capability work with no
+>   opinion about chrome.
+> - **Cluster O Phase O4 builds:** the Canvas menu, the `canvasToolBar`, and the
+>   KActions for snap-to-grid / snap-to-objects / show-grid / zoom-in-out-reset /
+>   zoom-to-fit / zoom-to-selection. **O4.T6 pre-registers `canvas_lock`,
+>   `canvas_jump_to_group`, and `canvas_convert_to_file` as disabled placeholders**,
+>   so landing M5 is a five-line wiring change per action rather than a menu
+>   redesign. Whichever cluster lands second does the join.
+> - **M5.2's on-canvas floating control cluster is now questionable and must be
+>   reassessed before it is built.** Obsidian has that cluster *because Obsidian has
+>   no menu bar*; Corbomite will have a canvas menu and a canvas toolbar. Building
+>   both duplicates every control. **Recommendation: slim M5.2 to canvas-intrinsic
+>   affordances only (or drop it), and let O4's toolbar carry the rest.** Decide at
+>   M5 dispatch time, not now.
+> - **Do not add canvas KActions inside Cluster M.** They would become exactly the
+>   static, ungated global actions Cluster O exists to retrofit.
+
 - [ ] **M5.1 Camera** — zoom clamped to log2 ∈ [−4, 1] (scale 0.0625..2);
       zoom always about cursor (PanZoomTool already does); eased transitions
       for programmatic moves (zoom-to-fit/selection/jump): `QVariantAnimation`
