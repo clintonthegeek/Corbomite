@@ -183,25 +183,45 @@ user at dispatch; proceed on this assumption if unanswered.**
 
 ### Phase P0 — Baseline, corrections, companion fix
 
-- [ ] **P0.T1** Append §1 of this plan as a corrections addendum to
+- [x] **P0.T1** Append §1 of this plan as a corrections addendum to
       `docs/audit-2026-08-20-shared-libraries-refactor.md` (do not edit its
       body — add a dated `## Corrections (2026-08-20, plan expansion)`
       section, matching the obsidian-audit addenda convention).
-- [ ] **P0.T2** Record the baseline into this file's §5 table, from a clean
+- [x] **P0.T2** Record the baseline into this file's §5 table, from a clean
       full `dev`-preset build: `du -sh build-dev build-dev/bin build-dev/lib`,
       the 18 largest binaries, wall-clock of the clean build, and wall-clock
       of an incremental rebuild after touching
       `libs/core/include/corbomite/core/View.h` (the relink-storm case).
-- [ ] **P0.T3** Capture the symbol-duplication baseline: for each of
+- [x] **P0.T3** Capture the symbol-duplication baseline: for each of
       `Corbomite::NotesTreeModel`, one `Corbomite::Search` type, one
       `Corbomite::Bases` type, record which modules define
       `staticMetaObject`. This is the "before" side of P4's gate.
-- [ ] **P0.T4** *(companion, independent)* Install `ccache` and wire it via
+- [x] **P0.T4** *(companion, independent)* Install `ccache` and wire it via
       `CMAKE_CXX_COMPILER_LAUNCHER` in `CMakePresets.json`. Complementary to
       this cluster, not a substitute. If it turns out to interact badly with
       the preset layout, punch-list it and move on — do not let it block P1.
 
-**Gate:** baseline numbers recorded in §5. No code change.
+**P0.T3 findings (2026-08-20, against pre-refactor `build-dev/`):**
+
+| Type | Library | Defined in exe | Defined in plugin `.so`s |
+|---|---|---|---|
+| `Corbomite::NotesTreeModel` | Models | yes (private, `D`) | `corbomite-search.so`, `corbomite-file-explorer.so` — **diverged today** |
+| `Corbomite::SearchResultsModel` | Search | yes (private, `D`) | `corbomite-search.so`, `corbomite-file-explorer.so` — **diverged today** |
+| `Corbomite::Bases::BasesView` | Bases | yes (private, `D`) | none of the 9 built plugins define it — no plugin currently links `Bases` at all, so this type has no live divergence to observe (consistent with C2: "not yet triggered" is still literally true for Bases specifically, unlike Models/Search) |
+
+Confirms C2 exactly for Models/Search — these are real, already-existing
+`nm`-visible divergences, not a hypothetical. Per D4, **P4.T1's
+`tst_plugin_type_identity` should use `NotesTreeModel` or
+`SearchResultsModel`, not a `Bases` type** — Bases has no current plugin
+consumer to prove the fix against.
+
+**P0.T4 note:** `ccache` install needed interactive `sudo` (unavailable in
+the assistant's session); user installed it directly. Wired into all three
+presets' (`dev`/`release`/`appimage`) `cacheVariables` via
+`CMAKE_C_COMPILER_LAUNCHER`/`CMAKE_CXX_COMPILER_LAUNCHER`, added *after*
+P0.T2's baseline was captured so it wouldn't contaminate those numbers.
+
+**Gate:** baseline numbers recorded in §5. No code change. ✅ Phase P0 complete.
 
 ### Phase P1 — `CorbomiteApp` → SHARED
 
@@ -415,9 +435,23 @@ preset, `Debug`, `CORBOMITE_PORT_BUILD_TESTS=ON`, clean build.
 | `build-dev/bin/` | 8.9 GB | | | |
 | `build-dev/lib/` | 613 MB | | | |
 | Largest test binary | 147 MB (`tst_completion_controller`) | | | |
-| Clean build wall time | | | | |
-| Incremental relink after `View.h` touch | | | | |
-| `/home` free | 13 GB (95% full) | | | |
+| Clean build wall time | 1475s (~24.6 min), `-j 10`, no ccache | | | |
+| Incremental relink after `View.h` touch | 161s | | | |
+| `/home` free | 34 GB (85% full) — improved since the audit's 13 GB/95%; no longer under acute pressure, refactor still worth doing | | | |
+
+Measured 2026-08-20 (P0.T2), clean `build-dev/` (`rm -rf` + reconfigure),
+`dev` preset, `Debug`, `CORBOMITE_PORT_BUILD_TESTS=ON`, no ccache wired yet
+(P0.T4 installed + wired it into `CMakePresets.json` immediately after this
+baseline, specifically so it wouldn't contaminate these numbers). Next 17
+largest test binaries after `tst_completion_controller` (147 MB) cluster
+tightly at 130-131 MB each (`tst_view_zoom_dispatch`,
+`tst_view_capabilities`, `tst_view_actions_provider`,
+`tst_reading_styled_leaf`, six `tst_note_editor_widget_*`, `tst_markdown_view`,
+`tst_link_activation`, `tst_canvasviewtab_vaultroot_paths`,
+`tst_canvas_callout_live_load`, `tst_action_context`, `tst_toolbar_policy`) —
+confirms the audit's framing that the bulk of the disk cost is many
+near-identical app-level test binaries each embedding a private copy of the
+same static link graph, not a few outliers.
 
 ---
 

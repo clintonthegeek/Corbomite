@@ -270,3 +270,47 @@ session. Not decided here:
   "not independently verified" gap noted in §4).
 - Whether `libs/mmdr`'s Rust staticlib conversion belongs in this cluster
   or is punch-listed separately (it's small; likely not worth blocking on).
+
+## Corrections (2026-08-20, plan expansion)
+
+The plan-expansion pass for Cluster P
+([`docs/superpowers/plans/2026-08-20-cluster-p-shared-libraries.md`](superpowers/plans/2026-08-20-cluster-p-shared-libraries.md))
+verified this report's claims empirically against the built `build-dev/`
+tree (`nm`, `nm -D`, `readelf`, `ldd`), not by reading CMake, and found
+three corrections. **Where this addendum and the report's body disagree,
+this addendum is normative** — see the plan's §1 for the full evidence and
+reasoning; only the summary is repeated here.
+
+1. **§3's "why the bug hasn't bitten yet" is wrong.** It is not that
+   plugins only cast their own plugin-local types. The real mechanism is
+   ELF symbol interposition: `libs/vault` is `SHARED` and statically
+   PUBLIC-links `Corbomite::Core`/`Storage`, so `libvault.so` re-exports 37
+   `Corbomite::*` `staticMetaObject` symbols into the process's global
+   scope, and the executable — which defines no strong symbols of its own
+   at all — imports them from there. `libvault.so` is accidentally acting
+   as libcore for everything its link graph happens to pull in. This does
+   not generalise to libraries outside that graph (see next point).
+2. **The divergence is not latent everywhere — it is already live** for
+   `Corbomite::Models`/`Search`/`Bases`/`canvas`/`forcegraph`. Verified: the
+   executable and `corbomite-file-explorer.so`/`corbomite-search.so` hold
+   two different `staticMetaObject` definitions for `Corbomite::
+   NotesTreeModel` and `Corbomite::SearchResultsModel` today, not a latent
+   risk. Consequence: **the correctness acceptance gate must target one of
+   these diverged libraries**, not `Core`/`Storage` — a test against `Core`
+   would pass pre-refactor and prove nothing.
+3. **BLOCKER this report missed:** `corbomite-core` and `corbomite-storage`
+   form a dependency cycle (`storage` links `core` PUBLIC when not
+   top-level; `core` links `storage` PRIVATE via `MarkoffAdapters.cpp`).
+   CMake only tolerates a cycle when every target in the strongly connected
+   component is `STATIC` — introducing `SHARED` anywhere in that SCC is a
+   configure-time error. This must be cut (plan Phase P2) before either
+   library can flip; it is thin (two files, one of which is a header-only
+   pure-abstract interface contributing zero link symbols) but it is not
+   the "one-line `add_library` edit" §7 implies for every library.
+
+A fourth, non-contradicting scope correction: §7's recommendation to scope
+the full cross-repo change up front undersells the ordering available —
+`CorbomiteApp` (the single largest disk contributor, 47 MB, linked by zero
+plugins) is Corbomite-only, independent of the cycle above, and carries no
+plugin-boundary correctness risk, so it can and should land first
+(plan Phase P1) rather than waiting on the cross-repo question.

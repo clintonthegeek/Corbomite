@@ -14,7 +14,9 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CORBOMITE_DEV_BUILD": "ON",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+                "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
             }
         },
         {
@@ -26,7 +28,9 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "CORBOMITE_DEV_BUILD": "OFF",
                 "CMAKE_INSTALL_PREFIX": "/usr/local",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+                "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
             }
         },
         {
@@ -42,7 +46,9 @@
                 "CMAKE_INSTALL_RPATH": "$ORIGIN/../lib",
                 "CMAKE_INSTALL_RPATH_USE_LINK_PATH": "ON",
                 "KDE_INSTALL_PLUGINDIR": "lib/plugins",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+                "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
             }
         }
     ],
