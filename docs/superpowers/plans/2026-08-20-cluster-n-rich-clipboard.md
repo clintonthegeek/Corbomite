@@ -2,7 +2,7 @@
 
 **Opened:** 2026-08-20. **Type:** Full plan. **Track:** strategic cluster.
 **Branch:** `feature/rich-clipboard` (Corbomite worktree `.worktrees/rich-clipboard`; Markoff worktree nested at that tree's `libs/markoff-family`, based on pin `a3d8055e` — not standalone Markoff `master`).
-**Status:** In progress. Phases 0–4 landed in this worktree (codec, canvas, Live, Source/Styled intercept, Corbomite Edit-menu host wiring). Markoff tip `365e9b91` (Source/Styled). Phase 5 live eyeball is the remaining gate — build/run the worktree binary, not master. Do not infer completion from the phase sections below — check `docs/PROJECT-STATE.md` first.
+**Status:** **CLOSED 2026-08-20 (Phases 0–5).** Live eyeball passed on the worktree binary. Markoff tip `bafa3095` (includes blockquote HTML/RTF export fix). Branch `feature/rich-clipboard` not yet merged to `master` (master mid-M4). Image paste/drop remains out of scope.
 **Lettering:** post-reset N. Not legacy Cluster N (plugin-ready surfaces, closed 2026-04-17, archived).
 **Punch-list item absorbed:** P5 Paste-from-HTML → Markdown (bucket ③). Image paste/drop is out of scope.
 **Plan body** below is the 2026-08-20 session plan, filed unmodified.
@@ -274,17 +274,19 @@ Do **not** touch leaves until this suite is green.
 - [x] `updateEditorActionStates`: copy-as gated on selection + `hasCursor()`; paste-as-plain gated on `!isReadOnly() && hasEditing()` plus clipboard flavors.
 - [x] Punch-list HTML-paste item ticked; PARITY-MATRIX row stays 🟡 (images still missing).
 
-### Phase 5 — Live eyeball (gate)
+### Phase 5 — Live eyeball (gate) — **PASSED 2026-08-20**
 
 Against the worktree binary, not master:
 
-1. Canvas LivePreview: select `**bold** and a [[link]]`, Ctrl+C, paste into Kate (markdown), LibreOffice (formatted), `xclip -o -t text/html`.
-2. Copy as Plain → Kate gets `bold and a link` with no `**`/`[[`.
-3. Copy as HTML → Kate should *not* get markdown (exclusive).
-4. Copy a Wikipedia paragraph → Ctrl+V in canvas/source → markdown links/lists/bold.
-5. Same paste with Ctrl+Shift+V → flattened text, no `**`.
-6. Whiteboard node copy/paste still works (M2.4 regression).
-7. Reading mode copy → paste into Source yields markdown, not Qt HTML soup.
+1. [x] Canvas LivePreview multi-flavor Ctrl+C → Kate (markdown) / LibreOffice (formatted).
+2. [x] Copy as Plain → stripped text.
+3. [x] Copy as HTML → exclusive (no markdown plain).
+4. [x] Foreign HTML paste → markdown links/lists/bold; LO Block Quote → Quote block.
+5. [x] Ctrl+Shift+V → flattened plain.
+6. [x] Whiteboard node clipboard untouched (M2.4).
+7. [x] Reading-mode copy → markdown-faithful (not themed Qt HTML).
+
+**Eyeball follow-up fixed same session:** Quote → LO as HTML/RTF landed as Body Text because export ignored `blockQuoteDepth` (Markoff `bafa3095`). User re-confirmed both HTML and RTF paste as Block Quote after the rebuild.
 
 ---
 

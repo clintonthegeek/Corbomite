@@ -80,14 +80,12 @@
 > entry for full detail. **Next: resume Cluster L5 soak**, or continue
 > hardening the release (multi-distro packaging, CI matrix).
 >
-> **Cluster N — rich clipboard (copy-as + smart paste), Phases 0–4 landed
-> 2026-08-20.** Isolated on `feature/rich-clipboard` (worktree
-> `.worktrees/rich-clipboard`; Markoff nested at that tree's
-> `libs/markoff-family`, tip `365e9b91`). Plan:
+> **Cluster N — rich clipboard (copy-as + smart paste), CLOSED 2026-08-20
+> (N5 eyeball passed).** On `feature/rich-clipboard` (worktree
+> `.worktrees/rich-clipboard`; Markoff tip `bafa3095`). Plan:
 > [plan](docs/superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md).
-> Codec + canvas/Live/Source/Styled intercept + Edit-menu Copy as / Paste
-> as Plain are in the tree. **Next: N5 live eyeball** against the
-> worktree binary. Post-reset N — not legacy Cluster N.
+> Merge pending while `master` is mid-Cluster-M M4. Image paste/drop out
+> of scope. Post-reset N — not legacy Cluster N.
 >
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
 > Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).

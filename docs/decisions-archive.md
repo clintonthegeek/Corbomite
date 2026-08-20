@@ -10,6 +10,10 @@ Conventions:
 
 ---
 
+## 2026-08-20 — Cluster N closed: rich clipboard (copy-as + smart paste)
+
+Live-eyeball gate passed on `feature/rich-clipboard` (worktree `.worktrees/rich-clipboard`). Phases 0–5: Markoff `ClipboardCodec` (MD⇄HTML/RTF/plain) + canvas/Live/Source/Styled leaf intercept + Corbomite Edit-menu Copy as / Paste as Plain Text. Markoff tip `bafa3095` (blockquote HTML/RTF export fix — quoted paragraphs are `Paragraph`+`blockQuoteDepth`, not dead `Kind::BlockQuote`; wrap in `<blockquote>` / RTF Quotations so LibreOffice pastes as Block Quote). User confirmed: multi-flavor copy, exclusive Copy as, HTML→MD paste, Ctrl+Shift+V paste-as-plain, Reading-mode markdown-faithful copy, whiteboard node clipboard untouched; LO Block Quote round-trip both directions after the quote-export fix. Image paste/drop remains out of scope (PARITY-MATRIX 🟡). **Branch not merged to `master`** (still mid-Cluster-M M4); merge when master is clear. Punch-list Paste-from-HTML→MD ticked.
+
 ## 2026-08-19 — Cluster M Phase M3 closed: edge authoring, live-verified (segfault found + fixed)
 
 Five subagent-driven TDD tasks landed the full edge-authoring arc from the plan (`docs/superpowers/plans/2026-08-19-cluster-m-canvas-authoring-parity.md`), one commit per task, `bfec72c8` bundling all five plus a docs-ticking commit `a050db75`, followed by a live-eyeball fix `d93f10e2`.
