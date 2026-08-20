@@ -356,7 +356,7 @@ Obsidian-strict cancel), snaps preview to nearest anchor with
 and `edgeDroppedOnEmpty(src, srcAnchor, scenePos)` — the tool never mutates
 the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
 
-- [ ] **M3.1 Obsidian-exact bezier** — new `CanvasBezierStrategy :
+- [x] **M3.1 Obsidian-exact bezier** — new `CanvasBezierStrategy :
       Graffodil::EdgePathStrategy` replacing M1's stock one: control offset
       `clamp(dist/2, 70, 150)` along each anchor's `outwardDirection`, path
       inset 7px from the face, straight `L` fill segment when that end has no
@@ -366,7 +366,7 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
       `TriangleTerminus` visibly differs at the M1 eyeball (else keep stock).
       Test: `testBezierMatchesObsidianConstants` (assert control points for a
       known geometry).
-- [ ] **M3.2 Hover connection points + create gesture** — route a
+- [x] **M3.2 Hover connection points + create gesture** — route a
       `CreateEdgeTool` (dragOnly=true, `setAnchorHoverRadius(12)`) into the
       composite tool with a predicate "press within N px of a face-midpoint
       anchor of a hovered/selected node" (N=12 to match hover radius; this is
@@ -376,13 +376,13 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
       `sideFromString(anchorId)`, defaults fromEnd=none/toEnd=arrow) →
       `CmdAddEdge`. Works on all three node kinds by construction. Tests:
       `testEdgeCreateDragBetweenFileCards`, `testEdgeCreateDefaultsToArrowHead`.
-- [ ] **M3.3 Drop-on-empty → create-and-connect menu** — connect
+- [x] **M3.3 Drop-on-empty → create-and-connect menu** — connect
       `edgeDroppedOnEmpty`: popup menu at `scenePos` (i18n: "New text card",
       "New file card…", "Cancel"); on choice, one compound command =
       `CmdAddCard` + `CmdAddEdge` (toSide = side facing the source, via the
       existing `pickSideToward()`). Obsidian parity: edge-drag to empty
       offers node creation. Test: `testEdgeDropOnEmptyCreatesConnectedCard`.
-- [ ] **M3.4 Endpoint reconnect** — drag an existing edge's endpoint
+- [x] **M3.4 Endpoint reconnect** — drag an existing edge's endpoint
       (hit-test: within 8px of the edge terminus point, before the edge-create
       route) → new `ReconnectEdgeTool` (consumer, ~100 LOC, mirrors
       CreateEdgeTool's preview) → on release over a node: new
@@ -390,7 +390,7 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
       node+side for that end); over empty: `CmdRemoveEdge` (Obsidian
       semantics: dropping an endpoint on nothing deletes the edge). Tests:
       `testReconnectEdgeEndpoint`, `testEndpointDropOnEmptyDeletesEdge`.
-- [ ] **M3.5 Direction menu** — edge context menu gains
+- [x] **M3.5 Direction menu** — edge context menu gains
       "Direction ▸ Nondirectional / Unidirectional / Bidirectional" mapped to
       (`fromEnd`,`toEnd`) = (none,none)/(none,arrow)/(arrow,arrow), via new
       `CmdSetEdgeEnds`; keep "Reverse direction" (swaps
