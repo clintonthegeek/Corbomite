@@ -61,11 +61,32 @@ public:
     virtual void zoomOut();
     virtual void zoomReset();
 
+    // Cluster O Phase O2 (O2.T1) — Tier-B capability surface (doctrine
+    // §D1): what a view can currently do, asked generically instead of
+    // each consumer hand-checking view subclasses. Deliberately discrete
+    // virtuals rather than a bitmask — grep-able, and each has a natural
+    // per-type answer. Base defaults are "no" except canZoom (most views
+    // implement a real zoom; the few that don't override it to false).
+    virtual bool canEdit() const;
+    virtual bool canSave() const;
+    virtual bool canZoom() const;
+    virtual bool canFind() const;
+    virtual bool hasSelection() const;
+    virtual bool canUndo() const;
+    virtual bool canRedo() const;
+
     QWidget *containerWidget() const;
     WorkspaceLeaf *leaf() const;
 
 Q_SIGNALS:
     void displayTextChanged();
+
+    /// O2.T2 — emitted whenever any capability answer above could have
+    /// changed (selection, undo depth, editing mode, ...). Subclasses
+    /// wire this to their own real signals (or forward a signal directly
+    /// to it); ActionContextController listens generically here instead
+    /// of knowing every view type's specific signal names.
+    void contextChanged();
 
 protected:
     virtual void onOpen();

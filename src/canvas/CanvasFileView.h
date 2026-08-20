@@ -17,6 +17,7 @@ class CanvasFileView : public FileView
     Q_OBJECT
 public:
     explicit CanvasFileView(WorkspaceLeaf *leaf, QWidget *parent = nullptr);
+    ~CanvasFileView() override;
     static View *factory(WorkspaceLeaf *leaf);
 
     QString getViewType() const override;
@@ -33,6 +34,14 @@ public:
     void zoomIn() override;
     void zoomOut() override;
     void zoomReset() override;
+
+    // Cluster O Phase O2.T1 — Tier-B capability overrides. canZoom() is
+    // left at the base default (true).
+    bool canEdit() const override;
+    bool canSave() const override;
+    bool hasSelection() const override;
+    bool canUndo() const override;
+    bool canRedo() const override;
 
     /// Cluster R Task 3.6 — command-dispatch hook used by the hamburger
     /// menu's Split/pane/linked-view entries. Injected by MainWindow.

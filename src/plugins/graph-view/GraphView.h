@@ -40,6 +40,13 @@ public:
     void zoomOut() override;
     void zoomReset() override;
 
+    // Cluster O Phase O2 — no View::canX()/contextChanged() overrides
+    // needed here. canZoom() stays the base default (true — matches the
+    // real zoom above); every other capability (canEdit/canSave/canFind/
+    // hasSelection/canUndo/canRedo) is a correct "no" for graph today, and
+    // graph has nothing that changes those answers mid-session, so it
+    // never needs to emit contextChanged() either (constant capabilities).
+
     /// Cluster R Task 3.7 — command dispatcher injected by the graph
     /// plugin (captures CommandRegistrar from PluginContext). Wired so
     /// the hamburger Split / Copy-screenshot / Bookmark entries can

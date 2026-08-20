@@ -35,6 +35,7 @@ private slots:
     void skipsViewRegistrationWithoutUiViewsPermission();
     void registersCopyScreenshotCommandWhenUiCommandsGranted();
     void zoomDispatchesToViewportTransform();
+    void capabilities();
 };
 
 static PluginMetaData makeMeta() { return PluginMetaData(KPluginMetaData{}); }
@@ -159,6 +160,23 @@ void TestGraphViewPlugin::zoomDispatchesToViewportTransform()
 
     base.zoomReset();
     QCOMPARE(gv->transform(), identity);
+}
+
+// Cluster O Phase O2.T1 — Tier-B capability surface. GraphView adds no
+// overrides beyond the zoom virtuals above: canZoom() stays the base
+// default (true, matches the real zoom), everything else is a correct
+// "no" for graph today.
+void TestGraphViewPlugin::capabilities()
+{
+    GraphView view(nullptr);
+    View &base = view;
+    QVERIFY2(base.canZoom(), "graph must answer canZoom() true (base default)");
+    QVERIFY(!base.canEdit());
+    QVERIFY(!base.canSave());
+    QVERIFY(!base.canFind());
+    QVERIFY(!base.hasSelection());
+    QVERIFY(!base.canUndo());
+    QVERIFY(!base.canRedo());
 }
 
 QTEST_MAIN(TestGraphViewPlugin)

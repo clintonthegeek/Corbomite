@@ -250,6 +250,12 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
             this, &BasesView::onSearchChanged);
     connect(m_viewSelector, &QComboBox::currentTextChanged,
             this, &BasesView::onViewSelectorChanged);
+
+    // O2.T2 — undo-stack depth is a Tier-B capability signal
+    // (canUndo()/canRedo()); fixes edit_undo/edit_redo not refreshing
+    // mid-session between leaf/view-change triggers.
+    connect(&m_undoStack, &QUndoStack::canUndoChanged, this, &View::contextChanged);
+    connect(&m_undoStack, &QUndoStack::canRedoChanged, this, &View::contextChanged);
 }
 
 BasesView::~BasesView() = default;
@@ -300,6 +306,11 @@ void BasesView::focusSearch()
     if (!m_searchEdit) return;
     m_searchEdit->setFocus(Qt::ShortcutFocusReason);
     m_searchEdit->selectAll();
+}
+
+bool BasesView::hasSelection() const
+{
+    return m_table && m_table->selectionModel() && m_table->selectionModel()->hasSelection();
 }
 
 void BasesView::loadBaseFromVault()
@@ -443,6 +454,10 @@ void BasesView::onSectionMoved(int, int, int)
 
 void BasesView::onSelectionChanged()
 {
+    // O2.T2: selection is a Tier-B capability signal (hasSelection())
+    // regardless of whether the properties drawer is open below.
+    Q_EMIT contextChanged();
+
     if (!m_drawer || !m_drawer->isVisible() || !m_model) return;
     const QModelIndex idx = m_table->currentIndex();
     if (!idx.isValid() || m_model->isGroupRow(idx)) { m_drawer->showEntry(nullptr); return; }

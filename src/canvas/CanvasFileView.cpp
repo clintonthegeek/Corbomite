@@ -18,12 +18,14 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QGraphicsItem>
+#include <QGraphicsScene>
 #include <QGroupBox>
 #include <QIcon>
 #include <QImage>
 #include <QLabel>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QUndoStack>
 #include <QVBoxLayout>
 
 namespace Corbomite {
@@ -36,6 +38,30 @@ CanvasFileView::CanvasFileView(WorkspaceLeaf *leaf, QWidget *parent)
 View *CanvasFileView::factory(WorkspaceLeaf *leaf)
 {
     return new CanvasFileView(leaf);
+}
+
+CanvasFileView::~CanvasFileView()
+{
+    // O2.T2 teardown trap: the scene (and its QUndoStack) are QObject
+    // children reachable through the QWidget tree, so they're destroyed
+    // inside QWidget::~QWidget()'s child teardown — which runs AFTER
+    // View::~View() has already completed. QUndoStack::~QUndoStack()
+    // calls clear(), which synchronously emits canUndoChanged/
+    // canRedoChanged; those were forwarded straight to
+    // View::contextChanged() (a signal declared on an intermediate base,
+    // not CanvasFileView itself), and invoking a connection into a base
+    // class whose destructor has already run crashes ("class destructor
+    // may have already run" — the object's vtable/metaobject no longer
+    // resolves to Corbomite::View at that point). Disconnecting here,
+    // before any base-class destructor has run and while `this` is still
+    // fully valid, severs the connection early enough to avoid it.
+    if (m_canvasWidget) {
+        if (auto *scene = m_canvasWidget->canvasScene()) {
+            disconnect(scene, nullptr, this, nullptr);
+            if (auto *stack = scene->undoStack())
+                disconnect(stack, nullptr, this, nullptr);
+        }
+    }
 }
 
 QString CanvasFileView::getViewType() const { return QStringLiteral("canvas"); }
@@ -86,7 +112,47 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
         layout->addWidget(m_canvasWidget);
         if (m_renderEngine)
             m_canvasWidget->setRenderEngine(m_renderEngine);
+
+        // Cluster O Phase O2.T2 — forward the scene's own selection/undo
+        // signals onto the generic View::contextChanged() so
+        // ActionContextController's refresh() picks up mid-session
+        // selection changes and undo-stack pushes, not just leaf/view
+        // switches (O1.T8's edit_undo/edit_redo enablement previously
+        // only recomputed on those coarser triggers).
+        if (auto *scene = m_canvasWidget->canvasScene()) {
+            connect(scene, &QGraphicsScene::selectionChanged,
+                    this, &View::contextChanged);
+            if (auto *stack = scene->undoStack()) {
+                connect(stack, &QUndoStack::canUndoChanged,
+                        this, &View::contextChanged);
+                connect(stack, &QUndoStack::canRedoChanged,
+                        this, &View::contextChanged);
+            }
+        }
     }
+}
+
+bool CanvasFileView::canEdit() const { return true; }
+bool CanvasFileView::canSave() const { return true; }
+
+bool CanvasFileView::hasSelection() const
+{
+    auto *scene = m_canvasWidget ? m_canvasWidget->canvasScene() : nullptr;
+    return scene && !scene->selectedItems().isEmpty();
+}
+
+bool CanvasFileView::canUndo() const
+{
+    auto *scene = m_canvasWidget ? m_canvasWidget->canvasScene() : nullptr;
+    auto *stack = scene ? scene->undoStack() : nullptr;
+    return stack && stack->canUndo();
+}
+
+bool CanvasFileView::canRedo() const
+{
+    auto *scene = m_canvasWidget ? m_canvasWidget->canvasScene() : nullptr;
+    auto *stack = scene ? scene->undoStack() : nullptr;
+    return stack && stack->canRedo();
 }
 
 void CanvasFileView::onUnloadFile(NoteDocument *file)

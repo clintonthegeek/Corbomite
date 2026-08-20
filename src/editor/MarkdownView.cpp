@@ -29,6 +29,15 @@ MarkdownView::MarkdownView(WorkspaceLeaf *leaf, QWidget *parent)
     auto *layout = new QVBoxLayout(contentWidget());
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_editorWidget);
+
+    // Cluster O Phase O2.T2 — forward the editor's own context signals
+    // onto the generic View::contextChanged() so ActionContextController
+    // can listen the same way it listens to every other view type,
+    // instead of special-casing markdown's NoteEditorWidget signals.
+    connect(m_editorWidget, &NoteEditorWidget::editorContextChanged,
+            this, &View::contextChanged);
+    connect(m_editorWidget, &NoteEditorWidget::viewModeChanged,
+            this, &View::contextChanged);
 }
 
 View *MarkdownView::factory(WorkspaceLeaf *leaf)
@@ -111,6 +120,25 @@ void MarkdownView::zoomReset()
     if (auto *leaf = m_editorWidget->activeLeaf())
         leaf->setFontScale(1.0);
 }
+
+bool MarkdownView::canEdit() const
+{
+    auto *leaf = m_editorWidget->activeLeaf();
+    return leaf && leaf->hasEditing();
+}
+
+bool MarkdownView::canSave() const { return true; }
+bool MarkdownView::canFind() const { return true; }
+
+bool MarkdownView::canUndo() const
+{
+    // Markoff::MarkdownView's contract exposes undo()/redo() actions but
+    // no undo-stack-depth query — hasEditing() (editable at all) is the
+    // best available proxy until an upstream API addition. Same
+    // approximation O1.T8 shipped, now routed through the virtual.
+    return canEdit();
+}
+bool MarkdownView::canRedo() const { return canEdit(); }
 
 QJsonObject MarkdownView::getState() const
 {

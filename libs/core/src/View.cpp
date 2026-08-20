@@ -124,6 +124,16 @@ void View::zoomIn() {}
 void View::zoomOut() {}
 void View::zoomReset() {}
 
+// O2.T1 — base defaults. See View.h for rationale (canZoom is the lone
+// default-true; most views implement a real zoom).
+bool View::canEdit() const { return false; }
+bool View::canSave() const { return false; }
+bool View::canZoom() const { return true; }
+bool View::canFind() const { return false; }
+bool View::hasSelection() const { return false; }
+bool View::canUndo() const { return false; }
+bool View::canRedo() const { return false; }
+
 QWidget *View::containerWidget() const { return m_containerWidget; }
 WorkspaceLeaf *View::leaf() const { return m_leaf; }
 

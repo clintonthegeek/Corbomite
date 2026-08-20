@@ -42,6 +42,14 @@ public:
     void zoomOut() override;
     void zoomReset() override;
 
+    // Cluster O Phase O2.T4 — Tier-B capability overrides. canZoom() is
+    // left at the base default (true — markdown really does zoom).
+    bool canEdit() const override;
+    bool canSave() const override;
+    bool canFind() const override;
+    bool canUndo() const override;
+    bool canRedo() const override;
+
     QJsonObject getState() const override;
     void setState(const QJsonObject &state) override;
     QJsonObject getEphemeralState() const override;

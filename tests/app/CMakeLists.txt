@@ -122,6 +122,17 @@ target_link_libraries(tst_view_zoom_dispatch PRIVATE
 set_tests_properties(tst_view_zoom_dispatch PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster O Phase O2.T1 — the View Tier-B capability surface
+# (canEdit/canSave/canZoom/canFind/hasSelection/canUndo/canRedo). Graph
+# coverage lives in src/plugins/graph-view/tests/tst_graphview_plugin.cpp
+# (separate plugin target this binary doesn't link against).
+add_executable(tst_view_capabilities tst_view_capabilities.cpp)
+add_test(NAME tst_view_capabilities COMMAND tst_view_capabilities)
+target_link_libraries(tst_view_capabilities PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Bases canvas)
+set_tests_properties(tst_view_capabilities PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster K — canvas leaf's inline title band (rename-via-header
 # affordance) surfaced in Corbomite: seeded from filename on attach,
 # debounced edit commits a real FileManager rename, '/' in the typed text
