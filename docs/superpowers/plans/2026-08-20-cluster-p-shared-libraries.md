@@ -1,84 +1,472 @@
 # Cluster P — STATIC → SHARED internal library refactor
 
-**Opened:** 2026-08-20. **Type:** Stub — brainstorm + full plan expansion
-required before dispatch (see convention in `INDEX.md`). **Track:**
-strategic cluster. **Priority: dispatch next**, ahead of Cluster O Phase O4
-and Cluster L5 soak resumption — user-directed 2026-08-20.
+**Opened:** 2026-08-20 (stub). **Expanded to full plan:** 2026-08-20.
+**Track:** strategic cluster. **Priority:** dispatch next, ahead of Cluster O
+Phase O4 and Cluster L5 soak resumption — user-directed 2026-08-20.
 
-**Research report (read this first, in full, before planning):**
+**Research report:**
 [`docs/audit-2026-08-20-shared-libraries-refactor.md`](../../audit-2026-08-20-shared-libraries-refactor.md).
-That document is the substantial pre-work for this cluster — problem
-evidence, the full library inventory with file:line citations, the vault
-precedent, feasibility findings, cross-repo scope analysis, and tradeoffs.
-Re-deriving any of that from scratch is wasted work; start from it.
+Read it for the disk-usage evidence, library inventory, feasibility findings
+and tradeoffs — all of which verified correct. **But read §1 below first:** a
+verification pass during plan expansion found two of the report's central
+claims wrong and one blocking structural problem it missed. Where §1 and the
+report disagree, **§1 is normative.**
 
-## Why this cluster exists (one paragraph — full detail in the report)
+---
 
-`build-dev/` runs 10-11 GB per git worktree, driven by 33 app-level test
-binaries at 131-147 MB each — because every internal library across
-Corbomite, the `markoff-family` submodule, and the `graffodil` submodule is
-`STATIC`, so every one of those 320 test binaries embeds its own private
-copy of the libraries it links. Investigating this surfaced something more
-important than the disk cost: `libs/vault` was *already* flipped
-`STATIC` → `SHARED` in Cluster Q (2026-04-17) specifically because
-plugins (`dlopen`-loaded `.so` modules) got a private copy of its RTTI/
-`QMetaObject`s when static, silently breaking `qobject_cast` across the
-host/plugin boundary. Every other library plugins link against —
-`corbomite-core`/`storage`/`models`/`bases`, `markoff_core` and siblings,
-`graffodil-core` and siblings — has the identical latent bug today, just
-not yet triggered by what current in-tree plugins happen to do.
+## §1 Corrections to the audit (normative)
 
-## Scope decision needed at plan-expansion time
+All three findings below were established empirically against the current
+`build-dev/` tree on 2026-08-20 (`nm`, `nm -D`, `readelf`, `ldd`), not by
+reading CMake.
 
-The report's §5 flags this explicitly: the full disk-usage win *and* the
-full correctness fix require converting libraries in **three repositories**
-(Corbomite, `markoff-family`, `graffodil`), not just this one. A
-Corbomite-only pass is a valid smaller-scope option but leaves the single
-biggest disk contributor (markoff_core-linking test binaries) mostly
-unaddressed and leaves the same correctness bug live in markoff-family's
-and graffodil's own classes. Whoever expands this into a full plan should
-make this scope call explicitly (and check it against the user, if
-unclear) rather than defaulting narrow.
+### C1 — The report's explanation of *why the bug hasn't bitten* is wrong
 
-## Known constraints for whoever writes the phased plan
+Report §3 says plugins are safe because they "only `qobject_cast` to their
+own plugin-local view classes." That is true but not the reason.
 
-- No export-macro work needed anywhere (`-fvisibility=hidden` is not set
-  project-wide) — confirmed by the vault precedent shipping with zero
-  header annotations.
-- RPATH and packaging (`PKGBUILD`, `.deb` script, AppImage/`linuxdeploy`)
-  are already generic/automatic per the report's §4 — but **not
-  independently verified by an actual packaging build in the research
-  pass**. A real packaging build (at minimum the AppImage, since it's the
-  most likely to surface a missed bundled-`.so` case) should be a named
-  verification step, not assumed.
-- `libs/mmdr` is a prebuilt Rust staticlib (Cargo `crate-type`), not a
-  CMake target — converting it means touching the Rust crate, a different
-  toolchain. Small contributor; likely fine to punch-list separately
-  rather than block this cluster on it.
-- Cross-repo changes should follow this project's established
-  Markoff-first-ordering discipline (land the Markoff/Graffodil-side
-  change and re-pin the submodule, mirroring how the 2026-05-25 foundation
-  port and other cross-repo changes in `decisions-archive.md` were
-  sequenced) — not edited in-place inside the submodule checkout from a
-  Corbomite session.
-- A companion (not substitute) fix worth a brainstorm note: no
-  ccache/sccache is installed on the dev machine at all, which compounds
-  the "every worktree rebuilds from scratch" cost independent of static
-  vs. shared linking. Cheap, complementary, probably a much smaller task
-  than this cluster — could be picked up alongside or separately.
+The real mechanism is **ELF symbol interposition**. `libs/vault` is `SHARED`
+and PUBLIC-links `Corbomite::Core` + `Corbomite::Storage` statically, so
+`libvault.so` re-exports **37 `Corbomite::*` `staticMetaObject` symbols**
+(plus ~20 `Markoff::*` ones) into the process's global scope. Verified:
 
-## Suggested acceptance shape (not a committed plan — starting point only)
+```
+$ nm -D --defined-only libvault.so | grep staticMetaObject | grep -c Corbomite
+37
+$ nm Corbomite | grep _ZN9Corbomite4View16staticMetaObjectE
+                 U _ZN9Corbomite4View16staticMetaObjectE      # exe IMPORTS it
+```
 
-- Disk: `build-dev/` size before/after on a clean full build, same flags.
-- Correctness: at least one regression test that positively proves a
-  previously-`STATIC` library's type now round-trips correctly across a
-  real plugin `.so` boundary (`qobject_cast` on a `Corbomite::Core` type
-  handed from host to plugin, or equivalent) — the class of bug this
-  cluster exists to close, not just "it still builds."
-- A real packaging build (AppImage at minimum) succeeds and the app runs
-  from the packaged artifact, not just from `build-dev/`.
-- Full existing test suite stays green throughout (incremental, not one
-  big-bang link-everything-and-pray commit) — the report deliberately
-  leaves phase ordering (leaf-first vs. hub-first, all-at-once vs.
-  incremental) as an open plan-design question rather than presupposing
-  an answer.
+The executable does not define these at all — it imports them from
+`libvault.so`. Plugins carry private duplicates but resolve to the global
+scope first, so they land on `libvault.so`'s copy too. **`libvault.so` is
+accidentally acting as the shared core library for everything vault's link
+graph happens to pull in.**
+
+Why this matters for the plan: the safety is an accident of link topology,
+not of plugin behaviour, and it **does not generalise** — see C2.
+
+### C2 — The divergence is not latent everywhere; it is already live
+
+The accidental unification in C1 covers only object files `libvault.so`
+transitively pulls in. `Corbomite::Models` is not in vault's link graph, and
+host and plugin genuinely hold **two different `QMetaObject`s today**:
+
+```
+$ nm Corbomite | grep NotesTreeModel16staticMetaObject
+0000000000f76060 D _ZN9Corbomite14NotesTreeModel16staticMetaObjectE   # exe, private
+$ nm -D Corbomite | grep -c NotesTreeModel16staticMetaObject
+0                                                                      # NOT exported
+$ nm -D --defined-only .../corbomite-file-explorer.so | grep NotesTreeModel16staticMetaObject
+0000000000245a40 D _ZN9Corbomite14NotesTreeModel16staticMetaObjectE   # plugin's own copy
+```
+
+The executable exports **no strong symbols at all** — its 5204 `.dynsym`
+entries are 5077 `W` (vague/inline), 103 `u`, 24 `V`. Nothing the exe
+defines can ever be interposed onto by a plugin.
+
+So the correct framing is **live divergence, not yet observed** — for
+`Models`, `Search`, `Bases`, `canvas`, and `forcegraph`. It produces no
+visible failure only because nothing currently casts one of those types
+across the boundary. `Core` and `Storage` are the ones that are genuinely
+safe, and only by the C1 accident.
+
+**Consequence for the acceptance gate:** the P4 correctness test must target
+a **Models/Search/Bases/canvas/forcegraph** type. A test written against a
+`Core` type would pass today (pre-refactor) and prove nothing.
+
+### C3 — BLOCKER the report missed: `Corbomite::Core` ↔ `Corbomite::Storage` is a dependency cycle
+
+```
+libs/storage/CMakeLists.txt   target_link_libraries(corbomite-storage PUBLIC Corbomite::Core)   # when not top-level
+libs/core/CMakeLists.txt      target_link_libraries(corbomite-core PRIVATE $<BUILD_INTERFACE:Corbomite::Storage>)
+```
+
+**CMake tolerates a dependency cycle only when every target in the strongly
+connected component is `STATIC`.** Introducing a `SHARED` target into that
+SCC is a configure-time error ("The inter-target dependency graph contains
+the following strongly connected component"). Neither `corbomite-core` nor
+`corbomite-storage` can flip until the cycle is broken — and `core` is the
+single largest Corbomite `.a` after `bases`, and a transitive dep of almost
+everything else.
+
+The report's §7 "cheapest this will ever be to make" framing understates
+this. It is not a one-line `add_library` edit per library.
+
+**Mitigating finding:** the cycle is *thin* in the core→storage direction
+and can be cut cleanly. Only two files in `libs/core` reach into storage:
+
+| File | Storage headers used | Nature |
+|---|---|---|
+| `libs/core/src/TextFileView.cpp` | `storage/DataAdapter.h` | **Pure-abstract interface, header-only** — no `DataAdapter.cpp` exists, so this contributes *zero* link symbols |
+| `libs/core/src/MarkoffAdapters.cpp` | `CachedMetadata.h`, `LinkResolver.h`, `MetadataCache.h`, `MetadataParser.h` | Real symbol dependency — the only one |
+
+`MarkoffAdapters` (public header
+`libs/core/include/corbomite/markoff_adapters/Adapters.h`) has exactly **one
+consumer in the whole tree**: `src/app/MainWindow.cpp:51`. The
+storage→core direction is a real dependency (`Events.h`/`Events.cpp` in
+`MetadataCache.h`) and stays. See Phase P2 for the cut.
+
+### C4 — Scope correction: the biggest disk win is Corbomite-only and risk-free
+
+Report §5 concludes the full win requires the cross-repo change. True for
+the *total*, but it obscures the ordering. `CorbomiteApp` is a 47 MB `.a`
+that **no plugin links** — it has no plugin-boundary correctness dimension
+at all — and it is what makes the 33 app-level test binaries 131–147 MB
+each. 43 link sites reference it (tests/editor 21, tests/app 15, dialogs 6,
+e2e 4, graph 1, storage 1).
+
+Flipping `CorbomiteApp` alone is one line, is independent of C3's cycle and
+of the cross-repo question, and captures the largest single share of the
+disk win. **It should be Phase 1, not bundled with the risky work.**
+
+### Context: disk pressure is live
+
+`/home` is at **95% — 13 GB free** on a 222 GB volume, with `build-dev/` at
+11 GB. `ccache`/`sccache` confirmed absent (report §2 correct).
+
+---
+
+## §2 Doctrine (normative for this cluster)
+
+- **D1 — Incremental, green at every commit.** No big-bang "flip everything
+  and pray" commit. Every phase ends with the full offscreen suite green and
+  a launchable app. The report deliberately left this open; this plan closes
+  it as *incremental, leaf-first*.
+- **D2 — No export macros.** Confirmed: `-fvisibility=hidden` is set nowhere
+  and `libs/vault` shipped `SHARED` with zero header annotation. Do **not**
+  introduce `*_EXPORT` macros as part of this cluster. If Windows support is
+  ever wanted that decision gets revisited on its own merits.
+- **D3 — No ABI-stability commitment.** Host and all plugins rebuild
+  together from one tree. Do not introduce pimpl, versioned SONAMEs beyond
+  CMake's defaults, or a pure-virtual factory boundary. The KDE/Kate
+  convention — "recompile your plugin against the Corbomite version you
+  target" — is the contract. Revisit only when a real third-party plugin
+  author asks.
+- **D4 — Correctness gate must target a *diverged* library.** Per C2. A test
+  against `Core` or `Storage` is worthless as a gate.
+- **D5 — Cross-repo work is Markoff-first.** Land changes in the Markoff /
+  Graffodil repos under their own CLAUDE.md discipline, then re-pin the
+  submodule. Never edit the submodule checkout in place from a Corbomite
+  session.
+- **D6 — `libs/mmdr` is out of scope.** A prebuilt Rust `staticlib`
+  (`crate-type`), not a CMake target; converting means a Cargo `cdylib`
+  rebuild in a different toolchain. Small contributor. Punch-list it
+  separately; do not block this cluster on it.
+- **D7 — Layering fixes are allowed, feature changes are not.** P2 moves
+  files between libraries to break a cycle. That is in scope. Changing what
+  any of those types *do* is not.
+
+---
+
+## §3 Scope decision
+
+**Recommended and assumed: Phases P0–P5 (Corbomite-only) as the committed
+cluster; P6 (cross-repo) planned but separately gated on user go-ahead
+after P5's measurements land.**
+
+Rationale: P1 alone captures the largest single disk contributor with zero
+plugin-boundary risk; P2–P3 close the real correctness gap (C2) for every
+Corbomite library a plugin can link; P6's markoff-family/graffodil work is
+where the remaining disk win lives but it is the only part that touches
+foreign repos, needs their build/test discipline, and carries the PIC risk
+noted in P6.T1. Splitting the gate there means the correctness fix is not
+held hostage to cross-repo sequencing.
+
+This differs from the report's §7 recommendation (full cross-repo up front)
+because C4 shows the ordering assumption behind it was wrong. **Flag to the
+user at dispatch; proceed on this assumption if unanswered.**
+
+---
+
+## §4 Phases
+
+### Phase P0 — Baseline, corrections, companion fix
+
+- [ ] **P0.T1** Append §1 of this plan as a corrections addendum to
+      `docs/audit-2026-08-20-shared-libraries-refactor.md` (do not edit its
+      body — add a dated `## Corrections (2026-08-20, plan expansion)`
+      section, matching the obsidian-audit addenda convention).
+- [ ] **P0.T2** Record the baseline into this file's §5 table, from a clean
+      full `dev`-preset build: `du -sh build-dev build-dev/bin build-dev/lib`,
+      the 18 largest binaries, wall-clock of the clean build, and wall-clock
+      of an incremental rebuild after touching
+      `libs/core/include/corbomite/core/View.h` (the relink-storm case).
+- [ ] **P0.T3** Capture the symbol-duplication baseline: for each of
+      `Corbomite::NotesTreeModel`, one `Corbomite::Search` type, one
+      `Corbomite::Bases` type, record which modules define
+      `staticMetaObject`. This is the "before" side of P4's gate.
+- [ ] **P0.T4** *(companion, independent)* Install `ccache` and wire it via
+      `CMAKE_CXX_COMPILER_LAUNCHER` in `CMakePresets.json`. Complementary to
+      this cluster, not a substitute. If it turns out to interact badly with
+      the preset layout, punch-list it and move on — do not let it block P1.
+
+**Gate:** baseline numbers recorded in §5. No code change.
+
+### Phase P1 — `CorbomiteApp` → SHARED
+
+The largest single win, zero plugin-boundary risk. One-line change plus
+fallout.
+
+- [ ] **P1.T1** `src/CMakeLists.txt:11` — `add_library(CorbomiteApp STATIC` →
+      `SHARED`.
+- [ ] **P1.T2** **Risk: the KXMLGUI resource.** `CMakeLists.txt:142` does
+      `qt_add_resources(CorbomiteApp "xmlgui" ...)` embedding
+      `corbomite-devui.rc`. Static-library Qt resources need explicit
+      initialisation; shared-library resources self-initialise at load. This
+      should get *easier*, but it is the one thing that can silently
+      half-work. Verify the `.rc` actually resolves at runtime — not by
+      inspection, by launching.
+- [ ] **P1.T3** Confirm `install(TARGETS Corbomite CorbomiteApp ...)`
+      (`CMakeLists.txt:168`) already carries `LIBRARY DESTINATION` — it does;
+      confirm the installed layout still runs (`sudo cmake --install
+      build-release`, launch from `/usr/local/bin`). RPATH for an installed
+      `CorbomiteApp.so` in `${CMAKE_INSTALL_LIBDIR}` is the thing to watch.
+- [ ] **P1.T4** Full offscreen suite green.
+- [ ] **P1.T5** Re-measure `du -sh build-dev`; record delta in §5.
+
+**Named test:** `tst_xmlgui_resource_present` — asserts the compiled-in
+`:/kxmlgui5/<component>/<component>ui.rc` resource is readable at runtime.
+Guards P1.T2's failure mode, which the existing suite would not catch (the
+menus would just be empty, which is exactly the symptom the Cluster O3
+stale-cache incident already trained us to misdiagnose).
+
+**Gate:** suite green **and** a live launch with menus/toolbars intact.
+Per project memory (`feedback_verify_ui_fixes_live`), an offscreen-green
+run is not sufficient evidence for anything chrome-related.
+
+### Phase P2 — Break the `Core` ↔ `Storage` cycle
+
+Prerequisite for P3. **No linkage type changes in this phase** — it lands
+and ships as a pure layering fix with everything still `STATIC`, so a
+regression here is isolated from a regression in P3.
+
+- [ ] **P2.T1** Move `libs/core/include/corbomite/markoff_adapters/Adapters.h`
+      and `libs/core/src/MarkoffAdapters.cpp` → `libs/storage`
+      (`include/corbomite/storage/markoff_adapters/Adapters.h`,
+      `src/MarkoffAdapters.cpp`). Storage already links `Markoff::Parser` and
+      already owns `MetadataCache`/`MetadataParser`/`LinkResolver`, so this
+      is the natural home. Update the one consumer,
+      `src/app/MainWindow.cpp:51`.
+- [ ] **P2.T2** Resolve `TextFileView.cpp`'s `storage/DataAdapter.h` include.
+      `DataAdapter` is a pure-abstract, header-only interface that **core
+      consumes and storage implements** (`FileSystemAdapter`) — i.e. the
+      dependency is inverted today. Move `DataAdapter.h` to
+      `libs/core/include/corbomite/core/DataAdapter.h` and have storage
+      include it from there. Update all includers.
+      *(Fallback if that fans out further than expected: keep the header in
+      storage and give core storage's include dirs without the link
+      dependency. Uglier; prefer the move.)*
+- [ ] **P2.T3** Delete `PRIVATE $<BUILD_INTERFACE:Corbomite::Storage>` from
+      `libs/core/CMakeLists.txt`'s link block. Core must now build with no
+      storage dependency at all.
+- [ ] **P2.T4** Sweep for any other core→storage edge this analysis missed:
+      `grep -rn "corbomite/storage/" libs/core/` must return nothing.
+- [ ] **P2.T5** Full offscreen suite green; commit as a standalone layering
+      change.
+
+**Named test:** `tst_no_library_cycles` — a CMake-level guard. Simplest
+robust form: a configure-time check that temporarily declares the SCC's
+members `SHARED` in a throwaway configure, or (lower-tech but sufficient) a
+ctest that greps the generated link lines and asserts `corbomite-core` has
+no `corbomite-storage` edge. Do not skip this — nothing else prevents a
+future session from reintroducing the include and quietly restoring the
+cycle, and the failure only surfaces much later as a confusing configure
+error.
+
+**Gate:** suite green; `grep` in P2.T4 clean.
+
+### Phase P3 — Corbomite libraries → SHARED
+
+Leaf-first, one library per commit, suite green after each. Order chosen so
+every step's dependencies are already shared:
+
+| Step | Library | Deps | Notes |
+|---|---|---|---|
+| P3.T1 | `corbomite-search` | *(none internal)* | True leaf — safest first flip |
+| P3.T2 | `forcegraph` | *(none internal)* | True leaf |
+| P3.T3 | `corbomite-core` | *(none, after P2)* | Now a leaf. Largest blast radius |
+| P3.T4 | `corbomite-storage` | Core | |
+| P3.T5 | `corbomite-models` | Core, Storage, Vault | |
+| P3.T6 | `corbomite-bases` | Core, Storage, Vault | Largest `.a` (51 MB) |
+| P3.T7 | `canvas` | Core, Search, Graffodil::Core | Graffodil stays static (P6) |
+| P3.T8 | `jkqtmathtext` | *(vendored, none)* | 41 MB. Vendored LGPL — flipping to shared is also the *licence-friendlier* form. Low risk |
+
+Per library:
+
+- [ ] Change `add_library(<name> STATIC` → `SHARED`.
+- [ ] Confirm an `install(TARGETS ... LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR})`
+      rule exists (core/storage/models/bases/vault already have one;
+      **`canvas`, `forcegraph`, `search`, `jkqtmathtext` must be checked** —
+      several have no install block at all today, which is fine while static
+      and is not fine once the app has a runtime `DT_NEEDED` on them).
+- [ ] Rebuild, full offscreen suite green.
+- [ ] Note any symbol that moved from link-time to load-time failure —
+      per report §6 this is the expected new failure mode, and per the vault
+      precedent the suite catches it immediately.
+
+**Watch item:** `libs/core`'s link block wraps every submodule dep in
+`$<BUILD_INTERFACE:...>` (`jkqtmathtext`, `mmdr`, `markoff-parser`,
+`markoff_core`, `markoff_styled`) with a comment saying the installed
+package does not ship them. Once `corbomite-core` is a real `.so`, it
+acquires genuine runtime dependencies on those still-static libraries —
+their code gets baked into `libcorbomite-core.so`. That is correct and
+works, but it means the `BUILD_INTERFACE` comment's claim ("plugins must
+resolve these symbols themselves") becomes *less* true, not more. Re-read
+and correct that comment rather than leaving it stale.
+
+**Gate:** suite green after each individual flip. Do not batch.
+
+### Phase P4 — Plugin-boundary correctness gate
+
+This is the phase that justifies the cluster. Per D4/C2 it must target a
+library that is *actually* diverged today.
+
+- [ ] **P4.T1** Write `tst_plugin_type_identity` **before** finishing P3 (or
+      on a branch stashed from P0) and confirm it **FAILS** against
+      pre-P3 `master`. A gate that was never seen red proves nothing.
+      Shape: host constructs a `Corbomite::NotesTreeModel` (Models — the
+      confirmed-diverged case from C2), hands it to a real `dlopen`-ed
+      plugin `.so` through `PluginContext`, plugin `qobject_cast`s it back
+      and asserts non-null. Use the file-explorer plugin or a minimal
+      purpose-built test plugin.
+- [ ] **P4.T2** Confirm it passes post-P3.
+- [ ] **P4.T3** Add `tst_no_duplicate_metaobjects` — a symbol-level guard
+      that walks the built `Corbomite` exe, `build-dev/bin/lib*.so` and
+      `build-dev/lib/plugins/corbomite/*.so`, and asserts no
+      `*staticMetaObject` symbol is *defined* in more than one module. This
+      is the structural guard; P4.T1 is the behavioural one. Expect to have
+      to allowlist markoff-family/graffodil symbols until P6 lands — encode
+      the allowlist explicitly so P6 can delete entries from it as proof of
+      progress.
+- [ ] **P4.T4** Add a note to `cmake/CorbomitePlugin.cmake` documenting that
+      plugin-linked Corbomite libraries must be `SHARED` and why (one
+      paragraph, pointing at this plan). Future plugin-facing libraries are
+      the obvious way to reintroduce the bug.
+
+**Gate:** P4.T1 demonstrated red-then-green. P4.T3 green with a documented
+allowlist.
+
+### Phase P5 — Packaging verification
+
+Report §4 assumed packaging is generic but explicitly flagged it as **not
+verified by an actual build**. Close that.
+
+- [ ] **P5.T1** AppImage: run `packaging/appimage/build-appimage.sh`.
+      `linuxdeploy` must auto-bundle the new `.so`s the way it already
+      bundles `libvault.so`, `libryml`, `c4core`, `fmt`, `spdlog`. Launch
+      the resulting AppImage and open a vault. Most likely place for a
+      missed-bundle failure.
+- [ ] **P5.T2** Installed release build: `cmake --preset release`,
+      `sudo cmake --install build-release`, run from `/usr/local/bin`.
+      **The specific risk is plugin RPATH**: plugins install to
+      `${KDE_INSTALL_PLUGINDIR}/corbomite` and must find
+      `libcorbomite-core.so` etc. in `${KDE_INSTALL_LIBDIR}` at `dlopen`
+      time. Today only `libvault.so` is in that position and it works;
+      verify it still does with 8 more. If not, an `INSTALL_RPATH` is
+      needed — that would be the first RPATH configuration this tree has
+      ever required, so record it prominently.
+- [ ] **P5.T3** Arch `PKGBUILD` build.
+- [ ] **P5.T4** Ubuntu `.deb` — CI-only (`v*` tag triggered). Either dry-run
+      the script locally or explicitly note it as deferred to the next tag.
+- [ ] **P5.T5** Record final measurements in §5.
+
+**Gate:** AppImage and installed-release both launch and open a vault.
+
+### Phase P6 — Cross-repo: markoff-family + graffodil *(separately gated — see §3)*
+
+Do not start without the user's go-ahead on the §3 scope call.
+
+- [ ] **P6.T1** **Markoff repo.** Flip `markoff_core` (35 MB),
+      `markoff_canvas`, `markoff_source`, `markoff_styled`,
+      `markoff-parser`, `ts-markdown-parser`, `collabtext` (33 MB) to
+      `SHARED`. **Known risk:** Corbomite sets
+      `CMAKE_POSITION_INDEPENDENT_CODE ON` globally at
+      `CMakeLists.txt:19` specifically so the Markoff static libs are PIC
+      — but that only applies when Markoff builds *as Corbomite's
+      subdirectory*. A standalone Markoff build has no such guarantee, and
+      `markoff-parser` links vendored tree-sitter **C** libraries
+      (`libs/markoff-parser/src/vendor/tree-sitter-markdown/`). Set PIC
+      per-target inside Markoff rather than inheriting it.
+- [ ] **P6.T2** Markoff's own suite green in the Markoff repo (its
+      CLAUDE.md discipline, not Corbomite's), commit there, then re-pin
+      `libs/markoff-family` from Corbomite. Per D5.
+- [ ] **P6.T3** **Graffodil repo.** Six libraries
+      (`graffodil-{core,batch,circular,force,spatial,sugiyama}`), no
+      vendored C, structurally simpler than Markoff. Same land-then-re-pin
+      discipline. Currently pinned `v0.2.3` / `dd7667de`.
+- [ ] **P6.T4** Delete the corresponding entries from P4.T3's allowlist —
+      that deletion *is* the proof this phase worked.
+- [ ] **P6.T5** Re-run P5's packaging verification in full; re-measure.
+
+**Gate:** P4.T3 allowlist reduced to (at most) `mmdr`; full suite green;
+packaging re-verified.
+
+---
+
+## §5 Measurements
+
+Filled in by P0.T2, P1.T5, P3, P5.T5, P6.T5. Same flags throughout: `dev`
+preset, `Debug`, `CORBOMITE_PORT_BUILD_TESTS=ON`, clean build.
+
+| Metric | Baseline (P0) | After P1 | After P3 | After P6 |
+|---|---|---|---|---|
+| `build-dev/` total | 11 GB | | | |
+| `build-dev/bin/` | 8.9 GB | | | |
+| `build-dev/lib/` | 613 MB | | | |
+| Largest test binary | 147 MB (`tst_completion_controller`) | | | |
+| Clean build wall time | | | | |
+| Incremental relink after `View.h` touch | | | | |
+| `/home` free | 13 GB (95% full) | | | |
+
+---
+
+## §6 Standing traps
+
+1. **CMake cycles + `SHARED` = configure error.** Only all-`STATIC` SCCs are
+   tolerated. C3 found one; P2.T4's grep and `tst_no_library_cycles` exist
+   to stop a new one appearing.
+2. **The executable exports nothing.** Do not reason "the host defines it, so
+   the plugin will find it." Verified: 5204 dynsym entries, zero strong
+   definitions. Interposition only ever flows *from* a `.so`.
+3. **`libvault.so` is currently masquerading as libcore.** Several things
+   work today for reasons that will change under this refactor. If something
+   that worked before P3 breaks after, suspect that the symbol used to
+   resolve into `libvault.so` and now resolves somewhere else — do not
+   assume the new `.so` is at fault.
+4. **A gate never seen red is not a gate.** P4.T1 must be demonstrated
+   failing pre-P3. This applies with special force here because the bug's
+   signature is a silent `nullptr`, never an error.
+5. **Failures move from link time to load time.** Expected, per report §6.
+   A missing symbol now surfaces as a `dlopen` failure or a plugin that
+   silently fails to load, not a link error. Check the plugin-load log path
+   when something goes missing.
+6. **Dev-build KXMLGUI cache is shared across worktrees.** Unrelated to this
+   cluster but directly in its blast radius, since P1 touches the resource
+   that feeds it. If menus look wrong after P1, delete
+   `~/.local/share/kxmlgui5/corbomite-dev/corbomite-devui.rc` before
+   suspecting the code (see CLAUDE.md § Dev Build Isolation, and the
+   Cluster O3 incident).
+7. **Live-eyeball gate on anything chrome-adjacent.** Project memory
+   `feedback_verify_ui_fixes_live`: offscreen-green has previously hidden
+   real breakage. P1 and P5 both end in a human launching the app.
+8. **`mmdr` stays static** (D6). Expect it in P4.T3's allowlist permanently
+   until separately punch-listed.
+
+---
+
+## §7 Acceptance (cluster close)
+
+- [ ] Full offscreen suite green (current baseline **320/320** excl.
+      `benchmark`), at every phase boundary, not just at the end.
+- [ ] `tst_plugin_type_identity` demonstrated red pre-P3, green post-P3.
+- [ ] `tst_no_duplicate_metaobjects` green with a documented allowlist.
+- [ ] `tst_no_library_cycles` green.
+- [ ] `tst_xmlgui_resource_present` green.
+- [ ] AppImage builds, launches, opens a vault.
+- [ ] Installed release build launches and loads all 9 plugins from the
+      installed plugin dir.
+- [ ] §5 measurement table filled in.
+- [ ] Audit corrections addendum landed (P0.T1).
+- [ ] `decisions-archive.md` closeout paragraph; `PROJECT-STATE.md`
+      §Current focus updated to ≤3 sentences; `INDEX.md` status updated.
