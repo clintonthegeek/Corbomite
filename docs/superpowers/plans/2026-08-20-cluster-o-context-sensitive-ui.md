@@ -231,7 +231,7 @@ seven real bugs and performs the extraction every later phase needs. **No behavi
 becomes context-sensitive yet** — actions either work everywhere they claim to, or
 disable themselves.
 
-- [ ] **O1.T1 — Extract `ActionContextController`** (`src/app/ActionContextController.{h,cpp}`),
+- [x] **O1.T1 — Extract `ActionContextController`** (`src/app/ActionContextController.{h,cpp}`),
       a plain `QObject` child of `MainWindow`. Moves in: `refreshEditorActions`,
       `updateEditorActionStates`, `updateVaultActions`, `updateBackForwardActions`,
       `updateTabStateActions`, and the action-related half of the `activeLeafChanged`
@@ -240,7 +240,7 @@ disable themselves.
       controller takes it by pointer. **Retires:** the five scattered refresh
       functions and the action half of the mega-lambda. This is the
       decomposition spec's action step — do it here, not separately.
-- [ ] **O1.T2 — Subscribe to `viewChanged` as well as `activeLeafChanged`.**
+- [x] **O1.T2 — Subscribe to `viewChanged` as well as `activeLeafChanged`.**
       Fixes report §4.2: `Workspace::setActiveLeaf` early-returns when the leaf is
       unchanged (`Workspace.cpp:284-286`), so an in-place view-type swap
       (`navigateActiveLeafTo` → `leaf->navigate()`, `MainWindow.cpp:2392-2422`) fires
@@ -250,7 +250,7 @@ disable themselves.
       **Test:** `tst_action_context::inPlaceViewTypeChange_refreshesActionState` —
       markdown leaf, `navigate()` to a `.canvas` viewState, assert `format_bold`
       disabled and the editor-mode radio cleared.
-- [ ] **O1.T3 — Re-light `View::zoomIn/zoomOut/zoomReset` polymorphic dispatch.**
+- [x] **O1.T3 — Re-light `View::zoomIn/zoomOut/zoomReset` polymorphic dispatch.**
       Report §4.1: the virtuals exist (`View.h:60-62`, no-op bodies `View.cpp:123-125`),
       `MarkdownView` overrides them with stale empty `TODO`s
       (`MarkdownView.cpp:87-103`), and `MainWindow::onZoomIn/Out/Reset` bypass them
@@ -261,28 +261,28 @@ disable themselves.
       special-case in the three zoom slots.
       **Test:** `tst_view_zoom_dispatch` — one slot per view type asserting the
       virtual is reached.
-- [ ] **O1.T4 — Make `file_save` type-complete.** Report §3.1: `saveCurrentNote`
+- [x] **O1.T4 — Make `file_save` type-complete.** Report §3.1: `saveCurrentNote`
       (`:2268-2286`) handles `activeEditor()` then `TextFileView`; `CanvasFileView`
       is a `FileView`, so **Ctrl+S is a no-op on canvas** — canvas only saves in
       `onUnloadFile` (`CanvasFileView.cpp:71-73`). Add a `View`-level `save()`
       capability (or route through `CanvasFileView`), and gate the action on
       `canSave()`. **Test:** `tst_action_context::saveAction_savesCanvas`.
-- [ ] **O1.T5 — Make find/replace and `insert_template` honest.** `onFind`/`onReplace`/
+- [x] **O1.T5 — Make find/replace and `insert_template` honest.** `onFind`/`onReplace`/
       `onFindNext`/`onFindPrev` (`:676-698`) and `insertTemplate` (`:2921-2948`)
       return silently with no `activeEditor()`. Either disable the action (Tier B
       `canFind()` / `canInsertText()`) or route it — **Bases owns a search box
       already** (`BasesView.cpp:83`), so `edit_find` on a bases tab should focus it.
       Decision: route where a target exists, disable otherwise.
-- [ ] **O1.T6 — Merge the two overlapping refresh functions.** Report §4.4:
+- [x] **O1.T6 — Merge the two overlapping refresh functions.** Report §4.4:
       `refreshEditorActions` sets `format_*`/`heading_*` from `isMarkdown` while
       `updateEditorActionStates` sets them from `hasEditing()`; ordering makes the
       stricter win *today* but any new call site silently re-enables Bold in Reading.
       Collapse into one. Also fixes **Insert ▸ Table being enabled in read-only
       Reading mode**.
-- [ ] **O1.T7 — Gate `view_source_mode`.** Report §4.5: `updateVaultActions`
+- [x] **O1.T7 — Gate `view_source_mode`.** Report §4.5: `updateVaultActions`
       (`:2965-2990`) lists `view_editing_mode` and `view_reading_mode` and omits
       `view_source_mode` outright.
-- [ ] **O1.T8 — Enablement for `edit_undo`/`edit_redo`** from the active view's real
+- [x] **O1.T8 — Enablement for `edit_undo`/`edit_redo`** from the active view's real
       stack depth (bases `QUndoStack`, canvas `QUndoStack`, Markoff `undoD2`). They
       are currently always enabled.
 
@@ -290,6 +290,26 @@ disable themselves.
 introspection test that walks `actionCollection()`, and for each enabled action
 asserts the controller reports a handler for the current view type. Live eyeball
 **not** required (no visual change).
+
+**DONE 2026-08-20** (`7c9faf91` zoom dispatch, `c3fbf00d` BasesView
+focusSearch/undo-query, `bbe1c658` `ActionContextController` extraction +
+tests). 317/317 offscreen (only the pre-existing documented
+`tst_canvas_perf_500` `-j10` contention flake seen transiently, confirmed
+passing standalone and in the final full-suite run).  One deviation from
+plan-as-written: the acceptance-gate test and O1.T3's zoom test both showed
+2 spurious failures under `ctest -j10` load on a first pass (`view_zoom_in`
+reported enabled-with-no-handler in the `no-vault`/`bases` contexts, and the
+editor-mode radio appeared not to clear on in-place view swap) — 3 standalone
+reruns of `tst_action_context` and a full serial-safe rerun were clean, so
+this is judged the same class of parallel-load flake as `tst_canvas_perf_500`,
+not a logic bug; flagged here rather than silently dropped. Also fixed one
+unrelated pre-existing-shaped bug surfaced by the new
+`tst_graphview_plugin::zoomDispatchesToViewportTransform` test itself: a
+stack-allocated `GraphView` reparented onto a stack-allocated `QWidget host`
+segfaulted (double-destruction — locals destruct in reverse declaration
+order, so `host` destructed first and deleted its Qt-owned child `view`,
+which then destructed a second time at its own scope exit); fixed by
+declaring `host` before `view`.
 
 ---
 
