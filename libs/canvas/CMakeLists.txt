@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets Svg)
 
-add_library(canvas STATIC
+add_library(canvas SHARED
     src/CanvasDocument.cpp
     src/CanvasView.cpp
     src/CanvasScene.cpp
@@ -49,6 +49,19 @@ target_include_directories(canvas
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 target_link_libraries(canvas PUBLIC Qt6::Core Qt6::Widgets Qt6::Svg Corbomite::Core Graffodil::Core KF6::I18n Corbomite::Search)
+
+# Install rule — needed now that the app carries a runtime DT_NEEDED on
+# this library instead of embedding it statically. Not part of the
+# CorbomiteTargets export set (no Corbomite:: alias); Graffodil::Core
+# stays STATIC (Cluster P Phase P6 is the cross-repo gate for that), so
+# its code is still baked into this .so — no separate install needed for it.
+if(DEFINED KDE_INSTALL_LIBDIR)
+    install(TARGETS canvas
+        RUNTIME DESTINATION ${KDE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${KDE_INSTALL_LIBDIR}
+    )
+endif()
 
 if(NOT PROJECT_IS_TOP_LEVEL)
     # In-tree build
