@@ -13,7 +13,7 @@
 #include <QString>
 #include <QVector>
 
-#include "corbomite/storage/DataAdapter.h"  // for WriteHints + FileStat
+#include "corbomite/core/DataAdapter.h"  // for WriteHints + FileStat
 
 namespace Corbomite {
 

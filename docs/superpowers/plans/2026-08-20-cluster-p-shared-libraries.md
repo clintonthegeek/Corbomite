@@ -277,14 +277,14 @@ Prerequisite for P3. **No linkage type changes in this phase** — it lands
 and ships as a pure layering fix with everything still `STATIC`, so a
 regression here is isolated from a regression in P3.
 
-- [ ] **P2.T1** Move `libs/core/include/corbomite/markoff_adapters/Adapters.h`
+- [x] **P2.T1** Move `libs/core/include/corbomite/markoff_adapters/Adapters.h`
       and `libs/core/src/MarkoffAdapters.cpp` → `libs/storage`
       (`include/corbomite/storage/markoff_adapters/Adapters.h`,
       `src/MarkoffAdapters.cpp`). Storage already links `Markoff::Parser` and
       already owns `MetadataCache`/`MetadataParser`/`LinkResolver`, so this
       is the natural home. Update the one consumer,
       `src/app/MainWindow.cpp:51`.
-- [ ] **P2.T2** Resolve `TextFileView.cpp`'s `storage/DataAdapter.h` include.
+- [x] **P2.T2** Resolve `TextFileView.cpp`'s `storage/DataAdapter.h` include.
       `DataAdapter` is a pure-abstract, header-only interface that **core
       consumes and storage implements** (`FileSystemAdapter`) — i.e. the
       dependency is inverted today. Move `DataAdapter.h` to
@@ -293,24 +293,63 @@ regression here is isolated from a regression in P3.
       *(Fallback if that fans out further than expected: keep the header in
       storage and give core storage's include dirs without the link
       dependency. Uglier; prefer the move.)*
-- [ ] **P2.T3** Delete `PRIVATE $<BUILD_INTERFACE:Corbomite::Storage>` from
+- [x] **P2.T3** Delete `PRIVATE $<BUILD_INTERFACE:Corbomite::Storage>` from
       `libs/core/CMakeLists.txt`'s link block. Core must now build with no
       storage dependency at all.
-- [ ] **P2.T4** Sweep for any other core→storage edge this analysis missed:
+- [x] **P2.T4** Sweep for any other core→storage edge this analysis missed:
       `grep -rn "corbomite/storage/" libs/core/` must return nothing.
-- [ ] **P2.T5** Full offscreen suite green; commit as a standalone layering
+- [x] **P2.T5** Full offscreen suite green; commit as a standalone layering
       change.
 
-**Named test:** `tst_no_library_cycles` — a CMake-level guard. Simplest
-robust form: a configure-time check that temporarily declares the SCC's
-members `SHARED` in a throwaway configure, or (lower-tech but sufficient) a
-ctest that greps the generated link lines and asserts `corbomite-core` has
-no `corbomite-storage` edge. Do not skip this — nothing else prevents a
-future session from reintroducing the include and quietly restoring the
-cycle, and the failure only surfaces much later as a confusing configure
+**P2 resolution (2026-08-20):** landed with one discovery not anticipated
+by the plan text: `MarkoffAdapters.{h,cpp}` (the file C3 identified as
+`core`'s one "real symbol dependency" on storage) turned out to be
+**entirely `#if 0`-disabled** end to end — its own storage `#include`
+lines, every class body, and its one call site in `MainWindow.cpp` are all
+inside the disabled block (a TODO says it's parked pending
+`Markoff::Vault::*` restoration on the Markoff side; see the port banner in
+`CLAUDE.md`). So today it compiles to an empty translation unit and
+contributes zero actual symbols — C3's "real dependency" framing describes
+the *textual* include, not a currently-live compiled one. This made the
+move lower-risk than planned (no behavioural surface to preserve, purely
+relocating dead-but-parked code) but the CMake-level cycle it created was
+real regardless — target_link_libraries edges are structural, not
+conditional on `#if 0` content — so P2 was still necessary and the fix is
+unchanged. `TextFileView.cpp`'s `DataAdapter.h` move went exactly as
+planned: pure-abstract header-only interface, ~11 includers (`libs/core`,
+`libs/storage`, `libs/vault`, and 3 test files) all repointed to
+`corbomite/core/DataAdapter.h` with no link-graph changes needed since
+every includer already linked `Corbomite::Core` transitively. A leftover
+manual `target_include_directories(corbomite-core PRIVATE
+.../storage/include)` workaround (added at some point specifically to make
+the old `DataAdapter.h` include resolve without a real link dependency)
+was also dead once the header moved and was removed alongside the
+`Corbomite::Storage` link line. 323/323 offscreen (322 + the new
+`tst_no_library_cycles`), **demonstrated red pre-fix** (ran the test
+against the still-cyclic tree before touching any code — failed exactly as
+designed, citing the reappeared edge) **then green post-fix**.
+
+**Named test:** `tst_no_library_cycles` — implemented as
+`cmake/CheckNoLibraryCycles.cmake`, run via `add_test(... COMMAND
+${CMAKE_COMMAND} -DBINARY_DIR=... -P cmake/CheckNoLibraryCycles.cmake)`
+(registered at the top-level `CMakeLists.txt`, not tied to any one
+library's test directory since it inspects the whole build's dependency
+graph). It shells out to `cmake --graphviz=<file> .` against the already-
+configured build tree and greps the `.dot` output for a `corbomite-core ->
+corbomite-storage` edge comment line, failing loudly with a pointer back
+to this section if found; it also asserts the retained `corbomite-storage
+-> corbomite-core` edge is still present, as a sanity check that the
+graphviz mechanism itself is actually reading the real graph rather than
+silently matching nothing. Chose the graphviz approach over grepping
+generated link lines (the plan's other suggested form) because `STATIC`
+targets don't produce a literal link-line artifact naming their private
+dependencies — the CMake dependency-graph export was the more direct
+signal. Do not skip this — nothing else prevents a future session from
+reintroducing the include and quietly restoring the cycle, and the failure
+only surfaces much later as a confusing configure
 error.
 
-**Gate:** suite green; `grep` in P2.T4 clean.
+**Gate:** suite green; `grep` in P2.T4 clean. ✅ Phase P2 complete.
 
 ### Phase P3 — Corbomite libraries → SHARED
 

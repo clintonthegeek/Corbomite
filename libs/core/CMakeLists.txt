@@ -64,8 +64,6 @@ add_library(corbomite-core STATIC
     include/corbomite/core/EmbedDepthGuard.h
     src/PostProcessorRegistry.cpp
     include/corbomite/core/PostProcessorRegistry.h
-    src/MarkoffAdapters.cpp
-    include/corbomite/markoff_adapters/Adapters.h
     src/MermaidRenderer.cpp
     include/corbomite/core/MermaidRenderer.h
     src/DiffMatchPatch.cpp
@@ -85,6 +83,7 @@ add_library(corbomite-core STATIC
     include/corbomite/core/EditableFileView.h
     src/TextFileView.cpp
     include/corbomite/core/TextFileView.h
+    include/corbomite/core/DataAdapter.h
     src/ViewRegistry.cpp
     include/corbomite/core/ViewRegistry.h
     src/WorkspaceLeaf.cpp
@@ -165,7 +164,6 @@ target_include_directories(corbomite-core
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${KDE_INSTALL_INCLUDEDIR}>
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../storage/include
 )
 target_link_libraries(corbomite-core
     PUBLIC
@@ -184,8 +182,6 @@ target_link_libraries(corbomite-core
         $<BUILD_INTERFACE:markoff-parser>
         $<BUILD_INTERFACE:markoff_core>
         $<BUILD_INTERFACE:markoff_styled>
-    PRIVATE
-        $<BUILD_INTERFACE:Corbomite::Storage>
         # TODO(port-foundation-exploration): markoff_reading retired.
         # $<BUILD_INTERFACE:markoff_reading>
     )

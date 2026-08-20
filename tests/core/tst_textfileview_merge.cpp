@@ -3,7 +3,7 @@
 #include <QTest>
 #include "corbomite/core/TextFileView.h"
 #include "corbomite/core/NoteDocument.h"
-#include "corbomite/storage/DataAdapter.h"
+#include "corbomite/core/DataAdapter.h"
 
 using namespace Corbomite;
 

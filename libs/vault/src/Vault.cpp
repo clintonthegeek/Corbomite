@@ -8,7 +8,7 @@
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/TFolder.h"
-#include "corbomite/storage/DataAdapter.h"
+#include "corbomite/core/DataAdapter.h"
 #include "corbomite/storage/CaseSensitivityProbe.h"
 #include "corbomite/storage/VaultConfig.h"
 

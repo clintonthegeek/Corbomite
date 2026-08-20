@@ -4,7 +4,7 @@
 #include <optional>
 
 #include "corbomite/vault/TAbstractFile.h"
-#include "corbomite/storage/DataAdapter.h"  // for Corbomite::FileStat
+#include "corbomite/core/DataAdapter.h"  // for Corbomite::FileStat
 
 namespace Corbomite {
 

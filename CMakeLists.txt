@@ -229,6 +229,15 @@ endif()
 option(CORBOMITE_PORT_BUILD_TESTS "Enable Corbomite tests during foundation-exploration port" OFF)
 if(CORBOMITE_PORT_BUILD_TESTS)
 enable_testing()
+
+# Cluster P Phase P2 — structural guard against the corbomite-core <->
+# corbomite-storage dependency cycle (C3) reappearing. Not tied to any one
+# library's test directory since it inspects the whole build's dependency
+# graph via `cmake --graphviz`; see cmake/CheckNoLibraryCycles.cmake.
+add_test(NAME tst_no_library_cycles
+    COMMAND ${CMAKE_COMMAND} -DBINARY_DIR=${CMAKE_BINARY_DIR}
+            -P ${CMAKE_SOURCE_DIR}/cmake/CheckNoLibraryCycles.cmake)
+
 add_subdirectory(tests/app)
 add_subdirectory(tests/core)
 add_subdirectory(tests/storage)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/storage/CaseSensitivityProbe.h"
 
-#include "corbomite/storage/DataAdapter.h"
+#include "corbomite/core/DataAdapter.h"
 
 #include <QUuid>
 

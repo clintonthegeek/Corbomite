@@ -8,7 +8,8 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Sql)
 add_library(corbomite-storage STATIC
     src/FileSystemAdapter.cpp
     include/corbomite/storage/FileSystemAdapter.h
-    include/corbomite/storage/DataAdapter.h
+    src/MarkoffAdapters.cpp
+    include/corbomite/storage/markoff_adapters/Adapters.h
     src/SQLiteIndex.cpp
     include/corbomite/storage/SQLiteIndex.h
     src/LinkResolver.cpp

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include "corbomite/storage/DataAdapter.h"
+#include "corbomite/core/DataAdapter.h"
 
 namespace Corbomite {
 

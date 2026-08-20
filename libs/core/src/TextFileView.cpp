@@ -4,7 +4,7 @@
 #include "corbomite/core/DiffMatchPatch.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/PathUtils.h"
-#include "corbomite/storage/DataAdapter.h"
+#include "corbomite/core/DataAdapter.h"
 
 #include <QTimer>
 #include <QDateTime>

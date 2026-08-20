@@ -7,7 +7,7 @@
 
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
-#include "corbomite/storage/DataAdapter.h"
+#include "corbomite/core/DataAdapter.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/core/NoteDocument.h"
 

@@ -48,7 +48,7 @@
 #include "corbomite/core/StyledRenderEngine.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/View.h"
-#include "corbomite/markoff_adapters/Adapters.h"
+#include "corbomite/storage/markoff_adapters/Adapters.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "ExportToPdf.h"

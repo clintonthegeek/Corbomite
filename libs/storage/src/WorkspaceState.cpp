@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/storage/WorkspaceState.h"
 
-#include "corbomite/storage/DataAdapter.h"
+#include "corbomite/core/DataAdapter.h"
 #include "corbomite/storage/VaultConfig.h"
 
 #include <QJsonDocument>
