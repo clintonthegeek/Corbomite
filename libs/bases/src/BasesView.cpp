@@ -295,6 +295,13 @@ void BasesView::pushFrontMatterEdit(Corbomite::TFile *file, const QString &key,
 void BasesView::undo() { m_undoStack.undo(); }
 void BasesView::redo() { m_undoStack.redo(); }
 
+void BasesView::focusSearch()
+{
+    if (!m_searchEdit) return;
+    m_searchEdit->setFocus(Qt::ShortcutFocusReason);
+    m_searchEdit->selectAll();
+}
+
 void BasesView::loadBaseFromVault()
 {
     m_undoStack.clear();   // a history never spans two base loads

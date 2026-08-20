@@ -87,6 +87,16 @@ public:
     /// Drive the per-view undo stack (host wires these to Edit ▸ Undo/Redo).
     void undo();
     void redo();
+    /// Cluster O Phase O1.T8 — real undo-stack-depth query so the host's
+    /// edit_undo/edit_redo KActions can be enabled/disabled honestly
+    /// instead of always-enabled.
+    bool canUndo() const { return m_undoStack.canUndo(); }
+    bool canRedo() const { return m_undoStack.canRedo(); }
+
+    /// Cluster O Phase O1.T5 — route the universal edit_find action here:
+    /// Bases already owns a search box in its toolbar, so Ctrl+F on a
+    /// bases tab should focus it rather than silently do nothing.
+    void focusSearch();
 
     /// Assign (or clear) a summary function for `prop` in the active view.
     /// Public so tests can exercise the mutation without spawning a dialog.
