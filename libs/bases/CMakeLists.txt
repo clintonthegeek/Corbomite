@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets)
 find_package(KF6I18n REQUIRED)
 
-add_library(corbomite-bases STATIC
+add_library(corbomite-bases SHARED
     src/BasesCommands.cpp
     include/corbomite/bases/BasesCommands.h
     src/Value.cpp
