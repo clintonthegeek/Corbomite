@@ -2,7 +2,7 @@
 
 **Opened:** 2026-08-20. **Type:** Full plan. **Track:** strategic cluster.
 **Branch:** `feature/rich-clipboard` (Corbomite worktree `.worktrees/rich-clipboard`; Markoff worktree nested at that tree's `libs/markoff-family`, based on pin `a3d8055e` — not standalone Markoff `master`).
-**Status:** In progress. Phases 0–2 landed in this worktree (codec + canvas leaf, tests green). Live `LiveClipboardController` also routed through the codec. Phase 3 remainder = Source/Styled native-clipboard intercept. Phase 4 host wiring is in the tree (Edit menu) but not yet built against the Corbomite worktree binary. Phase 5 live eyeball not started. Do not infer completion from the phase sections below — check `docs/PROJECT-STATE.md` first.
+**Status:** In progress. Phases 0–4 landed in this worktree (codec, canvas, Live, Source/Styled intercept, Corbomite Edit-menu host wiring). Markoff tip `365e9b91` (Source/Styled). Phase 5 live eyeball is the remaining gate — build/run the worktree binary, not master. Do not infer completion from the phase sections below — check `docs/PROJECT-STATE.md` first.
 **Lettering:** post-reset N. Not legacy Cluster N (plugin-ready surfaces, closed 2026-04-17, archived).
 **Punch-list item absorbed:** P5 Paste-from-HTML → Markdown (bucket ③). Image paste/drop is out of scope.
 **Plan body** below is the 2026-08-20 session plan, filed unmodified.
@@ -262,17 +262,17 @@ Do **not** touch leaves until this suite is green.
 
 ### Phase 3 — Live + Source + Styled (so “all views get the fix”)
 
-- Live: replace `LiveClipboardController` mime assembly/paste fallback with the codec. Existing `tst_live_render_clipboard_*` stay; add HTML-paste slots.
-- Source: subclass inner `QPlainTextEdit` to override mime create/insert.
-- Styled: same on `StructuralTextEdit` so Reading copy is markdown-faithful.
-- `ViewContractChecks` grows copy/paste no-crash calls (optional).
+- [x] Live: replace `LiveClipboardController` mime assembly/paste fallback with the codec (`e81fedea`). Existing `tst_live_render_clipboard_*` stay.
+- [x] Source: `InnerEditor` overrides mime create/insert + MarkdownView verbs (`365e9b91`, `tst_source_rich_clipboard`).
+- [x] Styled: same on `StructuralTextEdit` so Reading copy is markdown-faithful (`365e9b91`, `tst_styled_rich_clipboard`).
+- `ViewContractChecks` grows copy/paste no-crash calls (optional — not done).
 
 ### Phase 4 — Corbomite host wiring
 
-- `MainWindow` `addEditorActionBase` for the eight verbs.
-- `corbomiteui.rc.in` Edit menu (bump `version` attr so KXMLGUI reloads).
-- `updateEditorActionStates`: copy-as gated on selection + `hasCursor()`; paste-as-plain gated on `!isReadOnly() && hasEditing()` plus clipboard flavors.
-- Tick the punch-list HTML-paste item `[x]` once Live/canvas/source paste HTML; update PARITY-MATRIX row to 🟡 (images still missing).
+- [x] `MainWindow` `addEditorActionBase` for the eight verbs (`821f714c`).
+- [x] `corbomiteui.rc.in` Edit menu (bump `version` attr so KXMLGUI reloads).
+- [x] `updateEditorActionStates`: copy-as gated on selection + `hasCursor()`; paste-as-plain gated on `!isReadOnly() && hasEditing()` plus clipboard flavors.
+- [x] Punch-list HTML-paste item ticked; PARITY-MATRIX row stays 🟡 (images still missing).
 
 ### Phase 5 — Live eyeball (gate)
 
