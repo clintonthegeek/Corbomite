@@ -11,7 +11,6 @@ namespace Canvas {
 static constexpr qreal kCornerRadius = 8.0;
 static constexpr qreal kColorStripeHeight = 20.0;
 static constexpr qreal kTextPadding = 8.0;
-static constexpr qreal kHandleSize = 6.0;
 
 TextCardItem::TextCardItem(const CanvasNode &data, QGraphicsItem *parent)
     : CanvasNodeItem(data, parent)
@@ -189,28 +188,10 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
         painter->restore();
     }
 
-    // 5. If selected, draw resize handles at 8 positions
-    if (selected) {
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(QColor(58, 134, 255));
-
-        const qreal hs = kHandleSize;
-        const qreal hh = hs / 2.0;
-        const qreal w = rect.width();
-        const qreal h = rect.height();
-
-        // Corners
-        painter->drawRect(QRectF(-hh, -hh, hs, hs));                          // TopLeft
-        painter->drawRect(QRectF(w - hh, -hh, hs, hs));                       // TopRight
-        painter->drawRect(QRectF(w - hh, h - hh, hs, hs));                    // BottomRight
-        painter->drawRect(QRectF(-hh, h - hh, hs, hs));                       // BottomLeft
-
-        // Edge midpoints
-        painter->drawRect(QRectF(w / 2.0 - hh, -hh, hs, hs));                // Top
-        painter->drawRect(QRectF(w - hh, h / 2.0 - hh, hs, hs));             // Right
-        painter->drawRect(QRectF(w / 2.0 - hh, h - hh, hs, hs));             // Bottom
-        painter->drawRect(QRectF(-hh, h / 2.0 - hh, hs, hs));                // Left
-    }
+    // Resize-handle drawing moved to CanvasNodeChromeOverlay (M4.4) — one
+    // shared, zoom-constant overlay retargeted to the active node, instead
+    // of this triplicated per-item block. Do not re-add handle painting
+    // here; see CanvasNodeChromeOverlay.h.
 }
 
 } // namespace Canvas

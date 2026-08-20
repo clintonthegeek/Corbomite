@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QPointF>
 #include <QRectF>
+#include <QVector>
 #include <functional>
 #include "CanvasTypes.h"
 
@@ -43,6 +44,8 @@ class CanvasResizeTool;
 class CanvasDuplicateDragTool;
 class CanvasEdgeGestureTool;
 class ReconnectEdgeTool;
+class CanvasAlignmentStrategy;
+class CanvasNodeChromeOverlay;
 
 class CanvasScene : public Graffodil::GraphScene {
     Q_OBJECT
@@ -161,6 +164,13 @@ public:
     // Undo
     QUndoStack *undoStack();
 
+    /// M4.2 — true while a plain select/move node drag (Graffodil
+    /// SelectMoveTool's dragBegan..dragEnded window) is in progress. Used
+    /// by CanvasView to decide whether to run edge auto-pan. Scoped to
+    /// node moves only for a first pass (not resize drags) — see
+    /// CanvasView.cpp's auto-pan comment for why.
+    bool isDragActive() const { return m_dragActive; }
+
     /// Cluster R Task 3.5 — render the scene's `bounds` region to an image.
     /// `scale` multiplies the output pixel dimensions (2.0 yields a HiDPI
     /// raster). `transparentBg` swaps the scene's background brush for
@@ -178,6 +188,11 @@ public:
                       QIODevice *out,
                       bool transparentBg = false,
                       bool showEdges = true);
+
+    /// M4.4 — testing/introspection accessor for the shared resize/
+    /// connection-point chrome overlay (single overlay retargeted to the
+    /// active selected/hovered node — see CanvasNodeChromeOverlay).
+    CanvasNodeChromeOverlay *chromeOverlay() const { return m_chromeOverlay; }
 
 Q_SIGNALS:
     void cardDoubleClicked(const QString &nodeId);
@@ -236,12 +251,22 @@ private Q_SLOTS:
     // --- M3.5 direction menu / R-key reverse ---
     void onReverseRequested(const QList<Graffodil::IGraphEdge *> &edges);
 
+    // --- M4.4 chrome overlay retargeting ---
+    /// Connected to QGraphicsScene::selectionChanged() (a real built-in Qt
+    /// signal, no new plumbing needed) and to each node's hoverChanged().
+    void updateActiveChromeTarget();
+
 private:
     void populateFromDocument();
     void clearAllItems();
     void renderFileCard(FileCardItem *item);
     void reRenderAllCards();
     void addColorSubmenu(QMenu *parentMenu, const QString &nodeId, const QString &currentColor);
+    /// M4.4 — wires the hover/geometry signals shared by every
+    /// CanvasNodeItem subclass; called once from each add*Item() factory
+    /// (mirrors the per-subclass editRequested() connect() calls already
+    /// there).
+    void wireNodeChromeSignals(CanvasNodeItem *item);
 
     CanvasDocument *m_document = nullptr;
 
@@ -257,6 +282,12 @@ private:
     Graffodil::CreateEdgeTool *m_createEdgeTool = nullptr;
     ReconnectEdgeTool *m_reconnectTool = nullptr;
     CanvasEdgeGestureTool *m_edgeGestureTool = nullptr;
+    CanvasAlignmentStrategy *m_alignmentStrategy = nullptr;
+    CanvasNodeChromeOverlay *m_chromeOverlay = nullptr;
+    /// M4.4 — the sole hovered node, or nullptr. Tracked via each node's
+    /// hoverChanged() signal; feeds updateActiveChromeTarget()'s
+    /// selection-empty fallback.
+    CanvasNodeItem *m_hoveredNode = nullptr;
 
     QUndoStack *m_undoStack = nullptr;
     Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;
@@ -278,6 +309,12 @@ private:
 
     // Move-drag undo snapshot (dragBegan -> dragEnded)
     QHash<QString, QPointF> m_dragSnapshot;
+    // M4.2 — mirrors whether we're between onDragBegan/onDragEnded, for
+    // CanvasView's edge auto-pan.
+    bool m_dragActive = false;
+    // M4.3 — groups whose drag-capture was started this gesture (so
+    // onDragEnded can symmetrically end capture on exactly the ones begun).
+    QVector<GroupItem *> m_capturedGroups;
 };
 
 } // namespace Canvas

@@ -3,6 +3,8 @@
 
 #include <graffodil/Anchors.h>
 #include <graffodil/GraphScene.h>
+#include <QCursor>
+#include <QGraphicsSceneHoverEvent>
 #include <QGraphicsSceneMouseEvent>
 
 namespace Canvas {
@@ -14,6 +16,7 @@ CanvasNodeItem::CanvasNodeItem(const CanvasNode &data, QGraphicsItem *parent)
     , m_data(data)
 {
     setFlags(ItemIsMovable | ItemIsSelectable | ItemSendsGeometryChanges);
+    setAcceptHoverEvents(true);
     setPos(data.x, data.y);
 }
 
@@ -47,6 +50,7 @@ void CanvasNodeItem::setGeometry(const QRectF &rect)
     // unchanged, which would leave edges stale without this explicit call.
     if (auto *graphScene = qobject_cast<Graffodil::GraphScene *>(scene()))
         graphScene->adjustEdgesForNode(nodeId());
+    Q_EMIT geometryChanged();
 }
 
 void CanvasNodeItem::setNodeData(const CanvasNode &data)
@@ -104,6 +108,7 @@ QVariant CanvasNodeItem::itemChange(GraphicsItemChange change, const QVariant &v
         // call during an interactive drag is harmless. See spec §6a V2.
         if (auto *graphScene = qobject_cast<Graffodil::GraphScene *>(scene()))
             graphScene->adjustEdgesForNode(nodeId());
+        Q_EMIT geometryChanged();
     }
     return QGraphicsObject::itemChange(change, value);
 }
@@ -112,6 +117,59 @@ void CanvasNodeItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 {
     Q_UNUSED(event);
     Q_EMIT editRequested();
+}
+
+void CanvasNodeItem::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
+{
+    QGraphicsObject::hoverEnterEvent(event);
+    m_hovered = true;
+    Q_EMIT hoverChanged(true);
+}
+
+void CanvasNodeItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
+{
+    QGraphicsObject::hoverLeaveEvent(event);
+    m_hovered = false;
+    unsetCursor();
+    Q_EMIT hoverChanged(false);
+}
+
+void CanvasNodeItem::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
+{
+    QGraphicsObject::hoverMoveEvent(event);
+
+    // M4.4 — cursor feedback per resize zone. Resize is only actionable
+    // while selected (matches CanvasResizeTool::findResizeTarget(), which
+    // only offers resize handles on selected nodes), so only show the
+    // resize cursors then; otherwise fall back to the default arrow/move
+    // cursor.
+    if (!isSelected()) {
+        unsetCursor();
+        return;
+    }
+
+    switch (resizeModeAtPos(event->pos())) {
+    case TopLeft:
+    case BottomRight:
+        setCursor(Qt::SizeFDiagCursor);
+        break;
+    case TopRight:
+    case BottomLeft:
+        setCursor(Qt::SizeBDiagCursor);
+        break;
+    case Left:
+    case Right:
+        setCursor(Qt::SizeHorCursor);
+        break;
+    case Top:
+    case Bottom:
+        setCursor(Qt::SizeVerCursor);
+        break;
+    case NoResize:
+    default:
+        unsetCursor();
+        break;
+    }
 }
 
 } // namespace Canvas

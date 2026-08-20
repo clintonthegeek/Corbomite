@@ -95,6 +95,34 @@ void CanvasResizeTool::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
         newH += delta.y();
     }
 
+    // M4.2 — Shift aspect-lock. Only meaningful on a CORNER handle (an
+    // x-side AND a y-side are both dragging); a single-edge handle
+    // (Top/Right/Bottom/Left alone) only changes one dimension, so there's
+    // nothing to lock. Pick whichever dimension moved proportionally more
+    // this frame and recompute the other to match m_originalRect's aspect
+    // ratio, then re-derive the anchored coordinate the same way the
+    // min-size clamp below does (subtract the size delta from the
+    // dragged-edge coordinate when that edge is the one moving). Applied
+    // BEFORE the min-size clamp so kMinSize still gets final say.
+    const bool isCornerResize = (resizeLeft || resizeRight) && (resizeTop || resizeBottom);
+    if (isCornerResize && (event->modifiers() & Qt::ShiftModifier)
+        && m_originalRect.width() > 0 && m_originalRect.height() > 0) {
+        const qreal aspect = m_originalRect.width() / m_originalRect.height();
+        const qreal wRatio = qAbs(newW - m_originalRect.width()) / m_originalRect.width();
+        const qreal hRatio = qAbs(newH - m_originalRect.height()) / m_originalRect.height();
+        if (wRatio >= hRatio) {
+            const qreal adjH = newW / aspect;
+            if (resizeTop)
+                newY -= (adjH - newH);
+            newH = adjH;
+        } else {
+            const qreal adjW = newH * aspect;
+            if (resizeLeft)
+                newX -= (adjW - newW);
+            newW = adjW;
+        }
+    }
+
     // Enforce minimum size
     if (newW < kMinSize) {
         if (resizeLeft)

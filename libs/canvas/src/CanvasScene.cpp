@@ -2,6 +2,8 @@
 #include "canvas/CanvasScene.h"
 #include "canvas/CanvasCommands.h"
 #include "canvas/CanvasDocument.h"
+#include "canvas/CanvasAlignmentStrategy.h"
+#include "canvas/CanvasNodeChromeOverlay.h"
 #include "canvas/CanvasDuplicateDragTool.h"
 #include "canvas/CanvasEdgeGestureTool.h"
 #include "canvas/CanvasNodeItem.h"
@@ -44,6 +46,7 @@
 #include <QPainter>
 #include <QSet>
 #include <QSvgGenerator>
+#include <utility>
 #include <QTextEdit>
 #include <QUndoStack>
 #include <QtMath>
@@ -69,6 +72,11 @@ CanvasScene::CanvasScene(QObject *parent)
     // lose to its plain-left-button select route. Building our own
     // CompositeTool from parts lets the resize predicate go first.
     m_selectTool = new Graffodil::SelectMoveTool(this);
+    // M4.1 — grid + object snap (both default ON) plus M4.2's Shift
+    // axis-lock, both hooked into the one align() callback SelectMoveTool
+    // consults per mouseMove during a drag.
+    m_alignmentStrategy = new CanvasAlignmentStrategy(this);
+    m_selectTool->setAlignmentStrategy(m_alignmentStrategy);
     m_panZoomTool = new Graffodil::PanZoomTool(this);
     m_resizeTool = new CanvasResizeTool(this);
     m_duplicateDragTool = new CanvasDuplicateDragTool(this);
@@ -171,10 +179,31 @@ CanvasScene::CanvasScene(QObject *parent)
             this, &CanvasScene::onReconnectRequested);
     connect(m_reconnectTool, &ReconnectEdgeTool::reconnectDroppedOnEmpty,
             this, &CanvasScene::onReconnectDroppedOnEmpty);
+
+    // M4.4 — shared resize/connection-point chrome overlay. Not a graph
+    // node/edge (doesn't go through addNode()/addEdge()), just a plain
+    // scene item added directly, matching "one overlay retargeted to the
+    // active node" from the plan rather than per-node children.
+    m_chromeOverlay = new CanvasNodeChromeOverlay();
+    addItem(m_chromeOverlay);
+    connect(this, &QGraphicsScene::selectionChanged, this, &CanvasScene::updateActiveChromeTarget);
 }
 
 CanvasScene::~CanvasScene()
 {
+    // M4.4 — disconnect the chrome-overlay's selectionChanged wiring before
+    // any teardown starts. QGraphicsScene's base destructor (which runs
+    // AFTER this body returns) deletes any items still in the scene, and
+    // deleting a selected item emits selectionChanged() synchronously; by
+    // that point this object's dynamic type has decayed to QGraphicsScene
+    // (its ~CanvasScene() body has already finished), so a still-live
+    // direct connection invoking updateActiveChromeTarget() trips Qt's
+    // assertObjectType ("object not of the correct type"). Disconnecting
+    // here removes the connection well before item teardown ever reaches
+    // that point — same rationale as the finishInlineEdit() precaution
+    // below for m_focusConnection.
+    disconnect(this, &QGraphicsScene::selectionChanged, this, &CanvasScene::updateActiveChromeTarget);
+
     // Commit/tear down any in-progress inline edit BEFORE
     // QGraphicsScene::~QGraphicsScene() starts deleting items. Deleting a
     // focused QTextEdit/QLineEdit synchronously fires
@@ -262,11 +291,65 @@ void CanvasScene::clearAllItems()
     finishFileCardEdit();
     finishGroupLabelEdit();
 
+    // M4.4 — every node about to be deleted below; drop any dangling
+    // references the chrome overlay / hover tracking would otherwise hold.
+    m_hoveredNode = nullptr;
+    if (m_chromeOverlay)
+        m_chromeOverlay->clear();
+
     // GraphScene::clearGraph() removes items from the scene registry (and
     // the QGraphicsScene) but does not delete them — we still own them.
     const auto cleared = clearGraph();
     qDeleteAll(cleared.edges);
     qDeleteAll(cleared.nodes);
+}
+
+void CanvasScene::wireNodeChromeSignals(CanvasNodeItem *item)
+{
+    // M4.4 — hover tracking feeds the chrome overlay's "active node when
+    // nothing is selected" fallback; geometryChanged keeps the overlay's
+    // position glued to its retargeted node during drags/resizes.
+    connect(item, &CanvasNodeItem::hoverChanged, this, [this, item](bool hovered) {
+        if (hovered) {
+            m_hoveredNode = item;
+        } else if (m_hoveredNode == item) {
+            m_hoveredNode = nullptr;
+        }
+        updateActiveChromeTarget();
+    });
+    connect(item, &CanvasNodeItem::geometryChanged, this, [this, item]() {
+        if (m_chromeOverlay && m_chromeOverlay->target() == item)
+            m_chromeOverlay->syncToTarget();
+    });
+}
+
+void CanvasScene::updateActiveChromeTarget()
+{
+    if (!m_chromeOverlay)
+        return;
+
+    // Exactly one node selected -> chrome shows its 8 resize handles
+    // always, plus the 4 connection dots only if that same node also
+    // happens to be hovered right now (Obsidian-style: connection dots are
+    // a hover affordance, not a permanent selected-card decoration — see
+    // CanvasNodeChromeOverlay.h and the M4.4 task brief).
+    const auto selected = selectedItems();
+    if (selected.size() == 1) {
+        if (auto *node = dynamic_cast<CanvasNodeItem *>(selected.first())) {
+            m_chromeOverlay->retarget(node, /*showHandles=*/true, /*showDots=*/(node == m_hoveredNode));
+            return;
+        }
+    }
+
+    // Nothing selected (or a multi-selection, which this chrome doesn't
+    // support) but exactly one node is hovered -> show only the connection
+    // dots, matching Obsidian's hover-to-reveal-anchors UX.
+    if (selected.isEmpty() && m_hoveredNode) {
+        m_chromeOverlay->retarget(m_hoveredNode, /*showHandles=*/false, /*showDots=*/true);
+        return;
+    }
+
+    m_chromeOverlay->clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -281,6 +364,7 @@ TextCardItem *CanvasScene::addTextCardItem(const CanvasNode &node)
     connect(item, &TextCardItem::editRequested, this, [this, item]() {
         beginInlineEdit(item);
     });
+    wireNodeChromeSignals(item);
 
     // Render text card content via engine if available
     if (m_renderEngine && !node.text.isEmpty()) {
@@ -299,6 +383,7 @@ GroupItem *CanvasScene::addGroupItemToScene(const CanvasNode &node)
     connect(item, &GroupItem::labelEditRequested, this, [this, item]() {
         beginGroupLabelEdit(item);
     });
+    wireNodeChromeSignals(item);
 
     return item;
 }
@@ -552,6 +637,7 @@ FileCardItem *CanvasScene::addFileCardItem(const CanvasNode &node)
     connect(item, &FileCardItem::editRequested, this, [this, item]() {
         beginFileCardEdit(item);
     });
+    wireNodeChromeSignals(item);
 
     renderFileCard(item);
     return item;
@@ -652,6 +738,15 @@ void CanvasScene::onNodeAdded(const QString &id)
 
 void CanvasScene::onNodeRemoved(const QString &id)
 {
+    // M4.4 — drop any dangling reference to the about-to-be-deleted item
+    // BEFORE the delete below (both the hover pointer and the chrome
+    // overlay's target are raw CanvasNodeItem* with no lifetime tracking
+    // of their own).
+    if (m_hoveredNode && m_hoveredNode->nodeId() == id)
+        m_hoveredNode = nullptr;
+    if (m_chromeOverlay && m_chromeOverlay->target() && m_chromeOverlay->target()->nodeId() == id)
+        m_chromeOverlay->clear();
+
     removeTextCardItem(id);
     removeFileCardItem(id);
     removeGroupItem(id);
@@ -741,12 +836,43 @@ void CanvasScene::onEdgeChanged(const QString &id)
 void CanvasScene::onDragBegan(const QList<Graffodil::IGraphNode *> &nodes)
 {
     m_dragSnapshot.clear();
+    m_dragActive = true;
+    m_capturedGroups.clear();
+
     for (auto *node : nodes)
         m_dragSnapshot.insert(node->nodeId(), node->graphicsItem()->pos());
+
+    // M4.3: any group in the drag set freezes its full-containment members
+    // for the whole gesture (Appendix A "Group membership"). Those members
+    // move reactively through GroupItem::itemChange, not through
+    // SelectMoveTool's own per-node loop (its m_draggedNodes is private —
+    // see GroupItem::beginDragCapture doc comment), so fold their pre-drag
+    // positions into the same snapshot here or onDragEnded would never see
+    // them and their move would be silently lost from undo/persistence.
+    for (auto *node : nodes) {
+        auto *group = dynamic_cast<GroupItem *>(node->graphicsItem());
+        if (!group)
+            continue;
+        m_capturedGroups.append(group);
+        const QStringList capturedIds = group->beginDragCapture();
+        for (const QString &id : capturedIds) {
+            if (m_dragSnapshot.contains(id))
+                continue; // already explicitly part of the drag set
+            if (auto *item = connectableItem(id))
+                m_dragSnapshot.insert(id, item->pos());
+        }
+    }
 }
 
 void CanvasScene::onDragEnded(const QList<Graffodil::IGraphNode *> &nodes)
 {
+    Q_UNUSED(nodes); // m_dragSnapshot (seeded in onDragBegan) is the complete set
+    m_dragActive = false;
+
+    for (auto *group : std::as_const(m_capturedGroups))
+        group->endDragCapture();
+    m_capturedGroups.clear();
+
     if (m_dragSnapshot.isEmpty() || !m_document) {
         m_dragSnapshot.clear();
         return;
@@ -754,14 +880,12 @@ void CanvasScene::onDragEnded(const QList<Graffodil::IGraphNode *> &nodes)
 
     QHash<QString, QPointF> oldPositions;
     QHash<QString, QPointF> newPositions;
-    for (auto *node : nodes) {
-        const QString id = node->nodeId();
-        if (!m_dragSnapshot.contains(id))
+    for (auto it = m_dragSnapshot.cbegin(); it != m_dragSnapshot.cend(); ++it) {
+        auto *item = connectableItem(it.key());
+        if (!item)
             continue;
-        const QPointF oldPos = m_dragSnapshot.value(id);
-        const QPointF newPos = node->graphicsItem()->pos();
-        oldPositions.insert(id, oldPos);
-        newPositions.insert(id, newPos);
+        oldPositions.insert(it.key(), it.value());
+        newPositions.insert(it.key(), item->pos());
     }
     m_dragSnapshot.clear();
 
@@ -1254,14 +1378,18 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
         return;
     }
 
-    // Ctrl+A (select all) and arrow-key nudge (1px / 10px with Shift) are
-    // pre-M1 canvas features (plan "Working today" list) that
-    // Graffodil::SelectMoveTool does not implement (it only owns
-    // Delete/Backspace/R). The migration spec is silent on them — M4.2
-    // formally redesigns nudge with grid-snap stepping later — so this is
-    // a feature-freeze stopgap kept here rather than silently dropped.
-    // Guarded on !focusItem() so it never steals keys from an in-place
-    // label/text editor (group-label, edge-label proxies).
+    // Ctrl+A (select all) is a pre-M1 canvas feature (plan "Working today"
+    // list) that Graffodil::SelectMoveTool does not implement (it only owns
+    // Delete/Backspace/R). Guarded on !focusItem() so it never steals keys
+    // from an in-place label/text editor (group-label, edge-label proxies).
+    //
+    // Arrow-key nudge was ALSO a pre-M1 stopgap here (flat 1px/10px,
+    // moveBy() directly on each selected item — no undo push at all) —
+    // M4.2 redesigns it: step = the current CanvasAlignmentStrategy
+    // grid-spacing rung for the view's zoom (20/40/80/160, Appendix A),
+    // x5 with Shift, and the move is now pushed through CmdMoveCards
+    // (same undo path as a mouse drag, via onDragEnded's before/after
+    // position-hash shape) so nudging is finally undoable.
     if (!focusItem()) {
         if ((event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_A) {
             for (auto *node : nodes())
@@ -1271,14 +1399,44 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
         }
         if (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right ||
             event->key() == Qt::Key_Up || event->key() == Qt::Key_Down) {
-            const qreal step = (event->modifiers() & Qt::ShiftModifier) ? 10.0 : 1.0;
+            const QList<Graffodil::IGraphNode *> selected = selectedNodes();
+            if (selected.isEmpty() || !m_document) {
+                event->accept();
+                return;
+            }
+
+            // Same views().first()->transform().m11() pattern
+            // CanvasAlignmentStrategy::align() uses to read the live zoom
+            // scale (no view -> no scale-dependent step, fall back to the
+            // scale==1 rung).
+            qreal scale = 1.0;
+            if (!views().isEmpty())
+                scale = views().first()->transform().m11();
+            qreal step = CanvasAlignmentStrategy::gridSpacingForScale(scale);
+            if (event->modifiers() & Qt::ShiftModifier)
+                step *= 5.0;
+
             qreal dx = 0, dy = 0;
             if (event->key() == Qt::Key_Left) dx = -step;
             else if (event->key() == Qt::Key_Right) dx = step;
             else if (event->key() == Qt::Key_Up) dy = -step;
             else dy = step;
-            for (auto *item : selectedItems())
-                item->moveBy(dx, dy);
+
+            QHash<QString, QPointF> oldPositions;
+            QHash<QString, QPointF> newPositions;
+            for (auto *node : selected) {
+                QGraphicsItem *item = node->graphicsItem();
+                if (!item)
+                    continue;
+                const QPointF oldPos = item->pos();
+                const QPointF newPos = oldPos + QPointF(dx, dy);
+                oldPositions.insert(node->nodeId(), oldPos);
+                newPositions.insert(node->nodeId(), newPos);
+                item->setPos(newPos);
+            }
+            if (!oldPositions.isEmpty())
+                m_undoStack->push(new CmdMoveCards(m_document, oldPositions, newPositions));
+
             event->accept();
             return;
         }

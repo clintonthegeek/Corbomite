@@ -40,6 +40,36 @@ void CmdMoveCards::undo()
     }
 }
 
+namespace {
+constexpr int kCmdMoveCardsId = 1;
+}
+
+int CmdMoveCards::id() const
+{
+    return kCmdMoveCardsId;
+}
+
+bool CmdMoveCards::mergeWith(const QUndoCommand *other)
+{
+    const auto *o = dynamic_cast<const CmdMoveCards *>(other);
+    if (!o || o->m_doc != m_doc)
+        return false;
+
+    // Conservative guard: only coalesce when the incoming move touches the
+    // exact same set of node ids as this one (e.g. repeated arrow-key
+    // nudges of the same selection) — never fold together moves of
+    // different/overlapping-but-not-identical selections.
+    if (o->m_newPositions.size() != m_newPositions.size())
+        return false;
+    for (auto it = o->m_newPositions.cbegin(); it != o->m_newPositions.cend(); ++it) {
+        if (!m_newPositions.contains(it.key()))
+            return false;
+    }
+
+    m_newPositions = o->m_newPositions;
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // CmdResizeCard
 // ---------------------------------------------------------------------------

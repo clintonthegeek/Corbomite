@@ -3,16 +3,27 @@
 #include "canvas/CanvasScene.h"
 #include "canvas/CanvasDocument.h"
 
+#include <QApplication>
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QPainter>
+#include <QScrollBar>
+#include <QTimer>
 #include <QUndoStack>
 
 namespace Canvas {
 
 static constexpr double kZoomFactor = 1.15;
 static constexpr double kGridSize = 20.0;
+
+// M4.2 edge auto-pan (Appendix A: Obsidian target ~60Hz near the viewport
+// wrapper's edge). Margin/step aren't in Appendix A's normative table
+// (unspecified by the audit) — picked as plausible, "keep simple" values.
+static constexpr int kAutoPanMargin = 30;     // px from viewport edge that triggers auto-pan
+static constexpr int kAutoPanStep = 12;       // scroll-bar units per tick, toward the near edge
+static constexpr int kAutoPanIntervalMs = 16; // ~60Hz
 
 CanvasView::CanvasView(QWidget *parent)
     : QGraphicsView(parent)
@@ -116,6 +127,95 @@ void CanvasView::keyPressEvent(QKeyEvent *event)
 
     // Delegate other keys to scene (tools handle Delete, arrows, Ctrl+A)
     QGraphicsView::keyPressEvent(event);
+}
+
+void CanvasView::mouseMoveEvent(QMouseEvent *event)
+{
+    QGraphicsView::mouseMoveEvent(event);
+    m_lastViewportPos = event->pos();
+    updateAutoPan();
+}
+
+void CanvasView::updateAutoPan()
+{
+    // Scoped to CanvasScene::isDragActive() — set/cleared around a plain
+    // node-move drag (Graffodil SelectMoveTool's dragBegan/dragEnded) —
+    // rather than also covering CanvasResizeTool drags. A first pass:
+    // resize handles are dragged right at a node's own edge, not typically
+    // toward the far side of the viewport, so leaving resize out keeps
+    // this mechanism to one drag-state flag per the plan's "keep simple"
+    // steer. Wiring CanvasResizeTool's press/release into the same flag
+    // is a reasonable follow-up if resize-near-edge turns out to want it.
+    if (!m_scene || !m_scene->isDragActive()) {
+        if (m_autoPanTimer)
+            m_autoPanTimer->stop();
+        return;
+    }
+
+    const QRect vp = viewport()->rect();
+    const bool nearEdge =
+        m_lastViewportPos.x() < kAutoPanMargin ||
+        m_lastViewportPos.x() > vp.width() - kAutoPanMargin ||
+        m_lastViewportPos.y() < kAutoPanMargin ||
+        m_lastViewportPos.y() > vp.height() - kAutoPanMargin;
+
+    if (!nearEdge) {
+        if (m_autoPanTimer)
+            m_autoPanTimer->stop();
+        return;
+    }
+
+    if (!m_autoPanTimer) {
+        m_autoPanTimer = new QTimer(this);
+        m_autoPanTimer->setInterval(kAutoPanIntervalMs);
+        connect(m_autoPanTimer, &QTimer::timeout, this, &CanvasView::autoPanTick);
+    }
+    if (!m_autoPanTimer->isActive())
+        m_autoPanTimer->start();
+}
+
+void CanvasView::autoPanTick()
+{
+    if (!m_scene || !m_scene->isDragActive()) {
+        if (m_autoPanTimer)
+            m_autoPanTimer->stop();
+        return;
+    }
+
+    const QRect vp = viewport()->rect();
+    int dx = 0, dy = 0;
+    if (m_lastViewportPos.x() < kAutoPanMargin)
+        dx = -kAutoPanStep;
+    else if (m_lastViewportPos.x() > vp.width() - kAutoPanMargin)
+        dx = kAutoPanStep;
+    if (m_lastViewportPos.y() < kAutoPanMargin)
+        dy = -kAutoPanStep;
+    else if (m_lastViewportPos.y() > vp.height() - kAutoPanMargin)
+        dy = kAutoPanStep;
+
+    if (dx == 0 && dy == 0) {
+        // Cursor drifted back away from the edge without a mouseMoveEvent
+        // catching it (e.g. focus/geometry change) — nothing to do.
+        m_autoPanTimer->stop();
+        return;
+    }
+
+    if (dx != 0)
+        horizontalScrollBar()->setValue(horizontalScrollBar()->value() + dx);
+    if (dy != 0)
+        verticalScrollBar()->setValue(verticalScrollBar()->value() + dy);
+
+    // Re-deliver a mouse-move at the SAME viewport-local position through
+    // the normal event path (QApplication::sendEvent on the viewport, the
+    // same path a real OS mouse-move takes to reach this class's own
+    // mouseMoveEvent override / the scene's tool dispatch) so
+    // SelectMoveTool keeps extending the drag: scenePos shifts because the
+    // view just scrolled underneath an otherwise-unmoved cursor.
+    QMouseEvent synthetic(QEvent::MouseMove, m_lastViewportPos,
+                           viewport()->mapToGlobal(m_lastViewportPos),
+                           Qt::NoButton, QApplication::mouseButtons(),
+                           QApplication::keyboardModifiers());
+    QApplication::sendEvent(viewport(), &synthetic);
 }
 
 void CanvasView::drawBackground(QPainter *painter, const QRectF &rect)

@@ -23,6 +23,18 @@ public:
     void redo() override;
     void undo() override;
 
+    // M4.2 — coalesce consecutive nudges (or a nudge right after a drag)
+    // of the exact same node set into one undo step, so holding an arrow
+    // key doesn't spam the undo stack. id() shares one value across all
+    // CmdMoveCards instances (both the drag-end path in
+    // CanvasScene::onDragEnded and the new arrow-key nudge path in
+    // CanvasScene::keyPressEvent push this same command type);
+    // mergeWith() only accepts another CmdMoveCards on the same document
+    // whose node-id set is identical, and keeps this command's original
+    // (pre-move) positions while adopting the incoming post-move ones.
+    int id() const override;
+    bool mergeWith(const QUndoCommand *other) override;
+
 private:
     CanvasDocument *m_doc;
     QHash<QString, QPointF> m_oldPositions;

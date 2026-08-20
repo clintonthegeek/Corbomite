@@ -5,23 +5,34 @@
 #include <QStyleOptionGraphicsItem>
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
+#include <utility>
 
 namespace Canvas {
 
 static constexpr qreal kLabelPadding = 8.0;
-static constexpr qreal kHandleSize = 6.0;
 
 GroupItem::GroupItem(const CanvasNode &data, QGraphicsItem *parent)
     : CanvasNodeItem(data, parent)
     , m_lastPos(data.x, data.y)
 {
-    setZValue(-1);
+    updateZOrder();
 }
 
 void GroupItem::setNodeData(const CanvasNode &data)
 {
     CanvasNodeItem::setNodeData(data);
     m_lastPos = pos();
+    updateZOrder();
+}
+
+void GroupItem::updateZOrder()
+{
+    // Appendix A "Group z-order": zValue = -width*height, so bigger groups
+    // render further back. Recomputed on every geometry change (construction
+    // + setNodeData, which covers resize via CmdResizeCard/document reload —
+    // GraphScene::DefaultEdgeZ is -1.0 and DefaultNodeZ is 0.0, so even the
+    // smallest group (kMinSize 40x40 -> -1600) stays behind both.
+    setZValue(-(m_data.width * m_data.height));
 }
 
 QRectF GroupItem::boundingRect() const
@@ -90,28 +101,10 @@ void GroupItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
         painter->drawText(textRect, Qt::AlignLeft | Qt::AlignTop, m_data.label);
     }
 
-    // 4. If selected, draw resize handles at 8 positions
-    if (selected) {
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(QColor(58, 134, 255));
-
-        const qreal hs = kHandleSize;
-        const qreal hh = hs / 2.0;
-        const qreal w = rect.width();
-        const qreal h = rect.height();
-
-        // Corners
-        painter->drawRect(QRectF(-hh, -hh, hs, hs));                          // TopLeft
-        painter->drawRect(QRectF(w - hh, -hh, hs, hs));                       // TopRight
-        painter->drawRect(QRectF(w - hh, h - hh, hs, hs));                    // BottomRight
-        painter->drawRect(QRectF(-hh, h - hh, hs, hs));                       // BottomLeft
-
-        // Edge midpoints
-        painter->drawRect(QRectF(w / 2.0 - hh, -hh, hs, hs));                // Top
-        painter->drawRect(QRectF(w - hh, h / 2.0 - hh, hs, hs));             // Right
-        painter->drawRect(QRectF(w / 2.0 - hh, h - hh, hs, hs));             // Bottom
-        painter->drawRect(QRectF(-hh, h / 2.0 - hh, hs, hs));                // Left
-    }
+    // Resize-handle drawing moved to CanvasNodeChromeOverlay (M4.4) — one
+    // shared, zoom-constant overlay retargeted to the active node, instead
+    // of this triplicated per-item block. Do not re-add handle painting
+    // here; see CanvasNodeChromeOverlay.h.
 }
 
 QVector<QGraphicsItem *> GroupItem::containedItems() const
@@ -128,12 +121,35 @@ QVector<QGraphicsItem *> GroupItem::containedItems() const
             continue; // Skip other groups
         if (!dynamic_cast<QGraphicsObject *>(item))
             continue; // Skip non-objects (edges are QGraphicsPathItem, not QGraphicsObject)
-        const QPointF center = item->sceneBoundingRect().center();
-        if (myRect.contains(center)) {
+        // M4.3 / Appendix A: full containment of the candidate's own scene
+        // rect, not just its center point — a node straddling the group's
+        // edge is not a member (Obsidian's rule; the old center-test picked
+        // it up, which is exactly the bug M4.3 fixes).
+        if (myRect.contains(item->sceneBoundingRect())) {
             result.append(item);
         }
     }
     return result;
+}
+
+QStringList GroupItem::beginDragCapture()
+{
+    m_capturedChildren = containedItems();
+    m_capturing = true;
+
+    QStringList ids;
+    ids.reserve(m_capturedChildren.size());
+    for (auto *item : std::as_const(m_capturedChildren)) {
+        if (auto *node = dynamic_cast<CanvasNodeItem *>(item))
+            ids.append(node->nodeId());
+    }
+    return ids;
+}
+
+void GroupItem::endDragCapture()
+{
+    m_capturedChildren.clear();
+    m_capturing = false;
 }
 
 QVariant GroupItem::itemChange(GraphicsItemChange change, const QVariant &value)
@@ -143,14 +159,19 @@ QVariant GroupItem::itemChange(GraphicsItemChange change, const QVariant &value)
         const QPointF delta = newPos - m_lastPos;
         m_lastPos = newPos;
 
-        m_movingChildren = true;
-        for (auto *item : containedItems()) {
-            item->moveBy(delta.x(), delta.y());
+        // M4.3: membership is frozen at drag start (beginDragCapture), not
+        // re-tested here. If no capture is active, this position change came
+        // from something other than an in-progress drag of this group (undo/
+        // redo replay, a reactive setNodeData from the document, an arrow-key
+        // nudge) and children must NOT be dragged along.
+        if (m_capturing) {
+            m_movingChildren = true;
+            for (auto *item : std::as_const(m_capturedChildren)) {
+                item->moveBy(delta.x(), delta.y());
+            }
+            m_movingChildren = false;
         }
-        m_movingChildren = false;
     }
-    // Base handles edge-adjustment-on-move for this node itself (M4 replaces
-    // the whole center-test move-children scheme; kept verbatim for M1).
     return CanvasNodeItem::itemChange(change, value);
 }
 

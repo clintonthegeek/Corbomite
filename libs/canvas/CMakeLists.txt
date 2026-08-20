@@ -13,6 +13,7 @@ add_library(canvas STATIC
     src/CanvasScene.cpp
     src/CanvasCommands.cpp
     src/CanvasNodeItem.cpp
+    src/CanvasNodeChromeOverlay.cpp
     src/CanvasResizeTool.cpp
     src/CanvasDuplicateDragTool.cpp
     src/CanvasEdgeGestureTool.cpp
@@ -21,6 +22,7 @@ add_library(canvas STATIC
     src/GroupItem.cpp
     src/EdgeItem.cpp
     src/CanvasBezierStrategy.cpp
+    src/CanvasAlignmentStrategy.cpp
     src/FileCardItem.cpp
     src/CanvasFilePickerDialog.cpp
     include/canvas/CanvasDocument.h
@@ -28,6 +30,7 @@ add_library(canvas STATIC
     include/canvas/CanvasScene.h
     include/canvas/CanvasCommands.h
     include/canvas/CanvasNodeItem.h
+    include/canvas/CanvasNodeChromeOverlay.h
     include/canvas/CanvasResizeTool.h
     include/canvas/CanvasDuplicateDragTool.h
     include/canvas/CanvasEdgeGestureTool.h
@@ -36,6 +39,7 @@ add_library(canvas STATIC
     include/canvas/GroupItem.h
     include/canvas/EdgeItem.h
     include/canvas/CanvasBezierStrategy.h
+    include/canvas/CanvasAlignmentStrategy.h
     include/canvas/FileCardItem.h
     include/canvas/CanvasFilePickerDialog.h
 )

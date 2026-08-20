@@ -12,7 +12,6 @@ namespace Canvas {
 static constexpr qreal kCornerRadius = 8.0;
 static constexpr qreal kTitleBarHeight = 28.0;
 static constexpr qreal kTextPadding = 8.0;
-static constexpr qreal kHandleSize = 6.0;
 
 FileCardItem::FileCardItem(const CanvasNode &data, QGraphicsItem *parent)
     : CanvasNodeItem(data, parent)
@@ -126,25 +125,10 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     painter->setBrush(Qt::NoBrush);
     painter->drawRoundedRect(rect, kCornerRadius, kCornerRadius);
 
-    // 5. Resize handles when selected
-    if (selected) {
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(QColor(58, 134, 255));
-
-        const qreal hs = kHandleSize;
-        const qreal hh = hs / 2.0;
-        const qreal w = rect.width();
-        const qreal h = rect.height();
-
-        painter->drawRect(QRectF(-hh, -hh, hs, hs));
-        painter->drawRect(QRectF(w - hh, -hh, hs, hs));
-        painter->drawRect(QRectF(w - hh, h - hh, hs, hs));
-        painter->drawRect(QRectF(-hh, h - hh, hs, hs));
-        painter->drawRect(QRectF(w / 2.0 - hh, -hh, hs, hs));
-        painter->drawRect(QRectF(w - hh, h / 2.0 - hh, hs, hs));
-        painter->drawRect(QRectF(w / 2.0 - hh, h - hh, hs, hs));
-        painter->drawRect(QRectF(-hh, h / 2.0 - hh, hs, hs));
-    }
+    // Resize-handle drawing moved to CanvasNodeChromeOverlay (M4.4) — one
+    // shared, zoom-constant overlay retargeted to the active node, instead
+    // of this triplicated per-item block. Do not re-add handle painting
+    // here; see CanvasNodeChromeOverlay.h.
 }
 
 } // namespace Canvas

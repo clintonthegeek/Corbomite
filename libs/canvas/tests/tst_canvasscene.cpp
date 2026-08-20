@@ -11,6 +11,7 @@
 #include "canvas/CanvasDocument.h"
 #include "canvas/CanvasScene.h"
 #include "canvas/CanvasCommands.h"
+#include "canvas/CanvasNodeChromeOverlay.h"
 #include "canvas/TextCardItem.h"
 #include "canvas/FileCardItem.h"
 #include "canvas/GroupItem.h"
@@ -586,6 +587,94 @@ private Q_SLOTS:
         auto restored = doc.node(QStringLiteral("r1"));
         QCOMPARE(restored.width, 200);
         QCOMPARE(restored.height, 100);
+    }
+
+    void testResizeShiftAspectLockOnCorner()
+    {
+        // 200x100 (aspect 2:1). Drag the bottom-right corner with Shift
+        // held: freeform delta (150,10) would make it 350x110 (aspect
+        // ~3.18); aspect-lock should recompute one dimension so the
+        // result stays at 2:1 (within a small epsilon, per the plan's
+        // "plausible, visually-correct" bar).
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("ar1");
+        node.type = Canvas::NodeType::Text;
+        node.x = 0; node.y = 0; node.width = 200; node.height = 100;
+        doc.addNode(node);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *item = scene.textCardItem(QStringLiteral("ar1"));
+        QVERIFY(item != nullptr);
+        item->setSelected(true);
+
+        // Press near the bottom-right resize handle (within kResizeZone=8
+        // of both the right and bottom edges).
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(QPointF(198, 98));
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(QPointF(348, 108)); // delta (150, 10)
+        move.setLastScenePos(QPointF(198, 98));
+        move.setButtons(Qt::LeftButton);
+        move.setModifiers(Qt::ShiftModifier);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        const auto data = item->nodeData();
+        const qreal aspect = static_cast<qreal>(data.width) / data.height;
+        QVERIFY(qAbs(aspect - 2.0) < 0.05);
+        // Width moved more than height proportionally, so width should win
+        // (stay at the freeform 350) and height should be recomputed.
+        QCOMPARE(data.width, 350);
+        QCOMPARE(data.height, 175);
+    }
+
+    void testResizeShiftHasNoAspectLockOnSingleEdgeHandle()
+    {
+        // A single-edge handle (Right) only ever changes one dimension —
+        // Shift must not do anything special there.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("ar2");
+        node.type = Canvas::NodeType::Text;
+        node.x = 0; node.y = 0; node.width = 200; node.height = 100;
+        doc.addNode(node);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *item = scene.textCardItem(QStringLiteral("ar2"));
+        QVERIFY(item != nullptr);
+        item->setSelected(true);
+
+        // Press on the right edge but off-center (Right handle, not a
+        // corner): y = 75 is far from both top/bottom (kResizeZone=8) so
+        // it's not a corner, and far enough from the right-edge midpoint
+        // anchor (200,50) to stay clear of CanvasScene's 12px anchor-hover
+        // route (which otherwise wins a press near a face-midpoint anchor —
+        // see the addAnchorRoute() comment in CanvasScene.cpp). x = 198 is
+        // within the right-edge resize zone.
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(QPointF(198, 75));
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(QPointF(348, 75)); // delta (150, 0), right-edge only
+        move.setLastScenePos(QPointF(198, 75));
+        move.setButtons(Qt::LeftButton);
+        move.setModifiers(Qt::ShiftModifier);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        const auto data = item->nodeData();
+        QCOMPARE(data.width, 350);
+        QCOMPARE(data.height, 100); // unaffected — no aspect-lock on a single edge
     }
 
     void testEdgeFollowsNodeMove()
@@ -1584,6 +1673,366 @@ private Q_SLOTS:
         QVERIFY(itemUndone != nullptr);
         QCOMPARE(itemUndone->sourceNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card1"))));
         QCOMPARE(itemUndone->targetNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card2"))));
+    }
+
+    void testArrowNudgeUsesGridSpacingAndIsUndoable()
+    {
+        // No QGraphicsView attached -> keyPressEvent's scale fallback (1.0)
+        // applies, so gridSpacingForScale(1.0) == 20 (Appendix A ladder).
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("n1");
+        node.type = Canvas::NodeType::Text;
+        node.x = 100; node.y = 100; node.width = 100; node.height = 60;
+        doc.addNode(node);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *item = scene.textCardItem(QStringLiteral("n1"));
+        QVERIFY(item != nullptr);
+        item->setSelected(true);
+
+        QCOMPARE(scene.undoStack()->count(), 0);
+
+        QKeyEvent right(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
+        QCoreApplication::sendEvent(&scene, &right);
+
+        QCOMPARE(item->pos(), QPointF(120, 100)); // +20 (grid step at scale 1.0)
+        auto afterOne = doc.node(QStringLiteral("n1"));
+        QCOMPARE(afterOne.x, 120);
+        QCOMPARE(afterOne.y, 100);
+        // Real undo entry (the pre-M4.2 code never pushed anything at all).
+        QVERIFY(scene.undoStack()->count() >= 1);
+
+        scene.undoStack()->undo();
+        auto restored = doc.node(QStringLiteral("n1"));
+        QCOMPARE(restored.x, 100);
+        QCOMPARE(restored.y, 100);
+        QCOMPARE(item->pos(), QPointF(100, 100));
+    }
+
+    void testArrowNudgeShiftMultipliesByFive()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("n2");
+        node.type = Canvas::NodeType::Text;
+        node.x = 0; node.y = 0; node.width = 100; node.height = 60;
+        doc.addNode(node);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *item = scene.textCardItem(QStringLiteral("n2"));
+        QVERIFY(item != nullptr);
+        item->setSelected(true);
+
+        QKeyEvent down(QEvent::KeyPress, Qt::Key_Down, Qt::ShiftModifier);
+        QCoreApplication::sendEvent(&scene, &down);
+
+        // 20 (grid step at fallback scale 1.0) x5 = 100.
+        QCOMPARE(item->pos(), QPointF(0, 100));
+        auto updated = doc.node(QStringLiteral("n2"));
+        QCOMPARE(updated.y, 100);
+    }
+
+    void testIsDragActiveDuringNodeMoveDrag()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("d1");
+        node.type = Canvas::NodeType::Text;
+        node.x = 0; node.y = 0; node.width = 100; node.height = 60;
+        doc.addNode(node);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *item = scene.textCardItem(QStringLiteral("d1"));
+        QVERIFY(item != nullptr);
+        item->setSelected(true);
+
+        QVERIFY(!scene.isDragActive());
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(QPointF(50, 30));
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+        QVERIFY(!scene.isDragActive()); // dragBegan only fires once movement clears a small threshold
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(QPointF(80, 60));
+        move.setLastScenePos(QPointF(50, 30));
+        move.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move);
+        QVERIFY(scene.isDragActive());
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(QPointF(80, 60));
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+        QVERIFY(!scene.isDragActive());
+    }
+
+    void testGroupDragMovesFullyContainedOnly()
+    {
+        // M4.3: group membership is full-containment (group.sceneRect
+        // contains node.sceneRect), captured once at drag start -- not the
+        // old live center-test. "b1" is the regression case: its CENTER is
+        // inside the group's rect but its full bounding rect straddles the
+        // group's right edge, so it must never be dragged along even though
+        // the old center-test code would have moved it.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode group;
+        group.id = QStringLiteral("g1"); group.type = Canvas::NodeType::Group;
+        group.x = 0; group.y = 0; group.width = 400; group.height = 300;
+        doc.addNode(group);
+
+        Canvas::CanvasNode fullyInside;
+        fullyInside.id = QStringLiteral("a1"); fullyInside.type = Canvas::NodeType::Text;
+        fullyInside.x = 50; fullyInside.y = 50; fullyInside.width = 100; fullyInside.height = 60;
+        doc.addNode(fullyInside);
+
+        Canvas::CanvasNode straddling;
+        straddling.id = QStringLiteral("b1"); straddling.type = Canvas::NodeType::Text;
+        // Center (370, 80) is inside the group's (0,0)-(400,300) rect, but
+        // the right edge (420) pokes out past the group's right edge (400).
+        straddling.x = 320; straddling.y = 50; straddling.width = 100; straddling.height = 60;
+        doc.addNode(straddling);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *groupItem = scene.groupItem(QStringLiteral("g1"));
+        auto *aItem = scene.textCardItem(QStringLiteral("a1"));
+        auto *bItem = scene.textCardItem(QStringLiteral("b1"));
+        QVERIFY(groupItem && aItem && bItem);
+
+        // Press on the group at a point that doesn't overlap either card.
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(QPointF(10, 200));
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(QPointF(15, 205));
+        move.setLastScenePos(QPointF(10, 200));
+        move.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(QPointF(15, 205));
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QCOMPARE(groupItem->pos(), QPointF(5, 5));
+        QCOMPARE(aItem->pos(), QPointF(55, 55));   // dragged along with the group
+        QCOMPARE(bItem->pos(), QPointF(320, 50));  // untouched -- not fully contained
+
+        auto docA = doc.node(QStringLiteral("a1"));
+        QCOMPARE(docA.x, 55);
+        QCOMPARE(docA.y, 55);
+        auto docB = doc.node(QStringLiteral("b1"));
+        QCOMPARE(docB.x, 320);
+        QCOMPARE(docB.y, 50);
+
+        // Undo restores both the group and its captured member.
+        scene.undoStack()->undo();
+        QCOMPARE(groupItem->pos(), QPointF(0, 0));
+        QCOMPARE(aItem->pos(), QPointF(50, 50));
+        QCOMPARE(bItem->pos(), QPointF(320, 50));
+    }
+
+    void testGroupDragMembershipFrozenDuringGesture()
+    {
+        // M4.3 core guarantee: membership is computed ONCE at drag start,
+        // not re-evaluated as the group sweeps across the canvas. "d2"
+        // starts fully outside the group but ends up geometrically
+        // contained by the group's final position -- proving this would
+        // matter if membership were live-recomputed -- yet it must not move
+        // because it wasn't part of the capture taken at drag start.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode group;
+        group.id = QStringLiteral("g2"); group.type = Canvas::NodeType::Group;
+        group.x = 0; group.y = 0; group.width = 400; group.height = 300;
+        doc.addNode(group);
+
+        Canvas::CanvasNode inside;
+        inside.id = QStringLiteral("a2"); inside.type = Canvas::NodeType::Text;
+        inside.x = 50; inside.y = 50; inside.width = 100; inside.height = 60;
+        doc.addNode(inside);
+
+        Canvas::CanvasNode outside;
+        outside.id = QStringLiteral("d2"); outside.type = Canvas::NodeType::Text;
+        // Fully outside the group's starting rect (0,0)-(400,300).
+        outside.x = 450; outside.y = 50; outside.width = 100; outside.height = 60;
+        doc.addNode(outside);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *groupItem = scene.groupItem(QStringLiteral("g2"));
+        auto *aItem = scene.textCardItem(QStringLiteral("a2"));
+        auto *dItem = scene.textCardItem(QStringLiteral("d2"));
+        QVERIFY(groupItem && aItem && dItem);
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(QPointF(10, 200));
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        // First move crosses the drag threshold and shifts the group by
+        // (150, 0) -- dragBegan fires here, capturing membership against the
+        // group's ORIGINAL (0,0) position, before this move is applied.
+        QGraphicsSceneMouseEvent move1(QEvent::GraphicsSceneMouseMove);
+        move1.setScenePos(QPointF(160, 200));
+        move1.setLastScenePos(QPointF(10, 200));
+        move1.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move1);
+
+        // Second move shifts the group a further (50, 0) -- its final rect
+        // is (200,0)-(600,300), which now geometrically contains d2's
+        // center (500, 80). Under the old live center-test this frame would
+        // have picked d2 up; under M4.3 capture-once semantics it must not.
+        QGraphicsSceneMouseEvent move2(QEvent::GraphicsSceneMouseMove);
+        move2.setScenePos(QPointF(210, 200));
+        move2.setLastScenePos(QPointF(160, 200));
+        move2.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move2);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(QPointF(210, 200));
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QCOMPARE(groupItem->pos(), QPointF(200, 0));
+        QCOMPARE(aItem->pos(), QPointF(250, 50));  // captured at drag start, dragged along
+        QCOMPARE(dItem->pos(), QPointF(450, 50));  // never captured -- must stay put
+
+        auto docD = doc.node(QStringLiteral("d2"));
+        QCOMPARE(docD.x, 450);
+        QCOMPARE(docD.y, 50);
+    }
+
+    void testGroupZOrderByArea()
+    {
+        // Appendix A "Group z-order": zValue = -width*height, so the bigger
+        // group renders further back (more negative zValue).
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode bigGroup;
+        bigGroup.id = QStringLiteral("big"); bigGroup.type = Canvas::NodeType::Group;
+        bigGroup.x = 0; bigGroup.y = 0; bigGroup.width = 400; bigGroup.height = 300;
+        doc.addNode(bigGroup);
+
+        Canvas::CanvasNode smallGroup;
+        smallGroup.id = QStringLiteral("small"); smallGroup.type = Canvas::NodeType::Group;
+        smallGroup.x = 1000; smallGroup.y = 1000; smallGroup.width = 200; smallGroup.height = 150;
+        doc.addNode(smallGroup);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *bigItem = scene.groupItem(QStringLiteral("big"));
+        auto *smallItem = scene.groupItem(QStringLiteral("small"));
+        QVERIFY(bigItem && smallItem);
+
+        QCOMPARE(bigItem->zValue(), qreal(-(400 * 300)));
+        QCOMPARE(smallItem->zValue(), qreal(-(200 * 150)));
+        QVERIFY(bigItem->zValue() < smallItem->zValue()); // bigger group further back
+
+        // Resize the small group past the big one -- its z-value must update
+        // and flip the ordering.
+        Canvas::CanvasNode resized = doc.node(QStringLiteral("small"));
+        resized.width = 500; resized.height = 400;
+        doc.updateNode(resized);
+
+        QCOMPARE(smallItem->zValue(), qreal(-(500 * 400)));
+        QVERIFY(smallItem->zValue() < bigItem->zValue()); // now the bigger one
+    }
+
+    void testChromeOverlayRetargetsOnSelection()
+    {
+        // M4.4 — the shared chrome overlay must retarget to whichever node
+        // is the sole selection, and hide when nothing (or more than one
+        // node) is selected.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode a;
+        a.id = QStringLiteral("a"); a.type = Canvas::NodeType::Text;
+        a.x = 0; a.y = 0; a.width = 200; a.height = 80;
+        doc.addNode(a);
+
+        Canvas::CanvasNode b;
+        b.id = QStringLiteral("b"); b.type = Canvas::NodeType::Text;
+        b.x = 500; b.y = 300; b.width = 250; b.height = 60;
+        doc.addNode(b);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *itemA = scene.textCardItem(QStringLiteral("a"));
+        auto *itemB = scene.textCardItem(QStringLiteral("b"));
+        QVERIFY(itemA && itemB);
+
+        auto *overlay = scene.chromeOverlay();
+        QVERIFY(overlay);
+        QVERIFY(overlay->target() == nullptr); // nothing selected initially
+
+        itemA->setSelected(true);
+        QCOMPARE(overlay->target(), static_cast<Canvas::CanvasNodeItem *>(itemA));
+        QVERIFY(overlay->handlesVisible());
+        QCOMPARE(overlay->pos(), itemA->sceneBoundingRect().topLeft());
+
+        itemA->setSelected(false);
+        itemB->setSelected(true);
+        QCOMPARE(overlay->target(), static_cast<Canvas::CanvasNodeItem *>(itemB));
+        QCOMPARE(overlay->pos(), itemB->sceneBoundingRect().topLeft());
+
+        // Multi-select -- chrome doesn't support a multi-selection target,
+        // must clear.
+        itemA->setSelected(true);
+        QVERIFY(overlay->target() == nullptr);
+
+        itemA->setSelected(false);
+        itemB->setSelected(false);
+        QVERIFY(overlay->target() == nullptr);
+    }
+
+    void testChromeOverlayConnectionDotsMatchAnchors()
+    {
+        // M4.4 — the connection-dot positions must come from the exact same
+        // anchors() call CreateEdgeTool's hover hit-test uses, so there is
+        // no drift between "where a dot is drawn" and "where a hover-near
+        // gesture would actually start an edge."
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode node;
+        node.id = QStringLiteral("n1"); node.type = Canvas::NodeType::Text;
+        node.x = 40; node.y = 60; node.width = 300; node.height = 120;
+        doc.addNode(node);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *item = scene.textCardItem(QStringLiteral("n1"));
+        QVERIFY(item);
+
+        auto *overlay = scene.chromeOverlay();
+        QVERIFY(overlay);
+
+        item->setSelected(true);
+        QCOMPARE(overlay->target(), static_cast<Canvas::CanvasNodeItem *>(item));
+
+        const auto expectedAnchors = item->anchors();
+        const auto dotPositions = overlay->connectionDotScenePositions();
+        QCOMPARE(dotPositions.size(), expectedAnchors.size());
+        for (int i = 0; i < expectedAnchors.size(); ++i)
+            QCOMPARE(dotPositions.at(i), expectedAnchors.at(i).scenePos);
     }
 };
 
