@@ -16,6 +16,12 @@ add_test(NAME tst_canvasscene COMMAND tst_canvasscene)
 target_link_libraries(tst_canvasscene PRIVATE Qt6::Test Qt6::Widgets canvas Corbomite::Core)
 set_tests_properties(tst_canvasscene PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster M Task M3.1 — Obsidian-exact bezier strategy.
+add_executable(tst_canvasbezierstrategy tst_canvasbezierstrategy.cpp)
+add_test(NAME tst_canvasbezierstrategy COMMAND tst_canvasbezierstrategy)
+target_link_libraries(tst_canvasbezierstrategy PRIVATE Qt6::Test canvas)
+set_tests_properties(tst_canvasbezierstrategy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster R Task 3.5 — CanvasScene export pipeline (image + SVG).
 add_executable(tst_canvas_export tst_canvas_export.cpp)
 add_test(NAME tst_canvas_export COMMAND tst_canvas_export)

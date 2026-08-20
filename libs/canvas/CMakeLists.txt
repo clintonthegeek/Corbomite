@@ -15,9 +15,12 @@ add_library(canvas STATIC
     src/CanvasNodeItem.cpp
     src/CanvasResizeTool.cpp
     src/CanvasDuplicateDragTool.cpp
+    src/CanvasEdgeGestureTool.cpp
+    src/ReconnectEdgeTool.cpp
     src/TextCardItem.cpp
     src/GroupItem.cpp
     src/EdgeItem.cpp
+    src/CanvasBezierStrategy.cpp
     src/FileCardItem.cpp
     src/CanvasFilePickerDialog.cpp
     include/canvas/CanvasDocument.h
@@ -27,9 +30,12 @@ add_library(canvas STATIC
     include/canvas/CanvasNodeItem.h
     include/canvas/CanvasResizeTool.h
     include/canvas/CanvasDuplicateDragTool.h
+    include/canvas/CanvasEdgeGestureTool.h
+    include/canvas/ReconnectEdgeTool.h
     include/canvas/TextCardItem.h
     include/canvas/GroupItem.h
     include/canvas/EdgeItem.h
+    include/canvas/CanvasBezierStrategy.h
     include/canvas/FileCardItem.h
     include/canvas/CanvasFilePickerDialog.h
 )

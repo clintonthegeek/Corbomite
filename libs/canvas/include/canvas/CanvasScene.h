@@ -12,6 +12,7 @@
 class QIODevice;
 class QMenu;
 class QUndoStack;
+class QUndoCommand;
 class QGraphicsProxyWidget;
 class QGraphicsSceneDragDropEvent;
 class QTextEdit;
@@ -24,8 +25,10 @@ namespace Graffodil {
 class CompositeTool;
 class SelectMoveTool;
 class PanZoomTool;
+class CreateEdgeTool;
 class IGraphNode;
 class IGraphEdge;
+enum class ArrowEnd;
 }
 
 namespace Canvas {
@@ -38,6 +41,8 @@ class GroupItem;
 class EdgeItem;
 class CanvasResizeTool;
 class CanvasDuplicateDragTool;
+class CanvasEdgeGestureTool;
+class ReconnectEdgeTool;
 
 class CanvasScene : public Graffodil::GraphScene {
     Q_OBJECT
@@ -80,6 +85,33 @@ public:
     /// returned, pushes a CmdAddCard for a 400x400 file node (Appendix A
     /// default) at scenePos, storing the path vault-relative.
     void createFileCardViaPicker(const QPointF &scenePos);
+
+    /// M3.3 testable core of the drop-on-empty create-and-connect menu:
+    /// pushes one compound undo command (CmdAddCard + CmdAddEdge, parented
+    /// under a single QUndoCommand) that adds `node` and connects it to
+    /// `source` from `sourceAnchorId`. `node`'s id/type/geometry must
+    /// already be filled in by the caller (menu action or test); toSide is
+    /// computed here via pickSideToward() so it faces `source`. Public and
+    /// separately callable — same rationale as createFileCardViaPicker()
+    /// above — so tests can exercise the compound-command logic without
+    /// driving QMenu::exec()'s nested event loop.
+    void addCardConnectedTo(CanvasNode node, Graffodil::IGraphNode *source,
+                             const QString &sourceAnchorId);
+
+    /// M3.5 testable core of the Direction submenu: pushes a CmdSetEdgeEnds
+    /// that sets `edgeId`'s fromEnd/toEnd to the given pair. Public and
+    /// separately callable — same rationale as addCardConnectedTo() above —
+    /// so tests can exercise it without driving QMenu::exec()'s nested event
+    /// loop. No-op if the edge doesn't exist.
+    void setEdgeEnds(const QString &edgeId, EndType fromEnd, EndType toEnd);
+
+    /// M3.5 shared "build a reverse command for one edge id" logic, used by
+    /// both the context-menu "Reverse Direction" action and the R-key
+    /// onReverseRequested() handler (and directly by tests, same rationale
+    /// as setEdgeEnds()/addCardConnectedTo() above). If `parent` is
+    /// non-null, the CmdReverseEdge is parented under it (compound step)
+    /// rather than pushed on the undo stack directly.
+    void reverseEdge(const QString &edgeId, QUndoCommand *parent = nullptr);
 
     // M2.3 — resolves an absolute filesystem path (from a text/uri-list
     // drag-drop) to a vault-relative path, or returns an empty string if
@@ -188,6 +220,22 @@ private Q_SLOTS:
                             const QList<Graffodil::IGraphEdge *> &edges);
     void onResizeCommitted(const QString &nodeId, const QRect &oldRect, const QRect &newRect);
 
+    // --- M3.2 edge creation gesture (Graffodil::CreateEdgeTool -> CmdAddEdge) ---
+    void onEdgeRequested(Graffodil::IGraphNode *source, const QString &sourceAnchorId,
+                          Graffodil::IGraphNode *target, const QString &targetAnchorId);
+
+    // --- M3.3 drop-on-empty -> create-and-connect menu ---
+    void onEdgeDroppedOnEmpty(Graffodil::IGraphNode *source, const QString &sourceAnchorId,
+                               const QPointF &scenePos);
+
+    // --- M3.4 endpoint reconnect (ReconnectEdgeTool -> CmdReconnectEdge / CmdRemoveEdge) ---
+    void onReconnectRequested(const QString &edgeId, Graffodil::ArrowEnd end,
+                               Graffodil::IGraphNode *newNode, const QString &newAnchorId);
+    void onReconnectDroppedOnEmpty(const QString &edgeId);
+
+    // --- M3.5 direction menu / R-key reverse ---
+    void onReverseRequested(const QList<Graffodil::IGraphEdge *> &edges);
+
 private:
     void populateFromDocument();
     void clearAllItems();
@@ -206,6 +254,9 @@ private:
     Graffodil::PanZoomTool *m_panZoomTool = nullptr;
     CanvasResizeTool *m_resizeTool = nullptr;
     CanvasDuplicateDragTool *m_duplicateDragTool = nullptr;
+    Graffodil::CreateEdgeTool *m_createEdgeTool = nullptr;
+    ReconnectEdgeTool *m_reconnectTool = nullptr;
+    CanvasEdgeGestureTool *m_edgeGestureTool = nullptr;
 
     QUndoStack *m_undoStack = nullptr;
     Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;

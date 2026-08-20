@@ -97,7 +97,51 @@ private:
     CanvasEdge m_savedEdge;
 };
 
-// 7. Edit text content of a card
+// 7. Reconnect an edge endpoint to a different node/side (M3.4)
+class CmdReconnectEdge : public QUndoCommand {
+public:
+    CmdReconnectEdge(CanvasDocument *doc, const CanvasEdge &oldEdge, const CanvasEdge &newEdge,
+                      QUndoCommand *parent = nullptr);
+    void redo() override;
+    void undo() override;
+
+private:
+    CanvasDocument *m_doc;
+    CanvasEdge m_oldEdge;
+    CanvasEdge m_newEdge;
+};
+
+// 7b. Set an edge's fromEnd/toEnd (Direction submenu, M3.5)
+class CmdSetEdgeEnds : public QUndoCommand {
+public:
+    CmdSetEdgeEnds(CanvasDocument *doc, const CanvasEdge &oldEdge, const CanvasEdge &newEdge,
+                   QUndoCommand *parent = nullptr);
+    void redo() override;
+    void undo() override;
+
+private:
+    CanvasDocument *m_doc;
+    CanvasEdge m_oldEdge;
+    CanvasEdge m_newEdge;
+};
+
+// 7c. Reverse an edge's direction (swaps fromNode/fromSide/fromEnd with
+// toNode/toSide/toEnd). Self-inverse: redo()/undo() both re-read the edge
+// from the document and swap it again (M3.5).
+class CmdReverseEdge : public QUndoCommand {
+public:
+    CmdReverseEdge(CanvasDocument *doc, const QString &edgeId, QUndoCommand *parent = nullptr);
+    void redo() override;
+    void undo() override;
+
+private:
+    void swapAndApply();
+
+    CanvasDocument *m_doc;
+    QString m_edgeId;
+};
+
+// 8. Edit text content of a card
 class CmdEditText : public QUndoCommand {
 public:
     CmdEditText(CanvasDocument *doc, const QString &nodeId,
@@ -112,7 +156,7 @@ private:
     QString m_newText;
 };
 
-// 8. Change card color
+// 9. Change card color
 class CmdChangeColor : public QUndoCommand {
 public:
     CmdChangeColor(CanvasDocument *doc, const QString &nodeId,

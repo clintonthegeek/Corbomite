@@ -3,8 +3,10 @@
 #include "canvas/CanvasCommands.h"
 #include "canvas/CanvasDocument.h"
 #include "canvas/CanvasDuplicateDragTool.h"
+#include "canvas/CanvasEdgeGestureTool.h"
 #include "canvas/CanvasNodeItem.h"
 #include "canvas/CanvasResizeTool.h"
+#include "canvas/ReconnectEdgeTool.h"
 #include "canvas/TextCardItem.h"
 #include "canvas/FileCardItem.h"
 #include "canvas/GroupItem.h"
@@ -15,15 +17,18 @@
 #include <graffodil/CompositeTool.h>
 #include <graffodil/SelectMoveTool.h>
 #include <graffodil/PanZoomTool.h>
+#include <graffodil/CreateEdgeTool.h>
 #include <graffodil/IGraphNode.h>
 #include <graffodil/IGraphEdge.h>
 
 #include <QApplication>
 #include <QClipboard>
+#include <QCursor>
 #include <QGraphicsProxyWidget>
 #include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneDragDropEvent>
 #include <QGraphicsSceneMouseEvent>
+#include <QGraphicsView>
 #include <QGuiApplication>
 #include <QIODevice>
 #include <QImage>
@@ -67,7 +72,37 @@ CanvasScene::CanvasScene(QObject *parent)
     m_panZoomTool = new Graffodil::PanZoomTool(this);
     m_resizeTool = new CanvasResizeTool(this);
     m_duplicateDragTool = new CanvasDuplicateDragTool(this);
+    m_createEdgeTool = new Graffodil::CreateEdgeTool(this);
+    // Obsidian-strict: releasing without a drag cancels edge creation
+    // rather than falling into click-click mode (plan M3.2).
+    m_createEdgeTool->setDragOnly(true);
+    // M3.4: 12.0 is CreateEdgeTool's own default anchor-hover radius, but
+    // set it explicitly now that it's routed via m_edgeGestureTool instead
+    // of being addAnchorRoute()'s direct target — that call used to
+    // auto-sync this via its `qobject_cast<CreateEdgeTool*>` special case,
+    // which no longer fires once the wrapper is what's registered.
+    m_createEdgeTool->setAnchorHoverRadius(12.0);
+    m_reconnectTool = new ReconnectEdgeTool(this);
+    // M3.4 dispatcher: decides per-press between reconnecting an existing
+    // edge's endpoint and creating a new edge — see CanvasEdgeGestureTool's
+    // header comment for why this can't be expressed as two ordinary
+    // CompositeTool routes.
+    m_edgeGestureTool = new CanvasEdgeGestureTool(m_createEdgeTool, m_reconnectTool, this);
     m_compositeTool = new Graffodil::CompositeTool(this);
+
+    // M3.2/M3.4 — route left-button presses within the anchor hover radius
+    // to the edge-gesture dispatcher (create vs. reconnect). addAnchorRoute()
+    // always prepends, so this wins over every route added below regardless
+    // of call order — but it's placed first anyway for readability. This IS
+    // load-bearing versus the resize route: CanvasNodeItem::resizeModeAtPos()
+    // treats an entire selected edge (not just its corners) as a resize zone
+    // (kResizeZone=8 from either the left/right or top/bottom face), so a
+    // press at a selected node's face-midpoint anchor is simultaneously a
+    // valid resize-edge hit and an anchor hit. Anchor creation/reconnect
+    // should win there (more specific, more intentional gesture) — verified
+    // via findResizeTarget() in CanvasResizeTool.cpp before relying on
+    // addAnchorRoute()'s prepend.
+    m_compositeTool->addAnchorRoute(m_edgeGestureTool, 12.0);
 
     // Same bindings as Graffodil::DefaultGraphTool, with the resize route
     // prepended ahead of select/move.
@@ -120,10 +155,22 @@ CanvasScene::CanvasScene(QObject *parent)
             this, &CanvasScene::onDragEnded);
     connect(m_selectTool, &Graffodil::SelectMoveTool::deleteRequested,
             this, &CanvasScene::onDeleteRequested);
-    // reverseRequested (R key) intentionally ignored in M1 — new behavior,
-    // wired through an edge-direction command in M3 (spec §3.6).
+    // M3.5 — R-key reverse, wired through the same CmdReverseEdge logic as
+    // the "Reverse Direction" context-menu action (spec §3.6).
+    connect(m_selectTool, &Graffodil::SelectMoveTool::reverseRequested,
+            this, &CanvasScene::onReverseRequested);
     connect(m_resizeTool, &CanvasResizeTool::resizeCommitted,
             this, &CanvasScene::onResizeCommitted);
+    connect(m_createEdgeTool, &Graffodil::CreateEdgeTool::edgeRequested,
+            this, &CanvasScene::onEdgeRequested);
+    // M3.3 — drop-on-empty create-and-connect menu.
+    connect(m_createEdgeTool, &Graffodil::CreateEdgeTool::edgeDroppedOnEmpty,
+            this, &CanvasScene::onEdgeDroppedOnEmpty);
+    // M3.4 — endpoint reconnect.
+    connect(m_reconnectTool, &ReconnectEdgeTool::reconnectRequested,
+            this, &CanvasScene::onReconnectRequested);
+    connect(m_reconnectTool, &ReconnectEdgeTool::reconnectDroppedOnEmpty,
+            this, &CanvasScene::onReconnectDroppedOnEmpty);
 }
 
 CanvasScene::~CanvasScene()
@@ -657,9 +704,33 @@ void CanvasScene::onEdgeChanged(const QString &id)
     if (!m_document)
         return;
 
-    if (auto *item = edgeItem(id)) {
-        item->setEdgeData(m_document->edge(id));
+    const CanvasEdge newData = m_document->edge(id);
+    auto *item = edgeItem(id);
+    if (!item)
+        return;
+
+    const CanvasEdge oldData = item->edgeData();
+    if (oldData.fromNode != newData.fromNode || oldData.toNode != newData.toNode) {
+        // M3.4: Graffodil::GraphEdgeItem's source/target nodes are fixed at
+        // construction (m_source/m_target are private, no setter) — a
+        // CmdReconnectEdge that retargets an end to a different node can't
+        // be applied by EdgeItem::setEdgeData()'s in-place mutation (it only
+        // updates anchor-id strings on the SAME nodes). Treat a node-changing
+        // update as remove+recreate, same as onEdgeAdded, rather than
+        // silently leaving the item pointed at its old node.
+        auto *from = connectableItem(newData.fromNode);
+        auto *to = connectableItem(newData.toNode);
+        removeEdgeItem(id);
+        if (from && to)
+            addEdgeItemToScene(from, to, newData);
+        return;
     }
+
+    // Fast path: color/label/end changes on the same two nodes (existing
+    // "Edit Label" menu action, M3.5 direction submenu via CmdSetEdgeEnds)
+    // stay in-place. "Reverse Direction"/R-key (CmdReverseEdge) swap
+    // fromNode/toNode, so those hit the remove+recreate branch above.
+    item->setEdgeData(newData);
 }
 
 // ---------------------------------------------------------------------------
@@ -734,6 +805,197 @@ void CanvasScene::onResizeCommitted(const QString &nodeId, const QRect &oldRect,
     if (!m_document)
         return;
     m_undoStack->push(new CmdResizeCard(m_document, nodeId, oldRect, newRect));
+}
+
+void CanvasScene::setEdgeEnds(const QString &edgeId, EndType fromEnd, EndType toEnd)
+{
+    if (!m_document)
+        return;
+    const CanvasEdge oldData = m_document->edge(edgeId);
+    if (oldData.id.isEmpty())
+        return;
+    CanvasEdge newData = oldData;
+    newData.fromEnd = fromEnd;
+    newData.toEnd = toEnd;
+    m_undoStack->push(new CmdSetEdgeEnds(m_document, oldData, newData));
+}
+
+void CanvasScene::reverseEdge(const QString &edgeId, QUndoCommand *parent)
+{
+    if (!m_document)
+        return;
+    auto *cmd = new CmdReverseEdge(m_document, edgeId, parent);
+    if (!parent)
+        m_undoStack->push(cmd);
+}
+
+void CanvasScene::onReverseRequested(const QList<Graffodil::IGraphEdge *> &edges)
+{
+    if (!m_document || edges.isEmpty())
+        return;
+
+    // Single edge: push CmdReverseEdge directly so the undo-stack label
+    // stays "Reverse Direction" rather than being wrapped in an extra
+    // compound step. Multiple edges (R-press over a multi-edge selection):
+    // one compound undo step, same idiom as "Delete Selection"/"Drop Files".
+    if (edges.size() == 1) {
+        reverseEdge(edges.first()->edgeId());
+        return;
+    }
+
+    auto *parentCmd = new QUndoCommand(i18n("Reverse Direction"));
+    for (auto *edge : edges)
+        reverseEdge(edge->edgeId(), parentCmd);
+    m_undoStack->push(parentCmd);
+}
+
+void CanvasScene::onEdgeRequested(Graffodil::IGraphNode *source, const QString &sourceAnchorId,
+                                   Graffodil::IGraphNode *target, const QString &targetAnchorId)
+{
+    if (!m_document || !source || !target)
+        return;
+
+    // CreateEdgeTool::commitEdge/mouseReleaseEvent already reject a
+    // same-node gesture as a silent cancel before emitting edgeRequested
+    // (self-loop is never emitted) — this is defensive belt-and-suspenders,
+    // cheap enough to keep.
+    if (source == target)
+        return;
+
+    CanvasEdge edge;
+    edge.id = CanvasDocument::generateId();
+    edge.fromNode = source->nodeId();
+    edge.toNode = target->nodeId();
+    edge.fromSide = sideFromString(sourceAnchorId);
+    edge.toSide = sideFromString(targetAnchorId);
+    // fromEnd/toEnd already default to None/Arrow (Appendix A/B rule 2) —
+    // left unset rather than redundantly assigned.
+
+    m_undoStack->push(new CmdAddEdge(m_document, edge));
+}
+
+void CanvasScene::addCardConnectedTo(CanvasNode node, Graffodil::IGraphNode *source,
+                                       const QString &sourceAnchorId)
+{
+    if (!m_document || !source)
+        return;
+
+    // toSide = side facing the source (Appendix A/Phase M3.3): pick the new
+    // node's own face using the direction vector FROM the new node's center
+    // TOWARD the source's center — mirrors CanvasDocument.cpp's symmetric
+    // self-heal call for unresolved-side edges on load.
+    const QRectF sourceRect = source->nodeBoundingRect();
+    const double newCx = node.x + node.width / 2.0;
+    const double newCy = node.y + node.height / 2.0;
+    const double srcCx = sourceRect.center().x();
+    const double srcCy = sourceRect.center().y();
+    const Side toSide = pickSideToward(node.width, node.height, srcCx - newCx, srcCy - newCy);
+
+    CanvasEdge edge;
+    edge.id = CanvasDocument::generateId();
+    edge.fromNode = source->nodeId();
+    edge.toNode = node.id;
+    edge.fromSide = sideFromString(sourceAnchorId);
+    edge.toSide = toSide;
+    // fromEnd/toEnd already default to None/Arrow (Appendix A/B rule 2) —
+    // left unset rather than redundantly assigned.
+
+    auto *parentCmd = new QUndoCommand(i18n("New Connected Card"));
+    new CmdAddCard(m_document, node, parentCmd);
+    new CmdAddEdge(m_document, edge, parentCmd);
+    m_undoStack->push(parentCmd);
+
+    if (auto *item = connectableItem(node.id)) {
+        clearSelection();
+        item->setSelected(true);
+    }
+}
+
+void CanvasScene::onEdgeDroppedOnEmpty(Graffodil::IGraphNode *source, const QString &sourceAnchorId,
+                                         const QPointF &scenePos)
+{
+    if (!m_document || !source)
+        return;
+
+    QPoint screenPos;
+    const auto sceneViews = views();
+    if (!sceneViews.isEmpty()) {
+        QGraphicsView *view = sceneViews.first();
+        screenPos = view->viewport()->mapToGlobal(view->mapFromScene(scenePos));
+    } else {
+        screenPos = QCursor::pos();
+    }
+
+    QMenu menu;
+    menu.addAction(i18n("New text card"), [this, scenePos, source, sourceAnchorId]() {
+        if (!m_document)
+            return;
+        CanvasNode node;
+        node.id = CanvasDocument::generateId();
+        node.type = NodeType::Text;
+        node.x = qRound(scenePos.x());
+        node.y = qRound(scenePos.y());
+        node.width = 250;
+        node.height = 60;
+        addCardConnectedTo(node, source, sourceAnchorId);
+    });
+
+    menu.addAction(i18n("New file card…"), [this, scenePos, source, sourceAnchorId]() {
+        if (!m_document || !m_filePickerRequestor)
+            return;
+        const QString path = m_filePickerRequestor();
+        if (path.isEmpty())
+            return;
+
+        // Appendix A default file-card size: 400x400.
+        CanvasNode node;
+        node.id = CanvasDocument::generateId();
+        node.type = NodeType::File;
+        node.file = path; // vault-relative (disk contract §3.4)
+        node.x = qRound(scenePos.x());
+        node.y = qRound(scenePos.y());
+        node.width = 400;
+        node.height = 400;
+        addCardConnectedTo(node, source, sourceAnchorId);
+    });
+
+    menu.addAction(i18n("Cancel"), []() {});
+
+    menu.exec(screenPos);
+}
+
+void CanvasScene::onReconnectRequested(const QString &edgeId, Graffodil::ArrowEnd end,
+                                        Graffodil::IGraphNode *newNode, const QString &newAnchorId)
+{
+    if (!m_document || !newNode)
+        return;
+
+    const CanvasEdge oldEdge = m_document->edge(edgeId);
+    if (oldEdge.id.isEmpty())
+        return;
+
+    CanvasEdge newEdge = oldEdge;
+    const Side side = sideFromString(newAnchorId);
+    if (end == Graffodil::ArrowEnd::Source) {
+        newEdge.fromNode = newNode->nodeId();
+        newEdge.fromSide = side;
+    } else {
+        newEdge.toNode = newNode->nodeId();
+        newEdge.toSide = side;
+    }
+
+    if (newEdge.fromNode == oldEdge.fromNode && newEdge.toNode == oldEdge.toNode
+        && newEdge.fromSide == oldEdge.fromSide && newEdge.toSide == oldEdge.toSide)
+        return; // dropped back exactly where it started — nothing changed
+
+    m_undoStack->push(new CmdReconnectEdge(m_document, oldEdge, newEdge));
+}
+
+void CanvasScene::onReconnectDroppedOnEmpty(const QString &edgeId)
+{
+    if (!m_document)
+        return;
+    m_undoStack->push(new CmdRemoveEdge(m_document, edgeId));
 }
 
 // ---------------------------------------------------------------------------
@@ -1327,25 +1589,21 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         });
 
         menu.addAction(i18n("Reverse Direction"), [this, edgItem]() {
-            if (!m_document)
-                return;
-            CanvasEdge data = edgItem->edgeData();
-            // Swap from/to nodes and sides
-            std::swap(data.fromNode, data.toNode);
-            std::swap(data.fromSide, data.toSide);
-            std::swap(data.fromEnd, data.toEnd);
+            reverseEdge(edgItem->edgeId());
+        });
 
-            const QString edgeId = data.id;
-            // Remove and re-create the edge item with swapped source/target
-            removeEdgeItem(edgeId);
-            m_document->removeEdge(edgeId);
-
-            m_document->addEdge(data);
-            auto *from = connectableItem(data.fromNode);
-            auto *to = connectableItem(data.toNode);
-            if (from && to) {
-                addEdgeItemToScene(from, to, data);
-            }
+        // M3.5 — Direction submenu: Nondirectional / Unidirectional /
+        // Bidirectional, mapped to (fromEnd, toEnd) per Appendix A.
+        auto *dirMenu = menu.addMenu(i18n("Direction"));
+        const QString edgeId = edgItem->edgeId();
+        dirMenu->addAction(i18n("Nondirectional"), [this, edgeId]() {
+            setEdgeEnds(edgeId, EndType::None, EndType::None);
+        });
+        dirMenu->addAction(i18n("Unidirectional"), [this, edgeId]() {
+            setEdgeEnds(edgeId, EndType::None, EndType::Arrow);
+        });
+        dirMenu->addAction(i18n("Bidirectional"), [this, edgeId]() {
+            setEdgeEnds(edgeId, EndType::Arrow, EndType::Arrow);
         });
 
         menu.addSeparator();

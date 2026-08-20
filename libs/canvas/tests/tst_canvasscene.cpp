@@ -1107,6 +1107,484 @@ private Q_SLOTS:
         QCOMPARE(scene.undoStack()->count(), 0);
         QVERIFY(itemA->isSelected());
     }
+
+    // -----------------------------------------------------------------
+    // M3.2 — hover connection points + edge-create gesture
+    // -----------------------------------------------------------------
+
+    void testEdgeCreateDragBetweenFileCards()
+    {
+        // Two file cards side by side. Press near card1's right-face
+        // anchor (compassAnchors midpoint = (200,75) for a 0,0,200,150
+        // rect), drag across to card2 (400,0,200,150; left anchor at
+        // (400,75)), release. This should route through CompositeTool's
+        // anchor route into CreateEdgeTool and emit edgeRequested, which
+        // CanvasScene::onEdgeRequested turns into a CmdAddEdge.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        n1.file = QStringLiteral("one.md");
+        n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
+        doc.addNode(n1);
+
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        n2.file = QStringLiteral("two.md");
+        n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
+        doc.addNode(n2);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        QVERIFY(scene.fileCardItem(QStringLiteral("card1")));
+        QVERIFY(scene.fileCardItem(QStringLiteral("card2")));
+
+        // Just inside card1's rect, within the 12px anchor hit radius of
+        // its right-face anchor (200,75).
+        const QPointF pressPos(198, 75);
+        // Just inside card2's rect, near its left-face anchor (400,75).
+        const QPointF releasePos(402, 75);
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(pressPos);
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(releasePos);
+        move.setLastScenePos(pressPos);
+        move.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(releasePos);
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QCOMPARE(doc.edges().size(), 1);
+        const Canvas::CanvasEdge edge = doc.edges().first();
+        QCOMPARE(edge.fromNode, QStringLiteral("card1"));
+        QCOMPARE(edge.toNode, QStringLiteral("card2"));
+        QCOMPARE(edge.fromSide, Canvas::Side::Right);
+        QCOMPARE(edge.toSide, Canvas::Side::Left);
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        // Undo removes the edge.
+        scene.undoStack()->undo();
+        QCOMPARE(doc.edges().size(), 0);
+    }
+
+    void testEdgeCreateDefaultsToArrowHead()
+    {
+        // Appendix A: fromEnd defaults to "none" (nondirectional origin),
+        // toEnd defaults to "arrow" (Obsidian's directed-edge default).
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::Text;
+        n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
+        doc.addNode(n1);
+
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::Text;
+        n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
+        doc.addNode(n2);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        const QPointF pressPos(198, 75);
+        const QPointF releasePos(402, 75);
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(pressPos);
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(releasePos);
+        move.setLastScenePos(pressPos);
+        move.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(releasePos);
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QCOMPARE(doc.edges().size(), 1);
+        const Canvas::CanvasEdge edge = doc.edges().first();
+        QCOMPARE(edge.fromEnd, Canvas::EndType::None);
+        QCOMPARE(edge.toEnd, Canvas::EndType::Arrow);
+    }
+
+    // -----------------------------------------------------------------
+    // M3.3 — drop-on-empty create-and-connect
+    // -----------------------------------------------------------------
+
+    void testEdgeDropOnEmptyCreatesConnectedCard()
+    {
+        // A real QMenu::exec() popup blocks in a nested event loop, which
+        // this codebase has no existing precedent for driving synchronously
+        // in an offscreen unit test (grepped tst_canvasscene.cpp and the
+        // rest of libs/canvas/tests for QMenu/QTimer::singleShot patterns —
+        // none exist). Per the M3.3 task brief, option (b): the menu-popup
+        // slot (CanvasScene::onEdgeDroppedOnEmpty) is a thin QMenu wrapper
+        // around CanvasScene::addCardConnectedTo(), which is public
+        // (same rationale as createFileCardViaPicker()) and does all the
+        // actual compound-command work. This test drives that helper
+        // directly — the menu-popup wiring itself is left to the Phase M3
+        // live-eyeball gate rather than offscreen coverage (Appendix, exit
+        // criteria note; project memory: interactive popups routinely excluded
+        // from offscreen suites in this codebase).
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode source;
+        source.id = QStringLiteral("card1");
+        source.type = Canvas::NodeType::File;
+        source.file = QStringLiteral("one.md");
+        source.x = 0; source.y = 0; source.width = 200; source.height = 150;
+        doc.addNode(source);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *sourceItem = scene.connectableItem(QStringLiteral("card1"));
+        QVERIFY(sourceItem != nullptr);
+
+        // New text card dropped well to the right of the source node, so
+        // toSide should resolve to Left (facing back toward the source).
+        Canvas::CanvasNode node;
+        node.id = Canvas::CanvasDocument::generateId();
+        node.type = Canvas::NodeType::Text;
+        node.x = 600; node.y = 20;
+        node.width = 250; node.height = 60;
+
+        QCOMPARE(doc.nodes().size(), 1);
+        QCOMPARE(doc.edges().size(), 0);
+
+        scene.addCardConnectedTo(node, sourceItem, QStringLiteral("right"));
+
+        QCOMPARE(doc.nodes().size(), 2);
+        QCOMPARE(doc.edges().size(), 1);
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        const Canvas::CanvasEdge edge = doc.edges().first();
+        QCOMPARE(edge.fromNode, QStringLiteral("card1"));
+        QCOMPARE(edge.toNode, node.id);
+        QCOMPARE(edge.fromSide, Canvas::Side::Right);
+        QCOMPARE(edge.toSide, Canvas::Side::Left);
+        QCOMPARE(edge.fromEnd, Canvas::EndType::None);
+        QCOMPARE(edge.toEnd, Canvas::EndType::Arrow);
+
+        auto *newItem = scene.connectableItem(node.id);
+        QVERIFY(newItem != nullptr);
+        QVERIFY(newItem->isSelected());
+
+        // Both the node add and the edge add undo in one step.
+        scene.undoStack()->undo();
+        QCOMPARE(doc.nodes().size(), 1);
+        QCOMPARE(doc.edges().size(), 0);
+    }
+
+    // -----------------------------------------------------------------
+    // M3.4 — endpoint reconnect
+    // -----------------------------------------------------------------
+
+    void testReconnectEdgeEndpoint()
+    {
+        // card1 (0,0,200,150) --edge--> card2 (400,0,200,150), plus a third
+        // node card3 (400,300,200,150) to drag the target endpoint onto.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        n1.file = QStringLiteral("one.md");
+        n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
+        doc.addNode(n1);
+
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        n2.file = QStringLiteral("two.md");
+        n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
+        doc.addNode(n2);
+
+        Canvas::CanvasNode n3;
+        n3.id = QStringLiteral("card3"); n3.type = Canvas::NodeType::File;
+        n3.file = QStringLiteral("three.md");
+        n3.x = 400; n3.y = 300; n3.width = 200; n3.height = 150;
+        doc.addNode(n3);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("edge1");
+        edge.fromNode = QStringLiteral("card1");
+        edge.toNode = QStringLiteral("card2");
+        edge.fromSide = Canvas::Side::Right;
+        edge.toSide = Canvas::Side::Left;
+        doc.addEdge(edge);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        auto *card3Item = scene.connectableItem(QStringLiteral("card3"));
+        QVERIFY(card3Item != nullptr);
+
+        // Sanity: the edge item is really attached to card1/card2 before
+        // the drag (this is the "still points at old node" bug guard).
+        auto *edgeItemBefore = scene.edgeItem(QStringLiteral("edge1"));
+        QVERIFY(edgeItemBefore != nullptr);
+        QCOMPARE(edgeItemBefore->sourceNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card1"))));
+        QCOMPARE(edgeItemBefore->targetNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card2"))));
+
+        // Press within 8px of the edge's target terminus — card2's left
+        // anchor at (400,75), which per M3.1 is exactly where the terminus
+        // tip is drawn. Drag down to card3's top anchor at (500,300).
+        const QPointF pressPos(400, 75);
+        const QPointF releasePos(500, 300);
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(pressPos);
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(releasePos);
+        move.setLastScenePos(pressPos);
+        move.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(releasePos);
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QCOMPARE(doc.edges().size(), 1);
+        const Canvas::CanvasEdge updated = doc.edge(QStringLiteral("edge1"));
+        QCOMPARE(updated.fromNode, QStringLiteral("card1"));
+        QCOMPARE(updated.toNode, QStringLiteral("card3"));
+        QCOMPARE(updated.fromSide, Canvas::Side::Right);
+        QCOMPARE(updated.toSide, Canvas::Side::Top);
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        // The scene item must now really point at card3 (not just have its
+        // anchor-id string updated) — this is the onEdgeChanged node-rebuild
+        // gap the M3.4 brief calls out.
+        auto *edgeItemAfter = scene.edgeItem(QStringLiteral("edge1"));
+        QVERIFY(edgeItemAfter != nullptr);
+        QCOMPARE(edgeItemAfter->sourceNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card1"))));
+        QCOMPARE(edgeItemAfter->targetNode(), static_cast<Graffodil::IGraphNode *>(card3Item));
+
+        // Undo restores the original connection.
+        scene.undoStack()->undo();
+        const Canvas::CanvasEdge restored = doc.edge(QStringLiteral("edge1"));
+        QCOMPARE(restored.toNode, QStringLiteral("card2"));
+        QCOMPARE(restored.toSide, Canvas::Side::Left);
+
+        auto *edgeItemUndone = scene.edgeItem(QStringLiteral("edge1"));
+        QVERIFY(edgeItemUndone != nullptr);
+        QCOMPARE(edgeItemUndone->targetNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card2"))));
+    }
+
+    void testEndpointDropOnEmptyDeletesEdge()
+    {
+        // Same two-card setup as testEdgeCreateDragBetweenFileCards, but
+        // starting from an existing edge and dragging its target endpoint
+        // out to empty canvas — Obsidian semantics: deletes the edge.
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        n1.file = QStringLiteral("one.md");
+        n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
+        doc.addNode(n1);
+
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        n2.file = QStringLiteral("two.md");
+        n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
+        doc.addNode(n2);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("edge1");
+        edge.fromNode = QStringLiteral("card1");
+        edge.toNode = QStringLiteral("card2");
+        edge.fromSide = Canvas::Side::Right;
+        edge.toSide = Canvas::Side::Left;
+        doc.addEdge(edge);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        QCOMPARE(doc.edges().size(), 1);
+
+        const QPointF pressPos(400, 75);      // card2's left (target) anchor
+        const QPointF releasePos(1000, 1000); // far off in empty canvas
+
+        QGraphicsSceneMouseEvent press(QEvent::GraphicsSceneMousePress);
+        press.setScenePos(pressPos);
+        press.setButton(Qt::LeftButton);
+        press.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &press);
+
+        QGraphicsSceneMouseEvent move(QEvent::GraphicsSceneMouseMove);
+        move.setScenePos(releasePos);
+        move.setLastScenePos(pressPos);
+        move.setButtons(Qt::LeftButton);
+        QCoreApplication::sendEvent(&scene, &move);
+
+        QGraphicsSceneMouseEvent release(QEvent::GraphicsSceneMouseRelease);
+        release.setScenePos(releasePos);
+        release.setButton(Qt::LeftButton);
+        release.setButtons(Qt::NoButton);
+        QCoreApplication::sendEvent(&scene, &release);
+
+        QCOMPARE(doc.edges().size(), 0);
+        QVERIFY(scene.edgeItem(QStringLiteral("edge1")) == nullptr);
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        // Undo restores the edge.
+        scene.undoStack()->undo();
+        QCOMPARE(doc.edges().size(), 1);
+        QVERIFY(scene.edgeItem(QStringLiteral("edge1")) != nullptr);
+    }
+
+    // -----------------------------------------------------------------
+    // M3.5 — direction menu + undoable reverse
+    // -----------------------------------------------------------------
+
+    void testDirectionMenuWritesEndFields()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        n1.file = QStringLiteral("one.md");
+        n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
+        doc.addNode(n1);
+
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        n2.file = QStringLiteral("two.md");
+        n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
+        doc.addNode(n2);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("edge1");
+        edge.fromNode = QStringLiteral("card1");
+        edge.toNode = QStringLiteral("card2");
+        edge.fromSide = Canvas::Side::Right;
+        edge.toSide = Canvas::Side::Left;
+        // Starting state is the Obsidian/CanvasEdge default: unidirectional.
+        edge.fromEnd = Canvas::EndType::None;
+        edge.toEnd = Canvas::EndType::Arrow;
+        doc.addEdge(edge);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        struct Choice { Canvas::EndType from; Canvas::EndType to; };
+        const Choice choices[] = {
+            { Canvas::EndType::None, Canvas::EndType::None },   // Nondirectional
+            { Canvas::EndType::None, Canvas::EndType::Arrow },  // Unidirectional
+            { Canvas::EndType::Arrow, Canvas::EndType::Arrow }, // Bidirectional
+        };
+
+        for (const auto &choice : choices) {
+            const Canvas::CanvasEdge before = doc.edge(QStringLiteral("edge1"));
+            const int stackCountBefore = scene.undoStack()->count();
+
+            scene.setEdgeEnds(QStringLiteral("edge1"), choice.from, choice.to);
+
+            const Canvas::CanvasEdge after = doc.edge(QStringLiteral("edge1"));
+            QCOMPARE(after.fromEnd, choice.from);
+            QCOMPARE(after.toEnd, choice.to);
+            QCOMPARE(scene.undoStack()->count(), stackCountBefore + 1);
+
+            // Same-two-nodes fast path: the item stays attached, no
+            // remove+recreate.
+            auto *item = scene.edgeItem(QStringLiteral("edge1"));
+            QVERIFY(item != nullptr);
+
+            scene.undoStack()->undo();
+            const Canvas::CanvasEdge restored = doc.edge(QStringLiteral("edge1"));
+            QCOMPARE(restored.fromEnd, before.fromEnd);
+            QCOMPARE(restored.toEnd, before.toEnd);
+
+            // Redo back to the chosen state so the next iteration starts
+            // from a clean, known undo-stack position.
+            scene.undoStack()->redo();
+        }
+    }
+
+    void testReverseDirectionIsUndoable()
+    {
+        Canvas::CanvasDocument doc;
+        Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        n1.file = QStringLiteral("one.md");
+        n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
+        doc.addNode(n1);
+
+        Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        n2.file = QStringLiteral("two.md");
+        n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
+        doc.addNode(n2);
+
+        Canvas::CanvasEdge edge;
+        edge.id = QStringLiteral("edge1");
+        edge.fromNode = QStringLiteral("card1");
+        edge.toNode = QStringLiteral("card2");
+        edge.fromSide = Canvas::Side::Right;
+        edge.toSide = Canvas::Side::Left;
+        edge.fromEnd = Canvas::EndType::None;
+        edge.toEnd = Canvas::EndType::Arrow;
+        doc.addEdge(edge);
+
+        Canvas::CanvasScene scene;
+        scene.setDocument(&doc);
+
+        QCOMPARE(scene.undoStack()->count(), 0);
+
+        // Exercise the same reverseEdge() path the "Reverse Direction"
+        // context-menu action and the R-key handler both call through.
+        scene.reverseEdge(QStringLiteral("edge1"));
+
+        // Previously this bypassed the undo stack entirely (the bug this
+        // task fixes) — it must now be a real, undoable step.
+        QCOMPARE(scene.undoStack()->count(), 1);
+
+        const Canvas::CanvasEdge reversed = doc.edge(QStringLiteral("edge1"));
+        QCOMPARE(reversed.fromNode, QStringLiteral("card2"));
+        QCOMPARE(reversed.toNode, QStringLiteral("card1"));
+        QCOMPARE(reversed.fromSide, Canvas::Side::Left);
+        QCOMPARE(reversed.toSide, Canvas::Side::Right);
+        QCOMPARE(reversed.fromEnd, Canvas::EndType::Arrow);
+        QCOMPARE(reversed.toEnd, Canvas::EndType::None);
+
+        // The scene item must really point at the swapped nodes (node
+        // identity changed, so this goes through onEdgeChanged's
+        // remove+recreate branch, same as reconnect in M3.4).
+        auto *itemAfter = scene.edgeItem(QStringLiteral("edge1"));
+        QVERIFY(itemAfter != nullptr);
+        QCOMPARE(itemAfter->sourceNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card2"))));
+        QCOMPARE(itemAfter->targetNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card1"))));
+
+        scene.undoStack()->undo();
+        const Canvas::CanvasEdge restored = doc.edge(QStringLiteral("edge1"));
+        QCOMPARE(restored.fromNode, QStringLiteral("card1"));
+        QCOMPARE(restored.toNode, QStringLiteral("card2"));
+        QCOMPARE(restored.fromSide, Canvas::Side::Right);
+        QCOMPARE(restored.toSide, Canvas::Side::Left);
+        QCOMPARE(restored.fromEnd, Canvas::EndType::None);
+        QCOMPARE(restored.toEnd, Canvas::EndType::Arrow);
+
+        auto *itemUndone = scene.edgeItem(QStringLiteral("edge1"));
+        QVERIFY(itemUndone != nullptr);
+        QCOMPARE(itemUndone->sourceNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card1"))));
+        QCOMPARE(itemUndone->targetNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card2"))));
+    }
 };
 
 QTEST_MAIN(TestCanvasScene)

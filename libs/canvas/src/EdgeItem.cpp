@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas/EdgeItem.h"
 #include "canvas/CanvasNodeItem.h"
+#include "canvas/CanvasBezierStrategy.h"
 
 #include <graffodil/EdgePathStrategy.h>
 #include <graffodil/TerminusStyle.h>
@@ -13,7 +14,7 @@ static constexpr qreal kHitWidth = 24.0;
 EdgeItem::EdgeItem(CanvasNodeItem *from, CanvasNodeItem *to, const CanvasEdge &data)
     : Graffodil::GraphEdgeItem(from, sideToString(data.fromSide),
                                to, sideToString(data.toSide),
-                               std::make_unique<Graffodil::BezierPathStrategy>())
+                               std::make_unique<CanvasBezierStrategy>())
     , m_data(data)
 {
     setHitWidth(kHitWidth);
@@ -50,11 +51,11 @@ void EdgeItem::applyEndsAndPen()
 
     setTerminus(Graffodil::ArrowEnd::Target,
                 m_data.toEnd == EndType::Arrow
-                    ? std::make_unique<Graffodil::TriangleTerminus>()
+                    ? std::make_unique<CanvasArrowTerminus>()
                     : std::unique_ptr<Graffodil::TerminusStyle>(std::make_unique<Graffodil::NoTerminus>()));
     setTerminus(Graffodil::ArrowEnd::Source,
                 m_data.fromEnd == EndType::Arrow
-                    ? std::make_unique<Graffodil::TriangleTerminus>()
+                    ? std::make_unique<CanvasArrowTerminus>()
                     : std::unique_ptr<Graffodil::TerminusStyle>(std::make_unique<Graffodil::NoTerminus>()));
 }
 

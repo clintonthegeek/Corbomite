@@ -9,6 +9,15 @@
 
 namespace Canvas {
 
+// V5 angular-sector picker (canvas.md §3 invariant 5 + §8 invariant 10):
+// given a node's own dimensions and the vector from its center to the other
+// endpoint's center, return the face the edge emerges from. Aspect-aware:
+// the boundary between "horizontal face" and "vertical face" is the node's
+// own corner diagonal, i.e. atan2(h/2, w/2), not a fixed 45°. Shared between
+// CanvasDocument's load-time self-heal and CanvasScene's drop-on-empty edge
+// authoring (M3.3).
+Side pickSideToward(int thisW, int thisH, double dx, double dy);
+
 class CanvasDocument : public QObject {
     Q_OBJECT
 

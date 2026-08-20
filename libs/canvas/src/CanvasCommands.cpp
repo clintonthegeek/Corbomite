@@ -2,6 +2,8 @@
 #include "canvas/CanvasCommands.h"
 #include "canvas/CanvasDocument.h"
 
+#include <utility>
+
 namespace Canvas {
 
 // ---------------------------------------------------------------------------
@@ -164,6 +166,83 @@ void CmdRemoveEdge::redo()
 void CmdRemoveEdge::undo()
 {
     m_doc->addEdge(m_savedEdge);
+}
+
+// ---------------------------------------------------------------------------
+// CmdReconnectEdge
+// ---------------------------------------------------------------------------
+
+CmdReconnectEdge::CmdReconnectEdge(CanvasDocument *doc, const CanvasEdge &oldEdge,
+                                    const CanvasEdge &newEdge, QUndoCommand *parent)
+    : QUndoCommand(QObject::tr("Reconnect Edge"), parent)
+    , m_doc(doc)
+    , m_oldEdge(oldEdge)
+    , m_newEdge(newEdge)
+{
+}
+
+void CmdReconnectEdge::redo()
+{
+    m_doc->updateEdge(m_newEdge);
+}
+
+void CmdReconnectEdge::undo()
+{
+    m_doc->updateEdge(m_oldEdge);
+}
+
+// ---------------------------------------------------------------------------
+// CmdSetEdgeEnds
+// ---------------------------------------------------------------------------
+
+CmdSetEdgeEnds::CmdSetEdgeEnds(CanvasDocument *doc, const CanvasEdge &oldEdge,
+                                const CanvasEdge &newEdge, QUndoCommand *parent)
+    : QUndoCommand(QObject::tr("Set Edge Ends"), parent)
+    , m_doc(doc)
+    , m_oldEdge(oldEdge)
+    , m_newEdge(newEdge)
+{
+}
+
+void CmdSetEdgeEnds::redo()
+{
+    m_doc->updateEdge(m_newEdge);
+}
+
+void CmdSetEdgeEnds::undo()
+{
+    m_doc->updateEdge(m_oldEdge);
+}
+
+// ---------------------------------------------------------------------------
+// CmdReverseEdge
+// ---------------------------------------------------------------------------
+
+CmdReverseEdge::CmdReverseEdge(CanvasDocument *doc, const QString &edgeId, QUndoCommand *parent)
+    : QUndoCommand(QObject::tr("Reverse Direction"), parent)
+    , m_doc(doc)
+    , m_edgeId(edgeId)
+{
+}
+
+void CmdReverseEdge::redo()
+{
+    swapAndApply();
+}
+
+void CmdReverseEdge::undo()
+{
+    // Swap is its own inverse.
+    swapAndApply();
+}
+
+void CmdReverseEdge::swapAndApply()
+{
+    CanvasEdge data = m_doc->edge(m_edgeId);
+    std::swap(data.fromNode, data.toNode);
+    std::swap(data.fromSide, data.toSide);
+    std::swap(data.fromEnd, data.toEnd);
+    m_doc->updateEdge(data);
 }
 
 // ---------------------------------------------------------------------------

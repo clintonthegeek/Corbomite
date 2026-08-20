@@ -49,25 +49,6 @@ QJsonObject captureExtras(const QJsonObject &src, const QSet<QString> &known)
     return extras;
 }
 
-// V5 angular-sector picker (canvas.md §3 invariant 5 + §8 invariant 10):
-// given the node's own dimensions and the vector from its center to the other
-// endpoint's center, return the face the edge emerges from. Aspect-aware: the
-// boundary between "horizontal face" and "vertical face" is the node's own
-// corner diagonal, i.e. atan2(h/2, w/2), not a fixed 45°.
-//
-// Do NOT conflate with A3 (live drag-snap nearest-face) — that one is in the
-// scene/tool layer, not here.
-Side pickSideToward(int thisW, int thisH, double dx, double dy)
-{
-    const double absDx = dx < 0 ? -dx : dx;
-    const double absDy = dy < 0 ? -dy : dy;
-    // |dy|/|dx| > thisH/thisW  ⇔  |dy|*thisW > |dx|*thisH   (no divide-by-zero)
-    const bool vertical = absDy * thisW > absDx * thisH;
-    if (vertical)
-        return dy > 0 ? Side::Bottom : Side::Top;
-    return dx > 0 ? Side::Right : Side::Left;
-}
-
 void mergeExtras(QJsonObject &dst, const QJsonObject &extras)
 {
     // Append extras after the modelled keys. Obsidian's actual emission order
@@ -79,6 +60,19 @@ void mergeExtras(QJsonObject &dst, const QJsonObject &extras)
 }
 
 } // namespace
+
+// Do NOT conflate with A3 (live drag-snap nearest-face) — that one is in the
+// scene/tool layer, not here. See CanvasDocument.h for the full doc comment.
+Side pickSideToward(int thisW, int thisH, double dx, double dy)
+{
+    const double absDx = dx < 0 ? -dx : dx;
+    const double absDy = dy < 0 ? -dy : dy;
+    // |dy|/|dx| > thisH/thisW  ⇔  |dy|*thisW > |dx|*thisH   (no divide-by-zero)
+    const bool vertical = absDy * thisW > absDx * thisH;
+    if (vertical)
+        return dy > 0 ? Side::Bottom : Side::Top;
+    return dx > 0 ? Side::Right : Side::Left;
+}
 
 CanvasDocument::CanvasDocument(QObject *parent)
     : QObject(parent)
