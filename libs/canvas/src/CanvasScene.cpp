@@ -838,6 +838,13 @@ void CanvasScene::onDragBegan(const QList<Graffodil::IGraphNode *> &nodes)
     m_dragSnapshot.clear();
     m_dragActive = true;
     m_capturedGroups.clear();
+    // Force CanvasAlignmentStrategy to treat this as a fresh drag even if
+    // the same node was just dragged a moment ago (see
+    // CanvasAlignmentStrategy::endDrag()'s doc comment) -- fixes a
+    // snap-drag-gets-stuck-forever bug where the strategy's free-running
+    // drag-position tracker could carry over stale state.
+    if (m_alignmentStrategy)
+        m_alignmentStrategy->endDrag();
 
     for (auto *node : nodes)
         m_dragSnapshot.insert(node->nodeId(), node->graphicsItem()->pos());
@@ -868,6 +875,8 @@ void CanvasScene::onDragEnded(const QList<Graffodil::IGraphNode *> &nodes)
 {
     Q_UNUSED(nodes); // m_dragSnapshot (seeded in onDragBegan) is the complete set
     m_dragActive = false;
+    if (m_alignmentStrategy)
+        m_alignmentStrategy->endDrag();
 
     for (auto *group : std::as_const(m_capturedGroups))
         group->endDragCapture();

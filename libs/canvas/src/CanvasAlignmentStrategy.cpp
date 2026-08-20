@@ -28,6 +28,11 @@ void CanvasAlignmentStrategy::setSnapToObjectsEnabled(bool enabled)
     m_snapToObjects = enabled;
 }
 
+void CanvasAlignmentStrategy::endDrag()
+{
+    m_dragPrimary = nullptr;
+}
+
 Qt::KeyboardModifiers CanvasAlignmentStrategy::currentModifiers() const
 {
     return QGuiApplication::keyboardModifiers();
@@ -72,7 +77,26 @@ CanvasAlignmentStrategy::align(Graffodil::IGraphNode *primary, const QPointF &pr
 
     const qreal scale = primaryItem->scene()->views().first()->transform().m11();
 
-    QPointF working = proposed;
+    // Defensive reseed: if CanvasScene's dragBegan/dragEnded lifecycle
+    // wiring didn't run for some reason (or primary changed mid-drag,
+    // which shouldn't happen but isn't assumed), treat this as a fresh
+    // drag rather than accumulating from a stale/foreign m_freeDragPos.
+    if (m_dragPrimary != primary) {
+        m_dragPrimary = primary;
+        m_freeDragPos = primaryItem->pos();
+    }
+
+    // See m_freeDragPos's declaration for why this indirection exists: the
+    // node's actual pos() can be pinned at a snap point, so `proposed`
+    // (computed from pos()) can't be trusted as "how far the drag has
+    // truly moved." The raw per-frame delta (proposed minus the item's
+    // CURRENT pos(), pinned or not) is always genuine fresh mouse movement
+    // though, so accumulating it here keeps a true, never-pinned running
+    // position to search snap candidates against.
+    const QPointF freeBeforeThisFrame = m_freeDragPos;
+    m_freeDragPos += proposed - primaryItem->pos();
+
+    QPointF working = m_freeDragPos;
     QLineF xGuide;
     QLineF yGuide;
     bool hasXGuide = false;
@@ -81,7 +105,7 @@ CanvasAlignmentStrategy::align(Graffodil::IGraphNode *primary, const QPointF &pr
     bool yMatched = false;
 
     if (m_snapToGrid || m_snapToObjects) {
-        const QRectF primaryRect(proposed, primary->nodeBoundingRect().size());
+        const QRectF primaryRect(m_freeDragPos, primary->nodeBoundingRect().size());
 
         if (m_snapToObjects) {
             const qreal tol = 15.0 / scale;
@@ -159,35 +183,31 @@ CanvasAlignmentStrategy::align(Graffodil::IGraphNode *primary, const QPointF &pr
         if (m_snapToGrid) {
             const qreal spacing = gridSpacingForScale(scale);
             if (!xMatched)
-                working.setX(std::round(proposed.x() / spacing) * spacing);
+                working.setX(std::round(m_freeDragPos.x() / spacing) * spacing);
             if (!yMatched)
-                working.setY(std::round(proposed.y() / spacing) * spacing);
+                working.setY(std::round(m_freeDragPos.y() / spacing) * spacing);
         }
     }
 
-    // Shift axis-lock (M4.2). No drag-start position reaches align() (only
-    // the per-frame `proposed`), so this locks to the DOMINANT AXIS OF THE
-    // CURRENT FRAME's delta rather than the whole drag's — proposed minus
-    // the primary's current actual position recovers exactly this frame's
-    // raw mouse delta (see SelectMoveTool::mouseMoveEvent: `proposed =
-    // graphicsItem()->pos() + (scenePos - lastScenePos)`). This is a
-    // pragmatic per-frame interpretation: since consecutive frames within
-    // one drag almost always share the same dominant direction (mouse
-    // deltas don't flip axis every frame in practice), it reads the same
-    // as a true drag-start-relative lock without needing this stateless
-    // strategy to track its own drag-start snapshot. Applied LAST/after
-    // snapping — Shift is a stronger, more deliberate user intent than
-    // passive snap, so the locked axis is re-zeroed back to the primary's
-    // current position even if grid/object snap had adjusted it, and any
-    // guide on the locked axis is dropped since it no longer reflects the
-    // applied position.
+    // Shift axis-lock (M4.2). Locks to the DOMINANT AXIS OF THE CURRENT
+    // FRAME's delta rather than the whole drag's (see the per-frame vs.
+    // drag-start discussion this comment used to carry, now superseded by
+    // m_freeDragPos existing for the snap-pinning fix above — reusing that
+    // same true free-running position as the re-zero reference here too,
+    // rather than the primary's possibly-pinned pos(), keeps this
+    // consistent with the fix instead of reintroducing the same kind of
+    // stale-reference bug on the locked axis). Applied LAST/after snapping
+    // — Shift is a stronger, more deliberate user intent than passive
+    // snap, so the locked axis is re-zeroed back to the free position even
+    // if grid/object snap had adjusted it, and any guide on the locked
+    // axis is dropped since it no longer reflects the applied position.
     if (mods & Qt::ShiftModifier) {
         const QPointF frameDelta = proposed - primaryItem->pos();
         if (std::abs(frameDelta.x()) >= std::abs(frameDelta.y())) {
-            working.setY(primaryItem->pos().y());
+            working.setY(freeBeforeThisFrame.y());
             hasYGuide = false;
         } else {
-            working.setX(primaryItem->pos().x());
+            working.setX(freeBeforeThisFrame.x());
             hasXGuide = false;
         }
     }

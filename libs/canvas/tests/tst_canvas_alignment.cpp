@@ -147,6 +147,57 @@ private Q_SLOTS:
         QVERIFY(result.guides.isEmpty());
     }
 
+    // Regression test for a real live bug: dragging a card into a snap
+    // caused the drag to get permanently stuck, with no way to pull it
+    // back out. Root cause: SelectMoveTool derives each frame's `proposed`
+    // from the primary's CURRENT (possibly already-snapped) pos(), so once
+    // a frame snapped pos() onto a candidate, every subsequent frame's
+    // `proposed` was computed relative to that pinned point -- and since
+    // real per-frame mouse deltas are almost always smaller than the snap
+    // tolerance, the search kept re-snapping right back to zero offset
+    // forever, regardless of how far the user actually dragged. This test
+    // drives align() the same way SelectMoveTool actually does: apply
+    // result.position back to the primary's pos() before the next call,
+    // and feed small per-frame deltas (well under the snap tolerance)
+    // that nonetheless accumulate, over many frames, to a total
+    // displacement well past it.
+    void testSnapReleasesAfterSufficientCumulativeMovement()
+    {
+        QGraphicsScene scene;
+        QGraphicsView view(&scene);
+
+        AlignTestNode primary(QStringLiteral("primary"), QRectF(0, 0, 100, 60));
+        AlignTestNode other(QStringLiteral("other"), QRectF(300, 0, 100, 60));
+        scene.addItem(&primary);
+        scene.addItem(&other);
+
+        Canvas::CanvasAlignmentStrategy strategy;
+        strategy.endDrag(); // fresh-drag state, mirroring CanvasScene::onDragBegan
+
+        // Frame 1: land exactly on the snap candidate (right edge -> 200).
+        QPointF result = strategy.align(&primary, QPointF(200, 0), {&primary, &other}).position;
+        QCOMPARE(result.x(), 200.0);
+        primary.setPos(result); // SelectMoveTool applies this before the next frame
+
+        // Many subsequent frames, each nudging by only 3 units (well under
+        // the 15-unit tolerance) but consistently in the same direction --
+        // 3 * 10 = 30 units of true total movement, which must eventually
+        // escape a 15-unit tolerance zone. Before the fix, every single
+        // frame re-snapped back to x()==200 and primary.pos() never moved.
+        bool escaped = false;
+        for (int i = 0; i < 10; ++i) {
+            const QPointF proposed = primary.pos() + QPointF(3, 0);
+            result = strategy.align(&primary, proposed, {&primary, &other}).position;
+            primary.setPos(result);
+            if (result.x() > 205.0) { // clearly off the snap candidate
+                escaped = true;
+                break;
+            }
+        }
+
+        QVERIFY2(escaped, "drag never escaped the snap point -- stuck-forever regression");
+    }
+
     void testShiftLocksDominantAxisPerFrame()
     {
         QGraphicsScene scene;
