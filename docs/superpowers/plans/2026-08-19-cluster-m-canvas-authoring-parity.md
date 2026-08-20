@@ -404,7 +404,7 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
 
 ### Phase M4 — Move/snap/selection polish (audit §9.5, §9.2)
 
-- [ ] **M4.1 `CanvasAlignmentStrategy : Graffodil::IAlignmentStrategy`** —
+- [x] **M4.1 `CanvasAlignmentStrategy : Graffodil::IAlignmentStrategy`** —
       installed via `SelectMoveTool::setAlignmentStrategy` (tool paints the
       returned guide lines itself). Two snap modes, both default ON:
       *snapToGrid* — snap the primary node's top-left to gridSpacing, where
@@ -421,7 +421,7 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
       logic = unit-testable without a scene: `tst_canvas_alignment` (new
       file): `testGridSnapPitchByZoom`, `testObjectSnapCornerAndCenter`,
       `testToleranceScalesInverseZoom`, `testAltDisablesSnap`.
-- [ ] **M4.2 Modifier polish** — Shift axis-lock on move (larger |Δ| axis
+- [x] **M4.2 Modifier polish** — Shift axis-lock on move (larger |Δ| axis
       wins); Shift aspect-lock on resize (in `CanvasResizeTool`); arrow-key
       nudge = current gridSpacing, ×5 with Shift (replaces today's 1px/10px —
       lives in the delete/nudge key handler, still one `CmdMoveCards` per
@@ -429,7 +429,7 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
       churn is annoying). Edge auto-pan while dragging near the viewport edge
       (Obsidian: 60Hz when cursor nears wrapper edge) — QTimer-driven view
       scroll; keep simple.
-- [ ] **M4.3 Group grab semantics** — replace `GroupItem`'s `itemChange`
+- [x] **M4.3 Group grab semantics** — replace `GroupItem`'s `itemChange`
       move-children (center-test, live) with Obsidian's model: membership
       computed **once at drag start** by full containment
       (`group.sceneRect.contains(node.sceneRect)`), captured into the drag
@@ -437,7 +437,7 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
       contained nodes). Group stacking: `setZValue(-width*height)` on every
       geometry change (bigger groups behind). Tests:
       `testGroupDragMovesFullyContainedOnly`, `testGroupZOrderByArea`.
-- [ ] **M4.4 Resize/connection chrome** — visible 8 resize handles + 4
+- [x] **M4.4 Resize/connection chrome** — visible 8 resize handles + 4
       connection dots on the selected/hovered node, zoom-constant
       (counter-scale by 1/viewScale or `ItemIgnoresTransformations` on a
       handle overlay item — one overlay retargeted to the active node,
