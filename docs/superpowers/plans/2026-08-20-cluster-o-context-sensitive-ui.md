@@ -386,7 +386,7 @@ disable, not Tier A hide. This phase is what makes them actually disappear.)
 > first — it already enumerates every action this phase needs to redistribute by
 > view type). Current baseline: **318/318 offscreen**, `master` at `c10afea7`.
 
-- [ ] **O3.T1 — `Corbomite::ViewActions`** in `libs/core`:
+- [x] **O3.T1 — `Corbomite::ViewActions`** in `libs/core`:
       ```cpp
       class ViewActions : public QObject, public KXMLGUIClient {
           virtual QString viewType() const = 0;
@@ -399,7 +399,7 @@ disable, not Tier A hide. This phase is what makes them actually disappear.)
       Each provider owns its own `KActionCollection` — legal and already precedented
       by `CorbomiteMDI::GUIClient` (`CorbomiteMDI.cpp:78-131`), a second XMLGUI
       client merging into the View menu.
-- [ ] **O3.T2 — Provider registry + eager construction.** All providers are built at
+- [x] **O3.T2 — Provider registry + eager construction.** All providers are built at
       `MainWindow` construction and registered by view type; only *installation* is
       dynamic. **Forced by the Hotkeys page** — `SettingsDialog` embeds
       `KShortcutsEditor` over a single collection (`punch-list.md:273` — corrected
@@ -408,29 +408,29 @@ disable, not Tier A hide. This phase is what makes them actually disappear.)
       assumes) and must show
       every type's shortcuts including types with no tab open. `SettingsDialog`'s
       ctor changes to take a list of collections.
-- [ ] **O3.T3 — Client swap in `ActionContextController`.**
+- [x] **O3.T3 — Client swap in `ActionContextController`.**
       `guiFactory()->removeClient(old); addClient(next); next->bind(view);` guarded
       by "only when the resolved view type actually changed", so an ordinary
       same-type tab switch costs one `refresh()`, not an XMLGUI rebuild.
       API verified present: `kxmlguifactory.h:106,113`.
-- [ ] **O3.T4 — Persistent per-provider `KToolBar` + tri-state policy** per §D4.
+- [x] **O3.T4 — Persistent per-provider `KToolBar` + tri-state policy** per §D4.
       Created after `setupGUI` (`RibbonToolBar` pattern). Policy persisted in a new
       `corbomite.kcfg` `<group name="Toolbars">`. **Re-apply policy after
       `applyMainWindowSettings`** or KMainWindow's restored visibility wins.
-- [ ] **O3.T5 — `<Merge name="viewtype_merge"/>` in `corbomiteui.rc.in`** per §D5;
+- [x] **O3.T5 — `<Merge name="viewtype_merge"/>` in `corbomiteui.rc.in`** per §D5;
       **bump `version="10"` → `"11"`** or users keep a stale cached rc in
       `~/.local/share/kxmlgui5/corbomite/`.
-- [ ] **O3.T6 — `MarkdownViewActions`.** Move Format (5 live + 5 stubs), Heading
+- [x] **O3.T6 — `MarkdownViewActions`.** Move Format (5 live + 5 stubs), Heading
       (6 live + 2 stubs), Insert (3), Table (6 stubs), fold (3 stubs),
       `editor_toggle_mode`, the three editor-mode radios, and `insert_template` out
       of `MainWindow::setupActions` and `corbomiteui.rc.in` into the provider.
       `edit_find`/`edit_replace` stay universal (O1.T5 routes them).
 
 **Verification tasks (do before writing provider #2):**
-- [ ] **O3.V1** — measure client-swap cost on a tab switch between types with a
+- [x] **O3.V1** — measure client-swap cost on a tab switch between types with a
       populated menubar. If it visibly flickers, fall back to the report §6.2
       Option B (`setVisible` toggling) for menus and keep the mechanism for toolbars.
-- [ ] **O3.V2** — confirm `append="viewtype_merge"` places the type menu in a stable
+- [x] **O3.V2** — confirm `append="viewtype_merge"` places the type menu in a stable
       slot and File/Edit/Go/View/Settings/Help never shift.
 
 **Tests:** `tst_view_actions_provider` (install/uninstall leaves the collection
@@ -440,6 +440,35 @@ enabled state).
 
 **Gate:** **live eyeball** — menubar reflow on tab switch, no flicker, toolbar
 context-menu override works and sticks across restart.
+
+**DONE 2026-08-20** (`e22ef7de` `ViewActions`/`ToolBarPolicy` base,
+`a7e04fb0` `MarkdownViewActions` + controller client-swap + toolbar policy +
+rc merge point + `SettingsDialog` multi-collection). 320/320 offscreen. One
+Tier-B bug found and fixed during implementation: `MarkdownViewActions`
+synced Tier-C check state on `editorContextChanged`/`viewModeChanged` but
+never re-ran Tier-B `refresh()` on those signals, so entering Reading mode
+left `format_bold` etc. enabled. **Live-eyeballed and confirmed**: Format/
+Heading/Insert/Table + the editor-mode group vanish (not grey out) off
+markdown, File/Edit/Go/View/Settings/Help never shift, and the toolbar's
+Auto/Always Show/Always Hide context menu works. The first live pass looked
+broken — the menus appeared but stayed permanently empty on every tab type —
+which traced to a real KXMLGUI gotcha, **not a code defect**: dev builds
+across different git worktrees on this machine share one KXMLGUI cache
+(`~/.local/share/kxmlgui5/corbomite-dev/corbomite-devui.rc`), keyed only by
+the dev app/component name, not by branch. A stale cache written earlier the
+same day by the `feature/rich-clipboard` worktree's dev build (its own
+`edit_copy_as` menu shape, independently also at `version="11"`, so the
+version-bump self-heal never triggered) baked Format/Heading/Insert/Table in
+as permanent base-document entries with no merge point — `MainWindow`'s own
+client, not the provider, "owned" those containers, so
+`KXMLGUIFactory`/`ContainerNode::destruct()`'s ownership check
+(`client == state.guiClient`) could never match and delete them on
+`removeClient()`. Deleting the stale cache file and relaunching fixed it
+immediately; no production code changed. Noted as a standing caveat in
+`CLAUDE.md`'s Dev Build Isolation section for future multi-worktree
+sessions. **Next: Phase O4** (`CanvasViewActions` — the phase the user
+feels; snap/grid/zoom toggles for canvas, closes punch-list
+`[ui-bundle][canvas][P2][cluster-o]`).
 
 ---
 

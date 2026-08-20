@@ -204,6 +204,19 @@ Always configure with `-DCORBOMITE_DEV_BUILD=ON` so dev builds use isolated conf
 | Data | `~/.local/share/corbomite/` | `~/.local/share/corbomite-dev/` |
 | Window title | "Corbomite" | "Corbomite [Dev]" |
 
+**⚠ Dev-build isolation is per release-vs-dev, not per worktree/branch.** All
+dev builds share the same component name (`corbomite-dev`), and therefore the
+same KXMLGUI menu/toolbar cache at
+`~/.local/share/kxmlgui5/corbomite-dev/corbomite-devui.rc` — including dev
+builds run from other worktrees (e.g. `.worktrees/rich-clipboard`). If a
+session's `corbomiteui.rc.in` structural changes don't appear to take effect
+(menus/toolbars looking stale or wrong after a rebuild), suspect this cache
+before suspecting the code: `rm ~/.local/share/kxmlgui5/corbomite-dev/corbomite-devui.rc`
+and relaunch. Bumping the `.rc` file's `version=` attribute normally
+self-invalidates the cache, but **not** if a different worktree's dev build
+independently reached the same version number first (found + fixed during
+Cluster O Phase O3, 2026-08-20 — see `decisions-archive.md`).
+
 ## Library Structure
 
 | Library | Target | Purpose |
