@@ -101,8 +101,11 @@ collection. The hamburger is for things that legitimately have none of those.
 ### D4 — Toolbar visibility is tri-state and user-overridable (**Q3**)
 
 Each provider gets one persistent `KToolBar`, created eagerly at startup, owned by
-`ActionContextController`, added via `addToolBar()` (the `RibbonToolBar` pattern,
-`MainWindow.cpp:2167-2180` — **must be created after `setupGUI`**).
+`ActionContextController`, added via `addToolBar()` (the `RibbonToolBar` pattern, now
+`MainWindow::setupRibbonToolBar()` at `MainWindow.cpp:2064-2072` — **corrected
+2026-08-20 post-O1**; the plan's original `:2167-2180` citation was written before O1
+moved ~289 lines out of `MainWindow.cpp` into `ActionContextController`. **Must be
+created after `setupGUI`**).
 
 ```
 enum class ToolBarPolicy { Auto, AlwaysShow, AlwaysHide };   // persisted in kcfg
@@ -365,7 +368,23 @@ base-class teardown starts. Detail: `decisions-archive.md`.
 
 Proves the mechanism with **zero new features**. The only user-visible change: the
 Format / Heading / Insert / Table menus and the editor-mode group vanish on
-non-markdown tabs.
+non-markdown tabs. (Today, post-O1/O2, they only *grey out* off-markdown — Tier B
+disable, not Tier A hide. This phase is what makes them actually disappear.)
+
+> **Executor note (added 2026-08-20, post-O1/O2):** O1 moved ~289 lines out of
+> `MainWindow.cpp` into `ActionContextController.{h,cpp}` (see decisions-archive),
+> so most of this phase's `MainWindow.cpp:<line>` citations below were written
+> against the pre-O1 file and have likely drifted — two known-stale ones
+> (D4's `RibbonToolBar` citation, O3.T2's punch-list citation) are already
+> corrected inline. **Re-grep the rest (O3.T6's `setupActions()`/`corbomiteui.rc.in`
+> locations for Format/Heading/Insert/Table/fold) before trusting them** — the
+> action ids themselves (`format_bold`, `heading_1`, `insert_table`, `table_row_above`,
+> `fold_all`, `editor_toggle_mode`, …) are all still `grep`-able by name in
+> `MainWindow.cpp` and unaffected by the refactor, just at new line numbers.
+> `ActionContextController` is now the source of truth for every action's Tier-B/C
+> logic (`hasHandlerForCurrentContext()`'s table in particular is worth reading
+> first — it already enumerates every action this phase needs to redistribute by
+> view type). Current baseline: **318/318 offscreen**, `master` at `c10afea7`.
 
 - [ ] **O3.T1 — `Corbomite::ViewActions`** in `libs/core`:
       ```cpp
@@ -383,7 +402,10 @@ non-markdown tabs.
 - [ ] **O3.T2 — Provider registry + eager construction.** All providers are built at
       `MainWindow` construction and registered by view type; only *installation* is
       dynamic. **Forced by the Hotkeys page** — `SettingsDialog` embeds
-      `KShortcutsEditor` over a single collection (`punch-list.md:265`) and must show
+      `KShortcutsEditor` over a single collection (`punch-list.md:273` — corrected
+      2026-08-20, the punch list has grown since this plan was written; confirmed the
+      `SettingsDialog` ctor still takes one `KActionCollection*`, exactly as this task
+      assumes) and must show
       every type's shortcuts including types with no tab open. `SettingsDialog`'s
       ctor changes to take a list of collections.
 - [ ] **O3.T3 — Client swap in `ActionContextController`.**
