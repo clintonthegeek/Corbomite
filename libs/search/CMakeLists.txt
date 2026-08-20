@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui)
 
-add_library(corbomite-search STATIC
+add_library(corbomite-search SHARED
     src/PreparedQuery.cpp
     include/corbomite/search/PreparedQuery.h
     src/FuzzyMatch.cpp
@@ -19,10 +19,28 @@ add_library(corbomite-search STATIC
     src/SearchDSL.cpp
     include/corbomite/search/SearchDSL.h
 )
-set_target_properties(corbomite-search PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(corbomite-search PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    EXPORT_NAME Search)
 add_library(Corbomite::Search ALIAS corbomite-search)
 
 target_include_directories(corbomite-search
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${KDE_INSTALL_INCLUDEDIR}>
 )
 target_link_libraries(corbomite-search PUBLIC Qt6::Core Qt6::Gui)
+
+# Install rules (public consumption via find_package(Corbomite)).
+if(DEFINED KDE_INSTALL_INCLUDEDIR)
+    install(TARGETS corbomite-search
+        EXPORT CorbomiteTargets
+        RUNTIME DESTINATION ${KDE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${KDE_INSTALL_LIBDIR}
+        INCLUDES DESTINATION ${KDE_INSTALL_INCLUDEDIR}
+    )
+    install(DIRECTORY include/corbomite/search/
+        DESTINATION ${KDE_INSTALL_INCLUDEDIR}/corbomite/search
+    )
+endif()
