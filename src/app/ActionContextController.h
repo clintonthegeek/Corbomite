@@ -145,6 +145,7 @@ private:
     QMetaObject::Connection m_activeLeafPinnedConnection;
     QMetaObject::Connection m_activeEditorContextConnection;
     QMetaObject::Connection m_activeViewModeConnection;
+    QMetaObject::Connection m_activeViewContextChangedConnection;
 
     // actionId -> set of view types with a real handler ("*" == universal,
     // unaffected by focused view type). See hasHandlerForCurrentContext().

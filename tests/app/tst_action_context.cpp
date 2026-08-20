@@ -236,6 +236,65 @@ private Q_SLOTS:
         QCOMPARE(n1.value(QStringLiteral("y")).toInt(), 500);
     }
 
+    // -----------------------------------------------------------------
+    // O2.T4 — Reading mode must disable format verbs by routing through
+    // MarkdownView::canEdit() (== activeLeaf()->hasEditing()), not just
+    // stop responding to keystrokes.
+    // -----------------------------------------------------------------
+    void readingMode_disablesFormatVerbs()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        createFile(tmp.path() + QStringLiteral("/Note.md"), QStringLiteral("# Note\n"));
+
+        CorbomiteApp app;
+        MainWindow mw(&app);
+        QVERIFY(app.openVault(tmp.path()));
+        QTest::qWait(500);
+        QVERIFY(app.isOpen());
+
+        mw.onNoteActivated(QStringLiteral("Note.md"));
+        QTest::qWait(200);
+
+        auto *ws = mw.findChild<Workspace *>();
+        QVERIFY(ws);
+        auto *mv = qobject_cast<MarkdownView *>(ws->activeLeaf()->view());
+        QVERIFY(mv);
+        auto *ac = mw.actionCollection();
+
+        QVERIFY2(ac->action(QStringLiteral("format_bold"))->isEnabled(),
+                  "format_bold must be enabled in LivePreview mode");
+
+        mv->editorWidget()->setViewMode(NoteEditorWidget::ViewMode::Reading);
+        QTest::qWait(200);
+
+        QVERIFY2(!mv->canEdit(), "canEdit() must be false in Reading mode");
+        QVERIFY2(!ac->action(QStringLiteral("format_bold"))->isEnabled(),
+                  "format_bold must be disabled in Reading mode");
+        QVERIFY2(!ac->action(QStringLiteral("insert_table"))->isEnabled(),
+                  "Insert > Table must be disabled in read-only Reading mode (O1.T6)");
+    }
+
+    // -----------------------------------------------------------------
+    // O2.T5 — vault-open is a window-level Tier-B capability: with no
+    // vault open at all, vault-scoped actions must be disabled.
+    // -----------------------------------------------------------------
+    void noVault_disablesVaultActions()
+    {
+        CorbomiteApp app;
+        MainWindow mw(&app);
+        auto *ac = mw.actionCollection();
+
+        QVERIFY2(!ac->action(QStringLiteral("file_close_vault"))->isEnabled(),
+                  "file_close_vault must be disabled with no vault open");
+        QVERIFY2(!ac->action(QStringLiteral("file_new_note"))->isEnabled(),
+                  "file_new_note must be disabled with no vault open");
+        QVERIFY2(!ac->action(QStringLiteral("search_vault"))->isEnabled(),
+                  "search_vault must be disabled with no vault open");
+        QVERIFY2(!ac->action(QStringLiteral("graph_view"))->isEnabled(),
+                  "graph_view must be disabled with no vault open");
+    }
+
 private:
     static void assertNoSilentNoop(MainWindow *mw, const QString &contextLabel)
     {

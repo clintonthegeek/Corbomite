@@ -126,6 +126,7 @@ void ActionContextController::rebindActiveView()
 {
     disconnect(m_activeEditorContextConnection);
     disconnect(m_activeViewModeConnection);
+    disconnect(m_activeViewContextChangedConnection);
 
     if (auto *editor = activeEditor()) {
         m_activeEditorContextConnection =
@@ -138,6 +139,19 @@ void ActionContextController::rebindActiveView()
                         syncEditorModeCheckState(static_cast<int>(mode));
                     });
         syncEditorModeCheckState(static_cast<int>(editor->viewMode()));
+    }
+
+    // O2.T3 — generic Tier-B refresh trigger: every view type forwards
+    // its own capability-relevant signals onto View::contextChanged()
+    // (markdown's editor context/view-mode, canvas's selection/undo,
+    // bases's selection/undo; graph never — constant capabilities), so
+    // this one connection covers all of them without the controller
+    // knowing any type-specific signal names. Same rebind-per-leaf
+    // discipline as the connections above.
+    if (auto *view = m_activeLeaf ? m_activeLeaf->view() : nullptr) {
+        m_activeViewContextChangedConnection =
+            connect(view, &View::contextChanged, this,
+                    &ActionContextController::refresh);
     }
 }
 
@@ -177,10 +191,9 @@ void ActionContextController::updateMarkdownActionStates()
     auto *mv = activeMarkdownView();
     const bool isMarkdown = mv != nullptr;
 
-    Markoff::MarkdownView *leaf = nullptr;
-    if (auto *editor = activeEditor())
-        leaf = editor->activeLeaf();
-    const bool canEdit = isMarkdown && leaf && leaf->hasEditing();
+    // O2.T4: routed through the Tier-B capability virtual instead of a
+    // bespoke activeEditor()->activeLeaf()->hasEditing() read.
+    const bool canEdit = isMarkdown && mv->canEdit();
 
     // Live format verbs — Tier A (markdown only) AND Tier B (canEdit,
     // false in Reading mode / while read-only).
@@ -196,11 +209,14 @@ void ActionContextController::updateMarkdownActionStates()
         setEnabled(id, canEdit);
 
     // Dialog-wrapped actions (Insert Table.../Insert Callout...): Tier A
-    // only. The dialog itself is a real visible effect (not a silent
-    // no-op) even though the eventual insert is still a placebo — O7
-    // disposes of that separately, per D7.
-    setEnabled(QStringLiteral("insert_table"), isMarkdown);
-    setEnabled(QStringLiteral("insert_callout"), isMarkdown);
+    // (markdown) AND Tier B (canEdit) — opening an insert dialog in
+    // read-only Reading mode makes no sense even though the eventual
+    // insert is still a placebo (O7 disposes of that separately, per
+    // D7). O2.T1 test tst_action_context::readingMode_disablesFormatVerbs
+    // caught this still gating on isMarkdown alone despite O1.T6's own
+    // comment claiming the fix.
+    setEnabled(QStringLiteral("insert_table"), canEdit);
+    setEnabled(QStringLiteral("insert_callout"), canEdit);
 
     // Stubs — no Markoff-side implementation yet. Always disabled
     // regardless of leaf state; O7 disposes of these (registerPlannedAction).
@@ -228,13 +244,18 @@ void ActionContextController::updateMarkdownActionStates()
 
 void ActionContextController::onEditorContextChanged(const Markoff::EditorContext &ctx)
 {
+    // O2.T3: Tier-B re-enablement (updateMarkdownActionStates(), which
+    // reads canEdit()) now happens via the generic View::contextChanged()
+    // -> refresh() path — MarkdownView forwards this same
+    // editorContextChanged signal onto contextChanged(). This slot is
+    // left owning only the heading-radio Tier-C check state, which needs
+    // the EditorContext payload contextChanged() doesn't carry.
     const bool isHeading =
         ctx.blockKind == QLatin1String(Markoff::BlockKindNames::Heading);
     for (int level = 1; level <= 6; ++level) {
         if (auto *a = m_actionCollection->action(QStringLiteral("heading_%1").arg(level)))
             a->setChecked(isHeading && ctx.headingLevel == level);
     }
-    updateMarkdownActionStates();
 }
 
 void ActionContextController::syncEditorModeCheckState(int viewMode)
@@ -414,25 +435,16 @@ void ActionContextController::updateTabStateActions()
 
 void ActionContextController::updateUndoRedoActions()
 {
-    bool canUndo = false;
-    bool canRedo = false;
-
-    if (auto *bv = activeBasesView()) {
-        canUndo = bv->canUndo();
-        canRedo = bv->canRedo();
-    } else if (auto *cv = activeCanvasView()) {
-        if (auto *tab = cv->canvasWidget()) {
-            if (auto *scene = tab->canvasScene()) {
-                if (auto *stack = scene->undoStack()) {
-                    canUndo = stack->canUndo();
-                    canRedo = stack->canRedo();
-                }
-            }
-        }
-    } else if (auto *editor = activeEditor()) {
-        if (auto *leaf = editor->activeLeaf())
-            canUndo = canRedo = leaf->hasEditing();
-    }
+    // O2.T1: routed through the generic Tier-B virtuals instead of a
+    // per-type branch — each View subclass already knows how to answer
+    // canUndo()/canRedo() for itself (bases' real QUndoStack, canvas' real
+    // QUndoStack, markdown's hasEditing() approximation — see
+    // MarkdownView::canUndo()'s comment for why that one isn't a real
+    // depth query).
+    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
+    auto *view = leaf ? leaf->view() : nullptr;
+    const bool canUndo = view && view->canUndo();
+    const bool canRedo = view && view->canRedo();
 
     setEnabled(QStringLiteral("edit_undo"), canUndo);
     setEnabled(QStringLiteral("edit_redo"), canRedo);
