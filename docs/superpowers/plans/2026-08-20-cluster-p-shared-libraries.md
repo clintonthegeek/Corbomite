@@ -358,25 +358,25 @@ every step's dependencies are already shared:
 
 | Step | Library | Deps | Notes |
 |---|---|---|---|
-| P3.T1 | `corbomite-search` | *(none internal)* | True leaf — safest first flip |
-| P3.T2 | `forcegraph` | *(none internal)* | True leaf |
-| P3.T3 | `corbomite-core` | *(none, after P2)* | Now a leaf. Largest blast radius |
-| P3.T4 | `corbomite-storage` | Core | |
-| P3.T5 | `corbomite-models` | Core, Storage, Vault | |
-| P3.T6 | `corbomite-bases` | Core, Storage, Vault | Largest `.a` (51 MB) |
-| P3.T7 | `canvas` | Core, Search, Graffodil::Core | Graffodil stays static (P6) |
-| P3.T8 | `jkqtmathtext` | *(vendored, none)* | 41 MB. Vendored LGPL — flipping to shared is also the *licence-friendlier* form. Low risk |
+| P3.T1 ✅ | `corbomite-search` | *(none internal)* | True leaf — safest first flip |
+| P3.T2 ✅ | `forcegraph` | *(none internal)* | True leaf |
+| P3.T3 ✅ | `corbomite-core` | *(none, after P2)* | Now a leaf. Largest blast radius |
+| P3.T4 ✅ | `corbomite-storage` | Core | |
+| P3.T5 ✅ | `corbomite-models` | Core, Storage, Vault | |
+| P3.T6 ✅ | `corbomite-bases` | Core, Storage, Vault | Largest `.a` (51 MB) |
+| P3.T7 ✅ | `canvas` | Core, Search, Graffodil::Core | Graffodil stays static (P6) |
+| P3.T8 ✅ | `jkqtmathtext` | *(vendored, none)* | 41 MB. Vendored LGPL — flipping to shared is also the *licence-friendlier* form. Low risk |
 
 Per library:
 
-- [ ] Change `add_library(<name> STATIC` → `SHARED`.
-- [ ] Confirm an `install(TARGETS ... LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR})`
+- [x] Change `add_library(<name> STATIC` → `SHARED`.
+- [x] Confirm an `install(TARGETS ... LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR})`
       rule exists (core/storage/models/bases/vault already have one;
       **`canvas`, `forcegraph`, `search`, `jkqtmathtext` must be checked** —
       several have no install block at all today, which is fine while static
       and is not fine once the app has a runtime `DT_NEEDED` on them).
-- [ ] Rebuild, full offscreen suite green.
-- [ ] Note any symbol that moved from link-time to load-time failure —
+- [x] Rebuild, full offscreen suite green.
+- [x] Note any symbol that moved from link-time to load-time failure —
       per report §6 this is the expected new failure mode, and per the vault
       precedent the suite catches it immediately.
 
@@ -390,7 +390,30 @@ works, but it means the `BUILD_INTERFACE` comment's claim ("plugins must
 resolve these symbols themselves") becomes *less* true, not more. Re-read
 and correct that comment rather than leaving it stale.
 
-**Gate:** suite green after each individual flip. Do not batch.
+**Gate:** suite green after each individual flip. Do not batch. ✅ Phase P3
+complete.
+
+**P3 resolution (2026-08-20):** all 8 flips landed exactly per the table's
+ordering, one commit each, suite green after every single one (no
+batching) — no library needed the link-time→load-time-failure fallback
+path the plan flagged as the expected new failure mode. `search`,
+`forcegraph`, `canvas`, and `jkqtmathtext` all needed a fresh
+`install(TARGETS ...)` block added (none had one while `STATIC`, per the
+plan's warning); `search` got the full `EXPORT CorbomiteTargets` +
+`EXPORT_NAME` treatment matching `core`/`storage`/`models`/`bases`/`vault`
+since it has a `Corbomite::Search` alias, while `forcegraph`/`canvas`/
+`jkqtmathtext` got a plain install rule (no `Corbomite::` alias, not part
+of that export set). The `libs/core` `BUILD_INTERFACE` comment was
+corrected in the same commit as P3.T3's flip, as the watch item asked.
+One flake (`tst_quadtree`, on P3.T6's run — passed standalone and on a
+clean full re-run, unrelated to `bases`) was the only test-suite noise
+across all 8 flips. **Disk result, full before/after in §5:** `build-dev/`
+went from the P1 baseline of 6.5 GB down to **3.6 GB** — **11 GB → 3.6 GB
+(-67%) end to end** across P1+P3 combined. `libcorbomite-core.so` (62 MB)
+and `libCorbomiteApp.so` (47 MB) are now the two largest binaries in the
+tree, ahead of every test executable — the inverse of the pre-refactor
+shape, where the largest items were 33 near-identical test binaries each
+embedding a private copy of everything.
 
 ### Phase P4 — Plugin-boundary correctness gate
 
@@ -486,13 +509,14 @@ preset, `Debug`, `CORBOMITE_PORT_BUILD_TESTS=ON`, clean build.
 
 | Metric | Baseline (P0) | After P1 | After P3 | After P6 |
 |---|---|---|---|---|
-| `build-dev/` total | 11 GB | **6.5 GB** (-41%) | | |
-| `build-dev/bin/` | 8.9 GB | **4.9 GB** | | |
-| `build-dev/lib/` | 613 MB | 566 MB | | |
-| Largest test binary | 147 MB (`tst_completion_controller`) | 56 MB (`tst_canvas_view_contract`, tied with a dozen+ other canvas tests) | | |
-| Clean build wall time | 1475s (~24.6 min), `-j 10`, no ccache | | | |
-| Incremental relink after `View.h` touch | 161s | | | |
+| `build-dev/` total | 11 GB | **6.5 GB** (-41%) | **3.6 GB** (-67% vs. baseline) | |
+| `build-dev/bin/` | 8.9 GB | **4.9 GB** | **2.4 GB** | |
+| `build-dev/lib/` | 613 MB | 566 MB | 165 MB | |
+| Largest test binary | 147 MB (`tst_completion_controller`) | 56 MB (`tst_canvas_view_contract`, tied with a dozen+ other canvas tests) | 38 MB (`tst_canvas_view_contract`, still the canvas cluster) — but no longer the single largest binary in `bin/` at all | |
+| Clean build wall time | 1475s (~24.6 min), `-j 10`, no ccache | | *(not re-measured — P3 was 8 incremental flips, not a clean rebuild)* | |
+| Incremental relink after `View.h` touch | 161s | | *(not re-measured — same reason; `core` is now a leaf so a `View.h` touch relinks a very different, likely smaller, dependent set post-P3)* | |
 | `/home` free | 34 GB (85% full) — improved since the audit's 13 GB/95%; no longer under acute pressure, refactor still worth doing | | | |
+| Largest binaries overall (post-P3) | — | — | `libcorbomite-core.so` 62 MB, `libCorbomiteApp.so` 47 MB — both ahead of every remaining test binary | |
 
 **After P1 (2026-08-20):** the single largest binary is now `libCorbomiteApp.so`
 itself (143 MB, counted under `bin/` since `RUNTIME`/`LIBRARY DESTINATION`
