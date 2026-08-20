@@ -10,6 +10,8 @@ set(CORBOMITE_PLUGIN_DEV_DIR "${CMAKE_BINARY_DIR}/lib/plugins/corbomite"
 
 add_library(CorbomiteApp STATIC
     ${CORBOMITE_KCFG_SRCS}
+    app/ActionContextController.cpp
+    app/ActionContextController.h
     app/CorbomiteApp.cpp
     app/ExportToPdf.cpp
     app/MainWindow.cpp

@@ -80,6 +80,7 @@ class RibbonStateController;
 class View;
 class ViewRegistry;
 class Plugin;
+class ActionContextController;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -95,6 +96,9 @@ public:
     CommandRegistry *commandRegistry() const { return m_commandRegistry; }
     /// Exposed for integration tests that verify LinkResolver freshness.
     LinkResolver *linkResolver() const { return m_linkResolver; }
+    /// Cluster O Phase O1.T1 — exposed for tests exercising action-state
+    /// refresh directly (tst_action_context, tst_action_context_no_silent_noop).
+    ActionContextController *actionContext() const { return m_actionContext; }
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
@@ -119,7 +123,6 @@ private Q_SLOTS:
     void onInsertCallout();
     void onInsertTable();
     void onSetHeading(int level);
-    void refreshEditorActions();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -154,7 +157,6 @@ private:
     void onVaultOpened(const QString &path);
     void onVaultClosed();
     void onCursorInfoChanged(int line, int column, int wordCount);
-    void updateVaultActions();
     void updateWindowTitle(NoteEditorWidget *editor = nullptr);
     void openFileInWorkspace(const QString &relativePath);
     MarkdownView *activeMarkdownView() const;
@@ -162,13 +164,7 @@ private:
     CanvasFileView *activeCanvasView() const;
     NoteEditorWidget *activeEditor() const;
 
-    void connectEditorContext(NoteEditorWidget *editor);
     void connectEditorContextMenu(NoteEditorWidget *editor);
-
-    // Contract v2: format verbs + heading actions enabled iff the active
-    // Markoff leaf advertises editing (hasEditing() — false in Reading,
-    // false while read-only).
-    void updateEditorActionStates();
 
     /// Forward `id` to the active `MarkdownView`'s Markoff editor. No-op
     /// when the active view is not a MarkdownView.
@@ -196,13 +192,6 @@ private:
     void navigateActiveLeafTo(const QString &relativePath);
     void propagateServicesToView(View *view);
 
-    /// Cluster L Phase L4 (D2): refresh the global back/forward QActions'
-    /// enabled state from the active leaf's `LeafHistory::canGoBack()`/
-    /// `canGoForward()`. Called on `Workspace::activeLeafChanged` and on
-    /// the active leaf's `viewChanged` (fired after every navigate/
-    /// goBack/goForward) so the actions never go stale mid-leaf.
-    void updateBackForwardActions();
-
     /// Look up the loaded plugin by id and host its createView() output
     /// into a tool view determined by X-Corbomite-DockArea metadata.
     /// Triggered from PluginManager::pluginLoaded.
@@ -221,6 +210,13 @@ private:
     void rewirePluginCoreServices();
 
     CorbomiteApp *m_app;
+    // Cluster O Phase O1.T1 — owns Tier B/C action-state refresh (formerly
+    // five scattered MainWindow methods). actionCollection() ownership
+    // stays here (KXmlGuiWindow requirement); the controller is handed the
+    // pointer and rebinds itself to the active leaf on every
+    // activeLeafChanged (see the Workspace::activeLeafChanged connection
+    // in setupEditor()).
+    ActionContextController *m_actionContext = nullptr;
     // Q.0 P6 — canonical Vault aggregate created alongside the legacy
     // VaultModel during the consumer-migration wave. Both coexist until
     // Phase 10 deletes VaultModel. Owned by `this` (QObject parent).
@@ -233,21 +229,14 @@ private:
     std::unique_ptr<VaultConfig> m_pluginVaultConfig;
     FileManager *m_fileManager = nullptr;
     Workspace *m_workspace = nullptr;
-    // D2 back/forward: global actions + the connection to the currently
-    // active leaf's viewChanged, rebound on every activeLeafChanged.
+    // D2 back/forward + D3 tab commands: the QActions themselves stay here
+    // (created/connected in setupActions()); their enabled/checked state is
+    // now refreshed by ActionContextController on every activeLeafChanged
+    // (formerly updateBackForwardActions()/updateTabStateActions()).
     QAction *m_actionGoBack = nullptr;
     QAction *m_actionGoForward = nullptr;
-    QMetaObject::Connection m_activeLeafHistoryConnection;
-    // D3 tab commands: pin-tab/toggle-stacked reflect the active leaf's
-    // state, rebound on every activeLeafChanged alongside D2's history hook.
     QAction *m_actionPinTab = nullptr;
     QAction *m_actionToggleStacked = nullptr;
-    QMetaObject::Connection m_activeLeafPinnedConnection;
-
-    /// D3: rebinds m_actionPinTab/m_actionToggleStacked's checked state to
-    /// the active leaf. Called from the same Workspace::activeLeafChanged
-    /// handler that drives updateBackForwardActions().
-    void updateTabStateActions();
     // Stable QWidget wrapper for the Workspace widget tree; owned by
     // m_centralStack so that Workspace::layoutChanged restructurings can
     // re-parent the root widget inside this container without needing to

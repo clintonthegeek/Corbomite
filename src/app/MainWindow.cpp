@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MainWindow.h"
+#include "ActionContextController.h"
 #include "WelcomeScreen.h"
 #include "CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
@@ -202,10 +203,6 @@ Markoff::FindController *findControllerFor(NoteEditorWidget *neWidget)
     return noteDoc->findController();
 }
 
-// Matches the live leaf's kFontScaleStep so menu zoom and the editor's
-// own Ctrl+=/Ctrl+- shortcuts step identically.
-constexpr qreal kZoomStep = 1.10;
-
 } // namespace
 
 MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
@@ -220,8 +217,17 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     setComponentName(QStringLiteral("corbomite"), i18n("Corbomite"));
 #endif
 
+    // Cluster O Phase O1.T1 — constructed before setupActions() populates
+    // actionCollection() (the controller only looks actions up by name on
+    // refresh(), so population order doesn't matter) and before
+    // setupEditor() creates m_workspace (setWorkspace() is wired below,
+    // right after setupEditor() returns).
+    m_actionContext = new ActionContextController(actionCollection(), this);
+    m_actionContext->setApp(m_app);
+
     setupActions();
     setupEditor();
+    m_actionContext->setWorkspace(m_workspace);
     setupSidebars();
     setupStatusBar();
 
@@ -394,7 +400,7 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
         &Corbomite::ProtocolHandlerRegistry::instance(),
         "dispatch");
 
-    updateVaultActions();
+    if (m_actionContext) m_actionContext->refresh();
     resize(1200, 800);
 }
 
@@ -534,96 +540,17 @@ void MainWindow::onInsertTable()
     (void)dlg.firstRowAsHeader();
 }
 
-void MainWindow::refreshEditorActions()
-{
-    KActionCollection *ac = actionCollection();
-    auto *mv = activeMarkdownView();
-    const bool isMarkdown = mv != nullptr;
-
-    // Forwarded actions: trigger LiveActionController's QAction. Enable when
-    // a MarkdownView is active; the inner controller does its own selection
-    // gating, but having Corbomite's KAction disabled when there's no editor
-    // at all matches user expectation and prevents stale shortcut firing.
-    static const QStringList forwardedActionIds = {
-        QStringLiteral("format_bold"), QStringLiteral("format_italic"),
-        QStringLiteral("format_strikethrough"), QStringLiteral("format_inline_code"),
-        QStringLiteral("insert_link"),
-        QStringLiteral("heading_1"), QStringLiteral("heading_2"),
-        QStringLiteral("heading_3"), QStringLiteral("heading_4"),
-        QStringLiteral("heading_5"), QStringLiteral("heading_6"),
-    };
-    for (const auto &id : forwardedActionIds) {
-        if (auto *act = ac->action(id)) act->setEnabled(isMarkdown);
-    }
-
-    // Dialog-wrapped actions: Insert Table / Insert Callout — dialog opens
-    // even though the actual insert is a no-op until Markoff lands.
-    static const QStringList dialogActionIds = {
-        QStringLiteral("insert_table"), QStringLiteral("insert_callout"),
-    };
-    for (const auto &id : dialogActionIds) {
-        if (auto *act = ac->action(id)) act->setEnabled(isMarkdown);
-    }
-
-    // Stubs: registered for menu/palette discovery but no Markoff impl yet.
-    // Always disabled regardless of leaf state.
-    static const QStringList stubActionIds = {
-        QStringLiteral("insert_wiki_link"), QStringLiteral("insert_image"),
-        QStringLiteral("insert_code_block"), QStringLiteral("insert_block_quote"),
-        QStringLiteral("insert_horizontal_rule"), QStringLiteral("toggle_checkbox"),
-        QStringLiteral("heading_increase"), QStringLiteral("heading_decrease"),
-        QStringLiteral("table_row_above"), QStringLiteral("table_row_below"),
-        QStringLiteral("table_col_left"),  QStringLiteral("table_col_right"),
-        QStringLiteral("table_delete_row"), QStringLiteral("table_delete_col"),
-        QStringLiteral("fold_all"), QStringLiteral("unfold_all"),
-        QStringLiteral("toggle_fold"),
-    };
-    for (const auto &id : stubActionIds) {
-        if (auto *act = ac->action(id)) act->setEnabled(false);
-    }
-
-    for (int i = 1; i <= 6; ++i) {
-        if (auto *act = ac->action(QStringLiteral("heading_%1").arg(i)))
-            act->setChecked(false);
-    }
-}
-
-void MainWindow::connectEditorContext(NoteEditorWidget *editor)
-{
-    connect(editor, &NoteEditorWidget::editorContextChanged,
-            this, &MainWindow::onEditorContextChanged, Qt::UniqueConnection);
-}
-
+// Cluster O Phase O1.T1 — refreshEditorActions()/updateEditorActionStates()
+// (which used to disagree — see O1.T6) moved into
+// ActionContextController::updateMarkdownActionStates(). onEditorContextChanged
+// stays here as a thin public-slot forwarder: it is Phase C6's documented test
+// seam (tests can invoke it with a synthetic EditorContext without a live
+// Markoff editor), but the actual heading-radio sync + Tier-B refresh now
+// live on the controller, which also owns the live wiring (see
+// ActionContextController::rebindActiveView()).
 void MainWindow::onEditorContextChanged(const Markoff::EditorContext &ctx)
 {
-    // Heading radio: check H<n> while the caret sits in a heading block,
-    // clear otherwise (group policy is ExclusiveOptional, set at creation).
-    auto *ac = actionCollection();
-    const bool isHeading =
-        ctx.blockKind == QLatin1String(Markoff::BlockKindNames::Heading);
-    for (int level = 1; level <= 6; ++level) {
-        if (auto *a = ac->action(QStringLiteral("heading_%1").arg(level)))
-            a->setChecked(isHeading && ctx.headingLevel == level);
-    }
-    updateEditorActionStates();
-}
-
-void MainWindow::updateEditorActionStates()
-{
-    auto *editor = activeEditor();
-    Markoff::MarkdownView *leaf = editor ? editor->activeLeaf() : nullptr;
-    const bool canEdit = leaf && leaf->hasEditing();
-
-    auto *ac = actionCollection();
-    const QStringList verbActions{
-        QStringLiteral("format_bold"),       QStringLiteral("format_italic"),
-        QStringLiteral("format_strikethrough"),
-        QStringLiteral("format_inline_code"), QStringLiteral("insert_link")};
-    for (const QString &name : verbActions)
-        if (auto *a = ac->action(name)) a->setEnabled(canEdit);
-    for (int level = 1; level <= 6; ++level)
-        if (auto *a = ac->action(QStringLiteral("heading_%1").arg(level)))
-            a->setEnabled(canEdit);
+    if (m_actionContext) m_actionContext->onEditorContextChanged(ctx);
 }
 
 void MainWindow::connectEditorContextMenu(NoteEditorWidget *editor)
@@ -675,6 +602,15 @@ NoteEditorWidget *MainWindow::activeEditor() const
 
 void MainWindow::onFind()
 {
+    // Cluster O Phase O1.T5 — Bases already owns a search box in its
+    // toolbar; route edit_find there instead of silently doing nothing
+    // (report §3.2/§4.6). Only edit_find has a bases-side equivalent —
+    // replace/find-next/find-prev stay markdown-only (disabled elsewhere
+    // by ActionContextController::updateFindAndTemplateActions()).
+    if (auto *bv = activeBasesView()) {
+        bv->focusSearch();
+        return;
+    }
     auto *neWidget = activeEditor();
     if (!neWidget) return;
     neWidget->showFindBar();
@@ -701,31 +637,27 @@ void MainWindow::onFindPrev()
 // Ctrl++ / Ctrl+Shift+= / Ctrl+- / Ctrl+0) in LiveView.qml as "editor-internal
 // viewport concerns the host has no opinion about." Corbomite therefore does
 // NOT bind those keys (doing so caused a KActionCollection ambiguity →
-// "Ctrl+= is ambiguous, no action triggered"). The View-menu zoom items remain
-// and dispatch setFontScale on the MarkdownView base (contract v2) — all three
-// leaves honor it, so zoom works in Source and Reading too.
+// "Ctrl+= is ambiguous, no action triggered"). The View-menu zoom items
+// dispatch through the polymorphic View::zoomIn/Out/Reset virtuals (Cluster O
+// Phase O1.T3) — MarkdownView/CanvasFileView/GraphView each override onto
+// their own real viewport. This retires the activeEditor() special-case that
+// used to mean canvas and graph had no zoom action at all.
 void MainWindow::onZoomIn()
 {
-    auto *editor = activeEditor();
-    if (!editor) return;
-    if (auto *leaf = editor->activeLeaf())
-        leaf->setFontScale(leaf->fontScale() * kZoomStep);   // base clamps to [0.25, 4.0]
+    if (m_workspace && m_workspace->activeLeaf() && m_workspace->activeLeaf()->view())
+        m_workspace->activeLeaf()->view()->zoomIn();
 }
 
 void MainWindow::onZoomOut()
 {
-    auto *editor = activeEditor();
-    if (!editor) return;
-    if (auto *leaf = editor->activeLeaf())
-        leaf->setFontScale(leaf->fontScale() / kZoomStep);
+    if (m_workspace && m_workspace->activeLeaf() && m_workspace->activeLeaf()->view())
+        m_workspace->activeLeaf()->view()->zoomOut();
 }
 
 void MainWindow::onZoomReset()
 {
-    auto *editor = activeEditor();
-    if (!editor) return;
-    if (auto *leaf = editor->activeLeaf())
-        leaf->setFontScale(1.0);
+    if (m_workspace && m_workspace->activeLeaf() && m_workspace->activeLeaf()->view())
+        m_workspace->activeLeaf()->view()->zoomReset();
 }
 
 void MainWindow::onAboutApp()
@@ -1204,7 +1136,7 @@ void MainWindow::propagateServicesToView(View *view)
                 editor->setProperty("_mw_viewmode", true);
                 connect(editor, &NoteEditorWidget::viewModeChanged,
                         this, [this](NoteEditorWidget::ViewMode) {
-                    updateEditorActionStates();
+                    if (m_actionContext) m_actionContext->refresh();
                 });
             }
         }
@@ -1810,8 +1742,10 @@ void MainWindow::setupActions()
                         i18n("Toggle Fold at Cursor"),
                         QKeySequence(Qt::CTRL | Qt::Key_Period));
 
-    // Initial enable-state: no active MarkdownView yet.
-    refreshEditorActions();
+    // Initial enable-state: no active MarkdownView yet (m_actionContext's
+    // workspace isn't wired until setupEditor() runs; refresh() tolerates a
+    // null workspace and is re-run once it is).
+    m_actionContext->refresh();
 }
 
 void MainWindow::setupEditor()
@@ -2032,26 +1966,13 @@ void MainWindow::setupEditor()
             propagateServicesToView(leaf->view());
         updateWindowTitle(activeEditor());
 
-        // D2: rebind the global back/forward actions' enablement to
-        // whichever leaf is now active. viewChanged fires after every
-        // navigate()/goBack()/goForward() on that leaf, so this stays
-        // live for the whole time the leaf remains active.
-        disconnect(m_activeLeafHistoryConnection);
-        if (leaf) {
-            m_activeLeafHistoryConnection =
-                connect(leaf, &WorkspaceLeaf::viewChanged,
-                        this, &MainWindow::updateBackForwardActions);
-        }
-        updateBackForwardActions();
-
-        // D3: same rebind pattern for pin-tab/toggle-stacked state.
-        disconnect(m_activeLeafPinnedConnection);
-        if (leaf) {
-            m_activeLeafPinnedConnection =
-                connect(leaf, &WorkspaceLeaf::pinnedChanged,
-                        this, &MainWindow::updateTabStateActions);
-        }
-        updateTabStateActions();
+        // Cluster O Phase O1.T1/T2 — all action-state rebinding (back/
+        // forward history, pin/stacked check-state, format/heading
+        // enable-state, editor-mode radio sync) is now one call: the
+        // controller rebinds its own per-leaf AND per-view connections
+        // (including the in-place view-type-swap case fixed by T2) and
+        // runs a full refresh().
+        if (m_actionContext) m_actionContext->bindActiveLeaf(leaf);
 
         auto *editor = activeEditor();
         // Update sidebar panels
@@ -2072,42 +1993,18 @@ void MainWindow::setupEditor()
             });
         }
 
-        // Cluster V Phase 2+3 — refresh enable-state + heading radio
-        // check-state on every active-leaf change, and hook cursor-moved
-        // on the new Markoff editor so the Table submenu's cursorInTable
-        // gate updates live while the user types. Also sync the View >
-        // Editor Mode radio submenu to the current ViewMode and keep it
-        // in sync via the viewModeChanged signal.
-        refreshEditorActions();
         // TODO(port-foundation-exploration): cursorPositionChanged(int,int)
         // was on the old Markoff::Editor. EditorWidget's cursor signals come
-        // via binding()->cursorState() — re-wire when refreshEditorActions
-        // gets reimplemented against the new context shape.
+        // via binding()->cursorState() — re-wire when the Table submenu's
+        // cursorInTable gate is reimplemented against the new context shape.
         if (editor) {
-            // Phase C6 — wire Markoff EditorContext signals for live
-            // Format/Heading/Table state and context-menu contribution.
-            connectEditorContext(editor);
+            // Phase C6 — context-menu contribution (currently a TODO
+            // no-op body; format/heading/context wiring now lives on
+            // ActionContextController, see bindActiveLeaf() above).
             connectEditorContextMenu(editor);
-            updateEditorActionStates();
             // C2 — wire ThemeService so this editor follows theme changes.
             if (m_themeService)
                 editor->setThemeService(m_themeService);
-        }
-        if (editor) {
-            disconnect(editor, &NoteEditorWidget::viewModeChanged, this, nullptr);
-            const auto syncMode = [this](NoteEditorWidget::ViewMode m) {
-                KActionCollection *ac = actionCollection();
-                QString id;
-                switch (m) {
-                case NoteEditorWidget::ViewMode::Source:      id = QStringLiteral("view_source_mode");  break;
-                case NoteEditorWidget::ViewMode::LivePreview: id = QStringLiteral("view_editing_mode"); break;
-                case NoteEditorWidget::ViewMode::Reading:     id = QStringLiteral("view_reading_mode"); break;
-                }
-                if (auto *act = ac->action(id)) act->setChecked(true);
-            };
-            syncMode(editor->viewMode());
-            connect(editor, &NoteEditorWidget::viewModeChanged,
-                    this, syncMode);
         }
     });
 
@@ -2281,6 +2178,16 @@ void MainWindow::saveCurrentNote()
         return;
     }
 
+    // Cluster O Phase O1.T4 — CanvasFileView is a bare FileView, not a
+    // TextFileView, so the fallback below never reached it: Ctrl+S was a
+    // real no-op on a canvas tab (report §3.1). BasesView already worked
+    // via the TextFileView fallback (BasesView : TextFileView).
+    if (auto *cv = qobject_cast<CanvasFileView *>(leaf->view())) {
+        if (auto *tab = cv->canvasWidget())
+            tab->save();
+        return;
+    }
+
     if (auto *tfv = qobject_cast<TextFileView *>(leaf->view()))
         tfv->saveImmediately();
 }
@@ -2421,29 +2328,9 @@ void MainWindow::navigateActiveLeafTo(const QString &relativePath)
     m_workspace->pushLastOpenFile(target);
 }
 
-void MainWindow::updateBackForwardActions()
-{
-    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
-    const bool canBack = leaf && leaf->history().canGoBack();
-    const bool canForward = leaf && leaf->history().canGoForward();
-    if (m_actionGoBack) m_actionGoBack->setEnabled(canBack);
-    if (m_actionGoForward) m_actionGoForward->setEnabled(canForward);
-}
-
-void MainWindow::updateTabStateActions()
-{
-    auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
-    if (m_actionPinTab) {
-        m_actionPinTab->setEnabled(leaf != nullptr);
-        m_actionPinTab->setChecked(leaf && leaf->pinned());
-    }
-    if (m_actionToggleStacked) {
-        const QString groupId = (m_workspace && leaf) ? m_workspace->tabGroupIdOf(leaf) : QString();
-        m_actionToggleStacked->setEnabled(!groupId.isEmpty());
-        m_actionToggleStacked->setChecked(
-            !groupId.isEmpty() && m_workspace->isTabGroupStacked(groupId));
-    }
-}
+// Cluster O Phase O1.T1 — updateBackForwardActions()/updateTabStateActions()
+// moved into ActionContextController (same bodies, looked up by
+// actionCollection()->action(id) instead of the cached m_action* pointers).
 
 void MainWindow::onVaultOpened(const QString &path)
 {
@@ -2778,7 +2665,7 @@ void MainWindow::onVaultOpened(const QString &path)
         m_dailyNoteService->initFromVaultConfig(vaultConfig);
     }
 
-    updateVaultActions();
+    if (m_actionContext) m_actionContext->refresh();
 }
 
 void MainWindow::onVaultClosed()
@@ -2864,7 +2751,7 @@ void MainWindow::onVaultClosed()
     setSidebarsVisibleInternal(false, true);
 
     updateWindowTitle();
-    updateVaultActions();
+    if (m_actionContext) m_actionContext->refresh();
 }
 
 void MainWindow::openGraphView()
@@ -2962,32 +2849,12 @@ void MainWindow::onCursorInfoChanged(int line, int column, int wordCount)
     m_cursorPosLabel->setText(i18n("Ln %1, Col %2", line, column));
 }
 
-void MainWindow::updateVaultActions()
-{
-    bool open = m_app->isOpen();
-
-    auto *ac = actionCollection();
-    auto setEnabled = [ac](const QString &name, bool enabled) {
-        if (auto *a = ac->action(name)) a->setEnabled(enabled);
-    };
-
-    setEnabled(QStringLiteral("file_close_vault"), open);
-    setEnabled(QStringLiteral("file_new_note"), open);
-    setEnabled(QStringLiteral("file_new_canvas"), open);
-    setEnabled(QStringLiteral("file_save"), open);
-    setEnabled(QStringLiteral("quick_switcher"), open);
-    setEnabled(QStringLiteral("search_vault"), open);
-    setEnabled(QStringLiteral("graph_view"), open);
-    setEnabled(QStringLiteral("view_editing_mode"), open);
-    setEnabled(QStringLiteral("view_reading_mode"), open);
-    setEnabled(QStringLiteral("tab_close"), open);
-    setEnabled(QStringLiteral("tab_next"), open);
-    setEnabled(QStringLiteral("tab_prev"), open);
-    setEnabled(QStringLiteral("insert_template"), open);
-    setEnabled(QStringLiteral("open_daily_note"), open);
-    setEnabled(QStringLiteral("split_right"), open);
-    setEnabled(QStringLiteral("split_down"), open);
-}
+// Cluster O Phase O1.T7 — updateVaultActions() moved into
+// ActionContextController::updateVaultActions(), split out into
+// updateSaveAction() (O1.T4, type-aware) and updateEditorModeActions()/
+// updateFindAndTemplateActions() (O1.T5/T7, type-aware) so file_save,
+// the editor-mode radios, and insert_template stop being enabled on tabs
+// where they were previously silent no-ops.
 
 void MainWindow::updateWindowTitle(NoteEditorWidget *editor)
 {

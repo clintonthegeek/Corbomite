@@ -101,6 +101,27 @@ target_link_libraries(tst_mainwindow_link_navigation PRIVATE
 set_tests_properties(tst_mainwindow_link_navigation PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster O Phase O1 — ActionContextController: the phase's acceptance
+# gate (tst_action_context_no_silent_noop, run inside noSilentNoop()),
+# plus the two named tests for O1.T2 (in-place view-type swap) and O1.T4
+# (Ctrl+S must actually save a canvas tab).
+add_executable(tst_action_context tst_action_context.cpp)
+add_test(NAME tst_action_context COMMAND tst_action_context)
+target_link_libraries(tst_action_context PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Bases canvas)
+set_tests_properties(tst_action_context PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster O Phase O1.T3 — re-lit View::zoomIn/Out/Reset polymorphic
+# dispatch (markdown + canvas; graph coverage lives in
+# src/plugins/graph-view/tests/tst_graphview_plugin.cpp).
+add_executable(tst_view_zoom_dispatch tst_view_zoom_dispatch.cpp)
+add_test(NAME tst_view_zoom_dispatch COMMAND tst_view_zoom_dispatch)
+target_link_libraries(tst_view_zoom_dispatch PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+set_tests_properties(tst_view_zoom_dispatch PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster K — canvas leaf's inline title band (rename-via-header
 # affordance) surfaced in Corbomite: seeded from filename on attach,
 # debounced edit commits a real FileManager rename, '/' in the typed text
