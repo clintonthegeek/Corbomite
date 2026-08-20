@@ -315,23 +315,23 @@ declaring `host` before `view`.
 
 ### Phase O2 — Tier-B capability contract
 
-- [ ] **O2.T1 — `View` capability surface.** Add to `libs/core` `View`:
+- [x] **O2.T1 — `View` capability surface.** Add to `libs/core` `View`:
       `virtual bool canEdit() const`, `canSave()`, `canZoom()`, `canFind()`,
       `hasSelection()`, `canUndo()`, `canRedo()`. Sensible base defaults (`false`
       except `canZoom`). Deliberately discrete virtuals rather than a bitmask —
       grep-able, and each has a natural per-type answer.
-- [ ] **O2.T2 — `View::contextChanged()` signal**, emitted whenever any capability
+- [x] **O2.T2 — `View::contextChanged()` signal**, emitted whenever any capability
       answer could have changed. `MarkdownView` re-emits from the existing
       `NoteEditorWidget::editorContextChanged`; `CanvasFileView` from
       `CanvasScene::selectionChanged`; `BasesView` from its selection model;
       `GraphView` never (constant capabilities).
-- [ ] **O2.T3 — Controller consumes it.** `ActionContextController` connects
+- [x] **O2.T3 — Controller consumes it.** `ActionContextController` connects
       `contextChanged` on the active view (rebound per leaf, same disconnect
       discipline as O1.T2) and runs the Tier-B/C refresh.
-- [ ] **O2.T4 — Route Reading mode through it.** `MarkdownView::canEdit()` returns
+- [x] **O2.T4 — Route Reading mode through it.** `MarkdownView::canEdit()` returns
       `activeLeaf()->hasEditing()`. Retires the bespoke `hasEditing()` read in
       `updateEditorActionStates`.
-- [ ] **O2.T5 — Route vault-open through it** as a window-level capability. Retires
+- [x] **O2.T5 — Route vault-open through it** as a window-level capability. Retires
       `updateVaultActions`' hand-maintained 16-entry list.
 
 **Tests:** `tst_view_capabilities` (one slot per type × per predicate);
@@ -339,6 +339,25 @@ declaring `host` before `view`.
 `tst_action_context::noVault_disablesVaultActions`.
 
 **Gate:** offscreen green. No visual change yet.
+
+**DONE 2026-08-20** (`d8c414ac` capability surface, `ade51e03` controller
+wiring). 318/318 offscreen (only the documented `tst_canvas_perf_500`
+`-j10` flake, unrelated). O2.T5 needed no new code — `updateVaultActions`
+was already folded into the controller's single `refresh()` pass in O1;
+this task's "retirement" was already satisfied. Found and fixed one real
+bug the new tests caught: `insert_table`/`insert_callout` were still
+gated on `isMarkdown` alone (not `canEdit`), despite O1.T6's own comment
+claiming this was fixed — Insert ▸ Table stayed enabled in read-only
+Reading mode. Also found and fixed a genuine teardown-lifetime crash
+while building `CanvasFileView`'s `contextChanged()` wiring: connecting
+`QUndoStack::canUndoChanged`/`canRedoChanged` straight to
+`View::contextChanged` (a signal on an intermediate base) crashes on
+teardown, because `QUndoStack::~QUndoStack()` calls `clear()` — emitting
+those signals — from *inside* `QWidget::~QWidget()`'s child teardown,
+i.e. after `View::~View()` has already run and the object's vtable no
+longer resolves to `Corbomite::View`. Fixed with an explicit
+`CanvasFileView` destructor that disconnects early, before any
+base-class teardown starts. Detail: `decisions-archive.md`.
 
 ---
 
