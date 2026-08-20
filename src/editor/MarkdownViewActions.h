@@ -33,6 +33,15 @@ class View;
 /// `edit_find`/`edit_replace`/`edit_find_next`/`edit_find_prev` are NOT
 /// here — O1.T5 already routes those universally and they stay in
 /// `MainWindow`'s collection per the plan's explicit instruction.
+///
+/// Also owns Cluster N's clipboard verbs (Cut/Copy/Paste/Copy as
+/// Markdown|Plain|HTML|RTF/Paste as Plain Text), ported here post-merge
+/// from `MainWindow` — Cluster N was built before O3.T6 moved Format/
+/// Heading/etc. out of `MainWindow`'s flat KActionCollection, onto the
+/// exact same "leaf-agnostic MarkdownView virtual, one polymorphic call"
+/// shape this provider already uses. They merge into the pre-existing
+/// universal "edit" menu container (same pattern the View menu's Editor
+/// Mode group already uses), not a new top-level menu.
 class MarkdownViewActions : public ViewActions
 {
     Q_OBJECT

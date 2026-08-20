@@ -80,22 +80,26 @@
 > entry for full detail. **Next: resume Cluster L5 soak**, or continue
 > hardening the release (multi-distro packaging, CI matrix).
 >
-> **Cluster N — rich clipboard (copy-as + smart paste), OPENED 2026-08-20.**
-> Parallel to Cluster M. **Do not implement on `master`.** Branch/worktree
-> `feature/rich-clipboard` at `.worktrees/rich-clipboard`. Plan (on that
-> branch): `docs/superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md`.
-> Next: N3 Source/Styled intercept, then N5 live eyeball. Post-reset N —
-> not legacy Cluster N.
+> **Cluster N — rich clipboard (copy-as + smart paste), CLOSED and MERGED
+> to `master` 2026-08-20.** N5 eyeball passed on the branch; a pre-merge
+> cleanup pass then fixed the stalled paste-fix agent's incomplete work
+> (canvas Smart paste still called `applyFlatEdit`, never the finished
+> `Cmd::pasteMarkdown`) plus a BlockQuote marker asymmetry bug in canvas
+> and Styled, and ported the 8 clipboard actions onto `MarkdownViewActions`
+> (Cluster O's O3.T6 had removed the flat `MainWindow` mechanism N was
+> built on while N sat on its own branch). Image paste/drop out of scope.
+> Plan: `docs/superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md`.
+> Post-reset N — not legacy Cluster N.
 >
-> **Cluster O — context-sensitive menu/toolbar/sidebar, AUDITED + PLANNED
-> 2026-08-20, ready to dispatch at Phase O1.** Audit report:
+> **Cluster O — context-sensitive menu/toolbar/sidebar, O0-O3 CLOSED
+> 2026-08-20** (see PROJECT-STATE for the current phase — this banner
+> predates O3's close). Audit report:
 > [`docs/audit-2026-08-20-context-sensitive-ui.md`](docs/audit-2026-08-20-context-sensitive-ui.md);
 > [plan](docs/superpowers/plans/2026-08-20-cluster-o-context-sensitive-ui.md)
 > (doctrine §D1-D7 is normative; all 12 open questions answered by the user).
 > Headline: of ~79 KActions **zero** belong to canvas/bases/graph, 17 are
-> permanently disabled, 7 silently no-op off-markdown. Phase O0 (docs
-> bookkeeping) is done; **start at O1** — correctness only, no new mechanism.
-> Closed **Cluster I** by absorption in the same pass
+> permanently disabled, 7 silently no-op off-markdown. Closed **Cluster I**
+> by absorption in the same pass
 > ([retro](docs/cluster-retros/cluster-i-ui-surfacing.md) — note
 > `cluster-retros/cluster-i.md` is the *pre-reset* Cluster I, a different
 > cluster). Cluster M↔O boundary is recorded in the M plan's Phase M5 banner.

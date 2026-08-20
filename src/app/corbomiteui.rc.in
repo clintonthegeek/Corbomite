@@ -1,5 +1,5 @@
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="@CORBOMITE_COMPONENT_NAME@" version="11">
+<gui name="@CORBOMITE_COMPONENT_NAME@" version="12">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -13,6 +13,12 @@
       <Action name="file_save"/>
       <Separator/>
     </Menu>
+    <!-- Cluster N (ported onto Cluster O post-merge) — Cut/Copy/Paste/Copy
+         as.../Paste as Plain Text used to live here too; they now arrive
+         via MarkdownViewActions' <Menu name="edit"> merge (same mechanism
+         O3.T6 already uses for the View menu's Editor Mode group) and
+         vanish entirely off markdown, matching every other leaf-specific
+         verb. This base container only ever holds the universal items. -->
     <Menu name="edit">
       <text>&amp;Edit</text>
       <Action name="edit_undo"/>
