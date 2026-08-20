@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas/CanvasView.h"
+#include "canvas/CanvasAlignmentStrategy.h"
 #include "canvas/CanvasScene.h"
 #include "canvas/CanvasDocument.h"
 
@@ -13,10 +14,20 @@
 #include <QTimer>
 #include <QUndoStack>
 
+#include <cmath>
+
 namespace Canvas {
 
 static constexpr double kZoomFactor = 1.15;
-static constexpr double kGridSize = 20.0;
+
+// Minimum on-screen spacing (device pixels) a drawn grid line/dot pitch must
+// clear before we stop thinning it further. CanvasAlignmentStrategy::
+// gridSpacingForScale()'s own 20/40/80/160 ladder already coarsens the pitch
+// down to scale 0.25; below that (M5's zoom clamp -- Appendix A log2 scale
+// in [-4,1], i.e. scale >= 0.0625 -- hasn't landed yet, so zoomOut() has no
+// floor today) this keeps doubling the pitch until it's visually sane again,
+// rather than the dots merging into noise at extreme zoom-out.
+static constexpr double kMinOnScreenGridSpacing = 8.0;
 
 // M4.2 edge auto-pan (Appendix A: Obsidian target ~60Hz near the viewport
 // wrapper's edge). Margin/step aren't in Appendix A's normative table
@@ -223,14 +234,33 @@ void CanvasView::drawBackground(QPainter *painter, const QRectF &rect)
     // Fill background with white
     painter->fillRect(rect, Qt::white);
 
-    // Draw dotted grid
-    painter->setPen(QPen(QColor(200, 200, 200), 0.5));
+    // Zoom-adaptive dotted grid. Reuses the exact same pitch ladder
+    // CanvasAlignmentStrategy uses for grid-SNAP (20/40/80/160 scene units
+    // by zoom), so the visible grid and the invisible snap magnetism never
+    // drift apart -- then keeps thinning beyond that ladder's own floor for
+    // extreme zoom-out (see kMinOnScreenGridSpacing's comment), so the dots
+    // never collapse into visual noise regardless of how far out the view
+    // is zoomed.
+    const double scale = transform().m11();
+    double pitch = CanvasAlignmentStrategy::gridSpacingForScale(scale);
+    // Defensive cap on the loop: scale can't be zero/negative in practice
+    // (QGraphicsView transforms are never singular here), but guard against
+    // a runaway loop if it ever were.
+    int guard = 0;
+    while (pitch * scale < kMinOnScreenGridSpacing && guard++ < 32)
+        pitch *= 2.0;
 
-    const double left = static_cast<int>(rect.left() / kGridSize) * kGridSize;
-    const double top = static_cast<int>(rect.top() / kGridSize) * kGridSize;
+    // Cosmetic pen (width 0) always renders as exactly 1 device pixel
+    // regardless of the view's zoom transform -- the dots stay a constant
+    // on-screen size instead of shrinking to sub-pixel/invisible at
+    // zoom-out or growing at zoom-in.
+    painter->setPen(QPen(QColor(200, 200, 200), 0));
 
-    for (double x = left; x < rect.right(); x += kGridSize) {
-        for (double y = top; y < rect.bottom(); y += kGridSize) {
+    const double left = std::floor(rect.left() / pitch) * pitch;
+    const double top = std::floor(rect.top() / pitch) * pitch;
+
+    for (double x = left; x < rect.right(); x += pitch) {
+        for (double y = top; y < rect.bottom(); y += pitch) {
             painter->drawPoint(QPointF(x, y));
         }
     }
