@@ -8,7 +8,7 @@ kconfig_add_kcfg_files(CORBOMITE_KCFG_SRCS app/corbomitesettings.kcfgc GENERATE_
 set(CORBOMITE_PLUGIN_DEV_DIR "${CMAKE_BINARY_DIR}/lib/plugins/corbomite"
     CACHE INTERNAL "Build-tree plugin output dir")
 
-add_library(CorbomiteApp STATIC
+add_library(CorbomiteApp SHARED
     ${CORBOMITE_KCFG_SRCS}
     app/ActionContextController.cpp
     app/ActionContextController.h

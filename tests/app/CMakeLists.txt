@@ -197,6 +197,18 @@ set_tests_properties(tst_mainwindow_db_paths PROPERTIES
 # port. The find-dispatch contract is now Markoff::FindController, not
 # MarkdownView virtuals. Replace this test with one exercising the new
 # Ctrl+F → showFindBar → controller path (port follow-up).
+# Cluster P Phase P1 — CorbomiteApp flipped STATIC->SHARED; guard P1.T2's
+# risk that the compiled-in KXMLGUI .rc resource stops self-registering.
+# _xmlgui_prefix / _xmlgui_rcfile are set by the root CMakeLists.txt before
+# add_subdirectory(tests/app) and are visible here via normal directory scoping.
+add_executable(tst_xmlgui_resource_present tst_xmlgui_resource_present.cpp)
+add_test(NAME tst_xmlgui_resource_present COMMAND tst_xmlgui_resource_present)
+target_link_libraries(tst_xmlgui_resource_present PRIVATE Qt6::Test CorbomiteApp)
+target_compile_definitions(tst_xmlgui_resource_present PRIVATE
+    CORBOMITE_XMLGUI_RESOURCE_PATH=":${_xmlgui_prefix}/${_xmlgui_rcfile}")
+set_tests_properties(tst_xmlgui_resource_present PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 if(FALSE)
 add_executable(tst_markdownview_find_replace_dispatch
     tst_markdownview_find_replace_dispatch.cpp)

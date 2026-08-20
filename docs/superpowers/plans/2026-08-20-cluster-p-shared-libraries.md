@@ -228,22 +228,22 @@ P0.T2's baseline was captured so it wouldn't contaminate those numbers.
 The largest single win, zero plugin-boundary risk. One-line change plus
 fallout.
 
-- [ ] **P1.T1** `src/CMakeLists.txt:11` — `add_library(CorbomiteApp STATIC` →
+- [x] **P1.T1** `src/CMakeLists.txt:11` — `add_library(CorbomiteApp STATIC` →
       `SHARED`.
-- [ ] **P1.T2** **Risk: the KXMLGUI resource.** `CMakeLists.txt:142` does
+- [x] **P1.T2** **Risk: the KXMLGUI resource.** `CMakeLists.txt:142` does
       `qt_add_resources(CorbomiteApp "xmlgui" ...)` embedding
       `corbomite-devui.rc`. Static-library Qt resources need explicit
       initialisation; shared-library resources self-initialise at load. This
       should get *easier*, but it is the one thing that can silently
       half-work. Verify the `.rc` actually resolves at runtime — not by
       inspection, by launching.
-- [ ] **P1.T3** Confirm `install(TARGETS Corbomite CorbomiteApp ...)`
+- [x] **P1.T3** Confirm `install(TARGETS Corbomite CorbomiteApp ...)`
       (`CMakeLists.txt:168`) already carries `LIBRARY DESTINATION` — it does;
       confirm the installed layout still runs (`sudo cmake --install
       build-release`, launch from `/usr/local/bin`). RPATH for an installed
       `CorbomiteApp.so` in `${CMAKE_INSTALL_LIBDIR}` is the thing to watch.
-- [ ] **P1.T4** Full offscreen suite green.
-- [ ] **P1.T5** Re-measure `du -sh build-dev`; record delta in §5.
+- [x] **P1.T4** Full offscreen suite green.
+- [x] **P1.T5** Re-measure `du -sh build-dev`; record delta in §5.
 
 **Named test:** `tst_xmlgui_resource_present` — asserts the compiled-in
 `:/kxmlgui5/<component>/<component>ui.rc` resource is readable at runtime.
@@ -254,6 +254,22 @@ stale-cache incident already trained us to misdiagnose).
 **Gate:** suite green **and** a live launch with menus/toolbars intact.
 Per project memory (`feedback_verify_ui_fixes_live`), an offscreen-green
 run is not sufficient evidence for anything chrome-related.
+
+**P1 resolution (2026-08-20):** landed as expected — no surprises. New test
+`tests/app/tst_xmlgui_resource_present.cpp` asserts the compiled-in
+`.rc` resource is readable at runtime (321 → 322 offscreen tests, all
+green). `build-dev/` dropped **11 GB → 6.5 GB (-41%)** in one commit; every
+former 131-147 MB test binary is now 55-56 MB, since all 43 former link
+sites share one `libCorbomiteApp.so` instead of each embedding a private
+47 MB copy — full before/after in §5. Live-verified twice: the dev build
+(user confirmed menus/toolbars render and update correctly across tabs and
+document types) and the installed release build (`sudo cmake --install
+build-release`, launched from `/usr/local/bin`, user confirmed working).
+RPATH needed no new configuration — `readelf -d /usr/local/bin/Corbomite`
+already carries `RUNPATH: [/usr/local/lib]` (inherited from the same
+KDECMakeSettings/ECM machinery that already made `libvault.so`'s install
+work), confirming the "first RPATH this tree has ever required" concern
+flagged for P5 does not apply here.
 
 ### Phase P2 — Break the `Core` ↔ `Storage` cycle
 
@@ -431,13 +447,22 @@ preset, `Debug`, `CORBOMITE_PORT_BUILD_TESTS=ON`, clean build.
 
 | Metric | Baseline (P0) | After P1 | After P3 | After P6 |
 |---|---|---|---|---|
-| `build-dev/` total | 11 GB | | | |
-| `build-dev/bin/` | 8.9 GB | | | |
-| `build-dev/lib/` | 613 MB | | | |
-| Largest test binary | 147 MB (`tst_completion_controller`) | | | |
+| `build-dev/` total | 11 GB | **6.5 GB** (-41%) | | |
+| `build-dev/bin/` | 8.9 GB | **4.9 GB** | | |
+| `build-dev/lib/` | 613 MB | 566 MB | | |
+| Largest test binary | 147 MB (`tst_completion_controller`) | 56 MB (`tst_canvas_view_contract`, tied with a dozen+ other canvas tests) | | |
 | Clean build wall time | 1475s (~24.6 min), `-j 10`, no ccache | | | |
 | Incremental relink after `View.h` touch | 161s | | | |
 | `/home` free | 34 GB (85% full) — improved since the audit's 13 GB/95%; no longer under acute pressure, refactor still worth doing | | | |
+
+**After P1 (2026-08-20):** the single largest binary is now `libCorbomiteApp.so`
+itself (143 MB, counted under `bin/` since `RUNTIME`/`LIBRARY DESTINATION`
+both resolve there in the dev build tree) — every one of the 43 former
+link sites now shares that one copy instead of embedding a private 47 MB
+`.a`. `libvault.so` (67 MB) is the new second-largest. Every former
+131-147 MB test binary dropped to the 55-56 MB range. Not yet flipped:
+`corbomite-core`/`storage`/`models`/`bases`/`search`/`canvas`/`forcegraph`/
+`jkqtmathtext` remain `STATIC` (P3) — this number will drop further.
 
 Measured 2026-08-20 (P0.T2), clean `build-dev/` (`rm -rf` + reconfigure),
 `dev` preset, `Debug`, `CORBOMITE_PORT_BUILD_TESTS=ON`, no ccache wired yet
