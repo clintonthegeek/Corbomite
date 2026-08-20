@@ -485,6 +485,12 @@ void ActionContextController::registerToolBar(const QString &viewType, KToolBar 
 {
     if (!toolBar) return;
     m_toolBars.insert(viewType, toolBar);
+    // Icon-only by default for every provider toolbar (present and future —
+    // O4/O5 land here for free). Unlike mainToolBar's declarative
+    // iconText="icononly" (corbomiteui.rc.in), these toolbars are created
+    // programmatically with no <ToolBar> XML element for KXMLGUI to read the
+    // attribute from, so the style has to be set directly.
+    toolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
     installToolBarContextMenu(toolBar, viewType);
     applyToolBarPolicies();
 }
@@ -551,6 +557,27 @@ void ActionContextController::installToolBarContextMenu(KToolBar *toolBar, const
             for (auto it = m_toolBars.constBegin(); it != m_toolBars.constEnd(); ++it)
                 setToolBarPolicy(it.key(), ToolBarPolicy::Auto);
         });
+        menu.addSeparator();
+        // CustomContextMenu on this toolbar (above) fully replaces KToolBar's
+        // own built-in context menu, which is otherwise where its icon/text
+        // style picker lives — re-offer it here so overriding this session's
+        // icon-only default (registerToolBar()) isn't lost for provider
+        // toolbars specifically (mainToolBar/ribbonToolBar keep the KToolBar
+        // default menu and so keep this for free).
+        auto *styleGroup = new QActionGroup(&menu);
+        styleGroup->setExclusive(true);
+        auto addStyle = [&](Qt::ToolButtonStyle style, const QString &label) {
+            auto *a = menu.addAction(label);
+            a->setCheckable(true);
+            a->setChecked(toolBar->toolButtonStyle() == style);
+            a->setActionGroup(styleGroup);
+            connect(a, &QAction::triggered, this, [toolBar, style]() {
+                toolBar->setToolButtonStyle(style);
+            });
+        };
+        addStyle(Qt::ToolButtonIconOnly, i18n("Icon Only"));
+        addStyle(Qt::ToolButtonTextUnderIcon, i18n("Text Under Icon"));
+        addStyle(Qt::ToolButtonTextBesideIcon, i18n("Text Alongside Icon"));
         menu.exec(toolBar->mapToGlobal(pos));
     });
 }

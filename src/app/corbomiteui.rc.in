@@ -67,7 +67,7 @@
          Settings/Help (added automatically by KXMLGUI) stay rightmost. -->
     <Merge name="viewtype_merge"/>
   </MenuBar>
-  <ToolBar name="mainToolBar" noMerge="1">
+  <ToolBar name="mainToolBar" noMerge="1" iconText="icononly">
     <text>Main Toolbar</text>
     <Action name="file_open_vault"/>
     <Action name="file_new_note"/>

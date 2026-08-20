@@ -690,3 +690,163 @@ collection + `corbomiteui.rc`.
 `src/plugins/graph-view/{GraphViewPlugin,GraphView,GraphViewTab}.{h,cpp}`,
 `src/plugins/graph-view/metadata.json.in`, `docs/punch-list.md`,
 `docs/PROJECT-STATE.md`, `docs/superpowers/plans/INDEX.md`.
+
+---
+
+## Appendix C — Implementer's decision guide (added 2026-08-20, post-O3)
+
+Written for whoever dispatches O4 (`CanvasViewActions`), O5
+(`BasesViewActions`/`GraphViewActions`), or any later provider. Doctrine
+D1-D7 above is normative; this appendix is the practical **checklist** for
+turning a new action or setting into code without re-deriving the doctrine
+from scratch, and folds in two things O1-O3 only learned by hitting them.
+
+### C1 — Where does a new *action* live?
+
+Ask in this order; stop at the first "yes":
+
+1. **Is it meaningful for any-or-no focused tab** (vault, tab/window, global
+   navigation — nothing about it presupposes a document *kind*)? →
+   **`MainWindow`'s universal `KActionCollection` + `corbomiteui.rc.in`**,
+   outside the `viewtype_merge` point. Never let a provider redeclare one of
+   these by name (see C4).
+2. **Does it belong to exactly one view type's own authoring/viewing
+   semantics** (Bold only means something on markdown; snap-to-grid only
+   means something on canvas)? → **that type's `ViewActions` provider.**
+   Two sub-cases:
+   - It needs a **new top-level menu slot** (Format, Heading, Canvas, …) →
+     declare a `<Menu name="…" append="viewtype_merge"/>` in the provider's
+     own XML (per D5). The name must be unique to this provider — see C4.
+   - It's a natural extension of an **existing universal menu** (e.g.
+     markdown's Editor Mode submenu living inside `view`) → merge into that
+     container by name without `append=`; multiple clients sharing a
+     genuinely-universal container (like `view`) is fine, unlike case C4.
+3. **Is it per-*instance*, not per-type** (rename this tab, export this
+   pane, copy this pane's path)? → the pane's hamburger
+   (`onMoreOptionsMenu`), **not** a `QAction` at all — *unless* it also
+   wants a shortcut, a command-palette entry, or a Hotkeys-page row, in
+   which case D3's rule forces it into a real collection (universal or
+   provider) instead; the hamburger is only for things that legitimately
+   have none of those three.
+4. **Is it plugin-supplied?** → `CommandRegistry` (commands) or
+   `RibbonToolBar` (ribbon icons, Q4) — never host-owned.
+
+### C2 — Hide or disable? (the D2 litmus test)
+
+Ask: *would a user who has never seen this app be confused about why this
+menu item exists at all on the current tab?*
+
+- **Yes** → the action doesn't belong to this document kind. **Hide it**
+  (Tier A — don't install this provider's client when the kind doesn't
+  match; D2/D1).
+- **No, they'd understand why it's here, it's just not usable right now**
+  (nothing selected, read-only, no vault open, feature not wired yet) →
+  **disable it** (Tier B — a capability predicate in `refresh()`).
+
+If you're re-using one of `View`'s existing seven capabilities
+(`canEdit`/`canSave`/`canZoom`/`canFind`/`hasSelection`/`canUndo`/`canRedo`),
+call it directly. If the predicate is *specific to your type* and doesn't
+generalise (e.g. "is a template selected"), don't force it onto the shared
+`View` base — compute it locally inside your provider's own `refresh()`
+against your bound view's concrete type, exactly as `MarkdownViewActions`
+does with `canEdit` today. Only promote a predicate to `View` when a second
+type would also need it.
+
+### C3 — Where do *options/settings/toggles* turn up? (the second standing question)
+
+There is one governing rule: **define the checkable `QAction` exactly once,
+in the provider (or `MainWindow`) that owns the underlying capability, then
+attach it to every surface that wants it** — menu entry, `toolBarActions()`
+entry, and (once O6 lands) the pane-local inspector — via `addAction()` /
+`setDefaultAction()`. This is the same "one definition, N surfaces" shape
+O5.T1 already applies to the bases toolbar buttons; treat it as the general
+rule, not a bases-only pattern. Never define the "same" toggle twice as two
+separate `QAction`s with independently-maintained checked state — they will
+drift.
+
+Then decide *where the value itself lives* (its source of truth, independent
+of how many places display it):
+
+| Setting shape | Source of truth | Tier C sync |
+|---|---|---|
+| Per-document/per-instance, changes what's rendered right now (selection-driven, ephemeral) | in-memory state on the bound view/document | `refresh()`/`bind()` reads it straight off the view each time |
+| App-wide, should survive restart, not tied to one document (canvas snap/grid — O4.T2's pattern) | a `corbomite.kcfg` `<group>` owned by that type | checkable action's checked-state set from kcfg on install **and** on `CorbomiteSettings::configChanged` (O4.T4's fan-out pattern — one settings change must reach every open instance of that type, not just the focused one) |
+| Genuinely global, unrelated to any document type (theme, autosave interval, shortcuts scheme) | `SettingsDialog` page | not a toolbar/menu action at all |
+| A toolbar's own meta-behaviour (visible/hidden, icon/text style) | `ActionContextController`'s `ToolBarPolicy` kcfg group (visibility) + `KToolBar`'s own built-in per-toolbar state (icon style/size) | don't reinvent either — see C5 for the trap in overriding KToolBar's context menu |
+
+### C4 — The container-ownership trap (learned the hard way in O3)
+
+**A `<Menu name="X">` (or any named container) may be declared by exactly
+one client for its whole lifetime, or KXMLGUI can never delete it.**
+`KXMLGUIFactory`'s `ContainerNode::destruct()` only removes an empty
+top-level container when the client calling `removeClient()` is the
+container's sole recorded owner (`clients.isEmpty() && client ==
+state.guiClient`); if a second client — including `MainWindow`'s own base
+document, even via a leftover stub — ever contributes to a container with
+the same `name`, that container can no longer be fully removed when your
+provider unbinds. Concretely:
+
+- **Never declare a `<Menu>` in both `corbomiteui.rc.in` and a provider's
+  own XML with the same `name`.** If you're adding a brand-new provider
+  menu, it exists *only* in the provider's XML, `append="viewtype_merge"`,
+  full stop — don't also stub it in the base rc "for clarity."
+- **Reusing an existing universal container name on purpose** (e.g.
+  merging into `view`) is fine — that container is *meant* to have multiple
+  contributing clients and is never expected to disappear.
+- **Bump the `<gui version="…">` number on `corbomiteui.rc.in` any time you
+  touch its container structure**, and know that the bump can still fail to
+  self-invalidate a stale cache if a *different build* (e.g. another git
+  worktree's dev build, sharing the same KXMLGUI component name) happened
+  to reach the same version number first — see the `CLAUDE.md` Dev Build
+  Isolation caveat. If a fresh menu/toolbar change doesn't appear to take
+  effect after a clean rebuild, check
+  `~/.local/share/kxmlgui5/corbomite-dev/corbomite-devui.rc` for stale
+  content before suspecting your own code.
+
+### C5 — Toolbars: icon-only by default, and the context-menu trap
+
+Every toolbar defaults to icon-only (`registerToolBar()` sets
+`Qt::ToolButtonIconOnly` centrally for provider toolbars; `mainToolBar`
+gets it declaratively via `corbomiteui.rc.in`'s `iconText="icononly"`).
+**If your provider's toolbar is created programmatically** (no `<ToolBar>`
+XML element — the pattern every provider toolbar has followed since O3,
+since KXMLGUI's `Default` flag on `setupGUI()` would otherwise delete a
+toolbar built before it), you get this for free by calling
+`registerToolBar()`; don't set the style yourself.
+
+Separately: `installToolBarContextMenu()` installs `Qt::CustomContextMenu`
+on every registered provider toolbar, which **fully replaces** KToolBar's
+own built-in right-click menu — including its icon/text style picker. O3
+re-offers that picker inside the custom menu (Icon Only / Text Under Icon /
+Text Alongside Icon) precisely so this doesn't regress Q3's user-override
+requirement. **If you add a second context-menu-worthy per-toolbar setting
+later, extend this same menu — don't stack a third custom context menu on
+top of it.**
+
+### C6 — Per-provider pre-flight checklist
+
+Before writing a new `ViewActions` subclass:
+
+- [ ] Own `KActionCollection`, own `componentName` (distinct from every
+      other provider's).
+- [ ] Constructed eagerly at `MainWindow` construction (C3.T2 requirement —
+      the Hotkeys page needs your shortcuts even with no tab of your type
+      open); only `addClient`/`removeClient` is dynamic.
+- [ ] Every new top-level `<Menu>` uses `append="viewtype_merge"` and a
+      `name` no other client declares (C4).
+- [ ] `bind(View*)`/`unbind()` follow the disconnect discipline: store every
+      per-view `QMetaObject::Connection` and disconnect it at the top of
+      `bind()` before making new ones, and in `unbind()`. This is the exact
+      shape of the `GraphControlsPanel` cross-talk bug (report §4.3) that O6
+      exists to fix structurally — don't reintroduce a narrower instance of
+      it in a new provider.
+- [ ] `refresh()` re-runs on every signal that can change either Tier B or
+      Tier C state for your type (O3's own bug: Tier C sync forgot to also
+      call `refresh()`, leaving Reading-mode format verbs wrongly enabled —
+      don't split the two without a specific reason).
+- [ ] `i18n()` every string, `QIcon::fromTheme()` every icon (standing rule
+      7 — canvas menus already violate this per the Cluster M plan; don't
+      extend the violation into O4).
+- [ ] Tests: an install/uninstall-cleanliness test (`tst_view_actions_provider`
+      pattern), a Tier-B/C refresh test, and a toolbar-population test —
+      the three the O3 "Tests:" line names, generalised to your type.
