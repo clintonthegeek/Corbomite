@@ -12,7 +12,7 @@ find_package(KF6ColorScheme REQUIRED)
 # provider mechanism), so libs/core now needs KF6::XmlGui.
 find_package(KF6XmlGui REQUIRED)
 
-add_library(corbomite-core STATIC
+add_library(corbomite-core SHARED
     src/NoteMeta.cpp
     src/NoteDocument.cpp
     include/corbomite/core/NoteDocument.h
@@ -172,10 +172,15 @@ target_link_libraries(corbomite-core
         KF6::XmlGui
         KDAB::kddockwidgets
     # Submodule / bundled deps are linked only in the in-tree BUILD
-    # interface. They are not shipped as part of the installed Corbomite
-    # package. Third-party plugins that link against an installed
-    # Corbomite::Core must still be built in a tree that resolves these
-    # symbols themselves (typically via add_subdirectory of Corbomite).
+    # interface — their .cmake config files aren't installed, so an
+    # out-of-tree consumer can't find_package() them. This no longer means
+    # "plugins must resolve these symbols themselves": since corbomite-core
+    # is SHARED (Cluster P Phase P3), each submodule's object code is baked
+    # into libcorbomite-core.so itself and plugins get it for free by
+    # linking Corbomite::Core, exactly like any other symbol core exports.
+    # BUILD_INTERFACE here is purely about satisfying CMake's target-lookup
+    # at configure time in an installed tree, not about runtime symbol
+    # availability.
     PUBLIC
         $<BUILD_INTERFACE:jkqtmathtext>
         $<BUILD_INTERFACE:mmdr>
