@@ -248,10 +248,17 @@ after creation. Defaults (Appendix A): **text 250×60, file 400×400**.
 - [x] **M2.1 Double-click empty → text card** — landed `10175197`.
       `CanvasScene::mouseDoubleClickEventBackground()` override: `CmdAddCard`
       (text, 250×60, click point = card center) → select → `beginInlineEdit`.
-      Test: `testDoubleClickEmptyCreatesTextCardInEditMode`. Found (not fixed,
-      out of scope): leaving the inline-edit `QGraphicsProxyWidget` alive
-      across `~CanvasScene` corrupts the heap — worked around in the test by
-      closing the editor before scope end; punch-list candidate.
+      Test: `testDoubleClickEmptyCreatesTextCardInEditMode`. **Heap-corruption
+      bug found during M1.7/M2 live review, root-caused and FIXED
+      (`8bfefddc`):** destroying `CanvasScene` while an inline text/group-
+      label edit was still open (e.g. closing a tab mid-edit) double-deleted
+      a scene item — deleting the focused edit widget mid-teardown
+      synchronously re-fires `QApplication::focusChanged`, which was still
+      wired to `finishInlineEdit()`/`finishGroupLabelEdit()`, reentering them
+      while `QGraphicsScene`'s own destructor was already deleting the same
+      item. Fixed with an explicit `CanvasScene` destructor that finishes any
+      open edit before base-class item cleanup starts. New regression test:
+      `testSceneDestroyedWhileEditingDoesNotCrash`.
 - [x] **M2.2 Context menu create** — landed `1a01a19c` + app-wiring
       follow-up `476bede4`. Menu entries renamed to i18n'd "New text card" /
       "New file card…" / "New group" (also fixed text-card default height
@@ -270,10 +277,12 @@ after creation. Defaults (Appendix A): **text 250×60, file 400×400**.
       only ever receives a `vaultRoot` path string, no `Vault*` is reachable
       at that layer today, so `CanvasViewTab` wires the requestor to a
       `QDirIterator` scan of the vault root for markdown + common
-      attachment extensions instead. Functionally equivalent for a normal
-      vault; misses `.obsidian`-config excludes/ignores that a real
-      `Vault::getFiles()` would respect. Flagged as a punch-list candidate
-      if that gap bites in practice.
+      attachment extensions instead. **Partial fix landed (`3a0fe634`):**
+      dot-prefixed path segments (`.obsidian`, `.git`, `.trash`, …) are now
+      skipped, so internal config/plugin JSON no longer clutters the picker.
+      Still not backed by `Vault`'s real exclude patterns/in-memory file
+      tree — punch-listed (`[canvas][cluster-m]`) as follow-up work needing
+      a `Vault*` threaded down from `CanvasFileView`.
 - [x] **M2.3 Drag-drop** — landed `98630a52`.
       `CanvasScene::{dragEnterEvent,dragMoveEvent,dropEvent}`:
       `text/uri-list` from FileExplorer/OS → one file node per file at drop
@@ -298,11 +307,13 @@ after creation. Defaults (Appendix A): **text 250×60, file 400×400**.
       created directly in the scene at press time (fresh 16-hex ids, cloned
       internal edges remapped) and dragged live; one compound
       `CmdAddCard`/`CmdAddEdge` undo step commits on release. Test:
-      `testAltDragDuplicates`. **Divergence:** no drag-threshold gate — a
-      press+release with zero mouse movement still commits a duplicate at
-      the original position (the plan's predicate is "Alt+press... lands on
-      an already-selected node", which the implementation follows literally
-      rather than inferring an unstated movement gate).
+      `testAltDragDuplicates`. **Missing drag-threshold gate found + fixed
+      (`ddde36d5`):** a press+release with zero mouse movement was
+      committing a duplicate at the original position. Added a
+      `QApplication::startDragDistance()` gate — below threshold, the
+      eagerly-created clones are removed and the original selection
+      restored instead, so a bare Alt+click behaves like a plain click.
+      Test: `testAltClickWithoutDragDoesNotDuplicate`.
 - [x] **M2.6 New-canvas command** — landed `92cab583`. New
       `FileManager::createNewFile(parent, name, ext, content)` generalizes
       `createNewMarkdownFile` (now delegates to it), reusing the existing
@@ -324,6 +335,17 @@ after creation. Defaults (Appendix A): **text 250×60, file 400×400**.
       staying green.
 - Exit: user can build the business-model canvas layout from an empty file
   without touching JSON — live-verified by actually rebuilding ~6 cards of it.
+- **Phase M2 CLOSED 2026-08-19.** User live-tested all six flows against the
+  running dev build and confirmed working: double-click-to-create, context-
+  menu file picker, drag-drop, clipboard copy/paste (incl. the +16px offset
+  on paste), Alt-drag duplicate, and the New Canvas command/dialogs. Three
+  bugs surfaced and fixed during the pass are detailed inline above:
+  the `~CanvasScene` heap-corruption double-delete (`8bfefddc`), the
+  file-picker dot-path leak (`3a0fe634`), and the Alt-drag zero-movement
+  duplicate (`ddde36d5`). Remaining known gaps, both punch-listed rather
+  than fixed here (out of M2 scope): file-picker candidates aren't
+  `Vault`-backed (`[canvas][cluster-m]`), and canvas has no dark-mode/theme
+  awareness at all (`[canvas][cluster-m]`, found during M1.7).
 
 ### Phase M3 — Edge authoring (audit §9.3, §8 inv. 2/3/10)
 
