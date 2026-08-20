@@ -29,3 +29,23 @@ add_test(NAME tst_cross_session COMMAND tst_cross_session)
 target_link_libraries(tst_cross_session PRIVATE
     Qt6::Test Qt6::Sql Corbomite::Models Corbomite::Storage Corbomite::Core)
 set_tests_properties(tst_cross_session PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster P Phase P4.T1/T2 — the plugin-boundary correctness gate. Loads
+# the real corbomite-file-explorer.so via KPluginFactory (genuine dlopen,
+# no test-only bypass) and qobject_casts a NotesTreeModel constructed
+# inside it. Needs Qt6::Widgets (QTreeView) and Corbomite::Vault
+# (PluginManager/PluginContext/Plugin/Vault/FileManager) on top of the
+# other tests' deps, plus KF6::CoreAddons for KPluginFactory.
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(KF6CoreAddons REQUIRED)
+add_executable(tst_plugin_type_identity tst_plugin_type_identity.cpp)
+add_test(NAME tst_plugin_type_identity COMMAND tst_plugin_type_identity)
+target_link_libraries(tst_plugin_type_identity PRIVATE
+    Qt6::Test Qt6::Widgets KF6::CoreAddons
+    Corbomite::Models Corbomite::Storage Corbomite::Core Corbomite::Vault)
+target_compile_definitions(tst_plugin_type_identity PRIVATE
+    CORBOMITE_PLUGIN_DEV_DIR="${CORBOMITE_PLUGIN_DEV_DIR}")
+set_tests_properties(tst_plugin_type_identity PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+# The plugin .so must exist on disk before this test can find it.
+add_dependencies(tst_plugin_type_identity corbomite-file-explorer)

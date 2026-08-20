@@ -238,6 +238,14 @@ add_test(NAME tst_no_library_cycles
     COMMAND ${CMAKE_COMMAND} -DBINARY_DIR=${CMAKE_BINARY_DIR}
             -P ${CMAKE_SOURCE_DIR}/cmake/CheckNoLibraryCycles.cmake)
 
+# Cluster P Phase P4.T3 — structural guard against a
+# staticMetaObject symbol being defined in more than one built module
+# (the C1/C2 plugin-boundary correctness bug this cluster fixes). See
+# cmake/CheckNoDuplicateMetaObjects.cmake for the allowlist mechanism.
+add_test(NAME tst_no_duplicate_metaobjects
+    COMMAND ${CMAKE_COMMAND} -DBINARY_DIR=${CMAKE_BINARY_DIR}
+            -P ${CMAKE_SOURCE_DIR}/cmake/CheckNoDuplicateMetaObjects.cmake)
+
 add_subdirectory(tests/app)
 add_subdirectory(tests/core)
 add_subdirectory(tests/storage)
