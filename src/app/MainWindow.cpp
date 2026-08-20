@@ -53,6 +53,7 @@
 #include "corbomite/storage/MetadataCache.h"
 #include "ExportToPdf.h"
 #include "editor/MarkdownView.h"
+#include "editor/MarkdownViewActions.h"
 #include "canvas/CanvasFileView.h"
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/PathUtils.h"
@@ -96,6 +97,7 @@
 #include <KRecentFilesAction>
 #include <KSharedConfig>
 #include <KConfigGroup>
+#include <KToolBar>
 #include <QApplication>
 #include <QDebug>
 #include <QDir>
@@ -243,6 +245,31 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     // immediately to the right of the KXMLGUI-created main toolbar,
     // since addToolBar() appends in the same area in insertion order.
     setupRibbonToolBar();
+
+    // Cluster O Phase O3 — ViewActions provider mechanism. Providers are
+    // eagerly constructed (O3.T2 — the Hotkeys page needs every type's
+    // shortcuts even with no matching tab open) and registered with the
+    // controller; only *installation* is dynamic (O3.T3, driven by
+    // ActionContextController::rebindActiveView() on every leaf/view-type
+    // change). setGuiFactory() must come first — guiFactory() only exists
+    // meaningfully once setupGUI() above has run. The toolbar, like the
+    // Ribbon above, is created AFTER setupGUI() for the same reason
+    // (KXMLGUI's Default flag would otherwise delete a programmatically-
+    // added toolbar); registerToolBar()'s immediate applyToolBarPolicies()
+    // call is therefore also the D4-trap reapply (nothing could have
+    // silently overridden this toolbar's visibility before it existed).
+    m_actionContext->setGuiFactory(guiFactory());
+
+    m_markdownViewActions = new MarkdownViewActions(this, this);
+    connect(m_markdownViewActions, &MarkdownViewActions::insertTemplateRequested,
+            this, &MainWindow::insertTemplate);
+    m_actionContext->registerProvider(m_markdownViewActions);
+
+    m_markdownToolBar = new KToolBar(QStringLiteral("markdownToolBar"), this);
+    m_markdownToolBar->setWindowTitle(i18n("Markdown Toolbar"));
+    addToolBar(Qt::TopToolBarArea, m_markdownToolBar);
+    m_markdownToolBar->addActions(m_markdownViewActions->toolBarActions());
+    m_actionContext->registerToolBar(QStringLiteral("markdown"), m_markdownToolBar);
 
     // Cluster V Task 1.7 — theme dispatcher. applyTheme() applies the
     // Appearance/Theme kcfg key via KColorSchemeManager; onSettingsApplied
@@ -506,39 +533,9 @@ void MainWindow::triggerEditorAction(Markoff::ActionId id)
     (void)id;
 }
 
-void MainWindow::onSetHeading(int level)
-{
-    auto *editor = activeEditor();
-    if (!editor || level < 0 || level > 6) return;
-    if (auto *leaf = editor->activeLeaf())
-        leaf->setHeadingLevel(level);   // 0 strips ATX markers, 1..6 sets
-}
-
-void MainWindow::onInsertCallout()
-{
-    auto *editor = activeEditor();
-    if (!editor || !editor->activeLeaf()) return;
-    CalloutPickerDialog dlg(this);
-    if (dlg.exec() != QDialog::Accepted) return;
-    // TODO(port-foundation-exploration): insertCallout was on the old
-    // pre-port editor; the contract-v2 MarkdownView base has no insert-
-    // callout verb yet. Re-steer upstream when callout insertion returns.
-    (void)dlg.selectedType();
-    (void)dlg.title();
-}
-
-void MainWindow::onInsertTable()
-{
-    auto *editor = activeEditor();
-    if (!editor || !editor->activeLeaf()) return;
-    InsertTableDialog dlg(this);
-    if (dlg.exec() != QDialog::Accepted) return;
-    // TODO(port-foundation-exploration): insertTable was on the old
-    // Markoff::Editor; ditto.
-    (void)dlg.rows();
-    (void)dlg.cols();
-    (void)dlg.firstRowAsHeader();
-}
+// Cluster O Phase O3.T6 — onSetHeading/onInsertCallout/onInsertTable moved
+// into MarkdownViewActions (they now operate on the bound MarkdownView
+// instead of MainWindow's activeEditor()/activeMarkdownView() accessors).
 
 // Cluster O Phase O1.T1 — refreshEditorActions()/updateEditorActionStates()
 // (which used to disagree — see O1.T6) moved into
@@ -666,19 +663,8 @@ void MainWindow::onAboutApp()
     dlg.exec();
 }
 
-void MainWindow::cycleEditorMode()
-{
-    auto *mv = activeMarkdownView();
-    if (!mv) return;
-    auto *w = mv->editorWidget();
-    if (!w) return;
-    using VM = NoteEditorWidget::ViewMode;
-    switch (w->viewMode()) {
-        case VM::Source:      w->setViewMode(VM::LivePreview); break;
-        case VM::LivePreview: w->setViewMode(VM::Reading);     break;
-        case VM::Reading:     w->setViewMode(VM::Source);      break;
-    }
-}
+// Cluster O Phase O3.T6 — cycleEditorMode() moved into MarkdownViewActions
+// (editor_toggle_mode's trigger).
 
 void MainWindow::openFileInWorkspace(const QString &relativePath)
 {
@@ -1214,8 +1200,20 @@ void MainWindow::setupActions()
 
     KStandardAction::quit(qApp, &QApplication::quit, ac);
     auto *prefsAction = KStandardAction::preferences(this, [this]() {
+        // Cluster O Phase O3.T2 — the Hotkeys page needs every provider's
+        // collection, not just the universal one, so every type's
+        // shortcuts show even with no matching tab open. m_markdownViewActions
+        // is null the first time setupActions() itself runs (constructed
+        // later in the ctor) but always set by the time a user can reach
+        // Preferences via this action.
+        SettingsDialog::ActionCollections collections{
+            {actionCollection(), QString()},
+        };
+        if (m_markdownViewActions)
+            collections.append({m_markdownViewActions->actionCollection(),
+                                 i18n("Markdown Editor")});
         SettingsDialog dialog(m_app->pluginManager(), m_themeService,
-                               actionCollection(), this);
+                               collections, this);
         dialog.exec();
     }, ac);
     ac->setDefaultShortcut(prefsAction, QKeySequence(Qt::CTRL | Qt::Key_Comma));
@@ -1327,13 +1325,7 @@ void MainWindow::setupActions()
     zoomReset->setIcon(QIcon::fromTheme(QStringLiteral("zoom-original")));
     connect(zoomReset, &QAction::triggered, this, &MainWindow::onZoomReset);
 
-    {
-        auto *toggleMode = ac->addAction(QStringLiteral("editor_toggle_mode"));
-        toggleMode->setText(i18n("Toggle Editor Mode"));
-        toggleMode->setIcon(QIcon::fromTheme(QStringLiteral("view-preview")));
-        ac->setDefaultShortcut(toggleMode, QKeySequence(Qt::CTRL | Qt::Key_E));
-        connect(toggleMode, &QAction::triggered, this, &MainWindow::cycleEditorMode);
-    }
+    // editor_toggle_mode moved to MarkdownViewActions (Cluster O O3.T6).
 
     auto *quickSwitcher = ac->addAction(QStringLiteral("quick_switcher"));
     quickSwitcher->setText(i18n("Quick Switcher"));
@@ -1359,50 +1351,18 @@ void MainWindow::setupActions()
     ac->setDefaultShortcut(graphView, QKeySequence(Qt::CTRL | Qt::Key_G));
     connect(graphView, &QAction::triggered, this, &MainWindow::openGraphView);
 
-    auto *insertTpl = ac->addAction(QStringLiteral("insert_template"));
-    insertTpl->setText(i18n("Insert Template"));
-    insertTpl->setIcon(QIcon::fromTheme(QStringLiteral("document-new-from-template")));
-    ac->setDefaultShortcut(insertTpl, QKeySequence(Qt::CTRL | Qt::Key_T));
-    connect(insertTpl, &QAction::triggered, this, &MainWindow::insertTemplate);
+    // insert_template moved to MarkdownViewActions (Cluster O O3.T6) —
+    // MainWindow::insertTemplate() stays here (owns TemplateService) and is
+    // connected to the provider's insertTemplateRequested() signal instead.
 
     auto *dailyNote = ac->addAction(QStringLiteral("open_daily_note"));
     dailyNote->setText(i18n("Open Daily Note"));
     dailyNote->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
     connect(dailyNote, &QAction::triggered, this, &MainWindow::openDailyNote);
 
-    // View > Editor Mode submenu — three checkable radio actions that
-    // directly select one of the three ViewModes. Keeps the pre-existing
-    // action object names (referenced by e2e tests + API-REFERENCE).
-    // Check-state is kept in sync with the active MarkdownView via the
-    // NoteEditorWidget::viewModeChanged signal (hooked up below in the
-    // activeLeafChanged connection).
-    auto *modeGroup = new QActionGroup(this);
-    modeGroup->setExclusive(true);
-    auto addModeAction = [this, ac, modeGroup](
-        const QString &id, const QString &label, const QString &icon,
-        NoteEditorWidget::ViewMode mode) {
-        auto *act = ac->addAction(id);
-        act->setText(label);
-        act->setIcon(QIcon::fromTheme(icon));
-        act->setCheckable(true);
-        act->setActionGroup(modeGroup);
-        connect(act, &QAction::triggered, this, [this, mode]() {
-            if (auto *editor = activeEditor())
-                editor->setViewMode(mode);
-        });
-        return act;
-    };
-    // Ctrl+E is owned by `editor_toggle_mode` (3-way cycle per spec §3.3)
-    // — no per-mode shortcut is registered here.
-    addModeAction(QStringLiteral("view_source_mode"),  i18n("Source"),
-                  QStringLiteral("text-plain"),
-                  NoteEditorWidget::ViewMode::Source);
-    addModeAction(QStringLiteral("view_editing_mode"), i18n("Live Preview"),
-                  QStringLiteral("text-x-markdown"),
-                  NoteEditorWidget::ViewMode::LivePreview);
-    addModeAction(QStringLiteral("view_reading_mode"), i18n("Reading"),
-                  QStringLiteral("view-preview"),
-                  NoteEditorWidget::ViewMode::Reading);
+    // View > Editor Mode radio group moved to MarkdownViewActions
+    // (Cluster O O3.T6) — view_source_mode/view_editing_mode/
+    // view_reading_mode object names are preserved there.
 
     // Tab shortcuts
     auto *closeTab = ac->addAction(QStringLiteral("tab_close"));
@@ -1564,184 +1524,8 @@ void MainWindow::setupActions()
             3000);
     });
 
-    // -----------------------------------------------------------------
-    // Cluster V Phase 2+3 — Markoff editor actions (Format/Heading/
-    // Insert/Table/Fold/Edit Find extensions). Each entry registers a
-    // KActionCollection slot that forwards to the active MarkdownView's
-    // Markoff::Editor. Enable-state is maintained by refreshEditorActions()
-    // on Workspace::activeLeafChanged (and cursor-moved for the Table
-    // submenu). KCommandBar palette picks these up automatically via its
-    // action-collection walk in MainWindow::showCommandPalette.
-    // -----------------------------------------------------------------
-
-    // Editor actions are registered below as either:
-    //   (a) A format verb routed through the Markoff::MarkdownView base —
-    //       one polymorphic call covers all three leaves. Enable-state is
-    //       driven from hasEditing() in updateEditorActionStates().
-    //   (b) Registered but stubbed with a TODO until the corresponding
-    //       Markoff-side feature is built (see port-foundation-exploration.md).
-    //
-    // Contract v2: format verbs are virtuals on Markoff::MarkdownView; one
-    // base call covers all three leaves (no-op on leaves without editing —
-    // hasEditing() drives the enabled state, wired in onEditorContextChanged).
-    auto addEditorActionBase = [this, ac](
-        const QString &objName, const QString &icon, const QString &label,
-        const QKeySequence &shortcut,
-        void (Markoff::MarkdownView::*verb)()) -> QAction* {
-        auto *act = ac->addAction(objName);
-        act->setText(label);
-        if (!icon.isEmpty()) act->setIcon(QIcon::fromTheme(icon));
-        if (!shortcut.isEmpty()) ac->setDefaultShortcut(act, shortcut);
-        connect(act, &QAction::triggered, this, [this, verb]() {
-            if (auto *editor = activeEditor())
-                if (auto *leaf = editor->activeLeaf())
-                    (leaf->*verb)();
-        });
-        return act;
-    };
-    auto addEditorActionStub = [this, ac](
-        const QString &objName, const QString &icon, const QString &label,
-        const QKeySequence &shortcut = {}) -> QAction* {
-        // TODO(port-foundation-exploration): no Markoff-side implementation
-        // yet. Registered so menus/toolbars/KCommandBar can discover the
-        // action and so refreshEditorActions can grey it out. Wire when the
-        // corresponding Markoff feature lands.
-        auto *act = ac->addAction(objName);
-        act->setText(label);
-        if (!icon.isEmpty()) act->setIcon(QIcon::fromTheme(icon));
-        if (!shortcut.isEmpty()) ac->setDefaultShortcut(act, shortcut);
-        act->setEnabled(false);
-        return act;
-    };
-
-    // Find / FindNext / FindPrev / Replace: handled by NoteEditorWidget's
-    // FindBar wired via FindController (see setupFindActions / 7f975120).
-    // No actions registered here — KStandardAction::findNext/Prev above
-    // already covers that surface.
-
-    // Format: Bold / Italic / Strikethrough / Inline code — checkable for
-    // toolbar/menubar parity. Contract-v2 EditorContext has no inline-span
-    // fields, so checked state is not yet synced (same as before this change).
-    if (auto *a = addEditorActionBase(
-            QStringLiteral("format_bold"),
-            QStringLiteral("format-text-bold"), i18n("Bold"), QKeySequence::Bold,
-            &Markoff::MarkdownView::toggleBold))
-        a->setCheckable(true);
-    if (auto *a = addEditorActionBase(
-            QStringLiteral("format_italic"),
-            QStringLiteral("format-text-italic"), i18n("Italic"), QKeySequence::Italic,
-            &Markoff::MarkdownView::toggleItalic))
-        a->setCheckable(true);
-    if (auto *a = addEditorActionBase(
-            QStringLiteral("format_strikethrough"),
-            QStringLiteral("format-text-strikethrough"), i18n("Strikethrough"),
-            QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_X),
-            &Markoff::MarkdownView::toggleStrikethrough))
-        a->setCheckable(true);
-    if (auto *a = addEditorActionBase(
-            QStringLiteral("format_inline_code"),
-            QStringLiteral("code-context"), i18n("Inline Code"),
-            QKeySequence(Qt::CTRL | Qt::Key_E),
-            &Markoff::MarkdownView::toggleInlineCode))
-        a->setCheckable(true);
-
-    addEditorActionBase(QStringLiteral("insert_link"),
-                        QStringLiteral("insert-link"), i18n("Insert Link"),
-                        QKeySequence(Qt::CTRL | Qt::Key_K),
-                        &Markoff::MarkdownView::insertLink);
-    addEditorActionStub(QStringLiteral("insert_wiki_link"),
-                        QStringLiteral("insert-link"), i18n("Insert Wiki Link"),
-                        QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
-    addEditorActionStub(QStringLiteral("insert_image"),
-                        QStringLiteral("insert-image"), i18n("Insert Image"));
-    addEditorActionStub(QStringLiteral("insert_code_block"),
-                        QStringLiteral("code-block"), i18n("Insert Code Block"));
-    addEditorActionStub(QStringLiteral("insert_block_quote"),
-                        QStringLiteral("format-text-blockquote"),
-                        i18n("Insert Block Quote"));
-    addEditorActionStub(QStringLiteral("insert_horizontal_rule"),
-                        QStringLiteral("distribute-horizontal-center"),
-                        i18n("Insert Horizontal Rule"));
-    addEditorActionStub(QStringLiteral("toggle_checkbox"),
-                        QStringLiteral("checkbox"), i18n("Toggle Checkbox"));
-
-    // Heading: H1..H6 forward to LiveActionController heading{1..6}Action
-    // (Markoff: LiveFormatController::setHeadingLevel). H0 (paragraph) is
-    // not surfaced as a discrete KAction here; users hit Ctrl+0 via the
-    // shortcut on heading0Action when it propagates, or use the
-    // heading_decrease repeatedly.
-    auto *headingGroup = new QActionGroup(this);
-    headingGroup->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
-    for (int level = 1; level <= 6; ++level) {
-        auto *act = ac->addAction(QStringLiteral("heading_%1").arg(level));
-        act->setText(i18n("Heading %1", level));
-        act->setIcon(QIcon::fromTheme(QStringLiteral("format-text-heading")));
-        act->setCheckable(true);
-        act->setActionGroup(headingGroup);
-        ac->setDefaultShortcut(
-            act, QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_0 + level)));
-        connect(act, &QAction::triggered, this,
-                [this, level]() { onSetHeading(level); });
-    }
-    // Increase / Decrease still stubs — Markoff has no native
-    // increase/decrease semantic. Could be implemented client-side by
-    // reading the current block's headingLevel from the model and calling
-    // setHeadingLevel(level ± 1) — TODO when block-context reporting lands.
-    addEditorActionStub(QStringLiteral("heading_increase"),
-                        QStringLiteral("format-header-more"),
-                        i18n("Increase Heading Level"));
-    addEditorActionStub(QStringLiteral("heading_decrease"),
-                        QStringLiteral("format-header-less"),
-                        i18n("Decrease Heading Level"));
-
-    // Insert: Table... / Callout... (dialog-wrapped) — dialog opens; the
-    // actual insert is still a no-op until Markoff lands the insert paths.
-    auto *insertTable = ac->addAction(QStringLiteral("insert_table"));
-    insertTable->setText(i18n("Insert Table..."));
-    insertTable->setIcon(QIcon::fromTheme(QStringLiteral("insert-table")));
-    connect(insertTable, &QAction::triggered, this, &MainWindow::onInsertTable);
-
-    auto *insertCallout = ac->addAction(QStringLiteral("insert_callout"));
-    insertCallout->setText(i18n("Insert Callout..."));
-    insertCallout->setIcon(QIcon::fromTheme(QStringLiteral("dialog-information")));
-    connect(insertCallout, &QAction::triggered, this, &MainWindow::onInsertCallout);
-
-    // Table operations — all stubs (no per-row/col API on Markoff yet,
-    // even though ActionId::DeleteRow/DeleteColumn are declared).
-    addEditorActionStub(QStringLiteral("table_row_above"),
-                        QStringLiteral("edit-table-insert-row-above"),
-                        i18n("Insert Row Above"));
-    addEditorActionStub(QStringLiteral("table_row_below"),
-                        QStringLiteral("edit-table-insert-row-below"),
-                        i18n("Insert Row Below"));
-    addEditorActionStub(QStringLiteral("table_col_left"),
-                        QStringLiteral("edit-table-insert-column-left"),
-                        i18n("Insert Column Left"));
-    addEditorActionStub(QStringLiteral("table_col_right"),
-                        QStringLiteral("edit-table-insert-column-right"),
-                        i18n("Insert Column Right"));
-    addEditorActionStub(QStringLiteral("table_delete_row"),
-                        QStringLiteral("edit-table-delete-row"),
-                        i18n("Delete Row"));
-    addEditorActionStub(QStringLiteral("table_delete_col"),
-                        QStringLiteral("edit-table-delete-column"),
-                        i18n("Delete Column"));
-
-    // View > Fold All / Unfold All / Toggle Fold — folding is not in
-    // foundation-exploration at all yet; all stubs.
-    addEditorActionStub(QStringLiteral("fold_all"),
-                        QStringLiteral("collapse-all"), i18n("Fold All"),
-                        QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Minus));
-    // No Ctrl+Shift+= shortcut — it collides with the editor's zoom-in
-    // alternate sequence (LiveView.qml). unfold_all is an unimplemented stub
-    // anyway; reintroduce a (non-colliding) shortcut when folding lands.
-    addEditorActionStub(QStringLiteral("unfold_all"),
-                        QStringLiteral("expand-all"), i18n("Unfold All"));
-    addEditorActionStub(QStringLiteral("toggle_fold"),
-                        QStringLiteral("code-function"),
-                        i18n("Toggle Fold at Cursor"),
-                        QKeySequence(Qt::CTRL | Qt::Key_Period));
-
+    // Cluster V Phase 2+3 (Format/Heading/Insert/Table/Fold editor
+    // actions) moved into MarkdownViewActions (Cluster O O3.T6).
     // Initial enable-state: no active MarkdownView yet (m_actionContext's
     // workspace isn't wired until setupEditor() runs; refresh() tolerates a
     // null workspace and is re-run once it is).

@@ -25,12 +25,12 @@ namespace Corbomite {
 
 SettingsDialog::SettingsDialog(PluginManager *plugins,
                                Core::ThemeService *themeService,
-                               KActionCollection *actions,
+                               const ActionCollections &actionCollections,
                                QWidget *parent)
     : KPageDialog(parent),
       m_plugins(plugins),
       m_themeService(themeService),
-      m_actions(actions)
+      m_actionCollections(actionCollections)
 {
     setWindowTitle(i18n("Settings"));
     setFaceType(KPageDialog::List);
@@ -235,16 +235,28 @@ void SettingsDialog::setupHotkeysPage()
     auto *layout = new QVBoxLayout(page);
     layout->setContentsMargins(0, 0, 0, 0);
 
-    if (m_actions) {
+    if (!m_actionCollections.isEmpty()) {
         // KShortcutsEditor embeds inline; the standalone KShortcutsDialog
         // wraps the same widget but doesn't fit KPageDialog's
         // single-instance navigation. Reset target stays on Default;
         // changes commit on apply via the editor's own save/undo.
+        //
+        // Cluster O Phase O3.T2 — one collection is no longer enough:
+        // every ViewActions provider's collection must show here too
+        // (eagerly constructed, so its shortcuts exist even with no tab
+        // of that type open), or the Hotkeys page would only ever show
+        // whichever type happened to be focused when Settings was opened.
+        // Built via the no-arg-collection overload + addCollection() per
+        // entry rather than passing the first collection through the
+        // constructor, so every entry (including the first) gets an
+        // explicit section title.
         auto *editor = new KShortcutsEditor(
-            m_actions,
             page,
             KShortcutsEditor::AllActions,
             KShortcutsEditor::LetterShortcutsAllowed);
+        for (const auto &[collection, title] : m_actionCollections) {
+            if (collection) editor->addCollection(collection, title);
+        }
         layout->addWidget(editor);
         // KShortcutsEditor edits in-memory; commit on dialog accept,
         // discard on cancel (the matching XMLGUI rc-file save happens at

@@ -6,8 +6,11 @@
 #include "canvas/CanvasFileView.h"
 #include "canvas/CanvasViewTab.h"
 #include "corbomite/bases/BasesView.h"
+#include "corbomite/core/View.h"
+#include "corbomite/core/ViewActions.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
+#include "corbomitesettings.h"
 #include "editor/MarkdownView.h"
 #include "editor/NoteEditorWidget.h"
 
@@ -15,8 +18,13 @@
 #include <markoff/core/MarkdownView.h>
 
 #include <KActionCollection>
+#include <KLocalizedString>
+#include <KToolBar>
+#include <KXMLGUIFactory>
 
 #include <QAction>
+#include <QActionGroup>
+#include <QMenu>
 #include <QUndoStack>
 
 namespace Corbomite {
@@ -128,18 +136,13 @@ void ActionContextController::rebindActiveView()
     disconnect(m_activeViewModeConnection);
     disconnect(m_activeViewContextChangedConnection);
 
-    if (auto *editor = activeEditor()) {
-        m_activeEditorContextConnection =
-            connect(editor, &NoteEditorWidget::editorContextChanged, this,
-                    &ActionContextController::onEditorContextChanged,
-                    Qt::UniqueConnection);
-        m_activeViewModeConnection =
-            connect(editor, &NoteEditorWidget::viewModeChanged, this,
-                    [this](NoteEditorWidget::ViewMode mode) {
-                        syncEditorModeCheckState(static_cast<int>(mode));
-                    });
-        syncEditorModeCheckState(static_cast<int>(editor->viewMode()));
-    }
+    // O3.T6: the heading-radio / editor-mode-radio sync this controller
+    // used to do directly (connecting NoteEditorWidget::editorContextChanged/
+    // viewModeChanged) is now MarkdownViewActions::bind()'s job — those
+    // actions live in the provider's own collection, not this one.
+    // onEditorContextChanged()/syncEditorModeCheckState() stay below as
+    // public slots (Phase C6's documented test seam) but are no longer
+    // wired to a live signal here.
 
     // O2.T3 — generic Tier-B refresh trigger: every view type forwards
     // its own capability-relevant signals onto View::contextChanged()
@@ -153,6 +156,11 @@ void ActionContextController::rebindActiveView()
             connect(view, &View::contextChanged, this,
                     &ActionContextController::refresh);
     }
+
+    // O3.T3 — Tier A: install/uninstall the provider whose type matches
+    // the (possibly new) active view, guarded internally so an ordinary
+    // same-type switch costs one bind()+refresh(), not a client swap.
+    installProviderForCurrentContext();
 }
 
 // ---------------------------------------------------------------------
@@ -161,15 +169,18 @@ void ActionContextController::rebindActiveView()
 
 void ActionContextController::refresh()
 {
-    updateMarkdownActionStates();
-    updateEditorModeActions();
+    // O3.T6: markdown's Format/Heading/Insert/Table/fold/editor-mode Tier-B
+    // logic moved into MarkdownViewActions::refresh() (called from
+    // installProviderForCurrentContext()/rebindActiveView(), not here) —
+    // those actions no longer live in this controller's actionCollection.
     updateVaultActions();
     updateSaveAction();
-    updateFindAndTemplateActions();
+    updateFindActions();
     updateZoomActions();
     updateBackForwardActions();
     updateTabStateActions();
     updateUndoRedoActions();
+    applyToolBarPolicies();
 }
 
 void ActionContextController::setEnabled(const QString &actionId, bool enabled) const
@@ -179,68 +190,15 @@ void ActionContextController::setEnabled(const QString &actionId, bool enabled) 
 }
 
 // ---------------------------------------------------------------------
-// O1.T6 — merged refreshEditorActions() + updateEditorActionStates().
-// The two functions used to disagree (isMarkdown vs hasEditing()); call
-// ordering made the stricter one win by accident, and Insert > Table was
-// gated on isMarkdown alone — enabled in read-only Reading mode. One
-// function, one predicate.
+// O3.T6: the Tier-B logic that used to live here (O1.T6's merged
+// refreshEditorActions()+updateEditorActionStates()) moved into
+// MarkdownViewActions::refresh() — those actions (format/heading/insert/
+// table verbs) live in the provider's own collection now, not this one's.
+// onEditorContextChanged()/syncEditorModeCheckState() remain below as
+// public slots (Phase C6's documented test seam) but are effectively
+// unused in the live wiring — MarkdownViewActions::bind() owns the real
+// connection to NoteEditorWidget's signals.
 // ---------------------------------------------------------------------
-
-void ActionContextController::updateMarkdownActionStates()
-{
-    auto *mv = activeMarkdownView();
-    const bool isMarkdown = mv != nullptr;
-
-    // O2.T4: routed through the Tier-B capability virtual instead of a
-    // bespoke activeEditor()->activeLeaf()->hasEditing() read.
-    const bool canEdit = isMarkdown && mv->canEdit();
-
-    // Live format verbs — Tier A (markdown only) AND Tier B (canEdit,
-    // false in Reading mode / while read-only).
-    static const QStringList verbActionIds = {
-        QStringLiteral("format_bold"), QStringLiteral("format_italic"),
-        QStringLiteral("format_strikethrough"), QStringLiteral("format_inline_code"),
-        QStringLiteral("insert_link"),
-        QStringLiteral("heading_1"), QStringLiteral("heading_2"),
-        QStringLiteral("heading_3"), QStringLiteral("heading_4"),
-        QStringLiteral("heading_5"), QStringLiteral("heading_6"),
-    };
-    for (const auto &id : verbActionIds)
-        setEnabled(id, canEdit);
-
-    // Dialog-wrapped actions (Insert Table.../Insert Callout...): Tier A
-    // (markdown) AND Tier B (canEdit) — opening an insert dialog in
-    // read-only Reading mode makes no sense even though the eventual
-    // insert is still a placebo (O7 disposes of that separately, per
-    // D7). O2.T1 test tst_action_context::readingMode_disablesFormatVerbs
-    // caught this still gating on isMarkdown alone despite O1.T6's own
-    // comment claiming the fix.
-    setEnabled(QStringLiteral("insert_table"), canEdit);
-    setEnabled(QStringLiteral("insert_callout"), canEdit);
-
-    // Stubs — no Markoff-side implementation yet. Always disabled
-    // regardless of leaf state; O7 disposes of these (registerPlannedAction).
-    static const QStringList stubActionIds = {
-        QStringLiteral("insert_wiki_link"), QStringLiteral("insert_image"),
-        QStringLiteral("insert_code_block"), QStringLiteral("insert_block_quote"),
-        QStringLiteral("insert_horizontal_rule"), QStringLiteral("toggle_checkbox"),
-        QStringLiteral("heading_increase"), QStringLiteral("heading_decrease"),
-        QStringLiteral("table_row_above"), QStringLiteral("table_row_below"),
-        QStringLiteral("table_col_left"),  QStringLiteral("table_col_right"),
-        QStringLiteral("table_delete_row"), QStringLiteral("table_delete_col"),
-        QStringLiteral("fold_all"), QStringLiteral("unfold_all"),
-        QStringLiteral("toggle_fold"),
-    };
-    for (const auto &id : stubActionIds)
-        setEnabled(id, false);
-
-    // Clear the heading radio on every refresh; onEditorContextChanged
-    // re-checks the right one once the (possibly new) editor reports its
-    // block context.
-    for (int i = 1; i <= 6; ++i)
-        if (auto *act = m_actionCollection->action(QStringLiteral("heading_%1").arg(i)))
-            act->setChecked(false);
-}
 
 void ActionContextController::onEditorContextChanged(const Markoff::EditorContext &ctx)
 {
@@ -269,42 +227,6 @@ void ActionContextController::syncEditorModeCheckState(int viewMode)
     }
     if (auto *act = m_actionCollection->action(id))
         act->setChecked(true);
-}
-
-// ---------------------------------------------------------------------
-// O1.T7 — editor_toggle_mode + the three View > Editor Mode radios.
-// Previously view_source_mode was never enable-gated at all (report
-// §4.5); its two siblings and editor_toggle_mode were vault-gated only,
-// so all four stayed enabled on a canvas/bases/graph tab too — a silent
-// no-op class of the same shape (cycleEditorMode()/setViewMode() both
-// early-return with no active MarkdownView).
-// ---------------------------------------------------------------------
-
-void ActionContextController::updateEditorModeActions()
-{
-    const bool open = m_app && m_app->isOpen();
-    const bool isMarkdown = currentViewType() == kMarkdown;
-    const bool enabled = open && isMarkdown;
-    setEnabled(QStringLiteral("editor_toggle_mode"), enabled);
-    setEnabled(QStringLiteral("view_source_mode"), enabled);
-    setEnabled(QStringLiteral("view_editing_mode"), enabled);
-    setEnabled(QStringLiteral("view_reading_mode"), enabled);
-
-    // O1.T2 regression guard: syncEditorModeCheckState() only ever CHECKS
-    // the current mode's radio when a markdown editor is active — nothing
-    // previously cleared it when the focused tab stopped being markdown
-    // (the old mega-lambda's sync block was itself gated on `if (editor)`,
-    // so it silently skipped this case too). Without this, an in-place
-    // swap to canvas/bases left the last markdown mode's radio checked
-    // forever. Clear all three explicitly whenever markdown isn't active.
-    if (!isMarkdown) {
-        if (auto *a = m_actionCollection->action(QStringLiteral("view_source_mode")))
-            a->setChecked(false);
-        if (auto *a = m_actionCollection->action(QStringLiteral("view_editing_mode")))
-            a->setChecked(false);
-        if (auto *a = m_actionCollection->action(QStringLiteral("view_reading_mode")))
-            a->setChecked(false);
-    }
 }
 
 // ---------------------------------------------------------------------
@@ -350,7 +272,7 @@ void ActionContextController::updateVaultActions()
     // file_save -> updateSaveAction() (O1.T4, type-aware).
     // view_editing_mode/reading_mode/source_mode/editor_toggle_mode ->
     //   updateEditorModeActions() (O1.T7, type-aware).
-    // insert_template -> updateFindAndTemplateActions() (O1.T5, type-aware).
+    // insert_template -> MarkdownViewActions::refresh() (O3.T6).
 }
 
 // ---------------------------------------------------------------------
@@ -374,14 +296,15 @@ void ActionContextController::updateSaveAction()
 }
 
 // ---------------------------------------------------------------------
-// O1.T5 — find/replace/insert_template honesty. edit_find routes to
-// Bases' own search box (BasesView::focusSearch(), wired in
-// MainWindow::onFind()) where a real target exists; replace/find-next/
-// find-prev and insert_template have no bases-side equivalent and are
-// disabled off-markdown rather than faked.
+// O1.T5 — find/replace honesty. edit_find routes to Bases' own search box
+// (BasesView::focusSearch(), wired in MainWindow::onFind()) where a real
+// target exists; replace/find-next/find-prev have no bases-side
+// equivalent and are disabled off-markdown rather than faked.
+// insert_template moved to MarkdownViewActions (O3.T6) — its Tier-B is
+// now that provider's refresh(), not this function.
 // ---------------------------------------------------------------------
 
-void ActionContextController::updateFindAndTemplateActions()
+void ActionContextController::updateFindActions()
 {
     const bool open = m_app && m_app->isOpen();
     const QString type = currentViewType();
@@ -392,7 +315,6 @@ void ActionContextController::updateFindAndTemplateActions()
     setEnabled(QStringLiteral("edit_replace"), open && isMarkdown);
     setEnabled(QStringLiteral("edit_find_next"), open && isMarkdown);
     setEnabled(QStringLiteral("edit_find_prev"), open && isMarkdown);
-    setEnabled(QStringLiteral("insert_template"), open && isMarkdown);
 }
 
 // ---------------------------------------------------------------------
@@ -467,48 +389,20 @@ void ActionContextController::registerHandlers()
     reg(QStringLiteral("view_zoom_out"), {kMarkdown, kCanvas, kGraph});
     reg(QStringLiteral("view_zoom_reset"), {kMarkdown, kCanvas, kGraph});
 
-    // Editor-mode group (O1.T7).
-    reg(QStringLiteral("editor_toggle_mode"), {kMarkdown});
-    reg(QStringLiteral("view_source_mode"), {kMarkdown});
-    reg(QStringLiteral("view_editing_mode"), {kMarkdown});
-    reg(QStringLiteral("view_reading_mode"), {kMarkdown});
+    // O3.T6: the editor-mode group, live format verbs + headings, the two
+    // dialog-wrapped placebo actions, every markdown-only stub, and
+    // insert_template all moved into MarkdownViewActions' own collection
+    // — they no longer appear in mw->actionCollection()->actions() at
+    // all (Tier A: hidden, not just disabled, off-markdown), so this
+    // table has nothing left to say about them. hasHandlerForCurrentContext()
+    // still defaults untracked ids to "universal," which is vacuously
+    // correct once an id simply isn't in the walked collection any more.
 
-    // Live format verbs + headings (O1.T6).
-    reg(QStringLiteral("format_bold"), {kMarkdown});
-    reg(QStringLiteral("format_italic"), {kMarkdown});
-    reg(QStringLiteral("format_strikethrough"), {kMarkdown});
-    reg(QStringLiteral("format_inline_code"), {kMarkdown});
-    reg(QStringLiteral("insert_link"), {kMarkdown});
-    for (int i = 1; i <= 6; ++i)
-        reg(QStringLiteral("heading_%1").arg(i), {kMarkdown});
-
-    // Dialog-wrapped placebo actions — opening the dialog IS the visible
-    // effect (O7 disposes of the placebo itself; out of O1 scope).
-    reg(QStringLiteral("insert_table"), {kMarkdown});
-    reg(QStringLiteral("insert_callout"), {kMarkdown});
-
-    // Stubs — always disabled; if any of these is ever enabled without a
-    // real implementation behind it, the introspection gate must fail.
-    static const QStringList stubIds = {
-        QStringLiteral("insert_wiki_link"), QStringLiteral("insert_image"),
-        QStringLiteral("insert_code_block"), QStringLiteral("insert_block_quote"),
-        QStringLiteral("insert_horizontal_rule"), QStringLiteral("toggle_checkbox"),
-        QStringLiteral("heading_increase"), QStringLiteral("heading_decrease"),
-        QStringLiteral("table_row_above"), QStringLiteral("table_row_below"),
-        QStringLiteral("table_col_left"),  QStringLiteral("table_col_right"),
-        QStringLiteral("table_delete_row"), QStringLiteral("table_delete_col"),
-        QStringLiteral("fold_all"), QStringLiteral("unfold_all"),
-        QStringLiteral("toggle_fold"),
-    };
-    for (const auto &id : stubIds)
-        m_handlerViewTypes[id] = QSet<QString>{};
-
-    // Find/replace/template (O1.T5).
+    // Find/replace (O1.T5). insert_template moved to MarkdownViewActions.
     reg(QStringLiteral("edit_find"), {kMarkdown, kBases});
     reg(QStringLiteral("edit_replace"), {kMarkdown});
     reg(QStringLiteral("edit_find_next"), {kMarkdown});
     reg(QStringLiteral("edit_find_prev"), {kMarkdown});
-    reg(QStringLiteral("insert_template"), {kMarkdown});
 
     // Save (O1.T4).
     reg(QStringLiteral("file_save"), {kMarkdown, kCanvas, kBases});
@@ -534,6 +428,131 @@ bool ActionContextController::hasHandlerForCurrentContext(const QString &actionI
     if (types.contains(kUniversal))
         return true;
     return types.contains(currentViewType());
+}
+
+// ---------------------------------------------------------------------
+// Cluster O Phase O3 — the ViewActions provider mechanism.
+// ---------------------------------------------------------------------
+
+void ActionContextController::setGuiFactory(KXMLGUIFactory *factory)
+{
+    m_guiFactory = factory;
+}
+
+void ActionContextController::registerProvider(ViewActions *provider)
+{
+    if (!provider) return;
+    m_providers.insert(provider->viewType(), provider);
+}
+
+void ActionContextController::installProviderForCurrentContext()
+{
+    const QString type = currentViewType();
+    auto *view = (m_workspace && m_workspace->activeLeaf())
+                     ? m_workspace->activeLeaf()->view() : nullptr;
+
+    if (type == m_currentProviderType) {
+        // O3.T3: same type (or both empty) — no XMLGUI rebuild, just
+        // rebind the provider to the (possibly new) View instance and
+        // let it re-sync its own Tier B/C. Cheap.
+        if (m_currentProvider && view)
+            m_currentProvider->bind(view);
+        return;
+    }
+
+    if (m_currentProvider) {
+        m_currentProvider->unbind();
+        if (m_guiFactory)
+            m_guiFactory->removeClient(m_currentProvider);
+    }
+
+    m_currentProvider = m_providers.value(type, nullptr);
+    m_currentProviderType = type;
+
+    if (m_currentProvider) {
+        if (m_guiFactory)
+            m_guiFactory->addClient(m_currentProvider);
+        if (view)
+            m_currentProvider->bind(view);
+    }
+
+    // A provider swap can change which toolbar should be visible under
+    // Auto policy (§D4).
+    applyToolBarPolicies();
+}
+
+void ActionContextController::registerToolBar(const QString &viewType, KToolBar *toolBar)
+{
+    if (!toolBar) return;
+    m_toolBars.insert(viewType, toolBar);
+    installToolBarContextMenu(toolBar, viewType);
+    applyToolBarPolicies();
+}
+
+ToolBarPolicy ActionContextController::toolBarPolicyFor(const QString &viewType) const
+{
+    // O3 has exactly one provider (markdown); O4/O5 add a branch + a new
+    // named kcfg entry per provider they land, same pattern (kcfg has no
+    // dynamic-key entries, so this stays a short explicit dispatch rather
+    // than a generic map — matches how other per-feature settings in this
+    // codebase are named).
+    if (viewType == kMarkdown)
+        return toolBarPolicyFromString(CorbomiteSettings::self()->markdownToolBarPolicy());
+    return ToolBarPolicy::Auto;
+}
+
+void ActionContextController::setToolBarPolicy(const QString &viewType, ToolBarPolicy policy)
+{
+    if (viewType == kMarkdown) {
+        CorbomiteSettings::self()->setMarkdownToolBarPolicy(toolBarPolicyToString(policy));
+        CorbomiteSettings::self()->save();
+    }
+    applyToolBarPolicies();
+}
+
+void ActionContextController::applyToolBarPolicies()
+{
+    const QString active = currentViewType();
+    for (auto it = m_toolBars.constBegin(); it != m_toolBars.constEnd(); ++it) {
+        const ToolBarPolicy policy = toolBarPolicyFor(it.key());
+        const bool inContext = (it.key() == active);
+        it.value()->setVisible(toolBarShouldBeVisible(policy, inContext));
+    }
+}
+
+void ActionContextController::installToolBarContextMenu(KToolBar *toolBar, const QString &viewType)
+{
+    // Q3 — user override, from the toolbar's own context menu. KToolBar's
+    // default right-click behaviour is QMainWindow's generic
+    // "show/hide toolbars" popup; CustomContextMenu on this specific
+    // toolbar lets us offer the tri-state choice instead when the user
+    // right-clicks IT specifically (live-eyeball item — see phase report).
+    toolBar->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(toolBar, &QWidget::customContextMenuRequested, this,
+            [this, toolBar, viewType](const QPoint &pos) {
+        QMenu menu(toolBar);
+        auto *group = new QActionGroup(&menu);
+        group->setExclusive(true);
+        auto addChoice = [&](ToolBarPolicy p, const QString &label) {
+            auto *a = menu.addAction(label);
+            a->setCheckable(true);
+            a->setChecked(toolBarPolicyFor(viewType) == p);
+            a->setActionGroup(group);
+            connect(a, &QAction::triggered, this, [this, viewType, p]() {
+                setToolBarPolicy(viewType, p);
+            });
+        };
+        addChoice(ToolBarPolicy::Auto, i18n("Automatic"));
+        addChoice(ToolBarPolicy::AlwaysShow, i18n("Always Show"));
+        addChoice(ToolBarPolicy::AlwaysHide, i18n("Always Hide"));
+        menu.addSeparator();
+        auto *resetAll = menu.addAction(i18n("Reset All Toolbars to Automatic"));
+        connect(resetAll, &QAction::triggered, this, [this]() {
+            for (auto it = m_toolBars.constBegin(); it != m_toolBars.constEnd(); ++it)
+                setToolBarPolicy(it.key(), ToolBarPolicy::Auto);
+        });
+        menu.exec(toolBar->mapToGlobal(pos));
+    });
 }
 
 } // namespace Corbomite

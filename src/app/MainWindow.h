@@ -18,6 +18,7 @@ class QMenu;
 class QAction;
 
 class KRecentFilesAction;
+class KToolBar;
 
 namespace Markoff {
 class EmbedRegistry;
@@ -81,6 +82,7 @@ class View;
 class ViewRegistry;
 class Plugin;
 class ActionContextController;
+class MarkdownViewActions;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -99,6 +101,10 @@ public:
     /// Cluster O Phase O1.T1 — exposed for tests exercising action-state
     /// refresh directly (tst_action_context, tst_action_context_no_silent_noop).
     ActionContextController *actionContext() const { return m_actionContext; }
+    /// Cluster O Phase O3 — exposed for tests exercising the ViewActions
+    /// provider directly, including before any tab of its type is open
+    /// (eager construction, O3.T2 — tst_view_actions_provider).
+    MarkdownViewActions *markdownViewActions() const { return m_markdownViewActions; }
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
@@ -119,10 +125,8 @@ private Q_SLOTS:
     void onZoomOut();
     void onZoomReset();
     void onAboutApp();
-    void cycleEditorMode();
-    void onInsertCallout();
-    void onInsertTable();
-    void onSetHeading(int level);
+    // cycleEditorMode/onInsertCallout/onInsertTable/onSetHeading moved into
+    // MarkdownViewActions (Cluster O Phase O3.T6).
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -294,6 +298,13 @@ private:
     TagSuggest *m_tagSuggest = nullptr;
     RibbonToolBar *m_ribbonToolBar = nullptr;
     RibbonStateController *m_ribbonState = nullptr;
+
+    // Cluster O Phase O3 — markdown's ViewActions provider (Tier A) + its
+    // persistent toolbar (§D4). Both eagerly constructed at startup;
+    // ActionContextController drives dynamic client install/toolbar
+    // visibility (see setGuiFactory()/registerProvider()/registerToolBar()).
+    MarkdownViewActions *m_markdownViewActions = nullptr;
+    KToolBar *m_markdownToolBar = nullptr;
 
     // Cluster B Phase 1 — host-wide plugin extension registries.
     // PostProcessor and CodeBlockProcessor are functional registries that

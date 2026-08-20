@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "corbomite/core/ToolBarPolicy.h"
+
 #include <QHash>
 #include <QMetaObject>
 #include <QObject>
@@ -11,6 +13,8 @@
 #include <markoff/core/EditorContext.h>
 
 class KActionCollection;
+class KToolBar;
+class KXMLGUIFactory;
 
 namespace Markoff {
 class MarkdownView;
@@ -24,6 +28,8 @@ class CorbomiteApp;
 class MarkdownView;
 class NoteEditorWidget;
 class CanvasFileView;
+class View;
+class ViewActions;
 
 namespace Bases {
 class BasesView;
@@ -106,6 +112,47 @@ public:
     /// matter.
     bool hasHandlerForCurrentContext(const QString &actionId) const;
 
+    // -------------------------------------------------------------
+    // Cluster O Phase O3 — the ViewActions provider mechanism (D1 Tier A:
+    // presence). Providers are constructed eagerly by MainWindow and
+    // registered here by view type; only *installation* — addClient()/
+    // removeClient() on the KXMLGUIFactory — is dynamic (O3.T2/T3).
+    // -------------------------------------------------------------
+
+    /// MainWindow calls this once, right after setupGUI() (the factory
+    /// doesn't exist before then).
+    void setGuiFactory(KXMLGUIFactory *factory);
+
+    /// Registers `provider` under `provider->viewType()`. Must be called
+    /// for every provider before the first bindActiveLeaf().
+    void registerProvider(ViewActions *provider);
+
+    /// The provider whose XMLGUI client is currently installed (its type
+    /// matches the focused leaf's view type), or nullptr if none is (no
+    /// leaf focused, or no provider registered for the focused type).
+    ViewActions *currentProvider() const { return m_currentProvider; }
+
+    /// Registers `toolBar` as the persistent toolbar for `viewType`'s
+    /// provider (O3.T4, §D4) — created by MainWindow AFTER setupGUI(),
+    /// same as the pre-existing RibbonToolBar. Wires the toolbar's
+    /// context-menu override (Q3) and immediately applies the persisted
+    /// policy.
+    void registerToolBar(const QString &viewType, KToolBar *toolBar);
+
+    /// Current persisted tri-state policy for `viewType`'s toolbar.
+    ToolBarPolicy toolBarPolicyFor(const QString &viewType) const;
+
+    /// Sets and persists `policy` for `viewType`'s toolbar, then
+    /// re-applies visibility for every registered toolbar.
+    void setToolBarPolicy(const QString &viewType, ToolBarPolicy policy);
+
+    /// Re-applies every registered toolbar's visibility from its
+    /// persisted policy + the current context. Safe to call any time;
+    /// called from refresh() and once more explicitly wherever a
+    /// toolbar's visibility could have been silently overwritten (§D4's
+    /// KMainWindow applyMainWindowSettings trap).
+    void applyToolBarPolicies();
+
 public Q_SLOTS:
     /// Public so tests can drive it with a synthetic `EditorContext`
     /// without a live Markoff editor (mirrors the old
@@ -122,12 +169,21 @@ public Q_SLOTS:
 
 private:
     void rebindActiveView();
+    /// O3.T3 — the client-swap logic: installs/uninstalls providers'
+    /// KXMLGUIClients on the factory as the focused leaf's view type
+    /// changes, guarded so an ordinary same-type tab switch costs one
+    /// bind()+refresh(), never a client swap.
+    void installProviderForCurrentContext();
+    void installToolBarContextMenu(KToolBar *toolBar, const QString &viewType);
 
-    void updateMarkdownActionStates();   // O1.T6 merge (was refreshEditorActions + updateEditorActionStates)
-    void updateEditorModeActions();      // O1.T7 (view_source_mode + siblings, type-gated)
+    // O1.T6's updateMarkdownActionStates() and O1.T7's
+    // updateEditorModeActions() were retired by O3.T6 — the actions they
+    // touched (format/heading/insert/table/fold/editor-mode) moved into
+    // MarkdownViewActions' own collection; its refresh() is the Tier-B
+    // logic's new home.
     void updateVaultActions();
     void updateSaveAction();             // O1.T4
-    void updateFindAndTemplateActions(); // O1.T5
+    void updateFindActions();            // O1.T5 (insert_template moved to MarkdownViewActions, O3.T6)
     void updateZoomActions();            // O1.T3 (enablement half — dispatch itself is polymorphic)
     void updateBackForwardActions();
     void updateTabStateActions();
@@ -150,6 +206,13 @@ private:
     // actionId -> set of view types with a real handler ("*" == universal,
     // unaffected by focused view type). See hasHandlerForCurrentContext().
     QHash<QString, QSet<QString>> m_handlerViewTypes;
+
+    // Cluster O Phase O3 — provider registry + toolbar policy.
+    KXMLGUIFactory *m_guiFactory = nullptr;
+    QHash<QString, ViewActions *> m_providers;
+    ViewActions *m_currentProvider = nullptr;
+    QString m_currentProviderType;
+    QHash<QString, KToolBar *> m_toolBars;
 };
 
 } // namespace Corbomite

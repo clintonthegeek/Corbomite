@@ -122,6 +122,26 @@ target_link_libraries(tst_view_zoom_dispatch PRIVATE
 set_tests_properties(tst_view_zoom_dispatch PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster O Phase O3 (O3.T1/T2/T3) — the ViewActions provider mechanism:
+# eager construction, install/uninstall leaves the collection clean (no
+# dangling shortcuts).
+add_executable(tst_view_actions_provider tst_view_actions_provider.cpp)
+add_test(NAME tst_view_actions_provider COMMAND tst_view_actions_provider)
+target_link_libraries(tst_view_actions_provider PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+set_tests_properties(tst_view_actions_provider PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster O Phase O3.T4 (doctrine §D4) — tri-state toolbar visibility
+# policy: pure Auto/AlwaysShow/AlwaysHide logic table, plus a real
+# MainWindow/KToolBar integration check in and out of context.
+add_executable(tst_toolbar_policy tst_toolbar_policy.cpp)
+add_test(NAME tst_toolbar_policy COMMAND tst_toolbar_policy)
+target_link_libraries(tst_toolbar_policy PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+set_tests_properties(tst_toolbar_policy PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster O Phase O2.T1 — the View Tier-B capability surface
 # (canEdit/canSave/canZoom/canFind/hasSelection/canUndo/canRedo). Graph
 # coverage lives in src/plugins/graph-view/tests/tst_graphview_plugin.cpp

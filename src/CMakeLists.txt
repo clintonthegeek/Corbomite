@@ -27,6 +27,8 @@ add_library(CorbomiteApp STATIC
     editor/LineResolve.h
     editor/MarkdownView.cpp
     editor/MarkdownView.h
+    editor/MarkdownViewActions.cpp
+    editor/MarkdownViewActions.h
     editor/NoteEditorWidget.cpp
     editor/SourceEditor.cpp
     editor/ViewModeSerializer.cpp

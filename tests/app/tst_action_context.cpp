@@ -32,10 +32,15 @@
 #include "canvas/CanvasFileView.h"
 #include "canvas/CanvasViewTab.h"
 #include "corbomite/bases/BasesView.h"
+#include "corbomite/core/View.h"
+#include "corbomite/core/ViewActions.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "editor/MarkdownView.h"
+#include "editor/MarkdownViewActions.h"
 #include "editor/NoteEditorWidget.h"
+
+#include <KActionCollection>
 
 #include <canvas/CanvasCommands.h>
 #include <canvas/CanvasDocument.h>
@@ -153,8 +158,17 @@ private Q_SLOTS:
         auto *editor = mv->editorWidget();
         QVERIFY(editor);
 
-        auto *ac = mw.actionCollection();
-        QVERIFY(ac->action(QStringLiteral("format_bold"))->isEnabled());
+        // Cluster O Phase O3.T6 — format_bold/view_editing_mode moved out
+        // of mw.actionCollection() into MarkdownViewActions' own
+        // collection (Tier A: hidden off-markdown, not just disabled).
+        // Fetch it from the currently-installed provider now, before the
+        // in-place swap uninstalls it — the pointer itself stays valid
+        // for the provider's whole lifetime.
+        auto *provider = mw.actionContext()->currentProvider();
+        QVERIFY2(provider && provider->viewType() == QStringLiteral("markdown"),
+                  "markdown provider must be installed while a markdown tab is focused");
+        auto *pac = provider->actionCollection();
+        QVERIFY(pac->action(QStringLiteral("format_bold"))->isEnabled());
 
         // Plain-click wikilink navigation — NAVIGATES THE SAME LEAF IN
         // PLACE via WorkspaceLeaf::navigate(), which is exactly the path
@@ -168,12 +182,18 @@ private Q_SLOTS:
         QVERIFY2(qobject_cast<CanvasFileView *>(ws->activeLeaf()->view()) != nullptr,
                  "leaf must now host a CanvasFileView (in-place swap)");
 
-        QVERIFY2(!ac->action(QStringLiteral("format_bold"))->isEnabled(),
+        QVERIFY2(!pac->action(QStringLiteral("format_bold"))->isEnabled(),
                   "format_bold must be disabled after swapping to a canvas view in place");
-        QVERIFY2(!ac->action(QStringLiteral("view_editing_mode"))->isChecked(),
+        QVERIFY2(!pac->action(QStringLiteral("view_editing_mode"))->isChecked(),
                   "editor-mode radio must not stay checked on a non-markdown tab");
-        QVERIFY2(!ac->action(QStringLiteral("view_editing_mode"))->isEnabled(),
+        QVERIFY2(!pac->action(QStringLiteral("view_editing_mode"))->isEnabled(),
                   "editor-mode radio must be disabled on a non-markdown tab");
+
+        // Tier A — the markdown provider itself must no longer be the
+        // installed client once the leaf stops being markdown.
+        QVERIFY2(mw.actionContext()->currentProvider() == nullptr,
+                  "no ViewActions provider is registered for \"canvas\" yet (O4) — "
+                  "currentProvider() must be null, not still the markdown one");
     }
 
     // -----------------------------------------------------------------
@@ -260,18 +280,23 @@ private Q_SLOTS:
         QVERIFY(ws);
         auto *mv = qobject_cast<MarkdownView *>(ws->activeLeaf()->view());
         QVERIFY(mv);
-        auto *ac = mw.actionCollection();
 
-        QVERIFY2(ac->action(QStringLiteral("format_bold"))->isEnabled(),
+        // O3.T6: format_bold/insert_table now live in MarkdownViewActions'
+        // own collection.
+        auto *provider = mw.actionContext()->currentProvider();
+        QVERIFY(provider);
+        auto *pac = provider->actionCollection();
+
+        QVERIFY2(pac->action(QStringLiteral("format_bold"))->isEnabled(),
                   "format_bold must be enabled in LivePreview mode");
 
         mv->editorWidget()->setViewMode(NoteEditorWidget::ViewMode::Reading);
         QTest::qWait(200);
 
         QVERIFY2(!mv->canEdit(), "canEdit() must be false in Reading mode");
-        QVERIFY2(!ac->action(QStringLiteral("format_bold"))->isEnabled(),
+        QVERIFY2(!pac->action(QStringLiteral("format_bold"))->isEnabled(),
                   "format_bold must be disabled in Reading mode");
-        QVERIFY2(!ac->action(QStringLiteral("insert_table"))->isEnabled(),
+        QVERIFY2(!pac->action(QStringLiteral("insert_table"))->isEnabled(),
                   "Insert > Table must be disabled in read-only Reading mode (O1.T6)");
     }
 
@@ -293,6 +318,61 @@ private Q_SLOTS:
                   "search_vault must be disabled with no vault open");
         QVERIFY2(!ac->action(QStringLiteral("graph_view"))->isEnabled(),
                   "graph_view must be disabled with no vault open");
+    }
+
+    // -----------------------------------------------------------------
+    // O3.T3 — client-swap logic: switching between a markdown tab and a
+    // (currently provider-less) canvas tab must install/uninstall the
+    // markdown ViewActions client exactly when the resolved view type
+    // actually changes, and switching between two markdown tabs must NOT
+    // cost a client swap (same provider instance stays installed).
+    // -----------------------------------------------------------------
+    void typeSwap_installsCorrectClient()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        createFile(tmp.path() + QStringLiteral("/NoteA.md"), QStringLiteral("# A\n"));
+        createFile(tmp.path() + QStringLiteral("/NoteB.md"), QStringLiteral("# B\n"));
+        createFile(tmp.path() + QStringLiteral("/Canvas.canvas"), kCanvasSeed);
+
+        CorbomiteApp app;
+        MainWindow mw(&app);
+        QVERIFY(app.openVault(tmp.path()));
+        QTest::qWait(500);
+        QVERIFY(app.isOpen());
+
+        // No leaf focused yet at construction — nothing installed.
+        auto *ctx = mw.actionContext();
+        QVERIFY(ctx);
+
+        mw.onNoteActivated(QStringLiteral("NoteA.md"));
+        QTest::qWait(200);
+        auto *markdownProvider = ctx->currentProvider();
+        QVERIFY2(markdownProvider && markdownProvider->viewType() == QStringLiteral("markdown"),
+                  "markdown provider must be installed for a markdown tab");
+
+        // Same-type switch (NoteA -> NoteB, both markdown): the SAME
+        // provider instance must remain installed (O3.T3 — no client
+        // swap on an ordinary same-type tab switch).
+        mw.onNoteActivated(QStringLiteral("NoteB.md"));
+        QTest::qWait(200);
+        QCOMPARE(ctx->currentProvider(), markdownProvider);
+
+        // Type-changing switch (NoteB -> Canvas): the markdown client
+        // must be uninstalled. No canvas provider is registered yet
+        // (O4), so currentProvider() must go back to null — proving the
+        // uninstall actually happened rather than the old client just
+        // being left plugged in.
+        mw.onNoteActivated(QStringLiteral("Canvas.canvas"));
+        QTest::qWait(200);
+        QVERIFY2(ctx->currentProvider() == nullptr,
+                  "switching to a type with no registered provider must uninstall the old one");
+
+        // Switching back to markdown must reinstall the SAME provider
+        // instance (providers are constructed once, eagerly — O3.T2).
+        mw.onNoteActivated(QStringLiteral("NoteA.md"));
+        QTest::qWait(200);
+        QCOMPARE(ctx->currentProvider(), markdownProvider);
     }
 
 private:

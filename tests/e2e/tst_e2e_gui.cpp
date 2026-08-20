@@ -26,6 +26,7 @@
 #include "app/CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
 #include "editor/MarkdownView.h"
+#include "editor/MarkdownViewActions.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/vault/Vault.h"
@@ -357,13 +358,18 @@ private Q_SLOTS:
         m_mainWindow->onNoteActivated(QStringLiteral("Start Here.md"));
         settle(200);
 
-        auto *readingAction = m_mainWindow->actionCollection()->action(
-            QStringLiteral("view_reading_mode"));
+        // Cluster O Phase O3.T6 — view_reading_mode/view_editing_mode moved
+        // out of the universal collection into MarkdownViewActions' own
+        // collection (Tier A: hidden, not just disabled, off-markdown).
+        auto *provider = m_mainWindow->markdownViewActions();
+        QVERIFY(provider);
+        auto *pac = provider->actionCollection();
+
+        auto *readingAction = pac->action(QStringLiteral("view_reading_mode"));
         QVERIFY(readingAction);
         QVERIFY(readingAction->isEnabled());
 
-        auto *editingAction = m_mainWindow->actionCollection()->action(
-            QStringLiteral("view_editing_mode"));
+        auto *editingAction = pac->action(QStringLiteral("view_editing_mode"));
         QVERIFY(editingAction);
 
         // Switch to reading mode

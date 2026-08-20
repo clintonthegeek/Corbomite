@@ -74,6 +74,19 @@
       <default>HH:mm</default>
     </entry>
   </group>
+  <group name="Toolbars">
+    <!-- Cluster O Phase O3 (O3.T4, doctrine §D4) — tri-state visibility
+         policy for each ViewActions provider's persistent toolbar: "Auto"
+         (visible iff that type's tab is focused), "AlwaysShow", or
+         "AlwaysHide". One named entry per provider; O4/O5 add
+         CanvasToolBarPolicy/BasesToolBarPolicy/GraphToolBarPolicy as those
+         providers land. -->
+    <entry name="MarkdownToolBarPolicy" type="String">
+      <label>Visibility policy for the markdown toolbar: Auto, AlwaysShow, or AlwaysHide.</label>
+      <default>Auto</default>
+    </entry>
+  </group>
+
   <group name="DailyNotes">
     <entry name="DailyNoteDateFormat" type="String">
       <label>Date format for daily note filenames (Moment.js tokens)</label>

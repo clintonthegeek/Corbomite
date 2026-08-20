@@ -1,5 +1,5 @@
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="@CORBOMITE_COMPONENT_NAME@" version="10">
+<gui name="@CORBOMITE_COMPONENT_NAME@" version="11">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -32,26 +32,19 @@
       <Action name="graph_view"/>
       <Separator/>
       <Action name="open_daily_note"/>
-      <Action name="insert_template"/>
       <Separator/>
       <Action name="tab_next"/>
       <Action name="tab_prev"/>
       <Action name="tab_close"/>
     </Menu>
+    <!-- Cluster O Phase O3 (§D5) — split_right/split_down/sidebar/zoom are
+         universal (no view-type dependency). editor_toggle_mode, the
+         Editor Mode radios, and the fold trio used to live here too; they
+         now arrive via MarkdownViewActions' <Menu name="view"> merge
+         (O3.T6) and vanish entirely off markdown — this base container
+         only ever holds the universal items. -->
     <Menu name="view">
       <text>&amp;View</text>
-      <Action name="editor_toggle_mode"/>
-      <Menu name="editor_mode">
-        <text>Editor &amp;Mode</text>
-        <Action name="view_source_mode"/>
-        <Action name="view_editing_mode"/>
-        <Action name="view_reading_mode"/>
-      </Menu>
-      <Separator/>
-      <Action name="fold_all"/>
-      <Action name="unfold_all"/>
-      <Action name="toggle_fold"/>
-      <Separator/>
       <Action name="split_right"/>
       <Action name="split_down"/>
       <Separator/>
@@ -61,50 +54,12 @@
       <Action name="view_zoom_out"/>
       <Action name="view_zoom_reset"/>
     </Menu>
-    <Menu name="format">
-      <text>F&amp;ormat</text>
-      <Action name="format_bold"/>
-      <Action name="format_italic"/>
-      <Action name="format_strikethrough"/>
-      <Action name="format_inline_code"/>
-      <Separator/>
-      <Action name="insert_link"/>
-      <Action name="insert_wiki_link"/>
-      <Action name="insert_image"/>
-      <Separator/>
-      <Action name="insert_code_block"/>
-      <Action name="insert_block_quote"/>
-      <Action name="insert_horizontal_rule"/>
-    </Menu>
-    <Menu name="heading">
-      <text>&amp;Heading</text>
-      <Action name="heading_1"/>
-      <Action name="heading_2"/>
-      <Action name="heading_3"/>
-      <Action name="heading_4"/>
-      <Action name="heading_5"/>
-      <Action name="heading_6"/>
-      <Separator/>
-      <Action name="heading_increase"/>
-      <Action name="heading_decrease"/>
-    </Menu>
-    <Menu name="insert">
-      <text>&amp;Insert</text>
-      <Action name="insert_table"/>
-      <Action name="insert_callout"/>
-      <Action name="toggle_checkbox"/>
-    </Menu>
-    <Menu name="table">
-      <text>&amp;Table</text>
-      <Action name="table_row_above"/>
-      <Action name="table_row_below"/>
-      <Separator/>
-      <Action name="table_col_left"/>
-      <Action name="table_col_right"/>
-      <Separator/>
-      <Action name="table_delete_row"/>
-      <Action name="table_delete_col"/>
-    </Menu>
+    <!-- Cluster O Phase O3 (§D5) — the merge point every ViewActions
+         provider's top-level menu (Format/Heading/Insert/Table for
+         markdown, ...) appends at, via append="viewtype_merge" in the
+         provider's own <gui> XML. File/Edit/Go/View above never move;
+         Settings/Help (added automatically by KXMLGUI) stay rightmost. -->
+    <Merge name="viewtype_merge"/>
   </MenuBar>
   <ToolBar name="mainToolBar" noMerge="1">
     <text>Main Toolbar</text>
@@ -116,7 +71,5 @@
     <Action name="command_palette"/>
     <Action name="search_vault"/>
     <Action name="graph_view"/>
-    <Separator/>
-    <Action name="editor_toggle_mode"/>
   </ToolBar>
 </gui>
