@@ -18,16 +18,16 @@ depends=(
   'qt6-base'
   'qt6-svg'
   'qt6-declarative'
-  'kf6-kcoreaddons'
-  'kf6-ki18n'
-  'kf6-kxmlgui'
-  'kf6-kwidgetsaddons'
-  'kf6-kiconthemes'
-  'kf6-kconfig'
-  'kf6-kconfigwidgets'
-  'kf6-kcolorscheme'
-  'kf6-kdbusaddons'
-  'kf6-ksyntaxhighlighting'
+  'kcoreaddons'
+  'ki18n'
+  'kxmlgui'
+  'kwidgetsaddons'
+  'kiconthemes'
+  'kconfig'
+  'kconfigwidgets'
+  'kcolorscheme'
+  'kdbusaddons'
+  'syntax-highlighting'
   'kddockwidgets'
   'tree-sitter'
 )
@@ -46,7 +46,7 @@ conflicts=("${pkgname}-git")
 # Build the enclosing repository (packaging/arch → repo root). Submodules must
 # already be initialized in that tree (`git submodule update --init --recursive`).
 _repo="$(realpath "${startdir}/../..")"
-source=("${pkgname}-${pkgver}::git+file://${_repo}#HEAD")
+source=("${pkgname}-${pkgver}::git+file://${_repo}")
 sha256sums=('SKIP')
 
 prepare() {

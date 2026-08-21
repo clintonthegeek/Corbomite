@@ -112,6 +112,24 @@ function(corbomite_add_plugin TARGET)
     # KDEInstallDirs; the `corbomite` subdir mirrors PluginManager's
     # default system search subdirectory.
     if(DEFINED KDE_INSTALL_PLUGINDIR)
+        # ECM's global CMAKE_INSTALL_RPATH assumes every installed target
+        # sits one level below the prefix root (bin/ or lib/) and stamps
+        # $ORIGIN/../lib on all of them regardless of actual depth. Plugins
+        # land two-to-three levels below libdir (lib/plugins/corbomite or
+        # lib/qt6/plugins/corbomite, depending on KDE_INSTALL_QTPLUGINDIR),
+        # so that default resolves to a directory that doesn't exist. It
+        # has only ever "worked" because libdir is also a default ldconfig
+        # search path on a real system install — the AppImage build script
+        # already has to patchelf-correct this by hand for the very same
+        # reason. Compute the real relative offset instead of relying on
+        # that accident (Cluster P doctrine: see plan §1 C1 on ELF
+        # interposition accidents — this is the same failure shape).
+        file(RELATIVE_PATH _corbomite_plugin_libdir_rel
+            "${KDE_INSTALL_FULL_PLUGINDIR}/corbomite"
+            "${KDE_INSTALL_FULL_LIBDIR}")
+        set_target_properties(${TARGET} PROPERTIES
+            INSTALL_RPATH "$ORIGIN/${_corbomite_plugin_libdir_rel}")
+
         install(TARGETS ${TARGET}
             DESTINATION ${KDE_INSTALL_PLUGINDIR}/corbomite)
     endif()
