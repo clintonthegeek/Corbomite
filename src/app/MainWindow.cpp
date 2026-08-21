@@ -72,6 +72,7 @@
 #include "dialogs/CalloutPickerDialog.h"
 #include "dialogs/CreateVaultDialog.h"
 #include "dialogs/InsertTableDialog.h"
+#include "dialogs/Notice.h"
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
 #include "dialogs/TemplatePicker.h"
@@ -309,6 +310,10 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
                 this, &MainWindow::hostPluginView);
         connect(pm, &Corbomite::PluginManager::pluginUnloading,
                 this, &MainWindow::releasePluginView);
+        connect(pm, &Corbomite::PluginManager::pluginLoadFailed,
+                this, [](const QString &id, const QString &reason) {
+            Notice::post(i18n("Plugin \"%1\" failed to load: %2", id, reason));
+        });
         // Detach any workspace leaves whose view type was registered by
         // the unloading plugin, before its ViewRegistrar destructor
         // unregisters the factories. Mirrors Obsidian's
@@ -1725,6 +1730,10 @@ void MainWindow::setupEditor()
                 leaf->setProperty("_mw_leaf_connected", true);
                 connect(leaf, &WorkspaceLeaf::viewChanged, this,
                         [this](View *v) { propagateServicesToView(v); });
+                connect(leaf, &WorkspaceLeaf::viewTypeUnresolved, this,
+                        [](const QString &type, const QString &reason) {
+                    Notice::post(i18n("Could not restore view \"%1\": %2", type, reason));
+                });
             }
 
             // Propagate services to any view that exists now
@@ -2268,6 +2277,12 @@ void MainWindow::onVaultOpened(const QString &path)
     m_searchIndex->setMetadataCache(m_metadataCache);
     if (m_tagSuggest) m_tagSuggest->setIndex(m_searchIndex);
 
+    connect(m_metadataCache, &MetadataCache::cacheOpenFailed, this,
+            [](const QString &dbPath, const QString &reason) {
+        Notice::post(i18n("Failed to open metadata cache \"%1\": %2 "
+                           "(search and indexing will not persist across restarts)",
+                           dbPath, reason));
+    });
     m_metadataCache->open(cacheDbPath);
 
     m_searchIndex->reconcileWithCache();
@@ -2354,6 +2369,10 @@ void MainWindow::onVaultOpened(const QString &path)
         const QByteArray bytes = m_vaultObj->read(tf);
         const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;
         m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);
+    });
+    connect(m_vaultObj, &Vault::documentSaveFailed, this,
+            [](const QString &relPath, const QString &reason) {
+        Notice::post(i18n("Failed to save \"%1\": %2", relPath, reason));
     });
 
     // Session manager — tier 2 (vault-portable) + tier 3 (machine-local)

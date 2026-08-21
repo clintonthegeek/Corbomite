@@ -8,6 +8,7 @@
 #include "corbomite/vault/PluginPermissionGrantDialog.h"
 
 #include <KConfigGroup>
+#include <KLocalizedString>
 #include <KPluginFactory>
 #include <KPluginMetaData>
 #include <KSharedConfig>
@@ -196,6 +197,8 @@ bool PluginManager::enablePlugin(const QString &id)
         qWarning().noquote()
             << "PluginManager:" << id << "requires Corbomite >="
             << required.toString() << "; host is" << appVersion().toString();
+        Q_EMIT pluginLoadFailed(id, i18n("requires Corbomite >= %1; host is %2",
+                                         required.toString(), appVersion().toString()));
         return false;
     }
     if (info->metaData.apiLevel() > CORBOMITE_PLUGIN_API_LEVEL) {
@@ -204,6 +207,8 @@ bool PluginManager::enablePlugin(const QString &id)
             << "PluginManager:" << id << "declares API level"
             << info->metaData.apiLevel()
             << "; host supports up to" << CORBOMITE_PLUGIN_API_LEVEL;
+        Q_EMIT pluginLoadFailed(id, i18n("declares API level %1; host supports up to %2",
+                                         info->metaData.apiLevel(), CORBOMITE_PLUGIN_API_LEVEL));
         return false;
     }
 
@@ -243,6 +248,7 @@ bool PluginManager::enablePlugin(const QString &id)
 
     // Construct the Plugin instance.
     Plugin *plugin = nullptr;
+    QString wrongTypeReason;
     if (m_factoryOverride) {
         plugin = m_factoryOverride(info->metaData);
     } else {
@@ -250,6 +256,8 @@ bool PluginManager::enablePlugin(const QString &id)
         if (!factoryResult.plugin) {
             qWarning().noquote() << "PluginManager: failed to load factory for"
                                   << id << "—" << factoryResult.errorString;
+            Q_EMIT pluginLoadFailed(id, i18n("failed to load factory: %1",
+                                             factoryResult.errorString));
             return false;
         }
         // KPluginFactory::create<T> looks up the registered class by T's
@@ -263,11 +271,15 @@ bool PluginManager::enablePlugin(const QString &id)
             qWarning().noquote() << "PluginManager: factory for" << id
                 << "produced a" << raw->metaObject()->className()
                 << "which is not a Corbomite::Plugin";
+            wrongTypeReason = i18n("factory produced a %1, which is not a Corbomite::Plugin",
+                                   QString::fromLatin1(raw->metaObject()->className()));
             delete raw;
         }
     }
     if (!plugin) {
         qWarning().noquote() << "PluginManager: factory returned nullptr for" << id;
+        Q_EMIT pluginLoadFailed(id, wrongTypeReason.isEmpty()
+                                         ? i18n("factory returned nullptr") : wrongTypeReason);
         return false;
     }
 
@@ -289,6 +301,7 @@ bool PluginManager::enablePlugin(const QString &id)
         info->context = nullptr;
         info->enabled = false;
         m_loadState.insert(id, LoadState::OnLoadThrew);
+        Q_EMIT pluginLoadFailed(id, i18n("threw during onLoad: %1", QString::fromUtf8(e.what())));
         return false;
     } catch (...) {
         qWarning().noquote() << "PluginManager:" << id
@@ -300,6 +313,7 @@ bool PluginManager::enablePlugin(const QString &id)
         info->context = nullptr;
         info->enabled = false;
         m_loadState.insert(id, LoadState::OnLoadThrew);
+        Q_EMIT pluginLoadFailed(id, i18n("threw an unknown exception during onLoad"));
         return false;
     }
     info->enabled = true;

@@ -483,7 +483,9 @@ bool MetadataCache::open(const QString &dbPath)
     }
     m_store = std::make_unique<CachedMetadataStore>();
     if (!m_store->open(dbPath)) {
+        const QString reason = m_store->lastError();
         m_store.reset();
+        Q_EMIT cacheOpenFailed(dbPath, reason);
         return false;
     }
     // Load any existing state. If the DB is fresh, this leaves the cache

@@ -147,6 +147,14 @@ signals:
     /// relative path so observers don't need to poke at the NoteDocument
     /// pointer lifetime.
     void documentSaved(const QString &relPath);
+    /// Fires whenever `saveDocument` returns false (canonical-buffer
+    /// guard refusal, or the adapter's `writeBinary` failing — e.g. disk
+    /// full, permission denied). `reason` is a short human-readable
+    /// summary suitable for direct display; the doc's own `saveFailed()`
+    /// signal fires alongside this one but carries no path, so UI-layer
+    /// observers that only hold the Vault (not every open NoteDocument)
+    /// should prefer this signal.
+    void documentSaveFailed(const QString &relPath, const QString &reason);
     /// Fires when a file modification (external *or* a self-write routed
     /// through modify()/reconcileOpenDocument) is detected for an open
     /// NoteDocument that has unsaved local edits (isModified() == true).

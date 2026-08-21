@@ -36,6 +36,17 @@ public:
                      QWidget *parent = nullptr);
     ~Notice() override;
 
+    /// Construct-and-show convenience factory for fire-and-forget call
+    /// sites (error/warning toasts from signal handlers that have no
+    /// widget of their own to own the notice). Safe to call from any
+    /// thread: if called off the GUI thread, construction+show() is
+    /// dispatched onto the application's main thread via a queued
+    /// invokeMethod so the QWidget is always built on the GUI thread;
+    /// if already on the GUI thread, the notice is shown immediately.
+    /// Ownership follows the usual Notice contract — WA_DeleteOnClose,
+    /// caller does not keep the pointer.
+    static void post(const QString &message, int durationMs = kDefaultDurationMs);
+
     void setAction(const QString &label, std::function<void()> callback);
 
     // Position at the bottom-right of `screen`'s available geometry with a

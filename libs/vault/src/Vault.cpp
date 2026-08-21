@@ -789,6 +789,8 @@ bool Vault::saveDocument(NoteDocument *doc)
             "for rel=\"%s\" (bytes=%lld). Aborting write; file unchanged.",
             qUtf8Printable(rel), static_cast<long long>(bytes.size()));
         Q_EMIT doc->saveFailed();
+        Q_EMIT documentSaveFailed(rel,
+            QStringLiteral("canonical buffer contains an invalid character"));
         return false;
     }
     const QString abs = m_basePath + QLatin1Char('/') + rel;
@@ -806,6 +808,11 @@ bool Vault::saveDocument(NoteDocument *doc)
     if (!m_adapter->writeBinary(abs, bytes, hints)) {
         // Remove the stamp — write never happened.
         m_selfWriteMtimes.remove(rel);
+        qCWarning(lcVaultSafety,
+            "Vault::saveDocument: adapter writeBinary failed for rel=\"%s\"",
+            qUtf8Printable(rel));
+        Q_EMIT doc->saveFailed();
+        Q_EMIT documentSaveFailed(rel, QStringLiteral("write to disk failed"));
         return false;
     }
 

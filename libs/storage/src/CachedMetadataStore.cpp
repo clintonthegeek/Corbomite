@@ -31,6 +31,7 @@ namespace Corbomite {
 struct CachedMetadataStore::Impl {
     QString connectionName;
     QString dbPath;
+    QString lastError;
     bool open = false;
 };
 
@@ -54,6 +55,11 @@ bool CachedMetadataStore::isOpen() const
     return d && d->open;
 }
 
+QString CachedMetadataStore::lastError() const
+{
+    return d ? d->lastError : QString();
+}
+
 bool CachedMetadataStore::open(const QString &dbPath)
 {
     if (d->open) {
@@ -73,6 +79,7 @@ bool CachedMetadataStore::open(const QString &dbPath)
         QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), d->connectionName);
     db.setDatabaseName(dbPath);
     if (!db.open()) {
+        d->lastError = db.lastError().text();
         QSqlDatabase::removeDatabase(d->connectionName);
         d->connectionName.clear();
         d->dbPath.clear();
@@ -106,6 +113,7 @@ bool CachedMetadataStore::open(const QString &dbPath)
             "mtime_ms INTEGER NOT NULL, "
             "size INTEGER NOT NULL, "
             "hash TEXT NOT NULL)"))) {
+        d->lastError = q.lastError().text();
         db.close();
         QSqlDatabase::removeDatabase(d->connectionName);
         d->connectionName.clear();
@@ -117,6 +125,7 @@ bool CachedMetadataStore::open(const QString &dbPath)
             "hash TEXT PRIMARY KEY, "
             "json_blob TEXT NOT NULL, "
             "ref_count INTEGER NOT NULL)"))) {
+        d->lastError = q.lastError().text();
         db.close();
         QSqlDatabase::removeDatabase(d->connectionName);
         d->connectionName.clear();
@@ -124,6 +133,7 @@ bool CachedMetadataStore::open(const QString &dbPath)
         return false;
     }
 
+    d->lastError.clear();
     d->open = true;
     return true;
 }

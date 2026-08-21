@@ -156,6 +156,13 @@ Q_SIGNALS:
     void pluginUnloading(const QString &id);
     void pluginEnabled(const QString &id);
     void pluginDisabled(const QString &id);
+    /// Fires whenever `enablePlugin` returns false due to a load-time
+    /// failure (version/API incompatibility, factory error, wrong plugin
+    /// type, or an exception thrown from onLoad). Does NOT fire when the
+    /// user simply declines the permission-grant dialog — that's an
+    /// intentional cancel, not a failure. `reason` is a short
+    /// human-readable summary suitable for direct display.
+    void pluginLoadFailed(const QString &id, const QString &reason);
 
 public:
     /// Test-only: directly fire a data.json change for `pluginId`. Bypasses

@@ -11,6 +11,8 @@
 #include <kddockwidgets/core/DockWidget.h>
 #include <kddockwidgets/qtwidgets/DockWidget.h>
 
+#include <KLocalizedString>
+
 #include <QDateTime>
 #include <QRandomGenerator>
 
@@ -140,9 +142,13 @@ void WorkspaceLeaf::setViewState(const QJsonObject &state)
         // follow-up #2: unknown-viewType fallback).
         factory = m_registry->getViewCreatorByType(QStringLiteral("empty"));
         if (!factory) {
+            Q_EMIT viewTypeUnresolved(type,
+                i18n("unknown view type and no empty-view fallback registered"));
             closeCurrentView();
             return;
         }
+        Q_EMIT viewTypeUnresolved(type,
+            i18n("unknown view type; fell back to an empty view"));
     }
 
     auto *newView = factory(this);

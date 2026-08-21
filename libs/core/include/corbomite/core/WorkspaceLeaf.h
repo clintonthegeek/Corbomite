@@ -118,6 +118,11 @@ Q_SIGNALS:
     void viewChanged(View *newView);
     void pinnedChanged(bool pinned);
     void groupChanged(const QString &group);
+    /// Fires from `setViewState` when `requestedType` has no registered
+    /// view factory — e.g. a workspace.json referencing a disabled/removed
+    /// plugin's view type. `reason` says whether the leaf fell back to the
+    /// "empty" placeholder or, absent even that, closed outright.
+    void viewTypeUnresolved(const QString &requestedType, const QString &reason);
 
 private:
     /// Restore a history entry, recreating the view via the registry when the

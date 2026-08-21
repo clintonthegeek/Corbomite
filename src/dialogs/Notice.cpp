@@ -8,6 +8,7 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QShowEvent>
+#include <QThread>
 
 namespace Corbomite {
 namespace {
@@ -52,6 +53,22 @@ Notice::Notice(const QString &message, int durationMs, QWidget *parent)
     // typically via setAction or close()). Without this gate, QTimer would fire
     // on the next event-loop iteration and the notice would vanish on show.
     m_sticky = durationMs <= 0;
+}
+
+void Notice::post(const QString &message, int durationMs)
+{
+    if (QThread::currentThread() != qApp->thread()) {
+        // Dispatch construction onto the GUI thread. qApp outlives any
+        // worker that might call this, and Notice is WA_DeleteOnClose so
+        // there is nothing for the queued lambda to leak if the app is
+        // already tearing down (QMetaObject::invokeMethod on a
+        // being-destroyed qApp is simply not delivered).
+        QMetaObject::invokeMethod(qApp, [message, durationMs]() {
+            (new Notice(message, durationMs))->show();
+        }, Qt::QueuedConnection);
+        return;
+    }
+    (new Notice(message, durationMs))->show();
 }
 
 void Notice::setAction(const QString &label, std::function<void()> callback)

@@ -157,6 +157,11 @@ Q_SIGNALS:
     void linksResolvedFor(const QString &path);
     void allLinksResolved();
     void indexFinished();
+    /// Fires when `open()` returns false — the SQLite-backed cache DB at
+    /// `dbPath` could not be opened or its tables could not be created.
+    /// The cache still functions in-memory-only afterward (no persistence,
+    /// no reload-on-restart); `reason` is the underlying SQL/driver error.
+    void cacheOpenFailed(const QString &dbPath, const QString &reason);
 
 private Q_SLOTS:
     void drainOnePath();

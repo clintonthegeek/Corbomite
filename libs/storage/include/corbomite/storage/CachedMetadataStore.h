@@ -48,6 +48,10 @@ public:
     /// True if `open` was called and succeeded and `close` has not been called.
     bool isOpen() const;
 
+    /// The SQL/driver error text from the most recent failed `open()` call.
+    /// Empty after a successful `open()` or before the first call.
+    QString lastError() const;
+
     /// The schema version we write (bump + migration path when we change it).
     /// Always returns 2 in this cluster.
     static int currentSchemaVersion();
