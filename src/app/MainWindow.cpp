@@ -1252,6 +1252,11 @@ void MainWindow::setupActions()
     newCanvas->setIcon(QIcon::fromTheme(QStringLiteral("draw-rectangle")));
     connect(newCanvas, &QAction::triggered, this, [this]() { createNewCanvas(); });
 
+    auto *newBase = ac->addAction(QStringLiteral("file_new_base"));
+    newBase->setText(i18n("New Base"));
+    newBase->setIcon(QIcon::fromTheme(QStringLiteral("x-office-spreadsheet")));
+    connect(newBase, &QAction::triggered, this, [this]() { createNewBase(); });
+
     auto *save = ac->addAction(QStringLiteral("file_save"));
     save->setText(i18n("Save"));
     save->setIcon(QIcon::fromTheme(QStringLiteral("document-save")));
@@ -1939,6 +1944,36 @@ void MainWindow::createNewCanvas(const QString &folder)
     const QByteArray content = QJsonDocument(emptyDoc.toJson()).toJson(QJsonDocument::Indented);
 
     auto *tf = m_fileManager->createNewFile(parent, QString(), QStringLiteral("canvas"), content);
+    if (!tf)
+        return;
+
+    openFileInWorkspace(tf->path);
+    m_fileManager->promptForFileRename(tf, this);
+}
+
+void MainWindow::createNewBase(const QString &folder)
+{
+    // Cluster D D.6 — same create-then-rename flow as createNewCanvas()
+    // above. Unlike canvas, no seed content is needed: BasesQuery::fromString
+    // already treats an empty string as a valid default one-view "Table"
+    // query (audit's [CRIT] empty-file invariant, BasesQuery.cpp), so
+    // BasesView opens a freshly-created empty .base file directly into an
+    // editable table with no special-casing here.
+    if (!m_app->isOpen()) {
+        openVaultDialog();
+        if (!m_app->isOpen()) return;
+    }
+    if (!m_fileManager || !m_vaultObj) return;
+
+    TFolder *parent = m_vaultObj->getRoot();
+    if (!folder.isEmpty()) {
+        if (auto *existing = m_vaultObj->getFolderByPath(folder))
+            parent = existing;
+        else if (auto *created = m_vaultObj->createFolder(folder))
+            parent = created;
+    }
+
+    auto *tf = m_fileManager->createNewFile(parent, QString(), QStringLiteral("base"), QByteArray());
     if (!tf)
         return;
 

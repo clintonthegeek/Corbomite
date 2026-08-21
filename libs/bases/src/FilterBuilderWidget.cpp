@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/bases/FilterBuilderWidget.h"
 
-#include "corbomite/bases/FormulaInput.h"
+#include "corbomite/bases/FilterRuleRow.h"
 
 #include <KLocalizedString>
 
@@ -55,8 +55,10 @@ void FilterBuilderWidget::clearRows()
     m_rows.clear();
 }
 
-void FilterBuilderWidget::setSpec(const FilterSpec &group, const QStringList &candidates)
+void FilterBuilderWidget::setSpec(const FilterSpec &group, const QVector<FilterPropertyInfo> &properties,
+                                  const QStringList &candidates)
 {
+    m_properties = properties;
     m_candidates = candidates;
     const int idx = m_conj->findData(int(group.conj));
     m_conj->setCurrentIndex(idx >= 0 ? idx : 0);
@@ -75,9 +77,10 @@ void FilterBuilderWidget::addLeafRow(const QString &expr)
     auto *h = new QHBoxLayout(container);
     h->setContentsMargins(0, 0, 0, 0);
 
-    auto *leaf = new FormulaInput(container);
+    auto *leaf = new FilterRuleRow(container);
+    leaf->setProperties(m_properties);
     leaf->setCandidates(m_candidates);
-    leaf->setText(expr);
+    leaf->setExpression(expr);
     h->addWidget(leaf, 1);
 
     auto *del = new QToolButton(container);
@@ -88,8 +91,8 @@ void FilterBuilderWidget::addLeafRow(const QString &expr)
     m_rowsLayout->addWidget(container);
     m_rows.push_back({ container, leaf, nullptr });
 
-    connect(leaf, &QLineEdit::textChanged, this, [this]() { onAnyChange(); });
-    connect(leaf, &FormulaInput::validityChanged, this, [this](bool) { onAnyChange(); });
+    connect(leaf, &FilterRuleRow::changed, this, [this]() { onAnyChange(); });
+    connect(leaf, &FilterRuleRow::validityChanged, this, [this](bool) { onAnyChange(); });
     connect(del, &QToolButton::clicked, this,
             [this, container]() { removeRow(container); onAnyChange(); });
 }
@@ -101,7 +104,7 @@ void FilterBuilderWidget::addGroupRow(const FilterSpec &groupSpec)
     h->setContentsMargins(0, 0, 0, 0);
 
     auto *nested = new FilterBuilderWidget(container);
-    nested->setSpec(groupSpec, m_candidates);
+    nested->setSpec(groupSpec, m_properties, m_candidates);
     h->addWidget(nested, 1);
 
     auto *del = new QToolButton(container);
@@ -134,7 +137,7 @@ FilterSpec FilterBuilderWidget::spec() const
     const Conj c = Conj(m_conj->currentData().toInt());
     QVector<FilterSpec> kids;
     for (const Row &r : m_rows) {
-        if (r.leaf) kids.push_back(FilterSpec::leaf(r.leaf->text()));
+        if (r.leaf) kids.push_back(FilterSpec::leaf(r.leaf->expression()));
         else if (r.group) kids.push_back(r.group->spec());
     }
     return FilterSpec::group(c, std::move(kids));

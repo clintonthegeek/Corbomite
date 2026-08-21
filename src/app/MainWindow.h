@@ -150,6 +150,7 @@ private:
     void closeVault();
     void createNewNote();
     void createNewCanvas(const QString &folder = QString());
+    void createNewBase(const QString &folder = QString());
     void saveCurrentNote();
     void showQuickSwitcher();
     void showCommandPalette();

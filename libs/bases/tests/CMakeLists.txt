@@ -136,6 +136,11 @@ add_test(NAME tst_filter_builder_widget COMMAND tst_filter_builder_widget)
 target_link_libraries(tst_filter_builder_widget PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)
 set_tests_properties(tst_filter_builder_widget PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_filter_rule_row tst_filter_rule_row.cpp)
+add_test(NAME tst_filter_rule_row COMMAND tst_filter_rule_row)
+target_link_libraries(tst_filter_rule_row PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)
+set_tests_properties(tst_filter_rule_row PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_filter_builder_dialog tst_filter_builder_dialog.cpp)
 add_test(NAME tst_filter_builder_dialog COMMAND tst_filter_builder_dialog)
 target_link_libraries(tst_filter_builder_dialog PRIVATE Qt6::Test Qt6::Widgets Corbomite::Bases)

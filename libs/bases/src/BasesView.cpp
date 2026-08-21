@@ -12,6 +12,7 @@
 #include "corbomite/bases/SortGroupMenuPanel.h"
 #include "corbomite/bases/ViewsMenuPanel.h"
 #include "corbomite/bases/FilterBuilderDialog.h"
+#include "corbomite/bases/FilterPropertyInfo.h"
 #include "corbomite/bases/FilterSpec.h"
 #include "corbomite/bases/FormulaEditDialog.h"
 #include "corbomite/bases/FormulaCandidates.h"
@@ -558,9 +559,17 @@ void BasesView::applySummaryChoice(const PropertyId &prop, const QString &fnName
 void BasesView::openFiltersDialog()
 {
     if (!m_query || !m_activeView) return;
+    const QVector<PropertyId> props = availableProperties();
+    const QVector<std::shared_ptr<BasesEntry>> sampleRows =
+        m_controller && m_controller->result() ? m_controller->result()->rows()
+                                               : QVector<std::shared_ptr<BasesEntry>>{};
+    const auto propertyInfos = buildFilterPropertyInfos(
+        props, sampleRows, [this](const PropertyId &id) { return displayNameFor(id); });
+
     FilterBuilderDialog dlg(this);
     dlg.setScopes(fromFilter(m_query->filters),
                   fromFilter(m_activeView->filters),
+                  propertyInfos,
                   formulaCandidateList());
     if (dlg.exec() != QDialog::Accepted) return;
     applyFilterSpecs(dlg.globalSpec(), dlg.perViewSpec());

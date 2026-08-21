@@ -187,6 +187,27 @@ void FileExplorerView::onNewCanvasIn(const QString &folder)
     m_fmProxy->promptForFileRename(tf, this);
 }
 
+void FileExplorerView::onNewBaseIn(const QString &folder)
+{
+    // Cluster D D.6 — mirrors onNewCanvasIn() above. No seed content needed:
+    // BasesQuery::fromString treats an empty string as a valid default
+    // one-view "Table" query, so "Untitled.base" opens directly into an
+    // editable table with no JSON/YAML literal to inline here.
+    if (!m_fmProxy || !m_vault) return;
+    TFolder *parent = nullptr;
+    if (!folder.isEmpty()) parent = m_vault->getFolderByPath(folder);
+
+    auto *tf = m_fmProxy->createNewFile(parent, QString(), QStringLiteral("base"), QByteArray());
+    if (!tf) {
+        QMessageBox::warning(this, i18n("Could not create base"),
+            i18n("A file named \"Untitled.base\" already exists in this folder "
+                 "(case-insensitive match)."));
+        return;
+    }
+    onNoteActivated(tf->path);
+    m_fmProxy->promptForFileRename(tf, this);
+}
+
 void FileExplorerView::onDeleteNote(const QString &path)
 {
     if (!m_fmProxy || !m_vault) return;
@@ -219,6 +240,10 @@ void FileExplorerView::showContextMenu(const QPoint &pos)
                                              i18n("New Canvas Here"));
             connect(newCanvas, &QAction::triggered, this,
                     [this, p = contextPath]() { onNewCanvasIn(p); });
+            auto *newBase = menu.addAction(QIcon::fromTheme(QStringLiteral("x-office-spreadsheet")),
+                                           i18n("New Base Here"));
+            connect(newBase, &QAction::triggered, this,
+                    [this, p = contextPath]() { onNewBaseIn(p); });
             // Don't offer rename/delete on the root row.
             if (!contextPath.isEmpty() && contextPath != QStringLiteral("/")) {
                 menu.addSeparator();
@@ -251,6 +276,10 @@ void FileExplorerView::showContextMenu(const QPoint &pos)
                                          i18n("New Canvas"));
         connect(newCanvas, &QAction::triggered, this,
                 [this]() { onNewCanvasIn(QString()); });
+        auto *newBase = menu.addAction(QIcon::fromTheme(QStringLiteral("x-office-spreadsheet")),
+                                       i18n("New Base"));
+        connect(newBase, &QAction::triggered, this,
+                [this]() { onNewBaseIn(QString()); });
     }
     menu.exec(m_treeView->viewport()->mapToGlobal(pos));
 }

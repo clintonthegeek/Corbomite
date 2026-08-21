@@ -18,13 +18,13 @@ private slots:
             FilterSpec::leaf(QStringLiteral("a == 1")),
             FilterSpec::leaf(QStringLiteral("b == 2")),
         });
-        w.setSpec(g, {});
+        w.setSpec(g, {}, {});
         QCOMPARE(w.spec(), g);
     }
     void addRuleButton_growsSpec()
     {
         FilterBuilderWidget w;
-        w.setSpec(FilterSpec::group(Conj::And, { FilterSpec::leaf(QStringLiteral("a == 1")) }), {});
+        w.setSpec(FilterSpec::group(Conj::And, { FilterSpec::leaf(QStringLiteral("a == 1")) }), {}, {});
         auto *add = w.findChild<QPushButton *>(QStringLiteral("addRuleButton"));
         QVERIFY(add);
         add->click();
@@ -37,13 +37,13 @@ private slots:
         FilterBuilderWidget w;
         w.setSpec(FilterSpec::group(Conj::And, {
             FilterSpec::leaf(QStringLiteral("((1")),   // unbalanced paren -> invalid
-        }), {});
+        }), {}, {});
         QVERIFY(!w.isValid());
     }
     void emptyLeaf_isValid()
     {
         FilterBuilderWidget w;
-        w.setSpec(FilterSpec::group(Conj::And, { FilterSpec::leaf(QString()) }), {});
+        w.setSpec(FilterSpec::group(Conj::And, { FilterSpec::leaf(QString()) }), {}, {});
         QVERIFY(w.isValid());
     }
     void nestedGroup_roundTrips()
@@ -53,7 +53,7 @@ private slots:
             FilterSpec::leaf(QStringLiteral("a == 1")),
             FilterSpec::group(Conj::Or, { FilterSpec::leaf(QStringLiteral("b == 2")) }),
         });
-        w.setSpec(g, {});
+        w.setSpec(g, {}, {});
         QCOMPARE(w.spec(), g);
     }
 };

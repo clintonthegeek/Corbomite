@@ -45,10 +45,11 @@ FilterBuilderDialog::FilterBuilderDialog(QWidget *parent)
 }
 
 void FilterBuilderDialog::setScopes(const FilterSpec &globalSpec, const FilterSpec &perViewSpec,
+                                    const QVector<FilterPropertyInfo> &properties,
                                     const QStringList &candidates)
 {
-    m_perView->setSpec(perViewSpec, candidates);
-    m_global->setSpec(globalSpec, candidates);
+    m_perView->setSpec(perViewSpec, properties, candidates);
+    m_global->setSpec(globalSpec, properties, candidates);
     updateOkState();
 }
 

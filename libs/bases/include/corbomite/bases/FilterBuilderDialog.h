@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "FilterPropertyInfo.h"
 #include "FilterSpec.h"
 
 #include <QDialog>
@@ -24,7 +25,7 @@ public:
     explicit FilterBuilderDialog(QWidget *parent = nullptr);
 
     void setScopes(const FilterSpec &globalSpec, const FilterSpec &perViewSpec,
-                   const QStringList &candidates);
+                   const QVector<FilterPropertyInfo> &properties, const QStringList &candidates);
 
     FilterSpec globalSpec() const;
     FilterSpec perViewSpec() const;

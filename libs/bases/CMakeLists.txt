@@ -45,6 +45,10 @@ add_library(corbomite-bases SHARED
     include/corbomite/bases/FilterBuilderWidget.h
     src/FilterBuilderDialog.cpp
     include/corbomite/bases/FilterBuilderDialog.h
+    src/FilterRuleRow.cpp
+    include/corbomite/bases/FilterRuleRow.h
+    src/FilterPropertyInfo.cpp
+    include/corbomite/bases/FilterPropertyInfo.h
     src/BasesViewConfig.cpp
     include/corbomite/bases/BasesViewConfig.h
     src/SortCycle.cpp

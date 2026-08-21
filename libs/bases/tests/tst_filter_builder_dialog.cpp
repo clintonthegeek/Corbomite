@@ -21,7 +21,7 @@ private slots:
         FilterBuilderDialog d;
         FilterSpec g = FilterSpec::group(Conj::And, { FilterSpec::leaf(QStringLiteral("a == 1")) });
         FilterSpec pv = FilterSpec::group(Conj::Or, { FilterSpec::leaf(QStringLiteral("b == 2")) });
-        d.setScopes(g, pv, {});
+        d.setScopes(g, pv, {}, {});
         QCOMPARE(d.globalSpec(), g);
         QCOMPARE(d.perViewSpec(), pv);
     }
@@ -30,7 +30,7 @@ private slots:
         FilterBuilderDialog d;
         d.setScopes(FilterSpec::group(Conj::And),                       // global: empty (valid)
                     FilterSpec::group(Conj::And, { FilterSpec::leaf(QStringLiteral("((1")) }),  // per-view invalid
-                    {});
+                    {}, {});
         QVERIFY(!okButton(&d)->isEnabled());
     }
     void okEnabled_whenBothValid()
@@ -38,7 +38,7 @@ private slots:
         FilterBuilderDialog d;
         d.setScopes(FilterSpec::group(Conj::And, { FilterSpec::leaf(QStringLiteral("a == 1")) }),
                     FilterSpec::group(Conj::And, { FilterSpec::leaf(QStringLiteral("b == 2")) }),
-                    {});
+                    {}, {});
         QVERIFY(okButton(&d)->isEnabled());
     }
 };
