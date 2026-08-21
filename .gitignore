@@ -31,16 +31,19 @@ Thumbs.db
 **/__MACOSX/
 
 # Upstream Obsidian reference vaults cloned as nested git repos.
-# Only testvaults/starter-vault/ is an actual fixture we own.
+# Only testvaults/starter-vault/ and testvaults/DevVault/ are fixtures we own
+# (relied on by tst_e2e_gui / tst_mainwindow_action_wiring respectively).
+# Everything else — scratch vaults, sample downloads — lives in samplevaults/.
 testvaults/jsoncanvas/
 testvaults/obsidian-api/
 testvaults/obsidian-canvas-candy/
 testvaults/obsidian-developer-docs/
 testvaults/obsidian-help/
 testvaults/obsidian-hub-main/
-testvaults/obsidian-hub-main.zip
 testvaults/obsidian-skills/
-testvaults/sweet-setup-obsidian-starter-vault.zip
+
+# Local scratch/sample vaults not relied upon by any test
+samplevaults/
 
 # Packaging build products (scripts stay tracked)
 packaging/appimage/tools/
@@ -65,6 +68,11 @@ testvaults/**/.trash/
 testvaults/DevVault/
 testvaults/starter-vault/Parser Tests/
 testvaults/starter-vault/dfsfg.canvas
+testvaults/starter-vault/My new Note.md
+testvaults/starter-vault/TestCreate.canvas
+testvaults/starter-vault/Untitled.canvas
+testvaults/starter-vault/heres a new notw.md
+testvaults/starter-vault/katabasis anabasis.md
 
 # Reference-only Obsidian clones (local study, not part of project)
 ObsClones/

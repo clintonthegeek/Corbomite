@@ -71,7 +71,7 @@ I've intentionally set up my note capturing system so that it doesn't just autom
 
 1. My fancy notebook
 2. Drafts on my iPhone (and occasionally Apple Watch)
- 
+
 At the end of the day, I transfer things over as part of my shutdown routine. This forces me to manually add the notes that I capture to Obsidian, and adds another review step where I can filter out any notes that I don't really want.
 
 The key here is that I am a *ruthless* about cutting things here. I estimate about 4 out of every 5 things I capture never makes the cut and gets transferred to Obsidian. 
