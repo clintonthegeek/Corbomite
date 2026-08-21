@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
     const auto desktopFile = QStringLiteral("com.concernednetizen.Corbomite");
 #endif
 
-    KAboutData aboutData(componentName, displayName, QStringLiteral("0.1.0"),
+    KAboutData aboutData(componentName, displayName, QStringLiteral("0.2.0"),
         i18n("A native Obsidian-inspired knowledge management application"),
         KAboutLicense::GPL_V3, i18n("(c) 2026 Corbomite Contributors"));
     // Reverse-DNS identity: KDBusService registers as

@@ -10,6 +10,14 @@ Conventions:
 
 ---
 
+## 2026-08-21 — v0.2.0 tagged and released
+
+User live-tested the Cluster O Phase O4 canvas toolbar against a real vault ("just tried the toolbar, it's awesome") — closes O4's live-eyeball gate and, with it, Cluster O end to end (O0-O4). With that plus the workspace.json P1 already resolved (see entry below), nothing was left blocking a release: 94 commits since `v0.1.0` including the Cluster P STATIC→SHARED rebuild (11 GB → 1.8 GB dev tree, -84%, plus a real plugin-boundary `QMetaObject` correctness fix), Cluster N rich clipboard, Cluster O context-sensitive menus/toolbars, Cluster M4 canvas move/snap/selection polish, and Cluster D.6 base-creation UX.
+
+Version bumped `0.1.0` → `0.2.0` (semver minor, given the scope) in `CMakeLists.txt`, `src/app/main.cpp`'s `KAboutData`, `packaging/arch/PKGBUILD`'s `pkgver`, and README's example install commands — none of these are auto-derived from a single source of truth today, so all three code sites plus docs needed a manual, individually-verified bump (a follow-up worth considering: thread `PROJECT_VERSION` into `main.cpp` via a compile definition instead of hand-maintaining the literal). Re-ran the full offscreen suite after the version bump (CMake reconfigure touches generated files) — 331/331, ~8 minutes including the by-design long-running benchmark test. `.github/workflows/release.yml` derives its build version from the pushed tag and builds an Ubuntu 25.10 `.deb`, attaching it to the GitHub Release; the Arch `PKGBUILD` and AppImage build scripts are local/manual, not CI-automated.
+
+---
+
 ## 2026-08-21 — P1 punch-list item "workspace.json drops floating/lastOpenFiles" was already fixed, closed on re-verification
 
 While triaging release-readiness (user asked "are we in good shape for a new release"), this open P1 turned out to be stale rather than live: Cluster L2 (`03511566`, 2026-08-17) had already rewritten `MainWindow::saveSessionState`'s Tier-1 path to call `Workspace::writeWorkspaceJson()`, which writes `serialize()`'s output verbatim (no `main`/`active`-only extraction — that behavior no longer exists anywhere in the current code). `serialize()` includes both `floating` and `lastOpenFiles`. The punch-list item's own `MainWindow.cpp:856-866` citation had drifted to point at unrelated code (`rewirePluginCoreServices`, post-O1 refactor) — exactly the kind of stale-citation trap `addenda/README.md` warns about for the older audit corpus, just on a punch-list item this time instead of an obsidian-audit doc. Confirmed via code inspection (both real save call sites — `closeEvent`, vault-close/switch — route through the fixed function) and a green re-run of `tst_workspace_session`/`tst_workspace_popout`/`tst_workspace_serializer`/`tst_workspace_serialize`. No code change; punch-list marked `[x]`.

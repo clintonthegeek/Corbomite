@@ -249,15 +249,15 @@ build dependencies.
 ```bash
 # From the repository root:
 ./packaging/appimage/build-appimage.sh
-# → packaging/appimage/out/Corbomite-0.1.0-x86_64.AppImage
+# → packaging/appimage/out/Corbomite-0.2.0-x86_64.AppImage
 ```
 
 Smoke / run:
 
 ```bash
-./packaging/appimage/out/Corbomite-0.1.0-x86_64.AppImage --version
-./packaging/appimage/out/Corbomite-0.1.0-x86_64.AppImage --help
-./packaging/appimage/out/Corbomite-0.1.0-x86_64.AppImage /path/to/vault
+./packaging/appimage/out/Corbomite-0.2.0-x86_64.AppImage --version
+./packaging/appimage/out/Corbomite-0.2.0-x86_64.AppImage --help
+./packaging/appimage/out/Corbomite-0.2.0-x86_64.AppImage /path/to/vault
 ```
 
 If FUSE is unavailable, the script extracts the tools automatically. You can
@@ -270,7 +270,7 @@ targets **Ubuntu 25.10+**. GitHub Actions builds it on every `v*` tag (KDDockWid
 is bundled). On 24.04 LTS, use the AppImage instead.
 
 ```bash
-sudo apt install ./corbomite_0.1.0-1_amd64.deb
+sudo apt install ./corbomite_0.2.0-1_amd64.deb
 ```
 
 #### Arch package (`makepkg`)
@@ -284,11 +284,11 @@ cd packaging/arch
 makepkg -f
 # optional metadata for AUR:
 makepkg --printsrcinfo > .SRCINFO
-sudo pacman -U corbomite-0.1.0-1-x86_64.pkg.tar.zst
+sudo pacman -U corbomite-0.2.0-1-x86_64.pkg.tar.zst
 ```
 
 The PKGBUILD builds from the enclosing git work tree by default. For a
-published AUR package, point `source=` at a GitHub tag (e.g. `v0.1.0`) and
+published AUR package, point `source=` at a GitHub tag (e.g. `v0.2.0`) and
 bump `pkgrel` as needed.
 
 #### CMake presets used by packaging

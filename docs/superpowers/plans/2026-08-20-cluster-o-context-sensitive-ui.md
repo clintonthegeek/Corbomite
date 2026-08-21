@@ -509,7 +509,8 @@ canvases both follow a kcfg change). **DONE 2026-08-21** — 331/331 offscreen
 and `tst_view_actions_provider.cpp`'s `installUninstall_leavesCollectionClean`
 had a stale "no provider registered for canvas" assumption predating O4 —
 updated to assert the swap lands on `CanvasViewActions` instead of null).
-**Not yet live-eyeballed — gate below is still open.**
+**Live-eyeballed and confirmed 2026-08-21** — user tried the canvas toolbar
+against a real vault and confirmed it works. **Phase O4 CLOSED.**
 
 **Gate:** **live eyeball** — snap actually toggles off, grid hides, zoom-to-fit
 frames the content, settings survive restart.
