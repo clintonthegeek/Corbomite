@@ -17,6 +17,7 @@ private slots:
     void externalModifyEmitsModified();
     void externalDeleteEmitsDeletedWithTombstone();
     void externalRenameEmitsRenamed();
+    void externalFolderRenameUpdatesDescendants();
     void unloadEmitsClosed();
     void externalChangeEmitsRaw();
     void externalConfigJsonEmitsConfigChanged();
@@ -98,6 +99,40 @@ void TestVaultWatcher::externalRenameEmitsRenamed()
     QTRY_VERIFY_WITH_TIMEOUT(
         spy.count() >= 1 || (spyDel.count() >= 1 && spyNew.count() >= 1),
         5000);
+}
+
+void TestVaultWatcher::externalFolderRenameUpdatesDescendants()
+{
+    QTemporaryDir dir;
+    // Two files written back-to-back land in the same millisecond mtime
+    // on most filesystems — exactly the ambiguous-pairing case Watcher's
+    // basename-preference fix exists for. Without it, the rename detector
+    // can cross-wire which old path maps to which new path.
+    writeFile(dir.path() + "/Old/note.md", "x");
+    writeFile(dir.path() + "/Old/Sub/nested.md", "y");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *originalNote = vault.getFileByPath(QStringLiteral("Old/note.md"));
+    auto *originalNested = vault.getFileByPath(QStringLiteral("Old/Sub/nested.md"));
+    QVERIFY(originalNote);
+    QVERIFY(originalNested);
+
+    QSignalSpy spy(&vault, &Corbomite::Vault::renamed);
+    QDir(dir.path()).rename(QStringLiteral("Old"), QStringLiteral("New"));
+    // The watcher has no folder-level rename concept (it diffs individual
+    // files only), so a folder rename surfaces as one `renamed` per file
+    // it contains — 2 here, not a single folder-level event.
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 2, 5000);
+
+    QVERIFY(!vault.getFileByPath(QStringLiteral("Old/note.md")));
+    QVERIFY(!vault.getFileByPath(QStringLiteral("Old/Sub/nested.md")));
+    // Identity, not just path existence: the same TFile object must have
+    // followed its own file, not been cross-wired with the other one.
+    QCOMPARE(vault.getFileByPath(QStringLiteral("New/note.md")), originalNote);
+    QCOMPARE(vault.getFileByPath(QStringLiteral("New/Sub/nested.md")), originalNested);
 }
 
 void TestVaultWatcher::unloadEmitsClosed()

@@ -157,26 +157,45 @@ void Watcher::drainPending()
 
     // Pair delete+create by matching mtime within this drain (best-effort
     // rename detection). Unpaired entries emit as plain delete / create.
+    //
+    // A folder rename does not touch its files' mtimes (only the parent
+    // directory entry moves), so renaming a folder with 2+ files that
+    // happen to share an mtime — extremely common, since mtime is only
+    // millisecond-granular here and files created back-to-back (e.g. a
+    // bulk import, or two files touched in the same test/script) collide
+    // easily — makes mtime alone ambiguous: multiple deleted paths tie
+    // against multiple created paths, and picking "first available" can
+    // cross-wire unrelated files (A's old path pairs with B's new path).
+    // Disambiguate by basename first — a file that's genuinely just moved
+    // (not renamed) keeps its filename — and only fall back to the first
+    // mtime-only match when no basename match exists (an actual rename,
+    // where old and new basenames legitimately differ).
     QStringList unpairedCreates = createdRels;
     for (const QString &oldRel : deletedRels) {
         const auto knownIt = m_knownFiles.constFind(oldRel);
         const qint64 oldMtime =
             knownIt != m_knownFiles.cend() ? knownIt.value() : 0;
-        bool matched = false;
-        for (int i = 0; i < unpairedCreates.size(); ++i) {
-            const QString &newRel = unpairedCreates[i];
-            const qint64 newMtime = fresh.value(newRel);
-            if (oldMtime != 0 && newMtime == oldMtime) {
-                Q_EMIT rawChange(newRel);
-                if (!isTreeExcluded(oldRel) && !isTreeExcluded(newRel)) {
-                    Q_EMIT renamed(oldRel, newRel);
+        const QString oldBasename = QFileInfo(oldRel).fileName();
+        int matchIndex = -1;
+        if (oldMtime != 0) {
+            for (int i = 0; i < unpairedCreates.size(); ++i) {
+                const QString &newRel = unpairedCreates[i];
+                if (fresh.value(newRel) != oldMtime) continue;
+                if (matchIndex < 0) matchIndex = i;
+                if (QFileInfo(newRel).fileName() == oldBasename) {
+                    matchIndex = i;
+                    break;
                 }
-                unpairedCreates.removeAt(i);
-                matched = true;
-                break;
             }
         }
-        if (!matched) {
+        if (matchIndex >= 0) {
+            const QString newRel = unpairedCreates[matchIndex];
+            Q_EMIT rawChange(newRel);
+            if (!isTreeExcluded(oldRel) && !isTreeExcluded(newRel)) {
+                Q_EMIT renamed(oldRel, newRel);
+            }
+            unpairedCreates.removeAt(matchIndex);
+        } else {
             Q_EMIT rawChange(oldRel);
             if (!isTreeExcluded(oldRel)) Q_EMIT deleted(oldRel);
         }

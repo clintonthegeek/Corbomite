@@ -1003,6 +1003,40 @@ void Vault::onExternalRenamed(const QString &oldRel, const QString &newRel)
     TAbstractFile *raw = node.get();
     m_fileMap.emplace(newR, std::move(node));
     Q_EMIT renamed(raw, oldR);
+
+    // Folder rename: descendants in m_fileMap still hold stale paths (only
+    // the renamed node itself was moved above). Mirrors the programmatic
+    // Vault::rename() descendant walk — without this, an externally
+    // renamed folder leaves every descendant's path stale in m_fileMap
+    // (and, via the missing per-descendant `renamed` signal, in
+    // LinkResolver/MetadataCache) until the vault is reopened.
+    if (dynamic_cast<TFolder *>(raw)) {
+        const QString oldPrefix = oldR + QLatin1Char('/');
+        const QString newPrefix = newR + QLatin1Char('/');
+        std::vector<QString> oldDescPaths;
+        oldDescPaths.reserve(m_fileMap.size());
+        for (const auto &kv : m_fileMap) {
+            if (kv.first.startsWith(oldPrefix)) oldDescPaths.push_back(kv.first);
+        }
+        for (const QString &oldDesc : oldDescPaths) {
+            auto descIt = m_fileMap.find(oldDesc);
+            if (descIt == m_fileMap.end()) continue;
+            std::unique_ptr<TAbstractFile> dnode = std::move(descIt->second);
+            m_fileMap.erase(descIt);
+            const QString newDesc = newPrefix + oldDesc.mid(oldPrefix.size());
+            dnode->setPath(newDesc);
+            if (m_readCache.contains(oldDesc)) {
+                m_readCache.insert(newDesc, m_readCache.take(oldDesc));
+            }
+            if (auto *descDoc = m_docs.take(oldDesc)) {
+                m_docs.insert(newDesc, descDoc);
+                descDoc->setRelativePath(newDesc);
+            }
+            TAbstractFile *draw = dnode.get();
+            m_fileMap.emplace(newDesc, std::move(dnode));
+            Q_EMIT renamed(draw, oldDesc);
+        }
+    }
 }
 
 } // namespace Corbomite
