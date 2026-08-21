@@ -22,19 +22,22 @@
 # into corbomite-properties.so — fixed by linking the plugin against
 # CorbomiteApp instead of recompiling; see that commit for detail).
 #
-# Allowlist: Cluster P Phase P6 (cross-repo: markoff-family, graffodil)
-# stays out of scope until separately gated (see the plan's §3). If P6
-# hasn't landed yet and some markoff-family/graffodil class ends up
-# embedded into more than one module (e.g. a future library that also
-# statically links Graffodil::Core alongside libs/canvas), that specific
-# duplication is expected and should be added here by symbol substring
-# with a comment — NOT silently ignored by weakening the whole check.
-# Deleting an entry here as P6 makes the corresponding library SHARED is
-# itself the proof that phase worked (per the plan's P6.T4).
-#
-# Currently empty: a full sweep on 2026-08-20 (post-P3, post the
-# PropertyEditorWidget/PropertyRow fix) found zero duplicated
-# staticMetaObject symbols anywhere in the built tree.
+# Allowlist: stayed empty through Phase P6 (cross-repo: markoff-family,
+# graffodil, 2026-08-21) — the plan's P6.T4 asked to delete any entries
+# added here for expected markoff-family/graffodil duplication as those
+# libraries went SHARED, as proof the phase worked. None were ever
+# needed: before P6, those libraries were STATIC and baked directly into
+# whichever module linked them, so this scan never even saw them as
+# separate modules; P6 made every one of them (markoff_core/canvas/
+# source/styled, markoff-parser, ts-markdown-parser, collabtext,
+# graffodil-core/batch/circular/force/spatial/sugiyama) SHARED and
+# installed alongside Corbomite's own libraries, so this check now scans
+# their .so's directly for the first time — and still finds zero
+# duplicated staticMetaObject symbols. If a future library ends up
+# statically linking one of these instead of using the shared target,
+# that's exactly the class of bug this check exists to catch; add an
+# allowlist entry here only if the duplication is genuinely expected,
+# by symbol substring with a comment — NOT to silently weaken the check.
 set(_allowlist_substrings
     # "9Markoff5Canvas"   # example: add a real mangled-name substring here
                             # with a comment explaining why, when P6 or any
