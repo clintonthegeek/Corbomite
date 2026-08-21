@@ -74,7 +74,7 @@ target_link_libraries(vault
         KF6::CoreAddons
         KF6::ConfigCore
     PRIVATE
-        Markoff::Parser
+        $<BUILD_INTERFACE:Markoff::Parser>
 )
 
 # PluginManager's MinVersion gate compares plugin metadata against this

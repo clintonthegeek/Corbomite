@@ -83,13 +83,20 @@ target_link_libraries(jkqtmathtext
 )
 
 # Install rule — needed now that consumers carry a runtime DT_NEEDED on
-# this library instead of embedding it statically. Not part of the
-# CorbomiteTargets export set (no Corbomite:: alias; vendored third-party
-# code). SHARED is also the licence-friendlier form for vendored LGPL code
-# (per the plan's Phase P3 note) — a static link would otherwise obligate
-# providing relinkable object files to satisfy LGPL §4/§6.
+# this library instead of embedding it statically. SHARED is also the
+# licence-friendlier form for vendored LGPL code (per the plan's Phase P3
+# note) — a static link would otherwise obligate providing relinkable
+# object files to satisfy LGPL §4/§6.
+#
+# EXPORT CorbomiteTargets: originally omitted (no Corbomite:: alias,
+# vendored third-party code) — added back in Phase P6 because
+# markoff_canvas privately links this, and once markoff_canvas itself
+# joined the export set (P6, cross-repo), CMake's install(EXPORT)
+# validation requires every target it links, public or private, to be
+# in an export set too.
 if(DEFINED KDE_INSTALL_LIBDIR)
     install(TARGETS jkqtmathtext
+        EXPORT CorbomiteTargets
         RUNTIME DESTINATION ${KDE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${KDE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${KDE_INSTALL_LIBDIR}
