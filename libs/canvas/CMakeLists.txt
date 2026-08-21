@@ -52,9 +52,10 @@ target_link_libraries(canvas PUBLIC Qt6::Core Qt6::Widgets Qt6::Svg Corbomite::C
 
 # Install rule — needed now that the app carries a runtime DT_NEEDED on
 # this library instead of embedding it statically. Not part of the
-# CorbomiteTargets export set (no Corbomite:: alias); Graffodil::Core
-# stays STATIC (Cluster P Phase P6 is the cross-repo gate for that), so
-# its code is still baked into this .so — no separate install needed for it.
+# CorbomiteTargets export set (no Corbomite:: alias); canvas itself isn't
+# exported either, so Graffodil::Core (SHARED as of Cluster P Phase P6)
+# doesn't need to join the export set — it installs and carries its own
+# runtime DT_NEEDED independently (libs/graffodil/src/core/CMakeLists.txt).
 if(DEFINED KDE_INSTALL_LIBDIR)
     install(TARGETS canvas
         RUNTIME DESTINATION ${KDE_INSTALL_BINDIR}
