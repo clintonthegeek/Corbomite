@@ -10,6 +10,12 @@ Conventions:
 
 ---
 
+## 2026-08-21 — P1 punch-list item "workspace.json drops floating/lastOpenFiles" was already fixed, closed on re-verification
+
+While triaging release-readiness (user asked "are we in good shape for a new release"), this open P1 turned out to be stale rather than live: Cluster L2 (`03511566`, 2026-08-17) had already rewritten `MainWindow::saveSessionState`'s Tier-1 path to call `Workspace::writeWorkspaceJson()`, which writes `serialize()`'s output verbatim (no `main`/`active`-only extraction — that behavior no longer exists anywhere in the current code). `serialize()` includes both `floating` and `lastOpenFiles`. The punch-list item's own `MainWindow.cpp:856-866` citation had drifted to point at unrelated code (`rewirePluginCoreServices`, post-O1 refactor) — exactly the kind of stale-citation trap `addenda/README.md` warns about for the older audit corpus, just on a punch-list item this time instead of an obsidian-audit doc. Confirmed via code inspection (both real save call sites — `closeEvent`, vault-close/switch — route through the fixed function) and a green re-run of `tst_workspace_session`/`tst_workspace_popout`/`tst_workspace_serializer`/`tst_workspace_serialize`. No code change; punch-list marked `[x]`.
+
+---
+
 ## 2026-08-21 — Cluster O Phase O4: `CanvasViewActions` code-complete + offscreen-green, live-eyeball still pending
 
 Also same session: `testvaults/` decluttered — `films-vault`, `obsidian-hub-main.zip`, and `sweet-setup-obsidian-starter-vault.zip` (none referenced by any test/build script) moved to a new, wholesale-gitignored `samplevaults/` directory, leaving `testvaults/` holding only the two fixtures real tests depend on (`starter-vault` for `tst_e2e_gui`, `DevVault` for `tst_mainwindow_action_wiring`, the latter already gitignored). Five dogfood-session scratch files left directly in `starter-vault` were also gitignored, following the pre-existing pattern for `Parser Tests/`/`dfsfg.canvas`. Commit `858c5747`.
