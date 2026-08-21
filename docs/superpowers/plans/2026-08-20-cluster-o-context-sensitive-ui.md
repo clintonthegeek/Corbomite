@@ -476,25 +476,25 @@ feels; snap/grid/zoom toggles for canvas, closes punch-list
 
 Closes punch-list `[ui-bundle][canvas][P2][cluster-o]`.
 
-- [ ] **O4.T1 — Expose the primitives.** `CanvasScene::alignmentStrategy()` accessor
+- [x] **O4.T1 — Expose the primitives.** `CanvasScene::alignmentStrategy()` accessor
       (currently a private `m_alignmentStrategy`, `CanvasScene.h:285`);
       `CanvasView::setGridVisible(bool)` + honour it in `drawBackground`
       (`CanvasView.cpp:232`); a `CanvasViewTab::canvasView()` accessor (only
       `canvasScene()` exists today).
-- [ ] **O4.T2 — kcfg group** `<group name="Canvas">`: `SnapToGrid` (default `true`),
+- [x] **O4.T2 — kcfg group** `<group name="Canvas">`: `SnapToGrid` (default `true`),
       `SnapToObjects` (default `true`), `ShowGrid` (default `true`). App-wide per
       **Q5**. Obsidian's defaults are both-ON (`canvas.md` §9.5) — match.
-- [ ] **O4.T3 — Canvas menu + `canvasToolBar`:** `canvas_snap_grid` (checkable),
+- [x] **O4.T3 — Canvas menu + `canvasToolBar`:** `canvas_snap_grid` (checkable),
       `canvas_snap_objects` (checkable), `canvas_show_grid` (checkable),
       `canvas_zoom_in`/`_out`/`_reset` (via O1.T3's virtuals),
       `canvas_zoom_to_fit` (Shift+1), `canvas_zoom_to_selection` (Shift+2).
-- [ ] **O4.T4 — Apply settings to every open canvas**, not just the focused one:
+- [x] **O4.T4 — Apply settings to every open canvas**, not just the focused one:
       the three toggles are app-wide, so a change must fan out to every live
       `CanvasScene`/`CanvasView`. Hook `CorbomiteSettings::configChanged`, same
       shape as `applyReadableLineWidth` (`MainWindow.cpp:3106`).
-- [ ] **O4.T5 — Tier C:** checkable actions reflect kcfg on install; Tier B disables
+- [x] **O4.T5 — Tier C:** checkable actions reflect kcfg on install; Tier B disables
       zoom-to-selection when nothing is selected (`hasSelection()`).
-- [ ] **O4.T6 — Wire-when-M5-lands placeholders:** `canvas_lock` (read-only),
+- [x] **O4.T6 — Wire-when-M5-lands placeholders:** `canvas_lock` (read-only),
       `canvas_jump_to_group`, `canvas_convert_to_file`. Register them in the
       provider **disabled with a named TODO**, so landing M5 is a five-line change
       per action rather than a menu redesign. (These are the only new stubs this
@@ -502,7 +502,14 @@ Closes punch-list `[ui-bundle][canvas][P2][cluster-o]`.
 
 **Tests:** `tst_canvas_view_actions` (each toggle reaches
 `CanvasAlignmentStrategy`/`CanvasView`); `tst_canvas_settings_fanout` (two open
-canvases both follow a kcfg change).
+canvases both follow a kcfg change). **DONE 2026-08-21** — 331/331 offscreen
+(canvas library also needed a stray `#include <QGraphicsItem>` fix in
+`CanvasView.cpp` for the new `zoomToSelection()`; `tst_action_context.cpp`'s
+`inPlaceViewTypeChange_refreshesActionState`/`typeSwap_installsCorrectClient`
+and `tst_view_actions_provider.cpp`'s `installUninstall_leavesCollectionClean`
+had a stale "no provider registered for canvas" assumption predating O4 —
+updated to assert the swap lands on `CanvasViewActions` instead of null).
+**Not yet live-eyeballed — gate below is still open.**
 
 **Gate:** **live eyeball** — snap actually toggles off, grid hides, zoom-to-fit
 frames the content, settings survive restart.

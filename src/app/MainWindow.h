@@ -83,6 +83,7 @@ class ViewRegistry;
 class Plugin;
 class ActionContextController;
 class MarkdownViewActions;
+class CanvasViewActions;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
     Q_OBJECT
@@ -105,6 +106,8 @@ public:
     /// provider directly, including before any tab of its type is open
     /// (eager construction, O3.T2 — tst_view_actions_provider).
     MarkdownViewActions *markdownViewActions() const { return m_markdownViewActions; }
+    /// Cluster O Phase O4 — same rationale as markdownViewActions() above.
+    CanvasViewActions *canvasViewActions() const { return m_canvasViewActions; }
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
@@ -140,6 +143,11 @@ private:
     /// applyReadableLineWidth. MainWindow stays leaf-type-agnostic; the
     /// Markoff::Canvas type only appears inside NoteEditorWidget.cpp.
     void applyReadableLineWidth();
+    /// Cluster O Phase O4 (O4.T4) — fans the Canvas kcfg group's three
+    /// snap/grid toggles out to EVERY open canvas leaf's
+    /// CanvasAlignmentStrategy/CanvasView, not just the focused one (same
+    /// shape as applyReadableLineWidth() above).
+    void applyCanvasSettings();
     void setupSidebars();
     void setupStatusBar();
     void setupEditor();
@@ -306,6 +314,8 @@ private:
     // visibility (see setGuiFactory()/registerProvider()/registerToolBar()).
     MarkdownViewActions *m_markdownViewActions = nullptr;
     KToolBar *m_markdownToolBar = nullptr;
+    CanvasViewActions *m_canvasViewActions = nullptr;
+    KToolBar *m_canvasToolBar = nullptr;
 
     // Cluster B Phase 1 — host-wide plugin extension registries.
     // PostProcessor and CodeBlockProcessor are functional registries that

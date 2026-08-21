@@ -497,13 +497,15 @@ void ActionContextController::registerToolBar(const QString &viewType, KToolBar 
 
 ToolBarPolicy ActionContextController::toolBarPolicyFor(const QString &viewType) const
 {
-    // O3 has exactly one provider (markdown); O4/O5 add a branch + a new
-    // named kcfg entry per provider they land, same pattern (kcfg has no
+    // O3 had exactly one provider (markdown); O4 adds a branch + a new
+    // named kcfg entry per provider it lands, same pattern (kcfg has no
     // dynamic-key entries, so this stays a short explicit dispatch rather
     // than a generic map — matches how other per-feature settings in this
     // codebase are named).
     if (viewType == kMarkdown)
         return toolBarPolicyFromString(CorbomiteSettings::self()->markdownToolBarPolicy());
+    if (viewType == kCanvas)
+        return toolBarPolicyFromString(CorbomiteSettings::self()->canvasToolBarPolicy());
     return ToolBarPolicy::Auto;
 }
 
@@ -511,6 +513,9 @@ void ActionContextController::setToolBarPolicy(const QString &viewType, ToolBarP
 {
     if (viewType == kMarkdown) {
         CorbomiteSettings::self()->setMarkdownToolBarPolicy(toolBarPolicyToString(policy));
+        CorbomiteSettings::self()->save();
+    } else if (viewType == kCanvas) {
+        CorbomiteSettings::self()->setCanvasToolBarPolicy(toolBarPolicyToString(policy));
         CorbomiteSettings::self()->save();
     }
     applyToolBarPolicies();

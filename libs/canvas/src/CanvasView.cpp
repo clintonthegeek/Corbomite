@@ -6,6 +6,7 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QGraphicsItem>
 #include <QGuiApplication>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -82,6 +83,24 @@ void CanvasView::zoomIn()
 void CanvasView::zoomOut()
 {
     scale(1.0 / kZoomFactor, 1.0 / kZoomFactor);
+}
+
+void CanvasView::zoomToSelection()
+{
+    if (!scene()) return;
+    const auto selected = scene()->selectedItems();
+    if (selected.isEmpty()) return;
+    QRectF bounds;
+    for (auto *item : selected)
+        bounds = bounds.united(item->sceneBoundingRect());
+    fitInView(bounds.adjusted(-50, -50, 50, 50), Qt::KeepAspectRatio);
+}
+
+void CanvasView::setGridVisible(bool visible)
+{
+    if (m_gridVisible == visible) return;
+    m_gridVisible = visible;
+    viewport()->update();
 }
 
 void CanvasView::keyPressEvent(QKeyEvent *event)
@@ -233,6 +252,9 @@ void CanvasView::drawBackground(QPainter *painter, const QRectF &rect)
 {
     // Fill background with white
     painter->fillRect(rect, Qt::white);
+
+    if (!m_gridVisible)
+        return;
 
     // Zoom-adaptive dotted grid. Reuses the exact same pitch ladder
     // CanvasAlignmentStrategy uses for grid-SNAP (20/40/80/160 scene units

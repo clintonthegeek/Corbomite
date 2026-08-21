@@ -190,10 +190,14 @@ private Q_SLOTS:
                   "editor-mode radio must be disabled on a non-markdown tab");
 
         // Tier A — the markdown provider itself must no longer be the
-        // installed client once the leaf stops being markdown.
-        QVERIFY2(mw.actionContext()->currentProvider() == nullptr,
-                  "no ViewActions provider is registered for \"canvas\" yet (O4) — "
-                  "currentProvider() must be null, not still the markdown one");
+        // installed client once the leaf stops being markdown. As of O4,
+        // canvas has its own registered provider, so this is a swap to
+        // CanvasViewActions, not an uninstall-to-null.
+        QVERIFY2(mw.actionContext()->currentProvider() != provider,
+                  "markdown's client must be uninstalled once the leaf stops being markdown");
+        QVERIFY2(mw.actionContext()->currentProvider() != nullptr,
+                  "canvas has its own registered ViewActions provider as of O4");
+        QCOMPARE(mw.actionContext()->currentProvider()->viewType(), QStringLiteral("canvas"));
     }
 
     // -----------------------------------------------------------------
@@ -358,15 +362,17 @@ private Q_SLOTS:
         QTest::qWait(200);
         QCOMPARE(ctx->currentProvider(), markdownProvider);
 
-        // Type-changing switch (NoteB -> Canvas): the markdown client
-        // must be uninstalled. No canvas provider is registered yet
-        // (O4), so currentProvider() must go back to null — proving the
+        // Type-changing switch (NoteB -> Canvas): the markdown client must
+        // be uninstalled and CanvasViewActions (its own registered
+        // provider as of O4) installed in its place — proving the
         // uninstall actually happened rather than the old client just
         // being left plugged in.
         mw.onNoteActivated(QStringLiteral("Canvas.canvas"));
         QTest::qWait(200);
-        QVERIFY2(ctx->currentProvider() == nullptr,
-                  "switching to a type with no registered provider must uninstall the old one");
+        QVERIFY2(ctx->currentProvider() != markdownProvider,
+                  "switching to a different type must uninstall the old provider");
+        QVERIFY2(ctx->currentProvider() != nullptr && ctx->currentProvider()->viewType() == QStringLiteral("canvas"),
+                  "canvas's own registered provider must now be installed");
 
         // Switching back to markdown must reinstall the SAME provider
         // instance (providers are constructed once, eagerly — O3.T2).

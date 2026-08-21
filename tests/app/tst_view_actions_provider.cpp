@@ -122,13 +122,16 @@ private Q_SLOTS:
         QVERIFY2(pac->action(QStringLiteral("format_bold"))->isEnabled(),
                   "installed + bound to an editable markdown view -> format_bold enabled");
 
-        // Switch to canvas — no provider registered for "canvas" yet
-        // (O4), so this must be a clean UNINSTALL, not a swap to some
-        // other client.
+        // Switch to canvas — as of O4, canvas has its own registered
+        // provider, so this must be a clean SWAP (markdown uninstalled,
+        // canvas installed), not an uninstall-to-null. tst_canvas_view_actions
+        // covers CanvasViewActions' own behaviour in depth; this test only
+        // needs to confirm markdown's own install/uninstall discipline
+        // still holds when the swap target is a real provider, not a gap.
         mw.onNoteActivated(QStringLiteral("Canvas.canvas"));
         QTest::qWait(200);
-        QVERIFY2(mw.actionContext()->currentProvider() == nullptr,
-                  "no provider registered for canvas -> currentProvider() must be null");
+        QVERIFY2(mw.actionContext()->currentProvider() != static_cast<ViewActions *>(provider),
+                  "markdown's client must be uninstalled once focus leaves markdown");
 
         // Every action the provider owns must now be disabled — nothing
         // left "live" (dangling shortcut) after uninstall.

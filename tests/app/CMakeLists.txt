@@ -142,6 +142,26 @@ target_link_libraries(tst_toolbar_policy PRIVATE
 set_tests_properties(tst_toolbar_policy PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster O Phase O4 — CanvasViewActions: eager construction, provider
+# install/uninstall on markdown<->canvas focus swap, each toggle reaching
+# the real CanvasAlignmentStrategy/CanvasView, and the zoom-to-selection
+# Tier-B gate.
+add_executable(tst_canvas_view_actions tst_canvas_view_actions.cpp)
+add_test(NAME tst_canvas_view_actions COMMAND tst_canvas_view_actions)
+target_link_libraries(tst_canvas_view_actions PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+set_tests_properties(tst_canvas_view_actions PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster O Phase O4 (O4.T4) — a kcfg settings change must fan out to
+# EVERY open canvas leaf, not just the focused one.
+add_executable(tst_canvas_settings_fanout tst_canvas_settings_fanout.cpp)
+add_test(NAME tst_canvas_settings_fanout COMMAND tst_canvas_settings_fanout)
+target_link_libraries(tst_canvas_settings_fanout PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+set_tests_properties(tst_canvas_settings_fanout PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster O Phase O2.T1 — the View Tier-B capability surface
 # (canEdit/canSave/canZoom/canFind/hasSelection/canUndo/canRedo). Graph
 # coverage lives in src/plugins/graph-view/tests/tst_graphview_plugin.cpp

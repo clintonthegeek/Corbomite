@@ -85,6 +85,31 @@
       <label>Visibility policy for the markdown toolbar: Auto, AlwaysShow, or AlwaysHide.</label>
       <default>Auto</default>
     </entry>
+    <entry name="CanvasToolBarPolicy" type="String">
+      <label>Visibility policy for the canvas toolbar: Auto, AlwaysShow, or AlwaysHide.</label>
+      <default>Auto</default>
+    </entry>
+  </group>
+
+  <group name="Canvas">
+    <!-- Cluster O Phase O4 (O4.T2) — app-wide (not per-document) canvas
+         settings, source of truth per doctrine §C3's "app-wide, survives
+         restart" row. Obsidian's defaults are both-ON for snap
+         (obsidian-audit/domains/canvas.md §9.5); ShowGrid follows the same
+         default since the grid is what the snap magnetism visually
+         communicates. -->
+    <entry name="SnapToGrid" type="Bool">
+      <label>Snap dragged canvas nodes to the grid</label>
+      <default>true</default>
+    </entry>
+    <entry name="SnapToObjects" type="Bool">
+      <label>Snap dragged canvas nodes to other nodes' edges/centers</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowGrid" type="Bool">
+      <label>Show the canvas background grid</label>
+      <default>true</default>
+    </entry>
   </group>
 
   <group name="DailyNotes">

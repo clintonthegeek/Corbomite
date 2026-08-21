@@ -24,6 +24,18 @@ public:
     void zoomIn();
     void zoomOut();
 
+    /// Cluster O Phase O4 (O4.T3) — fits the view to the current
+    /// selection's bounding rect (Obsidian's "zoom to selection"). No-op
+    /// if nothing is selected — CanvasViewActions' Tier B disables the
+    /// action itself in that case, but this stays defensive.
+    void zoomToSelection();
+
+    /// Cluster O Phase O4 (O4.T1/T2) — app-wide "Show grid" toggle,
+    /// backed by corbomite.kcfg's Canvas group. Honoured in
+    /// drawBackground(); the background fill itself is unaffected.
+    void setGridVisible(bool visible);
+    bool gridVisible() const { return m_gridVisible; }
+
 Q_SIGNALS:
     void cardDoubleClicked(const QString &nodeId);
     void selectionChanged(const QStringList &selectedIds);
@@ -50,6 +62,7 @@ private:
     CanvasDocument *m_document = nullptr;
     QTimer *m_autoPanTimer = nullptr;
     QPoint m_lastViewportPos;
+    bool m_gridVisible = true;
 };
 
 } // namespace Canvas

@@ -194,6 +194,10 @@ public:
     /// active selected/hovered node — see CanvasNodeChromeOverlay).
     CanvasNodeChromeOverlay *chromeOverlay() const { return m_chromeOverlay; }
 
+    /// Cluster O Phase O4 (O4.T1) — exposes the snap-to-grid/snap-to-object
+    /// toggles for CanvasViewActions. Was private with no accessor.
+    CanvasAlignmentStrategy *alignmentStrategy() const { return m_alignmentStrategy; }
+
 Q_SIGNALS:
     void cardDoubleClicked(const QString &nodeId);
 

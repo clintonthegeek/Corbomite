@@ -55,6 +55,11 @@
 #include "editor/MarkdownView.h"
 #include "editor/MarkdownViewActions.h"
 #include "canvas/CanvasFileView.h"
+#include "canvas/CanvasViewActions.h"
+#include "canvas/CanvasViewTab.h"
+#include <canvas/CanvasAlignmentStrategy.h>
+#include <canvas/CanvasScene.h>
+#include <canvas/CanvasView.h>
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/PathUtils.h"
 #include "corbomite/core/StatusBarRegistry.h"
@@ -271,6 +276,17 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     addToolBar(Qt::TopToolBarArea, m_markdownToolBar);
     m_markdownToolBar->addActions(m_markdownViewActions->toolBarActions());
     m_actionContext->registerToolBar(QStringLiteral("markdown"), m_markdownToolBar);
+
+    // Cluster O Phase O4 — CanvasViewActions, same eager-construct /
+    // register-provider / register-toolbar shape as markdown above.
+    m_canvasViewActions = new CanvasViewActions(this);
+    m_actionContext->registerProvider(m_canvasViewActions);
+
+    m_canvasToolBar = new KToolBar(QStringLiteral("canvasToolBar"), this);
+    m_canvasToolBar->setWindowTitle(i18n("Canvas Toolbar"));
+    addToolBar(Qt::TopToolBarArea, m_canvasToolBar);
+    m_canvasToolBar->addActions(m_canvasViewActions->toolBarActions());
+    m_actionContext->registerToolBar(QStringLiteral("canvas"), m_canvasToolBar);
 
     // Cluster V Task 1.7 — theme dispatcher. applyTheme() applies the
     // Appearance/Theme kcfg key via KColorSchemeManager; onSettingsApplied
@@ -2820,12 +2836,35 @@ void MainWindow::applyReadableLineWidth()
     }
 }
 
+void MainWindow::applyCanvasSettings()
+{
+    if (!m_workspace) return;
+    auto *settings = CorbomiteSettings::self();
+    const bool snapGrid = settings->snapToGrid();
+    const bool snapObjects = settings->snapToObjects();
+    const bool showGrid = settings->showGrid();
+    for (auto *leaf : m_workspace->allLeaves()) {
+        if (leaf->isDeferred()) continue;
+        auto *cv = qobject_cast<CanvasFileView *>(leaf->view());
+        auto *tab = cv ? cv->canvasWidget() : nullptr;
+        if (!tab) continue;
+        if (auto *scene = tab->canvasScene())
+            if (auto *align = scene->alignmentStrategy()) {
+                align->setSnapToGridEnabled(snapGrid);
+                align->setSnapToObjectsEnabled(snapObjects);
+            }
+        if (auto *view = tab->canvasView())
+            view->setGridVisible(showGrid);
+    }
+}
+
 void MainWindow::onSettingsApplied()
 {
     applyTheme();
     applyVaultPortableSettings();
     applyAutosaveDelay();
     applyReadableLineWidth();
+    applyCanvasSettings();
 }
 
 } // namespace Corbomite
