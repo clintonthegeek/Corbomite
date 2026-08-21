@@ -24,6 +24,26 @@
 # In dev builds the .so is dropped into CORBOMITE_PLUGIN_DEV_DIR (if
 # defined) so CorbomiteApp can find it without an `install` step;
 # otherwise it goes to the target's default output directory.
+#
+# LINK_LIBRARIES must only name SHARED libraries (Cluster P, closed
+# 2026-08-20 — see docs/superpowers/plans/2026-08-20-cluster-p-shared-
+# libraries.md). A plugin built via this MODULE target is dlopen()'d into
+# the host process at runtime; if it links a STATIC library, it gets its
+# own private compiled copy of every class in that library, including a
+# private staticMetaObject for each QObject subclass. Qt6's
+# QMetaObject::cast() (what qobject_cast<T*> compiles down to) is a
+# pointer-identity check on the metaobject chain, not a string
+# comparison — so a QObject the host constructed against its own
+# staticMetaObject copy silently fails qobject_cast<T*>() inside the
+# plugin, and vice versa, with no error, ever. This exact bug was fixed
+# for every Corbomite-owned library plugins can link in Cluster P; the
+# test-time proof is tests/integration/tst_plugin_type_identity.cpp and
+# the structural regression guard is
+# cmake/CheckNoDuplicateMetaObjects.cmake (registered as ctest
+# tst_no_duplicate_metaobjects). Do not reintroduce a STATIC dependency
+# here — and don't compile the same .cpp a second time directly into a
+# plugin's SOURCES either (functionally identical mistake; caught once
+# already in src/plugins/properties, see that commit).
 
 function(corbomite_add_plugin TARGET)
     cmake_parse_arguments(ARG

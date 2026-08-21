@@ -420,7 +420,7 @@ embedding a private copy of everything.
 This is the phase that justifies the cluster. Per D4/C2 it must target a
 library that is *actually* diverged today.
 
-- [ ] **P4.T1** Write `tst_plugin_type_identity` **before** finishing P3 (or
+- [x] **P4.T1** Write `tst_plugin_type_identity` **before** finishing P3 (or
       on a branch stashed from P0) and confirm it **FAILS** against
       pre-P3 `master`. A gate that was never seen red proves nothing.
       Shape: host constructs a `Corbomite::NotesTreeModel` (Models — the
@@ -428,8 +428,8 @@ library that is *actually* diverged today.
       plugin `.so` through `PluginContext`, plugin `qobject_cast`s it back
       and asserts non-null. Use the file-explorer plugin or a minimal
       purpose-built test plugin.
-- [ ] **P4.T2** Confirm it passes post-P3.
-- [ ] **P4.T3** Add `tst_no_duplicate_metaobjects` — a symbol-level guard
+- [x] **P4.T2** Confirm it passes post-P3.
+- [x] **P4.T3** Add `tst_no_duplicate_metaobjects` — a symbol-level guard
       that walks the built `Corbomite` exe, `build-dev/bin/lib*.so` and
       `build-dev/lib/plugins/corbomite/*.so`, and asserts no
       `*staticMetaObject` symbol is *defined* in more than one module. This
@@ -437,13 +437,67 @@ library that is *actually* diverged today.
       to allowlist markoff-family/graffodil symbols until P6 lands — encode
       the allowlist explicitly so P6 can delete entries from it as proof of
       progress.
-- [ ] **P4.T4** Add a note to `cmake/CorbomitePlugin.cmake` documenting that
+- [x] **P4.T4** Add a note to `cmake/CorbomitePlugin.cmake` documenting that
       plugin-linked Corbomite libraries must be `SHARED` and why (one
       paragraph, pointing at this plan). Future plugin-facing libraries are
       the obvious way to reintroduce the bug.
 
+**P4 resolution (2026-08-20):** all four tasks landed in one commit
+(`b8f492d1`). **P4.T1/T2:** built the real scenario rather than a
+hypothetical one — `tst_plugin_type_identity` constructs a `Vault`/
+`FileManager`/`MetadataCache` in the host test process, drives the actual
+production `PluginManager`/`KPluginFactory` dlopen path (not the
+`setFactoryOverride` test bypass, which would construct the plugin
+in-process and prove nothing about the DSO boundary) to load the real
+built `corbomite-file-explorer.so`, calls its `createView()` — which
+internally constructs a `Corbomite::NotesTreeModel` inside the plugin's
+own compiled code, independent of anything this test added — and
+`qobject_cast`s the resulting `QAbstractItemModel*` back to
+`NotesTreeModel*` from the host. **Red demonstrated empirically, not
+theoretically**: created a scratch `git worktree` at `7f7dd3b5` (the
+commit right after P2 closed, last commit before any P3 flip), copied the
+test file + its CMake wiring in, ran `git submodule update --init` there,
+built the full dependency chain from scratch, and ran it — failed with
+exactly the predicted symptom (`qobject_cast<NotesTreeModel*>` → nullptr,
+no crash, no error). Confirmed green back on `master`. Worktree discarded
+after.
+
+**P4.T3:** the guard's first real run found a genuine live divergence
+**outside P3's scope entirely** — not a markoff-family/graffodil case, a
+pure Corbomite-only bug P1-P3 never touched because it was never a
+`STATIC`-library problem to begin with: `src/sidebar/
+PropertyEditorWidget.cpp` and `PropertyRow.cpp` were being compiled once
+into `CorbomiteApp`'s `SOURCES` and a *second* time directly into
+`corbomite-properties`'s `SOURCES` (`src/plugins/properties/CMakeLists.txt`),
+producing two fully independent `staticMetaObject` copies for
+`PropertyRow`, `PropertyEditorWidget`, and the six `PropertyEditor`
+subclasses nested inside `PropertyEditorWidget.cpp` — 8 duplicated symbols,
+zero markoff-family/graffodil ones (neither is embedded into more than one
+module today, so **the allowlist is genuinely empty**, not just
+unpopulated). Fixed by linking `corbomite-properties` against
+`CorbomiteApp` (`SHARED` since P1) instead of recompiling the same two
+files; `INCLUDE_DIRECTORIES` stayed so the plugin's own sources can still
+see the headers. **Verified the guard actually catches this class of bug**
+(not just vacuously passes): reverted the fix via `git stash`, rebuilt
+just the plugin, confirmed the test failed listing all 8 symbols by name
+and both defining modules, then restored the fix and confirmed green
+again. Chose the `cmake --graphviz`-sibling script-test pattern from
+`tst_no_library_cycles` (`cmake -P` + `add_test`) over a compiled C++ test
+since the check is fundamentally a build-artifact `nm` sweep, not
+something exercising runtime behaviour.
+
+**P4.T4:** the note lives right at `LINK_LIBRARIES` in
+`cmake/CorbomitePlugin.cmake` — where a future plugin author would
+actually make the mistake — explaining the pointer-identity mechanics of
+`QMetaObject::cast()`, pointing at both the behavioural test and the
+structural guard, and explicitly calling out the "compiled the same
+source twice" variant of the mistake since P4.T3 just caught exactly that.
+
+325/325 offscreen throughout (322 baseline + `tst_plugin_type_identity` +
+`tst_no_duplicate_metaobjects` + `tst_no_library_cycles` from P2 = 325).
+
 **Gate:** P4.T1 demonstrated red-then-green. P4.T3 green with a documented
-allowlist.
+allowlist. ✅ Phase P4 complete.
 
 ### Phase P5 — Packaging verification
 
@@ -579,16 +633,25 @@ same static link graph, not a few outliers.
 
 ## §7 Acceptance (cluster close)
 
-- [ ] Full offscreen suite green (current baseline **320/320** excl.
-      `benchmark`), at every phase boundary, not just at the end.
-- [ ] `tst_plugin_type_identity` demonstrated red pre-P3, green post-P3.
-- [ ] `tst_no_duplicate_metaobjects` green with a documented allowlist.
-- [ ] `tst_no_library_cycles` green.
-- [ ] `tst_xmlgui_resource_present` green.
+- [x] Full offscreen suite green (current baseline **320/320** excl.
+      `benchmark`), at every phase boundary, not just at the end. **325/325
+      as of P4's close** (+`tst_no_library_cycles`, `tst_xmlgui_resource_present`,
+      `tst_plugin_type_identity`, `tst_no_duplicate_metaobjects`).
+- [x] `tst_plugin_type_identity` demonstrated red pre-P3, green post-P3.
+- [x] `tst_no_duplicate_metaobjects` green with a documented allowlist.
+- [x] `tst_no_library_cycles` green.
+- [x] `tst_xmlgui_resource_present` green.
 - [ ] AppImage builds, launches, opens a vault.
 - [ ] Installed release build launches and loads all 9 plugins from the
-      installed plugin dir.
-- [ ] §5 measurement table filled in.
-- [ ] Audit corrections addendum landed (P0.T1).
+      installed plugin dir. *(P1 already live-verified the installed
+      release build launches with all libraries at that point's SHARED
+      state; P5 re-verifies with the full post-P3 set and explicitly
+      checks plugin load count.)*
+- [x] §5 measurement table filled in *(P0/P1/P3 rows; P6 row pending that
+      phase)*.
+- [x] Audit corrections addendum landed (P0.T1).
 - [ ] `decisions-archive.md` closeout paragraph; `PROJECT-STATE.md`
       §Current focus updated to ≤3 sentences; `INDEX.md` status updated.
+      *(Per-phase decisions-archive/PROJECT-STATE updates have landed
+      after every phase so far; this item is the final cluster-close
+      paragraph, still pending P5/P6.)*
