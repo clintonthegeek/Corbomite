@@ -504,12 +504,12 @@ allowlist. ✅ Phase P4 complete.
 Report §4 assumed packaging is generic but explicitly flagged it as **not
 verified by an actual build**. Close that.
 
-- [ ] **P5.T1** AppImage: run `packaging/appimage/build-appimage.sh`.
+- [x] **P5.T1** AppImage: run `packaging/appimage/build-appimage.sh`.
       `linuxdeploy` must auto-bundle the new `.so`s the way it already
       bundles `libvault.so`, `libryml`, `c4core`, `fmt`, `spdlog`. Launch
       the resulting AppImage and open a vault. Most likely place for a
       missed-bundle failure.
-- [ ] **P5.T2** Installed release build: `cmake --preset release`,
+- [x] **P5.T2** Installed release build: `cmake --preset release`,
       `sudo cmake --install build-release`, run from `/usr/local/bin`.
       **The specific risk is plugin RPATH**: plugins install to
       `${KDE_INSTALL_PLUGINDIR}/corbomite` and must find
@@ -518,12 +518,57 @@ verified by an actual build**. Close that.
       verify it still does with 8 more. If not, an `INSTALL_RPATH` is
       needed — that would be the first RPATH configuration this tree has
       ever required, so record it prominently.
-- [ ] **P5.T3** Arch `PKGBUILD` build.
-- [ ] **P5.T4** Ubuntu `.deb` — CI-only (`v*` tag triggered). Either dry-run
+- [x] **P5.T3** Arch `PKGBUILD` build.
+- [x] **P5.T4** Ubuntu `.deb` — CI-only (`v*` tag triggered). Either dry-run
       the script locally or explicitly note it as deferred to the next tag.
-- [ ] **P5.T5** Record final measurements in §5.
+- [x] **P5.T5** Record final measurements in §5.
 
-**Gate:** AppImage and installed-release both launch and open a vault.
+**Gate:** AppImage and installed-release both launch and open a vault. ✅
+Phase P5 complete.
+
+**P5 resolution (2026-08-20/21):** the risk this phase was written to catch
+was real, just not where §4 predicted — the AppImage launched clean on the
+first try (linuxdeploy auto-bundled all 9 plugins + the newly-SHARED
+Corbomite libraries with zero `qWarning` plugin-load noise), but the Arch
+`PKGBUILD` build (P5.T3) surfaced it: `corbomite_add_plugin()` had never set
+`INSTALL_RPATH` at all, so every plugin inherited ECM's global
+`CMAKE_INSTALL_RPATH` default (`$ORIGIN/../lib`), which is only correct for
+a target one level below the prefix root — wrong for a plugin nested under
+`lib/plugins/corbomite` (2 levels) or `lib/qt6/plugins/corbomite` (3
+levels, the plain-`/usr`-prefix case `PKGBUILD` uses). It had only ever
+"worked" because libdir is also a default `ldconfig` search path on a real
+system install — the exact accidental-correctness shape (§1 C1) this
+cluster exists to eliminate, and the literal reason
+`packaging/appimage/build-appimage.sh` already has to `patchelf`-correct
+plugin RPATH by hand (a workaround, not a fix, that predates this cluster).
+Fixed in `cmake/CorbomitePlugin.cmake`: computes the real relative offset
+via `file(RELATIVE_PATH)` between `KDE_INSTALL_FULL_PLUGINDIR/corbomite`
+and `KDE_INSTALL_FULL_LIBDIR` and sets `INSTALL_RPATH` explicitly, so the
+value is correct regardless of install depth — verified both algebraically
+(isolated `file(RELATIVE_PATH)` check for both depths) and empirically
+(`ldd` against the real `/usr/local` install: `libcorbomite-core.so`
+resolves through `$ORIGIN/../../`, not "not found"). Also fixed two
+unrelated `packaging/arch/PKGBUILD` bugs found getting the Arch build to
+run at all: the `depends=()` array used openSUSE-style `kf6-*` package
+names that don't exist on Arch (real names are unprefixed — `kcoreaddons`,
+`ki18n`, etc. — and `syntax-highlighting` rather than
+`ksyntaxhighlighting`), and the `git+file://` source used an invalid
+`#HEAD` fragment (makepkg's git-source handling only recognizes
+`key=value` fragments — `tag=`/`branch=`/`commit=` — so a bare `HEAD`
+always errors; fixed by dropping the fragment, which defaults to
+`origin/HEAD` anyway). Arch package built successfully
+(`corbomite-0.1.0-1-x86_64.pkg.tar.zst`, 8.2 MB compressed / 21.7 MB
+installed) with all dependencies resolving and all 9 plugins + 5 exported
+Corbomite libraries present at the expected paths. Ubuntu `.deb` (P5.T4)
+deferred to the next `v*` tag per plan — Docker unavailable in this
+environment for a local dry-run; CI (`.github/workflows/release.yml`)
+remains the only path and is unchanged by this phase. Installed release
+build (P5.T2) confirmed both mechanically (all 9 plugins present at
+`/usr/local/lib/plugins/corbomite/`, `ldd` resolves cleanly) and by live
+human use — the user ran `sudo cmake --install build-release` themselves
+and had it running from `/usr/local/bin` against a real vault during this
+session, satisfying the project's standing live-eyeball gate for
+chrome-adjacent changes without a separate offscreen-only claim.
 
 ### Phase P6 — Cross-repo: markoff-family + graffodil *(separately gated — see §3)*
 
@@ -641,17 +686,20 @@ same static link graph, not a few outliers.
 - [x] `tst_no_duplicate_metaobjects` green with a documented allowlist.
 - [x] `tst_no_library_cycles` green.
 - [x] `tst_xmlgui_resource_present` green.
-- [ ] AppImage builds, launches, opens a vault.
-- [ ] Installed release build launches and loads all 9 plugins from the
+- [x] AppImage builds, launches, opens a vault.
+- [x] Installed release build launches and loads all 9 plugins from the
       installed plugin dir. *(P1 already live-verified the installed
       release build launches with all libraries at that point's SHARED
-      state; P5 re-verifies with the full post-P3 set and explicitly
-      checks plugin load count.)*
+      state; P5 re-verified with the full post-P3 set — all 9 plugins
+      present at `/usr/local/lib/plugins/corbomite/`, `ldd` resolves
+      cleanly post-RPATH-fix, and the user ran it live against a real
+      vault.)*
 - [x] §5 measurement table filled in *(P0/P1/P3 rows; P6 row pending that
-      phase)*.
+      phase — P5 is packaging verification, not a disk metric, so it adds
+      no new row)*.
 - [x] Audit corrections addendum landed (P0.T1).
-- [ ] `decisions-archive.md` closeout paragraph; `PROJECT-STATE.md`
+- [x] `decisions-archive.md` closeout paragraph; `PROJECT-STATE.md`
       §Current focus updated to ≤3 sentences; `INDEX.md` status updated.
-      *(Per-phase decisions-archive/PROJECT-STATE updates have landed
-      after every phase so far; this item is the final cluster-close
-      paragraph, still pending P5/P6.)*
+      *(P5's closeout paragraph landed 2026-08-21. Cluster is not fully
+      closed — P6 (cross-repo) remains, separately gated per §3 on user
+      go-ahead.)*
