@@ -574,30 +574,72 @@ chrome-adjacent changes without a separate offscreen-only claim.
 
 Do not start without the user's go-ahead on the §3 scope call.
 
-- [ ] **P6.T1** **Markoff repo.** Flip `markoff_core` (35 MB),
-      `markoff_canvas`, `markoff_source`, `markoff_styled`,
-      `markoff-parser`, `ts-markdown-parser`, `collabtext` (33 MB) to
-      `SHARED`. **Known risk:** Corbomite sets
-      `CMAKE_POSITION_INDEPENDENT_CODE ON` globally at
-      `CMakeLists.txt:19` specifically so the Markoff static libs are PIC
-      — but that only applies when Markoff builds *as Corbomite's
-      subdirectory*. A standalone Markoff build has no such guarantee, and
-      `markoff-parser` links vendored tree-sitter **C** libraries
-      (`libs/markoff-parser/src/vendor/tree-sitter-markdown/`). Set PIC
-      per-target inside Markoff rather than inheriting it.
-- [ ] **P6.T2** Markoff's own suite green in the Markoff repo (its
-      CLAUDE.md discipline, not Corbomite's), commit there, then re-pin
-      `libs/markoff-family` from Corbomite. Per D5.
-- [ ] **P6.T3** **Graffodil repo.** Six libraries
-      (`graffodil-{core,batch,circular,force,spatial,sugiyama}`), no
-      vendored C, structurally simpler than Markoff. Same land-then-re-pin
-      discipline. Currently pinned `v0.2.3` / `dd7667de`.
-- [ ] **P6.T4** Delete the corresponding entries from P4.T3's allowlist —
-      that deletion *is* the proof this phase worked.
-- [ ] **P6.T5** Re-run P5's packaging verification in full; re-measure.
+- [x] **P6.T1** **Markoff repo.** Flipped `markoff_core`, `markoff_canvas`,
+      `markoff_source`, `markoff_styled`, `markoff-parser`,
+      `ts-markdown-parser`, `collabtext` to `SHARED`. The predicted PIC
+      risk was real: `markoff-parser` links vendored rapidyaml (STATIC,
+      no PIC standalone) and failed to link until a global
+      `CMAKE_POSITION_INDEPENDENT_CODE ON` fallback was added to
+      Markoff's own top-level `CMakeLists.txt` (each flipped target also
+      got explicit per-target PIC, belt and suspenders). Two more
+      standalone-vs-embedded issues surfaced only once these libraries
+      joined Corbomite's `CorbomiteTargets` export set: raw (non-
+      `BUILD_INTERFACE`-wrapped) `PUBLIC` include dirs on
+      markoff_canvas/source/styled, and `corbomite-vault`'s private
+      `Markoff::Parser` link needing the same treatment vault's siblings
+      already used — both fixed. `libs/jkqtmathtext` (Corbomite-owned,
+      privately linked by `markoff_canvas`) needed `EXPORT
+      CorbomiteTargets` added back, reversing a P3-era comment that
+      assumed it would never need to join.
+- [x] **P6.T2** Markoff's suite green (213/213 offscreen), committed
+      there, re-pinned from Corbomite. **Caught a real regression along
+      the way**: the first re-pin (straight to Markoff's `master` HEAD)
+      silently dropped Cluster N's clipboard API, because Corbomite's
+      old pin actually sat on Markoff's `feature/rich-clipboard` branch
+      — never merged to `master` even after Corbomite's Cluster N closed
+      2026-08-20. Corbomite's own incremental rebuilds (327/327, twice)
+      missed it; the Arch PKGBUILD's fresh clone caught it on the first
+      try. Fixed by merging `feature/rich-clipboard` into Markoff's
+      `master` (clean, no conflicts) and re-verifying with genuinely
+      clean rebuilds throughout. Full story: `decisions-archive.md`,
+      2026-08-21.
+- [x] **P6.T3** **Graffodil repo.** All six libraries
+      (`graffodil-{core,batch,circular,force,spatial,sugiyama}`) flipped
+      SHARED, re-pinned `dd7667de` → `011b342` (one commit ahead — no
+      drift risk like Markoff's, master was already the right base).
+      Simpler than Markoff as predicted: every target already had
+      per-target PIC and `BUILD_INTERFACE`-wrapped include dirs, so no
+      vendored-PIC work was needed. `canvas` (the sole in-tree consumer)
+      isn't itself in `CorbomiteTargets`, so no export-set cascade
+      either — just needed its own `install(TARGETS)` rule. 16/16
+      offscreen.
+- [x] **P6.T4** Allowlist was already empty (confirmed empty at P0.T3,
+      before any markoff-family/graffodil duplication could even be
+      observed — those libraries were STATIC and invisible to this scan
+      until P6 made them SHARED). Stayed empty after P6 landed: the scan
+      now inspects their `.so`s directly for the first time and still
+      finds zero duplicated `staticMetaObject` symbols — the strongest
+      form of the proof this task asked for. Comment updated to record
+      the outcome; no code change.
+- [x] **P6.T5** Re-verified with genuinely clean builds (`rm -rf`, not
+      `--fresh`/incremental — the P6.T2 regression was invisible to
+      incremental rebuilds): AppImage (compile+stage+launch+open-a-vault,
+      all 9 plugins + every new SHARED lib mapped, zero stderr; final
+      squashfs bundling hit one transient GitHub 504, retried clean),
+      Arch PKGBUILD (fresh `git+file://` clone build — the check that
+      caught the regression — extract+launch+open-a-vault, same clean
+      result; one cosmetic `$srcdir`-in-binary warning on
+      `libmarkoff-parser.so`/`libcollabtext.so`/vendored rapidyaml, from
+      `__FILE__`/`assert()` string literals surviving strip, not a
+      functional defect — punch-listed, not blocking). Installed release
+      (`sudo cmake --install`) skipped this pass — no interactive sudo in
+      this session; user explicitly deferred it rather than block on it.
+      §5 measurements table filled in.
 
-**Gate:** P4.T3 allowlist reduced to (at most) `mmdr`; full suite green;
-packaging re-verified.
+**Gate:** P4.T3 allowlist reduced to (at most) `mmdr` — **met, allowlist
+is empty**; full suite green — **met** (Markoff 213/213, Corbomite
+327/328 with one confirmed -j10 flake); packaging re-verified — **met**
+for AppImage + Arch; installed-release deferred by user request.
 
 ---
 
@@ -608,14 +650,38 @@ preset, `Debug`, `CORBOMITE_PORT_BUILD_TESTS=ON`, clean build.
 
 | Metric | Baseline (P0) | After P1 | After P3 | After P6 |
 |---|---|---|---|---|
-| `build-dev/` total | 11 GB | **6.5 GB** (-41%) | **3.6 GB** (-67% vs. baseline) | |
-| `build-dev/bin/` | 8.9 GB | **4.9 GB** | **2.4 GB** | |
-| `build-dev/lib/` | 613 MB | 566 MB | 165 MB | |
-| Largest test binary | 147 MB (`tst_completion_controller`) | 56 MB (`tst_canvas_view_contract`, tied with a dozen+ other canvas tests) | 38 MB (`tst_canvas_view_contract`, still the canvas cluster) — but no longer the single largest binary in `bin/` at all | |
-| Clean build wall time | 1475s (~24.6 min), `-j 10`, no ccache | | *(not re-measured — P3 was 8 incremental flips, not a clean rebuild)* | |
-| Incremental relink after `View.h` touch | 161s | | *(not re-measured — same reason; `core` is now a leaf so a `View.h` touch relinks a very different, likely smaller, dependent set post-P3)* | |
+| `build-dev/` total | 11 GB | **6.5 GB** (-41%) | **3.6 GB** (-67% vs. baseline) | **1.8 GB** (-84% vs. baseline) |
+| `build-dev/bin/` | 8.9 GB | **4.9 GB** | **2.4 GB** | **701 MB** |
+| `build-dev/lib/` | 613 MB | 566 MB | 165 MB | **26 MB** |
+| Largest test binary | 147 MB (`tst_completion_controller`) | 56 MB (`tst_canvas_view_contract`, tied with a dozen+ other canvas tests) | 38 MB (`tst_canvas_view_contract`, still the canvas cluster) — but no longer the single largest binary in `bin/` at all | **5.9 MB** (`tst_graphview_plugin`) — markoff-family/graffodil test binaries no longer embed a private copy of the whole D2/CRDT/canvas stack each |
+| Clean build wall time | 1475s (~24.6 min), `-j 10`, no ccache | | *(not re-measured — P3 was 8 incremental flips, not a clean rebuild)* | *(not re-measured — P6 needed several from-scratch rebuilds for the clean-rebuild lesson below, none timed as a controlled baseline run)* |
+| Incremental relink after `View.h` touch | 161s | | *(not re-measured — same reason; `core` is now a leaf so a `View.h` touch relinks a very different, likely smaller, dependent set post-P3)* | *(not re-measured)* |
 | `/home` free | 34 GB (85% full) — improved since the audit's 13 GB/95%; no longer under acute pressure, refactor still worth doing | | | |
-| Largest binaries overall (post-P3) | — | — | `libcorbomite-core.so` 62 MB, `libCorbomiteApp.so` 47 MB — both ahead of every remaining test binary | |
+| Largest binaries overall (post-P3) | — | — | `libcorbomite-core.so` 62 MB, `libCorbomiteApp.so` 47 MB — both ahead of every remaining test binary | `libcorbomite-core.so` 33 MB, `libcorbomite-bases.so` 27 MB, `libCorbomiteApp.so` 26 MB, `libjkqtmathtext.so` 24 MB, `libmarkoff_core.so` 21 MB — the shape holds: real libraries dominate, no test binary comes close |
+
+**After P6 (2026-08-21):** markoff-family (markoff_core/canvas/source/
+styled, markoff-parser, ts-markdown-parser, collabtext) and graffodil
+(all 6 libraries) flipped STATIC→SHARED, closing the disk-cost gap the
+Corbomite-only phases (P1–P5) couldn't reach — every test binary in
+those two families had been embedding a private copy of the whole
+D2/CRDT engine or the whole graph-layout stack. `build-dev/` dropped a
+further 3.6 GB → 1.8 GB (-50% on top of P3, **-84% end-to-end** from
+the 11 GB baseline). Verification caught a real regression, not just
+measured a size: the Arch PKGBUILD's fresh `git+file://` clone build
+failed to compile (`Markoff::MarkdownView::copy`/`paste`/`copyAsMarkdown`/
+etc. not found) because re-pinning Markoff straight to its `master`
+HEAD (rather than the `feature/rich-clipboard` commit Corbomite's old
+pin actually sat on) silently dropped Cluster N's clipboard API —
+Corbomite's own incremental dev-preset rebuilds missed this entirely
+(a stale `.o` for the one `.cpp` that referenced the removed API never
+got recompiled). Fixed by merging `feature/rich-clipboard` into
+Markoff's `master` (clean merge, no conflicts) and re-verifying with
+**genuinely clean rebuilds** (`rm -rf` the build dir, not `--fresh`)
+end to end: Markoff standalone 213/213, Corbomite full suite 327/328
+(`tst_gc` flaked under `-j10`, green standalone — same class as P3's
+`tst_quadtree` flake), AppImage build+stage+launch+open-a-real-vault,
+Arch package build+extract+launch+open-a-real-vault. Full story:
+`decisions-archive.md`, 2026-08-21.
 
 **After P1 (2026-08-20):** the single largest binary is now `libCorbomiteApp.so`
 itself (143 MB, counted under `bin/` since `RUNTIME`/`LIBRARY DESTINATION`
@@ -694,12 +760,12 @@ same static link graph, not a few outliers.
       present at `/usr/local/lib/plugins/corbomite/`, `ldd` resolves
       cleanly post-RPATH-fix, and the user ran it live against a real
       vault.)*
-- [x] §5 measurement table filled in *(P0/P1/P3 rows; P6 row pending that
-      phase — P5 is packaging verification, not a disk metric, so it adds
-      no new row)*.
+- [x] §5 measurement table filled in *(P0/P1/P3/P6 rows — P5 is packaging
+      verification, not a disk metric, so it added no new row)*.
 - [x] Audit corrections addendum landed (P0.T1).
 - [x] `decisions-archive.md` closeout paragraph; `PROJECT-STATE.md`
       §Current focus updated to ≤3 sentences; `INDEX.md` status updated.
-      *(P5's closeout paragraph landed 2026-08-21. Cluster is not fully
-      closed — P6 (cross-repo) remains, separately gated per §3 on user
-      go-ahead.)*
+      *(P6 closeout landed 2026-08-21 — cluster fully CLOSED, all phases
+      P0-P6 done.)*
+- [x] P6 (cross-repo: markoff-family + graffodil) — dispatched on
+      explicit user go-ahead 2026-08-21, all five tasks (T1-T5) closed.

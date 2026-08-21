@@ -121,6 +121,12 @@
 
 ---
 
+## Added 2026-08-21 — Cluster P Phase P6 packaging re-verification
+
+- [ ] [infra][packaging][P6][cluster-p] **`makepkg` warns "Package contains reference to $srcdir" on `libmarkoff-parser.so`, `libcollabtext.so`, and vendored `libryml.so`/`libc4core.so`.** Surfaced building the Arch package fresh after markoff-family/graffodil went SHARED (Cluster P Phase P6). `file` reports all four as `stripped`; the embedded absolute build-tree paths are literal string constants (`assert()`/`__FILE__` call sites in tree-sitter's generated C parser and similar C/C++ idioms), not DWARF debug info, so ordinary strip doesn't remove them — Arch's packaging lint flags any leftover reference to the ephemeral `$srcdir` build path (would leak the builder's local username/path into the shipped binary). Cosmetic only — `readelf -d` confirms all four already carry correct `$ORIGIN`-relative RUNPATH, and `corbomite-core.so` embeds its own unrelated absolute paths (from the vendored `mmdr` Rust staticlib's panic-location strings) without tripping this specific check, so the underlying pattern likely predates P6 and is just newly visible now that these libraries are standalone `.so`s instead of baked into a larger, already-tolerated binary. Fix (if pursued): strip via `-ffile-prefix-map`/`-fdebug-prefix-map` at compile time, or accept as known/documented for these two specific files. Does not block packaging — `makepkg` completed successfully both before and after the warning.
+
+---
+
 ## P0 — Vault-format silent-corruption fixes (FIX FIRST)
 
 ### Added 2026-05-29 — save-path integrity (from `audit-2026-05-29-architecture.md`)
