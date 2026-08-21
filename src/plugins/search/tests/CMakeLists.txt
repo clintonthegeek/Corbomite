@@ -24,3 +24,17 @@ target_link_libraries(tst_search_plugin PRIVATE
     KF6::I18n KF6::CoreAddons)
 set_tests_properties(tst_search_plugin PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_search_options_regex tst_search_options_regex.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../SearchView.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../SearchResultsDelegate.cpp)
+target_include_directories(tst_search_options_regex PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/..)
+add_test(NAME tst_search_options_regex COMMAND tst_search_options_regex)
+target_link_libraries(tst_search_options_regex PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Core Corbomite::Search Corbomite::Storage
+    Corbomite::Vault Corbomite::Models
+    KF6::I18n KF6::CoreAddons)
+set_tests_properties(tst_search_options_regex PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

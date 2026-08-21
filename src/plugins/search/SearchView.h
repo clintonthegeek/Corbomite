@@ -9,6 +9,8 @@
 #include <QTreeView>
 #include <QWidget>
 
+#include "corbomite/search/SearchDSL.h"
+
 namespace Corbomite {
 
 class MetadataCacheReader;
@@ -33,6 +35,17 @@ public:
     /// QMetaObject::invokeMethod without linking the plugin's symbols.
     Q_INVOKABLE void setQuery(const QString &query);
 
+    /// Build the compiled search plan for a raw query string given the
+    /// "Match case" / "Regex" toolbar toggle state, without touching the
+    /// storage backend. Pure/static so it's directly unit-testable and so
+    /// executeSearch() has a single source of truth for the query -> plan
+    /// translation. On a parse/regex error, returns an empty CompiledPlan
+    /// and (if non-null) sets *error to a user-facing message.
+    static SearchDSL::CompiledPlan planForQuery(const QString &query,
+                                                bool matchCase,
+                                                bool regex,
+                                                QString *error = nullptr);
+
 private:
     void onSearchTextChanged(const QString &text);
     void executeSearch();
@@ -40,6 +53,8 @@ private:
     void showOperatorHelp();
 
     QLineEdit *m_searchInput;
+    QToolButton *m_caseButton;
+    QToolButton *m_regexButton;
     QToolButton *m_helpButton;
     QTreeView *m_resultView;
     QLabel *m_statusLabel;
