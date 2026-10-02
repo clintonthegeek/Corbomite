@@ -8,6 +8,21 @@
 
 namespace Corbomite {
 
+/// Cluster-audit P1 — locate the CLOSING frontmatter fence in `body`, or -1.
+///
+/// A closing fence is exactly three dashes on a line of their own. Exposed as
+/// a free function (rather than left inline in
+/// insertFrontmatterProperty) so it can be tested directly: routing it through
+/// a live NoteDocument round-trip would test Markoff's frontmatter parser
+/// instead, which independently mangles a `----` line, so an end-to-end
+/// assertion fails for a reason unrelated to this scan.
+///
+/// A fence is a `\n` followed by exactly `---` followed by end-of-body, LF or
+/// CR. A LONGER run of dashes (`----`) and a line merely prefixed with dashes
+/// (`---not a fence`) are deliberately NOT fences: treating either as one
+/// splices a bogus `: ` row into the middle of someone's prose.
+int findClosingFrontmatterFence(const QString &body);
+
 class MenuSectionHelper;
 class NoteEditorWidget;
 class HoverPopover;

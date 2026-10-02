@@ -179,6 +179,24 @@ void MarkdownView::setEphemeralState(const QJsonObject &state)
 
 NoteEditorWidget *MarkdownView::editorWidget() const { return m_editorWidget; }
 
+int findClosingFrontmatterFence(const QString &body)
+{
+    for (int i = 3; i + 3 <= body.size(); ++i) {
+        if (body[i] != QLatin1Char('\n'))
+            continue;
+        if (body.mid(i + 1, 3) != QLatin1String("---"))
+            continue;
+        const int after = i + 4;
+        if (after >= body.size())
+            return i;                                  // fence at EOF
+        const QChar next = body.at(after);
+        if (next == QLatin1Char('\n') || next == QLatin1Char('\r'))
+            return i;                                  // fence on its own line
+        // Longer dash run, or a line prefixed with dashes: not a fence.
+    }
+    return -1;
+}
+
 void MarkdownView::insertFrontmatterProperty()
 {
     if (!m_editorWidget) return;
@@ -205,7 +223,7 @@ void MarkdownView::insertFrontmatterProperty()
     }
 
     // Locate the closing fence and append a blank key before it.
-    const int closeIdx = body.indexOf(QStringLiteral("\n---"), /*from=*/3);
+    const int closeIdx = findClosingFrontmatterFence(body);
     if (closeIdx < 0) {
         // Opening fence present but no closing fence — treat as malformed;
         // append a fresh block at the top.
