@@ -266,6 +266,13 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     // silently overridden this toolbar's visibility before it existed).
     m_actionContext->setGuiFactory(guiFactory());
 
+    // Cluster O Phase O5.T4 — start watching the ViewRegistry for
+    // ViewActions providers registered by PLUGINS (graph, O5.T3). Host types
+    // register directly below; this covers the view types whose registration
+    // happens in a plugin .so. Must come after setGuiFactory so a provider
+    // already registered at this point can be installed immediately.
+    m_actionContext->observePluginProviders(m_viewRegistry);
+
     m_markdownViewActions = new MarkdownViewActions(this, this);
     connect(m_markdownViewActions, &MarkdownViewActions::insertTemplateRequested,
             this, &MainWindow::insertTemplate);

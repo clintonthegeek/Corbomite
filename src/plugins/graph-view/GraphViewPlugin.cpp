@@ -3,6 +3,7 @@
 
 #include "GraphControlsPanel.h"
 #include "GraphView.h"
+#include "GraphViewActions.h"
 #include "GraphViewTab.h"
 
 #include "corbomite/core/Command.h"
@@ -36,6 +37,15 @@ void GraphViewPlugin::onLoad(PluginContext *ctx)
     // dispatcher onto each new GraphView. CommandRegistrar::invoke routes
     // through the underlying CommandRegistry (no direct registry leak).
     auto *commandsProxy = ctx->commands();
+    m_commandsProxy = commandsProxy;
+
+    // Cluster O Phase O5.T4 — ship the provider through the SAME proxy that
+    // carried the view type, which is the whole point of the task: a plugin
+    // can now own a ViewActions provider without new plugin-API surface.
+    // Ordered after registerView() below because a provider is meaningless
+    // without its view type, and the registrar tears providers down first
+    // precisely so this ordering stays safe.
+    m_viewsProxy = ctx->views();
 
     if (auto *views = ctx->views()) {
         views->registerView(QStringLiteral("graph"),
@@ -57,6 +67,16 @@ void GraphViewPlugin::onLoad(PluginContext *ctx)
                 return view;
             });
     }
+
+    // Provider construction is deferred to here (not inline above) so the
+    // command dispatcher is fully wired: `graph_open_local` and
+    // `graph_copy_screenshot` both delegate through it.
+    m_graphActions = new GraphViewActions([this](const QString &commandId) {
+        if (m_commandsProxy)
+            m_commandsProxy->invoke(commandId);
+    });
+    if (m_viewsProxy)
+        m_viewsProxy->registerViewActions(QStringLiteral("graph"), m_graphActions);
 
     // Cluster R Task 3.7 — `copy-screenshot` command. Grabs the last
     // opened GraphView's widget pixmap (best-effort "active graph" —
@@ -86,6 +106,21 @@ void GraphViewPlugin::onLoad(PluginContext *ctx)
 
 void GraphViewPlugin::onUnload()
 {
+    // O5.T4 LIFETIME — this is the load-bearing line. The provider's vtable
+    // lives in THIS .so, so it has to be handed back to the registrar while
+    // the library is still mapped, or KXMLGUIFactory keeps a client whose
+    // code no longer exists. onUnload() is the one hook that provably runs
+    // before the .so goes away; the registrar destructor is only the
+    // abnormal-teardown fallback.
+    //
+    // Order matters: unregister the provider BEFORE the controls panel and
+    // view pointers are cleared, so nothing can dispatch into a half-torn
+    // plugin. Do NOT rely on ~GraphViewPlugin for this.
+    if (m_viewsProxy)
+        m_viewsProxy->unregisterViewActions(QStringLiteral("graph"));
+    m_graphActions = nullptr;
+    m_viewsProxy = nullptr;
+
     // ViewRegistrar's destructor (owned by PluginContext) unregisters
     // the "graph" type automatically. Controls panel, if still alive,
     // is parented to a MainWindow tool view which tears it down.

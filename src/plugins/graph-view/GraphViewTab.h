@@ -33,6 +33,16 @@ public:
     /// viewport transform.
     ForceGraph::ForceGraphView *graphView() const { return m_graphView; }
 
+    // ---- Cluster O Phase O5.T3 — the graph verbs, hoisted out of the
+    // controls panel's clicked lambdas so GraphViewActions can drive them.
+    //
+    // Both bodies are unchanged; only their home moved. Same pattern as the
+    // bases toolbar in O5.T1.
+    void animate();          ///< re-randomize positions and restart layout
+    void resetForces();      ///< reset the controls panel's sliders to defaults
+    void zoomToFitGraph();   ///< fit the whole graph in the viewport
+    bool isGraphBuilt() const;
+
 Q_SIGNALS:
     void noteActivated(const QString &relativePath);
     void openNoteInNewTabRequested(const QString &relativePath);

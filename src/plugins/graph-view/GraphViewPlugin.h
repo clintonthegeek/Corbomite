@@ -8,10 +8,13 @@
 
 namespace Corbomite {
 
+class CommandRegistrar;
 class GraphControlsPanel;
 class GraphView;
+class GraphViewActions;
 class MetadataCacheReader;
 class SearchProxy;
+class ViewRegistrar;
 class VaultProxy;
 
 /// Cluster Q follow-up — full GraphView plugin.
@@ -58,6 +61,14 @@ private:
     // recently active (last in the list) view's GraphViewTab pixmap. Uses
     // QPointer so teardowns tolerate view-deletion races.
     QVector<QPointer<GraphView>> m_views;
+
+    // Cluster O Phase O5.T4 — the provider and the registrar it travelled
+    // through. Both held as QPointer/weak-ish so an abnormal teardown cannot
+    // dereference a registrar the host already destroyed; onUnload() clears
+    // them explicitly in the safe order regardless.
+    QPointer<GraphViewActions> m_graphActions;
+    ViewRegistrar *m_viewsProxy = nullptr;
+    CommandRegistrar *m_commandsProxy = nullptr;
 };
 
 } // namespace Corbomite

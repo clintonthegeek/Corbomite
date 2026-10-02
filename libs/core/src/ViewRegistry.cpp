@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/ViewRegistry.h"
 
+#include "corbomite/core/ViewActions.h"
+
 #include <QLoggingCategory>
 #include <stdexcept>
 
@@ -28,6 +30,42 @@ void ViewRegistry::unregisterView(const QString &type)
 {
     if (m_viewByType.remove(type))
         Q_EMIT viewUnregistered(type);
+}
+
+void ViewRegistry::registerViewActions(const QString &type, ViewActions *provider)
+{
+    if (!provider)
+        return;
+    // Tolerate re-registration for the same type: a plugin that reloads, or
+    // a test that rebinds, should not need a matching unregister first.
+    // (registerView() throws on a duplicate type; doing that here too would
+    // make an otherwise-harmless reload fatal.)
+    m_viewActionsByType.insert(type, provider);
+    Q_EMIT viewActionsRegistered(type, provider);
+}
+
+void ViewRegistry::unregisterViewActions(const QString &type)
+{
+    if (m_viewActionsByType.remove(type))
+        Q_EMIT viewActionsUnregistered(type);
+}
+
+ViewActions *ViewRegistry::viewActionsForType(const QString &type) const
+{
+    return m_viewActionsByType.value(type).data();
+}
+
+QStringList ViewRegistry::registeredViewActionTypes() const
+{
+    QStringList types;
+    // Skip null entries: a provider destroyed without a matching unregister
+    // leaves a QPointer that is already null, and reporting its type as
+    // "registered" would hand observers a null provider.
+    for (auto it = m_viewActionsByType.constBegin(); it != m_viewActionsByType.constEnd(); ++it) {
+        if (it.value())
+            types.append(it.key());
+    }
+    return types;
 }
 
 void ViewRegistry::registerExtensions(const QStringList &exts, const QString &type)

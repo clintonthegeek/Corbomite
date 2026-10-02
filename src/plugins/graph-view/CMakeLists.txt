@@ -2,6 +2,8 @@ corbomite_add_plugin(corbomite-graph-view
     METADATA_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/metadata.json.in"
     SOURCES
         GraphViewPlugin.cpp
+        GraphViewActions.cpp
+        GraphViewActions.h
         GraphView.cpp
         GraphViewTab.cpp
         GraphControlsPanel.cpp

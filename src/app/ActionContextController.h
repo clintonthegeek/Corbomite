@@ -5,6 +5,7 @@
 #include "corbomite/core/ToolBarPolicy.h"
 
 #include <QHash>
+#include <QPointer>
 #include <QMetaObject>
 #include <QObject>
 #include <QSet>
@@ -30,6 +31,7 @@ class NoteEditorWidget;
 class CanvasFileView;
 class View;
 class ViewActions;
+class ViewRegistry;
 
 namespace Bases {
 class BasesView;
@@ -127,6 +129,17 @@ public:
     /// for every provider before the first bindActiveLeaf().
     void registerProvider(ViewActions *provider);
 
+    /// Cluster O Phase O5.T4 — hook the ViewRegistry's provider signals so a
+    /// PLUGIN-registered view type can ship its own ViewActions. Host types
+    /// still register directly via registerProvider() in MainWindow's ctor.
+    ///
+    /// QPointer throughout: a plugin provider's vtable lives in the plugin
+    /// .so, so if it is destroyed without unregistering first, every stored
+    /// copy must become null rather than dangle. Call this once, after the
+    /// registry exists.
+    void observePluginProviders(ViewRegistry *registry);
+    void unregisterProvider(const QString &viewType);
+
     /// The provider whose XMLGUI client is currently installed (its type
     /// matches the focused leaf's view type), or nullptr if none is (no
     /// leaf focused, or no provider registered for the focused type).
@@ -209,8 +222,10 @@ private:
 
     // Cluster O Phase O3 — provider registry + toolbar policy.
     KXMLGUIFactory *m_guiFactory = nullptr;
-    QHash<QString, ViewActions *> m_providers;
-    ViewActions *m_currentProvider = nullptr;
+    QHash<QString, QPointer<ViewActions>> m_providers;
+    QPointer<ViewActions> m_currentProvider;
+    QMetaObject::Connection m_providerRegisteredConn;
+    QMetaObject::Connection m_providerUnregisteredConn;
     QString m_currentProviderType;
     QHash<QString, KToolBar *> m_toolBars;
 };

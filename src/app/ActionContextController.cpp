@@ -8,6 +8,7 @@
 #include "corbomite/bases/BasesView.h"
 #include "corbomite/core/View.h"
 #include "corbomite/core/ViewActions.h"
+#include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomitesettings.h"
@@ -470,6 +471,67 @@ void ActionContextController::registerProvider(ViewActions *provider)
 {
     if (!provider) return;
     m_providers.insert(provider->viewType(), provider);
+}
+
+void ActionContextController::observePluginProviders(ViewRegistry *registry)
+{
+    if (!registry) return;
+
+    disconnect(m_providerRegisteredConn);
+    disconnect(m_providerUnregisteredConn);
+
+    // A plugin may register its provider AFTER the window is up (plugins load
+    // lazily), and the focused view type may already be that plugin's. So a
+    // late registration has to install immediately if it is the type the user
+    // is currently looking at — otherwise the provider sits in the map doing
+    // nothing until some unrelated focus change.
+    m_providerRegisteredConn =
+        connect(registry, &ViewRegistry::viewActionsRegistered, this,
+                [this, registry](const QString &type, QPointer<ViewActions> provider) {
+                    if (!provider) return;
+                    m_providers.insert(type, provider);
+                    if (type == currentViewType())
+                        installProviderForCurrentContext();
+                });
+
+    m_providerUnregisteredConn =
+        connect(registry, &ViewRegistry::viewActionsUnregistered, this,
+                [this](const QString &type) { unregisterProvider(type); });
+
+    // Anything registered before we started observing (a plugin that loaded
+    // before the window was built) has to be adopted now, or its actions
+    // would never appear. Reuse the same path as a live registration so
+    // there is exactly one place that inserts a provider.
+    for (const auto &type : registry->registeredViewActionTypes()) {
+        if (auto *provider = registry->viewActionsForType(type))
+            m_providers.insert(type, provider);
+    }
+}
+
+void ActionContextController::unregisterProvider(const QString &viewType)
+{
+    auto it = m_providers.find(viewType);
+    if (it == m_providers.end()) return;
+
+    auto *provider = it.value().data();
+
+    // Remove from the XMLGUI factory FIRST if it is the installed one: that
+    // is what stops KXMLGUI from holding a client whose vtable is about to
+    // disappear with the plugin .so.
+    if (provider && m_currentProvider == provider) {
+        provider->unbind();
+        if (m_guiFactory)
+            m_guiFactory->removeClient(provider);
+        m_currentProvider = nullptr;
+        m_currentProviderType.clear();
+    }
+
+    m_providers.erase(it);
+
+    // Whatever the user was looking at just lost its actions; re-evaluate so
+    // the menubar drops the menu instead of leaving a stale one.
+    if (!m_currentProviderType.isEmpty() || currentViewType() == viewType)
+        installProviderForCurrentContext();
 }
 
 void ActionContextController::installProviderForCurrentContext()

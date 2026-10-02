@@ -182,16 +182,39 @@ void GraphViewTab::wireControlsPanel()
             this, [this]() { applyFilters(); });
 
     // --- Zoom to fit ---
-    connect(m_controlsPanel, &GraphControlsPanel::zoomToFitRequested, this, [this]() {
-        m_graphView->zoomToFit();
-    });
+    connect(m_controlsPanel, &GraphControlsPanel::zoomToFitRequested,
+            this, &GraphViewTab::zoomToFitGraph);
 
     // --- Animate: re-randomize + restart ---
-    connect(m_controlsPanel, &GraphControlsPanel::animateRequested, this, [this]() {
-        m_engine->stop();
-        m_engine->randomizePositions();
-        m_engine->start();
-    });
+    connect(m_controlsPanel, &GraphControlsPanel::animateRequested,
+            this, &GraphViewTab::animate);
+}
+
+void GraphViewTab::animate()
+{
+    if (!m_engine) return;
+    m_engine->stop();
+    m_engine->randomizePositions();
+    m_engine->start();
+}
+
+void GraphViewTab::resetForces()
+{
+    if (m_controlsPanel) m_controlsPanel->resetToDefaults();
+}
+
+void GraphViewTab::zoomToFitGraph()
+{
+    if (m_graphView) m_graphView->zoomToFit();
+}
+
+bool GraphViewTab::isGraphBuilt() const
+{
+    // The engine exists from construction, so its presence proves nothing.
+    // What makes a graph meaningful is having nodes to lay out — check the
+    // scene, not the widget, so a graph that failed to build reports false.
+    return m_graphView && m_graphView->scene()
+        && !m_graphView->scene()->items().isEmpty();
 }
 
 void GraphViewTab::applyFilters()

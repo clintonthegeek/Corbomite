@@ -7,6 +7,7 @@ set(CMAKE_AUTOMOC ON)
 
 add_executable(tst_graphview_plugin tst_graphview_plugin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../GraphViewPlugin.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../GraphViewActions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../GraphView.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../GraphViewTab.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../GraphControlsPanel.cpp
