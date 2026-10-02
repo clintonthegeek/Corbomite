@@ -32,11 +32,14 @@ fix, and `.obsidian/app.json` consumption. Suite **339/339**.
    asks for a local D2-undo-integrated frontmatter edit, flags a stale `Origin.h`
    comment, requests `benchmark` labels on two canvas perf tests, and re-raises
    the frontmatter fence whose 2026-06-10 steer was never accepted.
-3. **Tier 2 remainder:** `resolveSubpath` (the tested Obsidian-parity resolver has
-   zero production callers while a regex scrubber ships); split `dimension`
-   apply-to-KDDW. `hotkeys.json` is **re-scoped to a cluster**, not a wiring fix —
-   nothing reads or writes it today, and the substance is an Obsidian-command-id
-   mapping table.
+3. **Tier 2 is done** — `resolveSubpath` now serves the render path (the faithful
+   AST-based resolver replaced the regex scrubber; it had 20 tests and zero
+   production callers). Two items were **investigated and deliberately left open**
+   with the reasoning recorded rather than half-solved: `split dimension`
+   (KDDW exposes no public separator-size setter at all — three options weighed,
+   recommend accepting it), and `GraphControlsPanel` (belongs to O6's relocation).
+   `hotkeys.json` is **re-scoped to a cluster**, not a wiring fix — nothing reads or
+   writes it today, and the substance is an Obsidian-command-id mapping table.
 4. **Cluster M5/M6**, plus M's leftovers: canvas file-picker via `Vault`, and
    canvas dark mode (now actionable since `ThemeService` emits again).
 5. **Resume Cluster L5 soak** (6 scenarios) and clear the human-eyeball backlog.
@@ -48,13 +51,12 @@ consumption (5 of 6 keys) — both shipped with falsifiability-checked tests.
 
 Deliberately not started: release-hygiene B (mmdr reproducibility), C, D, E.
 
-**Standing lesson from this work** — three of my own claims were wrong and were
-caught by checking rather than shipped: a "fix" whose test passed against
-unfixed code, an undo fix its own test caught, and a suspected data-loss bug
-whose mechanism was real but whose consequence was inert. Two entries in the
-appraisal's dead-code list were live and would have broken things. See the
-audit's §10: a gate never seen red proves nothing, and a symbol whose only
-references live in a header you did not read is not dead.
+**Standing lesson** — five of my own claims this session were wrong and were caught
+by checking rather than shipped: a "fix" whose test passed against unfixed code, an
+undo fix its own test caught, a suspected data-loss bug whose mechanism was real but
+consequence inert, an `reinterpret_cast` from `nullptr`, and two dead-code-list
+entries that were live. See the audit's §10: a gate never seen red proves nothing,
+and a symbol whose only references live in a header you did not read is not dead.
 
 ## Two tracks
 
@@ -107,13 +109,18 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Recent decisions
 
-- **2026-10-01 — Dispatched remediation.** 7 disabled tests re-enabled
-  (328→336); a suspected data-loss bug **refuted** (the D2 UndoLog survives an
-  external reload, but stale targets make undo inert — a UX wart, not content
-  loss; characterization test enabled in its place, and a host-side guard I had
-  already written was reverted); `tst_quadtree` seeded. 337/337.
-- **2026-10-01 — Cluster bookkeeping.** E retired; F → F-a/F-b; Tags pane →
-  Cluster Q; D.5 specced; L5 checkboxed. Three new dispatchable items.
+- **2026-10-01 — Tier 2 quick wins.** `eState.scroll` interop (was P1) and
+  `.obsidian/app.json` (5 of 6 keys) fixed; the tested subpath resolver now serves
+  the render path; Markoff handoff written (3 asks). Two items investigated and
+  deliberately left open with the reasoning recorded: `split dimension` (KDDW
+  exposes no public separator-size setter at all) and `GraphControlsPanel`
+  (Cluster O6's spec, not a `disconnect()` patch).
+- **2026-10-01 — Dispatched remediation.** 7 disabled tests re-enabled; ~500 lines
+  of dead code removed; cluster bookkeeping (E retired, F split into F-a/F-b, Tags
+  pane → Cluster Q, D.5 specced, L5 checkboxed); a suspected data-loss bug
+  **refuted** — the D2 UndoLog does survive an external reload, but stale targets
+  make undo inert, so it is a UX wart rather than content loss, and the guard I had
+  already written for it was reverted.
 - **2026-10-01 — Second-sweep appraisal.** Code sound, trackers not: ~12
   test-only islands, `ThemeService` dead, release-hygiene orphaned at ~7%,
   obsidian-audit addenda silent for 2 months (a frozen doc still taught a

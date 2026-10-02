@@ -233,6 +233,88 @@ production call sites, not header mentions; strip `#if 0` before counting; and
 
 ---
 
+## 2026-10-01 — Tier 2 quick wins: two interop bugs fixed, two items investigated and left open
+
+Picked off the highest-severity cheap items after the bookkeeping pass.
+
+**`eState.scroll` no longer corrupts Obsidian's field (was P1).** Contract-v2 made
+`MarkdownView::scrollPositionVisualLine()` return a 0.0–1.0 viewport *fraction*, and
+`EphemeralState::toJson()` wrote it straight into Obsidian's `eState.scroll`, which
+`views.md:159` documents as a **line number**. The punch-list item had called this
+"Corbomite-internal JSON shape, no interop break" — true when filed, invalidated by
+Cluster L L2 making `workspace.json` a full-fidelity Obsidian-schema file.
+
+The fix is deliberately conservative: our fraction moves to
+`corbomite.scrollFraction` inside the same `eState` object, `fromJson()` reads only
+that key, and an Obsidian-authored `scroll` round-trips verbatim through `extraKeys`
+without being interpreted as a fraction. Correct under **either** reading of the
+reference — which matters, because chasing the fix surfaced that **the corpus
+contradicts itself**: `views.md:151` heads `EphemeralState` with *"not persisted"*
+and `:159` calls `scroll` a line number, while `workspace.md:214,220` embed `eState`
+in Obsidian's serialized leaf and history records. Compounding it, an existing test
+carried the comment *"Shape from `workspace.md` §3 … scroll (float)"*, citing a
+section that **does not exist**, and then seeded `scroll = 128.42` — a value only
+meaningful as a line number — while production treated the field as a fraction. So
+the design rested on an unchecked citation. Written up as an addendum with the
+question left explicitly **open**, since a real Obsidian-authored
+`workspace.json` would settle it and the conservative resolution should then be
+revisited rather than ossified. Rejected the convert-on-write alternative as
+unfounded: fraction ↔ line needs the viewport height, unavailable at serialize time
+and unstable across window sizes. Falsifiability-checked: 4 of 8 new cases go red
+against the old behaviour. Three pre-existing assertions encoded the old behaviour
+and were corrected, not weakened.
+
+**`.obsidian/app.json` is consumed (5 of 6 keys).** Obsidian stores these per-vault
+(`settings.md` §".obsidian/app.json"), so a vault authored there silently lost
+`trashOption`, `promptDelete`, `useMarkdownLinks`, `newLinkFormat`, and
+`alwaysUpdateLinks`. `generateMarkdownLink` was a hardcoded wiki-link emitter whose
+own TODO said "config honouring is a follow-up". Precedence: **vault app.json wins,
+Corbomite's app-level setting is the fallback, and an absent *or unrecognised*
+value falls back rather than guessing** — which matters most for `trashOption`,
+where silently escalating to a permanent delete on an unfamiliar vocabulary would
+destroy recoverable data. Also added `Vault::vaultConfig()`, because consumers must
+not build their own `VaultConfig`: a separately-constructed instance binds to a
+different `DataAdapter` and reads nothing under `MemoryAdapter`. `alwaysUpdateLinks`
+gates the link-*rewrite* phase only; the rename has already happened and is never
+undone. `userIgnoreFilters` deliberately **not** wired — its only possible consumer
+(`VaultScanner`) is itself a zero-production-caller island, so that one needs the
+island wired rather than the reader called. Falsifiability-checked: 6 of 16 cases go
+red against pre-fix behaviour.
+
+**The tested subpath resolver now serves the render path.** `Corbomite::resolveSubpath`
+is AST-based — heading hierarchy, footnote definitions, case-insensitive block ids —
+with 20 tests, and had **zero production callers** for ~2 months, because its
+signature demanded a `Markoff::Document` the render engines had no reason to build.
+What shipped instead was `extractMarkdownSubpath`, a regex string-scrubber. Added a
+source-only overload and refactored the Doc-taking one so the empty/footnote/block-id
+kinds live in an AST-free helper — **the parse is now paid only for heading
+subpaths**, so a `[[note#^id]]` hover costs nothing. A new test proves the two
+implementations genuinely disagree on a case-insensitive block id, and it *inverts*
+if they ever agree, at which point the scrubber can be deleted outright rather than
+left as a silent fallback forever.
+
+**Two of my own mistakes this batch, both caught rather than shipped.** The first
+delegating overload dispatched through `reinterpret_cast<const Markoff::Document *>(nullptr)`
+— undefined behaviour — and was rewritten as a real AST-free helper. A test then used
+`#^note]` (a block id) where Obsidian's footnote subpath is `#[^note]`. And earlier,
+a `git checkout` of a shared `CMakeLists.txt` intended to undo my own experiment
+silently reverted a concurrent agent's test re-enables; caught by diffing against
+expected state and restored. **Targeted reverts in a tree with concurrent editors
+need to be per-hunk, not per-file.**
+
+**Two items investigated and deliberately left open.** `split dimension` — KDDW
+exposes **no public separator-size setter whatsoever** (verified: no `LayoutInfo.h`
+in the public include set, `grep -rn separatorSizes` across the whole public tree
+returns nothing), so applying a parsed proportion has no supported path. Three options
+weighed in the punch list, recommendation is to accept it, and explicitly **not** to
+reach into private `LayoutItem`. `GraphControlsPanel` — re-derived the exact current
+state and wrote it up as Cluster O6's specification rather than patching a
+`disconnect()` over a shared-singleton design.
+
+**Suite: 339/339.**
+
+---
+
 ## 2026-10-01 — Dispatched remediation: 7 tests re-enabled, one "data-loss bug" refuted
 
 Ran the outstanding punch list and clusters as instructed, dispatching two agents on
