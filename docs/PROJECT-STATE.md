@@ -32,7 +32,9 @@ fix, and `.obsidian/app.json` consumption. Suite **339/339**.
    asks for a local D2-undo-integrated frontmatter edit, flags a stale `Origin.h`
    comment, requests `benchmark` labels on two canvas perf tests, and re-raises
    the frontmatter fence whose 2026-06-10 steer was never accepted.
-3. **Tier 2 is done** — `resolveSubpath` now serves the render path (the faithful
+3. **Cluster O is nearly closed** — O5 complete (bases + graph providers, tab
+   reorder, linked panes), O6.T3 done. O6.T1/T2/T4 (the `View` inspector slot)
+   are recorded as a punch item rather than attempted. **Tier 2 is done** — `resolveSubpath` now serves the render path (the faithful
    AST-based resolver replaced the regex scrubber; it had 20 tests and zero
    production callers). Two items were **investigated and deliberately left open**
    with the reasoning recorded rather than half-solved: `split dimension`
@@ -109,29 +111,35 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Recent decisions
 
+- **2026-10-02 — Cluster O5 complete, O6.T3 landed.** Bases' seven toolbar
+  controls and the graph's five verbs are now real KActions; `ViewRegistrar`
+  gained a ViewActions path so a **plugin** can ship a provider with no new
+  API surface (same `ui.views` permission). O6.T3 fixed the shared
+  `GraphControlsPanel` singleton — falsifiability check *segfaulted* against
+  the old design, which pinned the defect as shared ownership rather than
+  missing disconnects. Three bugs the tests caught: `propertiesPaneVisible()`
+  read `isVisible()`; Qt 6 silently clears a button's menu when
+  `setDefaultAction()` installs an action carrying one; and the audit's
+  "reuse the target's group id" orphans the source's members.
 - **2026-10-01 — Tier 2 quick wins.** `eState.scroll` interop (was P1) and
-  `.obsidian/app.json` (5 of 6 keys) fixed; the tested subpath resolver now serves
-  the render path; Markoff handoff written (3 asks). Two items investigated and
-  deliberately left open with the reasoning recorded: `split dimension` (KDDW
-  exposes no public separator-size setter at all) and `GraphControlsPanel`
-  (Cluster O6's spec, not a `disconnect()` patch).
-- **2026-10-01 — Dispatched remediation.** 7 disabled tests re-enabled; ~500 lines
-  of dead code removed; cluster bookkeeping (E retired, F split into F-a/F-b, Tags
-  pane → Cluster Q, D.5 specced, L5 checkboxed); a suspected data-loss bug
-  **refuted** — the D2 UndoLog does survive an external reload, but stale targets
-  make undo inert, so it is a UX wart rather than content loss, and the guard I had
-  already written for it was reverted.
+  `.obsidian/app.json` (5 of 6 keys) fixed; the tested subpath resolver now
+  serves the render path; Markoff handoff written (3 asks). Two items
+  investigated and deliberately left open with the reasoning recorded:
+  `split dimension` (KDDW exposes no public separator-size setter) and
+  `GraphControlsPanel` (now fixed — see above).
+- **2026-10-01 — Dispatched remediation.** 7 disabled tests re-enabled; ~500
+  lines of dead code removed; cluster bookkeeping (E retired, F split into
+  F-a/F-b, Tags pane → Cluster Q, D.5 specced, L5 checkboxed); a suspected
+  data-loss bug **refuted** — the D2 UndoLog does survive an external reload,
+  but stale targets make undo inert, so it is a UX wart rather than content
+  loss, and the guard I had already written for it was reverted.
 - **2026-10-01 — Second-sweep appraisal.** Code sound, trackers not: ~12
   test-only islands, `ThemeService` dead, release-hygiene orphaned at ~7%,
   obsidian-audit addenda silent for 2 months (a frozen doc still taught a
-  split-direction convention that had already cost a P0). 17 PARITY-MATRIX rows
-  corrected; 2 of 3 contested subagent claims rejected on verification.
+  split-direction convention that had already cost a P0). 17 PARITY-MATRIX
+  rows corrected; 2 of 3 contested subagent claims rejected on verification.
 - **2026-08-21 — Cluster P closed** (build tree 11 GB → 1.8 GB) and **v0.2.0
   tagged**; Cluster O closed end to end.
 
-Older closeouts (2026-04-26 reset → 2026-08-21) and all full closeout paragraphs:
-[`decisions-archive.md`](decisions-archive.md).
-
----
-
-Build/test: `cmake --build --preset dev -j 10`. Tests: `cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 10`. Offscreen is mandatory. **The `-E "benchmark|perf"` exclusion is load-bearing** (changed 2026-10-01): it drops all four wall-clock timing tests. `tst_benchmark_layout` carries a native `benchmark` label, but the two `tst_canvas_perf_*` tests come from the markoff-family submodule with no label, and they flake red under `-j10` purely from machine load while passing standalone every time. Without the exclusion, "the suite is green" is not a reliable signal. The proper fix is a `LABELS "benchmark"` in markoff-canvas, filed. Work on `master` (no feature branches). **Never `git add -A`** — `testvaults/` is deliberately dirty; stage by path. Pre-pull.
+Older closeouts (2026-04-26 reset → 2026-08-21) and all full closeout
+paragraphs: [`decisions-archive.md`](decisions-archive.md).

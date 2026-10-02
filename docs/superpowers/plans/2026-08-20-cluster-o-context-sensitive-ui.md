@@ -519,25 +519,25 @@ frames the content, settings survive restart.
 
 ### Phase O5 — `BasesViewActions`, `GraphViewActions`, folded Cluster I remnant
 
-- [ ] **O5.T1 — `BasesViewActions`** (**Q8**): promote Properties, Sort+group, Views,
+- [x] **O5.T1 — `BasesViewActions`** (**Q8**): promote Properties, Sort+group, Views,
       Filters, Drawer, +New, Results to KActions. `BasesView`'s existing
       `QToolButton`s become `setDefaultAction()` on them — **one definition, four
       surfaces** (in-view toolbar, menubar, palette, Hotkeys page). The in-view
       toolbar stays exactly where it is; this is additive.
       **Retires:** the seven bare `QToolButton` click connections
       (`BasesView.cpp:74-128, 165+`).
-- [ ] **O5.T2 — Bases Tier B/C:** Filters/Drawer reflect state; +New disabled when
+- [x] **O5.T2 — Bases Tier B/C:** Filters/Drawer reflect state; +New disabled when
       the query has no writable target.
-- [ ] **O5.T3 — `GraphViewActions`:** `graph_open_local`, `graph_animate`,
+- [x] **O5.T3 — `GraphViewActions`:** `graph_open_local`, `graph_animate`,
       `graph_copy_screenshot` (already a `CommandRegistry` command — the provider
       action delegates to it rather than duplicating, per §D3),
       `graph_zoom_to_fit`, `graph_reset_forces`.
-- [ ] **O5.T4 — Provider registration via `ViewRegistrar`.** Graph's view type is
+- [x] **O5.T4 — Provider registration via `ViewRegistrar`.** Graph's view type is
       plugin-registered (`GraphViewPlugin.cpp:41`), so its provider must register
       through the same proxy — proving a **plugin can ship a `ViewActions` provider
       with no new plugin-API surface**. `ViewRegistry::viewRegistered/
       viewUnregistered` is the install/uninstall hook (report §12).
-- [ ] **O5.T5 — Folded Cluster I Phase 5 tail** (**Q11**): `leaf_link_with_active_pane`
+- [x] **O5.T5 — Folded Cluster I Phase 5 tail** (**Q11**): `leaf_link_with_active_pane`
       (checkable, over `WorkspaceLeaf::setGroup`, universal collection) and
       `tab_move_left`/`tab_move_right` (Ctrl+Shift+PgUp/PgDn, universal).
 
@@ -562,7 +562,7 @@ did); `tst_graph_view_actions`; `tst_leaf_link_group`.
       title, callback)`** (`ItemView.h:27`) for the cog — it is Obsidian's
       `view.addAction` contract, already built and tested, used today by exactly one
       class (`EmptyView.cpp:44-49`).
-- [ ] **O6.T3 — Move `GraphControlsPanel` into the graph pane.** Each `GraphViewTab`
+- [x] **O6.T3 — Move `GraphControlsPanel` into the graph pane.** Each `GraphViewTab`
       owns its own instance. **This fixes report §4.3 by construction**: today one
       singleton (`GraphViewPlugin.cpp:97-103`) is wired by every tab via
       `wireControlsPanel()`'s ~13 `connect()` calls with **no disconnect**
@@ -620,6 +620,45 @@ menu / toolbar surface; M5 owns the underlying capabilities** (zoom clamp, read-
 lock flag, jump-to-group, convert-to-file). M5.2's floating widget should be slimmed
 to canvas-intrinsic affordances or dropped — reassess when M5 is dispatched. O4.T6
 pre-registers the M5-dependent actions so the join is trivial.
+
+**Progress 2026-10-02.** O5 is **complete** (T1–T5) and O6.T3 is done.
+
+- **O5.T1/T2 — `BasesViewActions`** (`71316c0f`). All seven bases toolbar
+  controls are KActions; the in-view buttons are `setDefaultAction()`
+  carriers. Two real bugs surfaced: `propertiesPaneVisible()` used
+  `isVisible()` (the *effective* visibility, false whenever an ancestor is
+  hidden, so an open drawer in a non-focused tab read as closed), and
+  `setDefaultAction()` + `setMenu(action->menu())` **silently clears** the
+  button's menu in Qt 6, which had left an `InstantPopup` button that
+  opened nothing. `BasesView` now owns the one shared results menu so the
+  button and the menubar entry are the same object.
+- **O5.T5 — Cluster I Phase 5 tail** (`8c12cc35`). `tab_move_left`/
+  `tab_move_right` over a new `Workspace::moveLeafWithinGroup` (KDDW
+  `TabBar::moveTabTo`), plus `leaf_link_with_active_pane` over
+  `linkLeaves`/`unlinkLeaf`/`isLinkedPane`. `Workspace` now tracks
+  `previousActiveLeaf()` — Obsidian's "active pane" target.
+  **Deviation from the audit, deliberate:** `workspace.md:123` says
+  `setGroupMember` reuses the *target's* group id, but taken literally that
+  **orphans the source's existing members**. A test caught it. Id is chosen
+  source-first, then target, then minted.
+- **O5.T3/T4 — `GraphViewActions`** (`6b6f5666`). Five actions; the two that
+  already existed as `CommandRegistry` commands delegate rather than
+  reimplement (§D3). `ViewRegistrar` gained `registerViewActions` —
+  **same "ui.views" permission, no new plugin-API surface**. Lifetime is the
+  load-bearing part: a provider's vtable lives in the plugin `.so`, so
+  `GraphViewPlugin::onUnload()` hands it back explicitly (the registrar
+  destructor is only the fallback), and `QPointer` runs end to end.
+- **O6.T3** (`2bcc5620`). Each `GraphViewTab` owns its own
+  `GraphControlsPanel`; the singleton, the dock metadata key, and
+  `GraphView`'s panel seam are gone. **Falsifiability result worth
+  recording:** reinstating the shared singleton makes the test binary
+  **segfault** on the first new case — the bug is shared *ownership*, not
+  missing disconnects, so no `disconnect()` patch would have covered it.
+
+**Not attempted in O6:** T1 (`CollapsibleSection` promotion), T2 (the
+`ItemView` inspector slot), T4 (canvas inspector as second consumer). T1/T2
+are the substrate T4 needs, so they are a unit; neither closes a reported
+bug the way O6.T3 did. See the punch list entry.
 
 **Cluster I.** Closed by O0. Phase 5 tail → O5.T5; Phase 6 → punch list.
 
