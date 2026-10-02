@@ -22,7 +22,6 @@ add_library(corbomite-core SHARED
     src/SubpathExtract.cpp
     include/corbomite/core/SubpathExtract.h
     src/RegexRenderEngine.cpp
-    src/MarkoffRenderEngine.cpp
     src/StyledRenderEngine.cpp
     include/corbomite/core/StyledRenderEngine.h
     src/LinkUtils.cpp
@@ -39,8 +38,6 @@ add_library(corbomite-core SHARED
     include/corbomite/core/Command.h
     src/Hotkey.cpp
     include/corbomite/core/Hotkey.h
-    src/PluginInstance.cpp
-    include/corbomite/core/PluginInstance.h
     src/MenuSectionHelper.cpp
     include/corbomite/core/MenuSectionHelper.h
     src/Platform.cpp

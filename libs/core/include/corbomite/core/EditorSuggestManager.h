@@ -15,7 +15,7 @@ namespace Corbomite {
 //
 // The manager does NOT own the registered suggesters' lifetimes
 // (suggesters are Components owned by their caller, typically a
-// PluginInstance or the app). Caller must unregister before the
+// Corbomite::Plugin or the app). Caller must unregister before the
 // suggester is destroyed.
 class EditorSuggestManager : public QObject {
     Q_OBJECT

@@ -11,7 +11,7 @@ struct Command;
 
 /// Command-registration facade for plugins with the "ui.commands" permission.
 /// Auto-namespaces command ids as `<pluginId>:<localId>` (Obsidian quirk —
-/// matches PluginInstance::addCommand). The proxy tracks every full id it
+/// the same Obsidian quirk `Corbomite::Plugin` implements). The proxy tracks every full id it
 /// added and removes them all on destruction.
 class CommandRegistrar
 {
