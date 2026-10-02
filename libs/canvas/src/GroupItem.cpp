@@ -1,11 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas/GroupItem.h"
+#include "canvas/CanvasScene.h"
+#include <canvas/CanvasPalette.h>
 
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
 #include <utility>
+
+// Cluster M leftover (canvas dark mode) — see CanvasPalette.h.
+static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
+{
+    static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
+    const auto *cs = qobject_cast<const Canvas::CanvasScene *>(scene);
+    return cs ? cs->canvasPalette() : kLight;
+}
+
 
 namespace Canvas {
 
@@ -56,7 +67,7 @@ void GroupItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
         fillColor = baseColor;
         fillColor.setAlpha(25); // ~10% opacity
     } else {
-        fillColor = QColor(200, 200, 200, 25);
+        fillColor = canvasPaletteFor(scene()).groupFill;
     }
     painter->fillRect(rect, fillColor);
 
@@ -71,7 +82,7 @@ void GroupItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
             borderColor = baseColor;
             borderColor.setAlpha(102); // ~40% opacity
         } else {
-            borderColor = QColor(180, 180, 180);
+            borderColor = canvasPaletteFor(scene()).border;
         }
         QPen borderPen(borderColor);
         borderPen.setWidthF(1.0);
@@ -91,7 +102,7 @@ void GroupItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
         if (baseColor.isValid()) {
             textColor = baseColor.darker(120);
         } else {
-            textColor = QColor(80, 80, 80);
+            textColor = canvasPaletteFor(scene()).groupLabelForeground;
         }
         painter->setPen(textColor);
 

@@ -6,6 +6,7 @@
 #include "corbomite/core/NoteDocument.h"
 
 #include <canvas/CanvasScene.h>
+#include <corbomite/core/ThemeService.h>
 #include <canvas/CanvasView.h>
 
 #include <KLocalizedString>
@@ -80,6 +81,24 @@ void CanvasFileView::setRenderEngine(MarkdownRenderEngine *engine)
 }
 
 CanvasViewTab *CanvasFileView::canvasWidget() const { return m_canvasWidget; }
+
+void CanvasFileView::setThemeService(Core::ThemeService *service)
+{
+    if (m_themeService == service) return;
+    if (m_themeService)
+        disconnect(m_themeService, nullptr, this, nullptr);
+    m_themeService = service;
+    if (!m_themeService) return;
+
+    auto apply = [this]() {
+        if (auto *tab = canvasWidget())
+            if (auto *scene = tab->canvasScene())
+                scene->applyDarkTheme(m_themeService->isDark());
+    };
+    connect(m_themeService, &Core::ThemeService::themeChanged, this,
+            [apply](const Markoff::Theme &) { apply(); });
+    apply();   // covers a canvas tab that is already open
+}
 
 void CanvasFileView::zoomIn()
 {

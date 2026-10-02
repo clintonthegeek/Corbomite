@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas/FileCardItem.h"
+#include "canvas/CanvasScene.h"
+#include <canvas/CanvasPalette.h>
 
 #include <QFileInfo>
 #include <QPainter>
@@ -7,7 +9,24 @@
 #include <QTextDocument>
 #include <KLocalizedString>
 
+// Cluster M leftover (canvas dark mode) — the item's scene palette, or the
+// light default when the item has no scene (unit tests, detached items). The
+// fallback matters: a `paint()` that returned a default-constructed
+// CanvasPalette would silently render light, which is exactly the class of
+// bug this change exists to remove.
+// `static` (internal linkage) rather than a namespace-scope non-static
+// function: this helper is replicated in three translation units, so a plain
+// definition would be a duplicate symbol at link time.
+static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
+{
+    static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
+    const auto *cs = qobject_cast<const Canvas::CanvasScene *>(scene);
+    return cs ? cs->canvasPalette() : kLight;
+}
+
 namespace Canvas {
+
+
 
 static constexpr qreal kCornerRadius = 8.0;
 static constexpr qreal kTitleBarHeight = 28.0;
@@ -67,7 +86,9 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     // 1. Rounded rect with white fill
     QPainterPath cardPath;
     cardPath.addRoundedRect(rect, kCornerRadius, kCornerRadius);
-    painter->fillPath(cardPath, QColor(255, 255, 255));
+    // Cluster M leftover (canvas dark mode).
+    const Canvas::CanvasPalette &pal = canvasPaletteFor(scene());
+    painter->fillPath(cardPath, pal.cardBackground);
 
     // 2. Title bar
     const QColor stripeColor = colorFromCanvasColor(m_data.color);
@@ -84,7 +105,8 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     titleFont.setBold(true);
     painter->save();
     painter->setFont(titleFont);
-    painter->setPen(stripeColor.isValid() ? QColor(255, 255, 255) : QColor(40, 40, 40));
+    painter->setPen(stripeColor.isValid() ? QColor(255, 255, 255)
+                                   : pal.titleStripForeground);
     painter->drawText(QRectF(kTextPadding, 0, rect.width() - 2 * kTextPadding, kTitleBarHeight),
                       Qt::AlignVCenter | Qt::AlignLeft,
                       displayTitle());
@@ -107,7 +129,7 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     } else {
         // No content — show placeholder
         painter->save();
-        painter->setPen(QColor(160, 160, 160));
+        painter->setPen(pal.missingForeground);
         QFont placeholderFont = painter->font();
         placeholderFont.setItalic(true);
         painter->setFont(placeholderFont);
@@ -119,7 +141,7 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     }
 
     // 4. Border
-    QPen borderPen(selected ? QColor(58, 134, 255) : QColor(200, 200, 200));
+    QPen borderPen(selected ? pal.borderSelected : pal.border);
     borderPen.setWidthF(selected ? 2.0 : 1.0);
     painter->setPen(borderPen);
     painter->setBrush(Qt::NoBrush);

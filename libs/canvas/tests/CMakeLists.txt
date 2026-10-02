@@ -34,3 +34,9 @@ add_executable(tst_canvas_export tst_canvas_export.cpp)
 add_test(NAME tst_canvas_export COMMAND tst_canvas_export)
 target_link_libraries(tst_canvas_export PRIVATE Qt6::Test Qt6::Widgets canvas)
 set_tests_properties(tst_canvas_export PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster M leftover — canvas dark mode.
+add_executable(tst_canvas_dark_mode tst_canvas_dark_mode.cpp)
+add_test(NAME tst_canvas_dark_mode COMMAND tst_canvas_dark_mode)
+target_link_libraries(tst_canvas_dark_mode PRIVATE Qt6::Test Qt6::Widgets canvas)
+set_tests_properties(tst_canvas_dark_mode PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

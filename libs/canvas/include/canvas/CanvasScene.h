@@ -3,6 +3,8 @@
 
 #include <graffodil/GraphScene.h>
 #include <QHash>
+
+#include <canvas/CanvasPalette.h>
 #include <QImage>
 #include <QPointF>
 #include <QRectF>
@@ -56,6 +58,22 @@ public:
 
     void setDocument(CanvasDocument *doc);
     CanvasDocument *document() const;
+
+    // ---- Cluster M leftover: canvas dark mode ----
+    //
+    // One palette for the whole scene, so a paint() can never mix a
+    // half-updated set of colours during a theme change. setCanvasPalette
+    // also drives the scene's background brush, which is what
+    // renderToImage/renderToSvg read — so PNG/SVG export follows the theme
+    // for free, which matters because a canvas authored dark must export
+    // dark.
+    void setCanvasPalette(const CanvasPalette &palette);
+    const CanvasPalette &canvasPalette() const { return m_palette; }
+
+    /// Convenience for the theme wiring: true when the host says the app is
+    /// dark. Kept as a bool rather than taking a colour so libs/canvas stays
+    /// free of any ThemeService/KColorScheme dependency.
+    void applyDarkTheme(bool dark);
 
     // Item lookup (typed convenience wrappers over GraphScene::nodeForId/edgeForId)
     TextCardItem *textCardItem(const QString &id) const;
@@ -294,6 +312,10 @@ private:
     CanvasNodeItem *m_hoveredNode = nullptr;
 
     QUndoStack *m_undoStack = nullptr;
+
+    /// Cluster M leftover — canvas dark mode. Held by value so items read a
+    /// stable snapshot; never null, never half-updated.
+    CanvasPalette m_palette;
     Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;
     FileResolver m_fileResolver;
     FileSaver m_fileSaver;

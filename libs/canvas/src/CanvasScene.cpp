@@ -58,14 +58,14 @@ CanvasScene::CanvasScene(QObject *parent)
     : Graffodil::GraphScene(parent)
     , m_undoStack(new QUndoStack(this))
 {
-    // CanvasView paints white via drawBackground() (view-level, not part of
-    // the scene). renderToImage/renderToSvg render straight from the scene
-    // and fall back to QGraphicsScene::backgroundBrush()'s default
-    // (Qt::NoBrush, .color() == black) when it's unset — that's what was
-    // producing black export backgrounds while the app showed white. Match
-    // the view's fill here so both paths agree. Full theme/dark-mode
-    // awareness for canvas is not wired anywhere yet — punch-listed.
-    setBackgroundBrush(Qt::white);
+    // CanvasView paints its background via drawBackground() (view-level, not
+    // part of the scene). renderToImage/renderToSvg render straight from the
+    // scene and fall back to QGraphicsScene::backgroundBrush()'s default
+    // (Qt::NoBrush, .color() == black) when it's unset — that was producing
+    // black export backgrounds while the app showed white. Drive the brush
+    // from the palette so both paths agree AND follow the theme; previously
+    // this was a hardcoded Qt::white.
+    setBackgroundBrush(m_palette.background);
     // Bespoke CompositeTool assembly — see spec §6a V3: Graffodil::
     // DefaultGraphTool pre-registers its own select/pan routes at
     // construction time, so a resize route added afterward would always
@@ -224,6 +224,29 @@ CanvasScene::~CanvasScene()
 // ---------------------------------------------------------------------------
 // Document management
 // ---------------------------------------------------------------------------
+
+void CanvasScene::setCanvasPalette(const CanvasPalette &palette)
+{
+    if (m_palette.background == palette.background
+        && m_palette.cardBackground == palette.cardBackground
+        && m_palette.gridDot == palette.gridDot
+        && m_palette.border == palette.border) {
+        return;   // nothing that affects rendering changed
+    }
+    m_palette = palette;
+    // Export paths read this brush directly, so it is part of the theme,
+    // not a separate setting.
+    setBackgroundBrush(palette.background);
+    // Repaint every item: each reads m_palette at paint time, so they all
+    // need re-running. update() on the scene covers them without having to
+    // walk the item set.
+    update();
+}
+
+void CanvasScene::applyDarkTheme(bool dark)
+{
+    setCanvasPalette(dark ? CanvasPalette::dark() : CanvasPalette::light());
+}
 
 void CanvasScene::setDocument(CanvasDocument *doc)
 {

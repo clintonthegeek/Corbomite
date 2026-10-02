@@ -17,7 +17,24 @@
 
 #include <cmath>
 
+// Cluster M leftover (canvas dark mode) — the item's scene palette, or the
+// light default when the item has no scene (unit tests, detached items). The
+// fallback matters: a `paint()` that returned a default-constructed
+// CanvasPalette would silently render light, which is exactly the class of
+// bug this change exists to remove.
+// `static` (internal linkage) rather than a namespace-scope non-static
+// function: this helper is replicated in three translation units, so a plain
+// definition would be a duplicate symbol at link time.
+static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
+{
+    static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
+    const auto *cs = qobject_cast<const Canvas::CanvasScene *>(scene);
+    return cs ? cs->canvasPalette() : kLight;
+}
+
 namespace Canvas {
+
+
 
 static constexpr double kZoomFactor = 1.15;
 
@@ -251,7 +268,7 @@ void CanvasView::autoPanTick()
 void CanvasView::drawBackground(QPainter *painter, const QRectF &rect)
 {
     // Fill background with white
-    painter->fillRect(rect, Qt::white);
+    painter->fillRect(rect, canvasPaletteFor(scene()).background);
 
     if (!m_gridVisible)
         return;
@@ -276,7 +293,7 @@ void CanvasView::drawBackground(QPainter *painter, const QRectF &rect)
     // regardless of the view's zoom transform -- the dots stay a constant
     // on-screen size instead of shrinking to sub-pixel/invisible at
     // zoom-out or growing at zoom-in.
-    painter->setPen(QPen(QColor(200, 200, 200), 0));
+    painter->setPen(QPen(canvasPaletteFor(scene()).gridDot, 0));
 
     const double left = std::floor(rect.left() / pitch) * pitch;
     const double top = std::floor(rect.top() / pitch) * pitch;

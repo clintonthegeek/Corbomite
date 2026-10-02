@@ -104,6 +104,14 @@ Markoff::Theme ThemeService::currentTheme() const { return m_currentTheme; }
 
 QString ThemeService::activeThemeName() const { return m_activeName; }
 
+bool ThemeService::isDark() const
+{
+    // Same rule themeFromPalette() uses to decide light-vs-dark for the
+    // system theme: window lightness below half. Reading it off the active
+    // theme's own text colour would be a second, subtly-different rule.
+    return QApplication::palette().color(QPalette::Window).lightness() < 128;
+}
+
 QStringList ThemeService::availableThemeNames() const
 {
     QStringList list;

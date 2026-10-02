@@ -1,12 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas/TextCardItem.h"
+#include "canvas/CanvasScene.h"
+#include <canvas/CanvasPalette.h>
 
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QTextDocument>
 #include <QRegularExpression>
 
+// Cluster M leftover (canvas dark mode) — the item's scene palette, or the
+// light default when the item has no scene (unit tests, detached items). The
+// fallback matters: a `paint()` that returned a default-constructed
+// CanvasPalette would silently render light, which is exactly the class of
+// bug this change exists to remove.
+// `static` (internal linkage) rather than a namespace-scope non-static
+// function: this helper is replicated in three translation units, so a plain
+// definition would be a duplicate symbol at link time.
+static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
+{
+    static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
+    const auto *cs = qobject_cast<const Canvas::CanvasScene *>(scene);
+    return cs ? cs->canvasPalette() : kLight;
+}
+
 namespace Canvas {
+
+
 
 static constexpr qreal kCornerRadius = 8.0;
 static constexpr qreal kColorStripeHeight = 20.0;
@@ -42,7 +61,9 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     QPainterPath cardPath;
     cardPath.addRoundedRect(rect, kCornerRadius, kCornerRadius);
 
-    painter->fillPath(cardPath, QColor(255, 255, 255));
+    // Cluster M leftover (canvas dark mode).
+    const Canvas::CanvasPalette &pal = canvasPaletteFor(scene());
+    painter->fillPath(cardPath, pal.cardBackground);
 
     // Pre-process text: extract header and strip frontmatter
     QString cardText = m_data.text;
@@ -139,7 +160,7 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     }
 
     // 3. Draw border (1px gray, darker if selected)
-    QPen borderPen(selected ? QColor(58, 134, 255) : QColor(200, 200, 200));
+    QPen borderPen(selected ? pal.borderSelected : pal.border);
     borderPen.setWidthF(selected ? 2.0 : 1.0);
     painter->setPen(borderPen);
     painter->setBrush(Qt::NoBrush);

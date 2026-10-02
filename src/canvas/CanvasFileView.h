@@ -9,6 +9,9 @@
 namespace Corbomite {
 
 class CanvasViewTab;
+namespace Core {
+class ThemeService;
+}
 class MarkdownRenderEngine;
 class MenuSectionHelper;
 
@@ -26,6 +29,12 @@ public:
 
     void setRenderEngine(MarkdownRenderEngine *engine);
     CanvasViewTab *canvasWidget() const;
+
+    /// Cluster M leftover — canvas dark mode. Follows the host's ThemeService
+    /// so an Obsidian-authored dark vault gets a dark canvas instead of a
+    /// white one with white cards on it. Same injection shape as
+    /// NoteEditorWidget::setThemeService.
+    void setThemeService(Corbomite::Core::ThemeService *service);
 
     // Cluster O Phase O1.T3 — re-light the View::zoom*() polymorphic
     // dispatch onto the real CanvasView viewport transform. Previously
@@ -67,6 +76,11 @@ private Q_SLOTS:
 
 private:
     CanvasViewTab *m_canvasWidget = nullptr;
+    /// Raw pointer + explicit disconnect, matching
+    /// NoteEditorWidget::setThemeService — the ThemeService outlives every
+    /// view (it is owned by MainWindow), and QPointer would force a
+    /// ThemeService.h include here for no benefit.
+    Corbomite::Core::ThemeService *m_themeService = nullptr;
     MarkdownRenderEngine *m_renderEngine = nullptr;
     CommandDispatch m_canvasCommandDispatcher;
 };

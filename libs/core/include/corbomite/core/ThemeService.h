@@ -30,6 +30,16 @@ public:
 
     Markoff::Theme currentTheme() const;
     QString activeThemeName() const;
+
+    /// Whether the active theme is a DARK one.
+    ///
+    /// Added for Cluster M's canvas dark mode: canvas needs a single boolean
+    /// to pick a palette, and deriving "dark" from the theme's colours
+    /// independently in every consumer is how two views end up disagreeing
+    /// about whether the app is dark. `themeFromPalette()` already uses this
+    /// same lightness<128 rule when it builds the system theme, so this is
+    /// one definition rather than a re-derivation.
+    bool isDark() const;
     QStringList availableThemeNames() const;
     QString userThemesDirectory() const;
 

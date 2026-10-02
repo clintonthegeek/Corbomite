@@ -975,6 +975,14 @@ void MainWindow::propagateServicesToView(View *view)
 {
     if (!view) return;
 
+    // Cluster M leftover — canvas dark mode. Canvas is the one leaf type that
+    // paints its own background rather than using a themed widget, so it needs
+    // ThemeService injected explicitly; without this an Obsidian dark vault
+    // showed a white canvas with white cards on it.
+    if (auto *cfv = qobject_cast<CanvasFileView *>(view))
+        if (m_themeService)
+            cfv->setThemeService(m_themeService);
+
     // Every EditableFileView leaf gets the universal file-menu callbacks
     // so its hamburger + tab-header rename routes through FileManager's
     // promptForFileRename/Move/Deletion modals. Core has no vault deps,

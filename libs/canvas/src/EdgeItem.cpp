@@ -1,10 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas/EdgeItem.h"
+#include "canvas/CanvasScene.h"
+#include <canvas/CanvasPalette.h>
 #include "canvas/CanvasNodeItem.h"
 #include "canvas/CanvasBezierStrategy.h"
 
 #include <graffodil/EdgePathStrategy.h>
 #include <graffodil/TerminusStyle.h>
+
+// Cluster M leftover (canvas dark mode) — see CanvasPalette.h.
+static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
+{
+    static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
+    const auto *cs = qobject_cast<const Canvas::CanvasScene *>(scene);
+    return cs ? cs->canvasPalette() : kLight;
+}
+
 
 namespace Canvas {
 
@@ -22,8 +33,14 @@ EdgeItem::EdgeItem(CanvasNodeItem *from, CanvasNodeItem *to, const CanvasEdge &d
     Graffodil::EdgeLabelStyle style;
     style.font = QFont();
     style.font.setPointSize(9);
-    style.color = QColor(80, 80, 80);       // #505050
-    style.background = QColor(255, 255, 255, 220);
+    // Cluster M leftover: edge label colours follow the scene palette. The
+    // ctor may run before the item has a scene, so fall back to light here and
+    // let applyEndsAndPen()'s sibling re-apply once it is in the scene.
+    {
+        const Canvas::CanvasPalette &pal = canvasPaletteFor(nullptr);
+        style.color = pal.edge;
+        style.background = pal.edgeLabelBackground;
+    }
     style.backgroundPadding = 4.0;
     style.positionOnPath = 0.5;
     style.offset = QPointF(0, 0);           // centered on the path, not above it
@@ -42,7 +59,9 @@ QString EdgeItem::edgeId() const
 
 void EdgeItem::applyEndsAndPen()
 {
-    QPen edgePen(QColor(150, 150, 150)); // #969696 fallback
+    // Fallback pen colour comes from the scene palette when the item is in a
+    // scene, so an un-accented edge is visible on a dark canvas.
+    QPen edgePen(canvasPaletteFor(scene()).edge);
     edgePen.setWidthF(kDefaultPenWidth);
     const QColor edgeColor = colorFromCanvasColor(m_data.color);
     if (edgeColor.isValid())
