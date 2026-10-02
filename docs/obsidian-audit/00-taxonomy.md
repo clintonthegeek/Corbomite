@@ -509,6 +509,7 @@ Obsidian is a layered Electron app. At the bottom sits **`core/App`** wiring the
 
 > **Append-only.** When implementation reveals new or corrected facts about Obsidian, write a dated file in `addenda/` and link it here (most recent on top). See `addenda/README.md` for the format. **Never edit the taxonomy or domain docs above** — they are snapshots of audit-time belief and must remain stable.
 
+- [2026-10-01 — **CORRECTION:** `EphemeralState` persistence + `eState.scroll` semantics are self-contradictory in the corpus (`views.md` says "not persisted" + line number; `workspace.md` embeds it in serialized records)](addenda/2026-10-01-ephemeral-state-persistence-contradiction.md)
 - [2026-10-01 — **CORRECTION:** workspace split `direction` names the divider *line*, not the stacking axis (refutes `workspace.md` §2)](addenda/2026-10-01-workspace-split-direction-correction.md)
 - [2026-06-10 — Editor timing + coverage corrections (`expandText` debounce; `lP` regex redundancy; live-preview engine mislocated by `editor.md` §14)](addenda/2026-06-10-editor-timing-and-coverage-corrections.md)
 - [2026-06-10 — Taxonomy + Bases corrections (`QueryController` does not parse the search DSL; Bases `summaries:` double-handling)](addenda/2026-06-10-taxonomy-and-bases-corrections.md)
