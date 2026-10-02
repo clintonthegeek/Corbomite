@@ -135,6 +135,108 @@ production call sites, not header mentions; strip `#if 0` before counting; and
 
 ---
 
+## 2026-10-01 — First remediation batch from the second-sweep appraisal: 4 items closed, 1 fix caught and reverted
+
+Picked up from the appraisal recorded above and worked the recommendations in
+value order. Four items closed; one attempted fix was **caught by its own test and
+reverted** rather than shipped.
+
+**`ThemeService` minimum-viable revival** (`4819c3aa`) — the P1 the appraisal called
+the single worst item. The old `#if 0` body could not simply be re-enabled: against
+the pinned Markoff, `Theme` has no `name` and no `uuid`, `loadJson`/`saveJson` are
+gone (`fromJson(QJsonObject)`/`toJson()` only), and the `:/markoff/themes/*.json`
+resources **do not exist in the submodule at all**. So this was a rewrite against
+the current API, scoped to the roadmap's "minimum viable": populate the combo and
+make `appearance.json` light/dark apply. All five consequences from the appraisal
+now fixed — the Settings theme dropdown populates, `themeChanged` fires, an
+Obsidian dark vault switches Corbomite to dark, the `css-change` event and the
+`appearance.json` write hook are live again, and the canvas dark-mode item is
+finally *actionable* (its stated remedy is to react to `themeChanged`). Two gaps
+left deliberately, documented where they occur: user JSON themes (a `Theme` no
+longer carries a name, so a loaded file cannot be keyed or selected — needs an
+upstream decision) and "Follow system" deriving from the QApplication palette
+rather than `KColorScheme`, because `SystemThemeBuilder`'s own live body is a stub
+returning an empty `Theme` that would leave every Slot unset. The palette path is
+a stopgap. New `tst_themeservice` (7 cases) was **falsifiability-checked**: reverting
+to the pre-fix stub behaviour turns 4 of the 7 red, including the two that matter.
+The `"Light"`/`"Dark"` spellings are asserted by name because they are part of the
+vault-compat contract — `MainWindow` maps Obsidian's `moonstone`/`obsidian` to
+exactly those strings and then probes `availableThemeNames()`.
+
+**Release-hygiene A.2/A.3/A.4 + E.1** (`b0afe1ec`). REUSE compliance was achieved
+with a `REUSE.toml` rather than 768 header edits: 774 Corbomite-owned files already
+carry `SPDX-License-Identifier` and only 6 carried a copyright line, and for a
+single-copyright-holder work a project-wide default is precisely what `REUSE.toml`
+exists for. `LICENSES/` now holds GPL-3.0-or-later, LGPL-2.1-or-later, and MIT.
+Two corrections worth recording, because both were places I nearly put a confident
+wrong answer into a legal document: the jkqtmathtext copyright is **"2008-2024 Jan
+W. Krieger \<jan@jkrieger.de\>"** — I had drafted "Joachim Borkhardt" from inference
+— and markoff-family/graffodil carry **no** copyright line anywhere, so `REUSE.toml`
+asserts none for them rather than inventing one. `docs/` was deliberately left on
+GPL-3.0-or-later: no documentation licence has ever been stated, and picking one
+(CC-BY-4.0 was the first attempt) would have been a unilateral relicensing decision.
+E.1: the missing AppStream metainfo was written and installed; `appstreamcli validate`
+passes, so ECM's `appstreamtest` — previously validating nothing, because no
+metainfo was ever installed — now checks real content for the first time. This ECM
+version has no `kde_install_metainfo_file()`, and its `appstreamtest()` works by
+scanning the install manifest, so a plain `install(FILES …)` is both sufficient and
+the mechanism that gets the file validated. The one remaining pedantic note
+(`cid-contains-uppercase-letter`) is the app's established identity and is documented
+in-file rather than renamed, since changing it would ripple through the `.desktop`
+basename, the D-Bus service name, the icon name, and `KAboutData`.
+
+**`MarkoffAdapters` corpse deleted** (`42fddde1`) — 216 lines, and the cleanest of the
+13 test-only islands. Its three classes derived from `Markoff::LinkResolver`,
+`Markoff::Vault::MetadataCache`, and `Markoff::Vault::MetadataParser`, **none of
+which exist in the pinned submodule**; one of its own `#include`s was already wrong,
+so the file could not have compiled if re-enabled. The "pending
+`Markoff::Vault::*` restoration" plan it encoded was already broken. Dangling
+forward-decls, commented-out `unique_ptr` members, a dead `#include`, and a dead
+commented-out allocation block in `MainWindow` were cleaned with it, and the comments
+now point at `VaultScopedResources` — the live implementation of the same intent.
+
+**One attempted fix caught by its own test and reverted.** The appraisal's
+`addFrontmatterRow` item claimed two things; the first held up under experiment and
+the second did not.
+
+- *HELD (and root-caused):* adding a Properties row went through
+  `NoteDocument::setMarkdown` → `resetContent(..., Origin::TestFixture)`, which clears
+  the undo stack and replaces the CRDT buffer identity. I proposed
+  `Origin::UserRevertToSaved` as the one-line fix. **It is wrong**, and the new test
+  caught it: that origin pushes its mega-edit onto the **legacy** CRDT buffer, but
+  `resetContent()` then runs `wipeD2State(); buildD2FromBytes()` *outside* the origin
+  switch, unconditionally and outside any undo transaction. D2 state — the canonical
+  read path since the 2026-05-21 save-path fix — is therefore never restored, and
+  `undoD2()` **corrupts** the document rather than reverting it. Fix and test reverted;
+  the real fix needs a Markoff API for a local frontmatter edit that participates in
+  D2 undo, and `Origin.h`'s "pushes one mega edit so Ctrl+Z reverses it" is stale with
+  respect to the D2 path. The test now *characterises* the limitation and inverts
+  itself into a failure the day someone fixes it.
+- *RETRACTED:* the companion claim that `MarkdownView`'s own closing-fence search
+  (`indexOf("\n---", 3)`, no end-of-line check) duplicated the upstream parser bug. A
+  fix was written; its regression test then **passed against the unfixed code**. The
+  search returns the first `\n---` from offset 3, which in any well-formed document
+  **is** the real closing fence, and a false match would need a malformed
+  `----`/`---xyz` line *inside* the frontmatter, which the parser rejects too. Both
+  reverted; the item is downgraded to P4 with an explicit "do not fix this, re-raise
+  only with a demonstrated failing input."
+
+**Test-command correctness.** `CLAUDE.md` ran plain `ctest` with **no exclusion** and
+quoted a 2026-06-10 baseline of 259/259. Four tests are wall-clock timing tests;
+`tst_benchmark_layout` carries a native `LABELS "benchmark"`, but
+`tst_canvas_perf_500` and `tst_canvas_perf_formatted` come from the markoff-family
+submodule with **no label at all**, so `-E benchmark` did not reach them and they
+flaked red under `-j10` from machine load while passing standalone every time — which
+is what made this session's own runs ambiguous. `-E "benchmark|perf"` now excludes
+all four deterministically. A parent-directory `set_tests_properties` cannot relabel
+them (CTest test properties are directory-scoped) and a submodule patch would be lost
+on the next re-pin, so the proper fix is a label in markoff-canvas; attempted
+consumer-side relabelling, found inert, removed.
+
+**Suite: 329/329 green** with the exclusion above (331 registered).
+
+---
+
 ## 2026-08-21 — v0.2.0 tagged and released
 
 User live-tested the Cluster O Phase O4 canvas toolbar against a real vault ("just tried the toolbar, it's awesome") — closes O4's live-eyeball gate and, with it, Cluster O end to end (O0-O4). With that plus the workspace.json P1 already resolved (see entry below), nothing was left blocking a release: 94 commits since `v0.1.0` including the Cluster P STATIC→SHARED rebuild (11 GB → 1.8 GB dev tree, -84%, plus a real plugin-boundary `QMetaObject` correctness fix), Cluster N rich clipboard, Cluster O context-sensitive menus/toolbars, Cluster M4 canvas move/snap/selection polish, and Cluster D.6 base-creation UX.

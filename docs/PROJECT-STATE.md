@@ -16,16 +16,33 @@
 
 ## Current focus
 
-**Drain the punch list's newly-filed 2026-10-01 section before new cluster work.**
-The second sweep found that the trackers had drifted for ~6 weeks: `ThemeService`
-is a `#if 0` stub with five live consequences, ~12 subsystems have zero production
-callers while reporting as tested, and the ~30-task release-hygiene plan was
-orphaned at ~7% complete. Start with the P1 items in the punch list's
-2026-10-01 section — `ThemeService` revival, then release-hygiene Phase A (legal)
-+ E.1 (AppStream metainfo), then the `addFrontmatterRow` undo defect.
+**Second-sweep remediation, batch 2.** Batch 1 landed 2026-10-01 (see Recent
+decisions): `ThemeService` minimum-viable revival, release-hygiene A.2/A.3/A.4 +
+E.1, and the `MarkoffAdapters` corpse deletion. **Next in the batch, in order:**
 
-**Next cluster work after that:** Cluster O Phase O5 (`BasesViewActions` /
-`GraphViewActions`), then Cluster M M5/M6, then resume the paused Cluster L5 soak.
+1. **The remaining 12 test-only/dead islands** — each needs an explicit
+   delete-or-revive decision. Cheap ones first (`MarkoffRenderEngine`,
+   `PluginInstance`, `SearchDSL::ParseResult`, `SpatialGrid`). The ones that are
+   *implementations of features still wanted* (`Hotkey`, `VaultScanner`,
+   `MarkdownRenderChild`, the ~110-line Kate session subtree in `CorbomiteMDI`)
+   need wiring, not deletion — decide per item, don't batch-delete.
+2. **Cluster O Phase O5** (`BasesViewActions` / `GraphViewActions`) — the
+   declared next cluster work.
+3. **Steer Markoff** for a local, D2-undo-integrated frontmatter edit API
+   (the Properties "add blank row" undo gap) and for a `LABELS "benchmark"` on
+   the two canvas perf tests. Both are cross-repo.
+4. **Split Cluster F** into F-a (File Recovery + Note Composer) / F-b
+   (Workspaces + sidedock substrate); file the Tags pane as a real cluster;
+   retire Cluster E.
+
+Not started, and deliberately so: release-hygiene B (mmdr reproducibility), C
+(remaining dead code), D (renames), E (packaging remainder).
+
+**Note the two corrections the batch made to its own audit** — the
+`addFrontmatterRow` fence claim was retracted (a "fix" whose test passed against
+unfixed code, so it was reverted), and the undo fix was reverted after its own
+test caught it. Detail in the punch list's 2026-10-01 section. The lesson is
+recorded in the audit's §10: a gate never seen red proves nothing.
 
 ## Two tracks
 
