@@ -10,6 +10,104 @@ Conventions:
 
 ---
 
+## 2026-10-01 (later) — Cluster bookkeeping pass: 3 orphans retired, 3 dispatchable clusters created
+
+Docs-only pass, same day as the second-sweep appraisal recorded below. No code,
+no build, no test run. Triggered by five punch-list items the appraisal filed
+as "named in a tracker but owned by nothing" (§F), and by the fact that three
+clusters' status was described incorrectly in every status document at once.
+
+**Cluster E retired.** Archived to
+`plans/archive/2026-04-26-cluster-e-markoff-editor-api-parity.md` with an
+8-row item-by-item disposition banner. Every scope item verified against the
+tree before archiving, not assumed: item 1 was done by the audit itself; item 2
+is obsolete because `Markoff::Editor` survives only as two comment stubs
+(`MarkdownView.cpp:12`, `MainWindow.h:10`); item 3 — "unify the Live/Source
+cursor coordinate base" — was **completed and then obsoleted by a better
+design**, contract-v2 Phase 1 Task 8, which moved Ln/Col onto the
+leaf-agnostic `Markoff::MarkdownView` base so the leaves no longer need to
+agree with each other; item 4 is moot (qutepart deleted `da9a0a2c`); item 5
+shipped in a different shape as `DecorationProvider` in Cluster B; item 6
+shipped via Cluster N over `Markoff::ClipboardCodec`; item 7's cited
+`TextControl.cpp` does not exist anywhere in the tree; item 8 sequenced
+against G and H, both obsoleted by the foundation rewrite. One line of residue
+kept: if/when plugin-author pressure arrives, re-derive the `Editor` surface
+against D2 + contract-v2 — with the caveat that contract-v2 *deliberately*
+defers plugin-facing editor surfaces, so that future work is a new brainstorm,
+not an expansion of this stub.
+
+**Cluster F split, and its premise retired with it.** The audit's 10-item
+inventory turned out to be ~60% wrong in the direction of *under*-claiming:
+items 1–6 (command palette, quick switcher, daily notes, templates, page
+preview, word count) are **already shipped as host features**, verified per
+item with file:line evidence. The "these should be internal plugins" framing
+(the audit's own recommendation, echoed at
+`audit-2026-04-26/plugin.md` §"Missing-but-arguably-should-be-plugins") dies
+with it: Corbomite's internal-plugin model exists for *sidebar views*, and
+re-wrapping working host features to satisfy a symmetry would be churn. What
+actually remained split cleanly:
+
+- **F-a — File Recovery & Note Composer** (items 7+8), dispatchable, ~5–8d.
+  The recovery *destination* was already fixed by the 2026-04-27 P2 sweep
+  (outside the vault, per-vault id); the *trigger* was never built — the only
+  call site sits inside the save-**failure** branch
+  (`TextFileView.cpp:67-71`), so a force-kill loses everything typed since the
+  last good save. Note Composer does not exist at all. Five open questions
+  recorded, the sharpest being: **do not adopt Obsidian's in-vault backup
+  path** — the audit corpus gives three mutually inconsistent shapes for it,
+  and Corbomite moved backups out of the vault on purpose.
+- **F-b — Named Workspaces & the sidedock substrate** (items 9+10),
+  **spec-first, not dispatchable**. Two blockers, both pre-existing and both
+  documented rather than guessed: the `.obsidian/workspaces.json` schema was
+  never extracted (`VAULT-FORMAT.md` marks it *inferred* and defers to
+  `workspace.md §13 Q5`), and item 10 lost its home class when Cluster L3
+  deleted `WorkspaceSidedock` as a nullptr shell. **One premise correction:**
+  the "dirty-bit hack" the item complained about is already gone — `left` /
+  `right` round-trip today via the unknown-root passthrough (`Workspace.h:358-366`,
+  tested at `tst_workspace_session.cpp:701`). What is missing is *modelling*,
+  not data safety. Writing a writer against an inferred schema is precisely how
+  Cluster L's P0 nested-split scramble happened, so F-b is gated on
+  verification, not on enthusiasm.
+
+**Cluster Q opened — the Tags pane.** The roadmap called it "the one
+wholly-missing core panel" in a Phase-4 bullet and a release criterion, and
+nothing else. It is cheap for a non-trivial reason: five layers are already
+live — the `note_tags` table with `allTags()`/`notesWithTag()`, the `tag:`/
+`-tag:` DSL operator compiled into SQL, `TagSuggest` completion, frontmatter
+tag merging in `MetadataParser`, and plugin right-sidebar mounting — so the
+cluster is one widget plus one SQL query Corbomite has never written. Two
+findings worth keeping: the pane needs **subtag-prefix decomposition**
+(`#proj/foo` must increment `#proj`), which Obsidian does and Corbomite does
+not, and the pane's **own UI has no audit coverage whatsoever** — three
+sentences of frozen Pass-3 text in `FEATURE-MATRIX.md`. The plan therefore
+ships the minimum the evidence supports and labels its polish items
+"stretch, not Obsidian-verified" rather than inventing parity.
+
+**Cluster D.5 given a spec.** All three status docs had said "only D.5
+remains" since 2026-05-29 with no checkbox, no scope, no spec. It now has one,
+at brainstorm depth and explicitly not a dispatch: five candidate surfaces
+(audited individually — formula functions are nearly free because
+`FunctionRegistry::global()` already exists and `BasesView` already falls back
+to it, but only an *in-tree* plugin can reach it today), what the generic
+registries already give a Bases plugin, a proposed `BasesContext` proxy
+facade over the library rather than handing out library types, and six
+blocking questions — the sharpest being whether a plugin-registered formula
+function may see the vault.
+
+**Cluster L5's record corrected.** Its plan banner said "L5 not started" while
+the phase section two hundred lines below correctly described the P0 it found
+and fixed. The banner now says L5 is **paused mid-flight**, names the P0, and
+points at a new 7-item scenario checklist with the standing requirement that a
+human eyeballs every scenario — offscreen-green is explicitly insufficient for
+this class of work, which is how the round-trip scramble survived a fully green
+suite for its entire lifetime.
+
+**Net effect:** three dispatchable work items where there were none, three
+orphans retired, six punch-list items re-annotated as owned (not done), and
+`PROJECT-STATE.md` grown by 3 rows + 1 line rather than by a journal.
+
+---
+
 ## 2026-10-01 — Second-sweep appraisal: the code is sound, the trackers were not
 
 Triggered by a ~6-week gap since `459c7e7c` (v0.2.0, 2026-08-21). Four exhaustive
@@ -132,6 +230,71 @@ not pending.
 225 MB vendored copy of the whole tree that silently doubles any naive `rg`; count
 production call sites, not header mentions; strip `#if 0` before counting; and
 **cross-check every high-severity subagent claim against the file directly.**
+
+---
+
+## 2026-10-01 — Dispatched remediation: 7 tests re-enabled, one "data-loss bug" refuted
+
+Ran the outstanding punch list and clusters as instructed, dispatching two agents on
+disjoint file sets (tests/ and docs/) while working production code directly.
+
+**7 previously-disabled tests re-enabled** after mechanical API-drift ports, taking the
+suite 328 → 336: `tst_vault_save_reload` (6 slots, now using `applyFlatEdit` +
+`d2UndoLog().entryCount()` in place of the retired `MarkdownDelta`/`undoStack()`),
+`tst_vault_save_refuses_orc`, `tst_notedocument` (14/14), and
+`tst_editable_file_view_menu` / `tst_fileview_setState` / `tst_textfileview` /
+`tst_textfileview_merge` — those last four all shared one root cause, a dropped
+`Markoff::ParsePool*` constructor argument. **6 left disabled, all classified OBSOLETE**
+(asserting APIs that no longer exist: `markoff/MarkdownRenderChild.h`,
+`markoff/SearchBar.h`, `markoff/Editor.h`, `Markoff::MermaidRenderer`,
+`EditorContext::inBold/inItalic/BlockKind`, `Theme::name`/`elements`). Notably
+`tst_system_theme_builder` is now already covered by `tst_theme_service`. A new
+`tst_searchresultsmodel` (21 slots) closes a real coverage gap; `PreparedQuery`, listed
+as untested, turned out to have 18 slots in `tst_fuzzymatcher` already.
+
+**Two of the sweep's "phantom-passing" claims were wrong** and were caught by running
+the files: `tst_proxy_secrets_process` (12 passed, 0 skipped — Qt6Keychain *is* present)
+and `tst_plugin_type_identity` (3 passed — `CORBOMITE_PLUGIN_DEV_DIR` *is* defined). Only
+`tst_renderengine` / `tst_markdownrenderer` genuinely assert nothing, and their
+`initTestCase` QSKIP aborts the whole file so their 5 and 16 slots contribute zero.
+
+**A suspected data-loss bug was investigated and REFUTED — and the investigation is
+the point.** The mechanism is real: `Origin::ExternalReloadClean`/`Resolved` are
+documented "stack cleared" and `Vault.cpp:273` relies on it, but `resetContent()` clears
+only the legacy stack while `wipeD2State()` explicitly preserves `d->undoLog`. So
+`d2UndoLog().entryCount()` genuinely stays >= 1 after an external change. **The feared
+consequence does not follow:** `buildD2FromBytes()` re-parses into fresh BlockIds and
+resets `d2EditSequence()` to 0, so the preserved entries point at blocks that no longer
+exist and `undoD2()` is a silent no-op — measured, not inferred. Ctrl+Z after an
+external change does nothing rather than resurrecting the pre-reload buffer, so this is
+a UX wart and **not** silent content loss, which is precisely the bug class this project
+treats as most dangerous.
+
+I had already written a host-side guard for it (`NoteDocument::isUndoSuppressed()`, plus
+a Ctrl+Z gate in `MainWindow` and a 4-case test) before checking the premise empirically.
+The premise test failed, which is what exposed the whole thing as false. **Guard, test and
+all wiring were reverted.** `tst_vault_external_reload.cpp` — originally gated
+`if(FALSE)` as a bug report — was rewritten into an *enabled* characterization asserting
+**both** halves: the log survives AND undo is inert. That way a future Markoff change
+which makes the log live again surfaces as a visible regression rather than a silent
+surprise. Residual upstream ask is now low-severity: make the stack-clearing origins
+actually clear the D2 log.
+
+**Also fixed:** `tst_quadtree` flaked ~1.5% because `testRepulsionApproximation` used
+unseeded `QRandomGenerator::global()` then asserted a ratio; seeded it to 42 (matching
+the sibling test's convention) and measured 0/600 failures over 600 runs. By contrast
+`tst_forcelayout` was **not** touched: its ~5% failure comes from production
+nondeterminism — `MultilevelLayout::interpolate()` jitters via `QRandomGenerator::global()`
+— and seeding the *test* made it worse (34/40 failures), so the real fix is an injectable
+RNG in `libs/forcegraph/src/`, left for a deliberate pass rather than papered over.
+`tst_graphdatabuilder` showed no reproducible cause and got no speculative change.
+
+**A caution for whoever runs agents on a shared tree:** a `git checkout` of a shared
+CMakeLists to undo my own experiment silently reverted the other agent's re-enables.
+Caught by diffing against the expected state, and restored — but the lesson is that
+targeted reverts need to be per-hunk, not per-file, in a tree with concurrent editors.
+
+**Suite: 337/337 green.**
 
 ---
 

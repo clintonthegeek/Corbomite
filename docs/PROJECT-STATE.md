@@ -1,64 +1,55 @@
 # Project state
 
-> Slim session-start orientation. **Collapsed 2026-10-01** (145 → 95 lines) to
-> restore the contract: 84% of the old file was two append-only journals
-> ("Recent decisions" + an undeclared second one, "Last touched") that
-> `decisions-archive.md` already holds in full and in newest-first order. Every
-> entry removed here is preserved there. The remaining length is the cluster
-> table + current focus; both are orientation, not history. Current health
-> report: [`audit-2026-10-01-second-sweep-appraisal.md`](audit-2026-10-01-second-sweep-appraisal.md).
+> Slim session-start orientation. **Collapsed twice on 2026-10-01** (145 → 101 →
+> 125) to restore the contract: most of the original file was append-only
+> journals that `decisions-archive.md` already holds in full, newest-first.
+> Everything removed here is preserved there. Current health report:
+> [`audit-2026-10-01-second-sweep-appraisal.md`](audit-2026-10-01-second-sweep-appraisal.md).
 >
-> **Rule reaffirmed:** this file states *where we are*, not *what happened*. A
-> phase closing goes here as one line and into `decisions-archive.md` as a
-> paragraph. Do not add a third journal here.
+> **Rule, and note it has now been broken twice:** this file states *where we
+> are*, not *what happened*, and it regrew +16 (mine) then +11 (a dispatched
+> agent's) within one session before being compressed again. A phase closing
+> goes here as ONE line and into `decisions-archive.md` as a paragraph. Do not
+> add a journal here, and if you add cluster rows, cut something.
 >
 > Pre-reset state archived at `docs/archive-2026-04-26/PROJECT-STATE-pre-reset.md`.
 
 ## Current focus
 
-**Second-sweep remediation, batch 3 complete.** Batches 1–2 landed 2026-10-01
-(see Recent decisions): `ThemeService` minimum-viable revival, release-hygiene
-A.2/A.3/A.4 + E.1, the `MarkoffAdapters` / `MarkoffRenderEngine` /
-`PluginInstance` deletions, the dead Kate session-restore cluster in
-`CorbomiteMDI`, and the test-command fix. **Suite 328/328.** ~500 lines of dead
-code removed, 4 punch-list items closed, 2 new tests added (both
-falsifiability-checked).
+**Second-sweep remediation.** Done: the appraisal + tracker reconciliation,
+`ThemeService` revival, release-hygiene A.2/A.3/A.4 + E.1, ~500 lines of dead
+code, 7 disabled tests re-enabled, cluster bookkeeping (E retired, F split,
+Tags pane → Cluster Q, D.5 specced, L5 checkboxed). Suite **337/337**.
 
 **Next, in order:**
 
-1. **Cluster O Phase O5** (`BasesViewActions` / `GraphViewActions`) — the
-   declared next cluster work, and the first thing in a while that is
-   user-facing rather than hygiene.
-2. **Wire, don't delete, the remaining 9 test-only islands.** The important
-   distinction the batch established: `Hotkey`/`HotkeyFile` *are* the
-   hotkeys.json subsystem and `VaultScanner`+`IgnoreFilter` *are* the
-   user-ignore-filters chain. Both features are still wanted and still
-   un-wired, so those islands are the *implementations waiting to be connected*,
-   not deletable dead weight. Deleting them would remove the only code that
-   could satisfy those punch-list items. Only `EmbedDepthGuard` and
-   `RegexRenderEngine` look like genuine delete candidates.
-3. **`eState.scroll` interop fix** (P1) — Corbomite writes a 0.0–1.0 fraction
-   into an Obsidian-shared field that Obsidian reads as a line number. Convert
-   on write, or denylist the field.
-4. **Steer Markoff** for (a) a local, D2-undo-integrated frontmatter edit API
-   and (b) a `LABELS "benchmark"` on the two canvas perf tests. Both cross-repo.
-5. **Split Cluster F** into F-a (File Recovery + Note Composer) / F-b
-   (Workspaces + sidedock substrate); file the Tags pane as a real cluster;
-   retire Cluster E.
-6. `resolveSubpath` is the tested Obsidian-parity implementation with zero
-   production callers while an unfaithful regex scrubber ships — needs the
-   render path given a `Markoff::Document`, then retire the scrubber.
+1. **Cluster O5** (`BasesViewActions`/`GraphViewActions` + Cluster I tail) — the
+   declared next work and the first user-facing item in a while. Then O6, O7.
+2. **Tier 2 quick wins** — `eState.scroll` interop (P1, Corbomite writes a
+   fraction where Obsidian reads a line number); `app.json` + `hotkeys.json`
+   consumption (2× P2, and `Hotkey`/`HotkeyFile` already exist, they are just
+   unwired); `resolveSubpath` (the tested Obsidian-parity resolver has zero
+   production callers while a regex scrubber ships); `GraphControlsPanel`
+   per-instance; split `dimension` apply-to-KDDW.
+3. **Cross-repo asks** (write and dispatch, then wait): a Markoff API for a
+   local, D2-undo-integrated frontmatter edit; `LABELS "benchmark"` on the two
+   canvas perf tests; re-steer the frontmatter fence (the re-pin landed without
+   it, so it was not accepted, not pending).
+4. **Cluster M5/M6**, plus M's leftovers: canvas file-picker via `Vault`, and
+   canvas dark mode (now actionable since `ThemeService` emits again).
+5. **Resume Cluster L5 soak** (6 scenarios) and clear the human-eyeball backlog.
+6. **Dispatch the new plans:** F-a (File Recovery + Note Composer, ~5–8d), Q
+   (Tags pane, ~3–5d). F-b and D.5 are spec-first.
 
-Not started, deliberately: release-hygiene B (mmdr reproducibility), C
-(remaining dead code), D (renames), E (packaging remainder).
+Deliberately not started: release-hygiene B (mmdr reproducibility), C, D, E.
 
-**Two corrections this work made to its own audit** — a "fix" whose test passed
-against unfixed code, and a fix its own test caught, both reverted rather than
-shipped; and two entries in the appraisal's dead-code list (`SpatialGrid`,
-`ParseResult`) that were **live** and would have broken things. The lesson is in
-the audit's §10 and the punch list's 2026-10-01 section: a gate never seen red
-proves nothing, and a symbol whose only references live in a header you did not
-read is not dead.
+**Standing lesson from this work** — three of my own claims were wrong and were
+caught by checking rather than shipped: a "fix" whose test passed against
+unfixed code, an undo fix its own test caught, and a suspected data-loss bug
+whose mechanism was real but whose consequence was inert. Two entries in the
+appraisal's dead-code list were live and would have broken things. See the
+audit's §10: a gate never seen red proves nothing, and a symbol whose only
+references live in a header you did not read is not dead.
 
 ## Two tracks
 
@@ -81,17 +72,20 @@ a defect.
 
 | Cluster | Status (detail in INDEX) | Source |
 |---|---|---|
-| **L** Workspace/KDDW | **L0–L4 closed. L5 PAUSED mid-flight** — 6 soak scenarios left, 0 checkboxes | 2026-08-17 |
+| **L** Workspace/KDDW | **L0–L4 closed. L5 PAUSED mid-flight** — 6 soak scenarios now checkboxed | 2026-08-17 |
 | **M** Canvas authoring | **M0–M4 done.** Next: M5, M6 | 2026-08-19 |
 | **O** Context-sensitive UI | **O0–O4 CLOSED.** Next: O5 (`BasesViewActions`/`GraphViewActions`) | 2026-08-20 |
-| **D** Bases UI | Only D.5 (plugin API) remains — needs spec | Audit |
-| **F** Internal plugins | Stub, **largest unstarted user-facing surface.** Split F-a/F-b recommended | Audit |
-| **E** Editor API parity | **Obsolete — retire** (~15–30 min to archive) | Audit |
+| **D** Bases UI | Only D.5 — **spec written 2026-10-01, awaiting review** | Audit |
+| **F-a** File Recovery + Composer | Plan written 2026-10-01, dispatchable, ~5–8d | 2026-10-01 |
+| **F-b** Workspaces + sidedock | Plan written 2026-10-01, **spec-first**, ~6–9d | 2026-10-01 |
+| **Q** Tags pane | Plan written 2026-10-01, dispatchable, ~3–5d | 2026-10-01 |
 
-Closed (post-reset): A, B, C, I (by absorption), K, N, O, P.
-**Obsoleted by the foundation rewrite (2026-05-25):** G, H, J — J's obsolescence is
-now confirmed (Cluster K Phase 5 retired the QML Live leaf J would have forked
-around), which closes the long-standing open question below.
+Closed (post-reset): A, B, C, E (retired 2026-10-01, never executed), I (by
+absorption), K, N, O, P. **Obsoleted by the foundation rewrite (2026-05-25):**
+G, H, J — J's obsolescence is now confirmed (Cluster K Phase 5 retired the QML
+Live leaf J would have forked around), which closes the open question below.
+**Q is post-reset** (Tags pane), not legacy Cluster Q (closed 2026-04-17) —
+qualify when ambiguous. F no longer exists as a dispatchable stub.
 
 Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/plans/INDEX.md).
 
@@ -108,23 +102,20 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Recent decisions
 
-- **2026-10-01 — Second-sweep appraisal: the code is sound, the trackers were not.**
-  4 exhaustive agent passes over code + docs after a ~6-week gap since v0.2.0.
-  Findings: the test suite's greenness partly certifies nothing (~12 zero-production-
-  caller subsystems carrying 250+ test refs); `ThemeService` is a `#if 0` stub whose
-  dead `themeChanged` signal breaks 5 downstream things including two false `[x]`
-  punch-list closures; release-hygiene was orphaned at ~7%; the obsidian-audit
-  addenda went silent for 2 months, so a frozen doc still teaches a split-direction
-  convention that already cost a P0. Also recorded: two of three contested subagent
-  claims were **rejected** on verification (`go_back`/`go_forward` work fine; the
-  vault save path *is* covered). 17 PARITY-MATRIX rows corrected, 5 punch-list items
-  closed, 1 re-ranked P4→P1, 15 filed. Full report + remediation order: the audit doc.
-- **2026-08-21 — Cluster P CLOSED (P0–P6).** `build-dev/` 11 GB → 1.8 GB (−84%).
-  Caught a real cross-repo regression: re-pinning Markoff to `master` HEAD instead of
-  the branch Corbomite's pin sat on silently dropped Cluster N's clipboard API —
-  missed twice by incremental rebuilds, caught immediately by the Arch PKGBUILD's
-  fresh clone.
-- **2026-08-21 — v0.2.0 tagged and released.** Cluster O closed end to end.
+- **2026-10-01 — Dispatched remediation.** 7 disabled tests re-enabled
+  (328→336); a suspected data-loss bug **refuted** (the D2 UndoLog survives an
+  external reload, but stale targets make undo inert — a UX wart, not content
+  loss; characterization test enabled in its place, and a host-side guard I had
+  already written was reverted); `tst_quadtree` seeded. 337/337.
+- **2026-10-01 — Cluster bookkeeping.** E retired; F → F-a/F-b; Tags pane →
+  Cluster Q; D.5 specced; L5 checkboxed. Three new dispatchable items.
+- **2026-10-01 — Second-sweep appraisal.** Code sound, trackers not: ~12
+  test-only islands, `ThemeService` dead, release-hygiene orphaned at ~7%,
+  obsidian-audit addenda silent for 2 months (a frozen doc still taught a
+  split-direction convention that had already cost a P0). 17 PARITY-MATRIX rows
+  corrected; 2 of 3 contested subagent claims rejected on verification.
+- **2026-08-21 — Cluster P closed** (build tree 11 GB → 1.8 GB) and **v0.2.0
+  tagged**; Cluster O closed end to end.
 
 Older closeouts (2026-04-26 reset → 2026-08-21) and all full closeout paragraphs:
 [`decisions-archive.md`](decisions-archive.md).

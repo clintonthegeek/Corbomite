@@ -104,3 +104,202 @@ That's the complete action-layer surface: **one new KAction, one new `MainWindow
 ### Status
 
 **Shipped and live-verified 2026-08-20.** Landed exactly as scoped — one KAction, one `MainWindow` method, one `FileExplorerView` method, two context-menu entries, one `.rc` edit. No follow-up needed beyond the still-open (non-blocking) tree-icon-consumption item noted above.
+
+---
+
+## D.5 — Bases plugin API (SPEC — not a dispatch)
+
+> **⚠ 2026-10-01 — written as a brainstorm/spec for user review. NOT
+> dispatchable.** All three status documents (`PROJECT-STATE.md`, `INDEX.md`,
+> and this file's own banners) have said "only D.5 remains" since
+> 2026-05-29 with nothing behind the item — a checkbox, a scope, or a spec. This
+> section is that spec, at brainstorm depth. Nothing here is scheduled. Phase
+> numbers below are a *proposed* breakdown for whoever picks it up after review;
+> the §4 open questions are the actual gating decisions, and several of them
+> (public API surface, permission tokens, the vault-access seam) should be
+> reviewed **together with any other Bases plugin-API work** rather than
+> piecemeal.
+>
+> Sizing: the library work is small (a facade over existing headless classes);
+> the API-design and review work is the cost. Do not let a small diff become a
+> public-ABI decision by accident.
+
+### D.5.1 — What "a Bases plugin API" could mean
+
+Five candidate surfaces, in descending order of how much a plugin author
+actually wants them. They are **not** of equal value and this spec deliberately
+does not promise all five.
+
+**(a) Custom formula functions.** A plugin registers `myScore(note)` (or a
+per-type member function) into the formula evaluator.
+
+- **Status: nearly free, and the closest thing to already existing.**
+  `Corbomite::Bases::FunctionRegistry` already has a **process-global
+  instance** (`libs/bases/include/corbomite/bases/FunctionRegistry.h:65` —
+  `static FunctionRegistry &global();`), `addGlobal()` / `addForType()`,
+  `findGlobal`/`findInstance`, and `allNames()` for autocomplete. Builtins are
+  registered into it exactly once (`libs/bases/src/Builtins.cpp:635-637`,
+  `registerBuiltins(r)`).
+- `BasesView` takes an optional injected registry and otherwise falls back to
+  the global one (`libs/bases/src/BasesView.cpp:270,276`), so a plugin that
+  registers into `FunctionRegistry::global()` is picked up by every live view
+  without any host wiring.
+- **Blocker:** plugins cannot reach `corbomite-bases` at all today —
+  `PluginContext` has no `bases()` accessor
+  (`libs/vault/include/corbomite/vault/PluginContext.h:116-137`), and although
+  `corbomite-bases` *is* installed and exported for `find_package(Corbomite)`
+  consumers (`libs/bases/CMakeLists.txt:128-133`), its `target_link_libraries`
+  puts `Corbomite::Core/Storage/Vault` and `Markoff::Parser` behind
+  `$<BUILD_INTERFACE:>` (`libs/bases/CMakeLists.txt:118-125`), so a
+  third-party plugin linking `Corbomite::Bases` would compile against a
+  partially-unresolvable dependency graph. An in-tree plugin could link it
+  today; a distributed one cannot.
+
+**(b) Headless query execution.** A plugin runs a `.base` query and gets rows
+back — the building block for a custom view, an export, a dashboard, a
+"largest N notes by X" panel, or a script.
+
+- **Status: the pieces exist and are deliberately widget-free.**
+  `BasesQuery::fromString` (with the empty-base default,
+  `libs/bases/src/BasesQuery.cpp:186-195`), `Evaluator`, `BasesVaultResolver` behind the narrow `VaultResolver`
+  interface (`libs/bases/include/corbomite/bases/VaultResolver.h` — two
+  methods, `fileAt` / `resolveLinkTarget`), `EvalContext::vault()`
+  (`EvalContext.h:33`), `BasesQueryResult::rows()` / `properties()`
+  (`BasesQueryResult.h:41,47`), and `TableExporter` (CSV/TSV/Markdown/HTML/
+  Obsidian-table, explicitly "stack-allocated temporary").
+- **Blocker:** two. (i) **No way to get an `EvalContext`/`VaultResolver`.**
+  The host builds these inside `BasesView::setServices(...)`; a plugin gets
+  *proxies* from `PluginContext` (`VaultProxy`, `MetadataCacheReader`), not the
+  concretes `BasesVaultResolver` needs. (ii) **Permission model undefined.**
+  Running a query reads the whole vault. Under the existing tokens that is
+  `vault.read` + `metadata.read` — but a formula function registered under
+  `ui.editor`-ish semantics would execute *inside* someone else's query, which
+  is a different trust question.
+- This is the surface with the highest user value **and** the highest design
+  cost. It is the one worth doing.
+
+**(c) Cell rendering / value hooks.** A plugin renders one Bases value type
+itself (an Image cell, a Map, a rating).
+
+- **Status: the delegate is a single hard-dispatched
+  `QStyledItemDelegate`** (`libs/bases/include/corbomite/bases/BasesCellDelegate.h`
+  — `createEditor`/`setEditorData`/`setModelData`/`paint` dispatching on
+  `BasesTableModel::ValueTypeRole`), and its own header says rich rendering for
+  Image/HTML/Markdown "defers to a placeholder label; a Cluster-J
+  `EmbedRenderer` wire-in is a follow-up."
+- **Assessment: do not expose the delegate.** It would mean making value
+  dispatch a registry and giving plugins a paint callback on every repaint.
+  That is the plugin API's most invasive possible surface, for the least
+  demanded feature. If rich cells matter, ship them in-tree (the
+  `EmbedRenderer` follow-up is already named) and revisit later.
+
+**(d) New view kinds.** A plugin registers `cards` / `calendar` for `.base`
+files.
+
+- **Status: `ViewConfigOps` and `ViewsMenuPanel` exist**
+  (`libs/bases/include/corbomite/bases/ViewConfigOps.h` — duplicate/rename view
+  ops; `ViewsMenuPanel.h`), and Cluster D explicitly deferred "other view kinds
+  (cards, list, calendar)" to "a future cluster".
+- **Blocker:** a view kind is not a `ViewRegistry` view. `ViewRegistrar::
+  registerView` (`libs/core/include/corbomite/core/proxies/ViewRegistrar.h:27`)
+  registers a *file view* by extension — a plugin **can** ship its own
+  file-backed view for its own extension today. What it cannot do is contribute
+  a *view kind* to someone else's `.base` file, because view-kind dispatch lives
+  inside `BasesView`. That is a deeper refactor, not a registrar.
+
+**(e) Export.** A plugin exports a query result.
+
+- **Status: free once (b) exists** — `TableExporter` is pure and widget-free.
+  Do not design a separate export API; expose (b) and (e) falls out.
+
+### D.5.2 — What the generic registries already give a Bases plugin today
+
+So this section is not read as "Bases has no plugin story":
+
+| Generic surface | Source | Usable by a Bases plugin today? |
+|---|---|---|
+| Register a file view for an extension | `PluginContext::views()` → `ViewRegistrar::registerView` / `registerExtensions` (`PluginContext.h:122`) | **Yes** — a plugin can ship a competing view for its own extension, and register an extension mapped to the existing `bases` type only if it can construct a `BasesView` factory itself (in-tree it can; distributed it would need the library) |
+| Add commands | `PluginContext::commands()` → `CommandRegistrar` (`PluginContext.h:121`) | **Yes** — e.g. `bases:runQuery`, `bases:export` |
+| Add ribbon icons / status-bar items / menus | `RibbonRegistrar`, `StatusBarRegistrar`, `MenuInjector` (`PluginContext.h:121-135`) | **Yes** |
+| Register post-processors, code blocks, embeds, decorators, suggesters | the `ui.rendering` / `ui.editor` registrars (`PluginContext.h:128-136`) | **Yes** — including markdown-in-a-note features that a Bases view emits |
+| Per-plugin KConfig page + `data.json` | `Plugin::configPages()` / `PluginContext::config` / `loadData`/`saveData` | **Yes** |
+| Vault read/write through proxies | `VaultProxy`, `FileManagerProxy`, `MetadataCacheReader` (`PluginContext.h:116-119`) | **Yes** — and note `MetadataCacheReader` already exposes `tagsIn()` / `allTags()`, the same proxy pattern D.5 would follow for a Bases facade |
+
+### D.5.3 — Proposed shape (one option, for review)
+
+A **`BasesContext` facade** handed to plugins that hold a permission, mirroring
+the existing proxy style rather than exposing `corbomite-bases` types:
+
+```
+PluginContext::bases()  ->  BasesContext          // gated on a new token
+    QList<BasesQueryResultRow> runQuery(basePathOrViewName)   // (b), row-shaped POD
+    bool registerFormulaFunction(localId, BasesFunctionSpec)  // (a)
+    QString exportAs(runQueryResultRef, format)               // (e), reuses TableExporter
+```
+
+with `BasesQueryResultRow` a plain value type (property id, display name, cell
+text, cell type tag) so the plugin ABI does **not** drag `ValuePtr` /
+`EvalContext` / `std::type_index` across the boundary. `corbomite-bases` stays
+an implementation detail the host calls into; plugins never link it.
+
+Why this shape rather than exposing the library directly:
+
+1. **ABI containment.** The existing plugin ABI is deliberately narrow (a
+   `CORBOMITE_PLUGIN_API_LEVEL` integer, `PluginApi.h:15`) with everything
+   proxied. Handing out library types makes every Bases refactor a plugin ABI
+   break.
+2. **Permission honesty.** A query is a whole-vault read. It deserves its own
+   token (`bases.read`) rather than riding on `vault.read` + `metadata.read`
+   implicitly.
+3. **The `EvalContext::vault()` question has to be answered once, centrally.**
+   Whatever the answer is, it belongs behind a facade, not in every plugin.
+
+### D.5.4 — Proposed phase breakdown (post-review)
+
+- **D5.0 — Review this section.** Answer §D.5.5 below. No code.
+- **D5.1 — (a) formula functions, in-tree only.** Expose `registerFormulaFunction`
+  through the facade for in-tree plugins; add tests proving a registered
+  function is visible to a live `BasesView` *and* appears in autocomplete
+  (`FunctionRegistry::allNames()` feeds the candidates). Deliberately not
+  exposed to distributed plugins until the CMake interface gap
+  (`$<BUILD_INTERFACE:>`) is fixed or the facade fully replaces the types.
+- **D5.2 — (b) headless execution.** `VaultResolver` construction from the
+  host's concrete services, row-shaped results, `metadata`-equivalent
+  invalidation (re-run on `indexFinished`). This is the bulk of the work.
+- **D5.3 — (e) export.** Small; rides on D5.2.
+- **D5.4 — permissions + docs.** New token in `PluginPermissions.h`, manifest
+  documentation, `docs/plugin-development/{API-REFERENCE,permissions}.md`
+  updates.
+- **D5.5 — (c)/(d) explicitly deferred**, recorded as decisions with reasons so
+  they are not re-litigated.
+
+### D.5.5 — Open questions for the user (blocking D5.1)
+
+1. **Is a formula-function hook the minimum viable plugin API, or is headless
+   execution the thing that matters?** The order above assumes functions first
+   because they are cheap; if query execution is the actual goal, D5.1's value
+   drops and the cluster is really one phase.
+2. **Who may register a formula function?** A function runs inside every
+   user's query. Suggest `bases.formulas` as a distinct token, not folded into
+   `ui.editor`.
+3. **Can a plugin's function see the vault?** `EvalContext::vault()` currently
+   exposes `fileAt()` + `resolveLinkTarget()` to *builtins*. Granting that to a
+   third-party function is a security decision, not an API decision.
+4. **Does a plugin get row values or only formatted cell text?** Row values
+   (typed) are far more useful and much more ABI to carry. Recommend: values in
+   a versioned row POD, with the `CORBOMITE_PLUGIN_API_LEVEL` bumped to 2 if
+   it is exposed.
+5. **Should in-tree plugins be allowed to link `corbomite-bases` directly** as a
+   shortcut, or must everything go through the facade even in-tree? Two answers
+   here means two code paths to keep working forever.
+6. **Interaction with Cluster F-b Q5** (a `PluginContext` accessor for named
+   workspaces): both add a `PluginContext` method and a permission token. Batch
+   the public-surface review rather than shipping two uncoordinated additions.
+
+### D.5.6 — Audit references
+
+- [`docs/obsidian-audit/domains/bases.md`](../../obsidian-audit/domains/bases.md) §2 (the `FileValue` aggregate accessors — `getTags`/`getLinks`/`getProps` on the cached per-file object, `bases.md:45`), §9 ("Observable user features"), and the corpus's own Open Questions — the source of what a Bases plugin API is *for*.
+- [`docs/obsidian-audit/addenda/2026-04-17-bases-formula-dsl.md`](../../obsidian-audit/addenda/2026-04-17-bases-formula-dsl.md) §8.1 — the `FnParam` contract that `BasesFunction` implements.
+- [`docs/audit-2026-04-26/plugin.md`](../../audit-2026-04-26/plugin.md) §"Internal-plugin inventory" — Bases listed as `NOT-A-PLUGIN-YET`; still accurate.
+- [`docs/plugin-development/API-REFERENCE.md`](../../plugin-development/API-REFERENCE.md) + [`permissions.md`](../../plugin-development/permissions.md) — the docs any new surface must update.
+- [`docs/PROJECT-STATE.md`](../../PROJECT-STATE.md) Cluster D row and [`superpowers/plans/INDEX.md`](INDEX.md) Cluster D row — both say "only D.5 remains", which is why this section exists.

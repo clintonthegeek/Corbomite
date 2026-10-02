@@ -4,13 +4,19 @@
 **Type:** Full plan
 **Status:** **L0-L4 landed and closed** (L4 live-verified 2026-08-18 —
 D1 title-bar/tab chrome and D4 sidebar width restore both confirmed
-working in a live dogfood pass). L5 not started. See `docs/PROJECT-STATE.md`
-(Cluster L row) for the one-line current state and
-`docs/decisions-archive.md` (dated 2026-08-17, five "Cluster L
-Phase..." entries) for full closeout detail per phase, including exact
-commit shas and test results. This plan file's phase descriptions below
-are left as originally written (the *intent*); do not infer completion
-status from this section — check PROJECT-STATE first.
+working in a live dogfood pass). **L5 is PAUSED mid-flight, not "not
+started" and not closed** — it ran on 2026-08-18, found a **P0**
+(Obsidian round-trip scrambles nested split layouts), fixed it, added the
+`fixture16_nestedSplitFirstChild_matchesObsidianGeometry` geometry
+regression test, and then paused for the v0.1.0 release with **5 of 6
+soak scenarios never run**. The scenario checkboxes are in Phase L5 below;
+resume there, not here. See `docs/PROJECT-STATE.md` (Cluster L row) for
+the one-line current state and `docs/decisions-archive.md` (dated
+2026-08-17, five "Cluster L Phase..." entries; 2026-08-18 for the L5 P0)
+for full closeout detail per phase, including exact commit shas and test
+results. This plan file's phase descriptions below are left as originally
+written (the *intent*); do not infer completion status from this section
+— check PROJECT-STATE first.
 **Source:** Full re-evaluation of the workspace/tab/dock layer (this
 session), building on `docs/audit-2026-04-26/workspace.md` (many of whose
 top findings have since been fixed — this plan covers what's *still*
@@ -329,7 +335,7 @@ KActionCollection where applicable, D4 sidebar persistence revival
 (wire the dormant KateMDI save/restore; delete the hardcoded
 200/false). Each lands as its own small commit against the punch list.
 
-### Phase L5 — Soak & closeout — **In progress (2026-08-18)**
+### Phase L5 — Soak & closeout — **PAUSED mid-flight (2026-08-18); 5 of 6 scenarios never run**
 
 One dedicated dogfood session hammering tabs: drag between groups,
 split, popout, close-undo, vault switch, Obsidian round-trip (open the
@@ -346,6 +352,66 @@ verified live against a real Obsidian-authored vault, two round trips).
 New geometry-asserting regression test `fixture16` added. Remaining
 soak scenarios (drag between groups, split, popout, close-undo, vault
 switch) not yet run.
+
+#### L5 scenario checklist (the phase's actual deliverable)
+
+> **Standing requirement for every scenario below: a human must eyeball it in
+> the running app.** Offscreen-green is explicitly *insufficient* for
+> keyboard/focus/interaction work — the same gate that Phase L4 D1 and D4
+> passed on 2026-08-18. Scenario 1 in particular is the one that regressed the
+> 2026-06-10 first-run SIGSEGV class (vault-teardown UAF) and it cannot be
+> exercised at all by `ctest`.
+>
+> File every finding as `[cluster-l]` on the punch list rather than fixing it
+> inline; L5's job is to *find*, and the fix pass is scheduled separately
+> (CONTRIBUTING-OPS Ritual 4, step 5).
+
+- [ ] **L5.1 — Drag a tab between groups.** Move a leaf from one tab group to
+      another with the mouse; confirm the group it left updates its
+      `currentTab`, the destination's `m_tabGroupOf` is correct, and reopening
+      the vault restores both groups' membership. (This is the drag-lag class
+      Cluster Y once fixed; the regression test is shape-only, so only eyes
+      catch a drag that works but reports the wrong group.)
+- [ ] **L5.2 — Split.** Create horizontal and vertical splits via both the
+      toolbar/menu and drag-to-split; confirm direction matches the divider
+      **line** (Obsidian's inverted-looking convention — read
+      [`addenda/2026-10-01-workspace-split-direction-correction.md`](../../obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md)
+      before touching the serializer) and that three-deep nesting places
+      panes in the right quadrants.
+- [ ] **L5.3 — Popout.** Pop a leaf to a new window, then close it via the X,
+      then `reparentToMain`; confirm no orphan dock widgets, the leaf returns
+      to the main window, and `floating` round-trips through `workspace.json`
+      (Cluster L2 restored the `floating` key that production saves used to
+      drop).
+- [ ] **L5.4 — Close-undo.** Close a tab group and undo it; confirm
+      `closeLeaf`/`undoCloseLeaf` restores leaves *and* their view state, and
+      that focus lands somewhere sensible (a focus-restoration bug is invisible
+      to a JSON round-trip test).
+- [ ] **L5.5 — Vault switch.** With several tabs, popout windows, and split
+      groups open, switch vaults and back; confirm teardown leaves nothing
+      behind (this is the SIGSEGV-class scenario), the per-vault sidecar state
+      does not bleed, and the restored layout matches what was there.
+- [ ] **L5.6 — Obsidian `workspace.json` round trip.**
+  - [x] **First iteration — 2026-08-18: found and fixed the P0.** Real
+        Obsidian-authored vault, nested splits, two live round trips, fix
+        verified live; `fixture16_nestedSplitFirstChild_matchesObsidianGeometry`
+        added as a geometry regression guard. (punch-list `[cluster-l]` P0,
+        `[x]`.)
+  - [ ] **Second iteration — still owed.** Repeat with a *different*
+        arrangement (e.g. three-way splits, a stacked-tab group, a popout) to
+        confirm the two-phase seed-then-fill fix is not specific to the
+        original repro, and to cover the shape the P0's fixture did not.
+- [ ] **L5.7 — Phase closeout (only after the above).** Ritual 3: closeout
+      paragraph into `decisions-archive.md`, Cluster L row → Done in both
+      `PROJECT-STATE.md` and `INDEX.md`, plan → `archive/`, `PARITY-MATRIX.md`
+      workspace rows updated. **Until then L5 stays paused-open, not closed** —
+      five untested scenarios in a layer that has already produced one P0 is
+      not a closed phase.
+
+**Why this phase matters more than its size:** it found a P0 that shape-only
+serializer tests passed straight through, and that took two live round trips
+to fix. The `dimension` round-trip gap (punch-list `[cluster-l]` P3) is also
+still open and is a legitimate L5 finding to re-examine while soaking.
 
 ---
 
