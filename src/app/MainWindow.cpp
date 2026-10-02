@@ -979,9 +979,28 @@ void MainWindow::propagateServicesToView(View *view)
     // paints its own background rather than using a themed widget, so it needs
     // ThemeService injected explicitly; without this an Obsidian dark vault
     // showed a white canvas with white cards on it.
-    if (auto *cfv = qobject_cast<CanvasFileView *>(view))
+    if (auto *cfv = qobject_cast<CanvasFileView *>(view)) {
         if (m_themeService)
             cfv->setThemeService(m_themeService);
+
+        // Cluster M leftover — the canvas file picker lists the VAULT's files
+        // instead of walking the filesystem. Two wins: it honours whatever
+        // Vault already excludes, and it is one in-memory list instead of a
+        // recursive QDirIterator over the whole vault on every picker open.
+        auto *vaultObj = m_vaultObj;
+        if (vaultObj) {
+            cfv->setFileLister([vaultObj]() -> QStringList {
+                QStringList rels;
+                const auto files = vaultObj->getFiles();
+                rels.reserve(files.size());
+                for (const auto *f : files)
+                    // TAbstractFile::path is a public field, not a method.
+                    if (f && !f->path.isEmpty())
+                        rels << f->path;
+                return rels;
+            });
+        }
+    }
 
     // Every EditableFileView leaf gets the universal file-menu callbacks
     // so its hamburger + tab-header rename routes through FileManager's

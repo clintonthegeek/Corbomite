@@ -36,6 +36,13 @@ public:
     /// NoteEditorWidget::setThemeService.
     void setThemeService(Corbomite::Core::ThemeService *service);
 
+    /// Cluster M leftover — the vault's file list for the canvas file picker,
+    /// as vault-relative paths. Passing the Vault's own list (rather than
+    /// letting the picker walk the filesystem) means the picker automatically
+    /// honours whatever Vault already excludes, and costs one in-memory list
+    /// instead of a recursive directory scan per open.
+    void setFileLister(std::function<QStringList()> lister);
+
     // Cluster O Phase O1.T3 — re-light the View::zoom*() polymorphic
     // dispatch onto the real CanvasView viewport transform. Previously
     // MainWindow's zoom actions bypassed the virtuals entirely and only
@@ -81,6 +88,7 @@ private:
     /// view (it is owned by MainWindow), and QPointer would force a
     /// ThemeService.h include here for no benefit.
     Corbomite::Core::ThemeService *m_themeService = nullptr;
+    std::function<QStringList()> m_fileLister;
     MarkdownRenderEngine *m_renderEngine = nullptr;
     CommandDispatch m_canvasCommandDispatcher;
 };

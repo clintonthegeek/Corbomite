@@ -38,6 +38,17 @@ public:
     /// export pipeline.
     Canvas::CanvasScene *canvasScene() const;
 
+    /// Cluster M leftover — supply the vault's file list to the file picker.
+    ///
+    /// A seam (`std::function`) rather than a `Vault*` on purpose: libs/canvas
+    /// must not depend on libs/vault, and this mirrors the existing
+    /// `setVaultPathResolver` idiom in the same constructor. Call it before
+    /// the tab opens; the picker falls back to a filesystem walk if it is
+    /// never set, so nothing breaks for callers that don't supply one.
+    void setFileLister(std::function<QStringList()> lister);
+
+    std::function<QStringList()> m_fileLister;
+
     /// Cluster O Phase O1.T3 — access to the underlying CanvasView so
     /// CanvasFileView can dispatch the polymorphic View::zoomIn/Out/Reset
     /// virtuals onto the real viewport transform. (O4.T1 will want this

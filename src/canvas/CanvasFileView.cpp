@@ -82,6 +82,15 @@ void CanvasFileView::setRenderEngine(MarkdownRenderEngine *engine)
 
 CanvasViewTab *CanvasFileView::canvasWidget() const { return m_canvasWidget; }
 
+void CanvasFileView::setFileLister(std::function<QStringList()> lister)
+{
+    m_fileLister = std::move(lister);
+    // The tab may already exist (late service propagation), so push now as
+    // well as at construction time.
+    if (m_canvasWidget && m_fileLister)
+        m_canvasWidget->setFileLister(m_fileLister);
+}
+
 void CanvasFileView::setThemeService(Core::ThemeService *service)
 {
     if (m_themeService == service) return;
@@ -126,6 +135,8 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
     FileView::onLoadFile(file);
     if (!m_canvasWidget && file) {
         m_canvasWidget = new CanvasViewTab(file->filePath(), file->vaultRoot(), contentWidget());
+        if (m_fileLister)
+            m_canvasWidget->setFileLister(m_fileLister);
         auto *layout = new QVBoxLayout(contentWidget());
         layout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(m_canvasWidget);

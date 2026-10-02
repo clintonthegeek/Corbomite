@@ -8,6 +8,7 @@
 #include <corbomite/core/MarkdownRenderEngine.h>
 
 #include <QDir>
+#include <algorithm>
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
@@ -53,7 +54,7 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
     // real Vault-backed source is app-side follow-up work (see plan M2.2
     // note). CanvasFilePickerDialog does the actual fuzzy filter/rank.
     QPointer<Canvas::CanvasView> viewPtr(m_view);
-    m_view->canvasScene()->setFilePickerRequestor([resolveBase, viewPtr]() -> QString {
+    m_view->canvasScene()->setFilePickerRequestor([resolveBase, viewPtr, this]() -> QString {
         static const QStringList kAttachmentExts = {
             QStringLiteral("md"), QStringLiteral("png"), QStringLiteral("jpg"),
             QStringLiteral("jpeg"), QStringLiteral("gif"), QStringLiteral("svg"),
@@ -61,7 +62,20 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
         };
 
         QStringList candidates;
-        if (!resolveBase.isEmpty()) {
+        if (m_fileLister) {
+            // Cluster M leftover — the VAULT's file list, not a filesystem
+            // walk. The walk below is kept only as a fallback for callers
+            // that never called setFileLister().
+            candidates = m_fileLister();
+            const auto hasAllowedExt = [](const QString &rel) {
+                return kAttachmentExts.contains(QFileInfo(rel).suffix().toLower());
+            };
+            candidates.erase(std::remove_if(candidates.begin(), candidates.end(),
+                                            [&](const QString &rel) {
+                                                return !hasAllowedExt(rel);
+                                            }),
+                             candidates.end());
+        } else if (!resolveBase.isEmpty()) {
             const QDir root(resolveBase);
             QDirIterator it(resolveBase, QDir::Files, QDirIterator::Subdirectories);
             while (it.hasNext()) {
@@ -87,8 +101,8 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
                     continue;
                 candidates << rel;
             }
-            candidates.sort(Qt::CaseInsensitive);
         }
+        candidates.sort(Qt::CaseInsensitive);
 
         if (!viewPtr)
             return {};
@@ -117,6 +131,11 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
 }
 
 CanvasViewTab::~CanvasViewTab() = default;
+
+void CanvasViewTab::setFileLister(std::function<QStringList()> lister)
+{
+    m_fileLister = std::move(lister);
+}
 
 void CanvasViewTab::setRenderEngine(MarkdownRenderEngine *engine)
 {
