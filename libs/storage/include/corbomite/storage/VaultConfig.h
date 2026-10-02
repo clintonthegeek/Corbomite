@@ -126,6 +126,43 @@ public:
     std::optional<CorePlugins> readCorePlugins() const;
     bool writeCorePlugins(const CorePlugins &cp) const;
 
+    // --- app.json "Files & Links" settings -------------------------------
+    //
+    // Obsidian stores these per-vault in `.obsidian/app.json`
+    // (obsidian-audit/domains/settings.md §".obsidian/app.json"). Corbomite
+    // used to read the equivalent behaviour from its own KConfig only, so a
+    // vault authored in Obsidian silently lost those settings. These accessors
+    // make the vault value authoritative with the KConfig value as fallback.
+
+    /// How deletes are performed. Mirrors Obsidian's `trashOption` vocabulary.
+    enum class TrashMode {
+        SystemTrash,  ///< "system"   — move to the OS trash
+        VaultTrash,   ///< "vault"    — move into <vault>/.trash
+        Permanent,    ///< "permanent"— unlink, no trash at all
+    };
+
+    /// `app.json`'s `trashOption`. Unknown/absent values fall back to
+    /// `fallback` (normally the Corbomite KConfig setting), so a hand-edited or
+    /// future-vocabulary value cannot silently change delete behaviour.
+    TrashMode appTrashMode(TrashMode fallback) const;
+
+    /// `app.json`'s `promptDelete`. Absent key => `fallback`.
+    bool appPromptDelete(bool fallback) const;
+
+    /// `app.json`'s `alwaysUpdateLinks` — whether a file rename rewrites links
+    /// pointing at it. Absent key => `fallback`.
+    bool appAlwaysUpdateLinks(bool fallback) const;
+
+    /// `app.json`'s `useMarkdownLinks` — false means Obsidian's
+    /// shortest-unique *wiki* links, true means Markdown `[text](path)` links.
+    /// Absent key => `fallback`.
+    bool appUseMarkdownLinks(bool fallback) const;
+
+    /// `app.json`'s `newLinkFormat` — "relative" (default) or "absolute".
+    /// Only meaningful when `useMarkdownLinks` is true. Returns an empty string
+    /// when absent.
+    QString appNewLinkFormat() const;
+
     // --- Convenience: userIgnoreFilters from app.json ---
 
     /// Extract `userIgnoreFilters` from app.json if present. Empty list on

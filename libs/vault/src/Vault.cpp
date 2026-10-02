@@ -606,6 +606,11 @@ bool Vault::deleteConfigJson(const QString &name)
     return m_adapter->remove(configJsonAbs(m_basePath, m_configDir, name));
 }
 
+VaultConfig Vault::vaultConfig() const
+{
+    return VaultConfig(m_adapter, m_basePath);
+}
+
 bool Vault::trash(TAbstractFile *f, bool useSystem)
 {
     if (!f || !m_adapter) return false;

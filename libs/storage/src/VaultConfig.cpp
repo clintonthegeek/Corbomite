@@ -275,6 +275,62 @@ bool VaultConfig::writeCorePlugins(const CorePlugins &cp) const
     return writeJson(QStringLiteral("core-plugins.json"), cp.raw);
 }
 
+namespace {
+
+/// Read a boolean from app.json, treating a non-boolean or absent value as
+/// "not specified" so the caller's fallback wins. Obsidian writes real
+/// booleans, but a hand-edited vault can contain anything.
+bool appBool(const std::optional<QJsonObject> &app, const char *key,
+             bool fallback)
+{
+    if (!app) return fallback;
+    const auto it = app->find(QLatin1StringView(key));
+    if (it == app->end() || !it->isBool()) return fallback;
+    return it->toBool();
+}
+
+QString appString(const std::optional<QJsonObject> &app, const char *key)
+{
+    if (!app) return {};
+    const auto it = app->find(QLatin1StringView(key));
+    if (it == app->end() || !it->isString()) return {};
+    return it->toString();
+}
+
+} // namespace
+
+VaultConfig::TrashMode VaultConfig::appTrashMode(TrashMode fallback) const
+{
+    const QString v = appString(readAppJson(), "trashOption");
+    // Unknown vocabulary falls back rather than guessing: silently escalating
+    // to a permanent delete, or de-escalating to the system trash, would both
+    // be worse than honouring the app-level setting the user can see.
+    if (v == QLatin1String("system"))   return TrashMode::SystemTrash;
+    if (v == QLatin1String("vault"))    return TrashMode::VaultTrash;
+    if (v == QLatin1String("permanent"))return TrashMode::Permanent;
+    return fallback;
+}
+
+bool VaultConfig::appPromptDelete(bool fallback) const
+{
+    return appBool(readAppJson(), "promptDelete", fallback);
+}
+
+bool VaultConfig::appAlwaysUpdateLinks(bool fallback) const
+{
+    return appBool(readAppJson(), "alwaysUpdateLinks", fallback);
+}
+
+bool VaultConfig::appUseMarkdownLinks(bool fallback) const
+{
+    return appBool(readAppJson(), "useMarkdownLinks", fallback);
+}
+
+QString VaultConfig::appNewLinkFormat() const
+{
+    return appString(readAppJson(), "newLinkFormat");
+}
+
 QStringList VaultConfig::userIgnoreFilters() const
 {
     const auto app = readAppJson();

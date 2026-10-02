@@ -22,6 +22,9 @@ private slots:
     void generateWikiLinkWithSubpathAndDisplay();
     void insertAppends();
     void insertPrepends();
+    void generateMarkdownLinkHonoursAppJson();
+    void generateMarkdownLinkRelativeToSource();
+    void generateMarkdownLinkAbsoluteFormat();
 };
 
 namespace {
@@ -98,6 +101,68 @@ void TestFileManagerMisc::generateWikiLinkWithSubpathAndDisplay()
     QCOMPARE(fm.generateMarkdownLink(foo, QString(), QStringLiteral("#Heading"),
                                       QStringLiteral("Alias")),
              QStringLiteral("[[Foo#Heading|Alias]]"));
+}
+
+void TestFileManagerMisc::generateMarkdownLinkHonoursAppJson()
+{
+    QTemporaryDir dir;
+    QDir(dir.path()).mkpath(QStringLiteral(".obsidian"));
+    QDir(dir.path()).mkpath(QStringLiteral("notes"));
+    writeFile(dir.path() + "/.obsidian/app.json",
+              R"({"useMarkdownLinks":true,"newLinkFormat":"relative"})");
+    writeFile(dir.path() + "/notes/Foo.md", "x");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault v(&fs);
+    v.load(dir.path());
+    Corbomite::FileManager fm(&v, nullptr);
+
+    auto *foo = v.getFileByPath(QStringLiteral("notes/Foo.md"));
+    QVERIFY(foo);
+    // Obsidian-shaped Markdown link, not the wiki-link Corbomite always emitted.
+    QCOMPARE(fm.generateMarkdownLink(foo, QStringLiteral("notes/Bar.md")),
+             QStringLiteral("[Foo](Foo.md)"));
+}
+
+void TestFileManagerMisc::generateMarkdownLinkRelativeToSource()
+{
+    QTemporaryDir dir;
+    QDir(dir.path()).mkpath(QStringLiteral(".obsidian"));
+    QDir(dir.path()).mkpath(QStringLiteral("notes"));
+    writeFile(dir.path() + "/.obsidian/app.json",
+              R"({"useMarkdownLinks":true,"newLinkFormat":"relative"})");
+    writeFile(dir.path() + "/notes/Foo.md", "x");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault v(&fs);
+    v.load(dir.path());
+    Corbomite::FileManager fm(&v, nullptr);
+
+    auto *foo = v.getFileByPath(QStringLiteral("notes/Foo.md"));
+    QVERIFY(foo);
+    // Source lives in a different folder -> the path stays vault-relative.
+    QCOMPARE(fm.generateMarkdownLink(foo, QStringLiteral("other/Bar.md")),
+             QStringLiteral("[Foo](notes/Foo.md)"));
+}
+
+void TestFileManagerMisc::generateMarkdownLinkAbsoluteFormat()
+{
+    QTemporaryDir dir;
+    QDir(dir.path()).mkpath(QStringLiteral(".obsidian"));
+    QDir(dir.path()).mkpath(QStringLiteral("notes"));
+    writeFile(dir.path() + "/.obsidian/app.json",
+              R"({"useMarkdownLinks":true,"newLinkFormat":"absolute"})");
+    writeFile(dir.path() + "/notes/Foo.md", "x");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault v(&fs);
+    v.load(dir.path());
+    Corbomite::FileManager fm(&v, nullptr);
+
+    auto *foo = v.getFileByPath(QStringLiteral("notes/Foo.md"));
+    QVERIFY(foo);
+    QCOMPARE(fm.generateMarkdownLink(foo, QStringLiteral("notes/Bar.md")),
+             QStringLiteral("[Foo](notes/Foo.md)"));
 }
 
 void TestFileManagerMisc::insertAppends()

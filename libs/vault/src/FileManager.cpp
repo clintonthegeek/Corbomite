@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/vault/FileManager.h"
+#include "corbomite/storage/VaultConfig.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
 #include "PathNormalization.h"
@@ -502,6 +503,20 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
     // fire).
     if (!m_vault->rename(f, newPath)) return false;
 
+    // 2026-10-01: honour the vault's `alwaysUpdateLinks` (`.obsidian/app.json`).
+    // The rename itself has already happened and must not be undone; this only
+    // gates the link-rewriting phase. Obsidian's default is true, so the
+    // fallback preserves our existing behaviour. With it off, links pointing at
+    // the old path are deliberately left dangling — which is what the setting
+    // means, and is why it is opt-out rather than opt-in.
+    if (m_vault) {
+        const VaultConfig cfg = m_vault->vaultConfig();
+        if (!cfg.appAlwaysUpdateLinks(/*fallback=*/true)) {
+            Q_EMIT renameFinished(f, rootOldPath);   // contract: oldPath
+            return true;
+        }
+    }
+
     int done = 0;
     const int total = sources.size();
     for (const QString &src : sources) {
@@ -684,11 +699,52 @@ QString FileManager::generateMarkdownLink(TFile *target,
                                           const QString &displayText) const
 {
     if (!target) return {};
-    // Phase 5 slice: emit shortest unique wiki-link (basename for .md files,
-    // full relative path for others). `useMarkdownLinks` + `newLinkFormat`
-    // config honouring is a follow-up once PropertiesPanel or similar
-    // surfaces it — spec §11.
-    Q_UNUSED(sourcePath);
+
+    // 2026-10-01: honour the vault's `useMarkdownLinks` / `newLinkFormat`
+    // (`.obsidian/app.json`). Previously hardcoded to always emit a wiki-link,
+    // with an explicit TODO saying so — so a vault authored in Obsidian with
+    // Markdown links enabled had every rewritten link converted to wiki form.
+    //
+    // Precedence: the vault's app.json wins; Corbomite has no KConfig setting
+    // for these (unlike trashOption), so the fallback is Obsidian's own
+    // default (false => wiki-links), which is what we always did.
+    // No vault (unit-test / detached call) => Obsidian's defaults: wiki-links.
+    bool useMarkdownLinks = false;
+    bool absolute = false;
+    if (m_vault) {
+        const VaultConfig cfg = m_vault->vaultConfig();
+        useMarkdownLinks = cfg.appUseMarkdownLinks(/*fallback=*/false);
+        absolute = cfg.appNewLinkFormat() == QLatin1String("absolute");
+    }
+
+    if (useMarkdownLinks) {
+        // Obsidian's default is a relative path from the source file's folder,
+        // dropping a leading "./"; "absolute" keeps the vault-root-relative
+        // path. `target->path` is vault-root-relative with a leading slash.
+        QString link = target->path;
+        if (link.startsWith(QLatin1Char('/'))) link.remove(0, 1);
+        if (!absolute && !sourcePath.isEmpty()) {
+            const int slash = sourcePath.lastIndexOf(QLatin1Char('/'));
+            const QString fromDir =
+                (slash < 0) ? QString() : sourcePath.left(slash);
+            if (!fromDir.isEmpty() && link.startsWith(fromDir + QLatin1Char('/'))) {
+                link.remove(0, fromDir.size() + 1);   // -> "notes/target.md"
+            }
+        }
+        if (link == sourcePath) return {};   // self-link is meaningless
+        // Anchor, not the wiki "#heading" convention.
+        QString anchor;
+        if (!subpath.isEmpty()) {
+            anchor = (subpath.startsWith(QLatin1Char('#'))) ? subpath
+                                                          : QLatin1Char('#') + subpath;
+        }
+        const QString text = displayText.isEmpty() ? target->basename : displayText;
+        return QStringLiteral("[") + text + QLatin1String("](") + link + anchor
+             + QLatin1Char(')');
+    }
+
+    // Obsidian's default: shortest unique wiki-link (basename for .md files,
+    // full relative path for others).
     const QString core = target->extension == QStringLiteral("md")
                        ? target->basename : target->path;
     QString out = QStringLiteral("[[") + core;
@@ -791,15 +847,33 @@ bool FileManager::promptForDeletion(TAbstractFile *file, QWidget *parent)
     const QString trashOpt =
         files.readEntry(QStringLiteral("TrashOption"), QStringLiteral("system"));
 
+    // 2026-10-01: the vault's own `.obsidian/app.json` wins over the app-level
+    // KConfig value. Obsidian stores `trashOption` and `promptDelete` per-vault
+    // (obsidian-audit/domains/settings.md), so a vault authored there was
+    // silently losing them. The KConfig reading stays as the fallback so an
+    // absent or unrecognised key preserves the existing behaviour rather than
+    // guessing — notably, an unknown `trashOption` string must not escalate to
+    // a permanent delete.
+    VaultConfig::TrashMode mode = VaultConfig::TrashMode::SystemTrash;
+    bool prompt = promptEnabled;
+    if (m_vault) {
+        const VaultConfig cfg = m_vault->vaultConfig();
+        const VaultConfig::TrashMode kcfgMode =
+            (trashOpt == QLatin1String("permanent")) ? VaultConfig::TrashMode::Permanent
+          : (trashOpt == QLatin1String("vault"))    ? VaultConfig::TrashMode::VaultTrash
+          : VaultConfig::TrashMode::SystemTrash;
+        mode   = cfg.appTrashMode(kcfgMode);
+        prompt = cfg.appPromptDelete(promptEnabled);
+    }
+
     const auto performDelete = [&](Vault *v) -> bool {
-        if (trashOpt == QStringLiteral("permanent"))
+        if (mode == VaultConfig::TrashMode::Permanent)
             return v->remove(file, /*recursive=*/isFolder);
-        const bool useSystem = (trashOpt == QStringLiteral("system"));
-        return v->trash(file, useSystem);
+        return v->trash(file, mode == VaultConfig::TrashMode::SystemTrash);
     };
 
-    // Folders always prompt; files respect PromptDelete.
-    if (!isFolder && !promptEnabled)
+    // Folders always prompt; files respect promptDelete.
+    if (!isFolder && !prompt)
         return performDelete(m_vault);
 
     DeleteConfirmDialog dlg(file, m_vault, parent);

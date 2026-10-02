@@ -118,3 +118,11 @@ add_executable(tst_ephemeral_scroll_interop tst_ephemeral_scroll_interop.cpp)
 add_test(NAME tst_ephemeral_scroll_interop COMMAND tst_ephemeral_scroll_interop)
 target_link_libraries(tst_ephemeral_scroll_interop PRIVATE Qt6::Test Corbomite::Storage)
 set_tests_properties(tst_ephemeral_scroll_interop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# .obsidian/app.json "Files & Links" settings are actually consumed (2026-10-01).
+# The fallback-on-unrecognised-value cases matter most for trashOption: silently
+# escalating to a permanent delete would destroy recoverable data.
+add_executable(tst_appjson_settings tst_appjson_settings.cpp)
+add_test(NAME tst_appjson_settings COMMAND tst_appjson_settings)
+target_link_libraries(tst_appjson_settings PRIVATE Qt6::Test Corbomite::Storage)
+set_tests_properties(tst_appjson_settings PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

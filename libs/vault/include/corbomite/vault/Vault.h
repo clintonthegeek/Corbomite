@@ -21,6 +21,7 @@ class DataAdapter;
 class NoteDocument;
 class TAbstractFile;
 class TFile;
+class VaultConfig;
 class TFolder;
 
 namespace detail { class Watcher; }
@@ -69,6 +70,14 @@ public:
     bool    isLoaded() const;
     QString getName() const;
     QString basePath() const;
+
+    /// A VaultConfig bound to THIS vault's adapter and root.
+    ///
+    /// Consumers that need `.obsidian/*.json` access (e.g. FileManager reading
+    /// `app.json`'s Files-&-Links settings) must not construct their own: a
+    /// separately-constructed instance would work against a different adapter
+    /// (MemoryAdapter vs FileSystemAdapter) and silently read nothing in tests.
+    VaultConfig vaultConfig() const;
 
     // ---- Config directory (.obsidian by default) ----
     QString configDir() const { return m_configDir; }
