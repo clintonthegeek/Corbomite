@@ -19,27 +19,32 @@
 **Second-sweep remediation.** Done: the appraisal + tracker reconciliation,
 `ThemeService` revival, release-hygiene A.2/A.3/A.4 + E.1, ~500 lines of dead
 code, 7 disabled tests re-enabled, cluster bookkeeping (E retired, F split,
-Tags pane → Cluster Q, D.5 specced, L5 checkboxed). Suite **337/337**.
+Tags pane → Cluster Q, D.5 specced, L5 checkboxed), the `eState.scroll` interop
+fix, and `.obsidian/app.json` consumption. Suite **339/339**.
 
 **Next, in order:**
 
 1. **Cluster O5** (`BasesViewActions`/`GraphViewActions` + Cluster I tail) — the
-   declared next work and the first user-facing item in a while. Then O6, O7.
-2. **Tier 2 quick wins** — `eState.scroll` interop (P1, Corbomite writes a
-   fraction where Obsidian reads a line number); `app.json` + `hotkeys.json`
-   consumption (2× P2, and `Hotkey`/`HotkeyFile` already exist, they are just
-   unwired); `resolveSubpath` (the tested Obsidian-parity resolver has zero
-   production callers while a regex scrubber ships); `GraphControlsPanel`
-   per-instance; split `dimension` apply-to-KDDW.
-3. **Cross-repo asks** (write and dispatch, then wait): a Markoff API for a
-   local, D2-undo-integrated frontmatter edit; `LABELS "benchmark"` on the two
-   canvas perf tests; re-steer the frontmatter fence (the re-pin landed without
-   it, so it was not accepted, not pending).
+   declared next work and the first user-facing item in a while. Then O6 (which
+   owns the `GraphControlsPanel` per-instance fix), then O7.
+2. **Cross-repo asks — WRITTEN, awaiting dispatch:**
+   [`handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md`](handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md)
+   asks for a local D2-undo-integrated frontmatter edit, flags a stale `Origin.h`
+   comment, requests `benchmark` labels on two canvas perf tests, and re-raises
+   the frontmatter fence whose 2026-06-10 steer was never accepted.
+3. **Tier 2 remainder:** `resolveSubpath` (the tested Obsidian-parity resolver has
+   zero production callers while a regex scrubber ships); split `dimension`
+   apply-to-KDDW. `hotkeys.json` is **re-scoped to a cluster**, not a wiring fix —
+   nothing reads or writes it today, and the substance is an Obsidian-command-id
+   mapping table.
 4. **Cluster M5/M6**, plus M's leftovers: canvas file-picker via `Vault`, and
    canvas dark mode (now actionable since `ThemeService` emits again).
 5. **Resume Cluster L5 soak** (6 scenarios) and clear the human-eyeball backlog.
 6. **Dispatch the new plans:** F-a (File Recovery + Note Composer, ~5–8d), Q
    (Tags pane, ~3–5d). F-b and D.5 are spec-first.
+
+Done in this batch: `eState.scroll` interop (P1) and `.obsidian/app.json`
+consumption (5 of 6 keys) — both shipped with falsifiability-checked tests.
 
 Deliberately not started: release-hygiene B (mmdr reproducibility), C, D, E.
 
