@@ -32,12 +32,6 @@ class ThemeService;
 class PostProcessorRegistry;
 }
 
-namespace Corbomite::MarkoffAdapters {
-class LinkResolverAdapter;
-class MetadataCacheAdapter;
-class MetadataParserImpl;
-}
-
 namespace Markoff::Reading {
 class EmbedRenderer;
 }
@@ -284,13 +278,16 @@ private:
     // (concrete, no adapter needed). EmbedRegistryAdapter removed; callers use
     // m_embedRegistry directly as Markoff::EmbedRegistry.
     std::unique_ptr<Markoff::EmbedRegistry> m_embedRegistry;
-    // TODO(port-foundation-exploration): Reading::EmbedRenderer +
-    // MarkoffAdapters::* unique_ptrs disabled — those types are forward-
-    // declared in this header but their definitions are #if 0-out in
-    // the .cpp / Adapters.h. unique_ptr dtor needs sizeof which can't
-    // see incomplete types from this header. Re-enable when those types
-    // are restored.
-    // std::unique_ptr<Markoff::Reading::EmbedRenderer> m_embedRenderer;
+    // 2026-10-01: the MarkoffAdapters::* members that used to sit here are
+    // gone, along with the whole adapter layer they pointed at (the three
+    // Markoff base classes they derived from no longer exist in the pinned
+    // submodule, so the file could not have compiled if re-enabled). A
+    // commented-out Reading::EmbedRenderer remains for the same reason:
+    // Markoff::Reading was retired with the QML leaf and there is no
+    // EmbedRenderer type to hold. unique_ptr needs sizeof, so a member for
+    // an absent type cannot simply be uncommented. Re-add when a live
+    // substitute for embed rendering actually lands (see the punch list's
+    // "registerEmbed API is a no-op" item).
     std::unique_ptr<Corbomite::Core::VaultResourceProvider> m_popoverResources;
     std::unique_ptr<Corbomite::Core::MermaidRenderer> m_mermaidRenderer;
     // P5.4 canvas mermaid seam — adapts m_mermaidRenderer's SVG-bytes-out
@@ -299,9 +296,6 @@ private:
     std::unique_ptr<Corbomite::CanvasMermaidAdapter> m_canvasMermaidAdapter;
     // Headless styled renderer handed to every CanvasFileView for card content.
     std::unique_ptr<Corbomite::StyledRenderEngine> m_cardRenderEngine;
-    // std::unique_ptr<Corbomite::MarkoffAdapters::LinkResolverAdapter> m_linkResolverAdapter;
-    // std::unique_ptr<Corbomite::MarkoffAdapters::MetadataCacheAdapter> m_metadataCacheAdapter;
-    // std::unique_ptr<Corbomite::MarkoffAdapters::MetadataParserImpl> m_metadataParserImpl;
     EditorSuggestManager *m_suggestManager = nullptr;
     WikiLinkSuggest *m_wikiSuggest = nullptr;
     TagSuggest *m_tagSuggest = nullptr;

@@ -48,7 +48,6 @@
 #include "corbomite/core/StyledRenderEngine.h"
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/View.h"
-#include "corbomite/storage/markoff_adapters/Adapters.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "ExportToPdf.h"
@@ -2236,13 +2235,12 @@ void MainWindow::onVaultOpened(const QString &path)
     m_fileManager = new FileManager(m_vaultObj, m_metadataCache, this);
 
     m_popoverResources = std::make_unique<VaultScopedResources>(m_vaultObj);
-    // TODO(port-foundation-exploration): MarkoffAdapters (LinkResolverAdapter,
-    // MetadataCacheAdapter, MetadataParserImpl) all #if 0-disabled until
-    // Markoff::Vault::* concretes are restored. EmbedRenderer wiring same.
-    // m_linkResolverAdapter = std::make_unique<...>(m_linkResolver);
-    // m_metadataCacheAdapter = std::make_unique<...>(m_metadataCache);
-    // m_metadataParserImpl = std::make_unique<...>(m_linkResolver);
-    // if (m_embedRenderer) { m_embedRenderer->setMetadataCache(...); ... }
+    // 2026-10-01: the MarkoffAdapters (LinkResolverAdapter, MetadataCacheAdapter,
+    // MetadataParserImpl) that used to be allocated here are deleted along with
+    // the adapter layer itself — their Markoff base classes no longer exist in
+    // the pinned submodule, so they could never have compiled. VaultScopedResources
+    // above is the live implementation of the same idea. EmbedRenderer wiring is
+    // likewise gone: Markoff::Reading was retired with the QML leaf.
 
     // Wire suggesters + hover popover against the live vault.
     m_hoverPopover->setResources(m_popoverResources.get());
