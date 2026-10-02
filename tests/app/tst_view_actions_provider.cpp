@@ -99,6 +99,121 @@ private Q_SLOTS:
     // heading radio settles to a single consistent state, not a
     // double-fire artifact).
     // -----------------------------------------------------------------
+
+    // ---- Cluster O Phase O7 (T1/T2/T4) ----
+
+    // Every action that is a stub must SAY SO, with a reason. This is O7.T2's
+    // actual deliverable: the reason is machine-readable so the palette and
+    // Hotkeys page can filter and explain, and greppable so the next session
+    // does not have to read 14 call sites.
+    void everyPlannedActionStatesItsBlocker() {
+        CorbomiteApp app;
+        MainWindow mw(&app);
+        auto *ac = mw.markdownViewActions()->actionCollection();
+
+        const QStringList mustState = {
+            QStringLiteral("insert_image"),
+            QStringLiteral("insert_code_block"),
+            QStringLiteral("insert_block_quote"),
+            QStringLiteral("insert_horizontal_rule"),
+            QStringLiteral("toggle_checkbox"),
+            QStringLiteral("table_row_above"), QStringLiteral("table_row_below"),
+            QStringLiteral("table_col_left"),  QStringLiteral("table_col_right"),
+            QStringLiteral("table_delete_row"), QStringLiteral("table_delete_col"),
+            QStringLiteral("fold_all"), QStringLiteral("unfold_all"),
+            QStringLiteral("toggle_fold"),
+            // O7.T4 — the two that used to exec a dialog and discard.
+            QStringLiteral("insert_table"),
+            QStringLiteral("insert_callout"),
+        };
+        for (const auto &id : mustState) {
+            auto *a = ac->action(id);
+            QVERIFY2(a, qPrintable(QStringLiteral("no such action: %1").arg(id)));
+            const QString blocked = a->property("blockedOn").toString();
+            QVERIFY2(!blocked.isEmpty(),
+                     qPrintable(QStringLiteral(
+                         "%1 is a stub with no stated blocker: "
+                         "the Hotkeys page and palette cannot explain it").arg(id)));
+            // And the tooltip must surface it, so a user hovering a
+            // disabled menu entry learns why rather than assuming a bug.
+            QVERIFY2(a->toolTip().contains(blocked),
+                     qPrintable(QStringLiteral("%1 tooltip omits its blocker").arg(id)));
+            QVERIFY2(!a->isEnabled(),
+                     qPrintable(QStringLiteral("%1 is a stub but is enabled").arg(id)));
+        }
+    }
+
+    // O7.T4: the two placebo dialogs must be GONE as live actions. The
+    // strongest form of this test is that they are disabled — a live action
+    // that execs a dialog and throws the answer away is a trap.
+    void placeboInsertDialogsAreDisabledNotLive() {
+        CorbomiteApp app;
+        MainWindow mw(&app);
+        auto *ac = mw.markdownViewActions()->actionCollection();
+        for (const char *id : {"insert_table", "insert_callout"}) {
+            auto *a = ac->action(QString::fromLatin1(id));
+            QVERIFY(a);
+            QVERIFY2(!a->isEnabled(),
+                     qPrintable(QStringLiteral(
+                         "%1 still executes and discards its dialog result").arg(id)));
+        }
+    }
+
+    // O7.T1: the three newly-implemented verbs are real actions, and they
+    // must NOT be in the always-disabled set.
+    //
+    // This is the ordering-bug guard. refresh() first disables every action
+    // carrying a blockedOn property, then computes Tier B for the live verbs.
+    // Had heading_increase/heading_decrease/insert_wiki_link been left in the
+    // disabled list — which is exactly what happened on the first attempt —
+    // they would be created, look correct in the menu XML, and be silently
+    // dead. Asserting only "the action exists" would not have caught that.
+    void o7t1VerbsAreLiveNotStubs() {
+        CorbomiteApp app;
+        MainWindow mw(&app);
+        auto *ac = mw.markdownViewActions()->actionCollection();
+        for (const char *id : {"insert_wiki_link", "heading_increase",
+                               "heading_decrease"}) {
+            auto *a = ac->action(QString::fromLatin1(id));
+            QVERIFY2(a, id);
+            QVERIFY2(a->property("blockedOn").toString().isEmpty(),
+                     qPrintable(QStringLiteral(
+                         "%1 is implemented but still carries a blocker").arg(id)));
+        }
+    }
+
+    // Note on what is deliberately NOT asserted here: "every disabled action
+    // carries a blocker". That reads like a stronger invariant but is false,
+    // and writing it was itself a mistake worth recording — Tier-B correctly
+    // disables ~27 LIVE actions (format_bold, edit_copy, the heading radios)
+    // when no editor is bound, so the check went red on correct behaviour. The
+    // real ordering bug is prevented STRUCTURALLY instead: the disable list is
+    // derived from the blockedOn property rather than hand-maintained, so an
+    // implemented verb cannot be put into it at all — which is what
+    // o7t1VerbsAreLiveNotStubs covers.
+    //
+    // What is NOT covered by any test here: the ENABLED path of the O7 verbs.
+    // That needs a bound editor with a cursor in a heading, so it is on the
+    // live-eyeball checklist rather than claimed as covered.
+
+    // The heading pair's Tier-B gating must mirror the handler's clamp. With
+    // no cursor context there is no level, so neither may be enabled — an
+    // action that would call setHeadingLevel(-1) must never be offered.
+    void headingVerbsAreDisabledWithoutCursorContext() {
+        CorbomiteApp app;
+        MainWindow mw(&app);
+        mw.markdownViewActions()->refresh();
+        auto *ac = mw.markdownViewActions()->actionCollection();
+        for (const char *id : {"heading_increase", "heading_decrease",
+                               "insert_wiki_link"}) {
+            auto *a = ac->action(QString::fromLatin1(id));
+            QVERIFY(a);
+            QVERIFY2(!a->isEnabled(),
+                     qPrintable(QStringLiteral(
+                         "%1 is enabled with no cursor context").arg(id)));
+        }
+    }
+
     void installUninstall_leavesCollectionClean()
     {
         QTemporaryDir tmp;

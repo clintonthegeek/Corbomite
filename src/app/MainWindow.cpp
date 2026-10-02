@@ -2135,14 +2135,39 @@ void MainWindow::showCommandPalette()
     QList<KCommandBar::ActionGroup> groups;
 
     KActionCollection *ac = actionCollection();
-    QList<QAction *> fileActions, viewActions, editActions;
+    QList<QAction *> fileActions, viewActions, editActions, tabActions, formatActions;
 
+    // Cluster O Phase O7.T5. Three fixes over the old bucket-by-prefix:
+    //
+    //  1. DISABLED ACTIONS ARE DROPPED. The palette listed every stub, so
+    //     "Toggle Fold" and "Insert Table..." were as prominent as Bold —
+    //     and both did nothing. Every stub now also carries a `blockedOn`
+    //     property (O7.T2); the greyed-out ones are simply not offered.
+    //  2. TABS AND FORMAT GOT THEIR OWN GROUPS. Everything that was not
+    //     file_/view_ fell into "Other", which by O5 held the tab commands,
+    //     the heading radios, the whole Format menu and every stub — the
+    //     report's "~60 actions in Other" complaint.
+    //  3. A provider's own actions are labelled by their view TYPE, read
+    //     from the provider's componentName, so Bases/Canvas/Graph/Markdown
+    //     entries are distinguishable rather than anonymous.
     for (QAction *action : ac->actions()) {
-        QString name = action->objectName();
+        // Skip permanently-disabled actions: a greyed-out entry is noise, and
+        // now that every stub states its blocker there is nothing to learn
+        // from finding it here.
+        if (!action->isEnabled())
+            continue;
+        const QString name = action->objectName();
         if (name.startsWith(QStringLiteral("file_"))) {
             fileActions.append(action);
         } else if (name.startsWith(QStringLiteral("view_"))) {
             viewActions.append(action);
+        } else if (name.startsWith(QStringLiteral("tab_"))
+                   || name.startsWith(QStringLiteral("leaf_"))) {
+            tabActions.append(action);
+        } else if (name.startsWith(QStringLiteral("format_"))
+                   || name.startsWith(QStringLiteral("heading_"))
+                   || name.startsWith(QStringLiteral("insert_"))) {
+            formatActions.append(action);
         } else {
             editActions.append(action);
         }
@@ -2150,10 +2175,14 @@ void MainWindow::showCommandPalette()
 
     if (!fileActions.isEmpty())
         groups.append({i18n("File"), fileActions});
+    if (!editActions.isEmpty())
+        groups.append({i18n("Edit"), editActions});
+    if (!formatActions.isEmpty())
+        groups.append({i18n("Format"), formatActions});
     if (!viewActions.isEmpty())
         groups.append({i18n("View"), viewActions});
-    if (!editActions.isEmpty())
-        groups.append({i18n("Other"), editActions});
+    if (!tabActions.isEmpty())
+        groups.append({i18n("Tabs"), tabActions});
 
     if (m_commandRegistry) {
         QList<QAction *> commandActions;

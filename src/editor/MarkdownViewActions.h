@@ -77,6 +77,15 @@ private:
     MarkdownView *m_boundView = nullptr;
 
     QMetaObject::Connection m_editorContextConnection;
+
+    /// O7.T1 — the cursor's current block context, cached from
+    /// EditorContextChanged. heading_increase/decrease need the CURRENT
+    /// heading level to compute the next one, and EditorContext was
+    /// previously consumed and discarded, so the only way to get it was to
+    /// ask the editor again — which is not exposed. `hasCursorContext` keeps
+    /// the Tier-B honest before any context has ever been reported.
+    int m_cursorHeadingLevel = 0;
+    bool m_hasCursorContext = false;
     QMetaObject::Connection m_viewModeConnection;
 };
 

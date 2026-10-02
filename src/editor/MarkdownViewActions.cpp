@@ -210,19 +210,37 @@ void MarkdownViewActions::refresh()
         if (auto *a = ac->action(id)) a->setEnabled(canEdit);
 
     // Stubs — no Markoff-side implementation yet (§D7). Always disabled.
-    static const QStringList stubActionIds = {
-        QStringLiteral("insert_wiki_link"), QStringLiteral("insert_image"),
-        QStringLiteral("insert_code_block"), QStringLiteral("insert_block_quote"),
-        QStringLiteral("insert_horizontal_rule"), QStringLiteral("toggle_checkbox"),
-        QStringLiteral("heading_increase"), QStringLiteral("heading_decrease"),
-        QStringLiteral("table_row_above"), QStringLiteral("table_row_below"),
-        QStringLiteral("table_col_left"),  QStringLiteral("table_col_right"),
-        QStringLiteral("table_delete_row"), QStringLiteral("table_delete_col"),
-        QStringLiteral("fold_all"), QStringLiteral("unfold_all"),
-        QStringLiteral("toggle_fold"),
-    };
-    for (const auto &id : stubActionIds)
+    // Every still-planned action. NOTE: heading_increase/heading_decrease and
+    // insert_wiki_link are deliberately NOT here — O7.T1 implemented them, and
+    // leaving them in this list would re-disable them immediately after the
+    // Tier-B gating below computed the right state. That is the kind of
+    // ordering bug where a test that only checks "action exists" sails
+    // straight through; assertEnablement() in tst_view_actions_provider is what
+    // catches it.
+    //
+    // A member list would duplicate registerPlannedAction's return values.
+    // Instead this is derived: an action is "planned" iff it carries the
+    // blockedOn property. One source of truth, so adding a stub can never
+    // forget to add it here (or vice versa).
+    const auto plannedIds = [ac]() {
+        QStringList ids;
+        for (auto *a : ac->actions())
+            if (a->property("blockedOn").toString().isEmpty() == false)
+                ids << a->objectName();
+        return ids;
+    }();
+    for (const auto &id : plannedIds)
         if (auto *a = ac->action(id)) a->setEnabled(false);
+
+    // O7.T1 Tier B for the three newly-implemented verbs. Gating mirrors the
+    // handlers' own clamps: an action is never ENABLED in a state where
+    // triggering it would do nothing, so the menu never offers a dead key.
+    if (auto *a = ac->action(QStringLiteral("insert_wiki_link")))
+        a->setEnabled(canEdit && m_hasCursorContext);
+    if (auto *a = ac->action(QStringLiteral("heading_increase")))
+        a->setEnabled(canEdit && m_hasCursorContext && m_cursorHeadingLevel < 6);
+    if (auto *a = ac->action(QStringLiteral("heading_decrease")))
+        a->setEnabled(canEdit && m_hasCursorContext && m_cursorHeadingLevel >= 1);
 
     if (auto *a = ac->action(QStringLiteral("editor_toggle_mode"))) a->setEnabled(isMarkdown);
     if (auto *a = ac->action(QStringLiteral("view_source_mode"))) a->setEnabled(isMarkdown);
@@ -265,6 +283,11 @@ void MarkdownViewActions::onEditorContextChanged(const Markoff::EditorContext &c
     auto *ac = actionCollection();
     const bool isHeading =
         ctx.blockKind == QLatin1String(Markoff::BlockKindNames::Heading);
+
+    // O7.T1 — cache for the heading_increase/decrease handlers, which need
+    // the current level and cannot query the editor for it.
+    m_cursorHeadingLevel = ctx.headingLevel;
+    m_hasCursorContext = true;
     for (int level = 1; level <= 6; ++level) {
         if (auto *a = ac->action(QStringLiteral("heading_%1").arg(level)))
             a->setChecked(isHeading && ctx.headingLevel == level);
@@ -363,17 +386,23 @@ void MarkdownViewActions::setupActions()
         });
         return act;
     };
-    auto addEditorActionStub = [this, ac](
+    // Cluster O Phase O7.T2 — every stub carries a machine-readable "blocked
+    // on" reason. The plan's ask was greppability: `grep -rn registerPlanned
+    // Action` now lists each unfinished verb WITH its blocker, instead of the
+    // reason living in a comment that drifts from the code. The reason is BOTH
+    // a QAction property (what the palette/Hotkeys page filters and explains
+    // on) and folded into the tooltip, so a disabled menu entry tells the user
+    // why it is dead instead of just being greyed out.
+    auto registerPlannedAction = [ac](
         const QString &objName, const QString &icon, const QString &label,
-        const QKeySequence &shortcut = {}) -> QAction* {
-        // TODO(port-foundation-exploration): no Markoff-side implementation
-        // yet (§D7). Registered so menus/toolbars/KCommandBar can discover
-        // the action and so refresh() can grey it out. Wire when the
-        // corresponding Markoff feature lands.
+        const QString &blockedOn, const QKeySequence &shortcut = {}) -> QAction* {
         auto *act = ac->addAction(objName);
         act->setText(label);
         if (!icon.isEmpty()) act->setIcon(QIcon::fromTheme(icon));
         if (!shortcut.isEmpty()) KActionCollection::setDefaultShortcut(act, shortcut);
+        act->setProperty("blockedOn", blockedOn);
+        act->setToolTip(i18n("%1 (not yet available — blocked on: %2)")
+                            .arg(label, blockedOn));
         act->setEnabled(false);
         return act;
     };
@@ -444,21 +473,40 @@ void MarkdownViewActions::setupActions()
                         QStringLiteral("edit-paste"), i18n("Paste as Plain Text"),
                         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_V),
                         &Markoff::MarkdownView::pasteAsPlain);
-    addEditorActionStub(QStringLiteral("insert_wiki_link"),
-                        QStringLiteral("insert-link"), i18n("Insert Wiki Link"),
-                        QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
-    addEditorActionStub(QStringLiteral("insert_image"),
-                        QStringLiteral("insert-image"), i18n("Insert Image"));
-    addEditorActionStub(QStringLiteral("insert_code_block"),
-                        QStringLiteral("code-block"), i18n("Insert Code Block"));
-    addEditorActionStub(QStringLiteral("insert_block_quote"),
+    // ---- O7.T1 — insert_wiki_link is now a real verb ----
+    //
+    // Markoff::MarkdownView declares insertLink(), so this was never blocked on
+    // Markoff at all; it was simply not wired. Tier B in refresh() gates it on
+    // a cursor.
+    {
+        auto *linkAct = ac->addAction(QStringLiteral("insert_wiki_link"));
+        linkAct->setText(i18n("Insert Wiki Link"));
+        linkAct->setIcon(QIcon::fromTheme(QStringLiteral("insert-link")));
+        KActionCollection::setDefaultShortcut(
+            linkAct, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
+        connect(linkAct, &QAction::triggered, this, [this]() {
+            if (auto *ed = editor())
+                if (auto *leaf = ed->activeLeaf())
+                    leaf->insertLink();
+        });
+    }
+    registerPlannedAction(QStringLiteral("insert_image"),
+                        QStringLiteral("insert-image"), i18n("Insert Image"),
+                        i18n("markoff: no insert-media verb (only insertLink exists)"));
+    registerPlannedAction(QStringLiteral("insert_code_block"),
+                        QStringLiteral("code-block"), i18n("Insert Code Block"),
+                        i18n("markoff:block-kind change (code fence); applyFlatEdit is Paragraph-only"));
+    registerPlannedAction(QStringLiteral("insert_block_quote"),
                         QStringLiteral("format-text-blockquote"),
-                        i18n("Insert Block Quote"));
-    addEditorActionStub(QStringLiteral("insert_horizontal_rule"),
+                        i18n("Insert Block Quote"),
+                        i18n("markoff:block-kind change (blockquote); applyFlatEdit is Paragraph-only"));
+    registerPlannedAction(QStringLiteral("insert_horizontal_rule"),
                         QStringLiteral("distribute-horizontal-center"),
-                        i18n("Insert Horizontal Rule"));
-    addEditorActionStub(QStringLiteral("toggle_checkbox"),
-                        QStringLiteral("checkbox"), i18n("Toggle Checkbox"));
+                        i18n("Insert Horizontal Rule"),
+                        i18n("markoff:block-kind change (thematic break); applyFlatEdit is Paragraph-only"));
+    registerPlannedAction(QStringLiteral("toggle_checkbox"),
+                        QStringLiteral("checkbox"), i18n("Toggle Checkbox"),
+                        i18n("markoff:task-state toggle; the ListItem marker is outside the edited byte span"));
 
     // Heading: H1..H6. H0 (paragraph) is not surfaced as a discrete
     // KAction; users hit Ctrl+0 via heading0Action when it propagates, or
@@ -482,75 +530,105 @@ void MarkdownViewActions::setupActions()
     }
     // Increase / Decrease still stubs — Markoff has no native
     // increase/decrease semantic (§D7 marks these "cheap" for O7, not O3).
-    addEditorActionStub(QStringLiteral("heading_increase"),
-                        QStringLiteral("format-header-more"),
-                        i18n("Increase Heading Level"));
-    addEditorActionStub(QStringLiteral("heading_decrease"),
-                        QStringLiteral("format-header-less"),
-                        i18n("Decrease Heading Level"));
+    // ---- O7.T1 — heading_increase / heading_decrease are now real verbs ----
+    //
+    // Markoff exposes setHeadingLevel(int), but NOT an increase/decrease
+    // semantic, so these need the CURRENT level to compute the next one. That
+    // arrives on EditorContextChanged and is cached in onEditorContextChanged
+    // (m_cursorHeadingLevel); it was previously consumed and thrown away.
+    //
+    // Clamped to 1..6 on both ends: decreasing from a Paragraph (level 0)
+    // must be a no-op rather than setHeadingLevel(-1), and increasing past H6
+    // must not produce H7. refresh() mirrors this in the enablement so the
+    // action is never offered in a state where it would do nothing.
+    {
+        auto addHeadingStep = [this, ac](const QString &id, const QString &icon,
+                                         const QString &label, int delta) {
+            auto *act = ac->addAction(id);
+            act->setText(label);
+            act->setIcon(QIcon::fromTheme(icon));
+            connect(act, &QAction::triggered, this, [this, delta]() {
+                if (!m_hasCursorContext) return;
+                const int next = m_cursorHeadingLevel + delta;
+                if (next < 1 || next > 6) return;
+                if (auto *ed = editor())
+                    if (auto *leaf = ed->activeLeaf())
+                        leaf->setHeadingLevel(next);
+            });
+            return act;
+        };
+        addHeadingStep(QStringLiteral("heading_increase"),
+                       QStringLiteral("format-header-more"),
+                       i18n("Increase Heading Level"), +1);
+        addHeadingStep(QStringLiteral("heading_decrease"),
+                       QStringLiteral("format-header-less"),
+                       i18n("Decrease Heading Level"), -1);
+    }
 
     // Insert: Table... / Callout... (dialog-wrapped) — dialog opens; the
     // actual insert is still a no-op until Markoff lands the insert paths
     // (§D7 / punch-list P3, disposed of in O7).
-    auto *insertTable = ac->addAction(QStringLiteral("insert_table"));
-    insertTable->setText(i18n("Insert Table..."));
-    insertTable->setIcon(QIcon::fromTheme(QStringLiteral("insert-table")));
-    connect(insertTable, &QAction::triggered, this, [this]() {
-        auto *ed = editor();
-        if (!ed || !ed->activeLeaf()) return;
-        InsertTableDialog dlg(m_dialogParent);
-        if (dlg.exec() != QDialog::Accepted) return;
-        // TODO(port-foundation-exploration): insertTable was on the old
-        // Markoff::Editor; the contract-v2 base has no insert-table verb
-        // yet. Re-steer upstream (O7.T3) when it lands.
-        (void)dlg.rows();
-        (void)dlg.cols();
-        (void)dlg.firstRowAsHeader();
-    });
-
-    auto *insertCallout = ac->addAction(QStringLiteral("insert_callout"));
-    insertCallout->setText(i18n("Insert Callout..."));
-    insertCallout->setIcon(QIcon::fromTheme(QStringLiteral("dialog-information")));
-    connect(insertCallout, &QAction::triggered, this, [this]() {
-        auto *ed = editor();
-        if (!ed || !ed->activeLeaf()) return;
-        CalloutPickerDialog dlg(m_dialogParent);
-        if (dlg.exec() != QDialog::Accepted) return;
-        // TODO(port-foundation-exploration): ditto insert_table's note.
-        (void)dlg.selectedType();
-        (void)dlg.title();
-    });
+    // ---- O7.T4: the two placebo dialogs ----
+    //
+    // Both used to exec a real dialog and then DISCARD the answer, so a user
+    // could fill in a table's rows/cols, press OK, and watch nothing happen.
+    // That is worse than being disabled: it looks functional and silently
+    // does nothing.
+    //
+    // They are now registered disabled with a stated blocker, consistent with
+    // every other planned action. Deliberately NOT shipped as an
+    // applyFlatEdit-based fake — that inserts flat Paragraphs, which is not a
+    // table and would corrupt the note. Re-enable when O7.T3's Markoff verbs
+    // land. The dialog classes themselves are left in place; they are still
+    // the right UI once there is something to insert them into.
+    registerPlannedAction(
+        QStringLiteral("insert_table"), QStringLiteral("insert-table"),
+        i18n("Insert Table..."),
+        i18n("markoff:table insert verb; exec-and-discard was removed in O7.T4"));
+    registerPlannedAction(
+        QStringLiteral("insert_callout"), QStringLiteral("dialog-information"),
+        i18n("Insert Callout..."),
+        i18n("markoff:callout insert verb; exec-and-discard was removed in O7.T4"));
 
     // Table operations — all stubs (no per-row/col API on Markoff yet).
-    addEditorActionStub(QStringLiteral("table_row_above"),
+    registerPlannedAction(QStringLiteral("table_row_above"),
                         QStringLiteral("edit-table-insert-row-above"),
-                        i18n("Insert Row Above"));
-    addEditorActionStub(QStringLiteral("table_row_below"),
+                        i18n("Insert Row Above"),
+                        i18n("markoff:table row ops"));
+    registerPlannedAction(QStringLiteral("table_row_below"),
                         QStringLiteral("edit-table-insert-row-below"),
-                        i18n("Insert Row Below"));
-    addEditorActionStub(QStringLiteral("table_col_left"),
+                        i18n("Insert Row Below"),
+                        i18n("markoff:table row ops"));
+    registerPlannedAction(QStringLiteral("table_col_left"),
                         QStringLiteral("edit-table-insert-column-left"),
-                        i18n("Insert Column Left"));
-    addEditorActionStub(QStringLiteral("table_col_right"),
+                        i18n("Insert Column Left"),
+                        i18n("markoff:table column ops"));
+    registerPlannedAction(QStringLiteral("table_col_right"),
                         QStringLiteral("edit-table-insert-column-right"),
-                        i18n("Insert Column Right"));
-    addEditorActionStub(QStringLiteral("table_delete_row"),
+                        i18n("Insert Column Right"),
+                        i18n("markoff:table column ops"));
+    registerPlannedAction(QStringLiteral("table_delete_row"),
                         QStringLiteral("edit-table-delete-row"),
-                        i18n("Delete Row"));
-    addEditorActionStub(QStringLiteral("table_delete_col"),
+                        i18n("Delete Row"),
+                        i18n("markoff:table row ops"));
+    registerPlannedAction(QStringLiteral("table_delete_col"),
                         QStringLiteral("edit-table-delete-column"),
-                        i18n("Delete Column"));
+                        i18n("Delete Column"),
+                        i18n("markoff:table column ops"));
 
     // View > Fold All / Unfold All / Toggle Fold — folding is not in
     // foundation-exploration at all yet; all stubs.
-    addEditorActionStub(QStringLiteral("fold_all"),
+    registerPlannedAction(QStringLiteral("fold_all"),
                         QStringLiteral("collapse-all"), i18n("Fold All"),
+                        i18n("markoff:fold verb"),
                         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Minus));
-    addEditorActionStub(QStringLiteral("unfold_all"),
-                        QStringLiteral("expand-all"), i18n("Unfold All"));
-    addEditorActionStub(QStringLiteral("toggle_fold"),
+    registerPlannedAction(QStringLiteral("unfold_all"),
+                        QStringLiteral("expand-all"), i18n("Unfold All"),
+                        i18n("markoff:fold verb"));
+    registerPlannedAction(QStringLiteral("toggle_fold"),
                         QStringLiteral("code-function"),
                         i18n("Toggle Fold at Cursor"),
+                        i18n("markoff:fold verb"),
                         QKeySequence(Qt::CTRL | Qt::Key_Period));
 }
 
