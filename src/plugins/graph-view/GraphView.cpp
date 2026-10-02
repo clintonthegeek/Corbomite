@@ -38,12 +38,6 @@ void GraphView::setMetadataCache(MetadataCacheReader *cache)
     if (m_graphWidget) m_graphWidget->setMetadataCache(cache);
 }
 
-void GraphView::setControlsPanel(GraphControlsPanel *panel)
-{
-    m_pendingPanel = panel;
-    if (m_graphWidget) m_graphWidget->setControlsPanel(panel);
-}
-
 GraphViewTab *GraphView::graphWidget() const { return m_graphWidget; }
 
 void GraphView::zoomIn()
@@ -81,7 +75,6 @@ void GraphView::onOpen()
 
         // Apply services that were set before the widget existed.
         if (m_pendingCache) m_graphWidget->setMetadataCache(m_pendingCache);
-        if (m_pendingPanel) m_graphWidget->setControlsPanel(m_pendingPanel);
     }
 }
 

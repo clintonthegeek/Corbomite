@@ -54,9 +54,6 @@ void GraphViewPlugin::onLoad(PluginContext *ctx)
                 view->setSearch(m_search);
                 view->setVault(m_vault);
                 view->setMetadataCache(m_metadata);
-                if (m_controlsPanel) {
-                    view->setControlsPanel(m_controlsPanel);
-                }
                 m_views.append(QPointer<GraphView>(view));
                 if (commandsProxy) {
                     view->setGraphCommandDispatcher(
@@ -127,16 +124,19 @@ void GraphViewPlugin::onUnload()
     m_vault = nullptr;
     m_search = nullptr;
     m_metadata = nullptr;
-    m_controlsPanel.clear();
     m_views.clear();
 }
 
 QObject *GraphViewPlugin::createView(MainWindow *)
 {
-    if (!m_controlsPanel) {
-        m_controlsPanel = new GraphControlsPanel(nullptr);
-    }
-    return m_controlsPanel;
+    // O6.T3: retired. This returned a SINGLETON GraphControlsPanel that
+    // MainWindow docked in a right-hand tool view and every GraphViewTab
+    // wired with ~13 connect() calls and no disconnect — so with two graph
+    // tabs open, one tab's slider drove both engines (report §4.3). Each tab
+    // now owns its panel (GraphViewTab::controlsPanel), which fixes the bug
+    // by construction. The "X-Corbomite-DockArea: right" metadata key is
+    // gone too, so MainWindow stops creating the dock for it.
+    return nullptr;
 }
 
 } // namespace Corbomite

@@ -316,6 +316,39 @@ double GraphControlsPanel::linkDistance() const
 
 // --- Reset ---
 
+void GraphControlsPanel::setForceValues(double center, double repel,
+                                        double link, double distance)
+{
+    if (!m_centerForceSlider || !m_repelForceSlider || !m_linkForceSlider
+        || !m_linkDistanceSlider) {
+        return;   // panel built without the forces section
+    }
+
+    m_centerForceSlider->blockSignals(true);
+    m_repelForceSlider->blockSignals(true);
+    m_linkForceSlider->blockSignals(true);
+    m_linkDistanceSlider->blockSignals(true);
+
+    // Slider positions are the panel's internal representation, and the
+    // conversions are NOT uniform: centre/link force are slider/1000, while
+    // repel force and link distance ARE the raw value. Taken from the
+    // setupForcesSection lambdas, which are the definition of the mapping.
+    m_centerForceSlider->setValue(qRound(center * 1000.0));
+    m_repelForceSlider->setValue(qRound(repel));
+    m_linkForceSlider->setValue(qRound(link * 1000.0));
+    m_linkDistanceSlider->setValue(qRound(distance));
+
+    m_centerForceValue->setText(QString::number(center, 'f', 3));
+    m_repelForceValue->setText(QString::number(qRound(repel)));
+    m_linkForceValue->setText(QString::number(link, 'f', 3));
+    m_linkDistanceValue->setText(QString::number(qRound(distance)));
+
+    m_centerForceSlider->blockSignals(false);
+    m_repelForceSlider->blockSignals(false);
+    m_linkForceSlider->blockSignals(false);
+    m_linkDistanceSlider->blockSignals(false);
+}
+
 void GraphControlsPanel::resetToDefaults()
 {
     // Block signals during reset to avoid intermediate rebuilds

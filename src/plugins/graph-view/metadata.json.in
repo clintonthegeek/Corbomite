@@ -13,7 +13,6 @@
     "X-Obsidian-Id": "graph",
     "X-Corbomite-Permissions": ["vault.read", "metadata.read", "workspace", "ui.views", "ui.commands"],
     "X-Corbomite-MinVersion": "0.1.0",
-    "X-Corbomite-DockArea": "right",
     "X-Corbomite-DockIcon": "configure",
     "X-Corbomite-DockTitle": "Graph Controls"
 }

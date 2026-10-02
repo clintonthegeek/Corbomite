@@ -12,6 +12,7 @@
 #include "../GraphViewPlugin.h"
 #include "../GraphViewActions.h"
 #include "../GraphViewTab.h"
+#include "../GraphControlsPanel.h"
 
 #include "corbomite/core/Command.h"
 #include "corbomite/core/ViewRegistry.h"
@@ -35,7 +36,6 @@ class TestGraphViewPlugin : public QObject
     Q_OBJECT
 private slots:
     void registersGraphViewTypeOnLoad();
-    void createViewReturnsControlsPanel();
     void skipsViewRegistrationWithoutUiViewsPermission();
     void registersCopyScreenshotCommandWhenUiCommandsGranted();
     void zoomDispatchesToViewportTransform();
@@ -46,6 +46,12 @@ private slots:
     void providerRegistrationFollowsUiViewsPermission();
     void unloadUnregistersProviderBeforeLibraryTeardown();
     void providerEnablesOnlyWithABuiltGraph();
+
+    // ---- Cluster O Phase O6.T3 — per-instance controls panel ------------
+    void twoTabsGetIndependentControlsPanels();
+    void movingOneTabsSliderLeavesTheOtherTabAlone();
+    void eachTabsPanelDrivesOnlyItsOwnEngine();
+    void pluginNoLongerHostsASingletonControlsPanel();
 };
 
 static PluginMetaData makeMeta() { return PluginMetaData(KPluginMetaData{}); }
@@ -83,20 +89,13 @@ void TestGraphViewPlugin::registersGraphViewTypeOnLoad()
     QVERIFY(bool(registry.getViewCreatorByType(QStringLiteral("graph"))));
 }
 
-void TestGraphViewPlugin::createViewReturnsControlsPanel()
-{
-    GraphViewPlugin plugin;
-    PluginContext ctx(makeMeta(),
-        {QStringLiteral("ui.views")});
-    plugin.load(&ctx);
-
-    QObject *view = plugin.createView(nullptr);
-    QVERIFY(view);
-    QVERIFY(qobject_cast<GraphControlsPanel *>(view) != nullptr);
-    // Second call returns the same instance (shared controls panel).
-    QCOMPARE(plugin.createView(nullptr), view);
-    delete view;
-}
+// RETIRED, deliberately deleted rather than inverted: this used to assert
+// that createView() returned a shared singleton GraphControlsPanel. O6.T3
+// removes that singleton precisely because it was shared, so the assertion
+// is gone with the behaviour. Its replacement is
+// pluginNoLongerHostsASingletonControlsPanel, which asserts the NEW contract
+// (createView returns nullptr) instead of merely asserting the old one is
+// not-quite-true.
 
 void TestGraphViewPlugin::skipsViewRegistrationWithoutUiViewsPermission()
 {
@@ -294,6 +293,82 @@ void TestGraphViewPlugin::providerEnablesOnlyWithABuiltGraph()
     QCOMPARE(actions.toolBarActions().size(), 1);
     QCOMPARE(actions.toolBarActions().first(),
              ac->action(QStringLiteral("graph_zoom_to_fit")));
+}
+
+// THE O6.T3 regression test. Report §4.3: one singleton GraphControlsPanel
+// was wired by every tab with ~13 connect() calls and no disconnect, so with
+// two graph tabs open a slider in one drove both engines. Every assertion
+// here fails against the pre-O6.T3 singleton.
+void TestGraphViewPlugin::twoTabsGetIndependentControlsPanels()
+{
+    GraphViewTab tabA(nullptr, nullptr);
+    GraphViewTab tabB(nullptr, nullptr);
+
+    auto *panelA = tabA.controlsPanel();
+    auto *panelB = tabB.controlsPanel();
+
+    QVERIFY2(panelA, "tab A has no controls panel");
+    QVERIFY2(panelB, "tab B has no controls panel");
+    QVERIFY2(panelA != panelB,
+             "two tabs share one controls panel — the singleton is back");
+}
+
+// The actual user-visible bug: a slider in tab A must not move tab B.
+void TestGraphViewPlugin::movingOneTabsSliderLeavesTheOtherTabAlone()
+{
+    GraphViewTab tabA(nullptr, nullptr);
+    GraphViewTab tabB(nullptr, nullptr);
+
+    auto *panelA = tabA.controlsPanel();
+    auto *panelB = tabB.controlsPanel();
+    QVERIFY(panelA && panelB);
+
+    const double beforeA = panelA->centerForce();
+    const double beforeB = panelB->centerForce();
+
+    panelA->setForceValues(0.045, 1500, 0.05, 100);
+
+    QCOMPARE(panelA->centerForce(), 0.045);
+    QCOMPARE(panelB->centerForce(), beforeB);
+    QVERIFY2(panelA->centerForce() != beforeA, "the seed did not take effect");
+}
+
+// And the engine side: seeding a panel must not perturb the other tab's
+// engine, and a tab's own panel must agree with its own engine.
+void TestGraphViewPlugin::eachTabsPanelDrivesOnlyItsOwnEngine()
+{
+    GraphViewTab tabA(nullptr, nullptr);
+    GraphViewTab tabB(nullptr, nullptr);
+
+    QVERIFY(tabA.controlsPanel());
+    QVERIFY(tabB.controlsPanel());
+
+    // The panel is seeded from its OWN engine in the ctor, so the two tabs'
+    // panels agree with their own engines by construction.
+    QCOMPARE(tabA.controlsPanel()->centerForce(), tabA.engineCenterForce());
+    QCOMPARE(tabB.controlsPanel()->centerForce(), tabB.engineCenterForce());
+
+    // Seeding one tab must leave the other's engine untouched. (Both start at
+    // defaults, so also perturb tab A's engine directly to make the check
+    // meaningful rather than a no-op comparison of equal defaults.)
+    tabA.setEngineCenterForce(0.033);
+    QCOMPARE(tabA.engineCenterForce(), 0.033);
+    QCOMPARE(tabB.engineCenterForce(), 0.010);
+}
+
+// The singleton host must actually be gone, not merely bypassed: createView
+// returning a panel would let MainWindow dock it and reintroduce the bug at
+// the dock level.
+void TestGraphViewPlugin::pluginNoLongerHostsASingletonControlsPanel()
+{
+    GraphViewPlugin plugin;
+    PluginContext ctx(makeMeta(), {QStringLiteral("ui.views")});
+    plugin.load(&ctx);
+
+    QVERIFY2(plugin.createView(nullptr) == nullptr,
+             "plugin still hosts a controls panel — MainWindow would dock it");
+    // Repeated calls must stay null, not lazily create a new shared one.
+    QVERIFY(plugin.createView(nullptr) == nullptr);
 }
 
 QTEST_MAIN(TestGraphViewPlugin)

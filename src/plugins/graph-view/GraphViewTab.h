@@ -25,7 +25,19 @@ public:
     ~GraphViewTab() override;
 
     void buildGraph();
-    void setControlsPanel(GraphControlsPanel *panel);
+
+    /// Cluster O Phase O6.T3 — each tab OWNS its controls panel.
+    ///
+    /// This used to be a singleton handed in from GraphViewPlugin and wired
+    /// by every tab with ~13 connect() calls and no disconnect, so two open
+    /// graph tabs both reacted to one panel's sliders (report §4.3). Owning
+    /// it fixes that by construction and removes the need for a disconnect.
+    ///
+    /// The panel is created on first request so it is not built for a tab
+    /// the user never opens the controls on; `ownsControlsPanel()` reports
+    /// whether it exists yet.
+    GraphControlsPanel *controlsPanel();
+    bool ownsControlsPanel() const { return !m_controlsPanel.isNull(); }
     void setMetadataCache(MetadataCacheReader *cache);
 
     /// Cluster O Phase O1.T3 — access to the underlying ForceGraphView so
@@ -43,6 +55,12 @@ public:
     void zoomToFitGraph();   ///< fit the whole graph in the viewport
     bool isGraphBuilt() const;
 
+    /// O6.T3 test seam — the tab's own engine's forces. Exposed because the
+    /// per-instance fix is only verifiable if each tab's engine state can be
+    /// read independently, and the panel only exposes its own copy.
+    double engineCenterForce() const;
+    void setEngineCenterForce(double force);
+
 Q_SIGNALS:
     void noteActivated(const QString &relativePath);
     void openNoteInNewTabRequested(const QString &relativePath);
@@ -51,6 +69,8 @@ Q_SIGNALS:
 
 private:
     void wireControlsPanel();
+    /// Seed a freshly-created panel from the engine's current forces.
+    void syncPanelFromEngine();
     void applyFilters();
     void showNodeContextMenu(const QString &nodeId, const QPoint &globalPos);
 
@@ -59,7 +79,10 @@ private:
     SearchProxy *m_search;
     VaultProxy *m_vault;
 
-    GraphControlsPanel *m_controlsPanel = nullptr;
+    QPointer<GraphControlsPanel> m_controlsPanel;
+    /// Wrapper widget so the panel can be inserted into the pane's layout
+    /// without the panel itself being re-parented mid-construction.
+    QWidget *m_panelHost = nullptr;
     QPointer<MetadataCacheReader> m_cache;
 
     // Cached full graph data (before filtering)

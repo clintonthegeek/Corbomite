@@ -38,9 +38,23 @@ GraphViewTab::GraphViewTab(SearchProxy *search, VaultProxy *vault, QWidget *pare
     m_graphView = new ForceGraph::ForceGraphView(this);
     m_graphView->setEngine(m_engine);
 
-    auto *layout = new QVBoxLayout(this);
+    // O6.T3: horizontal, so the per-tab controls panel can sit beside the
+    // viewport inside this pane instead of in a MainWindow dock.
+    auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_graphView);
+    layout->addWidget(m_graphView, 1);
+
+    // The panel is parented to the TAB, which is what makes "no disconnect
+    // needed" true: its lifetime is exactly one tab's. Under the old
+    // singleton the panel outlived every tab that had wired it.
+    m_controlsPanel = new GraphControlsPanel(this);
+    m_panelHost = new QWidget(this);
+    auto *hostLayout = new QHBoxLayout(m_panelHost);
+    hostLayout->setContentsMargins(0, 0, 0, 0);
+    hostLayout->addWidget(m_controlsPanel);
+    layout->addWidget(m_panelHost);
+    wireControlsPanel();
+    syncPanelFromEngine();
 
     connect(m_graphView, &ForceGraph::ForceGraphView::nodeClicked,
             this, [this](const QString &id) {
@@ -114,12 +128,23 @@ void GraphViewTab::buildGraph()
     }, Qt::SingleShotConnection);
 }
 
-void GraphViewTab::setControlsPanel(GraphControlsPanel *panel)
+GraphControlsPanel *GraphViewTab::controlsPanel()
 {
-    m_controlsPanel = panel;
-    if (m_controlsPanel) {
-        wireControlsPanel();
-    }
+    return m_controlsPanel.data();
+}
+
+void GraphViewTab::syncPanelFromEngine()
+{
+    // O6.T3 — a fresh panel defaults to its own initial slider values, which
+    // are not necessarily the engine's current state. On the first tab both
+    // start identically, but once the panel is created lazily (after, say, a
+    // settings change) the panel would silently disagree with the engine.
+    // Seed the panel from the engine rather than the other way round.
+    if (!m_controlsPanel || !m_engine) return;
+    m_controlsPanel->setForceValues(m_engine->centerForce(),
+                                    m_engine->repelForce(),
+                                    m_engine->linkForce(),
+                                    m_engine->linkDistance());
 }
 
 void GraphViewTab::setMetadataCache(MetadataCacheReader *cache)
@@ -206,6 +231,16 @@ void GraphViewTab::resetForces()
 void GraphViewTab::zoomToFitGraph()
 {
     if (m_graphView) m_graphView->zoomToFit();
+}
+
+double GraphViewTab::engineCenterForce() const
+{
+    return m_engine ? m_engine->centerForce() : 0.0;
+}
+
+void GraphViewTab::setEngineCenterForce(double force)
+{
+    if (m_engine) m_engine->setCenterForce(force);
 }
 
 bool GraphViewTab::isGraphBuilt() const

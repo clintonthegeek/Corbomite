@@ -40,6 +40,14 @@ public:
     double linkForce() const;     // 0.0–0.2
     double linkDistance() const;  // 20–300
 
+    /// Cluster O Phase O6.T3 — seed the four force controls from an existing
+    /// engine, with signals blocked. Needed because the panel is now created
+    /// LAZILY (per GraphViewTab), so a panel created after the engine was
+    /// configured would otherwise show defaults that disagree with the
+    /// engine it drives. Blocked signals so seeding the panel cannot itself
+    /// push values back and restart layout.
+    void setForceValues(double center, double repel, double link, double distance);
+
 Q_SIGNALS:
     // Filters
     void searchTextChanged(const QString &text);

@@ -70,7 +70,6 @@ private:
     SearchProxy *m_search = nullptr;
     VaultProxy *m_vault = nullptr;
     MetadataCacheReader *m_pendingCache = nullptr;
-    GraphControlsPanel *m_pendingPanel = nullptr;
     CommandDispatch m_graphCommandDispatcher;
 };
 
