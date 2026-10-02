@@ -292,6 +292,10 @@ void Workspace::setActiveLeaf(WorkspaceLeaf *leaf)
     // force-set m_activeLeaf directly inside Workspace.
     if (!m_layoutReady)
         return;
+    // O5.T5: remember what was active, so "Link with active pane" has a
+    // defined target instead of picking an arbitrary visible leaf. Set
+    // before the reassignment, and cleared if we had no active leaf.
+    m_previousActiveLeaf = m_activeLeaf;
     m_activeLeaf = leaf;
     if (leaf) {
         // Realize deferred leaves on activation. Session restore marks every
@@ -869,6 +873,110 @@ QVector<WorkspaceLeaf *> Workspace::groupMembers(const QString &groupId) const
             result.append(leaf);
     }
     return result;
+}
+
+// KDDW group that `leaf`'s dock widget currently lives in, or nullptr.
+// Mirrors liveTabSiblings' lookup, but returns the Group so the caller can
+// reach the tab bar for a reorder.
+KDDockWidgets::Core::Group *groupOfLeaf(WorkspaceLeaf *leaf)
+{
+    if (!leaf) return nullptr;
+    auto *qd = leaf->dockWidget();
+    if (!qd) return nullptr;
+    auto *core = qd->dockWidget();
+    if (!core) return nullptr;
+    for (auto *group : KDDockWidgets::DockRegistry::self()->groups()) {
+        const auto dws = group->dockWidgets();
+        for (auto *dw : dws)
+            if (dw == core)
+                return group;
+    }
+    return nullptr;
+}
+
+bool Workspace::moveLeafWithinGroup(WorkspaceLeaf *leaf, int delta)
+{
+    if (!leaf || delta == 0) return false;
+    auto *group = groupOfLeaf(leaf);
+    if (!group) return false;
+
+    auto *tabBar = group->tabBar();
+    if (!tabBar) return false;
+
+    // Map our leaf onto the group's tab index. dockWidgets() is index-ordered,
+    // so a linear scan is the honest lookup here; groups are small and this
+    // runs on a user-initiated command, not in a hot path.
+    auto *core = leaf->dockWidget() ? leaf->dockWidget()->dockWidget() : nullptr;
+    if (!core) return false;
+
+    const auto dws = group->dockWidgets();
+    int from = -1;
+    for (int i = 0; i < dws.size(); ++i) {
+        if (dws.at(i) == core) { from = i; break; }
+    }
+    if (from < 0) return false;
+
+    const int to = from + delta;
+    if (to < 0 || to >= dws.size()) return false;   // clamp: no-op at the ends
+
+    tabBar->moveTabTo(from, to);
+    return true;
+}
+
+bool Workspace::linkLeaves(WorkspaceLeaf *a, WorkspaceLeaf *b)
+{
+    if (!a || !b || a == b) return false;
+
+    // Group-id selection. The audit records `setGroupMember(other)` as
+    // "creates/reuses the target's group id" (`workspace.md:123`), which is
+    // the right rule when the target is ungrouped — but taken literally it
+    // *orphans* the source leaf's existing group members: linking a leaf that
+    // is already in a 3-member group to an ungrouped target would mint a new
+    // id, move only the two leaves passed in, and leave the third pointing at
+    // a group it is no longer in. A pinned test caught exactly that. So:
+    // keep the source's group when it has one (the union stays intact),
+    // else reuse the target's per the reference, else mint.
+    QString groupId = a->group();
+    if (groupId.isEmpty())
+        groupId = b->group();
+    if (groupId.isEmpty())
+        groupId = generateTabGroupId();
+
+    a->setGroup(groupId);
+    b->setGroup(groupId);
+
+    // workspace.md:392 — joining a pinned group forces the new member
+    // pinned. If either was already pinned the whole linked group becomes
+    // pinned; if neither, neither becomes.
+    const bool pinned = a->pinned() || b->pinned();
+    if (pinned && !(a->pinned() && b->pinned())) {
+        a->setPinned(true);
+        b->setPinned(true);
+        // Keep the rest of an existing group consistent with the new state.
+        propagatePinToGroup(a);
+        propagatePinToGroup(b);
+    }
+    return true;
+}
+
+void Workspace::unlinkLeaf(WorkspaceLeaf *leaf)
+{
+    if (!leaf) return;
+    const QString groupId = leaf->group();
+    if (groupId.isEmpty()) return;
+
+    // Clear on every member, not just `leaf` — a half-cleared group would
+    // leave the survivors pointing at a group id nobody renders.
+    for (auto *member : groupMembers(groupId))
+        member->setGroup(QString());
+}
+
+bool Workspace::isLinkedPane(WorkspaceLeaf *leaf) const
+{
+    if (!leaf) return false;
+    const QString groupId = leaf->group();
+    if (groupId.isEmpty()) return false;
+    return groupMembers(groupId).size() > 1;
 }
 
 void Workspace::propagatePinToGroup(WorkspaceLeaf *leaf)

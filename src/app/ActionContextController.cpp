@@ -343,6 +343,33 @@ void ActionContextController::updateTabStateActions()
         act->setEnabled(!groupId.isEmpty());
         act->setChecked(!groupId.isEmpty() && m_workspace->isTabGroupStacked(groupId));
     }
+
+    // O5.T5 — tab reordering. Both clamp at the ends inside
+    // Workspace::moveLeafWithinGroup (returning false there), so the
+    // enablement has to be derived from real positions or the user gets two
+    // permanently-live keys that silently do nothing at the extremes.
+    if (m_workspace && leaf) {
+        const int idx = m_workspace->leafIndexInGroup(leaf);
+        const int count = m_workspace->leafCountInGroup(leaf);
+        if (auto *act = m_actionCollection->action(QStringLiteral("tab_move_left")))
+            act->setEnabled(idx > 0);
+        if (auto *act = m_actionCollection->action(QStringLiteral("tab_move_right")))
+            act->setEnabled(idx >= 0 && idx < count - 1);
+    } else {
+        for (const char *id : {"tab_move_left", "tab_move_right"})
+            if (auto *act = m_actionCollection->action(QString::fromLatin1(id)))
+                act->setEnabled(false);
+    }
+
+    // O5.T5 — Link with active pane. Needs a leaf plus a *different* leaf to
+    // link to; Obsidian's "active pane" is the previously-focused leaf, which
+    // Workspace now tracks. Checked state is read back from the real group,
+    // not remembered, so the mark can't drift from reality.
+    if (auto *act = m_actionCollection->action(QStringLiteral("leaf_link_with_active_pane"))) {
+        auto *other = m_workspace ? m_workspace->previousActiveLeaf() : nullptr;
+        act->setEnabled(leaf != nullptr && other != nullptr && other != leaf);
+        act->setChecked(leaf && m_workspace && m_workspace->isLinkedPane(leaf));
+    }
 }
 
 // ---------------------------------------------------------------------

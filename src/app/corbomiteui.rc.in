@@ -43,6 +43,14 @@
       <Action name="tab_next"/>
       <Action name="tab_prev"/>
       <Action name="tab_close"/>
+      <!-- Cluster O Phase O5.T5 (Cluster I Phase 5 tail). Universal: tab
+           order is a workspace concern, not a view-type one, so these
+           belong in the always-present Tab menu rather than any
+           ViewActions provider. -->
+      <Separator/>
+      <Action name="tab_move_left"/>
+      <Action name="tab_move_right"/>
+      <Action name="leaf_link_with_active_pane"/>
     </Menu>
     <!-- Cluster O Phase O3 (§D5) — split_right/split_down/sidebar/zoom are
          universal (no view-type dependency). editor_toggle_mode, the

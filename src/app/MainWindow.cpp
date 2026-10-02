@@ -1525,6 +1525,58 @@ void MainWindow::setupActions()
 
     // D3: move-to-new-window. One-call wrapper over the popout/floating
     // primitive kept from Phase L3's C1 audit (WorkspaceWindow/popoutLeaf).
+    // Cluster O Phase O5.T5 (Cluster I Phase 5 tail): tab reordering.
+    // Ctrl+Shift+PgUp/PgDn match Obsidian's own bindings for these. Both
+    // clamp at the ends and return false there, so ActionContextController
+    // disables them rather than offering a no-op.
+    auto *moveTabLeft = ac->addAction(QStringLiteral("tab_move_left"));
+    moveTabLeft->setText(i18n("Move Tab Left"));
+    moveTabLeft->setIcon(QIcon::fromTheme(QStringLiteral("go-previous")));
+    moveTabLeft->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_PageUp));
+    connect(moveTabLeft, &QAction::triggered, this, [this]() {
+        if (!m_workspace) return;
+        if (auto *leaf = m_workspace->activeLeaf())
+            m_workspace->moveLeafWithinGroup(leaf, -1);
+    });
+
+    auto *moveTabRight = ac->addAction(QStringLiteral("tab_move_right"));
+    moveTabRight->setText(i18n("Move Tab Right"));
+    moveTabRight->setIcon(QIcon::fromTheme(QStringLiteral("go-next")));
+    moveTabRight->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_PageDown));
+    connect(moveTabRight, &QAction::triggered, this, [this]() {
+        if (!m_workspace) return;
+        if (auto *leaf = m_workspace->activeLeaf())
+            m_workspace->moveLeafWithinGroup(leaf, +1);
+    });
+
+    // Cluster O Phase O5.T5 — "Link with active pane". Checkable, and
+    // grounded in the reverse-engineered behaviour (audit
+    // `workspace.md:123` + `:392`): `setGroupMember` creates or REUSES the
+    // target's group id, and joining a pinned group forces the new member
+    // pinned. Both are implemented in Workspace::linkLeaves/unlinkLeaf; this
+    // action only picks the target (the previously-active leaf — Obsidian's
+    // "active pane") and mirrors the real state into the check mark.
+    m_actionLinkWithActivePane =
+        ac->addAction(QStringLiteral("leaf_link_with_active_pane"));
+    m_actionLinkWithActivePane->setText(i18n("Link with Active Pane"));
+    m_actionLinkWithActivePane->setIcon(
+        QIcon::fromTheme(QStringLiteral("tab-detach")));
+    m_actionLinkWithActivePane->setCheckable(true);
+    connect(m_actionLinkWithActivePane, &QAction::triggered, this, [this](bool on) {
+        if (!m_workspace) return;
+        auto *leaf = m_workspace->activeLeaf();
+        if (!leaf) return;
+        if (!on) {
+            m_workspace->unlinkLeaf(leaf);
+            if (m_actionContext) m_actionContext->refresh();
+            return;
+        }
+        auto *other = m_workspace->previousActiveLeaf();
+        if (!m_workspace->linkLeaves(leaf, other))
+            return;
+        if (m_actionContext) m_actionContext->refresh();
+    });
+
     auto *moveToNewWindow = ac->addAction(QStringLiteral("tab_move_to_new_window"));
     moveToNewWindow->setText(i18n("Move Tab to New Window"));
     connect(moveToNewWindow, &QAction::triggered, this, [this]() {

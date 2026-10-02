@@ -181,6 +181,44 @@ public:
     /// not in any tab group.
     int leafCountInGroup(WorkspaceLeaf *leaf) const;
 
+    /// Move `leaf` one slot left (-1) or right (+1) within its tab group,
+    /// returning true if it actually moved. Clamps at the ends: a leaf that
+    /// is already leftmost (or rightmost) is a no-op returning false, so the
+    /// caller can disable the action rather than have it silently do nothing.
+    /// Works through KDDW's own `TabBar::moveTabTo`, so the tab bar, the
+    /// workspace.json leaf order, and the active leaf all agree afterwards.
+    bool moveLeafWithinGroup(WorkspaceLeaf *leaf, int delta);
+
+    // ---- Linked-pane groups (Cluster O Phase O5.T5) ----
+    //
+    // Obsidian groups tabs so that navigating one navigates every member
+    // (audit: `FEATURE-MATRIX.md` "Linked-pane group"; `workspace.md:123`
+    // records `setGroup(id|null)` firing `group-change` and
+    // `setGroupMember(other|null)` *creating or reusing the target's* group
+    // id, plus `workspace.md:392`: "setGroup joining a pinned group forces
+    // the new member pinned").
+
+    /// Join `a` and `b` into one linked-pane group, reusing `b`'s existing
+    /// group id when it has one (matching `setGroupMember`'s create-or-reuse
+    /// rule) and otherwise minting a fresh id. Both leaves end up with the
+    /// same group; if either was pinned, both end up pinned. Returns false
+    /// if either argument is null or they are the same leaf.
+    bool linkLeaves(WorkspaceLeaf *a, WorkspaceLeaf *b);
+
+    /// Break `leaf` out of any linked-pane group, clearing the group on
+    /// every member so none is left pointing at a group it is no longer
+    /// part of. No-op for a null or ungrouped leaf.
+    void unlinkLeaf(WorkspaceLeaf *leaf);
+
+    /// True when `leaf` shares its group with at least one other live leaf.
+    bool isLinkedPane(WorkspaceLeaf *leaf) const;
+
+    /// The leaf that was active immediately before the current one. This is
+    /// Obsidian's "the active pane" for Link-with-active-pane; tracked
+    /// because Corbomite had no notion of it, and picking an arbitrary other
+    /// visible leaf would make the command's effect unpredictable.
+    WorkspaceLeaf *previousActiveLeaf() const { return m_previousActiveLeaf; }
+
     /// Close every leaf in `leaf`'s tab group except `leaf` itself.
     /// No-op if `leaf` is not in any tab group.
     void closeOtherLeavesInGroupOf(WorkspaceLeaf *leaf);
@@ -345,6 +383,7 @@ private:
     QHash<QString, bool> m_stackedGroups;
 
     WorkspaceLeaf *m_activeLeaf = nullptr;
+    WorkspaceLeaf *m_previousActiveLeaf = nullptr;
     bool m_layoutReady = true;
     /// C5 resize-event coalescing guard: true while a singleShot(0) flush
     /// of `resize()` is already scheduled for the current event-loop turn.

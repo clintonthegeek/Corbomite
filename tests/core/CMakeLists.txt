@@ -190,6 +190,11 @@ add_test(NAME tst_workspace_serialize COMMAND tst_workspace_serialize)
 target_link_libraries(tst_workspace_serialize PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_workspace_serialize PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_workspace_linked_pane tst_workspace_linked_pane.cpp)
+add_test(NAME tst_workspace_linked_pane COMMAND tst_workspace_linked_pane)
+target_link_libraries(tst_workspace_linked_pane PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_workspace_linked_pane PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_leaf_undo tst_leaf_undo.cpp)
 add_test(NAME tst_leaf_undo COMMAND tst_leaf_undo)
 target_link_libraries(tst_leaf_undo PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)

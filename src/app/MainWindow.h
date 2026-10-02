@@ -312,6 +312,7 @@ private:
     KToolBar *m_markdownToolBar = nullptr;
     CanvasViewActions *m_canvasViewActions = nullptr;
     BasesViewActions *m_basesViewActions = nullptr;
+    QAction *m_actionLinkWithActivePane = nullptr;
     KToolBar *m_canvasToolBar = nullptr;
 
     // Cluster B Phase 1 — host-wide plugin extension registries.
