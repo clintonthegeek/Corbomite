@@ -16,49 +16,51 @@
 
 ## Current focus
 
-**Second-sweep remediation.** Done: the appraisal + tracker reconciliation,
-`ThemeService` revival, release-hygiene A.2/A.3/A.4 + E.1, ~500 lines of dead
-code, 7 disabled tests re-enabled, cluster bookkeeping (E retired, F split,
-Tags pane → Cluster Q, D.5 specced, L5 checkboxed), the `eState.scroll` interop
-fix, and `.obsidian/app.json` consumption. Suite **339/339**.
+Remediation sweep. **Suite 340/340.** Tracker: 58 open / 135 closed.
+
+**Done since the second-sweep appraisal** (2026-10-01 → 02): `ThemeService`
+revival; release-hygiene A.2/A.3/A.4 + E.1; ~500 lines of dead code; 7
+disabled tests re-enabled; cluster bookkeeping (E retired, F split into
+F-a/F-b, Tags pane → Cluster Q, D.5 specced, L5 checkboxed); `eState.scroll`
+interop (was P1); `.obsidian/app.json` (5 of 6 keys); `resolveSubpath` wired
+into the render path. **Cluster O5 complete** — bases' seven toolbar controls
+and the graph's five verbs are real KActions, tab reorder + linked panes
+landed, and `ViewRegistrar` gained a ViewActions path so a *plugin* can ship
+a provider with no new API surface. **O6.T3** fixed the shared
+`GraphControlsPanel` singleton.
 
 **Next, in order:**
+1. **O7** — Cluster O closeout: rebuild the live-eyeball checklist, retire
+   the remaining 18 plan checkboxes explicitly rather than leaving them to
+   rot, decide the O6.T1/T2/T4 inspector slot (currently a punch item).
+2. **Cluster M5/M6** + leftovers: canvas file-picker via `Vault`; canvas dark
+   mode (now actionable since `ThemeService` emits).
+3. **Resume Cluster L5 soak** (6 scenarios) and clear the human-eyeball
+   backlog. Both need a human.
+4. **Dispatch the new plans:** F-a (File Recovery + Note Composer, ~5–8d),
+   Q (Tags pane, ~3–5d). F-b and D.5 are spec-first.
+5. **Release hygiene B** (mmdr reproducibility), C, D, E — B blocks the
+   mermaid item.
 
-1. **Cluster O5** (`BasesViewActions`/`GraphViewActions` + Cluster I tail) — the
-   declared next work and the first user-facing item in a while. Then O6 (which
-   owns the `GraphControlsPanel` per-instance fix), then O7.
-2. **Cross-repo asks — WRITTEN, awaiting dispatch:**
-   [`handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md`](handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md)
-   asks for a local D2-undo-integrated frontmatter edit, flags a stale `Origin.h`
-   comment, requests `benchmark` labels on two canvas perf tests, and re-raises
-   the frontmatter fence whose 2026-06-10 steer was never accepted.
-3. **Cluster O is nearly closed** — O5 complete (bases + graph providers, tab
-   reorder, linked panes), O6.T3 done. O6.T1/T2/T4 (the `View` inspector slot)
-   are recorded as a punch item rather than attempted. **Tier 2 is done** — `resolveSubpath` now serves the render path (the faithful
-   AST-based resolver replaced the regex scrubber; it had 20 tests and zero
-   production callers). Two items were **investigated and deliberately left open**
-   with the reasoning recorded rather than half-solved: `split dimension`
-   (KDDW exposes no public separator-size setter at all — three options weighed,
-   recommend accepting it), and `GraphControlsPanel` (belongs to O6's relocation).
-   `hotkeys.json` is **re-scoped to a cluster**, not a wiring fix — nothing reads or
-   writes it today, and the substance is an Obsidian-command-id mapping table.
-4. **Cluster M5/M6**, plus M's leftovers: canvas file-picker via `Vault`, and
-   canvas dark mode (now actionable since `ThemeService` emits again).
-5. **Resume Cluster L5 soak** (6 scenarios) and clear the human-eyeball backlog.
-6. **Dispatch the new plans:** F-a (File Recovery + Note Composer, ~5–8d), Q
-   (Tags pane, ~3–5d). F-b and D.5 are spec-first.
+**Cross-repo** — written, awaiting dispatch:
+[`handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md`](handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md)
+(local D2-undo-integrated frontmatter edit, stale `Origin.h`, `benchmark`
+labels on two canvas perf tests, the never-accepted frontmatter fence steer).
 
-Done in this batch: `eState.scroll` interop (P1) and `.obsidian/app.json`
-consumption (5 of 6 keys) — both shipped with falsifiability-checked tests.
+**Investigated and deliberately left open**, reasoning recorded rather than
+half-solved: `split dimension` (KDDW exposes **no** public separator-size
+setter — three options weighed, recommend accepting it); `hotkeys.json`
+(re-scoped to a cluster, not a wiring fix — nothing reads it today and the
+substance is an Obsidian-command-id mapping table).
 
-Deliberately not started: release-hygiene B (mmdr reproducibility), C, D, E.
-
-**Standing lesson** — five of my own claims this session were wrong and were caught
-by checking rather than shipped: a "fix" whose test passed against unfixed code, an
-undo fix its own test caught, a suspected data-loss bug whose mechanism was real but
-consequence inert, an `reinterpret_cast` from `nullptr`, and two dead-code-list
-entries that were live. See the audit's §10: a gate never seen red proves nothing,
-and a symbol whose only references live in a header you did not read is not dead.
+**Standing lesson** — eight of my own claims this session were wrong and were
+caught by checking rather than shipped: a "fix" whose test passed against
+unfixed code; an undo fix its own test caught; a suspected data-loss bug whose
+mechanism was real but consequence inert; an `reinterpret_cast` from
+`nullptr`; two dead-code-list entries that were live; a group-id rule taken
+from the audit that orphans members; and a first pass at the bases toolbar
+test that passed against reverted code. See the audit's §10 — a gate never
+seen red proves nothing.
 
 ## Two tracks
 
