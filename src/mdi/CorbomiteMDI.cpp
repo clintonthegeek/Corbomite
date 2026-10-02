@@ -740,13 +740,6 @@ MultiTabBar *Sidebar::insertTabBar(int idx /* = -1*/)
     return newBar;
 }
 
-void Sidebar::updateLastSizeOnResize()
-{
-    const int splitHandleIndex = qMin(m_splitter->indexOf(m_ownSplit) + 1, m_splitter->count() - 1);
-    Q_ASSERT(splitHandleIndex > 0);
-    m_splitter->handle(splitHandleIndex)->installEventFilter(this);
-}
-
 int Sidebar::nextId()
 {
     static int id = 0;
@@ -1348,115 +1341,6 @@ void Sidebar::updateLastSize()
     m_lastSize = qMax(s[m_ownSplitIndex], 160);
 }
 
-void Sidebar::startRestoreSession(KConfigGroup &config)
-{
-    if (m_sessionRestoreRunning) {
-        return;
-    }
-    m_sessionRestoreRunning = true;
-
-    char key[256]{};
-    snprintf(key, sizeof(key), "Corbomite-MDI-Sidebar-%d-Splitter", (int)position());
-    QList<int> s = config.readEntry(key, QList<int>());
-    for (int i = 1; i < s.size(); ++i) {
-        insertTabBar();
-    }
-    for (int i = 0; i < s.size(); ++i) {
-        snprintf(key, sizeof(key), "Corbomite-MDI-Sidebar-%d-Bar-%d-TvList", (int)position(), i);
-        const QStringList tvList = config.readEntry(key, QStringList());
-        for (int j = 0; j < tvList.size(); ++j) {
-            auto it = std::find_if(m_tvIdToTabId.begin(), m_tvIdToTabId.end(), [&tvList, j](const ToolViewToTabId &a) {
-                return a.toolview == tvList.at(j);
-            });
-            if (it == m_tvIdToTabId.end()) {
-                int id = tabBar(i)->addBlankTab();
-                m_tvIdToTabId.emplace_back(ToolViewToTabId{.toolview = tvList[j], .tabId = id, .tabbarId = i});
-            }
-        }
-    }
-}
-
-void Sidebar::restoreSession(KConfigGroup &config)
-{
-    if (!m_sessionRestoreRunning) {
-        return;
-    }
-
-    for (const auto &[id, tv, tabbar] : m_toolviews) {
-        tabbar->setTabActive(id, config.readEntry(QStringLiteral("Corbomite-MDI-ToolView-%1-Visible").arg(tv->id), false));
-        showToolviewTab(tv, config.readEntry(QStringLiteral("Corbomite-MDI-ToolView-%1-Show-Button-In-Sidebar").arg(tv->id), true));
-    }
-
-    for (const auto &[tv, id, tabbarId] : m_tvIdToTabId) {
-        tabBar(tabbarId)->removeBlankTab(id);
-    }
-    m_tvIdToTabId.clear();
-
-    for (int i = 0; i < tabBarCount(); ++i) {
-        if (tabBarIsEmpty(tabBar(i))) {
-            --i;
-        }
-    }
-
-    char key[256]{};
-    snprintf(key, sizeof(key), "Corbomite-MDI-Sidebar-%d-SectSizes", (int)position());
-    QList<int> sectSizes = config.readEntry(key, QList<int>());
-    for (int i = 0; i < sectSizes.count(); ++i) {
-        if (tabBarCount() - 1 < i) {
-            break;
-        }
-        tabBar(i)->setSectionSize(sectSizes.at(i));
-    }
-
-    collapseSidebar();
-    snprintf(key, sizeof(key), "Corbomite-MDI-Sidebar-%d-LastSize", (int)position());
-    m_lastSize = config.readEntry(key, 160);
-    snprintf(key, sizeof(key), "Corbomite-MDI-Sidebar-%d-Splitter", (int)position());
-    auto sz = config.readEntry(key, QList<int>());
-    QTimer::singleShot(100, this, [this, sz]() {
-        setSizes(sz);
-
-        m_mainWin->triggerFocusForCentralWidget();
-    });
-    updateSidebar();
-
-    m_sessionRestoreRunning = false;
-}
-
-void Sidebar::saveSession(KConfigGroup &config)
-{
-    if (m_sessionRestoreRunning) {
-        return;
-    }
-
-    char key[256]{};
-    snprintf(key, sizeof(key), "Corbomite-MDI-Sidebar-%d-Splitter", (int)position());
-    config.writeEntry(key, sizes());
-
-    snprintf(key, sizeof(key), "Corbomite-MDI-Sidebar-%d-LastSize", (int)position());
-    config.writeEntry(key, m_lastSize);
-
-    for (const auto &[id, tv, _] : m_toolviews) {
-        config.writeEntry(QStringLiteral("Corbomite-MDI-ToolView-%1-Position").arg(tv->id), int(tv->sidebar()->position()));
-        config.writeEntry(QStringLiteral("Corbomite-MDI-ToolView-%1-Visible").arg(tv->id), tv->toolVisible());
-        config.writeEntry(QStringLiteral("Corbomite-MDI-ToolView-%1-Show-Button-In-Sidebar").arg(tv->id), tv->tabButtonVisible());
-    }
-
-    QList<int> sectSizes;
-    for (int i = 0; i < tabBarCount(); ++i) {
-        sectSizes << tabBar(i)->sectionSize();
-
-        QStringList tvList;
-        for (int j : tabBar(i)->tabList()) {
-            tvList << dataForId(j).toolview->id;
-        }
-        snprintf(key, sizeof(key), "Corbomite-MDI-Sidebar-%d-Bar-%d-TvList", (int)position(), i);
-        config.writeEntry(key, tvList);
-    }
-
-    snprintf(key, sizeof(key), "Corbomite-MDI-Sidebar-%d-SectSizes", (int)position());
-    config.writeEntry(key, sectSizes);
-}
 
 // END SIDEBAR
 
@@ -1612,12 +1496,6 @@ ToolView *MainWindow::createToolView(QObject *plugin,
         return nullptr;
     }
 
-    // try the restore config to figure out real pos
-    if (m_restoreConfig && m_restoreConfig->hasGroup(m_restoreGroup)) {
-        KConfigGroup cg(m_restoreConfig, m_restoreGroup);
-        pos = static_cast<KMultiTabBar::KMultiTabBarPosition>(cg.readEntry(QStringLiteral("Corbomite-MDI-ToolView-%1-Position").arg(identifier), int(pos)));
-    }
-
     ToolView *v = m_sidebars[pos]->addToolView(icon, text, identifier, nullptr);
     v->plugin = plugin;
 
@@ -1726,12 +1604,6 @@ bool MainWindow::moveToolView(ToolView *widget, KMultiTabBar::KMultiTabBarPositi
         return false;
     }
 
-    // try the restore config to figure out real pos
-    if (m_restoreConfig && m_restoreConfig->hasGroup(m_restoreGroup)) {
-        KConfigGroup cg(m_restoreConfig, m_restoreGroup);
-        pos = static_cast<KMultiTabBar::KMultiTabBarPosition>(cg.readEntry(QStringLiteral("Corbomite-MDI-ToolView-%1-Position").arg(widget->id), int(pos)));
-    }
-
     if (isDND) {
         m_dragState.m_wasVisible[pos] = true;
 
@@ -1758,10 +1630,6 @@ bool MainWindow::showToolView(ToolView *widget)
         return false;
     }
 
-    if (m_restoreConfig && m_restoreConfig->hasGroup(m_restoreGroup)) {
-        return true;
-    }
-
     return widget->sidebar()->showToolView(widget);
 }
 
@@ -1769,10 +1637,6 @@ bool MainWindow::hideToolView(ToolView *widget)
 {
     if (!widget || widget->mainWindow() != this) {
         return false;
-    }
-
-    if (m_restoreConfig && m_restoreConfig->hasGroup(m_restoreGroup)) {
-        return true;
     }
 
     const bool ret = widget->sidebar()->hideToolView(widget);
@@ -1795,93 +1659,6 @@ CorbomiteMDI::ToolViewPosition MainWindow::toolViewPosition(QWidget *toolview)
     }
     qWarning("CorbomiteMDI: Invalid, not a toolview");
     return CorbomiteMDI::Bottom;
-}
-
-void MainWindow::startRestore(KConfigBase *config, const QString &group)
-{
-    m_restoreConfig = config;
-    m_restoreGroup = group;
-
-    if (!m_restoreConfig || !m_restoreConfig->hasGroup(m_restoreGroup)) {
-        m_restoreConfig = nullptr;
-        m_restoreGroup.clear();
-        return;
-    }
-
-    KConfigGroup cg(m_restoreConfig, m_restoreGroup);
-    KWindowConfig::restoreWindowSize(windowHandle(), cg);
-
-    // restore the sidebars
-    for (auto &sidebar : std::as_const(m_sidebars)) {
-        sidebar->startRestoreSession(cg);
-    }
-
-    setToolViewStyle(static_cast<KMultiTabBar::KMultiTabBarStyle>(cg.readEntry("Corbomite-MDI-Sidebar-Style", static_cast<int>(toolViewStyle()))));
-    m_sidebarsVisible = cg.readEntry("Corbomite-MDI-Sidebar-Visible", true);
-    m_guiClient->updateSidebarsVisibleAction();
-}
-
-void MainWindow::finishRestore()
-{
-    if (!m_restoreConfig) {
-        return;
-    }
-
-    if (m_restoreConfig->hasGroup(m_restoreGroup)) {
-        KConfigGroup cg(m_restoreConfig, m_restoreGroup);
-        applyMainWindowSettings(cg);
-
-        for (const auto &[id, tv] : m_toolviews) {
-            KMultiTabBar::KMultiTabBarPosition newPos = static_cast<KMultiTabBar::KMultiTabBarPosition>(
-                cg.readEntry(QStringLiteral("Corbomite-MDI-ToolView-%1-Position").arg(id), int(tv->sidebar()->position())));
-
-            if (tv->sidebar()->position() != newPos) {
-                moveToolView(tv, newPos);
-            }
-        }
-
-        for (auto &sidebar : m_sidebars) {
-            sidebar->restoreSession(cg);
-        }
-
-        m_hSplitter->setSizes(cg.readEntry("Corbomite-MDI-H-Splitter", QList<int>{200, 100, 200}));
-        m_vSplitter->setSizes(cg.readEntry("Corbomite-MDI-V-Splitter", QList<int>{150, 100, 200}));
-
-        QTimer::singleShot(400, this, [this]() {
-            QPointer<QWidget> oldFocusWidget(QApplication::focusWidget());
-
-            for (auto &sidebar : m_sidebars) {
-                sidebar->updateSidebar();
-            }
-
-            if (oldFocusWidget) {
-                oldFocusWidget->setFocus();
-            } else {
-                triggerFocusForCentralWidget();
-            }
-        });
-    }
-
-    m_restoreConfig = nullptr;
-    m_restoreGroup.clear();
-}
-
-void MainWindow::saveSession(KConfigGroup &config)
-{
-    saveMainWindowSettings(config);
-
-    // save main splitter sizes
-    config.writeEntry("Corbomite-MDI-H-Splitter", m_hSplitter->sizes());
-    config.writeEntry("Corbomite-MDI-V-Splitter", m_vSplitter->sizes());
-
-    // save sidebar style
-    config.writeEntry("Corbomite-MDI-Sidebar-Style", static_cast<int>(toolViewStyle()));
-    config.writeEntry("Corbomite-MDI-Sidebar-Visible", m_sidebarsVisible);
-
-    // save the sidebars
-    for (auto &sidebar : m_sidebars) {
-        sidebar->saveSession(config);
-    }
 }
 
 QWidget *MainWindow::createContainer(QWidget *parent, int index, const QDomElement &element, QAction *&containerAction)

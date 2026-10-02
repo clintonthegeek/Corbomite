@@ -268,10 +268,6 @@ public:
         return m_tabBarStyle;
     }
 
-    void startRestoreSession(KConfigGroup &config);
-    void restoreSession(KConfigGroup &config);
-    void saveSession(KConfigGroup &config);
-
     /// Cluster L Phase L4 (D4): the pixel width (expanded splitter size)
     /// this sidebar last had while visible — the same value updateSidebar()
     /// re-applies on expand. Exposed so MainWindow can hand it to
@@ -314,7 +310,6 @@ private:
 
     void appendStyledTab(int id, MultiTabBar *bar, ToolView *widget);
     void updateButtonStyle(KMultiTabBarTab *button);
-    void updateLastSizeOnResize();
 
     MultiTabBar *insertTabBar(int idx = -1);
 
@@ -385,7 +380,6 @@ private:
         int tabbarId{};
     };
     std::vector<ToolViewToTabId> m_tvIdToTabId;
-    bool m_sessionRestoreRunning = false;
 
     int m_lastSize;
     int m_popupButton = 0;
@@ -487,20 +481,6 @@ public:
     bool showToolView(ToolView *widget);
     bool hideToolView(ToolView *widget);
 
-    std::vector<QString> toolviewNames() const
-    {
-        std::vector<QString> out;
-        out.reserve(m_toolviews.size());
-        for (const auto &tv : m_toolviews) {
-            out.emplace_back(tv.toolview->id);
-        }
-        return out;
-    }
-
-    void startRestore(KConfigBase *config, const QString &group);
-    void finishRestore();
-    void saveSession(KConfigGroup &group);
-
 private:
     struct ToolViewWithId {
         QString id;
@@ -516,8 +496,15 @@ private:
 
     bool m_sidebarsVisible = true;
 
-    KConfigBase *m_restoreConfig = nullptr;
-    QString m_restoreGroup;
+    // 2026-10-01: m_restoreConfig / m_restoreGroup and Sidebar's
+    // m_sessionRestoreRunning were removed with the Kate session-restore
+    // machinery (MainWindow::{startRestore,finishRestore,saveSession} and
+    // Sidebar::{startRestoreSession,restoreSession,saveSession}). That whole
+    // cluster had zero callers — Cluster L Phase L2 superseded it with
+    // src/app/SessionManager, which MainWindow::saveSessionState drives
+    // instead. startRestore() was the only writer of m_restoreConfig, so the
+    // four blocks that read it (addToolView, moveToolView, showToolView,
+    // hideToolView) became always-false and went with it.
 
     GUIClient *m_guiClient;
 
