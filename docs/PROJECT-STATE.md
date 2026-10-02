@@ -16,51 +16,57 @@
 
 ## Current focus
 
-Remediation sweep. **Suite 340/340.** Tracker: 58 open / 135 closed.
+Remediation sweep. **Suite 341/341.** Tracker: 57 open / 136 closed.
 
-**Done since the second-sweep appraisal** (2026-10-01 → 02): `ThemeService`
+**Done since the second-sweep appraisal** (2026-10-01 -> 02): `ThemeService`
 revival; release-hygiene A.2/A.3/A.4 + E.1; ~500 lines of dead code; 7
 disabled tests re-enabled; cluster bookkeeping (E retired, F split into
-F-a/F-b, Tags pane → Cluster Q, D.5 specced, L5 checkboxed); `eState.scroll`
-interop (was P1); `.obsidian/app.json` (5 of 6 keys); `resolveSubpath` wired
-into the render path. **Cluster O5 complete** — bases' seven toolbar controls
-and the graph's five verbs are real KActions, tab reorder + linked panes
-landed, and `ViewRegistrar` gained a ViewActions path so a *plugin* can ship
-a provider with no new API surface. **O6.T3** fixed the shared
-`GraphControlsPanel` singleton.
+F-a/F-b, Tags pane -> Cluster Q, D.5 specced, L5 checkboxed); the
+`eState.scroll` interop fix (was P1); `.obsidian/app.json` (5 of 6 keys);
+`resolveSubpath` wired into the render path. **Cluster O closed** - bases +
+graph providers, tab reorder, linked panes, the plugin ViewActions path, the
+O6.T3 shared-panel fix, and O7 (3 new verbs, blockers on all 14 stubs, placebo
+dialogs disabled, palette regrouped). **Canvas dark mode** shipped (14-role
+`CanvasPalette`, export follows). Canvas file picker now lists the Vault
+instead of walking the disk. Frontmatter closing-fence P1 fixed (Corbomite
+half).
 
-**Next, in order:**
-1. **O7** — Cluster O closeout: rebuild the live-eyeball checklist, retire
-   the remaining 18 plan checkboxes explicitly rather than leaving them to
-   rot, decide the O6.T1/T2/T4 inspector slot (currently a punch item).
-2. **Cluster M5/M6** + leftovers: canvas file-picker via `Vault`; canvas dark
-   mode (now actionable since `ThemeService` emits).
-3. **Resume Cluster L5 soak** (6 scenarios) and clear the human-eyeball
-   backlog. Both need a human.
-4. **Dispatch the new plans:** F-a (File Recovery + Note Composer, ~5–8d),
-   Q (Tags pane, ~3–5d). F-b and D.5 are spec-first.
-5. **Release hygiene B** (mmdr reproducibility), C, D, E — B blocks the
-   mermaid item.
+**Next:**
+1. **LIVE EYEBALL - handed over 2026-10-02.** Cluster O7 soak + the canvas dark
+   mode / file-picker passes. This blocks everything else: the retro, and any
+   further UI work, should be written from what is actually observed.
+2. **Cluster M5/M6** - `M5.2` is dropped (Cluster O shipped it). `M5.1` zoom
+   clamp (blocked on a read-only submodule; consumer-side fix). `M5.4`
+   read-only lock (needs a `SessionManager` per-file tier-3 bucket + ~10
+   mutation gates). `M5.5` jump-to-group / convert-to-file (needs 1 new undo
+   command). `M6.1` canvas link indexing (4 extension gates in `MainWindow`,
+   **plus an unmentioned FTS-pollution gate**). `M5.3` is **blocked on a corpus
+   contradiction** - the plan's stated precedent does not exist.
+3. **Release hygiene B** (mmdr reproducibility, blocks mermaid), C, D, E.
+4. **Dispatch** F-a (File Recovery + Note Composer, ~5-8d) and Q (Tags pane,
+   ~3-5d). Both specced and ready.
 
-**Cross-repo** — written, awaiting dispatch:
+**Cross-repo** - written, awaiting dispatch:
 [`handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md`](handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md)
-(local D2-undo-integrated frontmatter edit, stale `Origin.h`, `benchmark`
-labels on two canvas perf tests, the never-accepted frontmatter fence steer).
+(local frontmatter edit with D2 undo, stale `Origin.h`, `benchmark` labels on
+two canvas perf tests, the never-accepted fence steer, **plus the 14 concrete
+verb blockers now recorded on the editor stubs**).
 
 **Investigated and deliberately left open**, reasoning recorded rather than
 half-solved: `split dimension` (KDDW exposes **no** public separator-size
-setter — three options weighed, recommend accepting it); `hotkeys.json`
-(re-scoped to a cluster, not a wiring fix — nothing reads it today and the
-substance is an Obsidian-command-id mapping table).
+setter - recommend accepting it); `hotkeys.json` (re-scoped to a cluster, not a
+wiring fix); Cluster O6.T1/T2/T4 inspector slot (punch item - closes no
+reported bug).
 
-**Standing lesson** — eight of my own claims this session were wrong and were
+**Standing lesson** - ten of my own claims this session were wrong and were
 caught by checking rather than shipped: a "fix" whose test passed against
-unfixed code; an undo fix its own test caught; a suspected data-loss bug whose
-mechanism was real but consequence inert; an `reinterpret_cast` from
-`nullptr`; two dead-code-list entries that were live; a group-id rule taken
-from the audit that orphans members; and a first pass at the bases toolbar
-test that passed against reverted code. See the audit's §10 — a gate never
-seen red proves nothing.
+unfixed code; an undo fix its own test caught; a data-loss bug whose mechanism
+was real but consequence inert; a `reinterpret_cast` from `nullptr`; two
+"dead" classes that were live; a group-id rule from the audit that orphans
+members; three bulk-regex edits that matched more than intended; a
+falsifiability check that came back **green against a reintroduced bug**; and
+an over-strong invariant that failed on correct behaviour. See the audit's
+S10 - a gate never seen red proves nothing.
 
 ## Two tracks
 
@@ -113,35 +119,34 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Recent decisions
 
-- **2026-10-02 — Cluster O5 complete, O6.T3 landed.** Bases' seven toolbar
-  controls and the graph's five verbs are now real KActions; `ViewRegistrar`
-  gained a ViewActions path so a **plugin** can ship a provider with no new
-  API surface (same `ui.views` permission). O6.T3 fixed the shared
-  `GraphControlsPanel` singleton — falsifiability check *segfaulted* against
-  the old design, which pinned the defect as shared ownership rather than
-  missing disconnects. Three bugs the tests caught: `propertiesPaneVisible()`
-  read `isVisible()`; Qt 6 silently clears a button's menu when
-  `setDefaultAction()` installs an action carrying one; and the audit's
-  "reuse the target's group id" orphans the source's members.
-- **2026-10-01 — Tier 2 quick wins.** `eState.scroll` interop (was P1) and
+- **2026-10-02 - Cluster O closed; canvas dark mode; frontmatter P1.**
+  `BasesViewActions` + `GraphViewActions` (the latter proving a *plugin* can
+  ship a provider via `ViewRegistrar`, no new API surface); tab reorder +
+  linked panes; the shared `GraphControlsPanel` singleton fixed by removing the
+  sharing rather than insulating it. O7: `insert_wiki_link` (never blocked on
+  Markoff at all), `heading_increase`/`decrease` (needed the cached
+  `EditorContext`), all 14 stubs carry a greppable blocker, the two
+  exec-and-discard placebo dialogs are disabled, the palette drops disabled
+  entries and gained Tab/Format groups. **Canvas dark mode**: 14-role
+  `CanvasPalette`; the export brush follows, so a dark canvas exports dark -
+  and the falsifiable claim is "cards stay visible on the background", not "is
+  dark dark". **P1**: `MarkdownView`'s closing-fence scan matched `----` and
+  `---not a fence`, splicing a bogus row into prose.
+- **2026-10-01 - Tier 2 quick wins.** `eState.scroll` interop (was P1) and
   `.obsidian/app.json` (5 of 6 keys) fixed; the tested subpath resolver now
-  serves the render path; Markoff handoff written (3 asks). Two items
-  investigated and deliberately left open with the reasoning recorded:
-  `split dimension` (KDDW exposes no public separator-size setter) and
-  `GraphControlsPanel` (now fixed — see above).
-- **2026-10-01 — Dispatched remediation.** 7 disabled tests re-enabled; ~500
-  lines of dead code removed; cluster bookkeeping (E retired, F split into
-  F-a/F-b, Tags pane → Cluster Q, D.5 specced, L5 checkboxed); a suspected
-  data-loss bug **refuted** — the D2 UndoLog does survive an external reload,
-  but stale targets make undo inert, so it is a UX wart rather than content
-  loss, and the guard I had already written for it was reverted.
-- **2026-10-01 — Second-sweep appraisal.** Code sound, trackers not: ~12
+  serves the render path; Markoff handoff written.
+- **2026-10-01 - Dispatched remediation.** 7 disabled tests re-enabled; ~500
+  lines of dead code removed; cluster bookkeeping; a suspected data-loss bug
+  **refuted** - the D2 UndoLog does survive an external reload, but stale
+  targets make undo inert, so it is a UX wart rather than content loss, and the
+  guard I had already written for it was reverted.
+- **2026-10-01 - Second-sweep appraisal.** Code sound, trackers not: ~12
   test-only islands, `ThemeService` dead, release-hygiene orphaned at ~7%,
   obsidian-audit addenda silent for 2 months (a frozen doc still taught a
   split-direction convention that had already cost a P0). 17 PARITY-MATRIX
   rows corrected; 2 of 3 contested subagent claims rejected on verification.
-- **2026-08-21 — Cluster P closed** (build tree 11 GB → 1.8 GB) and **v0.2.0
-  tagged**; Cluster O closed end to end.
+- **2026-08-21 - Cluster P closed** (build tree 11 GB -> 1.8 GB) and **v0.2.0
+  tagged**.
 
-Older closeouts (2026-04-26 reset → 2026-08-21) and all full closeout
+Older closeouts (2026-04-26 reset -> 2026-08-21) and all full closeout
 paragraphs: [`decisions-archive.md`](decisions-archive.md).

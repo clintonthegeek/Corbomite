@@ -233,6 +233,87 @@ production call sites, not header mentions; strip `#if 0` before counting; and
 
 ---
 
+## 2026-10-02 — Cluster O closed; canvas dark mode; the frontmatter P1's Corbomite half
+
+Long remediation session. 341/341 green, 58 open / 136 closed.
+
+**Cluster O closed.** `BasesViewActions` (7 toolbar controls promoted, the
+in-view buttons becoming `setDefaultAction()` carriers) and `GraphViewActions`
+(5 verbs) — the latter also landing **O5.T4**, the architectural claim that a
+*plugin* can ship a `ViewActions` provider with no new plugin-API surface, via
+the existing `ViewRegistrar` under the same `ui.views` permission. Plus O5.T5
+(tab reorder, linked panes), O6.T3, and O7.
+
+**O5.T4's lifetime problem is the part worth remembering.** A provider's vtable
+lives in the plugin `.so`, so registration is easy and *un*registration is the
+task: `KXMLGUIFactory` would otherwise hold a client whose code no longer
+exists. Three safeguards, and the reasoning is commented in all three places:
+`onUnload()` hands the provider back explicitly (the one hook that provably runs
+while the library is still mapped), the registrar destructor is only the
+abnormal-teardown fallback, and `QPointer` runs end to end.
+
+**O6.T3 settled by falsifiability.** The punch list said "don't `disconnect()`
+over the shared panel; relocate it". Reinstating the shared singleton made the
+test binary **segfault** rather than fail an assertion — because the defect was
+shared *ownership* (a widget parented to one tab, referenced by another), not
+missing disconnects. A `disconnect()` patch would have left the crash. The
+fix removed the sharing: each `GraphViewTab` parents its own panel, the
+singleton `createView` returns `nullptr`, and the `X-Corbomite-DockArea` key is
+gone (retiring `createView` alone would not have helped — the dock would still
+have been built and still shared).
+
+**Two upstream sources were wrong in ways that mattered.** The audit's
+`workspace.md:123` says `setGroupMember` reuses the *target's* group id; taken
+literally that **orphans the source's existing members**, which a test caught
+doing exactly that. And `heading_increase`/`decrease` looked "cheap" until it
+turned out `EditorContext.headingLevel` is the *only* route to the current
+level — so the context had to be cached, not discarded as it previously was.
+
+**O7 — the cluster's actual teeth.** `insert_wiki_link` was **never blocked on
+Markoff at all** (`insertLink()` has always existed and was simply not wired).
+All 14 remaining stubs now carry a machine-readable `blockedOn` property and a
+tooltip saying so, and the always-disabled list is *derived from that property*
+rather than hand-maintained — which is what prevents the failure mode where an
+implemented verb sits created, present in the menu XML, and silently dead.
+`insert_table`/`insert_callout` used to exec a real dialog and **discard the
+answer**; they are now disabled rather than shipped as an `applyFlatEdit` fake
+that would insert flat Paragraphs.
+
+**Canvas dark mode.** Canvas had zero theme awareness — a dark vault got a
+white canvas with white cards on it, cards on cards. One 14-role
+`CanvasPalette`; the export brush follows, so a dark canvas exports dark. The
+falsifiable claim was deliberately **not** "is dark dark" but "does a card stay
+distinguishable from the background it sits on", since a palette that inverted
+the background while leaving fills white passes the naive check and is still
+unusable.
+
+**The frontmatter P1's Corbomite half.** `MarkdownView`'s closing-fence scan
+used `indexOf("\n---", 3)`, which also matches `----` and `---not a fence` —
+and the failure mode is corruption: a bogus `: ` row spliced into the user's
+prose. Fixed, and extracted as a free function **because an end-to-end test
+through a live `NoteDocument` is unusable**: Markoff's own parser mangles a
+`----` line, so the round-trip is already wrong before the scan runs, and my
+first test failed for a reason unrelated to the code under test. The Markoff
+half remains open.
+
+**Recurring failure, recorded because it generalises: claiming verification I
+had not performed.** A fix whose test passed against unfixed code. A
+falsifiability check that came back **green against a deliberately
+reintroduced bug**, because with no cursor context "disabled" was correct
+either way — that gap is now written into the test file rather than papered
+over. An over-strong invariant ("every disabled action carries a blocker") that
+went red on *correct* behaviour, since ~27 live actions are legitimately
+Tier-B-disabled with no editor bound. And three bulk-regex edits on a file with
+18 near-identical call sites that matched more than intended and had to be
+reverted; the lesson is to verify the *count* of edits, not just that it
+compiled.
+
+**Not done, deliberately:** Cluster O6.T1/T2/T4 (the `View` inspector slot —
+closes no reported bug and is speculative surface) and O7.T6 (deferred by the
+plan's own blocked-on). Both recorded as punch items.
+
+---
+
 ## 2026-10-01 — Tier 2 quick wins: two interop bugs fixed, two items investigated and left open
 
 Picked off the highest-severity cheap items after the bookkeeping pass.

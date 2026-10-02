@@ -550,7 +550,7 @@ did); `tst_graph_view_actions`; `tst_leaf_link_group`.
 
 ### Phase O6 — Pane-local inspector; relocate graph controls (**Q7**)
 
-- [ ] **O6.V1 — Verify the Obsidian claim first.** There is **no `domains/graph.md`**
+- [x] **O6.V1 — Verify the Obsidian claim first.** There is **no `domains/graph.md`**
       in the audit corpus (`addenda/2026-04-19-graph-screenshot.md` §preamble says
       so). The claim that Obsidian renders graph settings inside the graph pane is
       product-behaviour, not corpus. Confirm against Obsidian before building; if
@@ -581,23 +581,23 @@ slider, assert only that tab's engine changed (fails before O6.T3).
 
 ### Phase O7 — Stub disposition, palette, soak, closeout (**Q9**)
 
-- [ ] **O7.T1 — Implement the three cheap actions** per §D7: `heading_increase`,
+- [x] **O7.T1 — Implement the three cheap actions** per §D7: `heading_increase`,
       `heading_decrease`, `insert_wiki_link`, `insert_image`.
-- [ ] **O7.T2 — Keep the rest as stubs**, but move every stub behind a single
+- [x] **O7.T2 — Keep the rest as stubs**, but move every stub behind a single
       `registerPlannedAction()` helper carrying a one-line "blocked on: <what>"
       string, so the Hotkeys page and palette can filter them and a future session
       can grep the blockers.
-- [ ] **O7.T3 — Markoff steer.** Handoff brief at
+- [x] **O7.T3 — Markoff steer.** Handoff brief at
       `docs/handoff/2026-XX-XX-to-markoff-block-structural-verbs.md` requesting the
       verbs the remaining stubs need: block-kind change (blockquote / code block /
       thematic break), task-state toggle (the ListItem marker is outside the edited
       byte space), table row/column ops, fold. Cite `applyFlatEdit`'s
       Paragraph-only block creation as the reason these cannot be done consumer-side.
-- [ ] **O7.T4 — Placebo dialogs:** `insert_table` / `insert_callout` currently exec
+- [x] **O7.T4 — Placebo dialogs:** `insert_table` / `insert_callout` currently exec
       and discard (`MainWindow.cpp:511-535`, punch-list P3). Disable them with the
       same "blocked on" annotation until O7.T3's verbs land. **Do not** ship an
       `applyFlatEdit`-based fake — it would insert flat Paragraphs.
-- [ ] **O7.T5 — Palette grouping** (report §4.7): `showCommandPalette` buckets by
+- [x] **O7.T5 — Palette grouping** (report §4.7): `showCommandPalette` buckets by
       `objectName().startsWith("file_"/"view_")` and dumps ~60 actions incl. all
       stubs into "Other", listing disabled ones. Regroup by owning surface
       (Universal / <Type> / Commands) and drop disabled entries.
@@ -659,6 +659,42 @@ pre-registers the M5-dependent actions so the join is trivial.
 `ItemView` inspector slot), T4 (canvas inspector as second consumer). T1/T2
 are the substrate T4 needs, so they are a unit; neither closes a reported
 bug the way O6.T3 did. See the punch list entry.
+
+**Phase O7 closed 2026-10-02** (`5f9105b6`). The cluster's remaining
+substantive work is done; what is left is verification, which is now the
+next thing on the board.
+
+- **O7.T1** — three of the four "cheap" actions are real verbs.
+  `insert_wiki_link` → `insertLink()`, which **was never blocked on Markoff**
+  (the verb always existed; it was simply not wired).
+  `heading_increase`/`heading_decrease` → `setHeadingLevel(int)`, which needs
+  the *current* level, so `EditorContext.headingLevel` is now cached (it was
+  consumed and discarded). Both clamp 1..6, so a Paragraph can't be
+  "decreased" to −1 and H6 can't become H7; Tier B mirrors the clamp.
+  `insert_image` stays a stub — Markoff declares `insertLink` but **no media
+  verb** — and now says so.
+- **O7.T2** — `addEditorActionStub` → a named `registerPlannedAction()` that
+  *requires* a blocker, stored as the `blockedOn` QAction property and folded
+  into the tooltip. The always-disabled list is now **derived from that
+  property** rather than hand-maintained, so adding a stub can no longer be
+  forgotten in a second list — which is precisely how an implemented verb
+  ends up created, present in the menu XML, and silently dead.
+- **O7.T3** — folded into
+  [`handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md`](../../handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md)
+  rather than a second, overlapping brief. The 14 blockers recorded on the
+  stubs are the concrete enumeration of what that steer must ask for.
+- **O7.T4** — `insert_table`/`insert_callout` used to exec a real dialog and
+  **discard the answer**: fill in rows/cols, press OK, nothing happens. Worse
+  than disabled, because it looks functional. Now disabled with a stated
+  blocker. Deliberately *not* shipped as an `applyFlatEdit` fake — that
+  inserts flat Paragraphs, which is not a table.
+- **O7.T5** — palette drops disabled actions and gains **Tab** and **Format**
+  groups; no more "~60 actions in Other".
+- **O7.T6** — deferred, as the plan itself directs (blocked on
+  `[workspace][P2]` sidebar-layout persistence).
+- **O7.T7** — the live eyeball is now ready; see the checklist handed over
+  2026-10-02. The retro (`docs/cluster-retros/cluster-o.md`) is written
+  *after* that pass, so it records what was actually seen.
 
 **Cluster I.** Closed by O0. Phase 5 tail → O5.T5; Phase 6 → punch list.
 
@@ -872,28 +908,46 @@ top of it.**
 
 ### C6 — Per-provider pre-flight checklist
 
-Before writing a new `ViewActions` subclass:
+**This is a pre-flight checklist, not a task list** — it was left with every box
+unchecked, which read as "eight things still to do". It is not. Audited
+2026-10-02 against all four providers that exist (markdown, canvas, bases,
+graph):
 
-- [ ] Own `KActionCollection`, own `componentName` (distinct from every
-      other provider's).
-- [ ] Constructed eagerly at `MainWindow` construction (C3.T2 requirement —
-      the Hotkeys page needs your shortcuts even with no tab of your type
-      open); only `addClient`/`removeClient` is dynamic.
-- [ ] Every new top-level `<Menu>` uses `append="viewtype_merge"` and a
-      `name` no other client declares (C4).
-- [ ] `bind(View*)`/`unbind()` follow the disconnect discipline: store every
+- [x] Own `KActionCollection`, own `componentName` (distinct from every other
+      provider's). — all four call `setComponentName` with distinct names
+      (`corbomite_markdown_actions`, `corbomite_canvas_actions`,
+      `corbomite_bases_actions`, `corbomite_graph_actions`).
+- [x] Constructed eagerly at `MainWindow` construction (C3.T2 — the Hotkeys
+      page needs shortcuts with no tab of your type open); only
+      `addClient`/`removeClient` dynamic. — markdown, canvas and bases are
+      eager (`MainWindow` ctor). **Graph is the deliberate exception**: its
+      view type is plugin-registered, so its provider is constructed by the
+      plugin at load and reaches the controller through
+      `ViewRegistrar::registerViewActions` (O5.T4). Eagerness is a *host*
+      guarantee; a plugin provider cannot be eager and does not need to be,
+      because `registeredViewActionTypes()` lets a late observer adopt it.
+- [x] Every new top-level `<Menu>` uses `append="viewtype_merge"` and a `name`
+      no other client declares (C4). — verified: `viewtype_merge` appears in
+      all four providers' XML, on menu names `view`/`canvas`/`bases`/`graph`.
+- [x] `bind(View*)`/`unbind()` follow the disconnect discipline: store every
       per-view `QMetaObject::Connection` and disconnect it at the top of
-      `bind()` before making new ones, and in `unbind()`. This is the exact
-      shape of the `GraphControlsPanel` cross-talk bug (report §4.3) that O6
-      exists to fix structurally — don't reintroduce a narrower instance of
-      it in a new provider.
-- [ ] `refresh()` re-runs on every signal that can change either Tier B or
-      Tier C state for your type (O3's own bug: Tier C sync forgot to also
-      call `refresh()`, leaving Reading-mode format verbs wrongly enabled —
-      don't split the two without a specific reason).
-- [ ] `i18n()` every string, `QIcon::fromTheme()` every icon (standing rule
-      7 — canvas menus already violate this per the Cluster M plan; don't
-      extend the violation into O4).
-- [ ] Tests: an install/uninstall-cleanliness test (`tst_view_actions_provider`
-      pattern), a Tier-B/C refresh test, and a toolbar-population test —
-      the three the O3 "Tests:" line names, generalised to your type.
+      `bind()` and in `unbind()`. — all four open with `disconnect(m_contextConnection)`.
+      **O6.T3 is the proof this matters:** the original violation was not a
+      provider but a *panel* shared across tabs, and it segfaulted when the
+      falsifiability check reinstated it.
+- [x] `refresh()` re-runs on every signal that can change Tier B or Tier C
+      state. — all four connect `View::contextChanged`. Bases additionally
+      reads real widget state (`propertiesPaneVisible()`) rather than tracking
+      it, so the two cannot drift.
+- [x] `i18n()` every string, `QIcon::fromTheme()` every icon. — all four.
+      (The canvas menu icon-less entries are a pre-existing wart noted by the
+      Cluster M plan; not extended by O4/O5.)
+- [x] Tests: install/uninstall cleanliness, a Tier-B/C refresh test, and a
+      toolbar-population test. — `tst_view_actions_provider` covers markdown's
+      collection and add/remove-client cleanliness; `tst_graphview_plugin`
+      covers graph's registration, lifetime and Tier-B enablement plus
+      `toolBarActions()`; `tst_bases_view_wiring` covers bases' toolbar-action
+      adoption. Canvas's provider enablement is covered by
+      `tst_action_context`. **Gap, honestly:** the *enabled* path of the O7
+      verbs needs a bound editor with a cursor, so that is on the live-eyeball
+      checklist rather than claimed as covered here.
