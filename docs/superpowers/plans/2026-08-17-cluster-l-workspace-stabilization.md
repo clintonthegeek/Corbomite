@@ -15,6 +15,15 @@ status from this section — check PROJECT-STATE first.
 session), building on `docs/audit-2026-04-26/workspace.md` (many of whose
 top findings have since been fixed — this plan covers what's *still*
 live) and the open `[workspace]` punch-list items.
+**Audit corrections to read first:** this plan's Phase L5 work
+established that `docs/obsidian-audit/domains/workspace.md` §2
+**inverts** the meaning of the split `direction` field — it names the
+divider line's orientation, not the stacking axis of the children. See
+[`obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md`](../../obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md)
+(written 2026-10-01, ~6 weeks after the L5 fix landed). The related
+2026-06-10 workspace corrections (flat window bounds, `pinned` at two
+levels, `group` sibling of `state`) are in
+[`2026-06-10-workspace-serialization-corrections.md`](../../obsidian-audit/addenda/2026-06-10-workspace-serialization-corrections.md).
 **Depends on:** nothing external. Interleaves fine with Cluster K Phase 4;
 Phase L1 (crash-safety) should land **before** K's dogfood-as-default,
 since vault open/close is exercised constantly while dogfooding.

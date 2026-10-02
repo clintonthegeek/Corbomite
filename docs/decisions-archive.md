@@ -10,6 +10,131 @@ Conventions:
 
 ---
 
+## 2026-10-01 — Second-sweep appraisal: the code is sound, the trackers were not
+
+Triggered by a ~6-week gap since `459c7e7c` (v0.2.0, 2026-08-21). Four exhaustive
+agent passes: two over the code (core libs; app layer), two over the tracking
+system (all 51 open punch-list items re-verified against the tree; docs/roadmap
+consistency). Every high-severity claim re-verified directly afterward, because
+**the passes disagreed on three of them and two agent claims turned out to be
+wrong.** Full report: [`audit-2026-10-01-second-sweep-appraisal.md`](audit-2026-10-01-second-sweep-appraisal.md).
+
+**Structural verdict: the code holds together.** Acyclic library layering with a
+structural guard test; zero TODOs in save/serialization/workspace/undo paths; the
+editor-substrate retirement genuinely complete (all four retired substrates are
+comment-only residue); all nine plugins real, permission-gated and reachable; the
+Cluster M Graffodil rebase clean with zero residue; a brace-matched sweep of every
+anonymous-namespace and file-local type in the five core libs found nothing dead.
+Baseline 329/330 (the one red, `tst_canvas_perf_formatted`, passes standalone — a
+`-j10` perf-under-load flake).
+
+**The finding that changed the story:** the suite's greenness partly certifies
+nothing. Counting **production call sites** rather than header mentions, ~12
+symbols have **zero** production callers while carrying **250+ test references**
+between them — `Hotkey`/`HotkeyFile` (which *are* the hotkeys.json subsystem),
+`VaultScanner`+`IgnoreFilter` (which makes `userIgnoreFilters()` unreachable, so the
+ignore-filter chain is unwired end to end), `WorkspaceState`, `RegexRenderEngine`,
+`TabModel`, `MarkdownRenderChild`, `EmbedDepthGuard`, `SourceEditor` (with a
+*faked* `foldedHeadings()` that never folds), plus ~110 lines of superseded Kate
+session machinery in `CorbomiteMDI`. They report as covered and healthy while
+shipping no user-visible behaviour. A cheaper earlier sweep of the same question
+had answered "one dead class" — wrong, and the reason is now recorded as a method
+note: header mentions are inflated by forward declarations, and `#if 0` bodies
+inflate apparent liveness.
+
+**Three contested claims, resolved by direct verification — two rejections:**
+
+- **REJECTED:** "`go_back`/`go_forward` are permanently disabled and never
+  re-enabled — a shipped-UX defect." False. `ActionContextController::updateBackForwardActions()`
+  (`src/app/ActionContextController.cpp:325-331`) re-enables both; the
+  `setEnabled(false)` at `MainWindow.cpp:1458,1469` is only initial state, and the
+  item was already closed. Filing this would have created a bug report for a
+  feature that works.
+- **NARROWED:** "`NoteDocument::setMarkdown` uses `Origin::TestFixture` on the
+  production load path, wiping the CRDT buffer and undo stack on every note open."
+  `TestFixture` shares a switch case with `FirstOpen`
+  (`MarkoffDocument.cpp:707-712`), so the load paths are correct and the original
+  claim was overstated. But that case *does* replace the CRDT buffer and clear the
+  undo stack, and `MarkdownView::addFrontmatterRow` (`:204,213,222`) routes a
+  **user-initiated Properties edit** through it. Real, untracked: adding a property
+  row is non-undoable and destroys edit history. The same function also duplicates
+  the frontmatter-fence parser bug at `:208`, which is why that P1's
+  "Markoff-owned, steer upstream" disposition is wrong — it is partly fixable here.
+- **REJECTED:** "the vault save path has zero test coverage." False.
+  `tests/integration/tst_editor_save.cpp` does real `saveDocument` →
+  `QFile::readAll` → byte-compare round trips. The two disabled lib-level tests are
+  a unit-level gap about `undoStack` API porting, not a coverage emergency.
+
+**`ThemeService` is the single worst item, and two `[x]` closures are false because
+of it.** `libs/core/src/ThemeService.cpp` is `#if 0` from line 7 to 109; the only
+`emit themeChanged(...)` is line 104, inside the dead block. Live consequences: the
+Settings theme dropdown renders **empty and inert**; **opening an Obsidian-authored
+dark vault does not switch Corbomite to dark**; the `css-change` plugin event
+(punch-list:272) and the `appearance.json` write hook (punch-list:333) are both dead
+wiring — the former's test passes only because it calls the workspace directly. It
+also makes the open canvas dark-mode item non-actionable, since that item proposes
+subscribing to a signal that never fires. Filed as P1.
+
+**Documentation debt, ranked.** (1) **Zero obsidian-audit addenda in two months**,
+across Clusters K/L/M/N/O/P — including a live-verified *refutation* of
+`domains/workspace.md` §2, which inverts the split `direction` field (it names the
+divider line's orientation, not the stacking axis). `addenda/README.md` explicitly
+directs implementers to that section, so a future session would have re-introduced
+the P0 nested-split-scrambling bug that cost two live round trips to find. The
+addendum is now written (2026-10-01). The README's linkage ritual had also never
+been executed for the 2026-06-10 batch — 5 unlinked addenda, now linked. (2)
+`PARITY-MATRIX.md` — the roadmap's named "current truth" — was ~11% wrong; worst
+row claimed Find/Replace had no UI, true until 2026-06-12. 17 rows corrected. (3)
+`PROJECT-STATE.md` had grown to 145 lines against a self-declared ~30; 84% was two
+append-only journals, one of them ("Last touched", 35 entries) entirely undeclared
+by CLAUDE.md's rules. Collapsed to 95. (4) `INDEX.md` was the most-wrong doc per
+unit of text — its Cluster M row was four phases stale while its own header was
+dated the day the last cluster closed. 3 rows fixed.
+
+**The largest body of unfinished work was on no list at all.**
+`2026-06-10-release-hygiene.md` — 163 lines, ~30 tasks, **2 done, 4 partial, 21 not
+started**, its own DoD 0-of-7, zero checkboxes, not a cluster, referenced only as a
+"companion doc" — while `v0.1.0` and `v0.2.0` shipped with `.deb` CI. It contains
+the legal work (4 of 427 files carry `SPDX-FileCopyrightText`; no `REUSE.toml`; no
+canonical LGPL text for the vendored `jkqtmathtext`; no MIT text for the vendored
+`mmdr`) and no AppStream metainfo at all, so Corbomite's `.deb`s cannot appear in
+any software centre. Phase A + E.1 promoted to punch-list P1 as the highest-value
+cheap fix. Phase B's knock-on: the mmdr rebuild instructions point at
+`~/dev/mermaidclones/mermaid-rs-renderer`, which does not exist on this machine, so
+the open Mermaid dark-theme item is blocked on an unreachable source tree.
+
+**Other orphans found:** the **Tags pane** (the roadmap's "one wholly-missing core
+panel" — zero code, and named only in a phase bullet and a release criterion, so
+never owned); **File Recovery** and **Note Composer** (core Obsidian expectations,
+named only inside the unexpanded Cluster F stub, ~5–8d combined and
+self-contained); named **Workspaces** + the sidedock substrate, which **lost its home
+class** when Cluster L3 deleted `WorkspaceSidedock` as a nullptr shell; Cluster D.5
+(named by all three status docs, zero checkboxes, no spec); Cluster L5's 6 soak
+scenarios (zero checkboxes, and all three docs described L5 as "not started" —
+erasing a real P0 fix). **Cluster E is obsolete** and should be retired in ~15–30
+min, which also closes PROJECT-STATE's long-standing "confirm J's obsolescence"
+question.
+
+**Stale punch-list items closed as already-fixed (5):** About page, `apiLevel: 1`
+ABI doc, sidebar amnesia (Cluster L4 shipped it — the item had come to contradict
+the banner above it in the same file), workspace.json ids/dimension (Cluster L2
+overtook it), `tst_benchmark_layout` (has both `TIMEOUT 120` and
+`LABELS "benchmark"`). **One re-ranked P4→P1:** `eState.scroll` — filed as
+"Corbomite-internal, no interop break", but Cluster L2's L0 doctrine
+("schema-at-rest fidelity to Obsidian is the only contract") made `workspace.json`
+Obsidian-schema, so Corbomite now writes `0.42` into a field Obsidian reads as a
+line number. **One escalated:** the frontmatter closing-fence P1's
+"Awaiting upstream fix + re-pin" is two months stale — the re-pin happened
+(`5d885036`) and the bug is still open at the cited line, so it was not accepted,
+not pending.
+
+**Recorded for future audits:** exclude `packaging/arch/src/corbomite-0.1.0/` — a
+225 MB vendored copy of the whole tree that silently doubles any naive `rg`; count
+production call sites, not header mentions; strip `#if 0` before counting; and
+**cross-check every high-severity subagent claim against the file directly.**
+
+---
+
 ## 2026-08-21 — v0.2.0 tagged and released
 
 User live-tested the Cluster O Phase O4 canvas toolbar against a real vault ("just tried the toolbar, it's awesome") — closes O4's live-eyeball gate and, with it, Cluster O end to end (O0-O4). With that plus the workspace.json P1 already resolved (see entry below), nothing was left blocking a release: 94 commits since `v0.1.0` including the Cluster P STATIC→SHARED rebuild (11 GB → 1.8 GB dev tree, -84%, plus a real plugin-boundary `QMetaObject` correctness fix), Cluster N rich clipboard, Cluster O context-sensitive menus/toolbars, Cluster M4 canvas move/snap/selection polish, and Cluster D.6 base-creation UX.
