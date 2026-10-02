@@ -96,7 +96,7 @@ public:
     /// Mutation — file deleted.
     /// Captures prevCache BEFORE removing the path entry; emits
     /// `cacheDeleted(path, prevCache)` synchronously. Does NOT touch the
-    /// resolver queue or `m_inProgressTaskCount`.
+    /// resolver queue or `m_pendingWork`.
     void onFileDeleted(const QString &path);
 
     /// Register a path as unsupported (non-.md). Entry stored with hash == "".
@@ -187,7 +187,23 @@ private:
     Corbomite::Events m_events;
     QQueue<QString> m_linkResolverQueue;
     QTimer *m_indexFinishedTimer;  // owned via parent (this)
-    int m_inProgressTaskCount = 0;
+
+    /// Outstanding WORK, not outstanding drain cycles.
+    ///
+    /// Replaces `m_inProgressTaskCount`, which was bumped only when the drain
+    /// queue
+    /// went empty -> non-empty and decremented once per drain cycle. That
+    /// pairs correctly for a single synchronous burst, but the drain runs one
+    /// path per event-loop turn, so a second worker delivery that lands after
+    /// the queue empties starts a NEW cycle — arming `indexFinished` while the
+    /// rest of the vault is still unparsed. Observed under `-j10`: 50-file
+    /// rebuild reported `indexFinished` at 19 files, and the signal also
+    /// triggers `persistNow()`, so it was persisting a partial index.
+    ///
+    /// This counter is incremented once per ENQUEUED path and decremented once
+    /// per DEQUEUED path, so it measures work actually outstanding and
+    /// `indexFinished` can only fire when there is none left.
+    int m_pendingWork = 0;
     MetadataWorker *m_worker;  // owned via parent (this)
 
     std::unique_ptr<CachedMetadataStore> m_store;
@@ -208,7 +224,7 @@ private:
     void releaseHashRef(const QString &hash);
 
     /// Phase 4 helper: emit `cacheChanged`, trigger Obsidian `"changed"` event,
-    /// enqueue `path` on the link-resolver queue, bump `m_inProgressTaskCount`,
+    /// enqueue `path` on the link-resolver queue, bump `m_pendingWork`,
     /// and post a per-tick drain continuation (only if no outstanding drain is
     /// already posted, i.e. queue size is 1 post-enqueue). Also stops the
     /// `indexFinished` debounce timer since new work arrived.

@@ -355,20 +355,18 @@ void MetadataCache::emitCacheChanged(const QString &path, const QString &prevHas
 
     m_linkResolverQueue.enqueue(path);
 
-    // Only post a drain continuation if no other drain is outstanding.
-    // A drain chains itself via singleShot(0, ...) on every non-empty pop,
-    // so one outstanding continuation is enough to fully drain the queue.
-    //
-    // Bump m_inProgressTaskCount iff we're starting a new drain cycle (i.e.
-    // queue was empty and is now non-empty). This pairs 1:1 with the
-    // `allLinksResolved` decrement at drain-end so burst coalescing works:
-    // N onFileChanged calls in the same sync burst => one bump, drain
-    // processes all N paths in one cycle, one `allLinksResolved`, one
-    // decrement back to zero, debounce timer arms.
-    if (m_linkResolverQueue.size() == 1) {
-        ++m_inProgressTaskCount;
+    // One bump per ENQUEUED path, not per drain cycle. The old code bumped
+    // only on the empty -> non-empty transition and decremented once per
+    // cycle, which pairs correctly for one synchronous burst but arms
+    // `indexFinished` early when a later worker delivery starts a second
+    // cycle. See m_pendingWork's declaration for the observed failure.
+    ++m_pendingWork;
+
+    // Only post a drain continuation if no other drain is outstanding. A
+    // drain chains itself via singleShot(0, ...) on every non-empty pop, so
+    // one outstanding continuation is enough to fully drain the queue.
+    if (m_linkResolverQueue.size() == 1)
         QTimer::singleShot(0, this, &MetadataCache::drainOnePath);
-    }
 }
 
 void MetadataCache::drainOnePath()
@@ -424,18 +422,20 @@ void MetadataCache::drainOnePath()
         // More paths to drain — chain one more per-tick continuation.
         QTimer::singleShot(0, this, &MetadataCache::drainOnePath);
     } else {
-        // Queue empty: emit the bulk "all done" + decrement the task count.
-        // Coalesce semantics: each onFileChanged bumps the count once, and
-        // the fully-drained queue decrements it once. Under sequential
-        // Phase-4 semantics a burst of N onFileChanged calls collapses to
-        // one allLinksResolved + one indexFinished (after debounce).
+        // Queue empty: emit the bulk "all done". `allLinksResolved` keeps its
+        // coalescing semantics (one per drain cycle) — that is a different
+        // signal from `indexFinished` and conflating them was the bug.
         Q_EMIT allLinksResolved();
         m_events.trigger(QStringLiteral("resolved"), QVariantList{});
+    }
 
-        if (--m_inProgressTaskCount <= 0) {
-            m_inProgressTaskCount = 0;
-            m_indexFinishedTimer->start();
-        }
+    // This path's work is done. Arm the indexFinished debounce ONLY when
+    // there is genuinely nothing outstanding — previously this fired on
+    // "this cycle finished", which under load meant "partway through the
+    // vault", and indexFinished also triggers persistNow().
+    if (--m_pendingWork <= 0) {
+        m_pendingWork = 0;
+        m_indexFinishedTimer->start();
     }
 }
 
