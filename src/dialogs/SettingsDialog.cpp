@@ -150,12 +150,22 @@ void SettingsDialog::setupAppearancePage()
         editorTheme->addItems(names);
         editorTheme->setCurrentText(m_themeService->activeThemeName());
         editorTheme->setObjectName(QStringLiteral("markoffTheme"));
-        connect(editorTheme, &QComboBox::currentTextChanged,
-                this, [this](const QString &name) {
-            if (m_themeService) m_themeService->setActiveThemeByName(name);
-            CorbomiteSettings::self()->setMarkoffTheme(name);
-            CorbomiteSettings::self()->save();
-        });
+        // NO currentTextChanged handler. There was one, and it was wrong on
+        // two counts the user reported:
+        //
+        //  1. It applied IMMEDIATELY and called save(), so moving the dropdown
+        //     repainted the editor and wrote to disk before OK/Apply — and
+        //     left Cancel unable to revert anything. This is a KPageDialog
+        //     with Ok/Cancel/Apply; a selection is a *proposal* until Apply.
+        //  2. Because it drove the live ThemeService on selection, the
+        //     dialog and the running editor could disagree: the kcfg key was
+        //     written at selection time while the service's active name was
+        //     only re-read from kcfg at MainWindow construction.
+        //
+        // Instead the combobox only carries the objectName, so KConfigDialog's
+        // standard binding writes the key on OK/Apply, and MainWindow applies
+        // it from configChanged (see MainWindow::onSettingsApplied).
+        editorTheme->setProperty("themeServiceNames", true);
         layout->addRow(i18n("Editor theme:"), editorTheme);
 
         auto *importBtn = new QPushButton(i18n("Import QOwnNotes scheme…"));

@@ -321,7 +321,7 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
             m_themeService->setActiveThemeByName(persisted);
     }
     connect(CorbomiteSettings::self(), &KConfigSkeleton::configChanged,
-            m_themeService, &Corbomite::Core::ThemeService::refreshSystemTheme);
+            this, &MainWindow::applyMarkoffThemeSetting);
 
     connect(m_app, &CorbomiteApp::vaultOpened, this, &MainWindow::onVaultOpened);
     connect(m_app, &CorbomiteApp::vaultClosed, this, &MainWindow::onVaultClosed);
@@ -1566,7 +1566,7 @@ void MainWindow::setupActions()
     auto *moveTabLeft = ac->addAction(QStringLiteral("tab_move_left"));
     moveTabLeft->setText(i18n("Move Tab Left"));
     moveTabLeft->setIcon(QIcon::fromTheme(QStringLiteral("go-previous")));
-    moveTabLeft->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_PageUp));
+    moveTabLeft->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_PageUp));
     connect(moveTabLeft, &QAction::triggered, this, [this]() {
         if (!m_workspace) return;
         if (auto *leaf = m_workspace->activeLeaf())
@@ -1576,7 +1576,7 @@ void MainWindow::setupActions()
     auto *moveTabRight = ac->addAction(QStringLiteral("tab_move_right"));
     moveTabRight->setText(i18n("Move Tab Right"));
     moveTabRight->setIcon(QIcon::fromTheme(QStringLiteral("go-next")));
-    moveTabRight->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_PageDown));
+    moveTabRight->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_PageDown));
     connect(moveTabRight, &QAction::triggered, this, [this]() {
         if (!m_workspace) return;
         if (auto *leaf = m_workspace->activeLeaf())
@@ -2853,6 +2853,24 @@ void MainWindow::updateWindowTitle(NoteEditorWidget *editor)
 #endif
 
     setWindowTitle(title);
+}
+
+void MainWindow::applyMarkoffThemeSetting()
+{
+    if (!m_themeService) return;
+
+    // 1. An explicitly-chosen editor theme applies on OK/Apply. This is the
+    //    half that was missing: refreshSystemTheme() early-returns unless the
+    //    active name is "Follow system", so choosing "Dark" in Settings while
+    //    the service still sat on the previous name never reached the editor.
+    const QString persisted = CorbomiteSettings::self()->markoffTheme();
+    if (!persisted.isEmpty())
+        m_themeService->setActiveThemeByName(persisted);
+
+    // 2. Keep the "Follow system" path live: when the app colour scheme
+    //    changes, the palette-derived theme must be rebuilt. setActiveThemeByName
+    //    no-ops on an unchanged name, so this is not a re-emit storm.
+    m_themeService->refreshSystemTheme();
 }
 
 void MainWindow::applyTheme()

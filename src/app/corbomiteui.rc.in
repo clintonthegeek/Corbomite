@@ -43,13 +43,21 @@
       <Action name="tab_next"/>
       <Action name="tab_prev"/>
       <Action name="tab_close"/>
-      <!-- Cluster O Phase O5.T5 (Cluster I Phase 5 tail). Universal: tab
-           order is a workspace concern, not a view-type one, so these
-           belong in the always-present Tab menu rather than any
-           ViewActions provider. -->
-      <Separator/>
+    </Menu>
+    <!-- Cluster O Phase O5.T5 (Cluster I Phase 5 tail) — a real Tab menu.
+         These were originally appended to the Go menu above, with a comment
+         asserting they "belong in the always-present Tab menu" — a menu that
+         did not exist. Reported by the user as "I can't find the tab menu".
+         Tab order and linked-pane grouping are tab concerns, not navigation
+         concerns, so they get their own top-level menu rather than living
+         under Go where nobody looks for them. Always present: these are
+         universal (workspace-scoped), so this is a base container, never a
+         ViewActions provider merge. -->
+    <Menu name="tab">
+      <text>&amp;Tab</text>
       <Action name="tab_move_left"/>
       <Action name="tab_move_right"/>
+      <Separator/>
       <Action name="leaf_link_with_active_pane"/>
     </Menu>
     <!-- Cluster O Phase O3 (§D5) — split_right/split_down/sidebar/zoom are

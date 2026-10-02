@@ -11,6 +11,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
+#include <QMenu>
+#include <QMenuBar>
 #include <QTest>
 
 #include <KAboutData>
@@ -211,6 +213,70 @@ private Q_SLOTS:
             QVERIFY2(!a->isEnabled(),
                      qPrintable(QStringLiteral(
                          "%1 is enabled with no cursor context").arg(id)));
+        }
+    }
+
+
+    // ---- Regression: O5.T5 tab actions, reported by the user ---------
+
+    // Ctrl+Shift+PgUp/PgDn did nothing; Shift+PgUp/PgDn did. The shortcuts
+    // were registered as QKeySequence(SHIFT | Key_PageUp) — the Ctrl was
+    // simply missing, while the commit message claimed "Ctrl+Shift+PgUp/PgDn
+    // match Obsidian's own bindings". Assert the FULL sequence, not just that
+    // one is non-empty: a bare isEnabled() check passes on the wrong binding.
+    void tabMoveActionsUseCtrlShiftPageKeys() {
+        CorbomiteApp app;
+        MainWindow mw(&app);
+        for (const char *id : {"tab_move_left", "tab_move_right"}) {
+            auto *a = mw.actionCollection()->action(QString::fromLatin1(id));
+            QVERIFY2(a, id);
+            const QKeySequence want = QString::fromLatin1(id) == QLatin1String("tab_move_left")
+                ? QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_PageUp)
+                : QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_PageDown);
+            QVERIFY2(a->shortcut() == want,
+                     qPrintable(QStringLiteral("%1 has shortcut %2, expected %3")
+                                    .arg(QLatin1String(id), a->shortcut().toString(),
+                                         want.toString())));
+        }
+    }
+
+    // The three actions must be reachable from a real Tab menu. They were
+    // appended to the Go menu under a comment asserting they "belong in the
+    // always-present Tab menu" — a menu that did not exist, which is why the
+    // user could not find them.
+    void tabActionsAppearInATabMenu() {
+        CorbomiteApp app;
+        MainWindow mw(&app);
+
+        // Strict: identify the menu by its EXACT objectName and its label.
+        // A first attempt used `objectName().contains("tab")`, which happily
+        // matched a menu renamed "tabmenu" — and so passed against the very
+        // bug it was written for. Found by the falsifiability check.
+        QMenu *tabMenu = nullptr;
+        for (auto *m : mw.menuBar()->actions()) {
+            auto *sub = m ? m->menu() : nullptr;
+            if (sub && sub->objectName() == QLatin1String("tab")) {
+                tabMenu = sub;
+                break;
+            }
+        }
+        QVERIFY2(tabMenu,
+                 "no menu with objectName 'tab' in the menubar — the Tab menu "
+                 "either does not exist or was folded into another menu");
+
+        // Label check too: a nameless menu would still "work" for a shortcut
+        // search but be unfindable by a user.
+        const QString title = tabMenu->title();
+        QVERIFY2(title.contains(QLatin1String("Tab")),
+                 qPrintable(QStringLiteral("Tab menu label is '%1'").arg(title)));
+
+        for (const char *id : {"tab_move_left", "tab_move_right",
+                               "leaf_link_with_active_pane"}) {
+            bool inMenu = false;
+            for (auto *a : tabMenu->actions())
+                if (a && a->objectName() == QLatin1String(id)) inMenu = true;
+            QVERIFY2(inMenu,
+                     qPrintable(QStringLiteral("%1 is not in the Tab menu").arg(id)));
         }
     }
 

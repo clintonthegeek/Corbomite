@@ -133,6 +133,15 @@ protected:
 private:
     void setupActions();
     void applyTheme();
+    /// Apply the `MarkoffTheme` kcfg entry to the live ThemeService.
+    ///
+    /// Was: `refreshSystemTheme` wired straight to kcfg's configChanged.
+    /// That ONLY acts when the active name is "Follow system", so an
+    /// explicitly-chosen editor theme (Light/Dark) was never re-applied when
+    /// the setting changed at runtime — it was read once at construction. The
+    /// user-visible symptom was that the editor-theme dropdown appeared to do
+    /// nothing until the app-theme dropdown had been touched.
+    void applyMarkoffThemeSetting();
     void applyVaultPortableSettings();
     void applyAutosaveDelay();
     /// Iterates open leaves, calling each NoteEditorWidget::
