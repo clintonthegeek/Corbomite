@@ -31,7 +31,12 @@ private Q_SLOTS:
     {
         const EphemeralState s;
         const auto json = s.toJson();
-        QCOMPARE(json.value(QStringLiteral("scroll")).toDouble(), 0.0);
+        // 2026-10-01: `scroll` is no longer written under Obsidian's key —
+        // ours is a viewport fraction, theirs is (per views.md) a line number.
+        // See EphemeralState.cpp and tst_ephemeral_scroll_interop.cpp.
+        QVERIFY(!json.contains(QStringLiteral("scroll")));
+        QCOMPARE(json.value(QStringLiteral("corbomite.scrollFraction")).toDouble(),
+                 0.0);
         QCOMPARE(json.value(QStringLiteral("mode")).toString(), QStringLiteral("source"));
         QCOMPARE(json.value(QStringLiteral("source")).toBool(), false);
 
@@ -98,8 +103,11 @@ private Q_SLOTS:
         const auto s = EphemeralState::fromJson(doc.object());
         const auto out = s.toJson();
 
-        // Typed fields parsed correctly.
-        QCOMPARE(s.scroll, 5.5f);
+        // Typed fields parsed correctly. The seeded `scroll: 5.5` is an
+        // Obsidian-shaped value, so it is NOT read as our fraction (2026-10-01);
+        // it round-trips verbatim through extraKeys instead, which is asserted
+        // below. Our own fraction key is what drives `scroll`.
+        QCOMPARE(s.scroll, 0.0f);
         QCOMPARE(s.cursor.line, 2);
         QCOMPARE(s.cursor.column, 6);
         QCOMPARE(s.foldedHeadings, QVector<int>({1, 4}));
@@ -135,9 +143,17 @@ private Q_SLOTS:
     //     (no pre-existing fixture in tests/ carried a full eState). ---
     void obsidianShapeEStateRoundTrip()
     {
-        // Shape from docs/obsidian-audit/domains/workspace.md §3: a leaf's
-        // `eState` for a markdown view carries scroll (float), cursor
+        // Obsidian-shaped eState for a markdown view: scroll, cursor
         // (line,column), mode + source, optional plugin keys.
+        //
+        // 2026-10-01: the old comment here cited "workspace.md §3 … scroll
+        // (float)". That citation does not exist — workspace.md never documents
+        // eState.scroll — and views.md:159 documents it as `scroll?: number;
+        // // line for scroll-to-match` under a heading that says EphemeralState
+        // is "not persisted". The corpus contradicts itself; see the
+        // 2026-10-01 addendum. Conservative resolution: do not write a value
+        // whose meaning we cannot establish, and round-trip whatever Obsidian
+        // wrote verbatim.
         const QByteArray wire = R"({
             "scroll": 128.42,
             "cursor": {"line": 15, "column": 0},
@@ -151,7 +167,9 @@ private Q_SLOTS:
         QCOMPARE(err.error, QJsonParseError::NoError);
 
         const auto s = EphemeralState::fromJson(in);
-        QCOMPARE(s.scroll, 128.42f);
+        // `scroll` is Obsidian's field, so it is preserved but not interpreted
+        // as our fraction (see the note above and the addendum).
+        QCOMPARE(s.scroll, 0.0f);
         QCOMPARE(s.cursor.line, 15);
         QCOMPARE(s.cursor.column, 0);
         QCOMPARE(s.modeRaw, QStringLiteral("source"));
@@ -159,8 +177,9 @@ private Q_SLOTS:
         QCOMPARE(s.foldedHeadings, QVector<int>({5, 12, 48}));
 
         const auto out = s.toJson();
-        // Typed fields byte-equivalent at the field level.
-        QCOMPARE(out.value(QStringLiteral("scroll")).toDouble(),
+        // Obsidian's own fields come back byte-equivalent at the field level.
+        QCOMPARE(out.value(QStringLiteral("scroll")).toDouble(), 128.42);
+        QCOMPARE(out.value(QStringLiteral("corbomite.scrollFraction")).toDouble(),
                  static_cast<double>(s.scroll));
         QCOMPARE(out.value(QStringLiteral("cursor")).toObject(),
                  in.value(QStringLiteral("cursor")).toObject());

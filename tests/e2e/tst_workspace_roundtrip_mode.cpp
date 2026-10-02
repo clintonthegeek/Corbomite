@@ -171,7 +171,14 @@ private Q_SLOTS:
         QVERIFY(!sourceRaw.isEmpty());
         QVERIFY(!readingRaw.isEmpty());
 
-        // Source leaf — mode "source" + eState.scroll ~ 30.5 + eState.source:true.
+        // Source leaf — mode "source" + eState scroll 30.5 + eState.source:true.
+        //
+        // 2026-10-01: the scroll assertion moved to Corbomite's private key.
+        // `EphemeralState::scroll` is a 0.0-1.0 viewport FRACTION (contract-v2),
+        // but Obsidian's `eState.scroll` is a LINE NUMBER, so Corbomite no
+        // longer writes ours under that key. Note this test seeds 30.5 — a
+        // plausible LINE number, not a fraction — which is a neat illustration
+        // of the confusion that made the original interop bug easy to miss.
         const auto sourceInner = sourceRaw.value(QStringLiteral("state"))
                                           .toObject().value(QStringLiteral("state"))
                                           .toObject();
@@ -183,10 +190,13 @@ private Q_SLOTS:
         QCOMPARE(sourceEState.value(QStringLiteral("mode")).toString(),
                  QStringLiteral("source"));
         QCOMPARE(sourceEState.value(QStringLiteral("source")).toBool(), true);
-        QVERIFY(std::abs(sourceEState.value(QStringLiteral("scroll")).toDouble()
-                         - 30.5) < 0.01);
+        QVERIFY(!sourceEState.contains(QStringLiteral("scroll")));
+        QVERIFY(std::abs(sourceEState
+                             .value(QStringLiteral("corbomite.scrollFraction"))
+                             .toDouble() - 30.5) < 0.01);
 
-        // Reading leaf — mode "preview" + eState.scroll ~ 5.0.
+        // Reading leaf — mode "preview" + eState scroll 5.0. (Private key, as
+        // above — see the source-leaf comment.)
         const auto readingInner = readingRaw.value(QStringLiteral("state"))
                                             .toObject().value(QStringLiteral("state"))
                                             .toObject();
@@ -197,8 +207,10 @@ private Q_SLOTS:
         QVERIFY(!readingEState.isEmpty());
         QCOMPARE(readingEState.value(QStringLiteral("mode")).toString(),
                  QStringLiteral("preview"));
-        QVERIFY(std::abs(readingEState.value(QStringLiteral("scroll")).toDouble()
-                         - 5.0) < 0.01);
+        QVERIFY(!readingEState.contains(QStringLiteral("scroll")));
+        QVERIFY(std::abs(readingEState
+                             .value(QStringLiteral("corbomite.scrollFraction"))
+                             .toDouble() - 5.0) < 0.01);
 
         // Cluster B unknown-key preservation: _obsidian_internal survived.
         QCOMPARE(sourceRaw.value(QStringLiteral("_obsidian_internal"))

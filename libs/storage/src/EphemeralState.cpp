@@ -11,7 +11,18 @@ namespace {
 // Known top-level keys in the eState object. Anything not in this set is
 // copied into `extraKeys` verbatim so round-tripping preserves future
 // Obsidian fields / plugin data (Cluster B WorkspaceState idiom).
-const char *kKeyScroll         = "scroll";
+// Corbomite's own scroll key. Obsidian's
+// `eState.scroll` is a LINE NUMBER (obsidian-audit/domains/views.md:159), but
+// Corbomite's contract-v2 `MarkdownView::scrollPositionVisualLine()` returns a
+// 0.0-1.0 viewport FRACTION. Writing the fraction under Obsidian's key made a
+// shared vault's scroll position unreadable to Obsidian (it would restore to
+// line 0), and made ours unreadable to Obsidian's writer. Per the Cluster L
+// compat doctrine — schema-at-rest fidelity to Obsidian is the only contract,
+// in-memory shape is free to be idiomatic — we keep our fraction under a
+// private key and leave Obsidian's `scroll` alone. The conversion that would
+// make them agree needs the viewport height, which is not available at
+// serialize time and is not stable across window sizes anyway.
+const char *kKeyScrollFraction = "corbomite.scrollFraction";
 const char *kKeyCursor         = "cursor";
 const char *kKeyCursorLine     = "line";
 const char *kKeyCursorColumn   = "column";
@@ -21,8 +32,7 @@ const char *kKeyFoldedHeadings = "foldedHeadings";
 
 bool isKnownKey(const QString &key)
 {
-    return key == QLatin1StringView(kKeyScroll)
-        || key == QLatin1StringView(kKeyCursor)
+    return key == QLatin1StringView(kKeyCursor)
         || key == QLatin1StringView(kKeyMode)
         || key == QLatin1StringView(kKeySource)
         || key == QLatin1StringView(kKeyFoldedHeadings);
@@ -37,7 +47,11 @@ QJsonObject EphemeralState::toJson() const
     // fromJson only stashes unknown keys, but this is the safer compose).
     QJsonObject obj = extraKeys;
 
-    obj.insert(QLatin1StringView(kKeyScroll), static_cast<double>(scroll));
+    // Deliberately NOT written under Obsidian's `scroll` key — see
+    // kKeyScrollFraction above. If Obsidian wrote a real value for `scroll`, it is
+    // already in `extraKeys` and passes through untouched (extraKeys is the
+    // base object above).
+    obj.insert(QLatin1StringView(kKeyScrollFraction), static_cast<double>(scroll));
 
     QJsonObject cursorObj;
     cursorObj.insert(QLatin1StringView(kKeyCursorLine), cursor.line);
@@ -64,9 +78,12 @@ EphemeralState EphemeralState::fromJson(const QJsonObject &json)
 {
     EphemeralState s;
 
-    if (json.contains(QLatin1StringView(kKeyScroll))) {
+    // Read our private key. An Obsidian-authored `scroll` (a line number) is
+    // left in extraKeys and round-tripped verbatim rather than being
+    // misinterpreted as a fraction.
+    if (json.contains(QLatin1StringView(kKeyScrollFraction))) {
         s.scroll = static_cast<float>(
-            json.value(QLatin1StringView(kKeyScroll)).toDouble(0.0));
+            json.value(QLatin1StringView(kKeyScrollFraction)).toDouble(0.0));
     }
 
     if (json.contains(QLatin1StringView(kKeyCursor))) {

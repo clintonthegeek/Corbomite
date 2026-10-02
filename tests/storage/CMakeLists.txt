@@ -110,3 +110,11 @@ target_include_directories(tst_session_manager_roundtrip PRIVATE
     ${CMAKE_SOURCE_DIR}/src/app
 )
 target_link_libraries(tst_session_manager_roundtrip PRIVATE Qt6::Test Qt6::Core)
+
+# eState.scroll must not carry Corbomite's viewport fraction into Obsidian's
+# line-number field (2026-10-01). Also pins that an Obsidian-authored value
+# round-trips verbatim via the extraKeys passthrough.
+add_executable(tst_ephemeral_scroll_interop tst_ephemeral_scroll_interop.cpp)
+add_test(NAME tst_ephemeral_scroll_interop COMMAND tst_ephemeral_scroll_interop)
+target_link_libraries(tst_ephemeral_scroll_interop PRIVATE Qt6::Test Corbomite::Storage)
+set_tests_properties(tst_ephemeral_scroll_interop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
