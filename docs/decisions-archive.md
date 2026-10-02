@@ -235,6 +235,53 @@ consumer-side relabelling, found inert, removed.
 
 **Suite: 329/329 green** with the exclusion above (331 registered).
 
+**Batches 2 and 3, same day — dead-code deletion, and two agent claims refuted.**
+
+Deleted `MarkoffRenderEngine` (no references outside its own two files, no test)
+and `PluginInstance` + `tst_plugininstance` (superseded by `Corbomite::Plugin`,
+which is what `PluginManager` actually instantiates; the test was its only
+consumer, so it was the false coverage the appraisal flagged). Their shared base
+`MarkdownRenderEngine` stays — 12 live consumers. Two doc comments that named
+`PluginInstance` now name the live class.
+
+**Two entries in the appraisal's dead-code list were wrong, and checking before
+deleting caught both.** `ForceGraph::SpatialGrid` (82 lines) is **live** — it is a
+member of `BatchNodeItem` (`BatchNodeItem.h:39`) and part of the real
+batch-rendering fast path; the reference-count pass missed it because its only
+mentions are an `#include` and a member declaration in a header it did not read.
+`SearchDSL::ParseResult` is **live** — it is the return type of the public
+`SearchDSL::parse()` (`SearchDSL.h:58`), called from `SearchView.cpp:64` and
+several tests, so the appraisal's "leaked internal type" reading would have meant
+breaking a public signature. Both corrections are recorded in the punch list with
+the general lesson: **a symbol whose only references live in a header you did not
+read is not dead.** This was the same failure as the app-layer pass's independent
+`SpatialGrid` claim, which is why the audit's method notes insist on whole-tree
+grepping rather than trusting a count.
+
+Then the dead Kate session-restore cluster in `CorbomiteMDI` (~245 lines).
+`MainWindow::{startRestore,finishRestore,saveSession}` had zero callers outside
+`CorbomiteMDI.cpp` and only called each other plus
+`Sidebar::{startRestoreSession,restoreSession,saveSession}`; Cluster L Phase L2 had
+superseded the whole thing with `src/app/SessionManager`, which
+`MainWindow::saveSessionState` drives — and `saveSessionState` being a *different*
+method from the deleted `MainWindow::saveSession` is why the supersession was easy
+to miss. `Sidebar::updateLastSizeOnResize` and `MainWindow::toolviewNames` also had
+zero callers tree-wide.
+
+The deletion then exposed a follow-on worth recording: `startRestore()` was the
+only writer of `m_restoreConfig`/`m_restoreGroup`, so the four blocks that *read*
+them — tool-view position lookup in `addToolView`/`moveToolView` and early-returns
+in `showToolView`/`hideToolView` — became provably always-false. Leaving them would
+have recreated exactly the dead-but-live-looking code the pass was removing, and
+worse, the two early-returns would have read as real behaviour. They and the three
+never-written members went too, with a comment so the next reader does not
+"restore" them. `grep Corbomite-MDI- CorbomiteMDI.cpp` is now 0: no dead config
+keys are written to a group nobody loads.
+
+**Suite: 328/328 green** (one fewer than before — the deleted test-only test).
+One transient red on `tst_forcelayout` mid-batch: passes standalone 18/18, green on
+re-run, and `src/mdi/` is not a dependency of forcegraph.
+
 ---
 
 ## 2026-08-21 — v0.2.0 tagged and released

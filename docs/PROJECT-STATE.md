@@ -16,33 +16,49 @@
 
 ## Current focus
 
-**Second-sweep remediation, batch 2.** Batch 1 landed 2026-10-01 (see Recent
-decisions): `ThemeService` minimum-viable revival, release-hygiene A.2/A.3/A.4 +
-E.1, and the `MarkoffAdapters` corpse deletion. **Next in the batch, in order:**
+**Second-sweep remediation, batch 3 complete.** Batches 1–2 landed 2026-10-01
+(see Recent decisions): `ThemeService` minimum-viable revival, release-hygiene
+A.2/A.3/A.4 + E.1, the `MarkoffAdapters` / `MarkoffRenderEngine` /
+`PluginInstance` deletions, the dead Kate session-restore cluster in
+`CorbomiteMDI`, and the test-command fix. **Suite 328/328.** ~500 lines of dead
+code removed, 4 punch-list items closed, 2 new tests added (both
+falsifiability-checked).
 
-1. **The remaining 12 test-only/dead islands** — each needs an explicit
-   delete-or-revive decision. Cheap ones first (`MarkoffRenderEngine`,
-   `PluginInstance`, `SearchDSL::ParseResult`, `SpatialGrid`). The ones that are
-   *implementations of features still wanted* (`Hotkey`, `VaultScanner`,
-   `MarkdownRenderChild`, the ~110-line Kate session subtree in `CorbomiteMDI`)
-   need wiring, not deletion — decide per item, don't batch-delete.
-2. **Cluster O Phase O5** (`BasesViewActions` / `GraphViewActions`) — the
-   declared next cluster work.
-3. **Steer Markoff** for a local, D2-undo-integrated frontmatter edit API
-   (the Properties "add blank row" undo gap) and for a `LABELS "benchmark"` on
-   the two canvas perf tests. Both are cross-repo.
-4. **Split Cluster F** into F-a (File Recovery + Note Composer) / F-b
+**Next, in order:**
+
+1. **Cluster O Phase O5** (`BasesViewActions` / `GraphViewActions`) — the
+   declared next cluster work, and the first thing in a while that is
+   user-facing rather than hygiene.
+2. **Wire, don't delete, the remaining 9 test-only islands.** The important
+   distinction the batch established: `Hotkey`/`HotkeyFile` *are* the
+   hotkeys.json subsystem and `VaultScanner`+`IgnoreFilter` *are* the
+   user-ignore-filters chain. Both features are still wanted and still
+   un-wired, so those islands are the *implementations waiting to be connected*,
+   not deletable dead weight. Deleting them would remove the only code that
+   could satisfy those punch-list items. Only `EmbedDepthGuard` and
+   `RegexRenderEngine` look like genuine delete candidates.
+3. **`eState.scroll` interop fix** (P1) — Corbomite writes a 0.0–1.0 fraction
+   into an Obsidian-shared field that Obsidian reads as a line number. Convert
+   on write, or denylist the field.
+4. **Steer Markoff** for (a) a local, D2-undo-integrated frontmatter edit API
+   and (b) a `LABELS "benchmark"` on the two canvas perf tests. Both cross-repo.
+5. **Split Cluster F** into F-a (File Recovery + Note Composer) / F-b
    (Workspaces + sidedock substrate); file the Tags pane as a real cluster;
    retire Cluster E.
+6. `resolveSubpath` is the tested Obsidian-parity implementation with zero
+   production callers while an unfaithful regex scrubber ships — needs the
+   render path given a `Markoff::Document`, then retire the scrubber.
 
-Not started, and deliberately so: release-hygiene B (mmdr reproducibility), C
+Not started, deliberately: release-hygiene B (mmdr reproducibility), C
 (remaining dead code), D (renames), E (packaging remainder).
 
-**Note the two corrections the batch made to its own audit** — the
-`addFrontmatterRow` fence claim was retracted (a "fix" whose test passed against
-unfixed code, so it was reverted), and the undo fix was reverted after its own
-test caught it. Detail in the punch list's 2026-10-01 section. The lesson is
-recorded in the audit's §10: a gate never seen red proves nothing.
+**Two corrections this work made to its own audit** — a "fix" whose test passed
+against unfixed code, and a fix its own test caught, both reverted rather than
+shipped; and two entries in the appraisal's dead-code list (`SpatialGrid`,
+`ParseResult`) that were **live** and would have broken things. The lesson is in
+the audit's §10 and the punch list's 2026-10-01 section: a gate never seen red
+proves nothing, and a symbol whose only references live in a header you did not
+read is not dead.
 
 ## Two tracks
 
