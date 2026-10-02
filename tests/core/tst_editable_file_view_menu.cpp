@@ -41,7 +41,7 @@ namespace {
 NoteDocument *makeDoc(QObject *parent, const QString &vaultRoot,
                       const QString &relPath)
 {
-    return new NoteDocument(vaultRoot, relPath, nullptr, parent);
+    return new NoteDocument(vaultRoot, relPath, parent);
 }
 
 }  // namespace

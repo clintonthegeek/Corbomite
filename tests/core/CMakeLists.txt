@@ -30,12 +30,10 @@ set_tests_properties(tst_view_more_options PROPERTIES ENVIRONMENT "QT_QPA_PLATFO
 # TODO(port-foundation-exploration): tst_editable_file_view_menu uses the
 # old 4-arg NoteDocument ctor (ParsePool* parameter retired with D4). Re-enable
 # once the test is ported to the new 3-arg signature.
-if(FALSE)
 add_executable(tst_editable_file_view_menu tst_editable_file_view_menu.cpp)
 add_test(NAME tst_editable_file_view_menu COMMAND tst_editable_file_view_menu)
 target_link_libraries(tst_editable_file_view_menu PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_editable_file_view_menu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-endif()
 
 add_executable(tst_hoverlinksources tst_hoverlinksources.cpp)
 add_test(NAME tst_hoverlinksources COMMAND tst_hoverlinksources)
@@ -53,12 +51,10 @@ target_link_libraries(tst_notemeta PRIVATE Qt6::Test Corbomite::Core)
 # MarkoffDocument API: resetContent(QString), undoStack(), MarkdownDelta —
 # all gone in the foundation-exploration rebuild. Re-enable after porting
 # the test to QByteArray + d2UndoLog (or the equivalent new API).
-if(FALSE)
 add_executable(tst_notedocument tst_notedocument.cpp)
 add_test(NAME tst_notedocument COMMAND tst_notedocument)
 target_link_libraries(tst_notedocument PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_notedocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-endif()
 
 add_executable(tst_notedocument_dirty tst_notedocument_dirty.cpp)
 add_test(NAME tst_notedocument_dirty COMMAND tst_notedocument_dirty)
@@ -165,7 +161,6 @@ set_tests_properties(tst_view_zoom PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offsc
 
 # TODO(port-foundation-exploration): tst_textfileview + tst_textfileview_merge
 # use the old 4-arg NoteDocument ctor (ParsePool* parameter retired with D4).
-if(FALSE)
 add_executable(tst_textfileview tst_textfileview.cpp)
 add_test(NAME tst_textfileview COMMAND tst_textfileview)
 target_link_libraries(tst_textfileview PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
@@ -175,7 +170,6 @@ add_executable(tst_textfileview_merge tst_textfileview_merge.cpp)
 add_test(NAME tst_textfileview_merge COMMAND tst_textfileview_merge)
 target_link_libraries(tst_textfileview_merge PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
 set_tests_properties(tst_textfileview_merge PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-endif()
 
 add_executable(tst_viewregistry tst_viewregistry.cpp)
 add_test(NAME tst_viewregistry COMMAND tst_viewregistry)
@@ -233,12 +227,10 @@ target_link_libraries(tst_themeservice PRIVATE Qt6::Test Qt6::Widgets Corbomite:
 set_tests_properties(tst_themeservice PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # TODO(port-foundation-exploration): same 4-arg NoteDocument ctor issue.
-if(FALSE)
 add_executable(tst_fileview_setState tst_fileview_setState.cpp)
 add_test(NAME tst_fileview_setState COMMAND tst_fileview_setState)
 target_link_libraries(tst_fileview_setState PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_fileview_setState PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-endif()
 
 add_executable(tst_workspace_leaf_navigate tst_workspace_leaf_navigate.cpp)
 add_test(NAME tst_workspace_leaf_navigate COMMAND tst_workspace_leaf_navigate)

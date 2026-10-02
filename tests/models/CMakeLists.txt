@@ -25,3 +25,8 @@ add_executable(tst_dailynoteservice tst_dailynoteservice.cpp)
 add_test(NAME tst_dailynoteservice COMMAND tst_dailynoteservice)
 target_link_libraries(tst_dailynoteservice PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)
 set_tests_properties(tst_dailynoteservice PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_searchresultsmodel tst_searchresultsmodel.cpp)
+add_test(NAME tst_searchresultsmodel COMMAND tst_searchresultsmodel)
+target_link_libraries(tst_searchresultsmodel PRIVATE Qt6::Test Corbomite::Models Corbomite::Storage)
+set_tests_properties(tst_searchresultsmodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

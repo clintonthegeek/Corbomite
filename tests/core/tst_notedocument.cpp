@@ -4,8 +4,7 @@
 #include <QDir>
 #include "corbomite/core/NoteDocument.h"
 #include <markoff/core/MarkoffDocument.h>
-// TODO(port): MarkdownDelta retired
-// include <markoff/MarkdownDelta.h>
+#include <markoff/core/UndoLog.h>
 
 class TestNoteDocument : public QObject {
     Q_OBJECT
@@ -28,7 +27,9 @@ private Q_SLOTS:
         doc.setMarkdown(QStringLiteral("# Hello"));
 
         QCOMPARE(spy.count(), 1);
-        QCOMPARE(doc.markdown(), QStringLiteral("# Hello"));
+        // markdown() routes through serializeForSave(), which terminates the
+        // document with a single "\n" (NoteDocument.cpp:108-111).
+        QCOMPARE(doc.markdown(), QStringLiteral("# Hello\n"));
     }
 
     void testModifiedStateTracking()
@@ -111,27 +112,29 @@ private Q_SLOTS:
     void markdownDelegates_toMarkoffDocument()
     {
         Corbomite::NoteDocument note(QDir::tempPath(), QStringLiteral("t.md"));
-        note.markoff()->resetContent(QStringLiteral("# hello"), Markoff::Origin::FirstOpen);
-        QCOMPARE(note.markdown(), QStringLiteral("# hello"));
+        note.markoff()->resetContent(QByteArray("# hello"), Markoff::Origin::FirstOpen);
+        QCOMPARE(note.markdown(), QStringLiteral("# hello\n"));
     }
 
     void textChanged_firesOnCanonicalChange()
     {
         Corbomite::NoteDocument note(QDir::tempPath(), QStringLiteral("t.md"));
         QSignalSpy spy(&note, &Corbomite::NoteDocument::textChanged);
-        note.markoff()->resetContent(QStringLiteral("x"), Markoff::Origin::FirstOpen);
+        note.markoff()->resetContent(QByteArray("x"), Markoff::Origin::FirstOpen);
         QCOMPARE(spy.count(), 1);
     }
 
     void modifiedFlag_flipsOnEdit()
     {
         Corbomite::NoteDocument note(QDir::tempPath(), QStringLiteral("t.md"));
-        note.markoff()->resetContent(QStringLiteral("base"), Markoff::Origin::FirstOpen);
+        note.markoff()->resetContent(QByteArray("base"), Markoff::Origin::FirstOpen);
         note.setModified(false);
         QSignalSpy modSpy(&note, &Corbomite::NoteDocument::modificationChanged);
-        note.markoff()->undoStack()->push(
-            new Markoff::MarkdownDelta(note.markoff(), 4, 0, QStringLiteral(" edited")));
-        QVERIFY(note.isModified());
+        // The retired MarkdownDelta/undoStack() pair is now a D2 edit recorded
+        // in the UndoLog. NoteDocument raises the dirty flag from the deferred
+        // d2DocumentChanged signal, so let the event loop deliver it.
+        note.markoff()->applyFlatEdit(4, 4, " edited", Markoff::Origin::UserEdit);
+        QTRY_VERIFY_WITH_TIMEOUT(note.isModified(), 2000);
         QCOMPARE(modSpy.count(), 1);
     }
 };

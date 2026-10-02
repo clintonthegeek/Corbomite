@@ -65,7 +65,7 @@ private:
                                   const QString &relativePath,
                                   QObject *parent = nullptr)
     {
-        return new NoteDocument(vaultRoot, relativePath, nullptr, parent);
+        return new NoteDocument(vaultRoot, relativePath, parent);
     }
 
 private Q_SLOTS:

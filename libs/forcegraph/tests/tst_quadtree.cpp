@@ -46,11 +46,16 @@ private Q_SLOTS:
         ForceGraph::QuadTree tree;
         QVector<ForceGraph::GraphNode> nodes;
 
-        auto *rng = QRandomGenerator::global();
+        // Fixed seed, matching testPositionBasedApproximation below. The node
+        // layout feeds a bounded ratio assertion (approx/exact within
+        // [0.5, 2.0]), and the Barnes-Hut theta=0.8 approximation error varies
+        // ~2x across layouts — measured at roughly a 1.5% failure rate per run
+        // off the unseeded QRandomGenerator::global().
+        QRandomGenerator rng(42);
         for (int i = 0; i < 50; ++i) {
             ForceGraph::GraphNode n;
             n.id = QString::number(i);
-            n.position = QPointF(rng->bounded(1000), rng->bounded(1000));
+            n.position = QPointF(rng.bounded(1000), rng.bounded(1000));
             nodes.append(n);
         }
 

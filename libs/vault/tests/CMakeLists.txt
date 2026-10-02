@@ -118,27 +118,33 @@ add_test(NAME tst_vault_modify_reconcile COMMAND tst_vault_modify_reconcile)
 set_tests_properties(tst_vault_modify_reconcile PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-# TODO(port-foundation-exploration): tst_vault_save_reload uses retired
-# resetContent(QString) + undoStack() + MarkdownDelta. Re-enable after porting
-# the test to the new QByteArray + d2UndoLog API.
-if(FALSE)
 add_executable(tst_vault_save_reload tst_vault_save_reload.cpp)
 target_link_libraries(tst_vault_save_reload
     PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
 add_test(NAME tst_vault_save_reload COMMAND tst_vault_save_reload)
 set_tests_properties(tst_vault_save_reload PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-endif()
 
-# TODO(port-foundation-exploration): uses resetContent(QString) signature.
-if(FALSE)
 add_executable(tst_vault_save_refuses_orc tst_vault_save_refuses_orc.cpp)
 target_link_libraries(tst_vault_save_refuses_orc
     PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
 add_test(NAME tst_vault_save_refuses_orc COMMAND tst_vault_save_refuses_orc)
 set_tests_properties(tst_vault_save_refuses_orc PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-endif()
+
+# Spec §6.2 external-reload Origin dispatch. Ported off the retired
+# MarkdownDelta/undoStack() API and compiling, but blocked on a markoff-core
+# bug: resetContent() clears only the legacy CollabText undo stack, and
+# Enabled 2026-10-01. Originally gated as a data-loss bug report; investigation
+# showed the mechanism real (wipeD2State preserves the D2 UndoLog) but the
+# consequence inert (stale targets make undo a no-op). Rewritten to pin both
+# halves — see the file header for the full account.
+add_executable(tst_vault_external_reload tst_vault_external_reload.cpp)
+target_link_libraries(tst_vault_external_reload
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_external_reload COMMAND tst_vault_external_reload)
+set_tests_properties(tst_vault_external_reload PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_file_manager tst_file_manager.cpp)
 target_link_libraries(tst_file_manager

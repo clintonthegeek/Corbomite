@@ -49,7 +49,7 @@ void TstVaultSaveRefusesOrc::saveDocument_withOrcInCanonical_returnsFalseAndDoes
     QString pollutedCanonical = QStringLiteral("Hello, ");
     pollutedCanonical.append(QChar(QChar::ObjectReplacementCharacter));
     pollutedCanonical.append(QStringLiteral("world.\n"));
-    doc->markoff()->resetContent(pollutedCanonical,
+    doc->markoff()->resetContent(pollutedCanonical.toUtf8(),
                                  Markoff::Origin::ExternalReloadClean);
 
     QSignalSpy failedSpy(doc, &NoteDocument::saveFailed);
