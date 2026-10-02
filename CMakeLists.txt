@@ -176,6 +176,16 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_xmlgui_rcfile}
 
 install(FILES data/com.concernednetizen.Corbomite.desktop DESTINATION ${KDE_INSTALL_APPDIR})
 
+# AppStream metainfo (release-hygiene E.1, 2026-10-01). Without this the .deb is
+# invisible to GNOME Software / KDE Discover. This ECM version has no
+# kde_install_metainfo_file() macro — its appstreamtest() works by scanning the
+# install manifest for *.metainfo.xml / *.appdata.xml, so a plain install() rule
+# is both sufficient and the mechanism that gets the file validated by ctest.
+# Keep the component id in the file, the .desktop basename, and
+# KAboutData::setDesktopFileName() in src/app/main.cpp in sync.
+install(FILES data/com.concernednetizen.Corbomite.metainfo.xml
+        DESTINATION ${KDE_INSTALL_DATADIR}/metainfo)
+
 install(FILES data/icons/hicolor/scalable/apps/com.concernednetizen.Corbomite.svg
         DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
 

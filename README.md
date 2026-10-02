@@ -340,3 +340,17 @@ cd build-dev && ctest --output-on-failure -j"$(nproc)"
 | [JKQTMathText](https://github.com/jkriege2/JKQtPlotter) | LGPL-2.1-or-later | LaTeX math formula rendering |
 | [tree-sitter](https://github.com/tree-sitter/tree-sitter) | MIT | Incremental parsing framework |
 | [tree-sitter-markdown](https://github.com/tree-sitter-grammars/tree-sitter-markdown) | MIT | Markdown grammar for tree-sitter |
+| [mermaid-rs-renderer](https://github.com/1jehuang/mermaid-rs-renderer) | MIT | Mermaid diagram → SVG rendering, consumed as a pre-built static library (`libs/mmdr/libmermaid_rs_renderer.a`, © 2024 1jehuang). See [`libs/mmdr/README.md`](libs/mmdr/README.md) for provenance and rebuild instructions |
+| [KDDockWidgets](https://github.com/KDAB/KDDockWidgets) | GPL-2.0-or-later / GPL-3.0-or-later | Docking framework (tabs, splits, floating windows). A **build** dependency, linked but not vendored |
+
+Canonical licence texts for everything above are in [`LICENSES/`](LICENSES/); the
+project is [REUSE](https://reuse.software/) 3.2 compliant, declared in
+[`REUSE.toml`](REUSE.toml). Corbomite's own code is GPL-3.0-or-later
+([`LICENSE.txt`](LICENSE.txt)).
+
+Two build dependencies are worth calling out because they are easy to miss:
+**KDDockWidgets** is linked into `libcorbomite-core` but is not vendored (Arch:
+`kddockwidgets-qt6`), and **JKQTMathText** is vendored in-tree at
+`libs/jkqtmathtext` under LGPL-2.1-or-later, © 2008-2024 Jan W. Krieger
+(<jan@jkrieger.de>) — LGPL is licence-friendlier as a shared library, which is
+how Cluster P3 built it.

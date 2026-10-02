@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-License-Identifier: GPL-3.0-or-later
+  SPDX-FileCopyrightText: 2026 Corbomite contributors
+
+  AppStream metainfo. Added 2026-10-01 (release-hygiene task E.1, promoted to
+  punch-list P1). Corbomite had a desktop entry and an icon but NO metainfo, so
+  its .deb could not appear in GNOME Software, KDE Discover, or any other
+  AppStream consumer — despite shipping a .deb from CI on every v* tag.
+
+  Keep the metadata here in sync with KAboutData in src/app/main.cpp; that is
+  the authoritative source for the values shown in the app's own About dialog.
+  `appstreamcli validate` is run by ECM's KDECMakeSettings as the
+  `appstreamtest` ctest target, so a malformed file fails the suite.
+-->
+<component type="desktop-application">
+  <!--
+    NOTE: appstreamcli's pedantic mode reports cid-contains-uppercase-letter.
+    AppStream convention prefers a lowercase component id, but this one is the app's
+    established identity and changing it would ripple through the .desktop basename,
+    the D-Bus service name, the icon name, and KAboutData::setDesktopFileName() in
+    src/app/main.cpp. Renaming the id is a rebranding decision, deliberately NOT taken
+    as a side effect of adding packaging metadata. Tracked as a follow-up; the
+    non-pedantic validation is clean, and that is the gate ECM's appstreamtest runs.
+  -->
+  <id>com.concernednetizen.Corbomite</id>
+
+  <name>Corbomite</name>
+  <summary>Knowledge manager built around a local folder of Markdown notes</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      Corbomite is a note-taking and knowledge-management application for people
+      who keep their notes as plain Markdown files in a folder they own. Your
+      vault is an ordinary directory of <code>.md</code> files: readable without
+      Corbomite, editable with any other tool, and yours to move between
+      applications at any time.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>Three editor modes — live preview, raw Markdown source, and a styled reading view</li>
+      <li>Wiki-link and Markdown-link navigation with automatic link rewriting on rename</li>
+      <li>Backlinks, outgoing links, an outline, and a full-text search panel with regex and match-case toggles</li>
+      <li>Bases — query your notes as a table with a filter builder and formula columns</li>
+      <li>Canvas — arrange notes and media on an infinite board with connections</li>
+      <li>A local and global graph view, a command palette, and a quick switcher</li>
+      <li>Live word count, templates, and daily notes</li>
+      <li>A plugin API, with example plugins in the source tree</li>
+    </ul>
+    <p>
+      Corbomite reads and writes the same <code>.obsidian</code> configuration
+      that Obsidian uses, so a vault can be shared between the two without
+      conversion. Files are always stored as UTF-8 Markdown, and saves go
+      through an atomic write so an interrupted save cannot truncate a note.
+    </p>
+  </description>
+
+  <categories>
+    <category>Office</category>
+    <category>TextEditor</category>
+  </categories>
+
+  <keywords>
+    <keyword>notes</keyword>
+    <keyword>markdown</keyword>
+    <keyword>knowledge management</keyword>
+    <keyword>vault</keyword>
+    <keyword>wiki</keyword>
+    <keyword>zettelkasten</keyword>
+  </keywords>
+
+  <url type="homepage">https://concernednetizen.com</url>
+  <url type="bugtracker">https://github.com/clintonthegeek/Corbomite/issues</url>
+  <url type="vcs-browser">https://github.com/clintonthegeek/Corbomite</url>
+  <url type="help">https://github.com/clintonthegeek/Corbomite#readme</url>
+
+  <!-- developer-name-tag is the current spelling; developer_name is deprecated
+       (appstreamcli flags it). developer-id is expected once a real developer
+       entity exists, hence the current developer-info-missing advisory. -->
+  <developer id="com.concernednetizen">
+    <name>Corbomite contributors</name>
+  </developer>
+  <update_contact>corbomite_AT_concernednetizen.com</update_contact>
+
+  <launchable type="desktop-id">com.concernednetizen.Corbomite.desktop</launchable>
+
+  <provides>
+    <binary>Corbomite</binary>
+  </provides>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.2.0" date="2026-08-21">
+      <description>
+        <p>
+          Context-sensitive menus and toolbars that adapt to the focused tab's
+          document type (Markdown, canvas, bases, graph), including a canvas
+          menu with snap, grid, and zoom controls.
+        </p>
+        <p>
+          Rich clipboard support: multi-flavour Copy, Copy as, and smart paste
+          that converts HTML and RTF to Markdown.
+        </p>
+        <p>
+          Canvas authoring parity — node and edge creation, snapping, and
+          selection polish.
+        </p>
+      </description>
+    </release>
+    <release version="0.1.0" date="2026-08-18">
+      <description>
+        <p>First public release. Markdown editing with live preview, source and reading modes, link navigation, search, backlinks, bases, canvas, graph views, and a plugin API.</p>
+      </description>
+    </release>
+  </releases>
+</component>

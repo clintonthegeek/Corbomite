@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: 2026 Corbomite contributors
+#
+# REUSE 3.2 compliance manifest. Added 2026-10-01 (release-hygiene task A.3,
+# promoted to punch-list P1 — see docs/punch-list.md "Added 2026-10-01" §E).
+#
+# Why this file exists rather than 774 per-file `SPDX-FileCopyrightText` lines:
+# 774 Corbomite-owned source files already carry an `SPDX-License-Identifier`
+# tag, but only 6 carried a copyright line. REUSE requires *both* per file, so
+# either 768 headers gain a line, or the project declares a default here. This
+# project is a single-copyright-holder work, so a project-wide default is the
+# correct and conventional mechanism — it is exactly what REUSE.toml exists for.
+# The per-file identifier tags are left in place: they remain accurate, they
+# document which files the tag was added to deliberately, and they let a future
+# relicensing of one subtree be expressed locally.
+#
+# The vendored submodules below are covered by their *own* upstream licensing.
+# They are git submodules (see .gitmodules), so they are not part of this
+# repository's source tree as far as REUSE and the `.deb`/AppImage packaging are
+# concerned — the annotations are recorded here for transparency and so a future
+# `git subtree`/vendoring change has an accurate starting point.
+
+version = 1
+SPDX-PackageName = "Corbomite"
+SPDX-PackageSupplier = "Corbomite contributors <https://concernednetizen.com>"
+SPDX-PackageDownloadLocation = "https://github.com/clintonthegeek/Corbomite"
+
+# --- Corbomite's own work -----------------------------------------------------
+# GPL-3.0-or-later, matching LICENSE.txt and every source header. The explicit
+# per-path listing keeps `docs/` and `data/` under review rather than sweeping
+# them in silently, since they carry a mix of Markdown, AppStream XML, desktop
+# entries, and icons.
+[[annotations]]
+path = [
+  "CMakeLists.txt",
+  "CMakePresets.json",
+  "cmake/**",
+  "src/**",
+  "tests/**",
+  "examples/**",
+  "packaging/**",
+  "LICENSE.txt",
+  "README.md",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Corbomite contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = ["docs/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Corbomite contributors"
+# GPL-3.0-or-later, consistent with the rest of the project. No separate
+# documentation licence has ever been stated for docs/, and inventing one
+# (CC-BY-4.0 was the first thing tried) would be an unilateral relicensing
+# decision. If a distinct docs licence is wanted, decide it explicitly and
+# change this line — don't let it happen by omission.
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# --- Vendored / third-party, recorded for transparency ------------------------
+# All of these are git submodules or a committed blob, not Corbomite-authored
+# code, and all three are covered by their own upstream licensing. They are
+# therefore *outside* this repository's source tree for REUSE and packaging
+# purposes. The copyright strings below were transcribed from each project's own
+# headers on 2026-10-01 — none of them are ours to assert.
+[[annotations]]
+path = "libs/jkqtmathtext/**"
+precedence = "aggregate"
+# Verified against libs/jkqtmathtext/jkqtmathtext.h and .readme.
+SPDX-FileCopyrightText = "2008-2024 Jan W. Krieger <jan@jkrieger.de>"
+SPDX-License-Identifier = "LGPL-2.1-or-later"
+
+[[annotations]]
+path = "libs/mmdr/libmermaid_rs_renderer.a"
+precedence = "aggregate"
+# Verified against libs/mmdr/README.md.
+SPDX-FileCopyrightText = "2024 1jehuang"
+SPDX-License-Identifier = "MIT"
+
+# markoff-family and graffodil carry `SPDX-License-Identifier` but **no**
+# `SPDX-FileCopyrightText` anywhere in their trees (verified 2026-10-01), so no
+# copyright string is asserted for them here — asserting one would be a guess.
+# They need an upstream fix to become REUSE-clean on their own; tracked with the
+# other cross-repo hygiene in docs/punch-list.md.
+[[annotations]]
+path = ["libs/markoff-family/**", "libs/graffodil/**"]
+precedence = "aggregate"
+SPDX-License-Identifier = "GPL-3.0-or-later"
