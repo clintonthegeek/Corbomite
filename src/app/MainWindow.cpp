@@ -54,6 +54,7 @@
 #include "editor/MarkdownView.h"
 #include "editor/MarkdownViewActions.h"
 #include "canvas/CanvasFileView.h"
+#include "bases/BasesViewActions.h"
 #include "canvas/CanvasViewActions.h"
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasAlignmentStrategy.h>
@@ -286,6 +287,12 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     addToolBar(Qt::TopToolBarArea, m_canvasToolBar);
     m_canvasToolBar->addActions(m_canvasViewActions->toolBarActions());
     m_actionContext->registerToolBar(QStringLiteral("canvas"), m_canvasToolBar);
+
+    // Cluster O Phase O5 — BasesViewActions, same shape. Bases is
+    // host-registered (MainWindow::setupViews), so unlike graph's provider
+    // (O5.T4) it needs no plugin-facing registration path.
+    m_basesViewActions = new BasesViewActions(this);
+    m_actionContext->registerProvider(m_basesViewActions);
 
     // Cluster V Task 1.7 — theme dispatcher. applyTheme() applies the
     // Appearance/Theme kcfg key via KColorSchemeManager; onSettingsApplied

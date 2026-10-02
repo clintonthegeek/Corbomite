@@ -7,6 +7,8 @@
 #include "corbomite/core/TextFileView.h"
 
 #include <QElapsedTimer>
+#include <QHash>
+#include <QPointer>
 #include <QPoint>
 #include <QString>
 #include <QUndoStack>
@@ -14,8 +16,10 @@
 #include <functional>
 #include <memory>
 
+class QAction;
 class QLabel;
 class QLineEdit;
+class QMenu;
 class QComboBox;
 class QToolButton;
 class QTreeView;
@@ -113,12 +117,104 @@ public:
     /// Public for testability (the dialog path calls this on accept).
     void applyFilterSpecs(const FilterSpec &globalSpec, const FilterSpec &perViewSpec);
 
+    // ---- Cluster O Phase O5.T1/T2 — the KAction-facing toolbar surface ----
+    //
+    // The in-view toolbar's seven QToolButtons used to carry their whole
+    // behaviour in `clicked` lambdas inside the ctor, which meant the
+    // behaviour was unreachable from a menubar, a command palette, or the
+    // Hotkeys page. These hoist each lambda to a named method so
+    // `BasesViewActions` can own the QActions and drive them — the buttons
+    // then become plain `setDefaultAction()` carriers, giving one
+    // definition and four surfaces (in-view, menubar, palette, Hotkeys).
+
+    /// Feed state + show the Properties / Sort+group / Views popup panels.
+    /// Each no-ops when the query or active view is missing, and each
+    /// carries the same 150 ms re-click debounce the button lambdas had.
+    void showPropertiesPanel();
+    void showSortGroupPanel();
+    void showViewsPanel();
+
+    /// Properties pane (the right-hand drawer) — the checkable toggle's
+    /// read and write halves, so the action's checked state can be synced
+    /// from real state instead of guessed.
+    bool propertiesPaneVisible() const;
+    void setPropertiesPaneVisible(bool visible);
+
+    // Tier-B predicates (O5.T2). These are the enablement rules the
+    // provider mirrors; keeping them here means one definition of "can
+    // this control do anything" rather than a second copy in the provider.
+    /// A `.base` file has been parsed. False while the tab is empty/erroring.
+    bool hasQuery() const { return static_cast<bool>(m_query); }
+    /// A named view is selected — the Properties/Sort/Views panels are all
+    /// per-view state, so they need one.
+    bool hasActiveView() const { return m_activeView != nullptr; }
+    /// Either filter scope is present. Per the RE (`bases.md` §2,
+    /// `BasesQuery.filters` / `BasesViewConfig.filters` are both `optional`),
+    /// an absent filter node means "no filtering" and a present one means
+    /// filtering is in force — so this is a null check on either scope, not
+    /// a structural walk.
+    bool hasActiveFilters() const;
+    /// The query has a writable target for a new entry: a FileManager bound
+    /// to a live vault. Note `FileManager::createMarkdownNote` auto-creates
+    /// a missing `newItemFolder`, so an unset or absent folder is NOT a
+    /// reason to disable — it resolves to the vault root, as the RE's
+    /// `FY(...)` default-folder resolution also does.
+    bool canCreateNewEntry() const;
+
+    /// The seven in-view toolbar controls, as a name the host can bind a
+    /// QAction to. `BasesViewActions` (which lives in the `src/` binary,
+    /// deliberately not in this library) drives O5.T1's "one definition,
+    /// four surfaces" by adopting its actions onto the buttons it already
+    /// owns, rather than this library taking a dependency on the provider.
+    enum class ToolbarSlot {
+        Properties,
+        SortGroup,
+        Views,
+        Filters,
+        PropertiesPane,
+        NewEntry,
+        Results,
+    };
+
+    /// Adopt `action` as the definition of `slot`: the matching button
+    /// becomes a `setDefaultAction()` carrier, so triggering the action from
+    /// the menubar, the command palette, or the Hotkeys page runs exactly
+    /// the code the button runs. Passing nullptr detaches and restores the
+    /// button's standalone behaviour.
+    ///
+    /// Safe to call with no action (the standalone unit-test path, and any
+    /// window that failed to build the provider): Results in particular
+    /// falls back to a locally-built menu so the button is never left
+    /// without one.
+    void setToolbarAction(ToolbarSlot slot, QAction *action);
+
+    /// The action currently adopted for `slot`, or nullptr. Exposed so the
+    /// provider and tests can assert the binding rather than infer it from
+    /// button appearance.
+    QAction *toolbarAction(ToolbarSlot slot) const;
+
+    /// The Results menu and its two children, owned by the view so the
+    /// in-view button and the provider's menubar/palette entry share one
+    /// menu object rather than two that can drift. Null before the ctor has
+    /// built the toolbar, which cannot happen for a constructed view.
+    QMenu *toolbarResultsMenu() const;
+    QAction *toolbarCopyTableAction() const;
+    QAction *toolbarExportCsvAction() const;
+
 public Q_SLOTS:
     /// Single chokepoint: build a CmdSetFrontMatter and push it. Connected to
     /// BasesTreeModel::frontMatterEditRequested and
     /// PropertiesDrawer::frontMatterEditRequested.
     void pushFrontMatterEdit(Corbomite::TFile *file, const QString &key,
                              const QVariant &value);
+
+    /// Cluster O Phase O5.T1 — the four plain-button toolbar verbs, moved up
+    /// from private so `BasesViewActions` can drive them. Visibility change
+    /// only; the bodies and every existing connection are untouched.
+    void onCopyTable();
+    void onExportCsv();
+    void onNewItem();
+    void openFiltersDialog();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -136,9 +232,6 @@ private Q_SLOTS:
     void onSelectionChanged();
     void onLinkClicked(const QString &target, Qt::KeyboardModifiers mods);
     void onContextMenu(const QPoint &pos);
-    void onCopyTable();
-    void onExportCsv();
-    void onNewItem();
 
 private:
     QString resolveLink(const QString &target) const;   // wikilink target -> vault path ("" if unresolved)
@@ -156,12 +249,19 @@ private:
     QVector<PropertyId> availableProperties() const;
     QString displayNameFor(const PropertyId &pid) const;
     void showPanelUnder(QWidget *panel, QToolButton *button);
+    /// True when a popup panel was dismissed within the last 150 ms, i.e.
+    /// this click is the tail of an outside-click dismissal of the very same
+    /// panel and must be swallowed. Was inlined in three lambdas; hoisted so
+    /// the KAction trigger path debounces identically (O5.T1) — the panels
+    /// are anchored on the in-view buttons, which survive the switch to
+    /// `setDefaultAction()`, so behaviour is unchanged whichever surface
+    /// fired the action.
+    bool panelDismissedRecently() const;
 
     QStringList summaryNamesForPicker() const;        ///< built-in defaults + custom summary names
     QStringList formulaCandidateList() const;
     void openFormulaDialog(const QString &editName);  ///< add (empty) or edit a named formula
     void openSummaryDialog(const PropertyId &prop);   ///< create/assign a custom summary
-    void openFiltersDialog();
 
     Vault *m_vault = nullptr;
     MetadataCache *m_cache = nullptr;
@@ -190,6 +290,17 @@ private:
     ViewsMenuPanel *m_viewsPanel = nullptr;
     QToolButton *m_drawerBtn = nullptr;
     QToolButton *m_resultsBtn = nullptr;
+
+    /// Actions adopted by BasesViewActions (O5.T1), keyed by ToolbarSlot.
+    /// QPointer so an action destroyed on provider teardown (unbind before
+    /// MainWindow's children are destroyed) drops out instead of dangling.
+    QHash<int, QPointer<QAction>> m_toolbarActions;
+
+    /// Standalone Results menu, kept so the button still has one when no
+    /// provider is bound — `BasesView` is unit-tested without a MainWindow.
+    QPointer<QMenu> m_fallbackResultsMenu;
+    QPointer<QAction> m_copyTableAction;
+    QPointer<QAction> m_exportCsvAction;
     QToolButton *m_newBtn = nullptr;
     QSplitter *m_splitter = nullptr;
     PropertiesDrawer *m_drawer = nullptr;

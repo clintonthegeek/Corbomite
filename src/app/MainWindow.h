@@ -77,6 +77,7 @@ class ViewRegistry;
 class Plugin;
 class ActionContextController;
 class MarkdownViewActions;
+class BasesViewActions;
 class CanvasViewActions;
 
 class MainWindow : public CorbomiteMDI::MainWindow {
@@ -102,6 +103,7 @@ public:
     MarkdownViewActions *markdownViewActions() const { return m_markdownViewActions; }
     /// Cluster O Phase O4 — same rationale as markdownViewActions() above.
     CanvasViewActions *canvasViewActions() const { return m_canvasViewActions; }
+    BasesViewActions *basesViewActions() const { return m_basesViewActions; }
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
@@ -309,6 +311,7 @@ private:
     MarkdownViewActions *m_markdownViewActions = nullptr;
     KToolBar *m_markdownToolBar = nullptr;
     CanvasViewActions *m_canvasViewActions = nullptr;
+    BasesViewActions *m_basesViewActions = nullptr;
     KToolBar *m_canvasToolBar = nullptr;
 
     // Cluster B Phase 1 — host-wide plugin extension registries.

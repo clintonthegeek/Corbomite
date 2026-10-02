@@ -62,6 +62,8 @@ add_library(CorbomiteApp SHARED
     canvas/CanvasViewTab.cpp
     canvas/CanvasViewActions.cpp
     canvas/CanvasViewActions.h
+    bases/BasesViewActions.cpp
+    bases/BasesViewActions.h
 )
 
 target_link_libraries(CorbomiteApp

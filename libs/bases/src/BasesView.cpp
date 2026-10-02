@@ -45,6 +45,7 @@
 #include <QHeaderView>
 #include <QIcon>
 #include <QItemSelectionModel>
+#include <QSignalBlocker>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
@@ -121,10 +122,16 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_resultsBtn->setToolTip(i18n("Export / copy table"));
     m_resultsBtn->setPopupMode(QToolButton::InstantPopup);
     {
-        auto *menu = new QMenu(m_resultsBtn);
-        menu->addAction(i18n("Copy table"), this, &BasesView::onCopyTable);
-        menu->addAction(i18n("Export CSV…"), this, &BasesView::onExportCsv);
-        m_resultsBtn->setMenu(menu);
+        // Owned here, not rebuilt by BasesViewActions (O5.T1): the in-view
+        // button and the menubar/palette entry must be the SAME menu, or the
+        // two surfaces drift and "one definition, four surfaces" is a lie.
+        // The provider adopts it via toolbarResultsMenu().
+        m_fallbackResultsMenu = new QMenu(m_resultsBtn);
+        m_copyTableAction = m_fallbackResultsMenu->addAction(
+            i18n("Copy table"), this, &BasesView::onCopyTable);
+        m_exportCsvAction = m_fallbackResultsMenu->addAction(
+            i18n("Export CSV…"), this, &BasesView::onExportCsv);
+        m_resultsBtn->setMenu(m_fallbackResultsMenu);
     }
     toolbar->addWidget(m_resultsBtn);
 
@@ -163,31 +170,9 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_sortPanel->installEventFilter(this);
     m_viewsPanel->installEventFilter(this);
 
-    connect(m_propsBtn, &QToolButton::clicked, this, [this]() {
-        if (m_panelDismissTimer.isValid() && m_panelDismissTimer.elapsed() < 150) return;
-        if (!m_activeView) return;
-        // Feed summary state BEFORE setState so rebuild() finds m_summaryNames populated.
-        m_propsPanel->setSummaryState(summaryNamesForPicker(),
-            [this](const PropertyId &p) {
-                return m_activeView ? m_activeView->summaries.value(p) : QString();
-            });
-        m_propsPanel->setState(&m_activeView->order, availableProperties(),
-                               [this](const PropertyId &p) { return displayNameFor(p); });
-        showPanelUnder(m_propsPanel, m_propsBtn);
-    });
-    connect(m_sortBtn, &QToolButton::clicked, this, [this]() {
-        if (m_panelDismissTimer.isValid() && m_panelDismissTimer.elapsed() < 150) return;
-        if (!m_activeView) return;
-        m_sortPanel->setState(m_activeView, availableProperties(),
-                              [this](const PropertyId &p) { return displayNameFor(p); });
-        showPanelUnder(m_sortPanel, m_sortBtn);
-    });
-    connect(m_viewsBtn, &QToolButton::clicked, this, [this]() {
-        if (m_panelDismissTimer.isValid() && m_panelDismissTimer.elapsed() < 150) return;
-        if (!m_query) return;
-        m_viewsPanel->setState(m_query.get(), m_activeView ? m_activeView->name : QString{});
-        showPanelUnder(m_viewsPanel, m_viewsBtn);
-    });
+    connect(m_propsBtn, &QToolButton::clicked, this, &BasesView::showPropertiesPanel);
+    connect(m_sortBtn, &QToolButton::clicked, this, &BasesView::showSortGroupPanel);
+    connect(m_viewsBtn, &QToolButton::clicked, this, &BasesView::showViewsPanel);
 
     root->addLayout(toolbar);
 
@@ -238,10 +223,7 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_splitter->setStretchFactor(1, 0);
     root->addWidget(m_splitter, 1);
 
-    connect(m_drawerBtn, &QToolButton::toggled, this, [this](bool on) {
-        m_drawer->setVisible(on);
-        if (on) onSelectionChanged();
-    });
+    connect(m_drawerBtn, &QToolButton::toggled, this, &BasesView::setPropertiesPaneVisible);
 
     connect(hdr, &QHeaderView::sectionClicked,
             this, &BasesView::onHeaderClicked);
@@ -598,6 +580,141 @@ void BasesView::showPanelUnder(QWidget *panel, QToolButton *button)
     panel->move(below);
     panel->show();
     panel->raise();
+}
+
+bool BasesView::panelDismissedRecently() const
+{
+    return m_panelDismissTimer.isValid() && m_panelDismissTimer.elapsed() < 150;
+}
+
+void BasesView::showPropertiesPanel()
+{
+    if (panelDismissedRecently()) return;
+    if (!m_activeView) return;
+    // Feed summary state BEFORE setState so rebuild() finds m_summaryNames populated.
+    m_propsPanel->setSummaryState(summaryNamesForPicker(),
+        [this](const PropertyId &p) {
+            return m_activeView ? m_activeView->summaries.value(p) : QString();
+        });
+    m_propsPanel->setState(&m_activeView->order, availableProperties(),
+                           [this](const PropertyId &p) { return displayNameFor(p); });
+    showPanelUnder(m_propsPanel, m_propsBtn);
+}
+
+void BasesView::showSortGroupPanel()
+{
+    if (panelDismissedRecently()) return;
+    if (!m_activeView) return;
+    m_sortPanel->setState(m_activeView, availableProperties(),
+                          [this](const PropertyId &p) { return displayNameFor(p); });
+    showPanelUnder(m_sortPanel, m_sortBtn);
+}
+
+void BasesView::showViewsPanel()
+{
+    if (panelDismissedRecently()) return;
+    if (!m_query) return;
+    m_viewsPanel->setState(m_query.get(), m_activeView ? m_activeView->name : QString{});
+    showPanelUnder(m_viewsPanel, m_viewsBtn);
+}
+
+bool BasesView::propertiesPaneVisible() const
+{
+    // isHidden(), NOT isVisible(): the latter is the *effective* visibility,
+    // which is false whenever an ancestor is hidden — so a drawer shown
+    // inside a tab that is not the front tab (or in a test that never calls
+    // show()) would read as closed and the action would report unchecked
+    // while the pane is in fact open. isHidden() reflects the explicit
+    // show/hide state this method sets, independent of ancestors.
+    return m_drawer && !m_drawer->isHidden();
+}
+
+void BasesView::setPropertiesPaneVisible(bool visible)
+{
+    if (!m_drawer) return;
+    m_drawer->setVisible(visible);
+    if (visible) onSelectionChanged();
+    // Single write path, two possible owners of the check state: once
+    // O5.T1 adopts an action onto the button, the QToolButton mirrors the
+    // action and ignores its own setChecked, so writing to the button would
+    // be silently dropped. Write to whichever is authoritative, and to both
+    // when standalone, so no surface can drift from the widget.
+    if (auto a = m_toolbarActions.value(int(ToolbarSlot::PropertiesPane)))
+        a->setChecked(visible);
+    if (m_drawerBtn) {
+        const QSignalBlocker blocker(m_drawerBtn);
+        m_drawerBtn->setChecked(visible);
+    }
+}
+
+void BasesView::setToolbarAction(ToolbarSlot slot, QAction *action)
+{
+    QToolButton *btn = nullptr;
+    switch (slot) {
+    case ToolbarSlot::Properties:    btn = m_propsBtn;   break;
+    case ToolbarSlot::SortGroup:     btn = m_sortBtn;    break;
+    case ToolbarSlot::Views:         btn = m_viewsBtn;   break;
+    case ToolbarSlot::Filters:       btn = m_filtersBtn; break;
+    case ToolbarSlot::PropertiesPane:btn = m_drawerBtn;  break;
+    case ToolbarSlot::NewEntry:      btn = m_newBtn;     break;
+    case ToolbarSlot::Results:       btn = m_resultsBtn; break;
+    }
+    if (!btn) return;
+
+    if (action) m_toolbarActions.insert(int(slot), action);
+    else        m_toolbarActions.remove(int(slot));
+
+    btn->setDefaultAction(action);
+
+    if (slot == ToolbarSlot::Results) {
+        // The button already carries the shared results menu (built in the
+        // ctor, adopted by the provider), so nothing needs re-pointing here.
+        // Deliberately NOT calling setMenu() with the action's menu: Qt 6
+        // clears a button's own menu when a default action carrying one is
+        // installed — verified empirically, and it left an InstantPopup
+        // button that opened nothing.
+        if (!m_fallbackResultsMenu) btn->setMenu(nullptr);
+    }
+
+    // Adopting an action transfers checked-state ownership to it (a
+    // QToolButton with a default action mirrors the action and ignores its
+    // own setChecked). Push the real drawer state across so a view that is
+    // bound mid-session with the pane already open shows it correctly.
+    if (slot == ToolbarSlot::PropertiesPane) {
+        if (auto a = m_toolbarActions.value(int(slot)))
+            a->setChecked(propertiesPaneVisible());
+    }
+}
+
+QMenu *BasesView::toolbarResultsMenu() const
+{
+    return m_fallbackResultsMenu.data();
+}
+
+QAction *BasesView::toolbarCopyTableAction() const
+{
+    return m_copyTableAction;
+}
+
+QAction *BasesView::toolbarExportCsvAction() const
+{
+    return m_exportCsvAction;
+}
+
+QAction *BasesView::toolbarAction(ToolbarSlot slot) const
+{
+    return m_toolbarActions.value(int(slot));
+}
+
+bool BasesView::hasActiveFilters() const
+{
+    if (m_query && m_query->filters) return true;
+    return m_activeView && m_activeView->filters;
+}
+
+bool BasesView::canCreateNewEntry() const
+{
+    return m_fm && m_fm->vault();
 }
 
 QString BasesView::resolveLink(const QString &target) const
