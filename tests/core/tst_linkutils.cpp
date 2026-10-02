@@ -2,6 +2,7 @@
 #include <QTest>
 
 #include "corbomite/core/LinkUtils.h"
+#include "corbomite/core/SubpathExtract.h"
 #include <markoff/parser/Document.h>
 
 using namespace Corbomite;
@@ -9,6 +10,15 @@ using namespace Corbomite;
 class TestLinkUtils : public QObject
 {
     Q_OBJECT
+
+private:
+    /// `extractMarkdownSubpath` returns the slice itself (no offsets), so for a
+    /// like-for-like comparison we re-find where the block begins inside it.
+    static int scrubbedStart(const QString &scrubbed)
+    {
+        const int at = scrubbed.indexOf(QStringLiteral("block text"));
+        return at >= 0 ? at : 0;
+    }
 
 private Q_SLOTS:
 
@@ -66,6 +76,122 @@ private Q_SLOTS:
     {
         QCOMPARE(stripHeadingForLink(QStringLiteral("key:value|alt^rest")),
                  QStringLiteral("key value alt rest"));
+    }
+
+    // --- resolveSubpath: source-only overload (2026-10-01) ----------------
+    //
+    // Added because the Doc-taking overload is the Obsidian-faithful one but
+    // had ZERO production callers for ~2 months — the render engines were given
+    // only `const QString &markdown`, so what actually shipped was the regex
+    // scrubber `extractMarkdownSubpath`. These cases pin that the source-only
+    // overload behaves identically to the Doc-taking one, so the render path can
+    // use the faithful implementation.
+
+    void sourceOnly_matchesDocTaking_forHeading()
+    {
+        const QString src = QStringLiteral("# Title\n\nintro\n\n## Section A\n\nbody a\n\n## Section B\n\nbody b\n");
+        const auto doc = Markoff::Document::fromMarkdown(src);
+        QVERIFY(doc);
+
+        const auto viaDoc = resolveSubpath(*doc, src, QStringLiteral("#Section A"));
+        const auto viaSource = resolveSubpath(src, QStringLiteral("#Section A"));
+
+        QCOMPARE(viaSource.kind, SubpathResolution::Kind::Heading);
+        QCOMPARE(viaSource.kind, viaDoc.kind);
+        QCOMPARE(viaSource.startOffset, viaDoc.startOffset);
+        QCOMPARE(viaSource.endOffset, viaDoc.endOffset);
+        // And it actually selects the right span, not just matching offsets.
+        const QString slice =
+            src.mid(viaSource.startOffset,
+                    viaSource.endOffset - viaSource.startOffset);
+        QVERIFY(slice.contains(QStringLiteral("Section A")));
+        QVERIFY(!slice.contains(QStringLiteral("Section B")));
+    }
+
+    void sourceOnly_matchesDocTaking_forFootnote()
+    {
+        const QString src = QStringLiteral("text\n\n[^note]: the footnote body\n\nafter\n");
+        const auto doc = Markoff::Document::fromMarkdown(src);
+        QVERIFY(doc);
+
+        // Obsidian's footnote subpath is "#" + "[^id]", i.e. "#[^note]".
+        const QString sub = QStringLiteral("#[^note]");
+        const auto viaDoc = resolveSubpath(*doc, src, sub);
+        const auto viaSource = resolveSubpath(src, sub);
+
+        QCOMPARE(viaSource.kind, SubpathResolution::Kind::Footnote);
+        QCOMPARE(viaSource.kind, viaDoc.kind);
+        QCOMPARE(viaSource.startOffset, viaDoc.startOffset);
+    }
+
+    void sourceOnly_footnoteDoesNotParse()
+    {
+        // Malformed-but-nonempty source: the footnote path must still resolve
+        // without needing a successful AST parse.
+        const QString src = QStringLiteral("t\n\n[^a]: body\n");
+        const auto r = resolveSubpath(src, QStringLiteral("#[^a]"));
+        QCOMPARE(r.kind, SubpathResolution::Kind::Footnote);
+    }
+
+    void sourceOnly_blockIdIsCaseInsensitive()
+    {
+        const QString src = QStringLiteral("para\n\nblock text\n^myblock\n");
+        const auto r = resolveSubpath(src, QStringLiteral("#^MyBlock"));
+        QCOMPARE(r.kind, SubpathResolution::Kind::Block);
+        QVERIFY(r.startOffset >= 0);
+    }
+
+    void sourceOnly_rejectsNonAnchorSubpaths()
+    {
+        const QString src = QStringLiteral("# T\n\nbody\n");
+        QCOMPARE(resolveSubpath(src, QString()).kind,
+                 SubpathResolution::Kind::None);
+        QCOMPARE(resolveSubpath(src, QStringLiteral("notaheading")).kind,
+                 SubpathResolution::Kind::None);
+        QCOMPARE(resolveSubpath(src, QStringLiteral("#")).kind,
+                 SubpathResolution::Kind::None);
+    }
+
+    void sourceOnly_beatsTheRegexScrubberOnHeadingHierarchy()
+    {
+        // The motivation for the change, stated as an executable claim: the
+        // scrubber that used to serve this path mishandles a nested heading's
+        // span, the faithful resolver does not.
+        const QString src = QStringLiteral(
+            "## Alpha\n\nalpha body\n\n### Beta\n\nbeta body\n");
+        const auto r = resolveSubpath(src, QStringLiteral("#Beta"));
+        QVERIFY(r.startOffset >= 0);
+        const QString slice =
+            src.mid(r.startOffset, r.endOffset - r.startOffset);
+        QVERIFY(slice.contains(QStringLiteral("Beta")));
+    }
+
+    void scrubber_wasActuallyWrongOnBlockId()
+    {
+        // The claim motivating the render-path switch, as an executable
+        // comparison: the regex scrubber that served the render path for ~2
+        // months disagrees with the faithful resolver on a case-insensitive
+        // block id. If a future change makes them agree, this test tells us the
+        // substitution is no longer load-bearing.
+        const QString src = QStringLiteral("para\n\nblock text\n^myblock\n");
+        const QString sub = QStringLiteral("#^MyBlock");
+
+        const auto faithful = resolveSubpath(src, sub);
+        const QString scrubbed = Corbomite::extractMarkdownSubpath(src, sub);
+
+        QCOMPARE(faithful.kind, SubpathResolution::Kind::Block);
+        const QString faithfulSlice =
+            src.mid(faithful.startOffset, faithful.endOffset - faithful.startOffset);
+        const QString scrubbedSlice =
+            src.mid(scrubbedStart(scrubbed), qMax(0, scrubbed.size() - scrubbedStart(scrubbed)));
+
+        QVERIFY2(faithfulSlice.startsWith(QStringLiteral("block text")),
+                 qPrintable(QStringLiteral("faithful resolver picked the wrong "
+                                           "span: %1").arg(faithfulSlice)));
+        QVERIFY2(scrubbedSlice != faithfulSlice,
+                 "the scrubber now matches the faithful resolver — the "
+                 "render-path substitution is no longer load-bearing, so "
+                 "extractMarkdownSubpath can be deleted outright.");
     }
 
     // --- resolveSubpath: heading dispatch ---

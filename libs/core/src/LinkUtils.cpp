@@ -80,13 +80,22 @@ QString stripHeadingForLink(const QString &heading)
     return collapseAndTrim(s);
 }
 
-SubpathResolution resolveSubpath(const Markoff::Document &doc,
-                                 const QString &source,
-                                 const QString &subpath)
+namespace {
+
+/// Resolve the subpath kinds that need no AST: empty, footnote (`[^id]`), and
+/// block-id (`^id`). Returns a `kind` of Unresolved when the subpath is a heading
+/// or anything else, which is the caller's cue to parse.
+///
+/// Split out 2026-10-01 so the source-only `resolveSubpath` overload can reach
+/// these without constructing a Markoff::Document — it was the Doc-taking
+/// signature that made this Obsidian-faithful path unreachable from the render
+/// engines, which is why the regex scrubber shipped instead.
+SubpathResolution resolveSubpathNoAst(const QString &source, const QString &subpath,
+                                      bool *needsAst)
 {
-    if (subpath.isEmpty() || !subpath.startsWith(QLatin1Char('#'))) {
+    *needsAst = false;
+    if (subpath.isEmpty() || !subpath.startsWith(QLatin1Char('#')))
         return {};
-    }
 
     const QString fragment = subpath.mid(1); // strip leading '#'
     if (fragment.isEmpty()) return {};
@@ -158,6 +167,22 @@ SubpathResolution resolveSubpath(const Markoff::Document &doc,
         return r;
     }
 
+    *needsAst = true;
+    return {};
+}
+
+} // namespace
+
+SubpathResolution resolveSubpath(const Markoff::Document &doc,
+                                 const QString &source,
+                                 const QString &subpath)
+{
+    bool needsAst = false;
+    if (auto r = resolveSubpathNoAst(source, subpath, &needsAst); !needsAst)
+        return r;
+
+    const QString fragment = subpath.mid(1);
+
     // ---- Heading --------------------------------------------------------
     const QList<Markoff::HeadingInfo> headings = doc.headings();
     if (headings.isEmpty()) return {};
@@ -199,6 +224,22 @@ SubpathResolution resolveSubpath(const Markoff::Document &doc,
     Q_UNUSED(lineStarts);
 
     return {};
+}
+
+SubpathResolution resolveSubpath(const QString &source, const QString &subpath)
+{
+    // Try the AST-free kinds first; `needsAst` short-circuits the parse for
+    // footnote / block-id / empty / malformed, so a hover on a `[[note#^id]]`
+    // link costs nothing.
+    bool needsAst = false;
+    if (auto r = resolveSubpathNoAst(source, subpath, &needsAst); !needsAst)
+        return r;
+    if (!needsAst) return {};
+
+    // Heading: the only kind that needs the AST for `headings()`.
+    const auto doc = Markoff::Document::fromMarkdown(source);
+    if (!doc) return {};
+    return resolveSubpath(*doc, source, subpath);
 }
 
 } // namespace Corbomite

@@ -63,6 +63,21 @@ SubpathResolution resolveSubpath(const Markoff::Document &doc,
                                  const QString &source,
                                  const QString &subpath);
 
+/// Overload for callers that have only the markdown source — notably the render
+/// engines, which are handed `const QString &markdown` and never a parsed
+/// document.
+///
+/// Why this exists: the Doc-taking overload above is the Obsidian-faithful
+/// implementation (it is the one with the test coverage — heading hierarchy,
+/// footnote definitions, case-insensitive block ids), but for two months nothing
+/// in production called it, because its signature demanded a
+/// `Markoff::Document` that the render path has no reason to construct. So what
+/// actually shipped was the regex string-scrubber
+/// `extractMarkdownSubpath()` in SubpathExtract.cpp. This overload closes that
+/// gap: it parses only when the subpath is actually a heading, and otherwise
+/// (footnote / block-id / empty / malformed) returns without parsing at all.
+SubpathResolution resolveSubpath(const QString &source, const QString &subpath);
+
 } // namespace Corbomite
 
 #endif // CORBOMITE_CORE_LINKUTILS_H
