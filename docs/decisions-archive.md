@@ -233,6 +233,44 @@ production call sites, not header mentions; strip `#if 0` before counting; and
 
 ---
 
+## 2026-10-02 — Inspector pass: two of my bugs, and one claim I never checked
+
+The user ran the eyeball checklist and came back with three findings. Two were
+mine, and both were the same failure mode: **asserting a property in prose that
+I had not verified in the code.**
+
+- **Ctrl+Shift+PgUp/PgDn did nothing.** Registered as `SHIFT | Key_PageUp` —
+  the `Ctrl` was simply missing. My commit message for O5.T5 said "Ctrl+Shift+PgUp/PgDn
+  match Obsidian's own bindings". I wrote a parity claim and never checked it
+  against the code I had just written.
+- **There is no Tab menu.** The three O5.T5 actions went into the Go menu,
+  under a comment stating they "belong in the always-present Tab menu" — a
+  menu that did not exist. The comment described an intent the file never
+  implemented, and I did not open the `.rc` to confirm.
+
+Both now have regression tests that assert the **full** property rather than a
+proxy: the test compares the whole `QKeySequence`, because an "is it enabled"
+check passes on the wrong binding; and the menu test matches on the exact
+`objectName` plus the label, because the first version used
+`contains("tab")`, which happily matched a menu renamed "tabmenu" and so
+**passed against the very bug it was written for**. That one was caught by the
+falsifiability check, which is the only reason it is not still in the tree.
+
+The third finding — the settings dialog applying before Apply — was two real
+bugs stacked. The combobox called `setActiveThemeByName` and `save()` from
+`currentTextChanged`, so moving it repainted and wrote to disk before OK/Apply
+and Cancel could not revert. And `configChanged` was wired to
+`refreshSystemTheme`, which early-returns unless the active name is "Follow
+system" — so an explicitly chosen editor theme was never re-applied at runtime,
+only read once at construction. Both fixed.
+
+**That last one is filed as still open**, because I diagnosed it from code
+rather than reproducing the dialog, and the user's phrasing suggests there may
+be a third contributing factor I have not found. Saying "fixed" would be
+claiming more than I checked.
+
+---
+
 ## 2026-10-02 — Cluster O closed; canvas dark mode; the frontmatter P1's Corbomite half
 
 Long remediation session. 341/341 green, 58 open / 136 closed.
