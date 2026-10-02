@@ -164,19 +164,29 @@ Run:
 ./build-dev/bin/Corbomite
 ```
 
-Run tests — **two things are mandatory**: tests only exist if the build was
+Run tests — **three things are mandatory**: tests only exist if the build was
 configured with `-DCORBOMITE_PORT_BUILD_TESTS=ON` (default **OFF**; the
-checked-in `build-dev/` cache has it ON), and `QT_QPA_PLATFORM=offscreen` is
-required or ~24 GUI tests abort trying to reach the display:
+checked-in `build-dev/` cache has it ON), `QT_QPA_PLATFORM=offscreen` is
+required or ~24 GUI tests abort trying to reach the display, and the
+wall-clock timing tests must be excluded (see below):
 
 ```bash
-cd build-dev && QT_QPA_PLATFORM=offscreen ctest --output-on-failure -j 10
+cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 10
 ```
 
-Baseline (2026-06-10, post-Phase 1): **259/259 pass** (excl.
-`tst_benchmark_layout`, label `benchmark`, which times out by design). No
-known-red tests; `tst_metadataparser` went green with the Phase 1 re-pin
-(embed image-node fix landed upstream as `9a6a6b74`).
+**Why `-E "benchmark|perf"` and not just `-E benchmark`** (2026-10-01): four
+tests measure wall-clock time and flake red under `-j10` from machine load
+alone, all passing standalone. `tst_benchmark_layout` (libs/forcegraph) carries
+a native `LABELS "benchmark"`, but `tst_canvas_perf_500` and
+`tst_canvas_perf_formatted` come from the markoff-family submodule with **no
+label at all**, so `-E benchmark` does not reach them. A parent-directory
+`set_tests_properties` cannot fix this either — CTest test properties are
+directory-scoped — and patching the submodule would be lost on the next
+re-pin. The real fix is a `LABELS "benchmark"` in markoff-canvas; until then
+keep the regex. Without it, "the suite is green" is not a reliable signal.
+
+Baseline (2026-10-01): **329/329 pass** with the exclusion above (331 total
+registered). The only known-flaky pair is the canvas perf pair described above.
 
 Build and install the release preset (system-wide, separate config/data dirs from dev):
 

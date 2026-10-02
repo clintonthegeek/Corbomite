@@ -228,6 +228,15 @@ add_test(NAME tst_leaf_service_propagation COMMAND tst_leaf_service_propagation)
 target_link_libraries(tst_leaf_service_propagation PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_leaf_service_propagation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# ThemeService minimum-viable revival (2026-10-01). Pins that themeChanged is
+# actually emitted and that availableThemeNames() is populated — the two things
+# whose silent absence made the Settings theme dropdown inert and stopped
+# appearance.json from applying a dark vault.
+add_executable(tst_themeservice tst_themeservice.cpp)
+add_test(NAME tst_themeservice COMMAND tst_themeservice)
+target_link_libraries(tst_themeservice PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_themeservice PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # TODO(port-foundation-exploration): same 4-arg NoteDocument ctor issue.
 if(FALSE)
 add_executable(tst_fileview_setState tst_fileview_setState.cpp)
