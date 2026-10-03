@@ -43,8 +43,11 @@ had zero production references (the runtime has always used `StyledRenderEngine`
 and existed only to satisfy two QSKIPped tests that asserted nothing. The two
 canvas tests that referenced them were repointed at the production engine first.
 
-**Upstream:** [`docs/UPSTREAM-ASKS.md`](docs/UPSTREAM-ASKS.md) — 32 prioritised
-asks for Markoff and Graffodil (both are our own repos, so we can file them).
+**Upstream:** [`docs/UPSTREAM-ASKS.md`](docs/UPSTREAM-ASKS.md) is the index;
+**six per-library handoff documents** sit in [`docs/handoff/`](handoff/) — one
+each for collabtext, markoff-core, markoff-parser, markoff-styled, Graffodil,
+and jkqtmathtext/rapidyaml — ready to send. All three P0s were re-verified by
+hand before writing. See the archive for the full list of 32 findings.
 Three **P0s** verified by hand: collabtext's `assert()`-only guards are a heap
 OOB *write* in release and a version vector that records a delete that never
 happened; Markoff keys collab op payloads without the `BlockId`, so a multi-block
