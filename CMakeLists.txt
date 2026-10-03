@@ -105,6 +105,13 @@ add_subdirectory(libs/markoff-family)
 # Cluster M — Graffodil graph-scene substrate (submodule pinned at v0.2.3).
 # GRAFFODIL_BUILD_DEMO/TESTS default OFF when not top-level; libs/canvas
 # adopts Graffodil::Core in Phase M1.
+#
+# NOTE: Graffodil ships 16 ctest cases and we run ZERO of them, because
+# GRAFFODIL_BUILD_TESTS defaults to ${PROJECT_IS_TOP_LEVEL} (FALSE as a
+# subdirectory). Fixing this is BLOCKED: Graffodil's tests/CMakeLists.txt uses
+# hardcoded target names, and tst_forcelayout + tst_quadtree collide with
+# Corbomite's own libs/forcegraph tests, so flipping the gate fails to
+# configure. See the punch list item for the two-line fix.
 add_subdirectory(libs/graffodil)
 
 add_subdirectory(libs/core)

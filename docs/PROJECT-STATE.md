@@ -43,6 +43,15 @@ had zero production references (the runtime has always used `StyledRenderEngine`
 and existed only to satisfy two QSKIPped tests that asserted nothing. The two
 canvas tests that referenced them were repointed at the production engine first.
 
+**Upstream:** [`docs/UPSTREAM-ASKS.md`](docs/UPSTREAM-ASKS.md) — 32 prioritised
+asks for Markoff and Graffodil (both are our own repos, so we can file them).
+Three **P0s** verified by hand: collabtext's `assert()`-only guards are a heap
+OOB *write* in release and a version vector that records a delete that never
+happened; Markoff keys collab op payloads without the `BlockId`, so a multi-block
+paste loses two-thirds of its content (reproduced); and the parser's
+`parsedFrontmatter()` sets its "already parsed" flag five lines before writing
+the value, so a concurrent reader gets empty frontmatter.
+
 **Next:**
 1. **LIVE EYEBALL** — the single run-through is
    [`docs/USER-TESTING.md`](docs/USER-TESTING.md), one maintained file for every
@@ -58,7 +67,8 @@ canvas tests that referenced them were repointed at the production engine first.
    **M5.3 is blocked on a corpus contradiction** — the plan's stated precedent
    does not exist, and three audit sources disagree on whether leaf `eState`
    persists at all. Needs the user's call. M5.2 is dropped: Cluster O shipped it.
-3. **Release hygiene B** — the unreproducible mmdr blob. **A decision, not more
+3. **Release hygiene B** — the unreproducible mmdr blob. **DEFERRED by user
+   decision 2026-10-02.** **A decision, not more
    work**: the Rust source is not in this repo and not reachable from it, so a
    rebuild is *impossible*, not merely undocumented. Documented honestly in
    `libs/mmdr/README.md`. It blocks the Mermaid dark-theme item. Three options in
