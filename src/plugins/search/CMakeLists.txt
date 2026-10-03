@@ -19,6 +19,6 @@ corbomite_add_plugin(corbomite-search-plugin
 set_target_properties(corbomite-search-plugin PROPERTIES
     OUTPUT_NAME "corbomite-search")
 
-if(BUILD_TESTING)
+if(CORBOMITE_PORT_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

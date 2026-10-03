@@ -231,11 +231,24 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 # Tests
-# TODO(port-foundation-exploration): tests gated off during the port. Many
-# tests reference retired Markoff types (MarkdownDelta, ParsePool, Reading::
-# *, old Theme shape) and can't compile until the port settles. Re-enable
-# in chunks as feature ports unblock each test directory. Set
-# CORBOMITE_PORT_BUILD_TESTS=ON locally to attempt them.
+#
+# CORBOMITE_PORT_BUILD_TESTS is the single canonical test gate for the whole
+# tree. The `dev` preset sets it ON, `release`/`appimage` set it OFF.
+#
+# The gate was previously OFF-by-default with NO preset override, which meant a
+# clean `cmake --preset dev` silently produced a tree with 109 tests instead of
+# 345 - all 109 from the markoff-family submodule, zero of them Corbomite's. It
+# appeared to work only because this machine's checked-in build-dev/ cache
+# already had it ON. Verified and fixed 2026-10-02.
+#
+# NOTE: `BUILD_TESTING` is NOT used as a gate here. ECM's
+# kde-modules/KDECMakeSettings.cmake declares `option(BUILD_TESTING ... ON)`,
+# so 12 subdirectories that read it were reading a third-party default rather
+# than our setting. Do not reintroduce it; use CORBOMITE_PORT_BUILD_TESTS.
+#
+# Residual, known and unfixed: with the gate OFF, markoff-family still
+# registers ~109 of its own tests unconditionally. Patching it there would be
+# lost on the next submodule re-pin.
 option(CORBOMITE_PORT_BUILD_TESTS "Enable Corbomite tests during foundation-exploration port" OFF)
 if(CORBOMITE_PORT_BUILD_TESTS)
 enable_testing()
@@ -268,8 +281,8 @@ add_subdirectory(tests/e2e)
 add_subdirectory(tests/graph)
 add_subdirectory(tests/sidebar)
 endif()
-add_subdirectory(libs/forcegraph/tests)
-add_subdirectory(libs/canvas/tests)
+# libs/forcegraph and libs/canvas gate their own tests/ subdirectories on
+# CORBOMITE_PORT_BUILD_TESTS inside their CMakeLists.txt.
 # TODO(port-foundation-exploration): Markoff foundation-exploration retired
 # the top-level tests/ directory; cross-leaf tests are now per-leaf or absent.
 # Re-evaluate once the port has settled on which Markoff tests Corbomite wants

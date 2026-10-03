@@ -23,6 +23,6 @@ corbomite_add_plugin(corbomite-template
         Qt6::Widgets
 )
 
-if(BUILD_TESTING)
+if(CORBOMITE_PORT_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

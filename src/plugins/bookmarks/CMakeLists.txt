@@ -15,6 +15,6 @@ corbomite_add_plugin(corbomite-bookmarks
         Corbomite::Storage
         Corbomite::Vault)
 
-if(BUILD_TESTING)
+if(CORBOMITE_PORT_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

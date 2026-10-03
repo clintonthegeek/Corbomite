@@ -64,9 +64,7 @@ if(DEFINED KDE_INSTALL_LIBDIR)
     )
 endif()
 
-if(NOT PROJECT_IS_TOP_LEVEL)
-    # In-tree build
-else()
+if(CORBOMITE_PORT_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()

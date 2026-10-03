@@ -11,6 +11,6 @@ corbomite_add_plugin(corbomite-backlinks
         Corbomite::Storage
         Corbomite::Vault)
 
-if(BUILD_TESTING)
+if(CORBOMITE_PORT_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

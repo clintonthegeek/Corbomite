@@ -165,9 +165,10 @@ Run:
 ```
 
 Run tests — **three things are mandatory**: tests only exist if the build was
-configured with `-DCORBOMITE_PORT_BUILD_TESTS=ON` (default **OFF**; the
-checked-in `build-dev/` cache has it ON), `QT_QPA_PLATFORM=offscreen` is
-required or ~24 GUI tests abort trying to reach the display, and the
+configured with `CORBOMITE_PORT_BUILD_TESTS=ON` (default **OFF**; the `dev`
+preset sets it **ON** and the `release`/`appimage` presets set it **OFF** — it
+is the single canonical test-gate for the whole tree), `QT_QPA_PLATFORM=offscreen`
+is required or ~24 GUI tests abort trying to reach the display, and the
 wall-clock timing tests must be excluded (see below):
 
 ```bash
