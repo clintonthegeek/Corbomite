@@ -77,3 +77,17 @@ testvaults/starter-vault/katabasis anabasis.md
 # Reference-only Obsidian clones (local study, not part of project)
 ObsClones/
 qmarkdowntextedit
+
+# Reverse-engineering workspace. The extracted Obsidian/Mermaid payloads are
+# proprietary (Obsidian is License: UNLICENSED, Vendor: Dynalist Inc.) and
+# Corbomite is GPLv3, so no part of the corpus may be committed -- not the
+# minified bundle, not the readable/renamed tree, not the rename map.
+#
+# The *tooling* is ours and is the reproducibility story: it regenerates the
+# whole corpus from the .deb. That is deliberate -- the previous audit's corpus
+# was a renamed tree at a path that no longer existed with no surviving name
+# map, which is why its symbol citations are now unverifiable. Don't repeat
+# that: if you move or delete RE/tools, the corpus becomes unreproducible.
+RE/*
+!RE/tools/
+RE/tools/node_modules/
