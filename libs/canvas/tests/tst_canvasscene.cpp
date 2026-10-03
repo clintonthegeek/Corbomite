@@ -16,7 +16,7 @@
 #include "canvas/FileCardItem.h"
 #include "canvas/GroupItem.h"
 #include "canvas/EdgeItem.h"
-#include "corbomite/core/RegexRenderEngine.h"
+#include "corbomite/core/StyledRenderEngine.h"
 
 class TestCanvasScene : public QObject {
     Q_OBJECT
@@ -224,7 +224,7 @@ private Q_SLOTS:
             return {};
         });
 
-        Corbomite::RegexRenderEngine engine;
+        Corbomite::StyledRenderEngine engine;
         engine.setProfile(Corbomite::RenderProfile::canvasCard());
         scene.setRenderEngine(&engine);
 
@@ -251,7 +251,7 @@ private Q_SLOTS:
             return QStringLiteral("# Title\n\nIntro\n\n## Section\n\nSection content");
         });
 
-        Corbomite::RegexRenderEngine engine;
+        Corbomite::StyledRenderEngine engine;
         engine.setProfile(Corbomite::RenderProfile::canvasCard());
         scene.setRenderEngine(&engine);
 
@@ -296,7 +296,7 @@ private Q_SLOTS:
         QVERIFY(!item->hasRenderedDocument());
 
         // Now set the engine AFTER the card already exists.
-        Corbomite::RegexRenderEngine engine;
+        Corbomite::StyledRenderEngine engine;
         engine.setProfile(Corbomite::RenderProfile::canvasCard());
         scene.setRenderEngine(&engine);
 
@@ -312,7 +312,7 @@ private Q_SLOTS:
 
         scene.setFileResolver([](const QString &) -> QString { return {}; });
 
-        Corbomite::RegexRenderEngine engine;
+        Corbomite::StyledRenderEngine engine;
         engine.setProfile(Corbomite::RenderProfile::canvasCard());
         scene.setRenderEngine(&engine);
 
@@ -337,7 +337,7 @@ private Q_SLOTS:
         scene.setFileResolver([](const QString &) -> QString {
             return QStringLiteral("# Note\n\nContent");
         });
-        Corbomite::RegexRenderEngine engine;
+        Corbomite::StyledRenderEngine engine;
         engine.setProfile(Corbomite::RenderProfile::canvasCard());
         scene.setRenderEngine(&engine);
 

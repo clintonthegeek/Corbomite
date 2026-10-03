@@ -14,7 +14,7 @@
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasScene.h>
 #include <canvas/FileCardItem.h>
-#include <corbomite/core/RegexRenderEngine.h>
+#include <corbomite/core/StyledRenderEngine.h>
 
 using Corbomite::CanvasViewTab;
 
@@ -57,7 +57,7 @@ private Q_SLOTS:
         noteFile.close();
 
         CanvasViewTab tab(canvasPath, vaultRoot);
-        Corbomite::RegexRenderEngine engine;
+        Corbomite::StyledRenderEngine engine;
         tab.setRenderEngine(&engine);
 
         auto *scene = tab.canvasScene();
@@ -95,7 +95,7 @@ private Q_SLOTS:
         // file's own directory ("Projects/"), where "Notes/idea.md" does
         // not exist.
         CanvasViewTab tab(canvasPath, QString());
-        Corbomite::RegexRenderEngine engine;
+        Corbomite::StyledRenderEngine engine;
         tab.setRenderEngine(&engine);
 
         auto *scene = tab.canvasScene();

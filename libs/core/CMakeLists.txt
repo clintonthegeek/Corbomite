@@ -20,7 +20,6 @@ add_library(corbomite-core SHARED
     src/MarkdownRenderEngine.cpp
     src/SubpathExtract.cpp
     include/corbomite/core/SubpathExtract.h
-    src/RegexRenderEngine.cpp
     src/StyledRenderEngine.cpp
     include/corbomite/core/StyledRenderEngine.h
     src/LinkUtils.cpp
@@ -132,8 +131,6 @@ add_library(corbomite-core SHARED
     include/corbomite/core/LucideIconRegistry.h
     src/proxies/LucideIconRegistrar.cpp
     include/corbomite/core/proxies/LucideIconRegistrar.h
-    src/MarkdownRenderer.cpp
-    include/corbomite/core/MarkdownRenderer.h
     include/corbomite/core/Decoration.h
     src/DecorationProviderRegistry.cpp
     include/corbomite/core/DecorationProviderRegistry.h

@@ -61,10 +61,6 @@ add_test(NAME tst_notedocument_dirty COMMAND tst_notedocument_dirty)
 target_link_libraries(tst_notedocument_dirty PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_notedocument_dirty PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-add_executable(tst_markdownrenderer tst_markdownrenderer.cpp)
-add_test(NAME tst_markdownrenderer COMMAND tst_markdownrenderer)
-target_link_libraries(tst_markdownrenderer PRIVATE Qt6::Test Corbomite::Core)
-
 add_executable(tst_rendereddocument tst_rendereddocument.cpp)
 add_test(NAME tst_rendereddocument COMMAND tst_rendereddocument)
 target_link_libraries(tst_rendereddocument PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
@@ -115,11 +111,6 @@ add_executable(tst_hotkey tst_hotkey.cpp)
 add_test(NAME tst_hotkey COMMAND tst_hotkey)
 target_link_libraries(tst_hotkey PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_hotkey PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-add_executable(tst_renderengine tst_renderengine.cpp)
-add_test(NAME tst_renderengine COMMAND tst_renderengine)
-target_link_libraries(tst_renderengine PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
-set_tests_properties(tst_renderengine PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_momentformatter tst_momentformatter.cpp)
 add_test(NAME tst_momentformatter COMMAND tst_momentformatter)
@@ -297,15 +288,6 @@ add_executable(tst_proxy_ui tst_proxy_ui.cpp)
 add_test(NAME tst_proxy_ui COMMAND tst_proxy_ui)
 target_link_libraries(tst_proxy_ui PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
 set_tests_properties(tst_proxy_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
-# TODO(port-foundation-exploration): include path moved
-# markoff/MarkdownRenderChild.h → markoff/core/MarkdownRenderChild.h.
-if(FALSE)
-add_executable(tst_proxy_extensions tst_proxy_extensions.cpp)
-add_test(NAME tst_proxy_extensions COMMAND tst_proxy_extensions)
-target_link_libraries(tst_proxy_extensions PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
-set_tests_properties(tst_proxy_extensions PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-endif()
 
 add_executable(tst_proxy_secrets_process tst_proxy_secrets_process.cpp)
 add_test(NAME tst_proxy_secrets_process COMMAND tst_proxy_secrets_process)
