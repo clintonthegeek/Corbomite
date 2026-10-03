@@ -8,7 +8,8 @@ a later session can tell the difference between "tested" and "asserted in a unit
 test". Items marked 🤖 were checked by an automated test; items marked 👤 need a
 person. An item with neither is not done.
 
-Last updated: **2026-10-02**, after the first inspector pass.
+Last updated: **2026-10-02**, after the first inspector pass and a
+build-hygiene pass.
 
 ---
 
@@ -150,6 +151,20 @@ verified both *push* the theme, but not that either has a live view attached.
 - [ ] **L5 human-eyeball backlog** from the 2026-08-17 soak
 - [ ] Drag a tab between groups; split; popout; close-undo; vault switch
 
+## 11b. Build hygiene — verified by inspection, worth one confirmation 👤
+
+The test gate was unified 2026-10-02 and a real bug was fixed with it. Nothing
+here should need you, but if anything below surprises you, say so.
+
+- [ ] 👤 `rm -rf build-dev && cmake --preset dev` from scratch, then confirm
+      `ctest -N` in `build-dev` reports **345** tests. It previously reported
+      **109** — all from the markoff-family submodule, none of them ours —
+      because no preset set the test gate and its default is OFF. It only
+      appeared to work because this machine's `build-dev/` cache was already
+      configured. If you ever get 109, the gate is off again.
+- [ ] 👤 `cmake --preset release -B /tmp/rel-check` then `ctest -N` should show
+      only the ~109 submodule tests, and **no** Corbomite ones.
+
 ## 12. Regression sweeps — run before any release 👤
 
 - [ ] Open/close/reopen a vault repeatedly (no stale dock widgets)
@@ -181,6 +196,7 @@ That is enough for me to root-cause most things without guessing.
 | §1–§8 | First inspector pass, 2026-10-02 |
 | §9, §10 | Bugs reported in that pass |
 | §11 | Cluster L5, 2026-08-17 |
+| §11b | Build-hygiene pass, 2026-10-02 (test-gate unification) |
 | §12 | Standing regressions; §12's last line is the frontmatter-fence P1 fix |
 
 Automated coverage lives in the suite, not here — if an item above says 🤖, the

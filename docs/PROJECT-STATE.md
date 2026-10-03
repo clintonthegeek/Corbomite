@@ -16,57 +16,70 @@
 
 ## Current focus
 
-Remediation sweep. **Suite 341/341.** Tracker: 57 open / 136 closed.
+Remediation sweep. **Suite 339/339.** Tracker: 60 open / 137 closed.
 
-**Done since the second-sweep appraisal** (2026-10-01 -> 02): `ThemeService`
-revival; release-hygiene A.2/A.3/A.4 + E.1; ~500 lines of dead code; 7
-disabled tests re-enabled; cluster bookkeeping (E retired, F split into
-F-a/F-b, Tags pane -> Cluster Q, D.5 specced, L5 checkboxed); the
-`eState.scroll` interop fix (was P1); `.obsidian/app.json` (5 of 6 keys);
-`resolveSubpath` wired into the render path. **Cluster O closed** - bases +
-graph providers, tab reorder, linked panes, the plugin ViewActions path, the
-O6.T3 shared-panel fix, and O7 (3 new verbs, blockers on all 14 stubs, placebo
-dialogs disabled, palette regrouped). **Canvas dark mode** shipped (14-role
-`CanvasPalette`, export follows). Canvas file picker now lists the Vault
-instead of walking the disk. Frontmatter closing-fence P1 fixed (Corbomite
-half).
+**Done since the second-sweep appraisal** (2026-10-01 → 02): `ThemeService`
+revival; ~500 lines of dead code; 7 disabled tests re-enabled; cluster
+bookkeeping (E retired, F split into F-a/F-b, Tags pane → Cluster Q, D.5
+specced, L5 checkboxed); `eState.scroll` interop (was P1); `.obsidian/app.json`;
+`resolveSubpath` wired in. **Cluster O closed** — bases + graph providers, tab
+reorder, linked panes, the plugin ViewActions path, O6.T3's shared-panel fix, and
+O7 (3 new verbs, blockers on all 14 stubs, placebo dialogs disabled, palette
+regrouped). **Canvas dark mode** shipped. Canvas file picker lists the Vault.
+**P1s**: the frontmatter closing-fence scan, and `indexFinished` firing on a
+partly-built index.
+
+**A build bug worth naming:** the test gate had three conventions, two of which
+looked like ours but were not. `BUILD_TESTING` is declared by **ECM**, so 12
+subdirectories were reading a third-party default; and no preset ever set
+`CORBOMITE_PORT_BUILD_TESTS`, whose default is OFF. A clean `cmake --preset dev`
+therefore produced **109 tests instead of 345** — all from the markoff-family
+submodule, none of them Corbomite's — and the canonical test command reported
+success against a tree containing none of our tests. Verified by reproduction,
+fixed, and the residual submodule leak documented rather than patched.
+
+Also deleted a **test-only island**: `MarkdownRenderer` + `RegexRenderEngine`
+had zero production references (the runtime has always used `StyledRenderEngine`),
+and existed only to satisfy two QSKIPped tests that asserted nothing. The two
+canvas tests that referenced them were repointed at the production engine first.
 
 **Next:**
-1. **LIVE EYEBALL - handed over 2026-10-02.** Cluster O7 soak + the canvas dark
-   mode / file-picker passes. This blocks everything else: the retro, and any
-   further UI work, should be written from what is actually observed.
-2. **Cluster M5/M6** - `M5.2` is dropped (Cluster O shipped it). `M5.1` zoom
-   clamp (blocked on a read-only submodule; consumer-side fix). `M5.4`
-   read-only lock (needs a `SessionManager` per-file tier-3 bucket + ~10
-   mutation gates). `M5.5` jump-to-group / convert-to-file (needs 1 new undo
-   command). `M6.1` canvas link indexing (4 extension gates in `MainWindow`,
-   **plus an unmentioned FTS-pollution gate**). `M5.3` is **blocked on a corpus
-   contradiction** - the plan's stated precedent does not exist.
-3. **Release hygiene B** (mmdr reproducibility, blocks mermaid), C, D, E.
-4. **Dispatch** F-a (File Recovery + Note Composer, ~5-8d) and Q (Tags pane,
-   ~3-5d). Both specced and ready.
+1. **LIVE EYEBALL** — the single run-through is
+   [`docs/USER-TESTING.md`](docs/USER-TESTING.md), one maintained file for every
+   pass. First pass done: canvas dark mode confirmed good; two of my own bugs
+   found (§7 shortcuts had **no Ctrl** despite a commit message claiming Obsidian
+   parity; there was **no Tab menu** despite a comment claiming one). Both fixed.
+   **§10 (the settings dialog) is the open one** — diagnosed from source, not
+   reproduced.
+2. **Cluster M** — M5.5 `jump-to-group` (needs `zoomToRect`, which does not
+   exist) + `convert-to-file` (needs 1 new undo command); M5.4 read-only lock
+   (needs a per-file `SessionManager` tier-3 bucket + ~10 mutation gates);
+   M5.1 zoom clamp (blocked on a read-only submodule; consumer-side fix).
+   **M5.3 is blocked on a corpus contradiction** — the plan's stated precedent
+   does not exist, and three audit sources disagree on whether leaf `eState`
+   persists at all. Needs the user's call. M5.2 is dropped: Cluster O shipped it.
+3. **Release hygiene B** — the unreproducible mmdr blob. **A decision, not more
+   work**: the Rust source is not in this repo and not reachable from it, so a
+   rebuild is *impossible*, not merely undocumented. Documented honestly in
+   `libs/mmdr/README.md`. It blocks the Mermaid dark-theme item. Three options in
+   the plan; B.3's history-rewrite decision is unrecorded anywhere.
+4. **Dispatch** F-a (File Recovery + Note Composer, ~5–8d) and Q (Tags pane,
+   ~3–5d). Both specced, neither started — these are multi-day and need a
+   dedicated session.
+5. **Smaller punch items** — 11 remaining `if(FALSE)` test gates, 3 classes
+   named `VaultResourceProvider`, the embed single-render gap, `examples/`
+   compile-unverified, Cluster O6.T1/T2/T4.
 
-**Cross-repo** - written, awaiting dispatch:
-[`handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md`](handoff/2026-10-01-to-markoff-frontmatter-undo-and-test-labels.md)
-(local frontmatter edit with D2 undo, stale `Origin.h`, `benchmark` labels on
-two canvas perf tests, the never-accepted fence steer, **plus the 14 concrete
-verb blockers now recorded on the editor stubs**).
-
-**Investigated and deliberately left open**, reasoning recorded rather than
-half-solved: `split dimension` (KDDW exposes **no** public separator-size
-setter - recommend accepting it); `hotkeys.json` (re-scoped to a cluster, not a
-wiring fix); Cluster O6.T1/T2/T4 inspector slot (punch item - closes no
-reported bug).
-
-**Standing lesson** - ten of my own claims this session were wrong and were
-caught by checking rather than shipped: a "fix" whose test passed against
-unfixed code; an undo fix its own test caught; a data-loss bug whose mechanism
-was real but consequence inert; a `reinterpret_cast` from `nullptr`; two
-"dead" classes that were live; a group-id rule from the audit that orphans
-members; three bulk-regex edits that matched more than intended; a
-falsifiability check that came back **green against a reintroduced bug**; and
-an over-strong invariant that failed on correct behaviour. See the audit's
-S10 - a gate never seen red proves nothing.
+**Standing lesson** — thirteen of my own claims this session were wrong and were
+caught by checking rather than shipped. The recurring shape is **asserting a
+property in prose that was never checked against the code**: a parity claim about
+a keyboard shortcut that had no `Ctrl`; a comment about a "Tab menu" that did not
+exist; two "the file is inside an `#if 0`" claims that were only *mostly* true,
+each hiding a live symbol outside the block. Also: a falsifiability check that
+came back green against a deliberately reintroduced bug, an over-strong
+invariant that failed on correct behaviour, and a batch of bulk-regex edits that
+matched more than intended. See the audit's §10 — a gate never seen red proves
+nothing.
 
 ## Two tracks
 
