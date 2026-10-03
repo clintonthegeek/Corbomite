@@ -6,9 +6,7 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui)
 
 add_library(corbomite-search SHARED
-    src/PreparedQuery.cpp
     include/corbomite/search/PreparedQuery.h
-    src/FuzzyMatch.cpp
     include/corbomite/search/FuzzyMatch.h
     src/FuzzyMatcher.cpp
     include/corbomite/search/FuzzyMatcher.h

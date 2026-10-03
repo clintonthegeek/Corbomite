@@ -145,9 +145,9 @@ add_test(NAME tst_postprocessorregistry COMMAND tst_postprocessorregistry)
 target_link_libraries(tst_postprocessorregistry PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_postprocessorregistry PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-add_executable(tst_diffmatchpatch tst_diffmatchpatch.cpp)
-add_test(NAME tst_diffmatchpatch COMMAND tst_diffmatchpatch)
-target_link_libraries(tst_diffmatchpatch PRIVATE Qt6::Test Corbomite::Core)
+add_executable(tst_threewaymerge tst_threewaymerge.cpp)
+add_test(NAME tst_threewaymerge COMMAND tst_threewaymerge)
+target_link_libraries(tst_threewaymerge PRIVATE Qt6::Test Corbomite::Core)
 
 add_executable(tst_view_lifecycle tst_view_lifecycle.cpp)
 add_test(NAME tst_view_lifecycle COMMAND tst_view_lifecycle)

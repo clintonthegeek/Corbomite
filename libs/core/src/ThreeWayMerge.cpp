@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "corbomite/core/DiffMatchPatch.h"
+#include "corbomite/core/ThreeWayMerge.h"
 
 #include <QStringList>
 #include <QVector>
@@ -45,9 +45,9 @@ QVector<std::pair<int, int>> lcs(const QStringList &a, const QStringList &b)
 
 } // anonymous namespace
 
-QString DiffMatchPatch::threeWayMerge(const QString &base,
-                                      const QString &local,
-                                      const QString &remote)
+QString ThreeWayMerge::threeWayMerge(const QString &base,
+                                    const QString &local,
+                                    const QString &remote)
 {
     if (base == remote) return local;
     if (base == local) return remote;

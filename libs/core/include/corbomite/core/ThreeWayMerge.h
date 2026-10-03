@@ -5,7 +5,7 @@
 
 namespace Corbomite {
 
-class DiffMatchPatch
+class ThreeWayMerge
 {
 public:
     static QString threeWayMerge(const QString &base,

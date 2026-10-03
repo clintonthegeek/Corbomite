@@ -1,7 +1,7 @@
 // libs/core/src/TextFileView.cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/TextFileView.h"
-#include "corbomite/core/DiffMatchPatch.h"
+#include "corbomite/core/ThreeWayMerge.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/PathUtils.h"
 #include "corbomite/core/DataAdapter.h"
@@ -129,7 +129,7 @@ void TextFileView::onExternalModify(const QString &relativePath)
         return;
     }
 
-    QString merged = DiffMatchPatch::threeWayMerge(m_lastSavedData, currentView, freshDisk);
+    QString merged = ThreeWayMerge::threeWayMerge(m_lastSavedData, currentView, freshDisk);
     m_lastSavedData = freshDisk;
     setViewData(merged, false);
 }

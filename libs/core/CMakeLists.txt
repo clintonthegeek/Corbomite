@@ -16,7 +16,6 @@ add_library(corbomite-core SHARED
     src/NoteMeta.cpp
     src/NoteDocument.cpp
     include/corbomite/core/NoteDocument.h
-    src/MarkdownRenderer.cpp
     src/RenderedDocument.cpp
     src/MarkdownRenderEngine.cpp
     src/SubpathExtract.cpp
@@ -63,8 +62,8 @@ add_library(corbomite-core SHARED
     include/corbomite/core/PostProcessorRegistry.h
     src/MermaidRenderer.cpp
     include/corbomite/core/MermaidRenderer.h
-    src/DiffMatchPatch.cpp
-    include/corbomite/core/DiffMatchPatch.h
+    src/ThreeWayMerge.cpp
+    include/corbomite/core/ThreeWayMerge.h
     src/View.cpp
     include/corbomite/core/View.h
     src/ViewActions.cpp
