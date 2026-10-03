@@ -26,7 +26,9 @@ One feature soon for experimental development will be enabling the collabtext CR
 
 ## License
 
-GPLv3-or-later
+GPL-3.0-or-later — see [`LICENSE.txt`](LICENSE.txt). Third-party components
+under compatible licences are listed below and carry their own notices in
+[`LICENSES/`](LICENSES/).
 
 ---
 

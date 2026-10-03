@@ -1,5 +1,38 @@
 # Release Hygiene — Public-Facing Codebase Cleanup Implementation Plan
 
+> ## ⚠ REFRESHED 2026-10-02 — this plan is stale in its own checkboxes
+>
+> **Every one of its 59 boxes was unchecked, which read as "0% done". That was
+> wrong, and so were three of its premises.** A delegated audit re-verified all
+> 30 tasks against the tree. Real state: **roughly 11 of 30 done or superseded
+> (~37%)**, and the release-hygiene section of `docs/punch-list.md` is the
+> authoritative tracker now, not this file.
+>
+> Three premises are now **factually wrong** and must not be executed as written:
+>
+> 1. **D.4 says "make `libs/vault` `STATIC`".** Cluster P went the *other* way,
+>    deliberately: all 9 libraries are now `SHARED`, for position-independent-code
+>    and install-rule reasons. Executing D.4 as written would undo a deliberate
+>    decision.
+> 2. **C.8 assumed "the roadmap wants sidebar persistence by calling this code".**
+>    The roadmap actually chose `src/app/SessionManager`, and the KateMDI
+>    session machinery is already deleted (`15111e32`). Nothing calls it because
+>    nothing was ever going to.
+> 3. **B.3 sizes the pack at "~86 MiB".** It is now ~163 MiB, and the blob is
+>    ~21% of it rather than a plurality.
+>
+> Additionally, **C.1 and C.3 were both wrong about their own targets**: each file
+> had a genuinely live symbol *outside* its `#if 0`. Deleting either file would
+> have broken the build. They have since been handled correctly (dead bodies
+> removed, live stubs kept) — see `cb2e5a96`.
+>
+> **Definition of Done is 2 of 7 met**, up from 0. Four of the five unmet
+> criteria are downstream of **Phase B's unreproducible blob** alone, which is
+> the highest-leverage single item in the plan. Its state is now documented
+> honestly in `libs/mmdr/README.md`, including the fact that a rebuild is
+> currently **impossible**, not merely undocumented.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the codebase presentable for the public release cut: legal/licensing completeness (GPL text, LGPL text, REUSE compliance, honest third-party attribution), resolve the 34.8 MB `libs/mmdr` binary blob, purge ~1,000+ lines of verified-dead code, fix misleading names, and land packaging polish. Everything here is "how the repo looks to a stranger on release day" — no feature work.

@@ -319,6 +319,23 @@ red under `-j10` again, treat it as this bug returning, not as a flake to be
 excluded. Related: the `tst_forcelayout` flake is a *separate*, known issue
 (global RNG in `libs/forcegraph`), still excluded from the canonical run.
 
+- [ ] [release][P1][release-hygiene] **Phase B: the unreproducible mmdr blob — DECISION NEEDED, not more work.**
+`libs/mmdr/libmermaid_rs_renderer.a` (34,857,128 bytes, 21% of the ~163 MiB pack)
+is tracked in git and **cannot be rebuilt**. Verified 2026-10-02: no `Cargo.lock`
+anywhere, no pinned upstream commit, no `rustc` version embedded in the artefact
+(`strings` yields only Rust std symbols), no download script, no submodule, no
+`FetchContent`, no CI step, no `-DCORBOMITE_MMDR_LIB` escape hatch. The Rust
+source is not in this repository and not reachable from it, so this is
+**impossible**, not merely undocumented. Provenance now recorded honestly in
+`libs/mmdr/README.md` (SHA-256 `8d8eb53d…`, plus what was attempted and failed).
+**This blocks the Mermaid dark-theme item**, because the FFI takes no theme
+parameter and a rebuild is impossible. The plan offers three options —
+corrosion + vendored crate (L), optional external dep mirroring `qt6keychain`
+(S/M, cheapest way to satisfy the DoD), or fetch script + pinned SHA-256 (M,
+but upstream's release-artifact availability is **unverified**). **B.3's
+history-rewrite decision is also unrecorded anywhere.** Four of the plan's five
+unmet DoD criteria sit behind this one item.
+
 - [ ] [ui-bundle][P2][cluster-o] **Cluster O7 live eyeball + soak.** Handed over
 2026-10-02. All the code work in Cluster O is done and the suite is green
 (341/341), but four things in this cluster are **only verifiable by a human
