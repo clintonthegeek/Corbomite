@@ -190,13 +190,16 @@ Baseline (2026-10-04): **354/354 pass** with the exclusion above.
 
 ### Load-sensitive flakes — "the suite is green" is not yet a reliable signal
 
-Three tests fail intermittently under `-j6`/load while passing standalone. None is
+**Four** tests fail intermittently under `-j6`/load while passing standalone. None is
 caused by the code they cover; all are timing- or count-sensitive:
 
 - `tst_forcelayout` (`libs/forcegraph`) — pure timing.
 - `tst_cachedmetadatastore::testRoundTripMultipleFiles` — asserts a watcher signal
   **count** (2 vs 1); races with the coalescing drain timer.
 - `tst_hover_popover_pinning` — timing-sensitive.
+- `tst_metadatacache_worker_integration` — observed at **30.5 s** under `-j6` versus
+  **0.26 s** standalone, a ~100x spread. That ratio is large enough to be worth a look
+  if it ever appears in CI; so far it has only been seen under parallel load.
 
 So a single red run is **not** evidence of a regression: re-run the failing test alone
 before investigating. Conversely, do not accept a green full run as proof a timing fix

@@ -19,6 +19,7 @@
 #include <markoff/parser/Document.h>
 #include <markoff/parser/YamlValue.h>
 
+#include <QDebug>
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QSet>
@@ -306,6 +307,22 @@ QByteArray applyRewrites(const QByteArray &body, QVector<LinkRewrite> rewrites)
     return s.toUtf8();
 }
 
+// Both frontmatter writers round-trip the block through the YAML parser, so an
+// unparseable block cannot be merged into — it can only be replaced. Obsidian's
+// link-fixup applier hits the same wall and returns the buffer with the edit
+// silently dropped (app/own/1304-ZF.js:21-25); here the whole block would be
+// discarded, so refuse instead and keep the bytes.
+// Returns true when `doc` is unusable for a frontmatter rewrite.
+bool frontmatterUnusable(const Markoff::Document *doc, const QString &path)
+{
+    const QString err = doc->frontmatterParseError();
+    if (err.isEmpty()) return false;
+    qWarning("Corbomite: refusing to rewrite frontmatter of %s — the existing "
+             "block is not valid YAML, so the write would discard it (%s)",
+             qPrintable(path), qPrintable(err));
+    return true;
+}
+
 } // namespace
 
 bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
@@ -313,9 +330,15 @@ bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
     if (!f || !m_vault || !mut) return false;
     if (f->extension != QStringLiteral("md")) return false;
 
-    return m_vault->process(f, [&](const QByteArray &cur) -> QByteArray {
+    bool unparseable = false;
+    const bool wrote = m_vault->process(f, [&](const QByteArray &cur) -> QByteArray {
         auto doc = Markoff::Document::fromMarkdown(QString::fromUtf8(cur));
         if (!doc) return cur;
+
+        if (frontmatterUnusable(doc.get(), f->path)) {
+            unparseable = true;
+            return cur;
+        }
 
         Markoff::YamlValue current = doc->parsedFrontmatter();
         Markoff::YamlValue working = current.isNull()
@@ -358,6 +381,7 @@ bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
             map.isEmpty() ? Markoff::YamlValue() : next;
         return doc->withFrontmatter(out).toUtf8();
     });
+    return unparseable ? false : wrote;
 }
 
 bool FileManager::setFrontMatter(TFile *f, const QList<FrontMatterEntry> &ordered)
@@ -365,9 +389,15 @@ bool FileManager::setFrontMatter(TFile *f, const QList<FrontMatterEntry> &ordere
     if (!f || !m_vault) return false;
     if (f->extension != QStringLiteral("md")) return false;
 
-    return m_vault->process(f, [&](const QByteArray &cur) -> QByteArray {
+    bool unparseable = false;
+    const bool wrote = m_vault->process(f, [&](const QByteArray &cur) -> QByteArray {
         auto doc = Markoff::Document::fromMarkdown(QString::fromUtf8(cur));
         if (!doc) return cur;
+
+        if (frontmatterUnusable(doc.get(), f->path)) {
+            unparseable = true;
+            return cur;
+        }
 
         Markoff::YamlValue current = doc->parsedFrontmatter();
         Markoff::YamlValue working = current.isNull()
@@ -410,6 +440,7 @@ bool FileManager::setFrontMatter(TFile *f, const QList<FrontMatterEntry> &ordere
             ordered.isEmpty() ? Markoff::YamlValue() : next;
         return doc->withFrontmatter(out).toUtf8();
     });
+    return unparseable ? false : wrote;
 }
 
 bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
@@ -555,35 +586,37 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
                 for (const LinkCache &lc : *cm->embeds) pushBodyRewrite(lc);
             }
 
-            // Frontmatter links: no source positions in cache, so search
-            // each entry's `original` literal inside the frontmatter span,
-            // advancing the search offset past each match so duplicates
-            // resolve to distinct positions.
+            // Frontmatter links carry no source position (unlike `links` /
+            // `embeds`), so each entry's `original` literal is located by
+            // searching the frontmatter span.
+            //
+            // A monotonic search cursor is not usable here:
+            // `frontmatterLinks` is built by iterating a QJsonObject
+            // (MetadataParser.cpp), whose keys come out sorted, so the vector
+            // is in key order and not document order — a cursor would walk
+            // backwards past occurrences it had already consumed and silently
+            // skip them. Instead rewrite *every* occurrence of a matching
+            // literal within the span. That is total by construction: an
+            // identical literal resolves identically, so attributing
+            // occurrences to individual keys buys nothing.
             if (cm->frontmatterLinks && cm->frontmatterPosition) {
                 const int fmStart = cm->frontmatterPosition->start.offset;
                 const int fmEnd = cm->frontmatterPosition->end.offset;
-                int searchFrom = fmStart;
                 for (const FrontmatterLinkCache &fml : *cm->frontmatterLinks) {
+                    if (fml.original.isEmpty()) continue;
                     const Move *mv = matchMove(linkPathWithoutSubpath(fml.link));
-                    if (!mv) {
-                        // Even unaffected entries consume their span so the
-                        // next search starts past them.
-                        const int idx = text.indexOf(fml.original, searchFrom);
-                        if (idx >= 0 && idx < fmEnd)
-                            searchFrom = idx + static_cast<int>(fml.original.size());
-                        continue;
-                    }
-                    const int idx = text.indexOf(fml.original, searchFrom);
-                    if (idx < 0 || idx >= fmEnd) continue;
+                    if (!mv) continue;
                     const QString rebuilt =
                         rewriteLinkLiteral(fml.original, mv->oldP, mv->newP);
-                    if (rebuilt.isEmpty()) {
-                        searchFrom = idx + static_cast<int>(fml.original.size());
-                        continue;
+                    if (rebuilt.isEmpty()) continue;
+
+                    const int litLen = static_cast<int>(fml.original.size());
+                    for (int from = fmStart; from < fmEnd; ) {
+                        const int idx = text.indexOf(fml.original, from);
+                        if (idx < 0 || idx + litLen > fmEnd) break;
+                        rewrites.push_back({idx, idx + litLen, rebuilt});
+                        from = idx + litLen;
                     }
-                    const int matchEnd = idx + static_cast<int>(fml.original.size());
-                    rewrites.push_back({idx, matchEnd, rebuilt});
-                    searchFrom = matchEnd;
                 }
             }
 

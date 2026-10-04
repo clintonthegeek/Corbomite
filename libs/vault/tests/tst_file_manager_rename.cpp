@@ -26,6 +26,7 @@ private slots:
     void renameRewritesMarkdownStyleLinks();
     void renameRewritesFullPathWikiLinks();
     void renameRewritesFrontmatterMarkdownLinks();
+    void renameRewritesEveryFrontmatterLinkRegardlessOfKeyOrder();
     void renameMixedFormsInSameBody();
     void renameLeavesUnrelatedLinksAlone();
 };
@@ -208,6 +209,28 @@ void TestFileManagerRename::renameRewritesFrontmatterMarkdownLinks()
 
     QCOMPARE(readFileAll(h.dir.path() + "/Linker.md"),
              QByteArray("---\nrelated: \"[Display](Bar.md)\"\n---\nbody"));
+}
+
+void TestFileManagerRename::renameRewritesEveryFrontmatterLinkRegardlessOfKeyOrder()
+{
+    // `CachedMetadata::frontmatterLinks` is produced by iterating a
+    // QJsonObject (MetadataParser.cpp:467-471), so it arrives in sorted-key
+    // order, not document order. Keys `zeta` then `alpha` therefore arrive
+    // as `alpha` then `zeta` — the reverse of where they sit on disk.
+    RenameHarness h;
+    primeHarness(h, {
+        {QStringLiteral("Foo.md"), "Foo body"},
+        {QStringLiteral("Bar.md"), "Bar body"},
+        {QStringLiteral("Linker.md"),
+         "---\nzeta: \"[[Foo]]\"\nalpha: \"[[Bar]]\"\n---\nbody"},
+    });
+
+    auto *foo = h.vault.getFileByPath(QStringLiteral("Foo.md"));
+    QVERIFY(foo);
+    QVERIFY(h.fm->renameFile(foo, QStringLiteral("Renamed.md")));
+
+    QCOMPARE(readFileAll(h.dir.path() + "/Linker.md"),
+             QByteArray("---\nzeta: \"[[Renamed]]\"\nalpha: \"[[Bar]]\"\n---\nbody"));
 }
 
 void TestFileManagerRename::renameMixedFormsInSameBody()

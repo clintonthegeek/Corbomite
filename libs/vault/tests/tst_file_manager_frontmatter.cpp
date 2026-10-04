@@ -19,6 +19,8 @@ private slots:
     void preservesKeyOrderOnMutation();
     void appendsNewKeysAfterOriginalOrder();
     void emptiedFrontmatterStripsBlockEntirely();
+    void preservesUnparseableFrontmatterAndReportsFailure();
+    void setFrontMatterPreservesUnparseableFrontmatter();
 };
 
 namespace {
@@ -197,6 +199,51 @@ void TestFileManagerFrontmatter::emptiedFrontmatterStripsBlockEntirely()
     QVERIFY2(!after.contains("---"),
              "fence must be gone when mutator emptied the map");
     QVERIFY(after.contains("body"));
+}
+
+// Obsidian's link-fixup applier (app/own/1304-ZF.js:21-25) catches a
+// js-yaml parse failure and returns the buffer with the frontmatter
+// edit silently discarded. Any frontmatter write that round-trips the
+// block inherits that hazard, so processFrontMatter must bail out
+// instead: the user's unparseable YAML is not theirs to lose, and a
+// silent no-write leaves them believing the property was saved.
+void TestFileManagerFrontmatter::preservesUnparseableFrontmatterAndReportsFailure()
+{
+    QTemporaryDir dir;
+    const QByteArray orig("---\ntitle: \"unterminated\nbroken: [1, 2\n---\nbody\n");
+    writeFile(dir.path() + "/a.md", orig);
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    Corbomite::FileManager fm(&vault, nullptr);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    fm.processFrontMatter(tf, [](QVariantMap &m) {
+        m.insert(QStringLiteral("added"), QStringLiteral("x"));
+    });
+
+    QCOMPARE(readFileAll(dir.path() + "/a.md"), orig);
+}
+
+void TestFileManagerFrontmatter::setFrontMatterPreservesUnparseableFrontmatter()
+{
+    QTemporaryDir dir;
+    const QByteArray orig("---\ntitle: \"unterminated\nbroken: [1, 2\n---\nbody\n");
+    writeFile(dir.path() + "/a.md", orig);
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    Corbomite::FileManager fm(&vault, nullptr);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    fm.setFrontMatter(tf, {{QStringLiteral("added"),
+                            QVariant(QStringLiteral("x")), false}});
+
+    QCOMPARE(readFileAll(dir.path() + "/a.md"), orig);
 }
 
 QTEST_MAIN(TestFileManagerFrontmatter)
