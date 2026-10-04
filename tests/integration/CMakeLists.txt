@@ -49,3 +49,19 @@ set_tests_properties(tst_plugin_type_identity PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 # The plugin .so must exist on disk before this test can find it.
 add_dependencies(tst_plugin_type_identity corbomite-file-explorer)
+
+add_executable(tst_obsidian_command_ids tst_obsidian_command_ids.cpp)
+add_test(NAME tst_obsidian_command_ids COMMAND tst_obsidian_command_ids)
+target_link_libraries(tst_obsidian_command_ids PRIVATE
+    Qt6::Test Qt6::Widgets KF6::CoreAddons
+    Corbomite::Storage Corbomite::Core Corbomite::Vault)
+target_compile_definitions(tst_obsidian_command_ids PRIVATE
+    CORBOMITE_PLUGIN_DEV_DIR="${CORBOMITE_PLUGIN_DEV_DIR}"
+    CORBOMITE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+set_tests_properties(tst_obsidian_command_ids PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+# The plugin .so files must exist on disk before this test can find them.
+add_dependencies(tst_obsidian_command_ids
+    corbomite-backlinks corbomite-outlinks corbomite-outline
+    corbomite-properties corbomite-bookmarks corbomite-local-graph
+    corbomite-file-explorer)

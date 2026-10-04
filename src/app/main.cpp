@@ -43,8 +43,10 @@ int main(int argc, char *argv[])
 
     KDBusService service(KDBusService::Unique);
 
-    // Install the app-wide key-binding dispatcher (Cluster C).
-    // Any Modal/Menu that owns a Scope will push/pop onto this.
+    // Install the app-wide key-binding dispatcher. `ScopeManager` walks pushed
+    // scopes top→bottom and then its root slot, which `MainWindow` hands to
+    // `HotkeyDispatcher` — the merged `.obsidian/hotkeys.json` table. Anything
+    // that owns a Scope (a modal, a menu, a suggester) pushes onto this.
     Corbomite::ScopeManager::instance()->installOnApplication();
 
     // Command-line arguments: a positional argument opens the given vault

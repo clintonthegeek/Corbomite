@@ -14,6 +14,7 @@ namespace Corbomite {
 
 ScopeManager::ScopeManager()
     : QObject(nullptr), m_bypass(&ScopeManager::defaultBypass)
+    , m_rootGate(&ScopeManager::defaultRootGate)
 {}
 
 ScopeManager *ScopeManager::instance()
@@ -54,6 +55,16 @@ void ScopeManager::setBypassPredicate(BypassPredicate p)
     m_bypass = p ? std::move(p) : &ScopeManager::defaultBypass;
 }
 
+void ScopeManager::setRootScope(Scope *scope)
+{
+    m_root = scope;
+}
+
+void ScopeManager::setRootGate(RootGate gate)
+{
+    m_rootGate = gate ? std::move(gate) : &ScopeManager::defaultRootGate;
+}
+
 bool ScopeManager::defaultBypass(QWidget *w)
 {
     if (!w) return false;
@@ -63,41 +74,37 @@ bool ScopeManager::defaultBypass(QWidget *w)
     return false;
 }
 
+bool ScopeManager::defaultRootGate()
+{
+    // A modal widget owns input: its key presses must not fire the main
+    // window's commands (addendum §E — a modal runs in its own shortcut
+    // context).
+    return !(qApp && qApp->activeModalWidget());
+}
+
 bool ScopeManager::dispatchKey(QKeyEvent *evt, QWidget *focusOverride)
 {
     if (!evt) return false;
-    if (m_stack.isEmpty()) return false;
+    if (m_stack.isEmpty() && !m_root) return false;
 
     QWidget *focused = focusOverride ? focusOverride
                                      : (qApp ? qApp->focusWidget() : nullptr);
-    if (focused && m_bypass && m_bypass(focused)) return false;
-
-    // Deliberate divergence from Obsidian's `Keymap.pushScope`
-    // (app/own/0747-ly.js:63-66), recorded so nobody "fixes" it by accident.
-    // Obsidian keeps ONE scope per window (`getWindowStack` seeds
-    // `{scope: rootScope, prevScopes: []}`, :48-53) and pushing replaces it,
-    // so a parentless scope ends the walk at Scope.handleKey's
-    // `if (this.parent) return this.parent.handleKey(...)`
-    // (app/own/0747-ly.js:27) and the root scope — the only place
-    // `HotkeyManager` registers its catch-all (0833-$w.js:7) — goes
-    // unreachable for as long as the modal is up. That is why `Modal`
-    // allocates `new Scope()` with no parent (0817-Yb.js:630) and
-    // `SuggestModal` deliberately replaces it with a parented one
-    // (1319-xR.js:29).
-    //
-    // This stack is flat: a parentless scope pushed on top does not stop the
-    // scopes below it from being consulted. Two reasons that is fine today:
-    // the KAction half of Obsidian's behaviour is already delivered by Qt
-    // modality (a modal QDialog blocks the main window's window-scoped
-    // shortcuts without any help from this stack), and no production code
-    // pushes a Scope at all, so there is no root-scope catch-all to cut off.
-    // Whoever adds the `hotkeys.json` dispatcher has to decide which of the two
-    // shapes it wants — see the report in
-    // docs/obsidian-audit/addenda/2026-10-03-core-command-and-hotkey-contracts.md §E.
-    for (int i = m_stack.size() - 1; i >= 0; --i) {
-        Scope *s = m_stack.at(i);
-        if (s && s->handleKey(evt)) return true;
+    // Focus-gating covers the pushed scopes only — see the class comment. A
+    // text input must not swallow keys a modal scope claims, but it must not
+    // silence the process-wide command table either.
+    const bool bypass = !m_stack.isEmpty() && focused && m_bypass
+                        && m_bypass(focused);
+    if (!bypass) {
+        for (int i = m_stack.size() - 1; i >= 0; --i) {
+            Scope *s = m_stack.at(i);
+            if (s && s->handleKey(evt)) return true;
+        }
     }
+    // Root last, so a modal or suggester scope masks the command table and a
+    // scope that declines a key falls through to it. Obsidian produces the
+    // same ordering; what it does not do is keep the table reachable from a
+    // parentless scope (addendum §E), which is the behaviour this walk drops.
+    if (m_root && (!m_rootGate || m_rootGate())) return m_root->handleKey(evt);
     return false;
 }
 

@@ -11,10 +11,12 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPointer>
 #include <QScrollBar>
 #include <QTimer>
 #include <QUndoStack>
 
+#include <algorithm>
 #include <cmath>
 
 // Cluster M leftover (canvas dark mode) — the item's scene palette, or the
@@ -90,6 +92,104 @@ void CanvasView::zoomToFit()
         return;
     fitInView(scene()->itemsBoundingRect().adjusted(-50, -50, 50, 50),
               Qt::KeepAspectRatio);
+}
+
+QJsonObject CanvasView::viewState() const
+{
+    if (!scene() || !viewport())
+        return {};
+    const double s = transform().m11();
+    if (!(s > 0.0))
+        return {};
+    // Obsidian stores the target, so a save mid-gesture persists the
+    // destination. QGraphicsView has no separate target, so we report the
+    // live transform; a wheel gesture is instantaneous by the time the
+    // workspace is written, which is where the two agree.
+    const QPointF centre = mapToScene(viewport()->rect().center());
+    return QJsonObject{
+        {QStringLiteral("x"), centre.x()},
+        {QStringLiteral("y"), centre.y()},
+        {QStringLiteral("zoom"), std::log2(s)},
+    };
+}
+
+void CanvasView::setViewState(const QJsonObject &state)
+{
+    if (!scene() || !viewport())
+        return;
+    const QJsonValue vx = state.value(QStringLiteral("x"));
+    const QJsonValue vy = state.value(QStringLiteral("y"));
+    const QJsonValue vz = state.value(QStringLiteral("zoom"));
+    if (!vx.isDouble() || !vy.isDouble() || !vz.isDouble())
+        return;
+
+    const double x = vx.toDouble();
+    const double y = vy.toDouble();
+    const double scaleFactor =
+        std::pow(2.0, std::clamp(vz.toDouble(), kMinZoomLog2, kMaxZoomLog2));
+
+    // Obsidian's canvas has no world bounds -- x/y may be any finite value,
+    // which is why a persisted viewport routinely sits in empty space away
+    // from every node. QGraphicsView derives its scrollbar range from
+    // sceneRect, and an unset sceneRect means itemsBoundingRect(), so without
+    // this the restore silently clamps to the content edge and the pan is
+    // lost. Widen (never shrink) the world to kRestoreWorldViewports
+    // viewports at the target scale, so the recorded centre sits strictly
+    // inside the pannable band rather than exactly on its boundary, and can
+    // be panned a full viewport away afterwards.
+    const double halfW = viewport()->width() / (2.0 * scaleFactor) * kRestoreWorldViewports;
+    const double halfH = viewport()->height() / (2.0 * scaleFactor) * kRestoreWorldViewports;
+    QRectF world = scene()->sceneRect();
+    world.setLeft(std::min(world.left(), x - halfW));
+    world.setRight(std::max(world.right(), x + halfW));
+    world.setTop(std::min(world.top(), y - halfH));
+    world.setBottom(std::max(world.bottom(), y + halfH));
+    scene()->setSceneRect(world);
+
+    // AnchorUnderMouse (the gesture default, set in the ctor) makes scale()
+    // re-anchor around the cursor, which would fight the explicit centring
+    // below. AnchorViewCenter scales about the view centre instead.
+    const ViewportAnchor savedAnchor = transformationAnchor();
+    setTransformationAnchor(AnchorViewCenter);
+    resetTransform();
+    scale(scaleFactor, scaleFactor);
+    centreScenePoint(x, y);
+
+    // Widening the world can bring a scrollbar into existence, and Qt only
+    // materialises one on the next layout pass -- which shrinks the viewport
+    // and slides the scene point at its centre by half the scrollbar inset.
+    // Re-centre once the frame has settled, or the restore lands up to half a
+    // scrollbar off. Deferred rather than a nested event loop, which would be
+    // re-entrant; guarded by QPointer because a leaf can be torn down inside
+    // that window.
+    QPointer<CanvasView> self(this);
+    QTimer::singleShot(0, this, [self, x, y] {
+        if (self)
+            self->centreScenePoint(x, y);
+    });
+
+    setTransformationAnchor(savedAnchor);
+}
+
+void CanvasView::centreScenePoint(double x, double y)
+{
+    // Scrollbar values are in device pixels, so a shortfall measured in scene
+    // units converts back by the scale. Setting the value directly (rather
+    // than re-issuing centreOn with a corrected request) keeps each pass
+    // monotonic, so this converges instead of oscillating around the
+    // quantisation step.
+    for (int pass = 0; pass < 4; ++pass) {
+        const double s = transform().m11();
+        const QPointF here = mapToScene(viewport()->rect().center());
+        const int dx = qRound((x - here.x()) * s);
+        const int dy = qRound((y - here.y()) * s);
+        if (dx == 0 && dy == 0)
+            return;
+        QScrollBar *hs = horizontalScrollBar();
+        QScrollBar *vs = verticalScrollBar();
+        hs->setValue(hs->value() + dx);
+        vs->setValue(vs->value() + dy);
+    }
 }
 
 void CanvasView::zoomIn()

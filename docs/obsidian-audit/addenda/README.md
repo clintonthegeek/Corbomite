@@ -20,7 +20,7 @@ findings most likely to change code you are about to write:
 |---|---|---|
 | **Sanitiser** | DOMPurify runs with **`ALLOW_UNKNOWN_PROTOCOLS: true`**, so `javascript:` hrefs survive. `rendering.md` §11 says Corbomite "must match this config exactly" — **that is a decision, not an instruction to copy** | `2026-10-03-rendering-sanitiser-policy.md` |
 | **Settings files** | `app.json`/`appearance.json` split on a **16-key** allow-list, not the 6 the doc lists; 10 keys move file; plus a whole omitted class `.obsidian/<corePluginId>.json` | `2026-10-03-vault-config-split-and-defaults.md`, `…-settings-config-file-ownership-and-definitions.md` |
-| **Hotkeys** | `hotkeys.json` is override-only: `"cmd": []` **unbinds**. **115** command ids, not ~30 | `2026-10-03-core-command-and-hotkey-contracts.md` |
+| **Hotkeys** | `hotkeys.json` is override-only: `"cmd": []` **unbinds**. **115** command ids, not ~30. A `code` binding is matched as a **name**, not a physical position — and §D's `["Mod"]` + `code:"KeyI"` example does not fire (needs `["Mod","Alt"]`) | `2026-10-03-core-command-and-hotkey-contracts.md`, `…-hotkeys-json-dispatcher.md` |
 | **Timings** | `debounce` (`Ml`) is a **leading-edge throttle**, not a trailing debounce — affects every timing claim in the audit | `2026-10-03-editor-wrapper-commands-and-keymaps.md` |
 | **File save** | No three-way merge; a mid-paragraph user edit can be **discarded and relocated** | `2026-10-03-views-leaf-viewstate-and-deferred-restore.md` |
 | **`.canvas`** | Unknown node `type`s and endpoint-dangling edges are **deleted on the next save** | `2026-10-03-canvas-disk-contract-and-viewport-settings.md` |

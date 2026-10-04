@@ -19,6 +19,7 @@ class QAction;
 
 class KRecentFilesAction;
 class KToolBar;
+class QTimer;
 
 namespace Markoff {
 class EmbedRegistry;
@@ -64,6 +65,7 @@ class TemplateService;
 class DailyNoteService;
 class WelcomeScreen;
 class CommandRegistry;
+class HotkeyDispatcher;
 class MenuEventEmitter;
 class HoverLinkSourceRegistry;
 class HoverPopover;
@@ -92,6 +94,9 @@ public:
     Vault *vaultObj() const { return m_vaultObj; }
     FileManager *fileManager() const { return m_fileManager; }
     CommandRegistry *commandRegistry() const { return m_commandRegistry; }
+    /// The `.obsidian/hotkeys.json` dispatcher. Exposed so tests can drive a
+    /// vault's overrides without going through the file.
+    HotkeyDispatcher *hotkeyDispatcher() const { return m_hotkeyDispatcher; }
     /// Exposed for integration tests that verify LinkResolver freshness.
     LinkResolver *linkResolver() const { return m_linkResolver; }
     /// Cluster O Phase O1.T1 — exposed for tests exercising action-state
@@ -174,6 +179,9 @@ private:
     void openDailyNote();
     void onVaultOpened(const QString &path);
     void onVaultClosed();
+    /// Re-read `.obsidian/hotkeys.json` and re-arm the dispatcher. Called on
+    /// vault open and on every external edit to the file.
+    void reloadVaultHotkeys(const QString &path);
     void onCursorInfoChanged(int line, int column, int wordCount);
     void updateWindowTitle(NoteEditorWidget *editor = nullptr);
     void openFileInWorkspace(const QString &relativePath);
@@ -277,6 +285,12 @@ private:
     QStackedWidget *m_centralStack = nullptr;
     WelcomeScreen *m_welcomeScreen = nullptr;
     CommandRegistry *m_commandRegistry = nullptr;
+    // `.obsidian/hotkeys.json` → real shortcuts. Anchors the merged table to
+    // ScopeManager's root slot and moves each overridden command's QAction
+    // shortcut; vault-scoped (loaded on open, reset on close).
+    HotkeyDispatcher *m_hotkeyDispatcher = nullptr;
+    QString m_hotkeyPath;
+    QTimer *m_hotkeyReloadTimer = nullptr;
     MenuEventEmitter *m_menuEvents = nullptr;
     HoverLinkSourceRegistry *m_hoverSources = nullptr;
     HoverPopover *m_hoverPopover = nullptr;

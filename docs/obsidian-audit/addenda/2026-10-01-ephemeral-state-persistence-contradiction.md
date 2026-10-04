@@ -95,3 +95,36 @@ audit-doc section turned out to be the only support for a design decision**, and
 the citation did not check out. `views.md:159` is at least a real line — but its
 own heading contradicts its body. Treat audit line-references as leads, not
 authority.
+
+---
+
+## RESOLVED 2026-10-03 — statement 1 wins
+
+The evidence this addendum asked for now exists. See
+[`2026-10-03-canvas-viewport-ephemeral-state-resolution.md`](2026-10-03-canvas-viewport-ephemeral-state-resolution.md).
+
+**`eState` is never written to `workspace.json`.** `WorkspaceLeaf.serialize`
+(`app/own/1209-jI.js:559-563`) adds only `pinned`, `state`, and `group` to the
+base `{ id, type, dimension? }` node (`app/own/1206-OI.js:28-34`), and
+`deserializeLayout` restores only `e.state` (`app/own/1932-r4.js:1143-1144`).
+So **statement 1 is correct** — `views.md:151`'s "not persisted" heading holds —
+and **statement 3 is wrong**: the two record shapes at `workspace.md:214`/`:220`
+are `Workspace.pushUndoHistory`'s in-memory undo entries (capped at 10) and
+`WorkspaceLeaf.getHistoryState`'s back/forward stack entries, neither of which
+reaches disk. `LeafHistory.serialize()` (`app/own/1209-jI.js:493-499`) returns
+only the two array references, and `deserializeLayout` reads no `leafHistory`
+key.
+
+The **code** decision below is therefore positively justified rather than merely
+safe-either-way: keeping the scroll fraction out of `eState.scroll` was correct.
+
+Two things this addendum's "Note for future implementers" should *not* be read
+as authorising:
+
+1. **Do not add a fraction↔line conversion.** `scroll` is in-memory only, so
+   there is no cross-application contract to match; the alternative this addendum
+   rejected remains rejected, now for a stronger reason.
+2. **Statement 2 is still unresolved, and is now much less load-bearing.**
+   Whether Obsidian reads `scroll` as a line number is a question about a
+   transient restore hint passed through `setViewState`, not about persistence.
+   Nothing in the restored corpus settles it.

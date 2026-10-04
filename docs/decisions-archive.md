@@ -10,6 +10,63 @@ Conventions:
 
 ---
 
+## 2026-10-04 — `.obsidian/hotkeys.json` reaches real shortcuts: the dispatcher, and the scope-stack shape it forced
+
+The command-id work that landed alongside the
+[`2026-10-03`](2026-10-02/03) audit-the-audit pass made 26 of Obsidian's 232 ids nameable, and
+`HotkeyManager` already merged a vault's `hotkeys.json` over the built-in defaults — but nothing
+consumed the merge, so `"editor:bold": "Ctrl+B"` in a vault's config did nothing. `ScopeManager`
+even carried a comment saying the shape was undecided pending "whoever adds the dispatcher".
+This entry records that decision, because the reasoning outlives the code.
+
+**The decision: flat stack + an explicit root slot, gated on Qt modality.** Obsidian produces its
+"modal first, command table last" ordering from a per-window scope stack plus `Scope.parent`
+(`0747-ly.js:44-53`, `:27`), and pays for it with a bug: `Modal` allocates a parentless `Scope`
+(`0817-Yb.js:630`), so while any modal is up the walk terminates before the root — the only place
+`HotkeyManager` registers its catch-all (`0833-$w.js:7`) — and *no* `hotkeys.json` binding fires.
+That is the bug the 2026-10-03 addendum §E asked us not to reproduce. So Corbomite keeps the flat
+walk, which preserves the ordering without the failure mode, and gives the command table a stated
+position instead of an accident of nesting: `ScopeManager` grows a **root slot**, always walked
+last, whose gate is `QApplication::activeModalWidget() == nullptr`. The cut that genuinely matters
+— a `QDialog` must not fire the main window's commands — is expressed where it actually lives (Qt
+modality) rather than as a side effect of `Scope.parent` being null. Two consequences are pinned
+by tests rather than by comment: a pushed scope that *declines* a key lets the table see it
+(Obsidian stops the walk), and the focus gate that protects typed input covers pushed scopes only
+(Obsidian's catch-all has no focus condition, and gating it would kill every global shortcut the
+moment a search box took focus). `Scope::registerCatchAll` supplies the `(null, null)` form
+`HotkeyManager` needs, with the one divergence that a catch-all is a fallback layer and cannot
+preempt a concrete binding in the same scope.
+
+**`code`: stored raw, matched as a name, refused loudly when Qt has no name for it.**
+`bake()` folds `code` through `Xw` into the same `key` slot the character occupies
+(`0833-$w.js:69`), and `onTrigger` then compares that one string — there is no physical-position
+comparison anywhere in Obsidian. So a faithful matcher needs the `Xw` collapse plus a name
+comparison, not a scan-code lookup. What `QKeySequence` genuinely cannot express is the *spelling*
+(`NumpadAdd`, `MediaPlayPause`), so those bindings are refused and reported rather than coerced.
+Verified against the source while doing it: **the addendum's own worked example is wrong** —
+`{"modifiers":["Mod"],"key":"^","code":"KeyI"}` cannot match Ctrl+Option+I even in Obsidian, because
+`isMatch` compares modifier *sets* exactly and Ctrl+Option also holds Alt; it needs
+`["Mod","Alt"]`. Detail and the full Qt spelling table are in the new addendum
+[`2026-10-04-hotkeys-json-dispatcher.md`](obsidian-audit/addenda/2026-10-04-hotkeys-json-dispatcher.md) §A–C.
+
+**Delivery.** One binding travels exactly one path: the first binding an id can express goes on the
+command's `QAction` (visible in menus, editable in `Settings` → Shortcuts, matched by Qt), `code`
+bindings and any binding past the first go through the event-level table, and an id present with
+`[]` gets its `QAction` shortcut **cleared** — a `QAction` shortcut fires independently of
+everything above, so leaving it would resurrect precisely the default the vault removed. External
+edits reload through `Vault::configChanged` on a 50 ms timer, the window Obsidian's `Ml` uses
+(trailing rather than leading edge, so a burst converges on the last edit). 35 new test cases:
+`tst_hotkeydispatcher` (new, 22), `tst_scope` (+4), `tst_scopemanager` (+5),
+`tst_mainwindow_obsidian_commands` (+4, three of them driving a real vault with a real file).
+Each load-bearing behaviour is separately falsifiable — reverting the `[]` handling, the root-slot
+walk, or the vault-open `load()` each red a specific subset. **What still blocks faithful
+behaviour:** only 26 of 232 ids are registered (so `editor:toggle-bold` remains inert for want of a
+command, not a dispatcher); `repeatable` is unimplemented, so a held key re-fires; `Qw`'s
+display format has no renderer; the root gate is modality rather than per-window identity, so a
+non-modal auxiliary window still reaches the table.
+
+---
+
 ## 2026-10-02/03 — Audit-the-audit: 16 domains re-verified against restored Obsidian 1.13.7 source
 
 The prior audit's RE corpus was a *renamed* tree at

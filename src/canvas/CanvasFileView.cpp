@@ -73,6 +73,42 @@ bool CanvasFileView::canAcceptExtension(const QString &ext) const
     return ext.compare(QStringLiteral("canvas"), Qt::CaseInsensitive) == 0;
 }
 
+QJsonObject CanvasFileView::getState() const
+{
+    QJsonObject state = FileView::getState();
+    if (m_canvasWidget) {
+        if (auto *view = m_canvasWidget->canvasView()) {
+            const QJsonObject viewState = view->viewState();
+            if (!viewState.isEmpty())
+                state[QStringLiteral("viewState")] = viewState;
+        }
+    }
+    return state;
+}
+
+void CanvasFileView::setState(const QJsonObject &state)
+{
+    const QJsonObject viewState = state.value(QStringLiteral("viewState")).toObject();
+
+    // FileView::setState resolves and loads the file, which is what creates
+    // the CanvasViewTab on first open. Order matters and mirrors Obsidian's
+    // CanvasView.setState (app/own/2028-n9.js:842-844): super.setState()
+    // first, viewState second — there is no scene to centre on before the
+    // document is loaded, and the scene's own populate step would otherwise
+    // fight the incoming transform.
+    FileView::setState(state);
+
+    if (viewState.isEmpty())
+        return;
+    // A failed load leaves no canvas tab; applying a viewport then would
+    // centre on a scene with no document, and FileView::setState has already
+    // scheduled the leaf close in that case.
+    if (m_canvasWidget) {
+        if (auto *view = m_canvasWidget->canvasView())
+            view->setViewState(viewState);
+    }
+}
+
 void CanvasFileView::setRenderEngine(MarkdownRenderEngine *engine)
 {
     m_renderEngine = engine;

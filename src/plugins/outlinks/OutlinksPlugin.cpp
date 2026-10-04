@@ -26,18 +26,21 @@ void OutlinksPlugin::onLoad(PluginContext *ctx)
 {
     if (!ctx) return;
 
-    // Register `outlinks:open` — reveals the Outlinks dock panel.
-    // Consumed by Cluster R MarkdownView.onMoreOptionsMenu view.linked submenu.
+    // Obsidian id `outgoing-links:open` (app/own/2037-j9.js:978) — reveals the
+    // Outlinks dock panel. The Obsidian *plugin* id is `outgoing-link`
+    // (singular) but the *command* id is plural; do not "fix" it.
     if (auto *commands = ctx->commands()) {
         Command open;
-        open.id = QStringLiteral("open");
+        open.id = QStringLiteral("outgoing-links:open");
         open.name = i18n("Open outgoing links");
         open.icon = QStringLiteral("go-next");
         open.callback = [ctx] {
             if (auto *ws = ctx->workspace())
                 ws->revealDockView(QStringLiteral("outlinks"));
         };
-        commands->addCommand(open);
+        commands->addCommandRaw(open);
+        commands->addAlias(QStringLiteral("corbomite-outlinks:open"),
+                           QStringLiteral("outgoing-links:open"));
     }
 }
 

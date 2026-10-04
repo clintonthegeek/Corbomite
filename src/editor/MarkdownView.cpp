@@ -389,7 +389,10 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
         QString icon;
     };
     const QList<LinkedEntry> entries = {
-        // Canonical ids are namespaced by pluginId (CommandRegistrar auto-prefix).
+        // Corbomite-native ids, which are now *aliases* of the Obsidian ids
+        // these commands are canonically registered under
+        // (`backlink:open`, `outgoing-links:open`, …) — see
+        // docs/obsidian-command-ids.md. Dispatch works under either name.
         {i18n("Open local graph"),
             QStringLiteral("corbomite-local-graph:open-local"),
             QStringLiteral("preferences-system-network")},

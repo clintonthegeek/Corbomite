@@ -1,0 +1,7224 @@
+{
+ "schema": 1,
+ "corpusRoot": "RE/obsidian/1.13.7/renamed/src",
+ "generatedBy": "RE/tools/extract-command-ids.js",
+ "counts": {
+  "registrationSites": 232,
+  "distinctIds": 232,
+  "appLevelIds": 115,
+  "workspaceIds": 42,
+  "internalPluginIds": 75,
+  "mobileOnlyIds": 14,
+  "mobileOnlySpecIds": 10,
+  "mobileGatedIds": 4,
+  "desktopOnlyIds": 10,
+  "mobileAppOnlyIds": 3,
+  "idsWithHotkeys": 41,
+  "forwardingSites": 2,
+  "unresolvedSites": 0,
+  "skippedFiles": [
+   "app/all.js",
+   "i18n/tree.js"
+  ]
+ },
+ "commands": [
+  {
+   "id": "app:delete-file",
+   "nameKey": "bd.commands.deleteCurrentFile",
+   "icon": "lucide-trash-2",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 754
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:go-back",
+   "nameKey": "bd.commands.navigateBack",
+   "icon": "lucide-arrow-left",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 612
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod",
+      "Alt"
+     ],
+     "key": "ArrowLeft"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction go_back"
+   }
+  },
+  {
+   "id": "app:go-forward",
+   "nameKey": "bd.commands.navigateForward",
+   "icon": "lucide-arrow-right",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 621
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod",
+      "Alt"
+     ],
+     "key": "ArrowRight"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction go_forward"
+   }
+  },
+  {
+   "id": "app:open-another-vault",
+   "nameKey": "bd.commands.openVault",
+   "icon": "vault",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 642
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:open-help",
+   "nameKey": "bd.commands.openHelp",
+   "icon": "question-mark-glyph",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 822
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [],
+     "key": "F1"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:open-sandbox-vault",
+   "nameKey": "bd.commands.openSandboxVault",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 841
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:open-settings",
+   "nameKey": "bd.commands.openSettings",
+   "icon": "lucide-settings",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 677
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": ","
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:open-vault",
+   "nameKey": "bd.commands.manageVaults",
+   "icon": "vault",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 630
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:reload",
+   "nameKey": "bd.commands.reload",
+   "icon": "lucide-rotate-ccw",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 828
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:show-debug-info",
+   "nameKey": "bd.commands.showDebugInfo",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 835
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:show-release-notes",
+   "nameKey": "bd.commands.showReleaseNotes",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 685
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:show-tab-switcher",
+   "nameKey": "bd.interface.mobile.actionShowSwitcher",
+   "icon": "lucide-square",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 649
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isMobile"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:switch-vault",
+   "nameKey": "bd.commands.changeVault",
+   "icon": "vault",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 635
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:toggle-default-new-pane-mode",
+   "nameKey": "bd.commands.toggleDefaultNewTabMode",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 815
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:toggle-left-sidebar",
+   "nameKey": "bd.commands.toggleLeftSidebar",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 789
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction view_toggle_left_sidebar"
+   }
+  },
+  {
+   "id": "app:toggle-ribbon",
+   "nameKey": "bd.commands.toggleRibbon",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 762
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "app:toggle-right-sidebar",
+   "nameKey": "bd.commands.toggleRightSidebar",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 802
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "audio-recorder:start",
+   "nameKey": "bd.plugins.audioRecorder.actionStart",
+   "icon": "lucide-play-circle",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1963-s5.js",
+     "line": 791
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "audio-recorder:stop",
+   "nameKey": "bd.plugins.audioRecorder.actionStop",
+   "icon": "lucide-stop-circle",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1963-s5.js",
+     "line": 798
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "backlink:open",
+   "nameKey": "bd.plugins.backlinks.actionShow",
+   "icon": "lucide-link",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1961-Q3.js",
+     "line": 11
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "BacklinksPlugin revealDockView"
+   }
+  },
+  {
+   "id": "backlink:open-backlinks",
+   "nameKey": "bd.plugins.backlinks.actionOpenForCurrent",
+   "icon": "lucide-link",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1961-Q3.js",
+     "line": 20
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "backlink:toggle-backlinks-in-document",
+   "nameKey": "bd.plugins.backlinks.actionToggleBacklinksInDocument",
+   "icon": "lucide-link",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1961-Q3.js",
+     "line": 25
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "bases:add-item",
+   "nameKey": "c8.commandAddItem",
+   "icon": "lucide-shapes",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 1390
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "bases:add-view",
+   "nameKey": "c8.commandAddView",
+   "icon": "lucide-shapes",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 1382
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "bases:change-view",
+   "nameKey": "c8.commandChangeView",
+   "icon": "lucide-shapes",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 1371
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "bases:copy-table",
+   "nameKey": "c8.commandCopyTable",
+   "icon": "lucide-copy",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 1360
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "bases:insert",
+   "nameKey": "c8.commandInsertNew",
+   "icon": "lucide-layout-list",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 1353
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "bases:new-file",
+   "nameKey": "c8.commandCreateNew",
+   "icon": "lucide-layout-list",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 1348
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "bookmarks:bookmark-all-tabs",
+   "nameKey": "bd.plugins.bookmarks.actionBookmarkAllTabs",
+   "icon": "lucide-bookmark-plus",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 2421
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "stubbed",
+    "action": "checkCallback always false"
+   }
+  },
+  {
+   "id": "bookmarks:bookmark-current-heading",
+   "nameKey": "bd.plugins.bookmarks.actionBookmarkHeading",
+   "icon": "lucide-bookmark-plus",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 2405
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "bookmarks:bookmark-current-search",
+   "nameKey": "bd.plugins.bookmarks.actionBookmarkSearch",
+   "icon": "lucide-search",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 2325
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "stubbed",
+    "action": "checkCallback always false"
+   }
+  },
+  {
+   "id": "bookmarks:bookmark-current-section",
+   "nameKey": "bd.plugins.bookmarks.actionBookmarkBlock",
+   "icon": "lucide-bookmark-plus",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 2351
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "stubbed",
+    "action": "checkCallback always false"
+   }
+  },
+  {
+   "id": "bookmarks:bookmark-current-view",
+   "nameKey": "bd.plugins.bookmarks.actionBookmark",
+   "icon": "lucide-bookmark-plus",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 2314
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "BookmarksPlugin bookmarkFile"
+   }
+  },
+  {
+   "id": "bookmarks:open",
+   "nameKey": "w8.actionShow",
+   "icon": "lucide-bookmark",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 2305
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "BookmarksPlugin revealDockView"
+   }
+  },
+  {
+   "id": "bookmarks:unbookmark-current-view",
+   "nameKey": "bd.plugins.bookmarks.actionRemoveBookmark",
+   "icon": "lucide-bookmark-plus",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1972-Z5.js",
+     "line": 2341
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "stubbed",
+    "action": "checkCallback always false"
+   }
+  },
+  {
+   "id": "canvas:convert-to-file",
+   "nameKey": "p9.commandConvertToFile",
+   "icon": "lucide-file-input",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2028-n9.js",
+     "line": 678
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "canvas:export-as-image",
+   "nameKey": "p9.actionExportPng",
+   "icon": "lucide-image",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2028-n9.js",
+     "line": 659
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "canvas:jump-to-group",
+   "nameKey": "p9.actionJumpToGroup",
+   "icon": "lucide-move",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2028-n9.js",
+     "line": 667
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "canvas:new-file",
+   "nameKey": "p9.commandCreateNewCanvas",
+   "icon": "lucide-layout-dashboard",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2028-n9.js",
+     "line": 636
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "command-palette:open",
+   "nameKey": "bd.plugins.commandPalette.actionOpen",
+   "icon": "lucide-terminal-square",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2032-E9.js",
+     "line": 7
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "P"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": true,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction command_palette"
+   }
+  },
+  {
+   "id": "daily-notes",
+   "nameKey": "T9.actionOpen",
+   "icon": "lucide-calendar-days",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2034-A9.js",
+     "line": 8
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "daily-notes:goto-next",
+   "nameKey": "T9.actionOpenNext",
+   "icon": "lucide-calendar-plus",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2034-A9.js",
+     "line": 21
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "daily-notes:goto-prev",
+   "nameKey": "T9.actionOpenPrevious",
+   "icon": "lucide-calendar-minus",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2034-A9.js",
+     "line": 13
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:add-cursor-above",
+   "nameKey": "bd.commands.addCursorAbove",
+   "icon": "lucide-mouse-pointer-click",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1499
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": true,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:add-cursor-below",
+   "nameKey": "bd.commands.addCursorBelow",
+   "icon": "lucide-mouse-pointer-click",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1473
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": true,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:attach-file",
+   "nameKey": "bd.setting.mobileToolbar.optionAttach",
+   "icon": "lucide-paperclip",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1412
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:clear-formatting",
+   "nameKey": "bd.commands.clearFormatting",
+   "icon": "lucide-eraser",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1223
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:configure-toolbar",
+   "nameKey": "bd.setting.mobileToolbar.optionConfigureToolbar",
+   "icon": "lucide-wrench",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1403
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:context-menu",
+   "nameKey": "bd.commands.contextMenu",
+   "icon": "lucide-menu",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1668
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:copy",
+   "nameKey": "bd.interface.menu.copy",
+   "icon": "lucide-copy",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1635
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": true,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [
+    "site:isMobileApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:cut",
+   "nameKey": "bd.interface.menu.cut",
+   "icon": "lucide-scissors",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1619
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": true,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [
+    "site:isMobileApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:cycle-list-checklist",
+   "nameKey": "bd.commands.cycleListChecklist",
+   "icon": "lucide-check-square",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1252
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:delete-paragraph",
+   "nameKey": "bd.commands.deleteParagraph",
+   "icon": "lucide-scissors",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1464
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "D"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": true,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:download-attachments",
+   "nameKey": "bd.commands.downloadAttachments",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 319
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:focus",
+   "nameKey": "bd.commands.focusEditor",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1021
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:focus-bottom",
+   "nameKey": "t",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 430
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:focus-left",
+   "nameKey": "t",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 430
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:focus-right",
+   "nameKey": "t",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 430
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:focus-top",
+   "nameKey": "t",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 430
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:fold-all",
+   "nameKey": "bd.commands.foldAll",
+   "icon": "lucide-minimize-2",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1052
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": true,
+    "allowProperties": true,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:fold-less",
+   "nameKey": "bd",
+   "icon": "lucide-unfold-vertical",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1070
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:fold-more",
+   "nameKey": "bd.commands.foldMore",
+   "icon": "lucide-fold-vertical",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1077
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:follow-link",
+   "nameKey": "bd.commands.followCursorLink",
+   "icon": "lucide-link",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 326
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Alt"
+     ],
+     "key": "Enter"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:go-end",
+   "nameKey": "bd.setting.mobileToolbar.optionLastLine",
+   "icon": "lucide-chevrons-down",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1387
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:go-start",
+   "nameKey": "bd.setting.mobileToolbar.optionFirstLine",
+   "icon": "lucide-chevrons-up",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1379
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:indent-list",
+   "nameKey": "bd.setting.mobileToolbar.optionIndentList",
+   "icon": "lucide-indent",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1301
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-callout",
+   "nameKey": "bd.commands.insertCallout",
+   "icon": "lucide-quote",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1259
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-codeblock",
+   "nameKey": "bd.commands.insertCodeBlock",
+   "icon": "lucide-code",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1266
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-embed",
+   "nameKey": "bd.setting.mobileToolbar.optionInternalEmbed",
+   "icon": "lucide-sticky-note",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1091
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-footnote",
+   "nameKey": "bd.commands.insertFootnote",
+   "icon": "lucide-file-signature",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1294
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-horizontal-rule",
+   "nameKey": "bd.commands.insertHorizontalRule",
+   "icon": "lucide-minus",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1273
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-link",
+   "nameKey": "bd.commands.insertLink",
+   "icon": "lucide-link",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1098
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "K"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-mathblock",
+   "nameKey": "bd.commands.insertMathBlock",
+   "icon": "lucide-sigma-square",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1280
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-table",
+   "nameKey": "bd.commands.insertTable",
+   "icon": "lucide-table",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1287
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-tag",
+   "nameKey": "bd.setting.mobileToolbar.optionTag",
+   "icon": "lucide-tag",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1106
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:insert-wikilink",
+   "nameKey": "bd.setting.mobileToolbar.optionInternalLink",
+   "icon": "bracket-glyph",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1084
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:move-caret-down",
+   "nameKey": "bd.setting.mobileToolbar.optionMoveCaretDown",
+   "icon": "lucide-chevron-down",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1355
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:move-caret-left",
+   "nameKey": "bd.setting.mobileToolbar.optionMoveCaretLeft",
+   "icon": "lucide-chevron-left",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1363
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:move-caret-right",
+   "nameKey": "bd.setting.mobileToolbar.optionMoveCaretRight",
+   "icon": "lucide-chevron-right",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1371
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:move-caret-up",
+   "nameKey": "bd.setting.mobileToolbar.optionMoveCaretUp",
+   "icon": "lucide-chevron-up",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1347
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:open-link-in-new-leaf",
+   "nameKey": "bd.commands.openCursorLinkInNewTab",
+   "icon": "lucide-link",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 350
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "Enter"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:open-link-in-new-split",
+   "nameKey": "bd.commands.openCursorLinkToTheRight",
+   "icon": "lucide-link",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 405
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod",
+      "Alt"
+     ],
+     "key": "Enter"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:open-link-in-new-window",
+   "nameKey": "bd.commands.openCursorLinkInNewWindow",
+   "icon": "lucide-link",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 373
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod",
+      "Alt",
+      "Shift"
+     ],
+     "key": "Enter"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:open-search",
+   "nameKey": "bd.commands.searchCurrentFile",
+   "icon": "lucide-search",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1000
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "F"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:open-search-replace",
+   "nameKey": "bd.commands.searchReplaceCurrentFile",
+   "icon": "lucide-search",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1012
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod",
+      "Alt"
+     ],
+     "key": "F",
+     "when": "Zp"
+    },
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "H",
+     "when": "!Zp"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:paste",
+   "nameKey": "bd.interface.menu.paste",
+   "icon": "lucide-clipboard-type",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1651
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": true,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [
+    "site:isMobileApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:redo",
+   "nameKey": "bd.setting.mobileToolbar.optionRedo",
+   "icon": "lucide-redo-2",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1339
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:rename-heading",
+   "nameKey": "bd.interface.menu.renameHeading",
+   "icon": "lucide-edit-3",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 547
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:save-file",
+   "nameKey": "bd.commands.saveFile",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 311
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "S"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction file_save"
+   }
+  },
+  {
+   "id": "editor:set-heading",
+   "nameKey": "bd.setting.mobileToolbar.optionHeading",
+   "icon": "heading-glyph",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1116
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:set-heading-0",
+   "nameKey": "bd.commands.removeHeading",
+   "icon": "heading-glyph",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1144
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:set-heading-1",
+   "nameKey": "bd.commands.toggleHeading",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1153
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:set-heading-2",
+   "nameKey": "bd.commands.toggleHeading",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1153
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:set-heading-3",
+   "nameKey": "bd.commands.toggleHeading",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1153
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:set-heading-4",
+   "nameKey": "bd.commands.toggleHeading",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1153
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:set-heading-5",
+   "nameKey": "bd.commands.toggleHeading",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1153
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:set-heading-6",
+   "nameKey": "bd.commands.toggleHeading",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1153
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:swap-line-down",
+   "nameKey": "bd.commands.swapLineDown",
+   "icon": "lucide-corner-right-down",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1323
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": true,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:swap-line-up",
+   "nameKey": "bd.commands.swapLineUp",
+   "icon": "lucide-corner-right-up",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1315
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": true,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-col-after",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-col-align-center",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-col-align-left",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-col-align-right",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-col-before",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-col-copy",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-col-delete",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-col-left",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-col-right",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-row-after",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-row-before",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-row-copy",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-row-delete",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-row-down",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:table-row-up",
+   "nameKey": "bd.table.labelCommand",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1533
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-blockquote",
+   "nameKey": "bd.setting.mobileToolbar.optionBlockquote",
+   "icon": "lucide-quote",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1208
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-bold",
+   "nameKey": "bd.commands.toggleBold",
+   "icon": "lucide-bold",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1164
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "B"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-bullet-list",
+   "nameKey": "bd.setting.mobileToolbar.optionBulletList",
+   "icon": "lucide-list",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1230
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-checklist-status",
+   "nameKey": "bd.commands.toggleChecklist",
+   "icon": "lucide-check-square",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1244
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "l"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-code",
+   "nameKey": "bd.setting.mobileToolbar.optionCode",
+   "icon": "lucide-code-2",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1194
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-comments",
+   "nameKey": "bd.commands.toggleComments",
+   "icon": "lucide-percent",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1215
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "/"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-fold",
+   "nameKey": "bd.commands.toggleFold",
+   "icon": "lucide-diff",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1044
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": true,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-fold-properties",
+   "nameKey": "bd.commands.toggleFoldProperties",
+   "icon": "lucide-diff",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1034
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-highlight",
+   "nameKey": "bd.commands.toggleHighlight",
+   "icon": "lucide-highlighter",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1187
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-inline-math",
+   "nameKey": "bd.setting.mobileToolbar.optionInlineMath",
+   "icon": "lucide-sigma",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1201
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-italics",
+   "nameKey": "bd.commands.toggleItalics",
+   "icon": "lucide-italic",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1172
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "I"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-keyboard",
+   "nameKey": "bd.setting.mobileToolbar.optionToggleKeyboard",
+   "icon": "keyboard-toggle",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1395
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-line-numbers",
+   "nameKey": "bd.commands.toggleLineNumbers",
+   "icon": "lucide-list-ordered",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 782
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-numbered-list",
+   "nameKey": "bd.setting.mobileToolbar.optionNumberedList",
+   "icon": "lucide-list-ordered",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1237
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-readable-line-length",
+   "nameKey": "bd.commands.toggleReadableLineLength",
+   "icon": "lucide-ruler",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 775
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-source",
+   "nameKey": "bd.commands.toggleSourceMode",
+   "icon": "lucide-code-2",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 981
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-spellcheck",
+   "nameKey": "bd.commands.toggleSpellcheck",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1525
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:toggle-strikethrough",
+   "nameKey": "bd.setting.mobileToolbar.optionStrikethrough",
+   "icon": "lucide-strikethrough",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1180
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:undo",
+   "nameKey": "bd.setting.mobileToolbar.optionUndo",
+   "icon": "lucide-undo-2",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1331
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": true,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:unfold-all",
+   "nameKey": "bd.commands.unfoldAll",
+   "icon": "lucide-maximize-2",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1061
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": true,
+    "allowProperties": true,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "editor:unindent-list",
+   "nameKey": "bd.setting.mobileToolbar.optionUnindentList",
+   "icon": "lucide-outdent",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 1308
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "file-explorer:duplicate-file",
+   "nameKey": null,
+   "icon": "lucide-files",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 914
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "file-explorer:move-file",
+   "nameKey": "bd.plugins.fileExplorer.commandMoveFile",
+   "icon": "lucide-folder-tree",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 906
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "file-explorer:new-file",
+   "nameKey": "bd.plugins.fileExplorer.actionCreateNote",
+   "icon": "lucide-file-plus",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 875
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "N"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "file-explorer:new-file-in-current-tab",
+   "nameKey": "bd.plugins.fileExplorer.actionCreateNoteInCurrentTab",
+   "icon": "lucide-file-plus",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 883
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "file-explorer:new-file-in-new-pane",
+   "nameKey": "bd.plugins.fileExplorer.actionCreateNoteToTheRight",
+   "icon": "lucide-file-plus",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 890
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod",
+      "Shift"
+     ],
+     "key": "N"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "file-explorer:new-folder",
+   "nameKey": "O9.actionCreateFolder",
+   "icon": "lucide-folder-plus",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2036-I9.js",
+     "line": 183
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "file-explorer:open",
+   "nameKey": "O9.actionShow",
+   "icon": "lucide-files",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2036-I9.js",
+     "line": 166
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "file-explorer:reveal-active-file",
+   "nameKey": "O9.actionRevealActiveFile",
+   "icon": "lucide-navigation",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2036-I9.js",
+     "line": 175
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "FileExplorerPlugin revealPath"
+   }
+  },
+  {
+   "id": "file-recovery:open",
+   "nameKey": "N9.actionOpen",
+   "icon": "lucide-rotate-ccw",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2036-I9.js",
+     "line": 264
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "footnotes:open",
+   "nameKey": "q9.actionShow",
+   "icon": "lucide-file-signature",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2037-j9.js",
+     "line": 175
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "global-search:open",
+   "nameKey": "$1.actionOpenSearch",
+   "icon": "lucide-search",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1848-Y1.js",
+     "line": 213
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod",
+      "Shift"
+     ],
+     "key": "F"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction search_vault"
+   }
+  },
+  {
+   "id": "graph:animate",
+   "nameKey": "i0.actionTimelapse",
+   "icon": "lucide-wand",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1848-Y1.js",
+     "line": 768
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "graph:open",
+   "nameKey": "i0.actionOpen",
+   "icon": "lucide-git-fork",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1848-Y1.js",
+     "line": 757
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "G"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction graph_view"
+   }
+  },
+  {
+   "id": "graph:open-local",
+   "nameKey": "i0.actionOpenLocal",
+   "icon": "lucide-git-fork",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1848-Y1.js",
+     "line": 763
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "LocalGraphPlugin revealDockView"
+   }
+  },
+  {
+   "id": "insert-current-date",
+   "nameKey": "bd.plugins.templates.actionInsertCurrentDate",
+   "icon": "lucide-calendar-days",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 2076
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "insert-current-time",
+   "nameKey": "bd.plugins.templates.actionInsertCurrentTime",
+   "icon": "lucide-clock",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 2081
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "insert-template",
+   "nameKey": "bd.plugins.templates.actionInsert",
+   "icon": "lucide-copy",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 2071
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "insert-unique-link",
+   "nameKey": "Dne.actionAddLink",
+   "icon": "lucide-link",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 2372
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "markdown-importer:open",
+   "nameKey": "K9.actionOpen",
+   "icon": "lucide-download",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2037-j9.js",
+     "line": 199
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "markdown:add-alias",
+   "nameKey": "bd.commands.addAlias",
+   "icon": "lucide-forward",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 727
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "markdown:add-metadata-property",
+   "nameKey": "bd.commands.addProperty",
+   "icon": "lucide-plus-circle",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 709
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": ";"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "MainWindow inline (real callback)"
+   }
+  },
+  {
+   "id": "markdown:clear-metadata-properties",
+   "nameKey": "bd.commands.clearProperties",
+   "icon": "lucide-package-x",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 744
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "markdown:toggle-preview",
+   "nameKey": "bd.commands.togglePreview",
+   "icon": "lucide-book-open",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 691
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "E"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "mobile:quick-action",
+   "nameKey": "bie.optionConfigureQuickAction",
+   "icon": "lucide-terminal-square",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2062-uie.js",
+     "line": 915
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "note-composer:extract-heading",
+   "nameKey": "tee.commandExtractHeading",
+   "icon": "lucide-scissors",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2037-j9.js",
+     "line": 513
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "note-composer:merge-file",
+   "nameKey": "tee.commandMergeFile",
+   "icon": "lucide-git-merge",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2037-j9.js",
+     "line": 486
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "note-composer:split-file",
+   "nameKey": "tee.commandSplitFile",
+   "icon": "lucide-scissors",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2037-j9.js",
+     "line": 500
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": true
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "open-with-default-app:open",
+   "nameKey": null,
+   "icon": "lucide-arrow-up-right",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 898
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "open-with-default-app:show",
+   "nameKey": null,
+   "icon": "lucide-files",
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 963
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "outgoing-links:open",
+   "nameKey": "see.actionShow",
+   "icon": "lucide-link",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2037-j9.js",
+     "line": 978
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "OutlinksPlugin revealDockView"
+   }
+  },
+  {
+   "id": "outgoing-links:open-for-current",
+   "nameKey": "see.actionOpenForCurrent",
+   "icon": "lucide-link",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2037-j9.js",
+     "line": 987
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "outline:open",
+   "nameKey": "bd.plugins.outline.actionShow",
+   "icon": "lucide-list",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2039-vee.js",
+     "line": 57
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "OutlinePlugin revealDockView"
+   }
+  },
+  {
+   "id": "outline:open-for-current",
+   "nameKey": "bd.plugins.outline.actionOpenForCurrent",
+   "icon": "lucide-list",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2039-vee.js",
+     "line": 66
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "properties:open",
+   "nameKey": "wee.actionShow",
+   "icon": "lucide-archive",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2039-vee.js",
+     "line": 532
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "PropertiesPlugin revealDockView"
+   }
+  },
+  {
+   "id": "properties:open-local",
+   "nameKey": "wee.actionShowLocal",
+   "icon": "lucide-info",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2039-vee.js",
+     "line": 542
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "publish:open-in-live-site",
+   "nameKey": "mte.labelOpenInLiveSite",
+   "icon": "lucide-globe",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2040-Vee.js",
+     "line": 2436
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "publish:publish-file",
+   "nameKey": "mte.actionPublishFile",
+   "icon": "lucide-send",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2040-Vee.js",
+     "line": 2427
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "publish:view-changes",
+   "nameKey": "mte.actionPublishChanges",
+   "icon": "lucide-send",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2040-Vee.js",
+     "line": 2422
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "random-note",
+   "nameKey": "bd.plugins.randomNote.actionOpen",
+   "icon": "dice-glyph",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2040-Vee.js",
+     "line": 3093
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "slides:start",
+   "nameKey": "bd.plugins.slides.actionStart",
+   "icon": "lucide-monitor",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2040-Vee.js",
+     "line": 3213
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "switcher:open",
+   "nameKey": "yte.actionOpen",
+   "icon": "lucide-navigation",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2040-Vee.js",
+     "line": 2961
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "O"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "sync:open-sync-log",
+   "nameKey": "une.actionActivityLog",
+   "icon": "lucide-align-left",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 475
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "sync:open-sync-view",
+   "nameKey": "une.actionViewSyncSidebar",
+   "icon": "lucide-rotate-ccw",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 465
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "sync:setup",
+   "nameKey": "bd.plugins.sync.actionSetupSync",
+   "icon": "lucide-settings",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 449
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "sync:view-version-history",
+   "nameKey": "bd.plugins.sync.actionViewVersionHistory",
+   "icon": "lucide-history",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 456
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "tag-pane:open",
+   "nameKey": "mne.actionShow",
+   "icon": "lucide-tag",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 1790
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "theme:switch",
+   "nameKey": "bd.commands.changeTheme",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 671
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "theme:toggle-light-dark",
+   "nameKey": "bd.commands.toggleLightDarkMode",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 656
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "webviewer:focus-address-bar",
+   "nameKey": "L4.actionFocusAddressBar",
+   "icon": "text-cursor-input",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1939-m4.js",
+     "line": 1057
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "webviewer:open",
+   "nameKey": "L4.actionOpen",
+   "icon": null,
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1939-m4.js",
+     "line": 1028
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "webviewer:open-history",
+   "nameKey": "L4.actionShowHistory",
+   "icon": "lucide-clock",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1939-m4.js",
+     "line": 1040
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "webviewer:save-to-vault",
+   "nameKey": "L4.actionSaveToVault",
+   "icon": "lucide-file-down",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1939-m4.js",
+     "line": 1096
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "webviewer:search",
+   "nameKey": "L4.actionSearchTheWeb",
+   "icon": "search",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1939-m4.js",
+     "line": 1089
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "webviewer:toggle-reader-mode",
+   "nameKey": "L4.actionToggleReaderMode",
+   "icon": "glasses",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1939-m4.js",
+     "line": 1049
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "webviewer:zoom-in",
+   "nameKey": "bd.commands.zoomIn",
+   "icon": "zoom-in",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1939-m4.js",
+     "line": 1065
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "webviewer:zoom-out",
+   "nameKey": "bd.commands.zoomOut",
+   "icon": "zoom-in",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1939-m4.js",
+     "line": 1081
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "webviewer:zoom-reset",
+   "nameKey": "bd.commands.resetZoom",
+   "icon": "rotate-cw",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/1939-m4.js",
+     "line": 1073
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "window:reset-zoom",
+   "nameKey": "bd.commands.resetZoom",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 869
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "window:toggle-always-on-top",
+   "nameKey": "bd.commands.alwaysOnTop",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 847
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "window:zoom-in",
+   "nameKey": "bd.commands.zoomIn",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 857
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "window:zoom-out",
+   "nameKey": "bd.commands.zoomOut",
+   "icon": null,
+   "origin": "app",
+   "sites": [
+    {
+     "file": "app/own/2075-Vie.js",
+     "line": 863
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:close",
+   "nameKey": "bd.commands.closeActiveTab",
+   "icon": "lucide-x",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 697
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "W"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction tab_close"
+   }
+  },
+  {
+   "id": "workspace:close-others",
+   "nameKey": "bd.commands.closeOtherTabs",
+   "icon": "lucide-x",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 714
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:close-others-tab-group",
+   "nameKey": "bd.commands.closeOthersInTabGroup",
+   "icon": "lucide-x",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 746
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:close-tab-group",
+   "nameKey": "bd.commands.closeTabGroup",
+   "icon": "lucide-x",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 729
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:close-window",
+   "nameKey": "bd.interface.window.closeWindow",
+   "icon": "lucide-x",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 706
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod",
+      "Shift"
+     ],
+     "key": "W"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:copy-full-path",
+   "nameKey": "bd.commands.copyFullPath",
+   "icon": "lucide-hard-drive",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 492
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:copy-path",
+   "nameKey": "bd.commands.copyPath",
+   "icon": "lucide-copy",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 482
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:copy-url",
+   "nameKey": "bd.commands.copyUrl",
+   "icon": "lucide-vault",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 507
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:edit-file-title",
+   "nameKey": "bd.commands.editFileTitle",
+   "icon": "lucide-edit-3",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 471
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [],
+     "key": "F2"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:export-pdf",
+   "nameKey": "bd.commands.exportPdf",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 540
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:goto-last-tab",
+   "nameKey": "bd.commands.goToLastTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 634
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "9"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction tab_jump_last"
+   }
+  },
+  {
+   "id": "workspace:goto-tab-1",
+   "nameKey": "bd.commands.goToNthTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 613
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": null,
+     "keyCandidates": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+     ]
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:goto-tab-2",
+   "nameKey": "bd.commands.goToNthTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 613
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": null,
+     "keyCandidates": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+     ]
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:goto-tab-3",
+   "nameKey": "bd.commands.goToNthTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 613
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": null,
+     "keyCandidates": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+     ]
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:goto-tab-4",
+   "nameKey": "bd.commands.goToNthTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 613
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": null,
+     "keyCandidates": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+     ]
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:goto-tab-5",
+   "nameKey": "bd.commands.goToNthTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 613
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": null,
+     "keyCandidates": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+     ]
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:goto-tab-6",
+   "nameKey": "bd.commands.goToNthTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 613
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": null,
+     "keyCandidates": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+     ]
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:goto-tab-7",
+   "nameKey": "bd.commands.goToNthTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 613
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": null,
+     "keyCandidates": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+     ]
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:goto-tab-8",
+   "nameKey": "bd.commands.goToNthTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 613
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": null,
+     "keyCandidates": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+     ]
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:move-to-new-window",
+   "nameKey": "bd.commands.moveToNewWindow",
+   "icon": "lucide-maximize",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 583
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction tab_move_to_new_window"
+   }
+  },
+  {
+   "id": "workspace:new-tab",
+   "nameKey": "bd.commands.newTab",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 670
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod"
+     ],
+     "key": "T"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:new-window",
+   "nameKey": "bd.commands.newWindow",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 688
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:next-tab",
+   "nameKey": "bd.commands.goToNextTab",
+   "icon": "lucide-arrow-right",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 591
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Ctrl"
+     ],
+     "key": "Tab"
+    },
+    {
+     "modifiers": [
+      "Meta",
+      "Shift"
+     ],
+     "key": "]",
+     "when": "isMacOS"
+    },
+    {
+     "modifiers": [
+      "Ctrl"
+     ],
+     "key": "PageDown",
+     "when": "!isMacOS"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction tab_next"
+   }
+  },
+  {
+   "id": "workspace:open-in-new-window",
+   "nameKey": "bd.commands.openInNewWindow",
+   "icon": "lucide-maximize",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 573
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:previous-tab",
+   "nameKey": "bd.commands.goToPrevTab",
+   "icon": "lucide-arrow-left",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 650
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Ctrl",
+      "Shift"
+     ],
+     "key": "Tab"
+    },
+    {
+     "modifiers": [
+      "Meta",
+      "Shift"
+     ],
+     "key": "[",
+     "when": "isMacOS"
+    },
+    {
+     "modifiers": [
+      "Ctrl"
+     ],
+     "key": "PageUp",
+     "when": "!isMacOS"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction tab_prev"
+   }
+  },
+  {
+   "id": "workspace:show-trash",
+   "nameKey": "bd.commands.showTrash",
+   "icon": null,
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 763
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": true,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [
+    "site:isDesktopApp"
+   ],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspace:split-horizontal",
+   "nameKey": "bd.commands.splitDown",
+   "icon": "lucide-separator-horizontal",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 449
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction split_down"
+   }
+  },
+  {
+   "id": "workspace:split-vertical",
+   "nameKey": "bd.commands.splitRight",
+   "icon": "lucide-separator-vertical",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 441
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction split_right"
+   }
+  },
+  {
+   "id": "workspace:toggle-pin",
+   "nameKey": "bd.commands.togglePin",
+   "icon": "lucide-pin",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 396
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction tab_pin_toggle"
+   }
+  },
+  {
+   "id": "workspace:toggle-stacked-tabs",
+   "nameKey": "bd.commands.toggleStackedTabs",
+   "icon": "lucide-layers",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 459
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction tab_toggle_stacked"
+   }
+  },
+  {
+   "id": "workspace:undo-close-pane",
+   "nameKey": "bd.commands.undoCloseTab",
+   "icon": "lucide-undo-2",
+   "origin": "workspace",
+   "sites": [
+    {
+     "file": "app/own/1932-r4.js",
+     "line": 515
+    }
+   ],
+   "hotkeys": [
+    {
+     "modifiers": [
+      "Mod",
+      "Shift"
+     ],
+     "key": "T"
+    }
+   ],
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "implemented",
+    "action": "KAction tab_undo_close"
+   }
+  },
+  {
+   "id": "workspaces:load",
+   "nameKey": "Rne.actionLoadLayout",
+   "icon": "lucide-layout",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2048-Fne.js",
+     "line": 114
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspaces:open-modal",
+   "nameKey": "Rne.actionManageLayouts",
+   "icon": "lucide-layout",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2048-Fne.js",
+     "line": 129
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspaces:save",
+   "nameKey": "Rne.actionSave",
+   "icon": "lucide-save",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2048-Fne.js",
+     "line": 119
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "workspaces:save-and-load",
+   "nameKey": "Rne.actionSaveAndLoadLayout",
+   "icon": "lucide-layout",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2048-Fne.js",
+     "line": 124
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  },
+  {
+   "id": "zk-prefixer",
+   "nameKey": "Dne.actionCreateNote",
+   "icon": "box-glyph",
+   "origin": "internal-plugin",
+   "sites": [
+    {
+     "file": "app/own/2044-sne.js",
+     "line": 2367
+    }
+   ],
+   "hotkeys": null,
+   "flags": {
+    "mobileOnly": false,
+    "desktopOnly": false,
+    "mobileAppOnly": false,
+    "repeatable": false,
+    "allowPreview": false,
+    "allowProperties": false,
+    "showOnMobileToolbar": false,
+    "hasEditorCallback": false
+   },
+   "gates": [],
+   "otherFields": [],
+   "corbomite": {
+    "status": "unimplemented",
+    "action": null
+   }
+  }
+ ],
+ "forwarders": [
+  {
+   "callee": "addCommand",
+   "file": "app/own/1938-c4.js",
+   "line": 63,
+   "receiver": "commands",
+   "snippet": "e"
+  },
+  {
+   "callee": "addCommand",
+   "file": "app/own/1939-m4.js",
+   "line": 560,
+   "receiver": "commands",
+   "snippet": "s"
+  }
+ ],
+ "unresolved": [],
+ "corbomiteNativeIds": {
+  "split_right": "MainWindow → KAction split_right; dispatched by view-header hamburger",
+  "split_down": "MainWindow → KAction split_down; dispatched by view-header hamburger",
+  "corbomite-backlinks:open": "alias of backlink:open",
+  "corbomite-outlinks:open": "alias of outgoing-links:open",
+  "corbomite-outline:open": "alias of outline:open",
+  "corbomite-properties:open": "alias of properties:open",
+  "corbomite-bookmarks:open": "alias of bookmarks:open",
+  "corbomite-local-graph:open-local": "alias of graph:open-local",
+  "corbomite-file-explorer:reveal-file": "alias of file-explorer:reveal-active-file",
+  "bookmarks:bookmark-current-file": "alias of bookmarks:bookmark-current-view",
+  "corbomite-graph-view:copy-screenshot": "no Obsidian counterpart"
+ }
+}

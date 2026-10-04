@@ -112,6 +112,15 @@ add_test(NAME tst_hotkey COMMAND tst_hotkey)
 target_link_libraries(tst_hotkey PRIVATE Qt6::Test Corbomite::Core)
 set_tests_properties(tst_hotkey PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# The `hotkeys.json` dispatcher: overrides reaching real shortcuts, `[]`
+# unbinding without fallback, and the `code` field. tst_hotkey pins the merge;
+# this pins the delivery.
+add_executable(tst_hotkeydispatcher tst_hotkeydispatcher.cpp)
+add_test(NAME tst_hotkeydispatcher COMMAND tst_hotkeydispatcher)
+target_link_libraries(tst_hotkeydispatcher PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)
+set_tests_properties(tst_hotkeydispatcher PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_momentformatter tst_momentformatter.cpp)
 add_test(NAME tst_momentformatter COMMAND tst_momentformatter)
 target_link_libraries(tst_momentformatter PRIVATE Qt6::Test Corbomite::Core)

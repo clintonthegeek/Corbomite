@@ -74,7 +74,24 @@ target_link_libraries(tst_mainwindow_action_wiring PRIVATE
     Qt6::Test CorbomiteApp)
 set_tests_properties(tst_mainwindow_action_wiring PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 endif()
+
+# Command-id compatibility: every Obsidian command id MainWindow registers, and
+# the KAction each one triggers. Plugin-side ids are covered by
+# tests/integration/tst_obsidian_command_ids.cpp.
+#
+# Deliberately outside the `if(FALSE)` block above: that one is disabled
+# because it references retired Markoff::ActionId values, and this one
+# deliberately does not — it needs nothing beyond KActionCollection and
+# CommandRegistry, so the command-id contract stays covered while the
+# action-wiring inventory is still port-blocked.
+add_executable(tst_mainwindow_obsidian_commands tst_mainwindow_obsidian_commands.cpp)
+add_test(NAME tst_mainwindow_obsidian_commands COMMAND tst_mainwindow_obsidian_commands)
+target_link_libraries(tst_mainwindow_obsidian_commands PRIVATE
+    Qt6::Test CorbomiteApp)
+set_tests_properties(tst_mainwindow_obsidian_commands PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # Cluster V.2 Phase 2 — pin the round-trip semantics of the three
 # VaultConfig::mergeJson calls MainWindow::applyVaultPortableSettings()
@@ -120,6 +137,17 @@ add_test(NAME tst_view_zoom_dispatch COMMAND tst_view_zoom_dispatch)
 target_link_libraries(tst_view_zoom_dispatch PRIVATE
     Qt6::Test CorbomiteApp Corbomite::Core canvas)
 set_tests_properties(tst_view_zoom_dispatch PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster M M5.3 — canvas viewport persistence. Asserts Obsidian's own
+# contract: the viewport is ViewState.state.viewState (NOT eState), zoom is
+# log2 of scale, and x/y are the scene point at the viewport centre. Fixture
+# is a real Obsidian-written canvas leaf.
+add_executable(tst_canvas_view_state tst_canvas_view_state.cpp)
+add_test(NAME tst_canvas_view_state COMMAND tst_canvas_view_state)
+target_link_libraries(tst_canvas_view_state PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+set_tests_properties(tst_canvas_view_state PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # Cluster O Phase O3 (O3.T1/T2/T3) — the ViewActions provider mechanism:

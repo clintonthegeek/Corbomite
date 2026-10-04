@@ -26,18 +26,20 @@ void PropertiesPlugin::onLoad(PluginContext *ctx)
 {
     if (!ctx) return;
 
-    // Register `properties:open` — reveals the Properties dock panel.
-    // Consumed by Cluster R MarkdownView.onMoreOptionsMenu view.linked submenu.
+    // Obsidian id `properties:open` (app/own/2039-vee.js:532) — reveals the
+    // Properties dock panel.
     if (auto *commands = ctx->commands()) {
         Command open;
-        open.id = QStringLiteral("open");
+        open.id = QStringLiteral("properties:open");
         open.name = i18n("Open file properties");
         open.icon = QStringLiteral("document-properties");
         open.callback = [ctx] {
             if (auto *ws = ctx->workspace())
                 ws->revealDockView(QStringLiteral("properties"));
         };
-        commands->addCommand(open);
+        commands->addCommandRaw(open);
+        commands->addAlias(QStringLiteral("corbomite-properties:open"),
+                           QStringLiteral("properties:open"));
     }
 }
 

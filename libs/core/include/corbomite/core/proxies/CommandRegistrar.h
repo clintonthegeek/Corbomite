@@ -34,6 +34,14 @@ public:
     /// the same way as addCommand.
     void addCommandRaw(Command &cmd);
 
+    /// Register `aliasId` as a second name for `targetId`, neither of which is
+    /// prefixed with `pluginId` — both are already fully-qualified ids, and
+    /// the whole point is that a vault's `.obsidian/hotkeys.json` can name the
+    /// Obsidian one. Tracked for cleanup on destruction like addCommand.
+    /// Returns false when the registry refuses the alias; see
+    /// `CommandRegistry::addAlias`.
+    bool addAlias(const QString &aliasId, const QString &targetId);
+
     /// Remove a command by *local* id (without the plugin prefix). Returns
     /// true if the command was registered by this proxy.
     bool removeCommand(const QString &localId);

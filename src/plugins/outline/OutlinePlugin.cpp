@@ -25,18 +25,20 @@ void OutlinePlugin::onLoad(PluginContext *ctx)
 {
     if (!ctx) return;
 
-    // Register `outline:open` — reveals the Outline dock panel.
-    // Consumed by Cluster R MarkdownView.onMoreOptionsMenu view.linked submenu.
+    // Obsidian id `outline:open` (app/own/2039-vee.js:57) — reveals the
+    // Outline dock panel.
     if (auto *commands = ctx->commands()) {
         Command open;
-        open.id = QStringLiteral("open");
+        open.id = QStringLiteral("outline:open");
         open.name = i18n("Open outline");
         open.icon = QStringLiteral("view-list-tree");
         open.callback = [ctx] {
             if (auto *ws = ctx->workspace())
                 ws->revealDockView(QStringLiteral("outline"));
         };
-        commands->addCommand(open);
+        commands->addCommandRaw(open);
+        commands->addAlias(QStringLiteral("corbomite-outline:open"),
+                           QStringLiteral("outline:open"));
     }
 }
 

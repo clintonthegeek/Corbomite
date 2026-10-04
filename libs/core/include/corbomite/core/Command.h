@@ -47,6 +47,11 @@ struct Command
     QString icon;          ///< Optional icon name (Qt theme lookup)
     bool mobileOnly = false;
 
+    /// Non-empty ⇒ this entry is a second name for `aliasOf`, not a command of
+    /// its own. Set only by `CommandRegistry::addAlias`; a spec that sets it by
+    /// hand gets its callbacks ignored.
+    QString aliasOf;
+
     SimpleCallback callback;
     CheckCallback checkCallback;
     EditorCallback editorCallback;
@@ -69,6 +74,30 @@ public:
     /// name/icon/callbacks are all swapped.
     void addCommand(const Command &cmd);
 
+    /// Register `aliasId` as a second name for the already-registered
+    /// `targetId`.
+    ///
+    /// `.obsidian/hotkeys.json` is keyed by Obsidian's command id
+    /// (`docs/obsidian-audit/addenda/2026-10-03-core-command-and-hotkey-contracts.md`
+    /// §D), so a vault's override only lands if the Obsidian id is registered.
+    /// Corbomite's built-ins predate that contract and are registered under
+    /// Corbomite-native ids (`corbomite-backlinks:open`), which nothing in a
+    /// vault's config can name. An alias closes the gap without duplicating the
+    /// callbacks — the two ids cannot drift apart, because there is only one
+    /// callback — and without adding a palette row, since aliases are excluded
+    /// from `listAvailable()`.
+    ///
+    /// Fails (returns false, registers nothing) if `aliasId` is empty, equals
+    /// `targetId`, is already registered, or names an unregistered `targetId`.
+    /// Chaining one alias onto another is refused too. Unlike `addCommand`,
+    /// which mirrors Obsidian's own missing duplicate check, this is strict:
+    /// an alias id is the name a vault's config binds, so two plugins claiming
+    /// one is a bug to surface rather than a last-writer-wins to absorb.
+    bool addAlias(const QString &aliasId, const QString &targetId);
+
+    /// True if `id` is registered as an alias rather than a real command.
+    bool isAlias(const QString &id) const;
+
     /// Remove a command by id. Returns true if it was registered.
     bool removeCommand(const QString &id);
 
@@ -76,7 +105,8 @@ public:
     Command *findCommand(const QString &id);
     const Command *findCommand(const QString &id) const;
 
-    /// All registered commands, insertion order.
+    /// All registered commands, insertion order. Includes aliases; use
+    /// `listAvailable()` for the palette.
     QVector<Command *> listCommands();
     QVector<const Command *> listCommands() const;
 
@@ -103,6 +133,10 @@ private:
     EditorLike m_activeEditor = nullptr;
 
     bool isAvailableFor(const Command &cmd) const;
+
+    /// Follow `aliasOf` to the underlying command. `hops` bounds the walk so a
+    /// hand-built cycle degrades to "unavailable" instead of spinning.
+    const Command *resolve(const Command &cmd, int hops = 8) const;
 };
 
 } // namespace Corbomite

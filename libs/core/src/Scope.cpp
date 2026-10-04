@@ -11,6 +11,7 @@ struct KeyBinding::Node
     int key = 0;
     Scope::Handler fn;
     bool active = true;
+    bool catchAll = false;
 };
 
 KeyBinding Scope::registerBinding(Qt::KeyboardModifiers mods, int key,
@@ -24,11 +25,24 @@ KeyBinding Scope::registerBinding(Qt::KeyboardModifiers mods, int key,
     return KeyBinding(node);
 }
 
+KeyBinding Scope::registerCatchAll(Handler fn)
+{
+    auto node = std::make_shared<KeyBinding::Node>();
+    node->catchAll = true;
+    node->fn = std::move(fn);
+    m_catchAlls.append(node);
+    return KeyBinding(node);
+}
+
 void Scope::unregister(const KeyBinding &handle)
 {
     auto node = handle.m_node.lock();
     if (!node) return;
     node->active = false;
+    if (node->catchAll) {
+        m_catchAlls.removeOne(node);
+        return;
+    }
     auto it = m_bindings.find(Key{node->mods, node->key});
     if (it == m_bindings.end()) return;
     it->removeOne(node);
@@ -50,6 +64,13 @@ bool Scope::handleKey(QKeyEvent *evt)
             if (node && node->active && node->fn) {
                 if (node->fn(evt)) return true;
             }
+        }
+    }
+
+    const auto catchAlls = m_catchAlls;
+    for (const auto &node : catchAlls) {
+        if (node && node->active && node->fn) {
+            if (node->fn(evt)) return true;
         }
     }
 

@@ -23,26 +23,27 @@ void LocalGraphPlugin::onLoad(PluginContext *ctx)
 {
     if (!ctx) return;
 
-    // Register `graph:open-local` — reveals the Local Graph dock panel.
-    // Note: the slug used for the command id is `graph:open-local` per the
-    // Cluster R plan (MarkdownView view.linked submenu); the slug passed to
-    // WorkspaceController::revealDockView is `local-graph` (the plugin id
-    // suffix, mapped by MainWindow to `corbomite-local-graph_panel`).
+    // Obsidian id `graph:open-local` (app/own/1848-Y1.js:763) — reveals the
+    // Local Graph dock panel. Registered raw: CommandRegistrar would
+    // namespace it to `corbomite-local-graph:open-local`, which nothing in a
+    // vault's `.obsidian/hotkeys.json` can name. That Corbomite-native id
+    // stays available as an alias.
+    //
+    // The slug passed to WorkspaceController::revealDockView is
+    // `local-graph` (mapped by MainWindow to `corbomite-local-graph_panel`),
+    // which is not the command id.
     if (auto *commands = ctx->commands()) {
         Command open;
-        // Note: CommandRegistrar auto-namespaces to pluginId:localId.
-        // corbomite-local-graph's pluginId → `corbomite-local-graph:open-local`
-        // but the plan calls for `graph:open-local`. We honor the plan by
-        // registering a bare command directly on the CommandRegistry to
-        // match the canonical id.
-        open.id = QStringLiteral("open-local");
+        open.id = QStringLiteral("graph:open-local");
         open.name = i18n("Open local graph");
         open.icon = QStringLiteral("preferences-system-network");
         open.callback = [ctx] {
             if (auto *ws = ctx->workspace())
                 ws->revealDockView(QStringLiteral("local-graph"));
         };
-        commands->addCommand(open);
+        commands->addCommandRaw(open);
+        commands->addAlias(QStringLiteral("corbomite-local-graph:open-local"),
+                           QStringLiteral("graph:open-local"));
     }
 }
 

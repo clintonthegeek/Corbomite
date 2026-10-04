@@ -65,6 +65,14 @@ Broken / missing (the authoring cliff):
   questions 1–2.
 - `docs/superpowers/plans/archive/2026-04-14-cluster-p-graffodil-adoption-SCOUTING.md`
   (archived; use as background only — Graffodil has moved from v0.1.0 to v0.2.2 since).
+- `docs/obsidian-audit/addenda/2026-10-03-canvas-viewport-ephemeral-state-resolution.md`
+  — **M5.3's channel in this plan is wrong.** The viewport is
+  `ViewState.state.viewState` (a persisted `{x, y, zoom}`), **not** the leaf's
+  `eState`. It also settles the 2026-10-01 `eState` contradiction
+  (`2026-10-01-ephemeral-state-persistence-contradiction.md`) from source:
+  `eState` is never serialised, and a canvas leaf's `getEphemeralState()`
+  returns `{}`. Field names and units below are as written; the destination is
+  not.
 - `~/dev/Graffodil/docs/ROADMAP.md` — phases 1–5 + 6c (edge labels) + 6f
   (graph-editor affordances) complete; **6d (CMake install/export) still open** and
   named as the consumer-migration gate.
@@ -77,7 +85,7 @@ Broken / missing (the authoring cliff):
 |---|---|
 | Rebase (M1) | `Canvas::CanvasScene` → subclass `Graffodil::GraphScene`; `TextCardItem`/`FileCardItem`/`GroupItem` implement `Graffodil::IGraphNode` (+`IRenderableCache`); `EdgeItem` → `Graffodil::GraphEdgeItem` + a `CanvasBezierStrategy : EdgePathStrategy`; tools → `Graffodil::{SelectMoveTool, CreateEdgeTool, PanZoomTool, DefaultGraphTool}`; `CanvasView` slims to a shell |
 | Kept as-is | `CanvasDocument`/`CanvasTypes` (all of §3 disk contract), `CanvasCommands` (`QUndoStack` — now driven by Graffodil tool intent-signals), export paths, `CanvasViewTab`/`CanvasFileView` |
-| App side (M5/M6) | `WorkspaceSerializer` (eState viewport), `SessionManager` tier-3 (read-only flag), `MetadataCache`/`SQLiteIndex`/`LinkResolver` + `FileManager` rename rewriting (M6), `MainWindow` commands |
+| App side (M5/M6) | `WorkspaceSerializer` (leaf `state.viewState` viewport, **not** eState — see M5.3), `SessionManager` tier-3 (read-only flag), `MetadataCache`/`SQLiteIndex`/`LinkResolver` + `FileManager` rename rewriting (M6), `MainWindow` commands |
 
 ## KDE/Qt prior art
 
@@ -486,17 +494,36 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
       scene items): lock toggle, zoom in/out/reset/fit, undo/redo, matching
       Obsidian's gear/lock/zoom/undo cluster. Actions reuse the existing
       QActions/undo stack.
-- [ ] **M5.3 Viewport persistence (eState)** — save `{x, y, zoom}` (zoom =
-      **log2 of scale**, x/y = scene point at viewport center) into the
-      canvas leaf's ephemeral state so it round-trips through
-      `workspace.json` exactly as Obsidian writes it (audit §2-ephemeral;
-      grep `WorkspaceSerializer` for how markdown leaves persist
-      `eState.scroll` — same channel; L0 doctrine: this is the shared
-      Obsidian-schema file, field names must match). Restore on open.
+- [ ] **M5.3 Viewport persistence** — save `{x, y, zoom}` (zoom =
+      **log2 of scale**, x/y = scene point at viewport center) as
+      **`ViewState.state.viewState`** so it round-trips through
+      `workspace.json` exactly as Obsidian writes it; restore on open.
+      **CORRECTED 2026-10-03** from the original wording of this item, which
+      said "into the canvas leaf's ephemeral state" and pointed at the
+      `eState.scroll` channel. Both are wrong: Obsidian's canvas
+      `getEphemeralState()` returns `{}`, and `eState` is never serialised
+      (`WorkspaceLeaf.serialize` writes only
+      `id`/`type`/`dimension?`/`pinned?`/`state`/`group?`). The field names and
+      units in the original text were correct and are kept verbatim; only the
+      destination changed. Source:
+      `addenda/2026-10-03-canvas-viewport-ephemeral-state-resolution.md`.
+      Restore is all-or-nothing: all three keys must be numeric or the whole
+      `viewState` is ignored (Obsidian's `Number.isNumber` guard ×3), and an
+      out-of-range zoom is **clamped** to log2 [−4, 1], not rejected.
+      **Implemented 2026-10-04** in `CanvasView::viewState`/`setViewState`
+      (`libs/canvas/`) + `CanvasFileView::getState`/`setState`
+      (`src/canvas/`), tests in `tests/app/tst_canvas_view_state.cpp`. Two
+      substrate notes the addendum records: restore is accurate to **0.5 device
+      pixels** on x/y (QGraphicsView pans by integer scrollbar value;
+      `zoom` is exact), and `setViewState` must widen `sceneRect` or an
+      Obsidian viewport in empty space is unreachable and silently dropped.
+      Not yet ticked because the commit hasn't landed.
       **Coordinate with Cluster L**: if L5 soak is still open when this lands,
-      keep the eState diff minimal and run one Obsidian round-trip check.
+      keep the `state` diff minimal and run one Obsidian round-trip check.
       Test: `testCanvasEStateRoundTrip` (fixture with a real
-      Obsidian-written canvas leaf eState).
+      Obsidian-written canvas leaf `state`) — landed as
+      `tests/app/tst_canvas_view_state.cpp`; the `eState` in that test name is
+      superseded, see the correction above.
 - [ ] **M5.4 Read-only lock** — per-file, machine-local (Obsidian keeps it in
       localStorage `canvas-<path>` → for us: tier-3 app-data `session.json`-
       adjacent store, per L2's tier split; NEVER in `.canvas` or

@@ -24,18 +24,24 @@ void BacklinksPlugin::onLoad(PluginContext *ctx)
 {
     if (!ctx) return;
 
-    // Register `backlinks:open` command — reveals the Backlinks dock panel.
-    // Consumed by Cluster R MarkdownView.onMoreOptionsMenu view.linked submenu.
+    // Obsidian id `backlink:open` (app/own/1961-Q3.js:11) — reveals the
+    // Backlinks dock panel. Registered raw so the canonical id survives;
+    // `.obsidian/hotkeys.json` is keyed by it
+    // (docs/obsidian-command-ids.md). The Corbomite-native
+    // `corbomite-backlinks:open` that MarkdownView and CanvasFileView
+    // dispatch stays available as an alias.
     if (auto *commands = ctx->commands()) {
         Command open;
-        open.id = QStringLiteral("open");
+        open.id = QStringLiteral("backlink:open");
         open.name = i18n("Open backlinks");
         open.icon = QStringLiteral("go-previous");
         open.callback = [ctx] {
             if (auto *ws = ctx->workspace())
                 ws->revealDockView(QStringLiteral("backlinks"));
         };
-        commands->addCommand(open);
+        commands->addCommandRaw(open);
+        commands->addAlias(QStringLiteral("corbomite-backlinks:open"),
+                           QStringLiteral("backlink:open"));
     }
 }
 

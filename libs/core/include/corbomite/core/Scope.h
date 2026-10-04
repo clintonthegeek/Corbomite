@@ -64,6 +64,19 @@ public:
     KeyBinding registerBinding(Qt::KeyboardModifiers mods, int key,
                                Handler fn);
 
+    /// Register a handler for *every* key, consulted only when no
+    /// `(modifiers, key)` binding in this scope matched. Obsidian's
+    /// `register(null, null, …)` (`0747-ly.js:6-13`) — the form
+    /// `HotkeyManager` uses for the whole command table (`0833-$w.js:7`).
+    ///
+    /// Deliberate ordering divergence: Obsidian keeps catch-alls in the same
+    /// array as concrete bindings and matches them in registration order, so a
+    /// catch-all registered first shadows every concrete key. Here a
+    /// catch-all is a fallback layer by construction, which is what lets a
+    /// modal's Esc coexist with the command table in one scope without the
+    /// table winning on arbitrary keys.
+    KeyBinding registerCatchAll(Handler fn);
+
     /// Remove a previously registered binding. Idempotent (stale
     /// handles are a safe no-op).
     void unregister(const KeyBinding &handle);
@@ -91,6 +104,7 @@ private:
 
     Scope *m_parent = nullptr;
     QHash<Key, QList<std::shared_ptr<KeyBinding::Node>>> m_bindings;
+    QList<std::shared_ptr<KeyBinding::Node>> m_catchAlls;
 };
 
 } // namespace Corbomite

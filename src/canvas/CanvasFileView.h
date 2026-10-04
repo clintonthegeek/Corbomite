@@ -27,6 +27,24 @@ public:
     QString getIcon() const override;
     bool canAcceptExtension(const QString &ext) const override;
 
+    /// Cluster M M5.3 — canvas viewport persistence.
+    ///
+    /// The viewport rides in the ViewState's `state` payload under
+    /// `viewState`, exactly where Obsidian's canvas puts it
+    /// (`app/own/2028-n9.js:850`: `t.viewState = this.canvas.getState()`) —
+    /// **not** in the leaf's `eState`, which Obsidian never serialises and in
+    /// which the canvas writes nothing at all.
+    ///
+    /// Field names and units are Obsidian's, verbatim: `x`/`y` are the scene
+    /// point at the viewport centre, `zoom` is log2 of the scale factor.
+    /// Renaming any of them would make a workspace.json written by one app
+    /// unreadable by the other, so this is a shared-schema surface
+    /// (workspace compat doctrine, L0).
+    ///
+    /// Source: `docs/obsidian-audit/addenda/2026-10-03-canvas-viewport-ephemeral-state-resolution.md`.
+    QJsonObject getState() const override;
+    void setState(const QJsonObject &state) override;
+
     void setRenderEngine(MarkdownRenderEngine *engine);
     CanvasViewTab *canvasWidget() const;
 

@@ -1,0 +1,139 @@
+{
+ "schema": 1,
+ "note": "Hand-maintained input to RE/tools/extract-command-ids.js --corbomite. Only Obsidian ids Corbomite registers are listed; everything else is reported as `unimplemented`. Pinned by tests/app/tst_obsidian_command_ids.cpp, which walks the live CommandRegistry and fails on drift.",
+ "corbomiteNativeIds": {
+  "split_right": "MainWindow \u2192 KAction split_right; dispatched by view-header hamburger",
+  "split_down": "MainWindow \u2192 KAction split_down; dispatched by view-header hamburger",
+  "corbomite-backlinks:open": "alias of backlink:open",
+  "corbomite-outlinks:open": "alias of outgoing-links:open",
+  "corbomite-outline:open": "alias of outline:open",
+  "corbomite-properties:open": "alias of properties:open",
+  "corbomite-bookmarks:open": "alias of bookmarks:open",
+  "corbomite-local-graph:open-local": "alias of graph:open-local",
+  "corbomite-file-explorer:reveal-file": "alias of file-explorer:reveal-active-file",
+  "bookmarks:bookmark-current-file": "alias of bookmarks:bookmark-current-view",
+  "corbomite-graph-view:copy-screenshot": "no Obsidian counterpart"
+ },
+ "byId": {
+  "app:go-back": {
+   "status": "implemented",
+   "action": "KAction go_back"
+  },
+  "app:go-forward": {
+   "status": "implemented",
+   "action": "KAction go_forward"
+  },
+  "app:toggle-left-sidebar": {
+   "status": "implemented",
+   "action": "KAction view_toggle_left_sidebar"
+  },
+  "backlink:open": {
+   "status": "implemented",
+   "action": "BacklinksPlugin revealDockView"
+  },
+  "bookmarks:bookmark-all-tabs": {
+   "status": "stubbed",
+   "action": "checkCallback always false"
+  },
+  "bookmarks:bookmark-current-search": {
+   "status": "stubbed",
+   "action": "checkCallback always false"
+  },
+  "bookmarks:bookmark-current-section": {
+   "status": "stubbed",
+   "action": "checkCallback always false"
+  },
+  "bookmarks:bookmark-current-view": {
+   "status": "implemented",
+   "action": "BookmarksPlugin bookmarkFile"
+  },
+  "bookmarks:open": {
+   "status": "implemented",
+   "action": "BookmarksPlugin revealDockView"
+  },
+  "bookmarks:unbookmark-current-view": {
+   "status": "stubbed",
+   "action": "checkCallback always false"
+  },
+  "command-palette:open": {
+   "status": "implemented",
+   "action": "KAction command_palette"
+  },
+  "editor:save-file": {
+   "status": "implemented",
+   "action": "KAction file_save"
+  },
+  "file-explorer:reveal-active-file": {
+   "status": "implemented",
+   "action": "FileExplorerPlugin revealPath"
+  },
+  "global-search:open": {
+   "status": "implemented",
+   "action": "KAction search_vault"
+  },
+  "graph:open": {
+   "status": "implemented",
+   "action": "KAction graph_view"
+  },
+  "graph:open-local": {
+   "status": "implemented",
+   "action": "LocalGraphPlugin revealDockView"
+  },
+  "markdown:add-metadata-property": {
+   "status": "implemented",
+   "action": "MainWindow inline (real callback)"
+  },
+  "outgoing-links:open": {
+   "status": "implemented",
+   "action": "OutlinksPlugin revealDockView"
+  },
+  "outline:open": {
+   "status": "implemented",
+   "action": "OutlinePlugin revealDockView"
+  },
+  "properties:open": {
+   "status": "implemented",
+   "action": "PropertiesPlugin revealDockView"
+  },
+  "workspace:close": {
+   "status": "implemented",
+   "action": "KAction tab_close"
+  },
+  "workspace:goto-last-tab": {
+   "status": "implemented",
+   "action": "KAction tab_jump_last"
+  },
+  "workspace:move-to-new-window": {
+   "status": "implemented",
+   "action": "KAction tab_move_to_new_window"
+  },
+  "workspace:next-tab": {
+   "status": "implemented",
+   "action": "KAction tab_next"
+  },
+  "workspace:previous-tab": {
+   "status": "implemented",
+   "action": "KAction tab_prev"
+  },
+  "workspace:split-horizontal": {
+   "status": "implemented",
+   "action": "KAction split_down"
+  },
+  "workspace:split-vertical": {
+   "status": "implemented",
+   "action": "KAction split_right"
+  },
+  "workspace:toggle-pin": {
+   "status": "implemented",
+   "action": "KAction tab_pin_toggle"
+  },
+  "workspace:toggle-stacked-tabs": {
+   "status": "implemented",
+   "action": "KAction tab_toggle_stacked"
+  },
+  "workspace:undo-close-pane": {
+   "status": "implemented",
+   "action": "KAction tab_undo_close"
+  }
+ }
+}

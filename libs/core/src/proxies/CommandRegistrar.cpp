@@ -35,6 +35,14 @@ void CommandRegistrar::addCommandRaw(Command &cmd)
     m_registeredIds.append(cmd.id);
 }
 
+bool CommandRegistrar::addAlias(const QString &aliasId, const QString &targetId)
+{
+    if (!m_registry) return false;
+    if (!m_registry->addAlias(aliasId, targetId)) return false;
+    m_registeredIds.append(aliasId);
+    return true;
+}
+
 bool CommandRegistrar::removeCommand(const QString &localId)
 {
     if (!m_registry) return false;

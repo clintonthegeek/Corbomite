@@ -167,6 +167,77 @@ private Q_SLOTS:
         // A returned false (fell through), B consumed, C never ran.
         QCOMPARE(log, (QStringList{QStringLiteral("A"), QStringLiteral("B")}));
     }
+
+    // --- catch-all (Obsidian's register(null, null, …)) --------------------
+
+    void testCatchAllSeesKeysWithNoExactBinding()
+    {
+        Scope s;
+        QStringList seen;
+        s.registerCatchAll([&](QKeyEvent *e) { seen << QString::number(e->key()); return false; });
+
+        auto unmatched = makeKey(Qt::Key_Q, Qt::ControlModifier);
+        s.handleKey(&unmatched);
+        // A key the scope does claim is not offered to the catch-all.
+        s.registerBinding(Qt::NoModifier, Qt::Key_Escape,
+                          [](QKeyEvent *) { return true; });
+        auto claimed = makeKey(Qt::Key_Escape, Qt::NoModifier);
+        QVERIFY(s.handleKey(&claimed));
+        QCOMPARE(seen, QStringList{QString::number(Qt::Key_Q)});
+    }
+
+    // Registration order must not decide: a catch-all registered first still
+    // loses to a concrete binding. That is what lets a modal's Esc and a
+    // whole command table share one scope.
+    void testCatchAllNeverPreemptsAConcreteBinding()
+    {
+        Scope s;
+        bool catchAllRan = false;
+        bool concreteRan = false;
+        s.registerCatchAll([&](QKeyEvent *) { catchAllRan = true; return true; });
+        s.registerBinding(Qt::ControlModifier, Qt::Key_S,
+                          [&](QKeyEvent *) { concreteRan = true; return true; });
+
+        auto e = makeKey(Qt::Key_S, Qt::ControlModifier);
+        QVERIFY(s.handleKey(&e));
+        QVERIFY(concreteRan);
+        QVERIFY(!catchAllRan);
+    }
+
+    void testUnregisterRemovesCatchAll()
+    {
+        Scope s;
+        int fired = 0;
+        auto handle = s.registerCatchAll(
+            [&](QKeyEvent *) { ++fired; return true; });
+        auto e = makeKey(Qt::Key_Z, Qt::NoModifier);
+        QVERIFY(s.handleKey(&e));
+        QCOMPARE(fired, 1);
+        s.unregister(handle);
+        QVERIFY(!s.handleKey(&e));
+        QCOMPARE(fired, 1);
+    }
+
+    // Obsidian's rule is the opposite for a concrete binding that declines:
+    // the walk stops without consuming. Ours falls through to the parent (see
+    // Scope's class comment) — pinned here so the divergence stays deliberate.
+    void testCatchAllIsAfterSiblingsButBeforeParent()
+    {
+        Scope parent;
+        int parentFired = 0;
+        parent.registerBinding(Qt::NoModifier, Qt::Key_A,
+                               [&](QKeyEvent *) { ++parentFired; return true; });
+
+        Scope child(&parent);
+        int catchAllFired = 0;
+        child.registerCatchAll(
+            [&](QKeyEvent *) { ++catchAllFired; return true; });
+
+        auto e = makeKey(Qt::Key_A, Qt::NoModifier);
+        QVERIFY(child.handleKey(&e));
+        QCOMPARE(catchAllFired, 1);
+        QCOMPARE(parentFired, 0);
+    }
 };
 
 QTEST_MAIN(TestScope)

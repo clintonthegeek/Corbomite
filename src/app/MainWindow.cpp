@@ -41,6 +41,8 @@
 
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditorSuggestManager.h"
+#include "corbomite/core/HotkeyDispatcher.h"
+#include <QTimer>
 #include <markoff/core/EmbedRegistry.h>
 #include <markoff/core/CodeBlockProcessorRegistry.h>
 #include "corbomite/core/PostProcessorRegistry.h"
@@ -378,6 +380,26 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
 
     m_commandRegistry = new CommandRegistry();
 
+    // `.obsidian/hotkeys.json` is keyed by Obsidian command id, so it only
+    // means something once the dispatcher exists: registered ids are
+    // necessary but not sufficient — without this, an override is inert.
+    // Anchoring to ScopeManager's root slot now (not on vault open) is what
+    // puts the command table below every modal/suggester scope; the vault file
+    // itself arrives in onVaultOpened.
+    m_hotkeyDispatcher = new HotkeyDispatcher(m_commandRegistry, this);
+    m_hotkeyDispatcher->install();
+
+    // External edits to `.obsidian/hotkeys.json` reload through the same window
+    // Obsidian uses (50 ms, `onConfigFileChange = Ml(this.load, 50)` at
+    // 0833-$w.js:9). Obsidian's throttle is leading-edge, which can drop an edit
+    // that lands inside the window; this one restarts instead, so a burst of
+    // writes converges on the last one at a cost invisible to the user.
+    m_hotkeyReloadTimer = new QTimer(this);
+    m_hotkeyReloadTimer->setSingleShot(true);
+    m_hotkeyReloadTimer->setInterval(50);
+    connect(m_hotkeyReloadTimer, &QTimer::timeout, this,
+            [this] { reloadVaultHotkeys(m_hotkeyPath); });
+
     // Cluster R Task 3.2: register `markdown:add-metadata-property` so
     // MarkdownView.onMoreOptionsMenu's "Add file property" action can dispatch
     // without reaching back into MainWindow directly.
@@ -402,16 +424,19 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     // KAction's trigger() — keeps a single source of truth for the
     // vault-open gate applied by updateVaultActions().
     {
-        const auto bindToAction = [this](const QString &id,
-                                         const QString &label,
-                                         const QString &icon) {
+        const auto actionFor = [this](const QString &id) -> QAction * {
+            auto *ac = actionCollection();
+            return ac ? ac->action(id) : nullptr;
+        };
+        const auto bindToAction = [this, actionFor](const QString &id,
+                                                    const QString &label,
+                                                    const QString &icon) {
             Command c;
             c.id = id;
             c.name = label;
             c.icon = icon;
-            c.checkCallback = [this, id](bool checking) -> bool {
-                auto *ac = actionCollection();
-                auto *act = ac ? ac->action(id) : nullptr;
+            c.checkCallback = [actionFor, id](bool checking) -> bool {
+                auto *act = actionFor(id);
                 if (!act || !act->isEnabled()) return false;
                 if (!checking) act->trigger();
                 return true;
@@ -424,6 +449,68 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
         bindToAction(QStringLiteral("split_down"),
                      i18n("Split Down"),
                      QStringLiteral("view-split-top-bottom"));
+
+        // Obsidian's id for a Corbomite KAction that already exists, registered
+        // so a vault's `.obsidian/hotkeys.json` can name it. That file is keyed
+        // by Obsidian command id, so an id nothing in Corbomite registers can
+        // only ever be inert. The full inventory of ids is generated into
+        // docs/obsidian-command-ids.md by RE/tools/extract-command-ids.js; the
+        // Obsidian side of each row below was read in the corpus, not inferred
+        // from the label.
+        //
+        // Label and icon come from the KAction rather than a literal here, so a
+        // rename in setupActions() cannot leave the palette showing a stale
+        // string. Deliberately absent: `window:zoom-{in,out}` and
+        // `reset-zoom`, which have no Corbomite counterpart — Obsidian's are
+        // Electron *frame* zoom (`setFrameZoomLevel`) while `view_zoom_*` is the
+        // Markoff editor's zoom.
+        static const struct { const char *obsidianId; const char *actionId; }
+        kObsidianIds[] = {
+            // app/own/2075-Vie.js — App.registerCommands
+            {"app:go-back",             "go_back"},
+            {"app:go-forward",          "go_forward"},
+            {"app:toggle-left-sidebar", "view_toggle_left_sidebar"},
+            {"command-palette:open",    "command_palette"},
+            {"editor:save-file",        "file_save"},
+            {"global-search:open",      "search_vault"},
+            {"graph:open",              "graph_view"},
+            // app/own/1932-r4.js — Workspace. Obsidian's `split-vertical` is
+            // Split Right (a vertical divider) and `split-horizontal` is Split
+            // Down; read straight off `duplicateLeaf(leaf, "vertical")`, which
+            // is why the id is not inferred from the Corbomite action name.
+            {"workspace:split-vertical",    "split_right"},
+            {"workspace:split-horizontal",  "split_down"},
+            {"workspace:close",             "tab_close"},
+            {"workspace:next-tab",          "tab_next"},
+            {"workspace:previous-tab",      "tab_prev"},
+            {"workspace:goto-last-tab",     "tab_jump_last"},
+            {"workspace:undo-close-pane",   "tab_undo_close"},
+            {"workspace:toggle-pin",        "tab_pin_toggle"},
+            {"workspace:move-to-new-window", "tab_move_to_new_window"},
+            {"workspace:toggle-stacked-tabs", "tab_toggle_stacked"},
+        };
+
+        for (const auto &row : kObsidianIds) {
+            const QString obsidianId = QString::fromLatin1(row.obsidianId);
+            if (m_commandRegistry->findCommand(obsidianId)) continue;
+            QAction *act = actionFor(QString::fromLatin1(row.actionId));
+            if (!act) continue;
+            Command c;
+            c.id = obsidianId;
+            c.name = act->text();
+            c.icon = act->icon().name();
+            c.checkCallback = [actionFor, actionId = QString::fromLatin1(row.actionId)]
+                              (bool checking) -> bool {
+                auto *a = actionFor(actionId);
+                if (!a || !a->isEnabled()) return false;
+                if (!checking) a->trigger();
+                return true;
+            };
+            m_commandRegistry->addCommand(c);
+            // So an override of this id wins over the action's own chord
+            // instead of arriving as a second, live binding beside it.
+            m_hotkeyDispatcher->bindAction(obsidianId, act);
+        }
     }
 
     m_menuEvents = new MenuEventEmitter(this);
@@ -467,6 +554,12 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    // The dispatcher's bound QActions live in the KActionCollection, which the
+    // KXmlGuiWindow base destructor deletes — and QObject children (the
+    // dispatcher) are deleted *after* that base. Detach while the actions are
+    // still alive so no teardown path can restore a shortcut onto freed memory.
+    if (m_hotkeyDispatcher) m_hotkeyDispatcher->clearActions();
+
     // Canvas views hold a raw pointer to m_cardRenderEngine (a unique_ptr
     // member). Member destructors run BEFORE the base ~QObject tears down the
     // child Workspace + view tree, so the engine would be freed first, leaving
@@ -2291,6 +2384,18 @@ void MainWindow::navigateActiveLeafTo(const QString &relativePath)
 // moved into ActionContextController (same bodies, looked up by
 // actionCollection()->action(id) instead of the cached m_action* pointers).
 
+void MainWindow::reloadVaultHotkeys(const QString &path)
+{
+    if (!m_hotkeyDispatcher || path.isEmpty() || !m_fsAdapter) return;
+    QByteArray body = QByteArrayLiteral("{}");
+    if (const auto bytes = m_fsAdapter->readBinary(path)) {
+        body = *bytes;
+    } else if (m_fsAdapter->exists(path)) {
+        qWarning() << "hotkeys.json present but unreadable:" << path;
+    }
+    m_hotkeyDispatcher->load(body);
+}
+
 void MainWindow::onVaultOpened(const QString &path)
 {
     m_centralStack->setCurrentIndex(1);
@@ -2367,6 +2472,18 @@ void MainWindow::onVaultOpened(const QString &path)
     }
 
     QDir().mkpath(configPath);
+
+    // `.obsidian/hotkeys.json` → live shortcuts. Read as raw bytes rather than
+    // through VaultConfig::readHotkeys() so a body that is present but is not a
+    // JSON object can be told apart from a missing file and reported, instead of
+    // arriving as the same nullptr.
+    m_hotkeyPath = configPath + QStringLiteral("/hotkeys.json");
+    reloadVaultHotkeys(m_hotkeyPath);
+    connect(m_vaultObj, &Vault::configChanged, this,
+            [this, rel = m_vaultObj->configDir() + QStringLiteral("/hotkeys.json")]
+            (const QString &relPath) {
+                if (relPath == rel) m_hotkeyReloadTimer->start();
+            });
 
     // Db files live outside the vault under AppLocalDataLocation (or TempLocation
     // if AppLocalDataLocation is unavailable — see PathUtils::vaultLocalDataDir).
@@ -2639,6 +2756,10 @@ void MainWindow::onVaultOpened(const QString &path)
 void MainWindow::onVaultClosed()
 {
     if (m_ribbonState) m_ribbonState->rebind(nullptr);
+
+    // Overrides are vault state: drop them and put every bound action's own
+    // shortcut back, or the next vault opens with the previous one's bindings.
+    if (m_hotkeyDispatcher) m_hotkeyDispatcher->load(QByteArrayLiteral("{}"));
 
     // Tear down vault-scoped plugins before clearing the services they
     // hold pointers to. PluginManager::pluginUnloading fires per plugin

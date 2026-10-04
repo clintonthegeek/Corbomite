@@ -180,27 +180,33 @@ void BookmarksPlugin::registerCommands(Corbomite::PluginContext *ctx)
         return c;
     };
 
-    // `open` — reveals the panel via the slug dispatcher in MainWindow.
-    // Uses normal addCommand so the id becomes `corbomite-bookmarks:open`.
+    // Obsidian id `bookmarks:open` (app/own/1972-Z5.js:2305) — reveals the
+    // panel via the slug dispatcher in MainWindow. The Corbomite-native
+    // `corbomite-bookmarks:open` stays available as an alias.
     {
         Corbomite::Command c = makeCmd(
-            QStringLiteral("open"),
+            QStringLiteral("bookmarks:open"),
             i18n("Open bookmarks"),
             QStringLiteral("bookmark-new"),
             [workspace] {
                 if (workspace) workspace->revealDockView(QStringLiteral("bookmarks"));
             });
-        commands->addCommand(c);
+        commands->addCommandRaw(c);
+        commands->addAlias(QStringLiteral("corbomite-bookmarks:open"),
+                           QStringLiteral("bookmarks:open"));
     }
 
     // Obsidian-id commands — addCommandRaw preserves the `bookmarks:*` prefix
     // for .obsidian/hotkeys.json round-trip (addendum §4). The raw variant
     // does NOT mutate cmd.id with the pluginId prefix.
 
-    // bookmarks:bookmark-current-file — fully wired against WorkspaceController.
+    // `bookmarks:bookmark-current-view` (app/own/1972-Z5.js:2314) is the real
+    // Obsidian id and bookmarks the active file. `-current-file` is not an
+    // Obsidian id, so it becomes the Corbomite-native alias instead of
+    // occupying a compat slot.
     {
         Corbomite::Command c = makeCmd(
-            QStringLiteral("bookmarks:bookmark-current-file"),
+            QStringLiteral("bookmarks:bookmark-current-view"),
             i18n("Bookmark current file"),
             QStringLiteral("bookmark-new"),
             [this, workspace] {
@@ -210,15 +216,23 @@ void BookmarksPlugin::registerCommands(Corbomite::PluginContext *ctx)
                 bookmarkFile(m_store, path);
             });
         commands->addCommandRaw(c);
+        commands->addAlias(QStringLiteral("bookmarks:bookmark-current-file"),
+                           QStringLiteral("bookmarks:bookmark-current-view"));
     }
 
-    // The remaining 5 commands depend on WorkspaceController accessors that
-    // do not yet exist on the plugin proxy surface (openTabPaths,
+    // The remaining Obsidian commands depend on WorkspaceController accessors
+    // that do not yet exist on the plugin proxy surface (openTabPaths,
     // activeHeading, activeBlockId, activeSearchQuery, activeGraphOptions).
-    // Register each with a checkCallback returning false so the palette
-    // greys them out and hotkey dispatch is a no-op, while keeping the
+    // Register each with a checkCallback returning false so the palette greys
+    // them out and hotkey dispatch is a no-op, while keeping the
     // Obsidian-compatible ids reserved for hotkeys.json round-trip.
     // Tracked as a Cluster S follow-up in backlog.md.
+    //
+    // These are Obsidian's ids, not the ones previously registered here:
+    // 1.13.7 has no `bookmarks:bookmark-current-heading`, `-current-block` or
+    // `-current-graph`. Reserving invented ids under an Obsidian-looking prefix
+    // claims a compat slot that does not exist and keeps the real ones
+    // unregistered, so the invented ones are dropped.
     auto stubRaw = [commands, &makeCmd](const QString &id, const QString &label,
                                          const QString &icon) {
         Corbomite::Command c = makeCmd(id, label, icon, {});
@@ -229,17 +243,14 @@ void BookmarksPlugin::registerCommands(Corbomite::PluginContext *ctx)
     stubRaw(QStringLiteral("bookmarks:bookmark-all-tabs"),
             i18n("Bookmark all open tabs"),
             QStringLiteral("bookmark-new"));
-    stubRaw(QStringLiteral("bookmarks:bookmark-current-heading"),
-            i18n("Bookmark current heading"),
-            QStringLiteral("bookmark-new"));
-    stubRaw(QStringLiteral("bookmarks:bookmark-current-block"),
-            i18n("Bookmark current block"),
-            QStringLiteral("bookmark-new"));
     stubRaw(QStringLiteral("bookmarks:bookmark-current-search"),
             i18n("Bookmark current search"),
             QStringLiteral("bookmark-new"));
-    stubRaw(QStringLiteral("bookmarks:bookmark-current-graph"),
-            i18n("Bookmark current graph view"),
+    stubRaw(QStringLiteral("bookmarks:bookmark-current-section"),
+            i18n("Bookmark current section"),
+            QStringLiteral("bookmark-new"));
+    stubRaw(QStringLiteral("bookmarks:unbookmark-current-view"),
+            i18n("Remove bookmark from current file"),
             QStringLiteral("bookmark-new"));
 }
 

@@ -5,6 +5,7 @@
 
 #include <QTest>
 #include <QApplication>
+#include <QDialog>
 #include <QLineEdit>
 #include <QKeyEvent>
 
@@ -34,12 +35,15 @@ private Q_SLOTS:
     {
         // Clear any stale state between test processes (singleton).
         while (mgr()->stackDepth() > 0) mgr()->popScope();
+        mgr()->setRootScope(nullptr);
     }
 
     void cleanup()
     {
         while (mgr()->stackDepth() > 0) mgr()->popScope();
+        mgr()->setRootScope(nullptr);
         mgr()->setBypassPredicate({}); // restore default
+        mgr()->setRootGate({});
     }
 
     // Modal Esc masks editor Esc while open; editor Esc wins when closed.
@@ -84,11 +88,11 @@ private Q_SLOTS:
         QVERIFY(!mgr()->dispatchKey(&e));
     }
 
-    // Pins the divergence documented at ScopeManager::dispatchKey: Obsidian's
-    // per-window scope stack means a parentless `Modal` scope cuts the chain
-    // (0817-Yb.js:630 + :709), Corbomite's flat stack does not. Change this
-    // only together with the decision about the hotkeys.json dispatcher's
-    // root scope.
+    // Pins the divergence documented at ScopeManager::dispatchKey and in its
+    // class comment: Obsidian's per-window scope stack means a parentless
+    // `Modal` scope cuts the chain (0817-Yb.js:630 + :709, addendum §E),
+    // Corbomite's flat stack does not. This is what makes the root slot — the
+    // command table's position — reachable at all while a modal scope is up.
     void testParentlessScopeDoesNotCutScopesBelowIt()
     {
         Scope rootish;
@@ -180,6 +184,114 @@ private Q_SLOTS:
 
         // With no focus widget, dispatch goes through.
         QVERIFY(mgr()->dispatchKey(&e, nullptr));
+        QCOMPARE(fired, 1);
+    }
+
+    // --- the root slot ------------------------------------------------------
+
+    void testRootScopeIsConsultedWithAnEmptyStack()
+    {
+        Scope root;
+        int fired = 0;
+        root.registerBinding(Qt::ControlModifier, Qt::Key_J,
+                             [&](QKeyEvent *) { ++fired; return true; });
+        mgr()->setRootScope(&root);
+        QCOMPARE(mgr()->rootScope(), &root);
+        // An empty pushed stack used to mean "nothing to dispatch"; the command
+        // table lives in the root slot, so that would disable every override.
+        QCOMPARE(mgr()->stackDepth(), 0);
+        auto e = makeKey(Qt::Key_J, Qt::ControlModifier);
+        QVERIFY(mgr()->dispatchKey(&e));
+        QCOMPARE(fired, 1);
+    }
+
+    void testPushedScopeWinsOverTheRootAndDecliningFallsThrough()
+    {
+        int rootFired = 0;
+        Scope root;
+        root.registerBinding(Qt::ControlModifier, Qt::Key_J,
+                             [&](QKeyEvent *) { ++rootFired; return true; });
+        mgr()->setRootScope(&root);
+
+        Scope pushed;
+        bool claim = false;
+        pushed.registerBinding(Qt::ControlModifier, Qt::Key_J,
+                               [&](QKeyEvent *) { return claim; });
+        mgr()->pushScope(&pushed);
+
+        auto e = makeKey(Qt::Key_J, Qt::ControlModifier);
+        QVERIFY(mgr()->dispatchKey(&e));
+        QCOMPARE(rootFired, 1);
+
+        claim = true;
+        QVERIFY(mgr()->dispatchKey(&e));
+        QCOMPARE(rootFired, 1);
+    }
+
+    void testRootGateCanCloseTheRootSlot()
+    {
+        Scope root;
+        int fired = 0;
+        root.registerBinding(Qt::ControlModifier, Qt::Key_J,
+                             [&](QKeyEvent *) { ++fired; return true; });
+        mgr()->setRootScope(&root);
+        mgr()->setRootGate([] { return false; });
+
+        auto e = makeKey(Qt::Key_J, Qt::ControlModifier);
+        QVERIFY(!mgr()->dispatchKey(&e));
+        QCOMPARE(fired, 0);
+
+        mgr()->setRootGate([] { return true; });
+        QVERIFY(mgr()->dispatchKey(&e));
+        QCOMPARE(fired, 1);
+    }
+
+    // The default gate is Qt modality: a modal dialog's key presses must not
+    // fire the main window's commands (addendum §E).
+    void testDefaultRootGateClosesWhileAModalIsUp()
+    {
+        Scope root;
+        int fired = 0;
+        root.registerBinding(Qt::ControlModifier, Qt::Key_J,
+                             [&](QKeyEvent *) { ++fired; return true; });
+        mgr()->setRootScope(&root);
+
+        auto e = makeKey(Qt::Key_J, Qt::ControlModifier);
+        QVERIFY(mgr()->dispatchKey(&e));
+        QCOMPARE(fired, 1);
+
+        auto *dialog = new QDialog;
+        dialog->setWindowModality(Qt::ApplicationModal);
+        dialog->show();
+        QVERIFY(qApp->activeModalWidget());
+        QVERIFY(!mgr()->dispatchKey(&e));
+        QCOMPARE(fired, 1);
+        dialog->close();
+        delete dialog;
+        QVERIFY(mgr()->dispatchKey(&e));
+        QCOMPARE(fired, 2);
+    }
+
+    // The focus gate is for pushed scopes. If it also silenced the root, every
+    // global shortcut would die the moment a search box took focus.
+    void testFocusGateDoesNotSilenceTheRoot()
+    {
+        Scope root;
+        int fired = 0;
+        root.registerBinding(Qt::ControlModifier, Qt::Key_U,
+                             [&](QKeyEvent *) { ++fired; return true; });
+        mgr()->setRootScope(&root);
+
+        Scope pushed;
+        int pushedFired = 0;
+        pushed.registerBinding(Qt::ControlModifier, Qt::Key_U,
+                               [&](QKeyEvent *) { ++pushedFired; return true; });
+        mgr()->pushScope(&pushed);
+
+        QLineEdit edit;
+        auto e = makeKey(Qt::Key_U, Qt::ControlModifier);
+        QVERIFY(mgr()->dispatchKey(&e, &edit));
+        QCOMPARE(pushedFired, 0);
         QCOMPARE(fired, 1);
     }
 };

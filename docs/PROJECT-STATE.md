@@ -84,6 +84,16 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
 
 ## Recent decisions
 
+- **2026-10-04 — the scope stack stays flat; the command table gets a gated root slot.**
+  Obsidian's "modal first, hotkey table last" ordering comes from a per-window scope stack plus
+  `Scope.parent`, and buys a bug: `Modal` allocates a parentless `Scope`, so the root — the only
+  place `HotkeyManager` registers its catch-all — is unreachable and **no** `hotkeys.json` binding
+  fires while a modal is up. Corbomite keeps the flat walk (ordering without the bug) and states
+  the table's position explicitly: `ScopeManager`'s root slot, always walked last, gated on
+  `QApplication::activeModalWidget()`. A `code` binding is matched as a *name*, because Obsidian's
+  `bake()` folds it into the `key` slot and compares that string; bindings Qt cannot name
+  (`NumpadAdd`) are refused and reported, never coerced. Addendum:
+  `2026-10-04-hotkeys-json-dispatcher.md`; closeout: `decisions-archive.md`.
 - **2026-10-03 — Corbomite does not reproduce Obsidian's sanitiser URI-scheme bypass.**
   Obsidian runs DOMPurify with `ALLOW_UNKNOWN_PROTOCOLS: true`, which short-circuits the
   allowed-scheme regexp so `javascript:` hrefs survive, on the main render path. Our

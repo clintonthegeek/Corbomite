@@ -27,9 +27,10 @@ void FileExplorerPlugin::onLoad(PluginContext *ctx)
 {
     if (!ctx) return;
 
-    // `file-explorer:reveal-file` — scrolls + selects the file in the
-    // current active leaf inside the navigation dock. Consumed by the
-    // EditableFileView view-header menu (Cluster R Task 2.8).
+    // Obsidian id `file-explorer:reveal-active-file` (app/own/2036-I9.js:175)
+    // — scrolls + selects the file in the current active leaf inside the
+    // navigation dock. Consumed by the EditableFileView view-header menu
+    // (Cluster R Task 2.8).
     //
     // Command callbacks are zero-arg, so we derive the target path from
     // WorkspaceController::activeFilePath. This matches the common case
@@ -41,7 +42,7 @@ void FileExplorerPlugin::onLoad(PluginContext *ctx)
     if (auto *commands = ctx->commands()) {
         QPointer<FileExplorerPlugin> self(this);
         Command reveal;
-        reveal.id = QStringLiteral("reveal-file");
+        reveal.id = QStringLiteral("file-explorer:reveal-active-file");
         reveal.name = i18n("Reveal active file in navigation");
         reveal.icon = QStringLiteral("edit-find");
         reveal.callback = [self, ctx] {
@@ -53,7 +54,9 @@ void FileExplorerPlugin::onLoad(PluginContext *ctx)
             if (auto *fv = self->m_view)
                 fv->revealPath(path);
         };
-        commands->addCommand(reveal);
+        commands->addCommandRaw(reveal);
+        commands->addAlias(QStringLiteral("corbomite-file-explorer:reveal-file"),
+                           QStringLiteral("file-explorer:reveal-active-file"));
     }
 }
 
