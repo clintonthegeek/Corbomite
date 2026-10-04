@@ -16,22 +16,24 @@
 
 ## Current focus
 
-**Audit-the-audit corrections are landing.** Suite **345/345** (from 339). Eight of the
-nine audit P0s are closed with mutation-verified tests; 15 new items were filed from the
-implementation pass. Seven agent claims were **refuted rather than coded** — including one
-of our own prior addenda that blamed a frozen doc for a P0 that was really our code's bug,
-and four numbers that were simply wrong. That refutation rate is the argument for
-re-verifying agent claims before implementing them.
+**Cluster M5 closed; the audit's corrections are landing in code.** Suite **354/354**
+(from 339 at the start of this work). M5.3 viewport persistence, M5.4 read-only lock and
+M5.5's two commands are landed and ticked, and the **hotkeys P0 is fully closed** — the
+audit's `"cmd": []` finding needed not just the merge fix but the **dispatcher that did not
+exist**, so a vault's `hotkeys.json` was inert regardless. `HotkeyDispatcher` now makes it
+reach real shortcut handling.
 
-**Closed this pass:** the 16-key `app.json`/`appearance.json` partition plus `.obsidian/
-<corePluginId>.json` and the settings value encodings; unknown canvas node/edge
-preservation at byte level; `.base` property-id canonicalisation; `hotkeys.json`
-`"cmd": []` unbinding; the watcher ENOENT grace; hidden-path and `checkPath` parity; the
-quick-switcher fuzzy penalty rule and several search-DSL operators; Bases' `not:`/NOR and
-a batch of DSL builtin corrections.
+**The recurring lesson, and it is not flattering: our own artefacts were wrong at roughly
+the same rate as the audit's.** Nine claims were refuted by the agents citing them —
+including `html()` returns `Markdown` (acting on it would have been a *regression*), both
+of an addendum's worked score examples, and three counts (the command-id total was wrong
+twice, 30 → 115 → **232**). Two of our own prior addenda mis-attributed a P0 to a frozen doc
+that was correct. The RE corpus exists precisely so a claim can be checked instead of
+trusted, and it is earning its keep.
 
-**Next:** the largest measured gap is **~182 of Obsidian's 190 core command ids are
-unimplemented** — a mapping-table job, not a code fix. Then M5.4/M5.5.
+**Next:** M6.1 (index canvas references — now well-specified by the canvas addendum), then
+the ~202 unimplemented command ids, which is a mapping job rather than an investigative
+one since `docs/obsidian-command-ids.md` is generated. Then resume the L5 soak.
 
 ## Two tracks
 

@@ -186,7 +186,7 @@ directory-scoped — and patching the submodule would be lost on the next
 re-pin. The real fix is a `LABELS "benchmark"` in markoff-canvas; until then
 keep the regex. Without it, "the suite is green" is not a reliable signal.
 
-Baseline (2026-10-03): **345/345 pass** with the exclusion above.
+Baseline (2026-10-04): **354/354 pass** with the exclusion above.
 
 ### Load-sensitive flakes — "the suite is green" is not yet a reliable signal
 

@@ -494,7 +494,7 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
       scene items): lock toggle, zoom in/out/reset/fit, undo/redo, matching
       Obsidian's gear/lock/zoom/undo cluster. Actions reuse the existing
       QActions/undo stack.
-- [ ] **M5.3 Viewport persistence** — save `{x, y, zoom}` (zoom =
+- [x] **M5.3 Viewport persistence — LANDED 2026-10-04.** save `{x, y, zoom}` (zoom =
       **log2 of scale**, x/y = scene point at viewport center) as
       **`ViewState.state.viewState`** so it round-trips through
       `workspace.json` exactly as Obsidian writes it; restore on open.
@@ -517,20 +517,61 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
       pixels** on x/y (QGraphicsView pans by integer scrollbar value;
       `zoom` is exact), and `setViewState` must widen `sceneRect` or an
       Obsidian viewport in empty space is unreachable and silently dropped.
-      Not yet ticked because the commit hasn't landed.
       **Coordinate with Cluster L**: if L5 soak is still open when this lands,
       keep the `state` diff minimal and run one Obsidian round-trip check.
       Test: `testCanvasEStateRoundTrip` (fixture with a real
       Obsidian-written canvas leaf `state`) — landed as
       `tests/app/tst_canvas_view_state.cpp`; the `eState` in that test name is
       superseded, see the correction above.
-- [ ] **M5.4 Read-only lock** — per-file, machine-local (Obsidian keeps it in
-      localStorage `canvas-<path>` → for us: tier-3 app-data `session.json`-
-      adjacent store, per L2's tier split; NEVER in `.canvas` or
-      workspace.json). Gates: all tools except pan/zoom/select, context-menu
-      mutations, inline edits, drops, paste. UI: lock button (M5.2) + padlock
-      status. Test: `testReadOnlyBlocksMutations`.
-- [ ] **M5.5 Commands** — palette: "Canvas: Jump to group" (fuzzy list of
+- [x] **M5.4 Read-only lock — LANDED 2026-10-04.** Obsidian's key is
+      `localStorage["canvas-" + vaultRelativePath]` holding `{readonly: true}`
+      (`app/own/2028-n9.js:560-579`, `:913-918`); ours is tier-3 `localData` in
+      `<AppDataLocation>/vaults/<id>/session.json`, reusing the existing
+      `SessionManager` rather than inventing a store. NEVER in `.canvas` or
+      `workspace.json`.
+      **The gate list below is corrected — Obsidian gates less than the plan says.**
+      Drop is **not** gated (`dragManager.handleDrop` has no readonly check,
+      `2018-k7.js:265-341`), nor is resize (`1999-J8.js:60`), nor undo/redo.
+      We gate what Obsidian gates — resize, Alt-drag duplicate, every context-menu
+      mutation, inline edits (at the same depth Obsidian gates them: base
+      `startEditing`, `2020-O7.js:247`), arrow nudge, cut's delete half,
+      `canUndo`/`canRedo` — and record the divergence rather than closing a hole
+      Obsidian leaves open. Pan/zoom/select still work; that negative test is the
+      interesting one, and every gate test carries an unlocked control leg so it
+      cannot pass on a dead trigger. `canvas_lock` un-stubbed from O4.T6.
+      Two limitations recorded in code rather than hidden:
+      `CompositeTool::addAnchorRoute` has no predicate overload, so a press within
+      12px of an anchor is swallowed entirely while locked instead of falling
+      through to select (needs a graffodil change — filed upstream); and
+      `SelectMoveTool` fuses select and move with private drag state, so the locked
+      drag is restore-snapshot-per-event — a workaround, not a design.
+      Original text: per-file, machine-local (Obsidian keeps it in localStorage
+      `canvas-<path>`; NEVER in `.canvas` or workspace.json). Test:
+      `testReadOnlyBlocksMutations` — landed as `libs/canvas/tests/tst_canvas_readonly.cpp`
+      (12) + `tests/app/tst_canvas_readonly_store.cpp` (6).
+- [x] **M5.5 Commands — LANDED 2026-10-04.** Both were O4.T6 disabled placeholders;
+      wiring them was a few lines each, as the Cluster-O boundary intended. No new
+      canvas KActions were added — that is exactly what Cluster O exists to prevent.
+      `convert-to-file` is a real compound `QUndoCommand` (add card + reconnect each
+      edge + remove text card under one parent) so one Ctrl+Z undoes the whole
+      conversion. **Obsidian gets that by a different mechanism** — whole-document
+      snapshots on a 250 ms trailing debounce (`2018-k7.js:2-23`, `:81`) — so the
+      plan's "one compound command" described the right behaviour by the wrong
+      means. Undo does **not** delete the created note (matches Obsidian; pinned
+      deliberately, since deleting would destroy edits made to the note since).
+      Card text becomes the file body verbatim — no embed, no wrapper, no
+      frontmatter — and pos+size carry across so geometry survives; the card's
+      colour is dropped, invisible in Obsidian's UI but real.
+      `zoomToBbox` ports Obsidian's formula including the 1.1 margin and the log2
+      [−4,1] clamp. **M5.1 easing has not landed, so the jump is instant** — porting
+      an animation system was out of scope and is not invented here.
+      Deliberate divergence: the action is also gated on `!isReadOnly`, closing
+      Obsidian's hole where `convert-to-file` bypasses its own lock.
+      M2.6 "Create new canvas" had already landed and needed nothing; verified the
+      parent defaults to vault root, matching Obsidian's `newFileLocation` default.
+      Tests: `tst_canvas_convert_to_file` (12), `tst_canvas_jump_to_group` (8),
+      `tst_canvas_convert_to_file_vault` (5).
+      Original text: palette: "Canvas: Jump to group" (fuzzy list of
       group labels → eased zoomToBbox), "Canvas: Convert text card to file"
       (exactly one text node selected → prompt filename → write `.md` with
       the card text via FileManager → replace node type/file in one compound

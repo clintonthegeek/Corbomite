@@ -29,6 +29,7 @@ findings most likely to change code you are about to write:
 | **Metadata event** | `changed`'s 2nd argument is the **file contents**, not `oldHash` — refutes the §4 signature table | `2026-10-03-metadata-changed-event-payload.md` |
 | **Rename/links** | Heading rename matches with `stripHeading` but writes with `stripHeadingForLink`, and **rewrites YAML frontmatter**, re-dumping it through js-yaml | `2026-10-03-leaf-utilities-subpath-rename-and-leaf-bundle-corrections.md` |
 | **Search DSL** | The grammar is **in-tree and readable**; `whole-word` does not exist; `ignore-case` does | `2026-10-03-search-dsl-grammar-and-quick-switcher-scoring.md` |
+| **Hotkeys** | `hotkeys.json` is override-only: `"cmd": []` **unbinds** (now implemented + dispatched). There are **232** core command ids, not the 115 first reported | `2026-10-04-hotkeys-json-dispatcher.md` |
 | **Workspaces** | There is **no `workspaces.json`** — named workspaces are the plugin's `data.json` | `2026-10-03-workspace-named-workspaces-data-json.md` |
 
 **One of our own addenda was wrong.** `2026-10-01-workspace-split-direction-correction.md`
