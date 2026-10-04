@@ -5,6 +5,8 @@
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/NoteDocument.h"
 
+#include "SessionManager.h"
+
 #include <canvas/CanvasScene.h>
 #include <corbomite/core/ThemeService.h>
 #include <canvas/CanvasView.h>
@@ -30,6 +32,25 @@
 #include <QVBoxLayout>
 
 namespace Corbomite {
+
+namespace {
+
+/// M5.4 — the read-only lock's tier-3 home is SessionManager (the app's only
+/// machine-local store, per the L0 workspace-compat doctrine), and
+/// MainWindow owns the one live instance. MainWindow.cpp is outside this
+/// task's scope, so resolve it through the widget tree rather than leave the
+/// lock unpersisted; returns null outside a MainWindow (tests, headless),
+/// where an in-memory-only lock is correct anyway. TODO(integrator): once
+/// MainWindow can be edited, drop this and call
+/// CanvasFileView::setLocalDataStore() from propagateServicesToView() next to
+/// the existing setFileLister() call.
+SessionManager *tier3StoreFor(QWidget *leaf)
+{
+    auto *window = leaf ? leaf->window() : nullptr;
+    return window ? window->findChild<SessionManager *>() : nullptr;
+}
+
+} // namespace
 
 CanvasFileView::CanvasFileView(WorkspaceLeaf *leaf, QWidget *parent)
     : FileView(leaf, parent)
@@ -127,6 +148,20 @@ void CanvasFileView::setFileLister(std::function<QStringList()> lister)
         m_canvasWidget->setFileLister(m_fileLister);
 }
 
+void CanvasFileView::setLocalDataStore(LocalDataReader reader, LocalDataWriter writer)
+{
+    m_localDataReader = std::move(reader);
+    m_localDataWriter = std::move(writer);
+    if (m_canvasWidget)
+        m_canvasWidget->setLocalDataStore(m_localDataReader, m_localDataWriter);
+}
+
+bool CanvasFileView::isReadOnly() const
+{
+    auto *scene = m_canvasWidget ? m_canvasWidget->canvasScene() : nullptr;
+    return scene && scene->isReadOnly();
+}
+
 void CanvasFileView::setThemeService(Core::ThemeService *service)
 {
     if (m_themeService == service) return;
@@ -179,6 +214,19 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
         if (m_renderEngine)
             m_canvasWidget->setRenderEngine(m_renderEngine);
 
+        // M5.4 — read-only lock persistence. Done after addWidget() because
+        // tier3StoreFor() resolves through window(), which only has a chain
+        // to this tab once it is in the layout.
+        if (m_localDataReader || m_localDataWriter) {
+            m_canvasWidget->setLocalDataStore(m_localDataReader, m_localDataWriter);
+        } else if (auto *tier3 = tier3StoreFor(this)) {
+            m_canvasWidget->setLocalDataStore(
+                [tier3](const QString &key) { return tier3->fileLocalData(key); },
+                [tier3](const QString &key, const QJsonObject &value) {
+                    tier3->setFileLocalData(key, value);
+                });
+        }
+
         // Cluster O Phase O2.T2 — forward the scene's own selection/undo
         // signals onto the generic View::contextChanged() so
         // ActionContextController's refresh() picks up mid-session
@@ -198,7 +246,7 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
     }
 }
 
-bool CanvasFileView::canEdit() const { return true; }
+bool CanvasFileView::canEdit() const { return !isReadOnly(); }
 bool CanvasFileView::canSave() const { return true; }
 
 bool CanvasFileView::hasSelection() const
@@ -210,15 +258,13 @@ bool CanvasFileView::hasSelection() const
 bool CanvasFileView::canUndo() const
 {
     auto *scene = m_canvasWidget ? m_canvasWidget->canvasScene() : nullptr;
-    auto *stack = scene ? scene->undoStack() : nullptr;
-    return stack && stack->canUndo();
+    return scene && scene->canUndo();
 }
 
 bool CanvasFileView::canRedo() const
 {
     auto *scene = m_canvasWidget ? m_canvasWidget->canvasScene() : nullptr;
-    auto *stack = scene ? scene->undoStack() : nullptr;
-    return stack && stack->canRedo();
+    return scene && scene->canRedo();
 }
 
 void CanvasFileView::onUnloadFile(NoteDocument *file)

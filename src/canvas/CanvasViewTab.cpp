@@ -6,20 +6,73 @@
 #include <canvas/CanvasScene.h>
 #include <canvas/CanvasView.h>
 #include <corbomite/core/MarkdownRenderEngine.h>
+#include <corbomite/vault/FileManager.h>
+#include <corbomite/vault/TFolder.h>
+#include <corbomite/vault/Vault.h>
+
+#include <KLocalizedString>
 
 #include <QDir>
 #include <algorithm>
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QInputDialog>
+#include <QLineEdit>
+#include <QMessageBox>
 #include <QPointer>
 #include <QVBoxLayout>
 
 namespace Corbomite {
 
+namespace {
+
+/// M5.5 — the app's one FileManager, which MainWindow parents to itself and
+/// which MainWindow.cpp is outside this task's scope to inject, so it is
+/// resolved through the widget tree the same way CanvasFileView resolves
+/// SessionManager. Null outside a MainWindow (tests, headless), where
+/// "Convert to File…" has nowhere to write.
+FileManager *fileManagerFor(QWidget *widget)
+{
+    auto *window = widget ? widget->window() : nullptr;
+    return window ? window->findChild<FileManager *>() : nullptr;
+}
+
+/// M5.5 — Obsidian's new-file-name modal rejects the same three classes
+/// (`fR.validate`, `app/own/1312-hR.js:81-82`): characters no filename may
+/// contain (`ND`/`HD`, platform-conditional exactly as upstream's is), a
+/// leading dot, and characters that would break links (`RD`/`zD`). Upstream
+/// re-opens the modal with the error inline; stock QInputDialog can't, so the
+/// caller re-asks. Empty means valid — upstream accepts an empty name here
+/// too and lets createNewFile fall back to "Untitled" (`:330`).
+QString newFileNameError(const QString &name)
+{
+#ifdef Q_OS_WIN
+    const QString badChars = QStringLiteral("*\"\\/<>:|?");
+#else
+    const QString badChars = QStringLiteral("\\/:");
+#endif
+    for (const QChar c : badChars) {
+        if (name.contains(c))
+            return i18n("File name cannot contain any of these characters: %1", badChars);
+    }
+    if (name.startsWith(QLatin1Char('.')))
+        return i18n("File name must not start with a dot.");
+    const QString unsafeChars = QStringLiteral("#^[]|");
+    for (const QChar c : unsafeChars) {
+        if (name.contains(c))
+            return i18n("Links will not work with file names containing any of these characters: %1",
+                        unsafeChars);
+    }
+    return {};
+}
+
+} // namespace
+
 CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, QWidget *parent)
     : QWidget(parent)
     , m_filePath(filePath)
+    , m_vaultRoot(vaultRoot)
 {
     m_document = new Canvas::CanvasDocument(this);
     m_view = new Canvas::CanvasView(this);
@@ -126,8 +179,20 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_view);
 
+    installConvertToFileSeams();
+
     connect(m_document, &Canvas::CanvasDocument::modificationChanged,
             this, &CanvasViewTab::modificationChanged);
+    connect(m_view->canvasScene(), &Canvas::CanvasScene::readOnlyChanged,
+            this, [this](bool readOnly) {
+                if (!m_localDataWriter)
+                    return;
+                // Obsidian writes `{readonly: true}` when locked and `null`
+                // (i.e. removes the key) when not — app/own/2028-n9.js:917.
+                m_localDataWriter(localDataKey(),
+                                  readOnly ? QJsonObject{{QStringLiteral("readonly"), true}}
+                                           : QJsonObject{});
+            });
 }
 
 CanvasViewTab::~CanvasViewTab() = default;
@@ -135,6 +200,42 @@ CanvasViewTab::~CanvasViewTab() = default;
 void CanvasViewTab::setFileLister(std::function<QStringList()> lister)
 {
     m_fileLister = std::move(lister);
+}
+
+QString CanvasViewTab::localDataKey() const
+{
+    // Obsidian keys on TFile.path, i.e. vault-relative with forward slashes
+    // (app/own/2028-n9.js:565 — "canvas-" + e.path). Outside a vault there is
+    // no such path, so fall back to the absolute file path: still a stable,
+    // still machine-local, still tier-3-only key.
+    QString rel = m_filePath;
+    if (!m_vaultRoot.isEmpty()) {
+        const QString candidate = QDir(m_vaultRoot).relativeFilePath(m_filePath);
+        if (!candidate.startsWith(QStringLiteral("..")))
+            rel = candidate;
+    }
+    return QStringLiteral("canvas-") + rel;
+}
+
+void CanvasViewTab::setLocalDataStore(LocalDataReader reader, LocalDataWriter writer)
+{
+    m_localDataReader = std::move(reader);
+    m_localDataWriter = std::move(writer);
+    if (m_localDataReader && m_view && m_view->canvasScene())
+        applyLocalData(m_localDataReader(localDataKey()));
+}
+
+void CanvasViewTab::applyLocalData(const QJsonObject &data)
+{
+    // Obsidian's guard is `hasOwnProperty("readonly") && typeof
+    // data.readonly == "boolean"` (app/own/2028-n9.js:879) — a hand-edited
+    // half-state is ignored, not coerced.
+    if (!data.contains(QStringLiteral("readonly")))
+        return;
+    const QJsonValue v = data.value(QStringLiteral("readonly"));
+    if (!v.isBool())
+        return;
+    m_view->canvasScene()->setReadOnly(v.toBool());
 }
 
 void CanvasViewTab::setRenderEngine(MarkdownRenderEngine *engine)
@@ -155,6 +256,92 @@ bool CanvasViewTab::save()
 bool CanvasViewTab::isModified() const
 {
     return m_document->isModified();
+}
+
+void CanvasViewTab::installConvertToFileSeams()
+{
+    QPointer<Canvas::CanvasView> viewPtr(m_view);
+
+    m_view->canvasScene()->setFileNameRequestor([viewPtr]() -> QString {
+        if (!viewPtr)
+            return {};
+        for (;;) {
+            bool ok = false;
+            const QString typed = QInputDialog::getText(
+                                      viewPtr, i18n("Convert to file"), i18n("Note name:"),
+                                      QLineEdit::Normal, i18n("Untitled"), &ok)
+                                      .trimmed();
+            if (!ok || !viewPtr)
+                return {};
+            const QString error = newFileNameError(typed);
+            if (error.isEmpty())
+                return typed.isEmpty() ? QStringLiteral("Untitled") : typed;
+            QMessageBox::warning(viewPtr, i18n("Convert to file"), error);
+        }
+    });
+
+    m_view->canvasScene()->setMarkdownFileCreator(
+        [this](const QString &name, const QString &content) -> QString {
+            auto *fm = fileManagerFor(this);
+            if (!fm)
+                return {};
+            // The vault root, not the canvas's own folder: Obsidian's default
+            // new-file location is "root" for markdown (app/own/0920-eE.js:1205)
+            // and for canvas (app/own/2030-b9.js:48), so
+            // getNewFileParent(canvasPath, name) resolves there too.
+            auto *tf = fm->createNewMarkdownFile(fm->vault()->getRoot(), name,
+                                                 content.toUtf8());
+            return tf ? tf->path : QString();
+        });
+}
+
+void CanvasViewTab::setFileNameRequestor(std::function<QString()> requestor)
+{
+    m_fileNameRequestor = std::move(requestor);
+    if (m_view && m_view->canvasScene())
+        m_view->canvasScene()->setFileNameRequestor(m_fileNameRequestor);
+}
+
+void CanvasViewTab::setMarkdownFileCreator(
+    std::function<QString(const QString &, const QString &)> creator)
+{
+    m_markdownFileCreator = std::move(creator);
+    if (m_view && m_view->canvasScene())
+        m_view->canvasScene()->setMarkdownFileCreator(m_markdownFileCreator);
+}
+
+void CanvasViewTab::jumpToGroup()
+{
+    if (!m_view)
+        return;
+    auto *scene = m_view->canvasScene();
+    if (!scene)
+        return;
+    const auto targets = scene->groupJumpTargets();
+    if (targets.isEmpty())
+        return;
+
+    QVector<Canvas::CanvasFilePickerDialog::Entry> entries;
+    entries.reserve(targets.size());
+    for (const auto &target : targets)
+        entries.append({target.label, target.nodeId});
+
+    const QString chosen = Canvas::CanvasFilePickerDialog::pickPayload(
+        m_view, entries, i18n("Jump to group"), i18n("Type to search groups…"));
+    if (chosen.isEmpty())
+        return;
+    for (const auto &target : targets) {
+        if (target.nodeId != chosen)
+            continue;
+        m_view->zoomToBbox(target.bounds);
+        return;
+    }
+}
+
+void CanvasViewTab::convertTextCardToFile(const QString &nodeId)
+{
+    if (m_view && m_view->canvasScene())
+        m_view->canvasScene()->convertTextCardToFile(nodeId);
 }
 
 Canvas::CanvasScene *CanvasViewTab::canvasScene() const

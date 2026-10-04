@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.19)
 project(canvas_tests LANGUAGES CXX)
 enable_testing()
 find_package(Qt6 REQUIRED COMPONENTS Test Widgets)
+find_package(KF6I18n REQUIRED)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -47,3 +48,28 @@ add_executable(tst_canvas_dark_mode tst_canvas_dark_mode.cpp)
 add_test(NAME tst_canvas_dark_mode COMMAND tst_canvas_dark_mode)
 target_link_libraries(tst_canvas_dark_mode PRIVATE Qt6::Test Qt6::Widgets canvas)
 set_tests_properties(tst_canvas_dark_mode PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster M Phase M5.4 — per-file canvas read-only lock: every mutation gate,
+# plus the negative case (pan/zoom/select keep working while locked).
+add_executable(tst_canvas_readonly tst_canvas_readonly.cpp)
+add_test(NAME tst_canvas_readonly COMMAND tst_canvas_readonly)
+target_link_libraries(tst_canvas_readonly PRIVATE Qt6::Test Qt6::Widgets canvas KF6::I18n)
+set_tests_properties(tst_canvas_readonly PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster M Phase M5.5 — "Convert to File…": the type swap, the geometry
+# preservation, and the single-undo-step guarantee.
+add_executable(tst_canvas_convert_to_file tst_canvas_convert_to_file.cpp)
+add_test(NAME tst_canvas_convert_to_file COMMAND tst_canvas_convert_to_file)
+target_link_libraries(tst_canvas_convert_to_file PRIVATE
+    Qt6::Test Qt6::Widgets canvas KF6::I18n)
+set_tests_properties(tst_canvas_convert_to_file PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster M Phase M5.5 — "Jump to Group…": the group candidate list and
+# Obsidian's zoomToBbox scale formula.
+add_executable(tst_canvas_jump_to_group tst_canvas_jump_to_group.cpp)
+add_test(NAME tst_canvas_jump_to_group COMMAND tst_canvas_jump_to_group)
+target_link_libraries(tst_canvas_jump_to_group PRIVATE
+    Qt6::Test Qt6::Widgets canvas KF6::I18n)
+set_tests_properties(tst_canvas_jump_to_group PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

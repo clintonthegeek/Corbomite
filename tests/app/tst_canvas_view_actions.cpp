@@ -31,6 +31,7 @@
 #include "corbomitesettings.h"
 
 #include <canvas/CanvasAlignmentStrategy.h>
+#include <canvas/CanvasDocument.h>
 #include <canvas/CanvasScene.h>
 #include <canvas/CanvasView.h>
 #include <canvas/TextCardItem.h>
@@ -202,6 +203,69 @@ private Q_SLOTS:
         QTest::qWait(50);
 
         QVERIFY2(zoomSel->isEnabled(), "something selected -> enabled");
+    }
+
+    // The O4.T6 -> M5.5 join. O4 registered canvas_jump_to_group and
+    // canvas_convert_to_file as disabled placeholders; M5.5 owns the
+    // capability. This pins both halves of the contract: Obsidian's own
+    // enablement conditions (app/own/2028-n9.js:671, :682-692) and that the
+    // convert action really reaches the scene rather than stopping at the
+    // QAction.
+    void m55Commands_areGatedOnObsidianConditionsAndReachTheScene()
+    {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        createFile(tmp.path() + QStringLiteral("/Canvas.canvas"), QStringLiteral(
+            "{\"nodes\":["
+            "{\"id\":\"n1\",\"type\":\"text\",\"x\":0,\"y\":0,\"width\":250,"
+            "\"height\":60,\"text\":\"hi\"},"
+            "{\"id\":\"g1\",\"type\":\"group\",\"x\":500,\"y\":500,"
+            "\"width\":200,\"height\":150,\"label\":\"Alpha\"}"
+            "],\"edges\":[]}"));
+
+        CorbomiteApp app;
+        MainWindow mw(&app);
+        QVERIFY(app.openVault(tmp.path()));
+        QTest::qWait(500);
+        mw.onNoteActivated(QStringLiteral("Canvas.canvas"));
+        QTest::qWait(200);
+
+        auto *pac = mw.canvasViewActions()->actionCollection();
+        auto *jump = pac->action(QStringLiteral("canvas_jump_to_group"));
+        auto *convert = pac->action(QStringLiteral("canvas_convert_to_file"));
+        QVERIFY(jump);
+        QVERIFY(convert);
+        // The placeholder-era stub set these disabled at construction; they
+        // must be live now that a canvas tab is focused.
+        QVERIFY2(jump->isEnabled(), "canvas has a group -> jump enabled");
+        QVERIFY2(!convert->isEnabled(),
+                 "no selection yet -> convert disabled (Obsidian needs one text node)");
+
+        auto *cv = qobject_cast<CanvasFileView *>(mw.actionContext()->activeCanvasView());
+        QVERIFY(cv);
+        auto *tab = cv->canvasWidget();
+        auto *scene = tab->canvasScene();
+
+        QString askedName;
+        tab->setFileNameRequestor([&askedName]() {
+            askedName = QStringLiteral("FromAction");
+            return askedName;
+        });
+        tab->setMarkdownFileCreator(
+            [](const QString &, const QString &) { return QStringLiteral("FromAction.md"); });
+
+        auto *item = scene->textCardItem(QStringLiteral("n1"));
+        QVERIFY(item);
+        item->setSelected(true);
+        QTest::qWait(50);
+        QVERIFY2(convert->isEnabled(), "exactly one text node selected -> convert enabled");
+
+        convert->trigger();
+        QTest::qWait(50);
+        QCOMPARE(askedName, QStringLiteral("FromAction"));
+        QVERIFY2(!scene->document()->hasNode(QStringLiteral("n1")),
+                 "the action must reach the scene's conversion, not just flip state");
+        QCOMPARE(scene->selectedTextNodeId(), QString());   // now a file card
     }
 };
 

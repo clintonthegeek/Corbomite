@@ -108,6 +108,24 @@ void CanvasViewActions::unbind()
     refresh();
 }
 
+Canvas::CanvasScene *CanvasViewActions::canvasScene() const
+{
+    auto *tab = canvas() ? canvas()->canvasWidget() : nullptr;
+    return tab ? tab->canvasScene() : nullptr;
+}
+
+bool CanvasViewActions::canvasHasGroups() const
+{
+    auto *scene = canvasScene();
+    return scene && !scene->groupJumpTargets().isEmpty();
+}
+
+QString CanvasViewActions::selectedTextNodeId() const
+{
+    auto *scene = canvasScene();
+    return scene ? scene->selectedTextNodeId() : QString();
+}
+
 void CanvasViewActions::refresh()
 {
     auto *ac = actionCollection();
@@ -126,14 +144,20 @@ void CanvasViewActions::refresh()
     if (auto *a = ac->action(QStringLiteral("canvas_zoom_to_selection")))
         a->setEnabled(isCanvas && m_boundView->hasSelection());
 
-    // O4.T6 — wire-when-M5-lands placeholders. Always disabled; M5 gives
-    // each a real predicate/handler.
-    static const QStringList m5Stubs = {
-        QStringLiteral("canvas_lock"), QStringLiteral("canvas_jump_to_group"),
-        QStringLiteral("canvas_convert_to_file"),
-    };
-    for (const auto &id : m5Stubs)
-        if (auto *a = ac->action(id)) a->setEnabled(false);
+    // M5.4 landed canvas_lock; M5.5 landed the other two.
+    if (auto *a = ac->action(QStringLiteral("canvas_lock"))) {
+        a->setEnabled(isCanvas);
+        a->setChecked(m_boundView && m_boundView->isReadOnly());
+    }
+
+    // M5.5 — Tier B, Obsidian's own checkCallback conditions
+    // (app/own/2028-n9.js:671/682-692): jump-to-group needs a canvas with at
+    // least one group; convert-to-file needs exactly one selected text node.
+    if (auto *a = ac->action(QStringLiteral("canvas_jump_to_group")))
+        a->setEnabled(isCanvas && canvasHasGroups());
+    if (auto *a = ac->action(QStringLiteral("canvas_convert_to_file")))
+        a->setEnabled(isCanvas && !m_boundView->isReadOnly()
+                      && selectedTextNodeId().size() > 0);
 
     // Tier C — the three toggles are app-wide (kcfg), not per-document, so
     // their checked state reflects the persisted setting regardless of
@@ -248,28 +272,45 @@ void CanvasViewActions::setupActions()
                 view->zoomToSelection();
     });
 
-    // O4.T6 — wire-when-M5-lands placeholders. Registered disabled with a
-    // named TODO so M5 landing is a five-line change per action rather
-    // than a menu redesign (standing rule #1's one permitted exception).
-    auto addM5Stub = [this, ac](const QString &id, const QString &icon,
-                                 const QString &label) -> QAction* {
-        // TODO(cluster-m-m5): no read-only-lock / group / convert-to-file
-        // primitive exists yet on CanvasScene/CanvasDocument. Wire the real
-        // handler when Cluster M Phase M5 lands the underlying capability
-        // (O0 cross-cluster boundary: O4 owns the KAction, M5 owns the
-        // capability).
-        auto *act = ac->addAction(id);
-        act->setText(label);
-        act->setIcon(QIcon::fromTheme(icon));
-        act->setEnabled(false);
-        return act;
-    };
-    addM5Stub(QStringLiteral("canvas_lock"), QStringLiteral("object-locked"),
-              i18n("Lock Canvas (Read-Only)"));
-    addM5Stub(QStringLiteral("canvas_jump_to_group"), QStringLiteral("go-jump"),
-              i18n("Jump to Group..."));
-    addM5Stub(QStringLiteral("canvas_convert_to_file"), QStringLiteral("document-export"),
-              i18n("Convert to File..."));
+    // M5.4 — the read-only lock. Checkable rather than a one-shot verb, so
+    // the menu entry and a toolbar button are the same widget (Obsidian's
+    // quick-settings entry is `setChecked(canvas.readonly)`,
+    // app/own/2018-k7.js:1417). The scene emits readOnlyChanged, which
+    // CanvasFileView already funnels into View::contextChanged, so the
+    // checked state tracks a lock set from anywhere, not just this action.
+    auto *lock = ac->addAction(QStringLiteral("canvas_lock"));
+    lock->setText(i18n("Lock Canvas (Read-Only)"));
+    lock->setIcon(QIcon::fromTheme(QStringLiteral("object-locked")));
+    lock->setCheckable(true);
+    connect(lock, &QAction::triggered, this, [this](bool checked) {
+        if (!m_boundView) return;
+        if (auto *tab = m_boundView->canvasWidget())
+            if (auto *scene = tab->canvasScene())
+                scene->setReadOnly(checked);
+        refresh();
+    });
+
+    // M5.5 — the two commands O4.T6 registered as disabled placeholders.
+    // Both dispatch straight to CanvasViewTab, which owns the prompt and the
+    // FileManager write (libs/canvas may not reach either).
+    auto *jump = ac->addAction(QStringLiteral("canvas_jump_to_group"));
+    jump->setText(i18n("Jump to Group..."));
+    jump->setIcon(QIcon::fromTheme(QStringLiteral("go-jump")));
+    connect(jump, &QAction::triggered, this, [this]() {
+        if (auto *tab = canvas() ? canvas()->canvasWidget() : nullptr)
+            tab->jumpToGroup();
+    });
+
+    auto *convert = ac->addAction(QStringLiteral("canvas_convert_to_file"));
+    convert->setText(i18n("Convert to File..."));
+    convert->setIcon(QIcon::fromTheme(QStringLiteral("document-export")));
+    connect(convert, &QAction::triggered, this, [this]() {
+        const QString nodeId = selectedTextNodeId();
+        if (nodeId.isEmpty())
+            return;
+        if (auto *tab = canvas() ? canvas()->canvasWidget() : nullptr)
+            tab->convertTextCardToFile(nodeId);
+    });
 }
 
 } // namespace Corbomite

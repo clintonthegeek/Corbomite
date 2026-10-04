@@ -15,16 +15,17 @@
 
 namespace Canvas {
 
-CanvasFilePickerDialog::CanvasFilePickerDialog(const QStringList &candidatePaths, QWidget *parent)
+CanvasFilePickerDialog::CanvasFilePickerDialog(const QVector<Entry> &entries, QWidget *parent,
+                                               const QString &title, const QString &placeholder)
     : QDialog(parent)
-    , m_candidates(candidatePaths)
+    , m_entries(entries)
 {
-    setWindowTitle(i18n("Insert file card"));
+    setWindowTitle(title);
 
     auto *layout = new QVBoxLayout(this);
 
     m_filterEdit = new QLineEdit(this);
-    m_filterEdit->setPlaceholderText(i18n("Type to search vault files…"));
+    m_filterEdit->setPlaceholderText(placeholder);
     layout->addWidget(m_filterEdit);
 
     m_resultsList = new QListWidget(this);
@@ -48,9 +49,14 @@ void CanvasFilePickerDialog::updateResults(const QString &filterText)
 {
     m_resultsList->clear();
 
+    const auto addRow = [this](const Entry &entry) {
+        auto *item = new QListWidgetItem(entry.display, m_resultsList);
+        item->setData(Qt::UserRole, entry.payload);
+    };
+
     if (filterText.isEmpty()) {
-        for (const auto &path : std::as_const(m_candidates))
-            m_resultsList->addItem(path);
+        for (const auto &entry : std::as_const(m_entries))
+            addRow(entry);
         if (m_resultsList->count() > 0)
             m_resultsList->setCurrentRow(0);
         return;
@@ -58,19 +64,19 @@ void CanvasFilePickerDialog::updateResults(const QString &filterText)
 
     const auto query = Corbomite::FuzzyMatcher::prepareQuery(filterText);
 
-    struct Ranked { QString path; double score; };
+    struct Ranked { Entry entry; double score; };
     QVector<Ranked> ranked;
-    ranked.reserve(m_candidates.size());
-    for (const auto &path : std::as_const(m_candidates)) {
-        if (auto match = Corbomite::FuzzyMatcher::fuzzySearch(query, path))
-            ranked.append({path, match->score});
+    ranked.reserve(m_entries.size());
+    for (const auto &entry : std::as_const(m_entries)) {
+        if (auto match = Corbomite::FuzzyMatcher::fuzzySearch(query, entry.display))
+            ranked.append({entry, match->score});
     }
     std::sort(ranked.begin(), ranked.end(), [](const Ranked &a, const Ranked &b) {
         return a.score > b.score;
     });
 
     for (const auto &r : std::as_const(ranked))
-        m_resultsList->addItem(r.path);
+        addRow(r.entry);
     if (m_resultsList->count() > 0)
         m_resultsList->setCurrentRow(0);
 }
@@ -78,7 +84,7 @@ void CanvasFilePickerDialog::updateResults(const QString &filterText)
 void CanvasFilePickerDialog::acceptCurrentSelection()
 {
     if (auto *item = m_resultsList->currentItem()) {
-        m_selectedPath = item->text();
+        m_selectedPayload = item->data(Qt::UserRole).toString();
         accept();
     } else {
         reject();
@@ -87,14 +93,30 @@ void CanvasFilePickerDialog::acceptCurrentSelection()
 
 QString CanvasFilePickerDialog::selectedPath() const
 {
-    return m_selectedPath;
+    return m_selectedPayload;
+}
+
+QString CanvasFilePickerDialog::selectedPayload() const
+{
+    return m_selectedPayload;
 }
 
 QString CanvasFilePickerDialog::pickFile(QWidget *parent, const QStringList &candidatePaths)
 {
-    CanvasFilePickerDialog dlg(candidatePaths, parent);
+    QVector<Entry> entries;
+    entries.reserve(candidatePaths.size());
+    for (const auto &path : candidatePaths)
+        entries.append({path, path});
+    return pickPayload(parent, entries, i18n("Insert file card"),
+                       i18n("Type to search vault files…"));
+}
+
+QString CanvasFilePickerDialog::pickPayload(QWidget *parent, const QVector<Entry> &entries,
+                                            const QString &title, const QString &placeholder)
+{
+    CanvasFilePickerDialog dlg(entries, parent, title, placeholder);
     if (dlg.exec() == QDialog::Accepted)
-        return dlg.selectedPath();
+        return dlg.selectedPayload();
     return QString();
 }
 

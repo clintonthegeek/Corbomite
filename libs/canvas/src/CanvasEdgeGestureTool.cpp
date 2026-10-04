@@ -79,7 +79,7 @@ CanvasEdgeGestureTool::EndpointHit CanvasEdgeGestureTool::findEndpointNear(const
 void CanvasEdgeGestureTool::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
     m_activeSubTool = nullptr;
-    if (event->button() != Qt::LeftButton || !m_scene)
+    if (m_readOnly || event->button() != Qt::LeftButton || !m_scene)
         return;
 
     const EndpointHit hit = findEndpointNear(event->scenePos());

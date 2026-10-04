@@ -61,6 +61,21 @@ public:
     /// instead of a recursive directory scan per open.
     void setFileLister(std::function<QStringList()> lister);
 
+    /// Cluster M M5.4 — where the canvas read-only lock is persisted. Points
+    /// CanvasViewTab at SessionManager's tier 3. Null store means the lock is
+    /// in-memory only (which is the correct behaviour for a canvas opened
+    /// outside a vault session). MainWindow currently doesn't inject one, so
+    /// onLoadFile() falls back to resolving the window's own SessionManager —
+    /// see the comment there.
+    using LocalDataReader = std::function<QJsonObject(const QString &key)>;
+    using LocalDataWriter = std::function<void(const QString &key, const QJsonObject &value)>;
+    void setLocalDataStore(LocalDataReader reader, LocalDataWriter writer);
+
+    /// M5.4 — true when this canvas is locked. Always false when no file is
+    /// loaded, which is what makes `canvas_lock` checkable rather than
+    /// tri-state.
+    bool isReadOnly() const;
+
     // Cluster O Phase O1.T3 — re-light the View::zoom*() polymorphic
     // dispatch onto the real CanvasView viewport transform. Previously
     // MainWindow's zoom actions bypassed the virtuals entirely and only
@@ -107,6 +122,8 @@ private:
     /// ThemeService.h include here for no benefit.
     Corbomite::Core::ThemeService *m_themeService = nullptr;
     std::function<QStringList()> m_fileLister;
+    LocalDataReader m_localDataReader;
+    LocalDataWriter m_localDataWriter;
     MarkdownRenderEngine *m_renderEngine = nullptr;
     CommandDispatch m_canvasCommandDispatcher;
 };

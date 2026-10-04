@@ -113,9 +113,15 @@ CanvasScene::CanvasScene(QObject *parent)
     m_compositeTool->addAnchorRoute(m_edgeGestureTool, 12.0);
 
     // Same bindings as Graffodil::DefaultGraphTool, with the resize route
-    // prepended ahead of select/move.
+    // prepended ahead of select/move. M5.4: the read-only lock drops both
+    // mutation-gesture routes so a press at a handle or on an anchor falls
+    // through to the select route (Obsidian gates the same two gestures
+    // separately from selection: `onResizeDblclick`/`onResizePointerdown` at
+    // app/own/1999-J8.js:60 and `onConnectionPointerdown` at
+    // app/own/2028-n9.js:192).
     m_compositeTool->addMouseRoute(m_resizeTool, [this](QGraphicsSceneMouseEvent *ev) {
-        return ev->button() == Qt::LeftButton
+        return !m_readOnly
+            && ev->button() == Qt::LeftButton
             && findResizeTarget(this, ev->scenePos()) != nullptr;
     });
     // M2.5 — Alt-drag duplicate: also tried ahead of select/move. Alt isn't
@@ -124,7 +130,8 @@ CanvasScene::CanvasScene(QObject *parent)
     // resize route's placement per the plan's "tried before the normal
     // select/move route" instruction.
     m_compositeTool->addMouseRoute(m_duplicateDragTool, [this](QGraphicsSceneMouseEvent *ev) {
-        return ev->button() == Qt::LeftButton
+        return !m_readOnly
+            && ev->button() == Qt::LeftButton
             && (ev->modifiers() & Qt::AltModifier)
             && findAltDragDuplicateTarget(this, ev->scenePos()) != nullptr;
     });
@@ -248,6 +255,70 @@ void CanvasScene::applyDarkTheme(bool dark)
     setCanvasPalette(dark ? CanvasPalette::dark() : CanvasPalette::light());
 }
 
+// ---------------------------------------------------------------------------
+// M5.4 — read-only lock
+// ---------------------------------------------------------------------------
+
+void CanvasScene::setReadOnly(bool readOnly)
+{
+    if (m_readOnly == readOnly)
+        return;
+    m_readOnly = readOnly;
+
+    // Commit-and-close rather than discard: the edit proxies are already
+    // holding user-typed text with no undo entry, so dropping them silently
+    // would lose keystrokes and leaving them open would let a post-lock
+    // focus-out commit them.
+    if (m_readOnly) {
+        finishInlineEdit();
+        finishFileCardEdit();
+        finishGroupLabelEdit();
+        // Snap the in-flight drag back now, but leave m_dragSnapshot and
+        // m_restoreDragPositions alone: SelectMoveTool still owns the
+        // gesture until mouseRelease, and every later move event has to be
+        // undone too. onDragEnded() is what finally tears the drag state down.
+        restoreDragSnapshot();
+        // A drag that began before the lock has m_restoreDragPositions still
+        // false; adopt it now so the rest of that gesture is undone too.
+        if (m_dragActive)
+            m_restoreDragPositions = true;
+        if (m_alignmentStrategy)
+            m_alignmentStrategy->endDrag();
+    }
+
+    // Obsidian's setReadonly also re-renders the menu and re-targets the
+    // lock icon (app/own/2018-k7.js:1397-1403); here the equivalents are the
+    // mutation affordances (chrome overlay) and the context menu, both of
+    // which read m_readOnly on their next invocation. The overlay needs an
+    // explicit nudge because it caches its showHandles/showDots flags.
+    m_edgeGestureTool->setReadOnly(m_readOnly);
+    updateActiveChromeTarget();
+    update();
+
+    emit readOnlyChanged(m_readOnly);
+}
+
+bool CanvasScene::canUndo() const
+{
+    return !m_readOnly && m_undoStack && m_undoStack->canUndo();
+}
+
+bool CanvasScene::canRedo() const
+{
+    return !m_readOnly && m_undoStack && m_undoStack->canRedo();
+}
+
+void CanvasScene::restoreDragSnapshot()
+{
+    for (auto it = m_dragSnapshot.cbegin(); it != m_dragSnapshot.cend(); ++it) {
+        auto *item = connectableItem(it.key());
+        if (!item || item->pos() == it.value())
+            continue;
+        item->setPos(it.value());
+        adjustEdgesForNode(it.key());
+    }
+}
+
 void CanvasScene::setDocument(CanvasDocument *doc)
 {
     // Disconnect old document
@@ -359,7 +430,8 @@ void CanvasScene::updateActiveChromeTarget()
     const auto selected = selectedItems();
     if (selected.size() == 1) {
         if (auto *node = dynamic_cast<CanvasNodeItem *>(selected.first())) {
-            m_chromeOverlay->retarget(node, /*showHandles=*/true, /*showDots=*/(node == m_hoveredNode));
+            m_chromeOverlay->retarget(node, /*showHandles=*/!m_readOnly,
+                                      /*showDots=*/!m_readOnly && (node == m_hoveredNode));
             return;
         }
     }
@@ -368,7 +440,8 @@ void CanvasScene::updateActiveChromeTarget()
     // support) but exactly one node is hovered -> show only the connection
     // dots, matching Obsidian's hover-to-reveal-anchors UX.
     if (selected.isEmpty() && m_hoveredNode) {
-        m_chromeOverlay->retarget(m_hoveredNode, /*showHandles=*/false, /*showDots=*/true);
+        m_chromeOverlay->retarget(m_hoveredNode, /*showHandles=*/false,
+                                  /*showDots=*/!m_readOnly);
         return;
     }
 
@@ -493,9 +566,104 @@ void CanvasScene::setFilePickerRequestor(FilePickerRequestor requestor)
     m_filePickerRequestor = std::move(requestor);
 }
 
+void CanvasScene::setFileNameRequestor(FileNameRequestor requestor)
+{
+    m_fileNameRequestor = std::move(requestor);
+}
+
+void CanvasScene::setMarkdownFileCreator(MarkdownFileCreator creator)
+{
+    m_markdownFileCreator = std::move(creator);
+}
+
+QString CanvasScene::selectedTextNodeId() const
+{
+    const auto items = selectedItems();
+    if (items.size() != 1)
+        return {};
+    const auto *card = dynamic_cast<const TextCardItem *>(items.first());
+    return card ? card->nodeId() : QString();
+}
+
+QString CanvasScene::convertTextCardToFile(const QString &nodeId)
+{
+    if (!m_document || m_readOnly || !m_fileNameRequestor || !m_markdownFileCreator)
+        return {};
+    // A default-constructed CanvasNode reads as a text node, so a missing id
+    // has to be rejected before the type check or it would convert a ghost.
+    if (!m_document->hasNode(nodeId))
+        return {};
+
+    const CanvasNode old = m_document->node(nodeId);
+    if (old.type != NodeType::Text)
+        return {};
+
+    const QString name = m_fileNameRequestor();
+    if (name.isEmpty())
+        return {};
+    const QString path = m_markdownFileCreator(name, old.text);
+    if (path.isEmpty())
+        return {};
+
+    // Obsidian's createFileNode({pos: this, size: this, file, save: false,
+    // focus: false}) (`app/own/2018-k7.js:749`, called from `:405`) takes
+    // the geometry and nothing else: R8 (`app/own/1985-R8.js:18`, mv at
+    // `app/own/0618-mv.js:2`) resolves pos+size into the old node's own
+    // rect, so a converted card keeps its position and size and loses its
+    // colour, exactly as upstream does.
+    CanvasNode fileNode;
+    fileNode.id = CanvasDocument::generateId();
+    fileNode.type = NodeType::File;
+    fileNode.file = path;
+    fileNode.x = old.x;
+    fileNode.y = old.y;
+    fileNode.width = old.width;
+    fileNode.height = old.height;
+
+    // One undo step for the whole conversion. Upstream gets this for free
+    // from its whole-document snapshot history (`k7`, pushed on a 250ms
+    // trailing debounce — `app/own/2018-k7.js:81`); our granular commands
+    // would otherwise need 2+N undos to get back to a text card.
+    auto *convert = new QUndoCommand(i18n("Convert to File"));
+    new CmdAddCard(m_document, fileNode, convert);
+    // Rebind before removing: CanvasDocument::removeNode() deletes every
+    // edge still touching the old id (`app/own/2022-W7.js:411-415` does the
+    // same rebind for the same reason).
+    const QVector<CanvasEdge> attached = m_document->edgesForNode(nodeId);
+    for (const auto &edge : attached) {
+        CanvasEdge rebound = edge;
+        if (rebound.fromNode == nodeId) rebound.fromNode = fileNode.id;
+        if (rebound.toNode == nodeId) rebound.toNode = fileNode.id;
+        new CmdReconnectEdge(m_document, edge, rebound, convert);
+    }
+    new CmdRemoveCard(m_document, nodeId, convert);
+    m_undoStack->push(convert);
+
+    if (auto *item = fileCardItem(fileNode.id)) {
+        clearSelection();
+        item->setSelected(true);
+    }
+    return fileNode.id;
+}
+
+QVector<CanvasScene::GroupJumpTarget> CanvasScene::groupJumpTargets() const
+{
+    QVector<GroupJumpTarget> out;
+    if (!m_document)
+        return out;
+    for (const CanvasNode &node : m_document->nodes()) {
+        if (node.type != NodeType::Group)
+            continue;
+        out.append({node.id,
+                    node.label.isEmpty() ? i18n("Untitled group") : node.label,
+                    QRectF(node.x, node.y, node.width, node.height)});
+    }
+    return out;
+}
+
 void CanvasScene::createFileCardViaPicker(const QPointF &scenePos)
 {
-    if (!m_document || !m_filePickerRequestor)
+    if (!m_document || !m_filePickerRequestor || m_readOnly)
         return;
 
     const QString path = m_filePickerRequestor();
@@ -534,6 +702,10 @@ void CanvasScene::setVaultPathResolver(VaultPathResolver resolver)
 
 void CanvasScene::dragEnterEvent(QGraphicsSceneDragDropEvent *event)
 {
+    if (m_readOnly) {
+        event->ignore();
+        return;
+    }
     if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
         event->acceptProposedAction();
         return;
@@ -543,6 +715,10 @@ void CanvasScene::dragEnterEvent(QGraphicsSceneDragDropEvent *event)
 
 void CanvasScene::dragMoveEvent(QGraphicsSceneDragDropEvent *event)
 {
+    if (m_readOnly) {
+        event->ignore();
+        return;
+    }
     if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
         event->acceptProposedAction();
         return;
@@ -552,7 +728,12 @@ void CanvasScene::dragMoveEvent(QGraphicsSceneDragDropEvent *event)
 
 void CanvasScene::dropEvent(QGraphicsSceneDragDropEvent *event)
 {
-    if (!m_document) {
+    // M5.4 diverges from Obsidian here on purpose: its dragManager.handleDrop
+    // callback (app/own/2018-k7.js:265-341) has no readonly check, so
+    // dropping a file onto a read-only canvas still creates cards. A drop is a
+    // mutation, so it is gated.
+    if (!m_document || m_readOnly) {
+        event->ignore();
         QGraphicsScene::dropEvent(event);
         return;
     }
@@ -863,6 +1044,7 @@ void CanvasScene::onDragBegan(const QList<Graffodil::IGraphNode *> &nodes)
     m_dragSnapshot.clear();
     m_dragActive = true;
     m_capturedGroups.clear();
+    m_restoreDragPositions = m_readOnly;
     // Force CanvasAlignmentStrategy to treat this as a fresh drag even if
     // the same node was just dragged a moment ago (see
     // CanvasAlignmentStrategy::endDrag()'s doc comment) -- fixes a
@@ -900,12 +1082,18 @@ void CanvasScene::onDragEnded(const QList<Graffodil::IGraphNode *> &nodes)
 {
     Q_UNUSED(nodes); // m_dragSnapshot (seeded in onDragBegan) is the complete set
     m_dragActive = false;
+    m_restoreDragPositions = false;
     if (m_alignmentStrategy)
         m_alignmentStrategy->endDrag();
 
     for (auto *group : std::as_const(m_capturedGroups))
         group->endDragCapture();
     m_capturedGroups.clear();
+
+    if (m_readOnly) {
+        m_dragSnapshot.clear();
+        return;
+    }
 
     if (m_dragSnapshot.isEmpty() || !m_document) {
         m_dragSnapshot.clear();
@@ -931,7 +1119,7 @@ void CanvasScene::onDragEnded(const QList<Graffodil::IGraphNode *> &nodes)
 void CanvasScene::onDeleteRequested(const QList<Graffodil::IGraphNode *> &nodes,
                                      const QList<Graffodil::IGraphEdge *> &edges)
 {
-    if (!m_document)
+    if (!m_document || m_readOnly)
         return;
 
     QStringList nodeIds;
@@ -960,14 +1148,14 @@ void CanvasScene::onDeleteRequested(const QList<Graffodil::IGraphNode *> &nodes,
 
 void CanvasScene::onResizeCommitted(const QString &nodeId, const QRect &oldRect, const QRect &newRect)
 {
-    if (!m_document)
+    if (!m_document || m_readOnly)
         return;
     m_undoStack->push(new CmdResizeCard(m_document, nodeId, oldRect, newRect));
 }
 
 void CanvasScene::setEdgeEnds(const QString &edgeId, EndType fromEnd, EndType toEnd)
 {
-    if (!m_document)
+    if (!m_document || m_readOnly)
         return;
     const CanvasEdge oldData = m_document->edge(edgeId);
     if (oldData.id.isEmpty())
@@ -980,7 +1168,7 @@ void CanvasScene::setEdgeEnds(const QString &edgeId, EndType fromEnd, EndType to
 
 void CanvasScene::reverseEdge(const QString &edgeId, QUndoCommand *parent)
 {
-    if (!m_document)
+    if (!m_document || m_readOnly)
         return;
     auto *cmd = new CmdReverseEdge(m_document, edgeId, parent);
     if (!parent)
@@ -989,7 +1177,7 @@ void CanvasScene::reverseEdge(const QString &edgeId, QUndoCommand *parent)
 
 void CanvasScene::onReverseRequested(const QList<Graffodil::IGraphEdge *> &edges)
 {
-    if (!m_document || edges.isEmpty())
+    if (!m_document || m_readOnly || edges.isEmpty())
         return;
 
     // Single edge: push CmdReverseEdge directly so the undo-stack label
@@ -1010,7 +1198,7 @@ void CanvasScene::onReverseRequested(const QList<Graffodil::IGraphEdge *> &edges
 void CanvasScene::onEdgeRequested(Graffodil::IGraphNode *source, const QString &sourceAnchorId,
                                    Graffodil::IGraphNode *target, const QString &targetAnchorId)
 {
-    if (!m_document || !source || !target)
+    if (!m_document || m_readOnly || !source || !target)
         return;
 
     // CreateEdgeTool::commitEdge/mouseReleaseEvent already reject a
@@ -1035,7 +1223,7 @@ void CanvasScene::onEdgeRequested(Graffodil::IGraphNode *source, const QString &
 void CanvasScene::addCardConnectedTo(CanvasNode node, Graffodil::IGraphNode *source,
                                        const QString &sourceAnchorId)
 {
-    if (!m_document || !source)
+    if (!m_document || m_readOnly || !source)
         return;
 
     // toSide = side facing the source (Appendix A/Phase M3.3): pick the new
@@ -1072,7 +1260,7 @@ void CanvasScene::addCardConnectedTo(CanvasNode node, Graffodil::IGraphNode *sou
 void CanvasScene::onEdgeDroppedOnEmpty(Graffodil::IGraphNode *source, const QString &sourceAnchorId,
                                          const QPointF &scenePos)
 {
-    if (!m_document || !source)
+    if (!m_document || m_readOnly || !source)
         return;
 
     QPoint screenPos;
@@ -1125,7 +1313,7 @@ void CanvasScene::onEdgeDroppedOnEmpty(Graffodil::IGraphNode *source, const QStr
 void CanvasScene::onReconnectRequested(const QString &edgeId, Graffodil::ArrowEnd end,
                                         Graffodil::IGraphNode *newNode, const QString &newAnchorId)
 {
-    if (!m_document || !newNode)
+    if (!m_document || m_readOnly || !newNode)
         return;
 
     const CanvasEdge oldEdge = m_document->edge(edgeId);
@@ -1151,6 +1339,8 @@ void CanvasScene::onReconnectRequested(const QString &edgeId, Graffodil::ArrowEn
 
 void CanvasScene::onReconnectDroppedOnEmpty(const QString &edgeId)
 {
+    if (m_readOnly)
+        return;
     if (!m_document)
         return;
     m_undoStack->push(new CmdRemoveEdge(m_document, edgeId));
@@ -1162,7 +1352,7 @@ void CanvasScene::onReconnectDroppedOnEmpty(const QString &edgeId)
 
 void CanvasScene::beginInlineEdit(TextCardItem *card)
 {
-    if (!card)
+    if (!card || m_readOnly)
         return;
 
     // Finish any existing edit first
@@ -1233,7 +1423,7 @@ void CanvasScene::finishInlineEdit()
 
 void CanvasScene::beginFileCardEdit(FileCardItem *card)
 {
-    if (!card)
+    if (!card || m_readOnly)
         return;
 
     finishInlineEdit();
@@ -1300,7 +1490,7 @@ void CanvasScene::finishFileCardEdit()
 
 void CanvasScene::beginGroupLabelEdit(GroupItem *group)
 {
-    if (!group || m_labelEditProxy)
+    if (!group || m_labelEditProxy || m_readOnly)
         return;
 
     m_editingGroupId = group->nodeId();
@@ -1393,6 +1583,12 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
         return;
     }
     GraphScene::mouseMoveEvent(event);
+    // SelectMoveTool fuses selection and move into one gesture; while locked
+    // we keep the selection half and undo the move half (see
+    // restoreDragSnapshot()). Runs after delegation because dragBegan fires
+    // from inside the tool's own move handler.
+    if (m_restoreDragPositions)
+        restoreDragSnapshot();
 }
 
 void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
@@ -1424,6 +1620,9 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
     // x5 with Shift, and the move is now pushed through CmdMoveCards
     // (same undo path as a mouse drag, via onDragEnded's before/after
     // position-hash shape) so nudging is finally undoable.
+    // M5.4: arrow-key nudge is a move, so it is gated; Ctrl+A (select) is
+    // not. Obsidian has no arrow nudge at all — this is Corbomite's M4.2
+    // addition, gated here against its own spec rather than Obsidian's.
     if (!focusItem()) {
         if ((event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_A) {
             for (auto *node : nodes())
@@ -1431,8 +1630,9 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
             event->accept();
             return;
         }
-        if (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right ||
-            event->key() == Qt::Key_Up || event->key() == Qt::Key_Down) {
+        if (!m_readOnly
+            && (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right
+                || event->key() == Qt::Key_Up || event->key() == Qt::Key_Down)) {
             const QList<Graffodil::IGraphNode *> selected = selectedNodes();
             if (selected.isEmpty() || !m_document) {
                 event->accept();
@@ -1485,7 +1685,7 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
 
 void CanvasScene::mouseDoubleClickEventBackground(const QPointF &scenePos)
 {
-    if (!m_document)
+    if (!m_document || m_readOnly)
         return;
 
     // Appendix A default text-card size: 250x60. "Centered on click point"
@@ -1545,7 +1745,7 @@ QString CanvasScene::serializeSelectionAsCanvasJson() const
 
 void CanvasScene::pasteCanvasJsonOrText(const QString &clipboardText, const QPointF &pasteCenterScenePos)
 {
-    if (!m_document || clipboardText.isEmpty())
+    if (!m_document || m_readOnly || clipboardText.isEmpty())
         return;
 
     // Canvas-JSON detection: valid JSON object with "nodes" and "edges"
@@ -1634,6 +1834,9 @@ void CanvasScene::copySelectionToClipboard()
 
 void CanvasScene::cutSelectionToClipboard()
 {
+    // Copy is not a mutation and stays available while locked (Obsidian gates
+    // cut at app/own/2018-k7.js:976 and leaves copy alone at `:996`); the
+    // delete half is stopped by onDeleteRequested's gate.
     copySelectionToClipboard();
     // Reuse the exact same compound-delete path Delete/Backspace uses.
     onDeleteRequested(selectedNodes(), selectedEdges());
@@ -1677,8 +1880,13 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         QGraphicsScene::contextMenuEvent(event);
         return;
     }
+    QMenu menu;
+    populateContextMenu(&menu, event->scenePos());
+    menu.exec(event->screenPos());
+}
 
-    const QPointF scenePos = event->scenePos();
+void CanvasScene::populateContextMenu(QMenu *menu, const QPointF &scenePos)
+{
     QGraphicsItem *hitItem = itemAt(scenePos, QTransform());
 
     // Walk up to find a canvas item
@@ -1696,141 +1904,148 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
         hitItem = hitItem->parentItem();
     }
 
-    QMenu menu;
-
+    // M5.4: while locked every mutating entry is omitted rather than
+    // disabled, so the menu isn't a wall of grey. Mirrors Obsidian's
+    // per-item `this.readonly || n.addItem(...)` guards — the selection menu
+    // (app/own/2018-k7.js:1519/1527/1537), the edge menu
+    // (app/own/2028-n9.js:168), and the card / text / group menus
+    // (app/own/2022-W7.js:257/382/723). contextMenuEvent()'s exec() is modal,
+    // so m_readOnly cannot flip while the menu is up and the actions need no
+    // guard of their own.
     if (cardItem) {
-        // Right-click on a TextCardItem
-        menu.addAction(i18n("Edit"), [this, cardItem]() {
-            beginInlineEdit(cardItem);
-        });
-
-        addColorSubmenu(&menu, cardItem->nodeId(), cardItem->nodeData().color);
-
-        menu.addAction(i18n("Duplicate"), [this, cardItem, scenePos]() {
-            if (!m_document)
-                return;
-            CanvasNode data = cardItem->nodeData();
-            data.id = CanvasDocument::generateId();
-            data.x += 20;
-            data.y += 20;
-            m_undoStack->push(new CmdAddCard(m_document, data));
-        });
-
-        menu.addSeparator();
-        menu.addAction(i18n("Delete"), [this, cardItem]() {
-            if (!m_document)
-                return;
-            m_undoStack->push(
-                new CmdRemoveCard(m_document, cardItem->nodeId()));
-        });
-    } else if (fileItem) {
-        // Right-click on a FileCardItem
-        addColorSubmenu(&menu, fileItem->nodeId(), fileItem->nodeData().color);
-
-        menu.addSeparator();
-        menu.addAction(i18n("Delete"), [this, fileItem]() {
-            if (!m_document)
-                return;
-            m_undoStack->push(
-                new CmdRemoveCard(m_document, fileItem->nodeId()));
-        });
-    } else if (grpItem) {
-        // Right-click on a GroupItem
-        menu.addAction(i18n("Edit Label"), [this, grpItem]() {
-            beginGroupLabelEdit(grpItem);
-        });
-
-        addColorSubmenu(&menu, grpItem->nodeId(), grpItem->nodeData().color);
-
-        menu.addAction(i18n("Duplicate"), [this, grpItem]() {
-            if (!m_document)
-                return;
-            CanvasNode data = grpItem->nodeData();
-            data.id = CanvasDocument::generateId();
-            data.x += 20;
-            data.y += 20;
-            m_undoStack->push(new CmdAddCard(m_document, data));
-        });
-
-        menu.addSeparator();
-        menu.addAction(i18n("Delete"), [this, grpItem]() {
-            if (!m_document)
-                return;
-            m_undoStack->push(
-                new CmdRemoveCard(m_document, grpItem->nodeId()));
-        });
-    } else if (edgItem) {
-        // Right-click on an EdgeItem
-        menu.addAction(i18n("Edit Label"), [this, edgItem]() {
-            // Simple inline label edit: use an input dialog approach via proxy widget
-            auto *lineEdit = new QLineEdit;
-            lineEdit->setText(edgItem->edgeData().label);
-            lineEdit->setFixedWidth(150);
-
-            auto *proxy = addWidget(lineEdit);
-            proxy->setPos(edgItem->boundingRect().center());
-            proxy->setZValue(100);
-            lineEdit->setFocus();
-            lineEdit->selectAll();
-
-            const QString edgeId = edgItem->edgeId();
-            connect(lineEdit, &QLineEdit::returnPressed, this, [this, proxy, lineEdit, edgeId]() {
-                const QString newLabel = lineEdit->text();
-
-                // returnPressed fires synchronously from inside QLineEdit's
-                // own keyPressEvent (QWidgetLineControl::processKeyEvent),
-                // which is still executing on the call stack here. A plain
-                // `delete proxy` would free the QLineEdit whose method is
-                // mid-call -- control returns into freed memory once this
-                // lambda returns (use-after-free / heap corruption).
-                // removeItem() itself just detaches from the scene (safe
-                // synchronously); deleteLater() is Qt's standard idiom for
-                // safely destroying an object from within its own event
-                // handler, deferring actual destruction past the current
-                // call stack.
-                removeItem(proxy);
-                proxy->deleteLater();
-
-                if (auto *edge = edgeItem(edgeId)) {
-                    CanvasEdge data = edge->edgeData();
-                    data.label = newLabel;
-                    edge->setEdgeData(data);
-                    if (m_document)
-                        m_document->updateEdge(data);
-                }
+        if (!m_readOnly) {
+            menu->addAction(i18n("Edit"), [this, cardItem]() {
+                beginInlineEdit(cardItem);
             });
-        });
 
-        menu.addAction(i18n("Reverse Direction"), [this, edgItem]() {
-            reverseEdge(edgItem->edgeId());
-        });
+            // M5.5 — upstream's text-card menu carries this entry right
+            // after Edit, behind the same `canvas.readonly` guard
+            // (`app/own/2022-W7.js:381-388`).
+            if (m_fileNameRequestor && m_markdownFileCreator) {
+                const QString cardId = cardItem->nodeId();
+                menu->addAction(i18n("Convert to File..."), [this, cardId]() {
+                    convertTextCardToFile(cardId);
+                });
+            }
 
-        // M3.5 — Direction submenu: Nondirectional / Unidirectional /
-        // Bidirectional, mapped to (fromEnd, toEnd) per Appendix A.
-        auto *dirMenu = menu.addMenu(i18n("Direction"));
-        const QString edgeId = edgItem->edgeId();
-        dirMenu->addAction(i18n("Nondirectional"), [this, edgeId]() {
-            setEdgeEnds(edgeId, EndType::None, EndType::None);
-        });
-        dirMenu->addAction(i18n("Unidirectional"), [this, edgeId]() {
-            setEdgeEnds(edgeId, EndType::None, EndType::Arrow);
-        });
-        dirMenu->addAction(i18n("Bidirectional"), [this, edgeId]() {
-            setEdgeEnds(edgeId, EndType::Arrow, EndType::Arrow);
-        });
+            addColorSubmenu(menu, cardItem->nodeId(), cardItem->nodeData().color);
 
-        menu.addSeparator();
-        menu.addAction(i18n("Delete"), [this, edgItem]() {
-            if (!m_document)
-                return;
-            m_undoStack->push(
-                new CmdRemoveEdge(m_document, edgItem->edgeId()));
-        });
-    } else {
+            menu->addAction(i18n("Duplicate"), [this, cardItem]() {
+                CanvasNode data = cardItem->nodeData();
+                data.id = CanvasDocument::generateId();
+                data.x += 20;
+                data.y += 20;
+                m_undoStack->push(new CmdAddCard(m_document, data));
+            });
+
+            menu->addSeparator();
+            menu->addAction(i18n("Delete"), [this, cardItem]() {
+                m_undoStack->push(
+                    new CmdRemoveCard(m_document, cardItem->nodeId()));
+            });
+        }
+    } else if (fileItem) {
+        if (!m_readOnly) {
+            addColorSubmenu(menu, fileItem->nodeId(), fileItem->nodeData().color);
+
+            menu->addSeparator();
+            menu->addAction(i18n("Delete"), [this, fileItem]() {
+                m_undoStack->push(
+                    new CmdRemoveCard(m_document, fileItem->nodeId()));
+            });
+        }
+    } else if (grpItem) {
+        if (!m_readOnly) {
+            menu->addAction(i18n("Edit Label"), [this, grpItem]() {
+                beginGroupLabelEdit(grpItem);
+            });
+
+            addColorSubmenu(menu, grpItem->nodeId(), grpItem->nodeData().color);
+
+            menu->addAction(i18n("Duplicate"), [this, grpItem]() {
+                CanvasNode data = grpItem->nodeData();
+                data.id = CanvasDocument::generateId();
+                data.x += 20;
+                data.y += 20;
+                m_undoStack->push(new CmdAddCard(m_document, data));
+            });
+
+            menu->addSeparator();
+            menu->addAction(i18n("Delete"), [this, grpItem]() {
+                m_undoStack->push(
+                    new CmdRemoveCard(m_document, grpItem->nodeId()));
+            });
+        }
+    } else if (edgItem) {
+        if (!m_readOnly) {
+            // Right-click on an EdgeItem
+            menu->addAction(i18n("Edit Label"), [this, edgItem]() {
+                // Simple inline label edit: use an input dialog approach via proxy widget
+                auto *lineEdit = new QLineEdit;
+                lineEdit->setText(edgItem->edgeData().label);
+                lineEdit->setFixedWidth(150);
+
+                auto *proxy = addWidget(lineEdit);
+                proxy->setPos(edgItem->boundingRect().center());
+                proxy->setZValue(100);
+                lineEdit->setFocus();
+                lineEdit->selectAll();
+
+                const QString edgeId = edgItem->edgeId();
+                connect(lineEdit, &QLineEdit::returnPressed, this, [this, proxy, lineEdit, edgeId]() {
+                    const QString newLabel = lineEdit->text();
+
+                    // returnPressed fires synchronously from inside QLineEdit's
+                    // own keyPressEvent (QWidgetLineControl::processKeyEvent),
+                    // which is still executing on the call stack here. A plain
+                    // `delete proxy` would free the QLineEdit whose method is
+                    // mid-call -- control returns into freed memory once this
+                    // lambda returns (use-after-free / heap corruption).
+                    // removeItem() itself just detaches from the scene (safe
+                    // synchronously); deleteLater() is Qt's standard idiom for
+                    // safely destroying an object from within its own event
+                    // handler, deferring actual destruction past the current
+                    // call stack.
+                    removeItem(proxy);
+                    proxy->deleteLater();
+
+                    if (auto *edge = edgeItem(edgeId)) {
+                        CanvasEdge data = edge->edgeData();
+                        data.label = newLabel;
+                        edge->setEdgeData(data);
+                        if (m_document)
+                            m_document->updateEdge(data);
+                    }
+                });
+            });
+
+            menu->addAction(i18n("Reverse Direction"), [this, edgItem]() {
+                reverseEdge(edgItem->edgeId());
+            });
+
+            // M3.5 — Direction submenu: Nondirectional / Unidirectional /
+            // Bidirectional, mapped to (fromEnd, toEnd) per Appendix A.
+            auto *dirMenu = menu->addMenu(i18n("Direction"));
+            const QString edgeId = edgItem->edgeId();
+            dirMenu->addAction(i18n("Nondirectional"), [this, edgeId]() {
+                setEdgeEnds(edgeId, EndType::None, EndType::None);
+            });
+            dirMenu->addAction(i18n("Unidirectional"), [this, edgeId]() {
+                setEdgeEnds(edgeId, EndType::None, EndType::Arrow);
+            });
+            dirMenu->addAction(i18n("Bidirectional"), [this, edgeId]() {
+                setEdgeEnds(edgeId, EndType::Arrow, EndType::Arrow);
+            });
+
+            menu->addSeparator();
+            menu->addAction(i18n("Delete"), [this, edgItem]() {
+                m_undoStack->push(
+                    new CmdRemoveEdge(m_document, edgItem->edgeId()));
+            });
+        }
+    } else if (!m_readOnly) {
         // Right-click on empty space
-        menu.addAction(i18n("New text card"), [this, scenePos]() {
-            if (!m_document)
-                return;
+        menu->addAction(i18n("New text card"), [this, scenePos]() {
             CanvasNode node;
             node.id = CanvasDocument::generateId();
             node.type = NodeType::Text;
@@ -1841,13 +2056,11 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             m_undoStack->push(new CmdAddCard(m_document, node));
         });
 
-        menu.addAction(i18n("New file card…"), [this, scenePos]() {
+        menu->addAction(i18n("New file card…"), [this, scenePos]() {
             createFileCardViaPicker(scenePos);
         });
 
-        menu.addAction(i18n("New group"), [this, scenePos]() {
-            if (!m_document)
-                return;
+        menu->addAction(i18n("New group"), [this, scenePos]() {
             CanvasNode node;
             node.id = CanvasDocument::generateId();
             node.type = NodeType::Group;
@@ -1859,8 +2072,6 @@ void CanvasScene::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
             m_undoStack->push(new CmdAddCard(m_document, node));
         });
     }
-
-    menu.exec(event->screenPos());
 }
 
 // --- Cluster R Task 3.5 — image / SVG export --------------------------------

@@ -94,6 +94,19 @@ public:
     /// plugin settings/data, which belongs to `PluginDataStore`).
     void setPluginSessionState(const QString &pluginId, const QJsonObject &state);
 
+    /// Tier 3. Per-file local data, keyed by Obsidian's own key format.
+    ///
+    /// Obsidian keeps this class of state in a flat localStorage map keyed
+    /// `<type>-<vault-relative-path>`; canvas is the only current user
+    /// (`localStorage["canvas-<path>"]`, `app/own/2028-n9.js:560-579`), whose
+    /// single payload key is `readonly`. Keeping the key format identical
+    /// means a Corbomite-written tier-3 file can be read against Obsidian's
+    /// behaviour by inspection, and vice versa.
+    ///
+    /// An empty `data` REMOVES the key, mirroring Obsidian's
+    /// `saveLocalStorage(key, null)` (`:569` and `:576`).
+    void setFileLocalData(const QString &key, const QJsonObject &data);
+
     /// Tier 2. Replace the left-ribbon layout state. Pass `{}` to clear.
     void setLeftRibbonState(const QJsonObject &state);
 
@@ -108,6 +121,8 @@ public:
     QStringList expandedFolders() const;
     QJsonObject pluginSessionState(const QString &pluginId) const;
     QJsonObject leftRibbonState() const;
+    /// Tier 3. Empty object when absent.
+    QJsonObject fileLocalData(const QString &key) const;
 
     /// The durable per-vault id minted into tier 2 on first open. Empty
     /// until `load()` has run at least once with a vault path set.
@@ -142,6 +157,7 @@ private:
     int m_sidebarLeftWidth = 200;
     int m_sidebarRightWidth = 200;
     QJsonObject m_pluginSessionStates; // pluginId -> state
+    QJsonObject m_fileLocalData; // "canvas-<path>" -> state
 
     QTimer m_saveTimer;
     int m_saveBlockCount = 0;

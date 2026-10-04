@@ -27,6 +27,7 @@ constexpr auto kWindowState = "windowState";
 constexpr auto kSidebarLeftWidth = "leftWidth";
 constexpr auto kSidebarRightWidth = "rightWidth";
 constexpr auto kPlugins = "plugins";
+constexpr auto kLocalData = "localData";
 
 bool writeJsonAtomically(const QString &path, const QJsonObject &obj)
 {
@@ -117,6 +118,7 @@ bool SessionManager::load()
     m_sidebarLeftWidth = 200;
     m_sidebarRightWidth = 200;
     m_pluginSessionStates = {};
+    m_fileLocalData = {};
 
     if (m_tier2Path.isEmpty()) return false;
 
@@ -158,6 +160,8 @@ bool SessionManager::load()
         }
         if (tier3.value(QLatin1String(kPlugins)).isObject())
             m_pluginSessionStates = tier3.value(QLatin1String(kPlugins)).toObject();
+        if (tier3.value(QLatin1String(kLocalData)).isObject())
+            m_fileLocalData = tier3.value(QLatin1String(kLocalData)).toObject();
     }
 
     m_loaded = true;
@@ -225,6 +229,17 @@ void SessionManager::setPluginSessionState(const QString &pluginId, const QJsonO
     scheduleSave();
 }
 
+void SessionManager::setFileLocalData(const QString &key, const QJsonObject &data)
+{
+    if (key.isEmpty()) return;
+    if (data.isEmpty()) {
+        m_fileLocalData.remove(key);
+    } else {
+        m_fileLocalData.insert(key, data);
+    }
+    scheduleSave();
+}
+
 void SessionManager::setLeftRibbonState(const QJsonObject &state)
 {
     m_leftRibbon = state;
@@ -258,6 +273,12 @@ QJsonObject SessionManager::pluginSessionState(const QString &pluginId) const
 
 QJsonObject SessionManager::leftRibbonState() const { return m_leftRibbon; }
 
+QJsonObject SessionManager::fileLocalData(const QString &key) const
+{
+    if (key.isEmpty()) return {};
+    return m_fileLocalData.value(key).toObject();
+}
+
 QString SessionManager::vaultId() const { return m_vaultId; }
 
 // --- Save ---
@@ -282,6 +303,8 @@ void SessionManager::doSave()
     tier3.insert(QLatin1String(kSidebar), sidebar3);
     if (!m_pluginSessionStates.isEmpty())
         tier3.insert(QLatin1String(kPlugins), m_pluginSessionStates);
+    if (!m_fileLocalData.isEmpty())
+        tier3.insert(QLatin1String(kLocalData), m_fileLocalData);
     writeJsonAtomically(m_tier3Path, tier3);
 }
 

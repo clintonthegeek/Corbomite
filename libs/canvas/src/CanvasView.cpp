@@ -113,6 +113,20 @@ QJsonObject CanvasView::viewState() const
     };
 }
 
+void CanvasView::ensureWorldCovers(double x, double y, double scale)
+{
+    if (!(scale > 0.0))
+        return;
+    const double halfW = viewport()->width() / (2.0 * scale) * kRestoreWorldViewports;
+    const double halfH = viewport()->height() / (2.0 * scale) * kRestoreWorldViewports;
+    QRectF world = scene()->sceneRect();
+    world.setLeft(std::min(world.left(), x - halfW));
+    world.setRight(std::max(world.right(), x + halfW));
+    world.setTop(std::min(world.top(), y - halfH));
+    world.setBottom(std::max(world.bottom(), y + halfH));
+    scene()->setSceneRect(world);
+}
+
 void CanvasView::setViewState(const QJsonObject &state)
 {
     if (!scene() || !viewport())
@@ -133,18 +147,8 @@ void CanvasView::setViewState(const QJsonObject &state)
     // from every node. QGraphicsView derives its scrollbar range from
     // sceneRect, and an unset sceneRect means itemsBoundingRect(), so without
     // this the restore silently clamps to the content edge and the pan is
-    // lost. Widen (never shrink) the world to kRestoreWorldViewports
-    // viewports at the target scale, so the recorded centre sits strictly
-    // inside the pannable band rather than exactly on its boundary, and can
-    // be panned a full viewport away afterwards.
-    const double halfW = viewport()->width() / (2.0 * scaleFactor) * kRestoreWorldViewports;
-    const double halfH = viewport()->height() / (2.0 * scaleFactor) * kRestoreWorldViewports;
-    QRectF world = scene()->sceneRect();
-    world.setLeft(std::min(world.left(), x - halfW));
-    world.setRight(std::max(world.right(), x + halfW));
-    world.setTop(std::min(world.top(), y - halfH));
-    world.setBottom(std::max(world.bottom(), y + halfH));
-    scene()->setSceneRect(world);
+    // lost.
+    ensureWorldCovers(x, y, scaleFactor);
 
     // AnchorUnderMouse (the gesture default, set in the ctor) makes scale()
     // re-anchor around the cursor, which would fight the explicit centring
@@ -213,6 +217,43 @@ void CanvasView::zoomToSelection()
     fitInView(bounds.adjusted(-50, -50, 50, 50), Qt::KeepAspectRatio);
 }
 
+void CanvasView::zoomToBbox(const QRectF &bbox)
+{
+    if (!scene() || !viewport())
+        return;
+    const double vw = viewport()->width();
+    const double vh = viewport()->height();
+    if (!(vw > 0.0) || !(vh > 0.0) || !(bbox.width() > 0.0) || !(bbox.height() > 0.0))
+        return;
+
+    // app/own/2018-k7.js:573-577 -- fit with a 1.1 margin, clamp the log2
+    // scale to [-4, 1] (the same clamp requestFrame() re-applies every
+    // frame at :821), then centre on the bbox.
+    const double fit = std::min(vw / (1.1 * bbox.width()), vh / (1.1 * bbox.height()));
+    const double scaleFactor =
+        std::pow(2.0, std::clamp(std::log2(fit), kMinZoomLog2, kMaxZoomLog2));
+
+    const QPointF centre = bbox.center();
+    // A group can be smaller than the viewport at the clamped scale, which
+    // leaves Qt with no scroll range to centre against.
+    ensureWorldCovers(centre.x(), centre.y(), scaleFactor);
+
+    // AnchorUnderMouse (the gesture default) would scale about the cursor and
+    // fight the explicit centring; AnchorViewCenter scales about the centre.
+    const ViewportAnchor savedAnchor = transformationAnchor();
+    setTransformationAnchor(AnchorViewCenter);
+    resetTransform();
+    scale(scaleFactor, scaleFactor);
+    centreScenePoint(centre.x(), centre.y());
+    setTransformationAnchor(savedAnchor);
+
+    QPointer<CanvasView> self(this);
+    QTimer::singleShot(0, this, [self, centre] {
+        if (self)
+            self->centreScenePoint(centre.x(), centre.y());
+    });
+}
+
 void CanvasView::setGridVisible(bool visible)
 {
     if (m_gridVisible == visible) return;
@@ -226,15 +267,17 @@ void CanvasView::keyPressEvent(QKeyEvent *event)
     const bool shift = event->modifiers() & Qt::ShiftModifier;
 
     if (ctrl && event->key() == Qt::Key_Z && !shift) {
-        // Ctrl+Z: undo
-        m_scene->undoStack()->undo();
+        // Ctrl+Z: undo. M5.4: gated on the scene's read-only-aware canUndo().
+        if (m_scene->canUndo())
+            m_scene->undoStack()->undo();
         return;
     }
 
     if ((ctrl && event->key() == Qt::Key_Y) ||
         (ctrl && shift && event->key() == Qt::Key_Z)) {
         // Ctrl+Y or Ctrl+Shift+Z: redo
-        m_scene->undoStack()->redo();
+        if (m_scene->canRedo())
+            m_scene->undoStack()->redo();
         return;
     }
 

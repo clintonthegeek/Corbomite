@@ -70,6 +70,13 @@ public:
     /// action itself in that case, but this stays defensive.
     void zoomToSelection();
 
+    /// Obsidian's `Canvas.zoomToBbox` (`app/own/2018-k7.js:568-578`): scale
+    /// to fit `bbox` with a 1.1 margin (Obsidian's own margin factor),
+    /// clamped to log2 [-4, 1], centred on the bbox. This is what
+    /// "Canvas: Jump to group" drives (`:673-676`). No-op on a degenerate
+    /// viewport or an empty bbox.
+    void zoomToBbox(const QRectF &bbox);
+
     /// Cluster O Phase O4 (O4.T1/T2) — app-wide "Show grid" toggle,
     /// backed by corbomite.kcfg's Canvas group. Honoured in
     /// drawBackground(); the background fill itself is unaffected.
@@ -86,6 +93,13 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
 
 private:
+    /// Widen (never shrink) the scene rect to kRestoreWorldViewports
+    /// viewports around (x, y) at `scale`. QGraphicsView derives its
+    /// scrollbar range from sceneRect, so a centre outside the world is
+    /// silently clamped away instead of being reachable — see
+    /// setViewState() for the full argument.
+    void ensureWorldCovers(double x, double y, double scale);
+
     /// Nudge the scrollbars until the scene point (x, y) sits at the viewport
     /// centre. Iterates because where that lands depends on the current
     /// viewport size and scrollbar ranges; converges to within a rounding step.

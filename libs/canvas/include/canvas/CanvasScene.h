@@ -75,6 +75,15 @@ public:
     /// free of any ThemeService/KColorScheme dependency.
     void applyDarkTheme(bool dark);
 
+    /// M5.4 — build the canvas context menu for `scenePos` into `menu`
+    /// without showing it. Split out of contextMenuEvent() so the
+    /// read-only lock's menu filtering is reachable from a test without
+    /// driving QMenu::exec()'s nested event loop — the same rationale as
+    /// createFileCardViaPicker() and addCardConnectedTo() above. Requires a
+    /// document; entries mutate the document through the undo stack when
+    /// triggered.
+    void populateContextMenu(QMenu *menu, const QPointF &scenePos);
+
     // Item lookup (typed convenience wrappers over GraphScene::nodeForId/edgeForId)
     TextCardItem *textCardItem(const QString &id) const;
     GroupItem *groupItem(const QString &id) const;
@@ -100,6 +109,29 @@ public:
     // without driving a real modal dialog.
     using FilePickerRequestor = std::function<QString()>;
     void setFilePickerRequestor(FilePickerRequestor requestor);
+
+    /// M5.4 read-only lock. Mirrors Obsidian's `Canvas.readonly`
+    /// (`app/own/2018-k7.js:81`, toggled by `Canvas.setReadonly` at `:1395`):
+    /// per-canvas-file, machine-local, and gating everything except
+    /// pan/zoom/select. The flag lives here rather than in CanvasDocument
+    /// because it must never reach a `.canvas` file or `workspace.json` --
+    /// CanvasViewTab persists it through the tier-3 store instead.
+    ///
+    /// Turning it on commits and closes any in-progress inline edit and
+    /// abandons an in-flight node drag, so text typed before the lock cannot
+    /// be committed after it.
+    bool isReadOnly() const { return m_readOnly; }
+    void setReadOnly(bool readOnly);
+
+    /// undoStack() stays raw so undo commands can be pushed from anywhere;
+    /// these are the read-only-aware answers, and are what the KAction layer
+    /// (CanvasFileView::canUndo/canRedo) and CanvasView's Ctrl+Z/Y use.
+    /// Obsidian does NOT gate undo behind the lock -- its control-cluster
+    /// undo/redo buttons (`app/own/2018-k7.js:239-254`) and `Canvas.undo`
+    /// (`:481`) carry no readonly check -- but an undo against a locked canvas
+    /// is a mutation, so we close that hole.
+    bool canUndo() const;
+    bool canRedo() const;
 
     /// Programmatic entry point mirroring the "New file card…" context-menu
     /// action: invokes the file-picker requestor and, if a path is
@@ -141,6 +173,47 @@ public:
     // (test / no-vault convenience) — the real app always sets one.
     using VaultPathResolver = std::function<QString(const QString &absoluteFilePath)>;
     void setVaultPathResolver(VaultPathResolver resolver);
+
+    // --- M5.5 "Convert to File…" (Obsidian TextCardItem.convertToFile) ---
+    //
+    // The operation spans a modal prompt and a libs/vault FileManager write,
+    // neither of which libs/canvas may own, so both are seams — same shape
+    // and same rationale as setFilePickerRequestor() above.
+    /// Asks for the new note's name. Empty string means cancelled.
+    using FileNameRequestor = std::function<QString()>;
+    void setFileNameRequestor(FileNameRequestor requestor);
+    /// Writes `content` as a markdown file named `name`, returning its
+    /// vault-relative path, or empty string on failure.
+    using MarkdownFileCreator = std::function<QString(const QString &name, const QString &content)>;
+    void setMarkdownFileCreator(MarkdownFileCreator creator);
+
+    /// The node id of the selected text card when the selection is exactly
+    /// one text node, else empty. Obsidian's `canvas:convert-to-file`
+    /// checkCallback (`app/own/2028-n9.js:682-692`) gates the command on
+    /// precisely that, so this is the action's Tier-B capability probe.
+    QString selectedTextNodeId() const;
+
+    /// Writes the card's text to a new markdown file and swaps the node's
+    /// type/file for it, keeping the node's geometry and rebinding every
+    /// edge onto the new node — one undo step for the whole conversion.
+    /// Returns the new file node's id, or empty when the prompt was
+    /// cancelled, the write failed, `nodeId` is not a text node, or the
+    /// canvas is locked.
+    QString convertTextCardToFile(const QString &nodeId);
+
+    /// One entry of the "Jump to group" candidate list.
+    struct GroupJumpTarget {
+        QString nodeId;
+        QString label;
+        QRectF bounds;
+    };
+
+    /// The canvas's groups as jump targets: document (paint) order filtered
+    /// to `type == "group"`, each label falling back to i18n("Untitled
+    /// group"). Mirrors Obsidian's `l9.getItems`/`getItemText`
+    /// (`app/own/2028-n9.js:305-313`), which filters the document's node
+    /// array rather than the live scene.
+    QVector<GroupJumpTarget> groupJumpTargets() const;
 
     // M2.4 — clipboard. serializeSelectionAsCanvasJson()/pasteCanvasJsonOrText()
     // are pure logic (no QClipboard access) so tests can round-trip them
@@ -218,6 +291,8 @@ public:
 
 Q_SIGNALS:
     void cardDoubleClicked(const QString &nodeId);
+    /// M5.4 — CanvasViewTab listens to persist the flag to tier 3.
+    void readOnlyChanged(bool readOnly);
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
@@ -284,6 +359,13 @@ private:
     void renderFileCard(FileCardItem *item);
     void reRenderAllCards();
     void addColorSubmenu(QMenu *parentMenu, const QString &nodeId, const QString &currentColor);
+    /// M5.4 — re-apply m_dragSnapshot's positions, called from mouseMoveEvent
+    /// after SelectMoveTool has moved the drag set. SelectMoveTool fuses
+    /// selection and move into one gesture and its drag state is private (and
+    /// it lives in the graffodil submodule), so this is the only way to keep
+    /// "selection still works, movement does not" without forking it: the
+    /// items follow the cursor and are snapped straight back each event.
+    void restoreDragSnapshot();
     /// M4.4 — wires the hover/geometry signals shared by every
     /// CanvasNodeItem subclass; called once from each add*Item() factory
     /// (mirrors the per-subclass editRequested() connect() calls already
@@ -320,6 +402,8 @@ private:
     FileResolver m_fileResolver;
     FileSaver m_fileSaver;
     FilePickerRequestor m_filePickerRequestor;
+    FileNameRequestor m_fileNameRequestor;
+    MarkdownFileCreator m_markdownFileCreator;
     VaultPathResolver m_vaultPathResolver;
     void beginFileCardEdit(FileCardItem *card);
     void finishFileCardEdit();
@@ -341,6 +425,12 @@ private:
     // M4.3 — groups whose drag-capture was started this gesture (so
     // onDragEnded can symmetrically end capture on exactly the ones begun).
     QVector<GroupItem *> m_capturedGroups;
+
+    // --- M5.4 read-only lock ---
+    bool m_readOnly = false;
+    /// True between onDragBegan and onDragEnded while m_dragSnapshot should
+    /// be re-applied after every move event. Only ever set while m_readOnly.
+    bool m_restoreDragPositions = false;
 };
 
 } // namespace Canvas

@@ -6,6 +6,10 @@
 
 #include <QMetaObject>
 
+namespace Canvas {
+class CanvasScene;
+}
+
 namespace Corbomite {
 
 class CanvasFileView;
@@ -37,6 +41,15 @@ public:
 private:
     void setupActions();
     CanvasFileView *canvas() const { return m_boundView; }
+
+    /// M5.5 — the bound canvas's scene, or null.
+    Canvas::CanvasScene *canvasScene() const;
+
+    /// M5.5 — Obsidian's `canvas:jump-to-group` needs at least one group to
+    /// list (`app/own/2028-n9.js:673`), and `canvas:convert-to-file` needs
+    /// exactly one selected text node (`:686-688`).
+    bool canvasHasGroups() const;
+    QString selectedTextNodeId() const;
 
     CanvasFileView *m_boundView = nullptr;
     QMetaObject::Connection m_contextConnection;

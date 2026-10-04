@@ -11,6 +11,8 @@ A standalone Qt6/C++ canvas editing library compatible with JSON Canvas 1.0 (jso
 - QGraphicsView-based interactive editor
 - Pan, zoom, resize, undo/redo
 - Tool state machine (select, create card, create edge)
+- `ConvertTextCardToFile()`: re-type a text card as a file card in one undo step
+- `groupJumpTargets()` + `CanvasView::zoomToBbox()`: Obsidian's "Jump to group" camera
 
 ## On-disk format
 

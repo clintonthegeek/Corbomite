@@ -53,6 +53,17 @@ public:
     /// CreateEdgeTool's 12px node-anchor hover radius.
     static constexpr qreal kEndpointHitRadius = 8.0;
 
+    /// M5.4 read-only lock. CompositeTool::addAnchorRoute() has no predicate
+    /// overload (and no way to un-register a route), so this tool can't have
+    /// its route withdrawn on toggle the way CanvasScene's own resize and
+    /// Alt-duplicate routes do — it has to decline the events instead.
+    /// Collateral effect, matching Obsidian (`onConnectionPointerdown`'s
+    /// `!n.readonly` guard at app/own/2028-n9.js:192): CompositeTool keeps
+    /// the press for whichever route matched first, so a press within 12px
+    /// of an anchor neither creates an edge nor reaches the select tool.
+    void setReadOnly(bool readOnly) { m_readOnly = readOnly; }
+    bool isReadOnly() const { return m_readOnly; }
+
 private:
     struct EndpointHit {
         Graffodil::IGraphEdge *edge = nullptr;
@@ -63,6 +74,7 @@ private:
     Graffodil::CreateEdgeTool *m_createEdgeTool;
     ReconnectEdgeTool *m_reconnectTool;
     Graffodil::GraphTool *m_activeSubTool = nullptr; // whichever got the press, until release
+    bool m_readOnly = false;
 };
 
 } // namespace Canvas

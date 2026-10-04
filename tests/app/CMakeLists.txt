@@ -269,3 +269,25 @@ target_link_libraries(tst_markdownview_find_replace_dispatch PRIVATE
 set_tests_properties(tst_markdownview_find_replace_dispatch PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+# Cluster M Phase M5.4 — the canvas read-only lock's tier-3 home and the tier
+# split it must respect: SessionManager's machine-local session.json, keyed
+# exactly as Obsidian keys localStorage ("canvas-<vault-relative-path>"), and
+# never in the .canvas file or workspace.json.
+add_executable(tst_canvas_readonly_store tst_canvas_readonly_store.cpp)
+add_test(NAME tst_canvas_readonly_store COMMAND tst_canvas_readonly_store)
+target_link_libraries(tst_canvas_readonly_store PRIVATE
+    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+set_tests_properties(tst_canvas_readonly_store PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Cluster M Phase M5.5 — "Convert to File…" against a real FileManager write:
+# the note body is the card text verbatim (no embed), and one undo restores
+# the text card without deleting the note Obsidian leaves behind.
+add_executable(tst_canvas_convert_to_file_vault tst_canvas_convert_to_file_vault.cpp)
+add_test(NAME tst_canvas_convert_to_file_vault COMMAND tst_canvas_convert_to_file_vault)
+target_link_libraries(tst_canvas_convert_to_file_vault PRIVATE
+    Qt6::Test Qt6::Widgets CorbomiteApp Corbomite::Core Corbomite::Vault
+    Corbomite::Storage canvas)
+set_tests_properties(tst_canvas_convert_to_file_vault PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
