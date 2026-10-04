@@ -2,7 +2,7 @@
 // Query the corpus index.
 //
 //   node q.js find <text> [--kind K] [--bundle B] [--limit N] [--context N]
-//   node q.js at <bundle>/<rel> <line> [--context N]
+//   node q.js at <bundle>/<rel> <line> [--context N] [--width N]
 //   node q.js sql "<SQL>"
 //   node q.js stats
 //
@@ -51,17 +51,21 @@ function snippet(lines, line, width = 150) {
   if (l === undefined) return "";
   return l.trim().slice(0, width);
 }
-function context(bundle, rel, line, n) {
+// Width is configurable because Obsidian's statements are long single lines: the
+// default silently clipped `WorkspaceLeaf.setViewState`'s body on first read and
+// an agent nearly drew a conclusion from the truncation.
+function context(bundle, rel, line, n, width) {
   const lines = sourceOf(bundle, rel);
   if (!lines) return "";
   const from = Math.max(1, line - n);
   const to = Math.min(lines.length, line + n);
   const out = [];
   for (let i = from; i <= to; i++) {
-    out.push(`${i === line ? ">" : " "} ${String(i).padStart(5)} | ${lines[i - 1].slice(0, 200)}`);
+    out.push(`${i === line ? ">" : " "} ${String(i).padStart(5)} | ${lines[i - 1].slice(0, width)}`);
   }
   return out.join("\n");
 }
+const width = () => Number(flag("width", 400));
 
 // -------------------------------------------------------------------- find
 if (cmd === "find") {
@@ -101,7 +105,7 @@ if (cmd === "find") {
   for (const r of rows) {
     const what = r.name ? r.name : JSON.stringify(String(r.value).slice(0, 110));
     console.log(`  ${r.bundle}/${r.rel}:${r.line}  [${r.kind}]  ${what}`);
-    if (ctx) console.log(context(r.bundle, r.rel, r.line, ctx).replace(/^/gm, "      "));
+    if (ctx) console.log(context(r.bundle, r.rel, r.line, ctx, width()).replace(/^/gm, "      "));
   }
 }
 
@@ -110,13 +114,13 @@ else if (cmd === "at") {
   const where = positional[1];
   const line = Number(positional[2]);
   if (!where || !line) {
-    console.error("usage: q.js at <bundle>/<rel> <line> [--context 20]");
+    console.error("usage: q.js at <bundle>/<rel> <line> [--context 20] [--width N]");
     process.exit(2);
   }
   const slash = where.indexOf("/");
   const bundle = where.slice(0, slash);
   const rel = where.slice(slash + 1);
-  console.log(context(bundle, rel, line, Number(flag("context", 20))));
+  console.log(context(bundle, rel, line, Number(flag("context", 20)), width()));
 }
 
 // --------------------------------------------------------------------- sql

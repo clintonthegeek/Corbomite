@@ -132,7 +132,7 @@ established or *by clusters that didn't touch it*.
 | DSL backend honor | 🟡 | FTS5 + post-filters; `line:/block:/section:/task*:` parsed but unsupported; bareword is exact-token not substring (⚠) |
 | Search results UI | 🟡 | **one snippet per file** (`SQLiteIndex.cpp:461`); no history/sort/copy/context toggle |
 | Embedded `query` blocks | ❌ | absent |
-| Quick-switcher fuzzy scoring parity | ✅ | constants match audit exactly |
+| Quick-switcher fuzzy scoring parity | 🟡 | five constants match, **penalty rule does not** — verified 2026-10-03 ([addendum](obsidian-audit/addenda/2026-10-03-search-dsl-grammar-and-quick-switcher-scoring.md)) |
 | Global graph (layout, sliders, orphans, hover, ctx menu) | ✅ | `libs/forcegraph` + `GraphViewTab.cpp`; solid |
 | Graph: tag/attachment filters, color groups, screenshot | ❌ | TODOs in `GraphControlsPanel.cpp:79-80` |
 | graph.json persistence | ❌ | nothing persisted; sliders reset every session |
