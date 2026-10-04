@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <QByteArray>
 #include <QJsonObject>
 
 namespace KDDockWidgets::QtWidgets {
@@ -24,6 +25,13 @@ namespace WorkspaceSerializer {
 /// leafId→WorkspaceLeaf map; emit Obsidian-shape workspace.json.
 /// \param workspace may be nullptr in test contexts that don't need leaf-state.
 QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace *workspace);
+
+/// Render `root` as workspace.json text. `QJsonDocument` would emit members
+/// in QJsonObject's sorted key order; this reproduces Obsidian's own key
+/// order instead, which is fixed by the order its per-class serialize()
+/// methods assign members. The result re-parses to a document equal to
+/// `QJsonDocument::fromJson(root)`.
+QByteArray toJsonText(const QJsonObject &root);
 
 /// Reconstruct the KDDW MainWindow's layout from Obsidian-shape JSON.
 /// Creates DockWidgets and attaches them; if workspace is non-null,

@@ -59,6 +59,46 @@ QString generateTabGroupId()
     return result;
 }
 
+// Per-category quotas for the `lastOpenFiles` list. The category sets are
+// Obsidian's own extension tables (`hb` image / `mb` canvas / `vb` md,
+// app/own/0794-hb.js:2-8) and the quotas come from n4.collect
+// (app/own/1930-n4.js:12-17). Everything that is not md, canvas or one of
+// the eight image extensions — including .base, .pdf, audio and video —
+// counts against `Other`. 25 + 10 + 10 + 10 = 55 is therefore the hard
+// ceiling on the on-disk array.
+enum RecentCategory { RecentMd, RecentCanvas, RecentImage, RecentOther };
+
+int recentCategoryQuota(RecentCategory category)
+{
+    switch (category) {
+    case RecentMd: return 25;
+    case RecentCanvas: return 10;
+    case RecentImage: return 10;
+    case RecentOther: return 10;
+    }
+    return 0;
+}
+
+RecentCategory recentCategory(const QString &path)
+{
+    // Fl() (app/own/0365-Fl.js:2-5): the text after the last dot,
+    // lowercased; "" when there is no dot, the dot leads, or it trails.
+    const qsizetype dot = path.lastIndexOf(QLatin1Char('.'));
+    const QString ext = (dot == -1 || dot == path.size() - 1 || dot == 0)
+        ? QString()
+        : path.mid(dot + 1).toLower();
+    if (ext == QLatin1String("md"))
+        return RecentMd;
+    if (ext == QLatin1String("canvas"))
+        return RecentCanvas;
+    static const QSet<QString> images = {
+        QLatin1String("bmp"), QLatin1String("png"), QLatin1String("jpg"),
+        QLatin1String("jpeg"), QLatin1String("gif"), QLatin1String("svg"),
+        QLatin1String("webp"), QLatin1String("avif"),
+    };
+    return images.contains(ext) ? RecentImage : RecentOther;
+}
+
 // Live tab-group enumeration via KDDW. Source of truth for "which leaves
 // share a tab group right now" — tolerant of user drag-tab-to-other-group
 // because it queries DockRegistry directly rather than the cached
@@ -334,10 +374,31 @@ void Workspace::setLastOpenFiles(const QStringList &files) { m_lastOpenFiles = f
 
 void Workspace::pushLastOpenFile(const QString &path)
 {
-    m_lastOpenFiles.removeAll(path);
-    m_lastOpenFiles.prepend(path);
-    if (m_lastOpenFiles.size() > 50)
-        m_lastOpenFiles.removeLast();
+    // Mirrors n4.collect (app/own/1930-n4.js:10-28): the incoming path goes
+    // to the front, then the previous list is walked in order and a survivor
+    // is kept while its category's quota lasts, so the result is interleaved
+    // by recency across categories rather than grouped. A no-op when the
+    // path is already at index 0.
+    if (!m_lastOpenFiles.isEmpty() && m_lastOpenFiles.first() == path)
+        return;
+    int remaining[4] = {
+        recentCategoryQuota(RecentMd),
+        recentCategoryQuota(RecentCanvas),
+        recentCategoryQuota(RecentImage),
+        recentCategoryQuota(RecentOther),
+    };
+    QStringList next;
+    next.append(path);
+    for (const auto &existing : std::as_const(m_lastOpenFiles)) {
+        if (existing == path)
+            continue;
+        const auto category = recentCategory(existing);
+        if (remaining[category] <= 0)
+            continue;
+        next.append(existing);
+        --remaining[category];
+    }
+    m_lastOpenFiles = next;
 }
 
 void Workspace::destroyLeaves(QVector<WorkspaceLeaf *> leaves, TeardownMode mode)
@@ -1019,12 +1080,12 @@ QJsonObject Workspace::serialize() const
     json[QStringLiteral("active")] = m_activeLeaf
         ? m_activeLeaf->id()
         : QString{};
-    if (!m_lastOpenFiles.isEmpty()) {
-        QJsonArray files;
-        for (const auto &f : m_lastOpenFiles)
-            files.append(f);
-        json[QStringLiteral("lastOpenFiles")] = files;
-    }
+    // saveLayout assigns lastOpenFiles unconditionally
+    // (app/own/1932-r4.js:1173), so an empty tracker still emits `[]`.
+    QJsonArray files;
+    for (const auto &f : std::as_const(m_lastOpenFiles))
+        files.append(f);
+    json[QStringLiteral("lastOpenFiles")] = files;
     return json;
 }
 
@@ -1054,15 +1115,22 @@ void Workspace::deserialize(const QJsonObject &json)
     // serialize() can round-trip them unchanged (Obsidian schema-at-rest
     // fidelity — Cluster L workspace-compat-boundary doctrine). `main`,
     // `active`, `lastOpenFiles`, and `floating` are Corbomite-modeled and
-    // regenerated fresh by serialize(); `_corbomite` and `left-ribbon` are
-    // Corbomite's own retired keys (never Obsidian schema) and are
-    // explicitly denylisted here rather than forwarded — a legacy dev-build
-    // vault must not carry them forward forever.
+    // regenerated fresh by serialize(); `_corbomite` is Corbomite's own
+    // retired key and is explicitly denylisted here rather than forwarded —
+    // a legacy dev-build vault must not carry it forward forever.
+    //
+    // `left-ribbon` was denylisted too, on the stated premise that it was
+    // "never Obsidian schema". That premise is false: `getLayout` writes it
+    // (`app/own/1932-r4.js:1163`, `e["left-ribbon"] = this.leftRibbon.serialize()`).
+    // Denylisting it meant a vault authored by Obsidian lost its ribbon layout
+    // the moment Corbomite saved — silently, and in a file both apps share.
+    // It round-trips through m_unknownRoot instead: nothing in Corbomite reads
+    // it, so preserving it costs nothing and the doctrine is unaffected.
     m_unknownRoot = {};
     static const QSet<QString> kKnownOrDenylisted = {
         QStringLiteral("main"), QStringLiteral("active"),
         QStringLiteral("lastOpenFiles"), QStringLiteral("floating"),
-        QStringLiteral("_corbomite"), QStringLiteral("left-ribbon"),
+        QStringLiteral("_corbomite"),
     };
     for (auto it = json.begin(); it != json.end(); ++it) {
         if (!kKnownOrDenylisted.contains(it.key()))
@@ -1160,6 +1228,13 @@ void Workspace::readWorkspaceJson(const QString &vaultPath)
 
 void Workspace::writeWorkspaceJson(const QString &vaultPath)
 {
+    // saveLayout() returns early while layoutReady is false
+    // (app/own/1932-r4.js:1172), so a save requested from inside a
+    // clearLayout()/setLayout() pair leaves the previous workspace.json in
+    // place instead of writing a half-materialized tree over it.
+    if (!m_layoutReady)
+        return;
+
     QString dirPath = vaultPath + QStringLiteral("/.obsidian");
     QDir().mkpath(dirPath);
 
@@ -1168,8 +1243,7 @@ void Workspace::writeWorkspaceJson(const QString &vaultPath)
     if (!f.open(QIODevice::WriteOnly))
         return;
 
-    QJsonDocument doc(serialize());
-    f.write(doc.toJson(QJsonDocument::Indented));
+    f.write(WorkspaceSerializer::toJsonText(serialize()));
 }
 
 void Workspace::resetToDefaultLayout()

@@ -185,13 +185,11 @@ private Q_SLOTS:
                  "serialize() must produce \"lastOpenFiles\" when non-empty");
     }
 
-    // [DIV-1] Document: serialize() omits "lastOpenFiles" when empty (spec violation)
-    // The spec's Obsidian-compatible schema always includes this key.
-    // This test uses QEXPECT_FAIL to assert the spec requirement while
-    // documenting the known implementation divergence. When the implementation
-    // is fixed to always emit "lastOpenFiles", this test will start passing
-    // and QEXPECT_FAIL will turn it into a failure — remove the QEXPECT_FAIL then.
-    void serializeOmitsLastOpenFilesWhenEmpty_knownDivergence()
+    // [DIV-1] Resolved: saveLayout assigns lastOpenFiles unconditionally
+    // (app/own/1932-r4.js:1173), so the key is always present, even empty.
+    // serialize() used to gate it on a non-empty list; the QEXPECT_FAIL that
+    // documented that divergence is gone now that it is fixed.
+    void serializeEmitsLastOpenFilesWhenEmpty()
     {
         auto *reg = makeRegistry(this);
         auto *ws = new Workspace(reg, this);
@@ -199,15 +197,9 @@ private Q_SLOTS:
 
         QJsonObject root = ws->serialize();
 
-        // Spec §3.9: "lastOpenFiles" must always be present in workspace.json.
-        // Implementation: `if (!m_lastOpenFiles.isEmpty()) { ... }` (Workspace.cpp ~line 287)
-        // omits the key when the list is empty. Mark as expected failure until fixed.
-        QEXPECT_FAIL("",
-                     "DIV-1: serialize() omits \"lastOpenFiles\" when empty; "
-                     "spec requires it to always be present",
-                     Continue);
         QVERIFY2(root.contains(QStringLiteral("lastOpenFiles")),
                  "serialize() must always emit \"lastOpenFiles\" (even when empty array)");
+        QVERIFY(root.value(QStringLiteral("lastOpenFiles")).toArray().isEmpty());
     }
 
     // [C2] serialize() "active" equals the active leaf's id
@@ -671,7 +663,7 @@ private Q_SLOTS:
     // retired keys (never Obsidian schema) and must be dropped on a
     // load->save cycle, not forwarded via the unknown-root passthrough
     // meant for genuine future Obsidian keys.
-    void denylistDropsLegacyCorbomiteAndLeftRibbonKeys()
+    void denylistDropsCorbomitePrivateKeysAndForwardsObsidianOnes()
     {
         QTemporaryDir tempDir;
         QVERIFY(tempDir.isValid());
@@ -694,8 +686,16 @@ private Q_SLOTS:
 
         QVERIFY2(!root.contains(QStringLiteral("_corbomite")),
                  "_corbomite must be dropped, not forwarded, on save");
-        QVERIFY2(!root.contains(QStringLiteral("left-ribbon")),
-                 "left-ribbon must be dropped, not forwarded, on save");
+        // SPEC CORRECTION 2026-10-04. This assertion used to require
+        // `left-ribbon` to be DROPPED, on the premise that it was never
+        // Obsidian schema. That premise is false: Workspace.getLayout writes
+        // it (app/own/1932-r4.js:1163). Denylisting it meant an
+        // Obsidian-authored vault lost its ribbon layout the first time
+        // Corbomite saved the file -- silently, and in a file both apps share.
+        // `left-ribbon` is now forwarded like any other Obsidian key we do not
+        // model; only `_corbomite` is Corbomite-private and dropped.
+        QVERIFY2(root.contains(QStringLiteral("left-ribbon")),
+                 "left-ribbon is Obsidian schema and must round-trip, not be dropped");
     }
 
     // Unknown-root passthrough: `left`/`right` sidedock sub-trees and any
@@ -756,19 +756,11 @@ private Q_SLOTS:
     // survives a Corbomite load->save cycle for every key this doctrine
     // doesn't explicitly license rewriting.
     //
-    // KNOWN GAP (documented, not silently passed over): `dimension` values
-    // on split/tabs nodes are parsed on load but are NOT currently carried
-    // through to the production write, because the production writer
-    // (WorkspaceSerializer::toJson) always rebuilds the split/tabs tree
-    // fresh from KDDockWidgets' live LayoutSaver dump — which has no
-    // concept of the Obsidian-side node ids or dimensions at all — rather
-    // than replaying the originally-parsed tree. Persisting `dimension`
-    // through a save would require a durable id/dimension store correlated
-    // to KDDW's ephemeral split containers, which don't have stable
-    // identity across relayouts; this is the rabbit hole the cluster plan
-    // explicitly permits shortcutting around (Phase L2 step 3's stated
-    // fallback). This test does not assert on `dimension` values for that
-    // reason.
+    // Container `id`s and `dimension` values are anchored on the container's
+    // first descendant leaf plus its depth (see containerSidecar in
+    // WorkspaceSerializer.cpp), which is what lets them survive a write: the
+    // KDDW substrate knows only dock-widget unique names, so the write path
+    // rebuilds every split/tabs node from scratch and has to re-attach both.
     void goldenFixtureRoundTripsStructureAndUnknownKeys()
     {
         QTemporaryDir tempDir;
@@ -805,9 +797,7 @@ private Q_SLOTS:
         QVERIFY(f.open(QIODevice::ReadOnly));
         const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
 
-        // Allowed rewrites: ids reassigned (fixture's explicit ids are not
-        // KDDW-tracked and get regenerated), dimension dropped (see gap
-        // note above), state-shape re-normalized. Everything else must
+        // Allowed rewrites: state-shape re-normalized. Everything else must
         // survive.
         QCOMPARE(root.value(QStringLiteral("active")).toString(),
                  QStringLiteral("leaf01aaaaaaaaaa"));
@@ -818,11 +808,42 @@ private Q_SLOTS:
         QCOMPARE(root.value(QStringLiteral("someFutureObsidianPluginKey")),
                  fixture.value(QStringLiteral("someFutureObsidianPluginKey")));
         QVERIFY2(!root.contains(QStringLiteral("_corbomite")), "_corbomite must be dropped");
-        QVERIFY2(!root.contains(QStringLiteral("left-ribbon")), "left-ribbon must be dropped");
+        // SPEC CORRECTION 2026-10-04 — `left-ribbon` is Obsidian schema
+        // (app/own/1932-r4.js:1163), not a Corbomite-private key, so it must
+        // round-trip. See denylistDropsCorbomitePrivateKeysAndForwardsObsidianOnes.
+        QCOMPARE(root.value(QStringLiteral("left-ribbon")),
+                 fixture.value(QStringLiteral("left-ribbon")));
 
         // Leaf count + pinned state survive the full load->save round trip.
         const auto main = root.value(QStringLiteral("main")).toObject();
         QVERIFY(!main.value(QStringLiteral("id")).toString().isEmpty());
+
+        // Container ids and dimensions are re-attached verbatim. `main`'s own
+        // dimension is the one exception: 100 is out of range and setDimension
+        // normalises it to null (app/own/1206-OI.js:51-52), which is also why
+        // Obsidian never writes one for a container root.
+        QCOMPARE(main.value(QStringLiteral("id")).toString(),
+                 QStringLiteral("root1111aaaaaaaa"));
+        QVERIFY2(!main.contains(QStringLiteral("dimension")),
+                 "a root dimension of 100 is clamped away, not round-tripped");
+        const auto mainChildren = main.value(QStringLiteral("children")).toArray();
+        QCOMPARE(mainChildren.size(), 2);
+        const auto top = mainChildren.at(0).toObject();
+        QCOMPARE(top.value(QStringLiteral("id")).toString(),
+                 QStringLiteral("top1111aaaaaaaaa"));
+        QCOMPARE(top.value(QStringLiteral("dimension")).toInt(-1), 60);
+        const auto inner = mainChildren.at(1).toObject();
+        QCOMPARE(inner.value(QStringLiteral("id")).toString(),
+                 QStringLiteral("inner1111aaaaaaa"));
+        QCOMPARE(inner.value(QStringLiteral("dimension")).toInt(-1), 40);
+        const auto innerChildren = inner.value(QStringLiteral("children")).toArray();
+        QCOMPARE(innerChildren.size(), 2);
+        QCOMPARE(innerChildren.at(0).toObject().value(QStringLiteral("id")).toString(),
+                 QStringLiteral("botleft1111aaaa"));
+        QCOMPARE(innerChildren.at(0).toObject().value(QStringLiteral("dimension")).toInt(-1), 50);
+        QCOMPARE(innerChildren.at(1).toObject().value(QStringLiteral("id")).toString(),
+                 QStringLiteral("botright1111aaa"));
+        QCOMPARE(innerChildren.at(1).toObject().value(QStringLiteral("dimension")).toInt(-1), 50);
     }
 };
 

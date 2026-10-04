@@ -79,6 +79,42 @@ QString generateNodeId()
     return result;
 }
 
+// WorkspaceItem.setDimension normalises both `<= 0` and `>= 100` — the
+// comparison is inclusive, so the valid interval is strictly (0, 100) — to
+// null (app/own/1206-OI.js:51-52). `!(raw > 0.0)` also folds NaN in, which
+// JSON cannot express but a programmatic node can carry.
+std::optional<double> clampDimension(double raw)
+{
+    if (!(raw > 0.0) || raw >= 100.0)
+        return std::nullopt;
+    return raw;
+}
+
+// WorkspaceSplit.recomputeChildrenDimensions (app/own/1206-OI.js:134-146)
+// runs after every deserialisation, and it is all-or-nothing rather than
+// "normalise non-null sums to 100": a single flexible child resets *every*
+// sibling to null. A lone child normalises to exactly 100, which
+// clampDimension then drops — so such a split persists no dimension at all.
+// `dims` is parallel to the owning split's childOrder.
+void recomputeChildDimensions(QList<std::optional<double>> &dims)
+{
+    if (dims.isEmpty())
+        return;
+    double sum = 0.0;
+    for (const auto &d : std::as_const(dims)) {
+        if (!d) {
+            for (auto &e : dims)
+                e.reset();
+            return;
+        }
+        sum += *d;
+    }
+    if (std::isnan(sum) || sum == 0.0)
+        return;
+    for (auto &d : dims)
+        d = clampDimension(100.0 * *d / sum);
+}
+
 struct TabsNode {
     QString id;
     int currentTab = 0;
@@ -124,6 +160,65 @@ struct WindowNode {
     SplitNode content;
 };
 
+// A container node's id and `dimension` are properties of the Obsidian
+// tree, but the KDDW substrate only knows dock-widget unique names, so the
+// live walk rebuilds every container from scratch on each save and used to
+// mint a fresh random id per container per save. Anchor both on the id of the
+// container's first descendant leaf plus its depth: a leaf id alone collides
+// between a container and an ancestor whose first child holds that same leaf,
+// and the depth disambiguates. Obsidian mints container ids in the node's
+// constructor and keeps them for the session's lifetime
+// (app/own/1206-OI.js:9), so a lookup miss mints one once and reuses it.
+struct ContainerAttrs {
+    QString id;
+    std::optional<double> dimension;
+};
+
+QHash<QString, ContainerAttrs> &containerSidecar()
+{
+    static QHash<QString, ContainerAttrs> map;
+    return map;
+}
+
+QString containerKey(const QString &firstLeafId, int depth)
+{
+    if (firstLeafId.isEmpty())
+        return {};
+    return firstLeafId + QLatin1Char('/') + QString::number(depth);
+}
+
+QString firstLeafIdOfSplit(const SplitNode &node);
+
+// Attach the persisted id + dimension of a container that was just parsed, so
+// the write side can find them again. A node with no id on disk gets one
+// minted here rather than at render time, matching the constructor mint.
+void rememberContainer(const QString &key, QString *id,
+                       std::optional<double> *dimension)
+{
+    if (key.isEmpty())
+        return;
+    if (id->isEmpty())
+        *id = generateNodeId();
+    containerSidecar().insert(key, ContainerAttrs{*id, *dimension});
+}
+
+// Inverse of rememberContainer, for the live-tree walk.
+template <typename NodeT>
+void applyContainerAttrs(NodeT &node, int depth, const QString &firstLeafId)
+{
+    const QString key = containerKey(firstLeafId, depth);
+    if (key.isEmpty())
+        return;
+    const auto it = containerSidecar().constFind(key);
+    if (it != containerSidecar().constEnd()) {
+        node.id = it->id;
+        node.dimension = it->dimension;
+        return;
+    }
+    node.id = generateNodeId();
+    containerSidecar().insert(key, ContainerAttrs{node.id, std::nullopt});
+}
+
 LeafNode parseLeaf(const QJsonObject &o)
 {
     static const QSet<QString> known = {
@@ -155,7 +250,7 @@ TabsNode parseTabs(const QJsonObject &o)
     n.currentTab = o.value(QStringLiteral("currentTab")).toInt(0);
     n.stacked = o.value(QStringLiteral("stacked")).toBool(false);
     if (o.contains(QStringLiteral("dimension")) && o.value(QStringLiteral("dimension")).isDouble())
-        n.dimension = o.value(QStringLiteral("dimension")).toDouble();
+        n.dimension = clampDimension(o.value(QStringLiteral("dimension")).toDouble());
     for (auto v : o.value(QStringLiteral("children")).toArray()) {
         n.children.append(parseLeaf(v.toObject()));
     }
@@ -165,23 +260,53 @@ TabsNode parseTabs(const QJsonObject &o)
     return n;
 }
 
-SplitNode parseSplit(const QJsonObject &o)
+SplitNode parseSplit(const QJsonObject &o, int depth = 0)
 {
     SplitNode n;
     n.id = o.value(QStringLiteral("id")).toString();
     n.direction =
         o.value(QStringLiteral("direction")).toString(QStringLiteral("vertical"));
     if (o.contains(QStringLiteral("dimension")) && o.value(QStringLiteral("dimension")).isDouble())
-        n.dimension = o.value(QStringLiteral("dimension")).toDouble();
+        n.dimension = clampDimension(o.value(QStringLiteral("dimension")).toDouble());
+    // Parallel to n.childOrder; see recomputeChildDimensions.
+    QList<std::optional<double>> dims;
     for (auto v : o.value(QStringLiteral("children")).toArray()) {
         auto childObj = v.toObject();
         auto type = childObj.value(QStringLiteral("type")).toString();
         if (type == QStringLiteral("tabs")) {
-            n.addTabs(parseTabs(childObj));
+            auto child = parseTabs(childObj);
+            dims.append(child.dimension);
+            n.addTabs(child);
         } else if (type == QStringLiteral("split")) {
-            n.addSplit(parseSplit(childObj));
+            auto child = parseSplit(childObj, depth + 1);
+            dims.append(child.dimension);
+            n.addSplit(child);
         }
     }
+    recomputeChildDimensions(dims);
+    // Children are recorded (and their dimensions normalised) here rather than
+    // in their own parse frames, because recomputeChildDimensions only runs
+    // once the parent holds the full sibling list.
+    for (int i = 0; i < n.childOrder.size(); ++i) {
+        const auto &slot = n.childOrder.at(i);
+        if (slot.first) {
+            auto &child = n.splitChildren[slot.second];
+            child.dimension = dims.at(i);
+            rememberContainer(containerKey(firstLeafIdOfSplit(child), depth + 1),
+                              &child.id, &child.dimension);
+        } else {
+            auto &child = n.tabsChildren[slot.second];
+            child.dimension = dims.at(i);
+            rememberContainer(
+                containerKey(child.children.isEmpty()
+                                 ? QString()
+                                 : child.children.first().id,
+                             depth + 1),
+                &child.id, &child.dimension);
+        }
+    }
+    rememberContainer(containerKey(firstLeafIdOfSplit(n), depth),
+                      &n.id, &n.dimension);
     return n;
 }
 
@@ -197,6 +322,12 @@ WindowNode parseWindow(const QJsonObject &o)
     // The window node carries the same children shape as a split node:
     // either tabs or nested splits beneath it.
     w.content = parseSplit(o);
+    // WorkspaceWindow's constructor passes a literal "vertical" and
+    // deserializeLayout never feeds a window node's own direction back into
+    // it (app/own/1928-Y6.js:317; app/own/1932-r4.js:1132), so a
+    // hand-edited "horizontal" on a popout node is discarded on load and
+    // "vertical" written back on save.
+    w.content.direction = QStringLiteral("vertical");
     return w;
 }
 
@@ -232,7 +363,9 @@ QJsonObject renderTabs(const TabsNode &n)
     o[QStringLiteral("children")] = kids;
     if (n.currentTab != 0) o[QStringLiteral("currentTab")] = n.currentTab;
     if (n.stacked) o[QStringLiteral("stacked")] = true;
-    if (n.dimension.has_value()) o[QStringLiteral("dimension")] = *n.dimension;
+    // serialize() writes dimension under a truthiness test, so 0 is never
+    // emitted (app/own/1206-OI.js:33).
+    if (n.dimension.value_or(0.0) != 0.0) o[QStringLiteral("dimension")] = *n.dimension;
     return o;
 }
 
@@ -242,7 +375,7 @@ QJsonObject renderSplit(const SplitNode &n)
     o[QStringLiteral("id")] = n.id.isEmpty() ? generateNodeId() : n.id;
     o[QStringLiteral("type")] = QStringLiteral("split");
     o[QStringLiteral("direction")] = n.direction;
-    if (n.dimension.has_value()) o[QStringLiteral("dimension")] = *n.dimension;
+    if (n.dimension.value_or(0.0) != 0.0) o[QStringLiteral("dimension")] = *n.dimension;
     QJsonArray kids;
     // Walk childOrder to preserve original interleaved ordering. Falls back
     // to splits-then-tabs if childOrder wasn't populated (defensive — should
@@ -338,12 +471,14 @@ LeafNode buildLeafNode(const QString &uniqueName,
 void walkLayoutNode(const QJsonObject &layoutNode,
                     const QJsonObject &frames,
                     SplitNode &parent,
-                    Corbomite::Workspace *workspace);
+                    Corbomite::Workspace *workspace,
+                    int depth);
 
 void walkLayoutContainer(const QJsonObject &containerNode,
                          const QJsonObject &frames,
                          SplitNode &out,
-                         Corbomite::Workspace *workspace)
+                         Corbomite::Workspace *workspace,
+                         int depth)
 {
     const int orient = containerNode.value(QStringLiteral("orientation")).toInt();
     out.direction = (orient == 2)
@@ -351,17 +486,19 @@ void walkLayoutContainer(const QJsonObject &containerNode,
         : QStringLiteral("vertical");
     const auto children = containerNode.value(QStringLiteral("children")).toArray();
     for (const auto &v : children)
-        walkLayoutNode(v.toObject(), frames, out, workspace);
+        walkLayoutNode(v.toObject(), frames, out, workspace, depth + 1);
+    applyContainerAttrs(out, depth, firstLeafIdOfSplit(out));
 }
 
 void walkLayoutNode(const QJsonObject &layoutNode,
                     const QJsonObject &frames,
                     SplitNode &parent,
-                    Corbomite::Workspace *workspace)
+                    Corbomite::Workspace *workspace,
+                    int depth)
 {
     if (layoutNode.value(QStringLiteral("isContainer")).toBool()) {
         SplitNode child;
-        walkLayoutContainer(layoutNode, frames, child, workspace);
+        walkLayoutContainer(layoutNode, frames, child, workspace, depth);
         parent.addSplit(child);
         return;
     }
@@ -388,6 +525,9 @@ void walkLayoutNode(const QJsonObject &layoutNode,
             tabs.stacked = true;
         }
     }
+    applyContainerAttrs(
+        tabs, depth,
+        tabs.children.isEmpty() ? QString() : tabs.children.first().id);
     parent.addTabs(tabs);
 }
 
@@ -415,7 +555,7 @@ SplitNode walkMultiSplitterLayout(const QJsonObject &msl,
     const QJsonObject frames = msl.value(QStringLiteral("frames")).toObject();
     const QJsonObject rootLayout = msl.value(QStringLiteral("layout")).toObject();
     if (rootLayout.isEmpty()) return root;
-    walkLayoutContainer(rootLayout, frames, root, workspace);
+    walkLayoutContainer(rootLayout, frames, root, workspace, 0);
     return root;
 }
 
@@ -599,6 +739,24 @@ QList<QPair<bool, int>> effectiveChildOrder(const SplitNode &split)
     for (int i = 0; i < split.tabsChildren.size(); ++i) order.append({false, i});
     for (int i = 0; i < split.splitChildren.size(); ++i) order.append({true, i});
     return order;
+}
+
+// First descendant leaf in document order; empty when the subtree holds none.
+QString firstLeafIdOfSplit(const SplitNode &node)
+{
+    for (const auto &slot : effectiveChildOrder(node)) {
+        QString id;
+        if (slot.first) {
+            if (slot.second < node.splitChildren.size())
+                id = firstLeafIdOfSplit(node.splitChildren[slot.second]);
+        } else if (slot.second < node.tabsChildren.size()
+                   && !node.tabsChildren[slot.second].children.isEmpty()) {
+            id = node.tabsChildren[slot.second].children.first().id;
+        }
+        if (!id.isEmpty())
+            return id;
+    }
+    return {};
 }
 
 // DFS down childOrder[0] (drilling through nested splits) to find the
@@ -841,12 +999,196 @@ SplitNode floatingWindowAsSplit(KDDockWidgets::Core::FloatingWindow *fw,
     TabsNode tabs;
     for (auto *dw : fw->dockWidgets()) {
         LeafNode l;
-        l.id = dw->uniqueName();
+        // Not dw->uniqueName(): under a namespaced Workspace that carries the
+        // "<vaultId>:" prefix, which is not a leaf id.
+        l.id = workspace ? stripVaultPrefix(dw->uniqueName(), workspace->vaultId())
+                         : dw->uniqueName();
         l.viewType = QStringLiteral("empty");
         tabs.children.append(l);
     }
     root.addTabs(tabs);
+    applyContainerAttrs(
+        root, 0,
+        tabs.children.isEmpty() ? QString() : tabs.children.first().id);
     return root;
+}
+
+// --- Ordered JSON emission -------------------------------------------------
+//
+// Qt's QJsonObject stores keys sorted, and QJsonDocument therefore always
+// writes them alphabetically. Obsidian's workspace.json has a fixed key order
+// set by the order in which each serialize() in its class chain assigns
+// members, and that order is user-visible in the file — and therefore in any
+// diff of a synced vault. The orders below are read straight off those
+// methods:
+//
+//   WorkspaceItem   {id, type, dimension?}          1206-OI.js:28-33
+//   WorkspaceContainer appends children            1206-OI.js:67-71
+//   WorkspaceSplit  appends direction               1206-OI.js:129-131
+//   WorkspaceSidedock appends width, collapsed      1206-OI.js:237-239
+//   WorkspaceTabs   appends currentTab, stacked     1209-jI.js:194-196
+//   WorkspaceLeaf   appends pinned, state, group    1209-jI.js:559-561
+//   WorkspaceWindow appends x,y,w,h, maximize, zoom 1928-Y6.js:357-367
+//   Workspace getLayout + saveLayout's root order  1932-r4.js:1163, :1173
+//
+// Note `direction` lands *after* `children`, not before it: WorkspaceSplit's
+// serialize() calls its parent's first, and the parent is WorkspaceContainer,
+// which is what appends `children`.
+
+const QStringList &rootKeyOrder()
+{
+    static const QStringList order = {
+        QStringLiteral("main"), QStringLiteral("left"), QStringLiteral("right"),
+        QStringLiteral("left-ribbon"), QStringLiteral("floating"),
+        QStringLiteral("active"), QStringLiteral("lastOpenFiles"),
+    };
+    return order;
+}
+
+// A leaf node's `state` value is a ViewState, not a node — its own order
+// comes from WorkspaceLeaf.getViewState (app/own/1209-jI.js:641-648).
+const QStringList &viewStateKeyOrder()
+{
+    static const QStringList order = {
+        QStringLiteral("type"), QStringLiteral("state"), QStringLiteral("pinned"),
+        QStringLiteral("icon"), QStringLiteral("title"),
+    };
+    return order;
+}
+
+QStringList nodeKeyOrder(const QString &type)
+{
+    static const QStringList common = {
+        QStringLiteral("id"), QStringLiteral("type"), QStringLiteral("dimension"),
+    };
+    QStringList order = common;
+    if (type == QLatin1String("split")) {
+        // A sidedock is also `type: "split"`; its width/collapsed are the
+        // only distinguishing keys.
+        order << QStringLiteral("children") << QStringLiteral("direction")
+              << QStringLiteral("width") << QStringLiteral("collapsed");
+    } else if (type == QLatin1String("tabs")) {
+        order << QStringLiteral("children") << QStringLiteral("currentTab")
+              << QStringLiteral("stacked");
+    } else if (type == QLatin1String("leaf")) {
+        order << QStringLiteral("pinned") << QStringLiteral("state")
+              << QStringLiteral("group");
+    } else if (type == QLatin1String("window")) {
+        order << QStringLiteral("children") << QStringLiteral("direction")
+              << QStringLiteral("x") << QStringLiteral("y")
+              << QStringLiteral("width") << QStringLiteral("height")
+              << QStringLiteral("maximize") << QStringLiteral("zoom");
+    } else if (type == QLatin1String("floating")) {
+        order << QStringLiteral("children");
+    } else {
+        return {};
+    }
+    return order;
+}
+
+// `preferred` first (skipping keys the object does not carry), then whatever
+// is left in QJsonObject's own order — which covers Obsidian keys this
+// writer does not model and keeps their placement deterministic.
+QStringList resolveOrder(const QJsonObject &o, const QStringList &preferred)
+{
+    QStringList order;
+    order.reserve(o.size());
+    for (const auto &key : preferred) {
+        if (o.contains(key) && !order.contains(key))
+            order.append(key);
+    }
+    for (auto it = o.begin(); it != o.end(); ++it) {
+        if (!order.contains(it.key()))
+            order.append(it.key());
+    }
+    return order;
+}
+
+// Qt exposes no standalone string escaper, so borrow QJsonDocument's by
+// round-tripping through a one-element array and dropping the brackets.
+QString encodeScalar(const QJsonValue &value)
+{
+    QJsonArray wrapper;
+    wrapper.append(value);
+    const QByteArray encoded =
+        QJsonDocument(wrapper).toJson(QJsonDocument::Compact);
+    return QString::fromUtf8(encoded.constData() + 1, encoded.size() - 2);
+}
+
+QString indentFor(int depth)
+{
+    return QString(depth * 2, QLatin1Char(' '));
+}
+
+void appendValue(const QJsonValue &value, int depth,
+                 const QStringList &explicitOrder, QString *out);
+
+void appendMember(const QString &key, const QJsonObject &owner, int depth,
+                  bool leafNode, QString *out)
+{
+    *out += encodeScalar(key);
+    *out += QStringLiteral(": ");
+    const bool isLeafViewState =
+        leafNode && key == QLatin1String("state");
+    appendValue(owner.value(key), depth,
+                isLeafViewState ? viewStateKeyOrder() : QStringList(), out);
+}
+
+void appendObject(const QJsonObject &o, int depth, const QStringList &order,
+                  QString *out)
+{
+    const QStringList keys = resolveOrder(o, order);
+    if (keys.isEmpty()) {
+        *out += QLatin1String("{}");
+        return;
+    }
+    // `id` + `type` is what distinguishes a workspace node from a
+    // same-shaped payload object; anything else is emitted as parsed.
+    const bool leafNode = o.contains(QStringLiteral("id"))
+        && o.value(QStringLiteral("type")).toString() == QLatin1String("leaf");
+    *out += QLatin1String("{\n");
+    for (int i = 0; i < keys.size(); ++i) {
+        *out += indentFor(depth + 1);
+        appendMember(keys.at(i), o, depth + 1, leafNode, out);
+        if (i + 1 < keys.size())
+            *out += QLatin1Char(',');
+        *out += QLatin1Char('\n');
+    }
+    *out += indentFor(depth);
+    *out += QLatin1Char('}');
+}
+
+void appendValue(const QJsonValue &value, int depth,
+                 const QStringList &explicitOrder, QString *out)
+{
+    if (value.isObject()) {
+        const QJsonObject o = value.toObject();
+        QStringList order = explicitOrder;
+        if (order.isEmpty() && o.contains(QStringLiteral("id"))
+            && o.contains(QStringLiteral("type")))
+            order = nodeKeyOrder(o.value(QStringLiteral("type")).toString());
+        appendObject(o, depth, order, out);
+        return;
+    }
+    if (value.isArray()) {
+        const QJsonArray arr = value.toArray();
+        if (arr.isEmpty()) {
+            *out += QLatin1String("[]");
+            return;
+        }
+        *out += QLatin1String("[\n");
+        for (int i = 0; i < arr.size(); ++i) {
+            *out += indentFor(depth + 1);
+            appendValue(arr.at(i), depth + 1, QStringList(), out);
+            if (i + 1 < arr.size())
+                *out += QLatin1Char(',');
+            *out += QLatin1Char('\n');
+        }
+        *out += indentFor(depth);
+        *out += QLatin1Char(']');
+        return;
+    }
+    *out += encodeScalar(value);
 }
 
 } // namespace
@@ -863,6 +1205,7 @@ void fromJson(const QJsonObject &json,
     // forever, and eliminates cross-vault-switch contamination.
     leafSidecar().clear();
     stackedSidecar().clear();
+    containerSidecar().clear();
 
     auto installDefault = [&]() {
         // Default tree: one empty leaf in a single tabs node inside a
@@ -889,6 +1232,12 @@ void fromJson(const QJsonObject &json,
     }
 
     auto rootSplit = parseSplit(mainObj);
+    // setLayout forces the restored root split's direction to "vertical" —
+    // and re-runs recomputeChildrenDimensions after doing so — regardless of
+    // what the file said (app/own/1932-r4.js:1016). The two sidedocks are
+    // forced to "horizontal" the same way (:1020, :1024); Corbomite does not
+    // model sidedocks, so `left`/`right` stay passthrough.
+    rootSplit.direction = QStringLiteral("vertical");
     if (rootSplit.tabsChildren.isEmpty() && rootSplit.splitChildren.isEmpty()) {
         installDefault();
         return;
@@ -926,6 +1275,12 @@ QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace *worksp
                 renderSplit(floatingWindowAsSplit(fw, saverRoot, workspace));
             // Tag the node as a window rather than a split for round-trip clarity.
             windowObj[QStringLiteral("type")] = QStringLiteral("window");
+            // WorkspaceWindow hard-codes "vertical" at construction and
+            // deserializeLayout never feeds a window node's direction back
+            // (app/own/1928-Y6.js:317; app/own/1932-r4.js:1132), so a window
+            // node always round-trips as "vertical" whatever orientation the
+            // live float's own splitter happens to report.
+            windowObj[QStringLiteral("direction")] = QStringLiteral("vertical");
             // Stamp geometry + maximize from the live FloatingWindow so the
             // workspace.json round-trip preserves popout-window placement.
             const auto rect = fw->geometry();
@@ -933,8 +1288,11 @@ QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace *worksp
             windowObj[QStringLiteral("y")] = rect.y();
             windowObj[QStringLiteral("width")] = rect.width();
             windowObj[QStringLiteral("height")] = rect.height();
-            if (fw->view() && fw->view()->isMaximized())
-                windowObj[QStringLiteral("maximize")] = true;
+            // Obsidian assigns maximize inside a try/catch, so it is written
+            // for every window rather than only when true
+            // (app/own/1928-Y6.js:364-367).
+            windowObj[QStringLiteral("maximize")] =
+                fw->view() && fw->view()->isMaximized();
             windows.append(windowObj);
         }
         floating[QStringLiteral("children")] = windows;
@@ -943,6 +1301,15 @@ QJsonObject toJson(KDDockWidgets::QtWidgets::MainWindow *main, Workspace *worksp
 
     // "active" and "lastOpenFiles" added in later tasks.
     return out;
+}
+
+QByteArray toJsonText(const QJsonObject &root)
+{
+    // 2-space indent and `": "` between key and value, matching
+    // JSON.stringify(obj, null, 2) (app/own/1932-r4.js:1175).
+    QString out;
+    appendObject(root, 0, rootKeyOrder(), &out);
+    return out.toUtf8();
 }
 
 } // namespace Corbomite::WorkspaceSerializer

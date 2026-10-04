@@ -64,10 +64,17 @@ unchanged) plus three Corbomite-written keys:
   (`saveSidebarState`, line 132), expanded-folder list (`saveExpandedFolders`,
   line 156), and per-plugin session blobs (`setPluginSessionState`,
   line 164).
-- `left-ribbon` — Corbomite's left-ribbon layout state
-  (`setLeftRibbonState`, line 178).
+- ~~`left-ribbon` — Corbomite's left-ribbon layout state
+  (`setLeftRibbonState`, line 178).~~ **CORRECTED 2026-10-04: this
+  classification was wrong.** `left-ribbon` **is** Obsidian schema —
+  `Workspace.getLayout` writes it (`app/own/1932-r3.js` region; verified at
+  `app/own/1932-r4.js:1163`, `e["left-ribbon"] = this.leftRibbon.serialize()`).
+  Denylisting it meant a vault authored by Obsidian lost its ribbon layout the
+  moment Corbomite saved, in a file both apps share. It now round-trips through
+  the unknown-root passthrough like any other Obsidian key we do not model.
+  Nothing in Corbomite reads it, so preserving it costs nothing.
 
-Neither `_corbomite` nor `left-ribbon` exists in Obsidian's schema. They are
+`_corbomite` alone is Corbomite-private. The original text said:
 written into `.obsidian/workspace.json` today (finding B2 in the cluster
 plan), a file **Obsidian rewrites wholesale on every layout change** the
 moment the same vault is opened there. Two concrete failure modes follow
