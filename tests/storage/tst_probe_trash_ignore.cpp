@@ -65,6 +65,107 @@ private Q_SLOTS:
         QVERIFY(!f.matches(QStringLiteral("axb/x.md")));
     }
 
+    // Entries are regexes, not globs (app/own/1306-eR.js:588): a bare entry is
+    // escaped and anchored, so a `*` in it is a literal asterisk. `/^Archive/`
+    // is what glob-ish intent actually requires.
+    void bareEntryIsALiteralNotAGlob()
+    {
+        const auto f = IgnoreFilter::fromPatterns({QStringLiteral("Archive*")});
+        QCOMPARE(f.patternCount(), 1);
+        QVERIFY(f.matches(QStringLiteral("Archive*")));
+        QVERIFY(!f.matches(QStringLiteral("Archive2026")));
+        QVERIFY(!f.matches(QStringLiteral("Archive.md")));
+
+        const auto anchored = IgnoreFilter::fromPatterns({QStringLiteral("/^Archive/")});
+        QCOMPARE(anchored.patternCount(), 1);
+        QVERIFY(anchored.matches(QStringLiteral("Archive2026")));
+        QVERIFY(anchored.matches(QStringLiteral("Archive.md")));
+    }
+
+    void regexFormIsUnanchored()
+    {
+        const auto f = IgnoreFilter::fromPatterns({QStringLiteral("/Archive/")});
+        QVERIFY(f.matches(QStringLiteral("Archive/old.md")));
+        // Unanchored: matches mid-path, unlike the bare-prefix form.
+        QVERIFY(f.matches(QStringLiteral("deep/nested/Archive/old.md")));
+        const auto bare = IgnoreFilter::fromPatterns({QStringLiteral("Archive/")});
+        QVERIFY(!bare.matches(QStringLiteral("deep/nested/Archive/old.md")));
+        QVERIFY(!f.matches(QStringLiteral("notes.md")));
+    }
+
+    // Obsidian passes the `i` flag to *both* RegExp constructions
+    // (app/own/1306-eR.js:588), so both forms are case-insensitive.
+    void bothFormsAreCaseInsensitive_data()
+    {
+        QTest::addColumn<QString>("entry");
+        QTest::addColumn<QString>("path");
+        QTest::addColumn<bool>("matches");
+
+        QTest::newRow("prefix upper")   << "tmp/"        << "TMP/Scratch.md"   << true;
+        QTest::newRow("prefix mixed")   << "Drafts/"     << "drafts/wip.md"    << true;
+        QTest::newRow("prefix no match")<< "tmp/"        << "notes/tmp/x.md"   << false;
+        QTest::newRow("regex upper")    << "/^archive/"  << "ARCHIVE/2026.md"  << true;
+        QTest::newRow("regex mixed")    << "/bak$/"      << "notes.BAK"        << true;
+        QTest::newRow("regex no match") << "/^archive/"  << "old/archive.md"   << false;
+    }
+
+    void bothFormsAreCaseInsensitive()
+    {
+        QFETCH(QString, entry);
+        QFETCH(QString, path);
+        QFETCH(bool, matches);
+        QCOMPARE(IgnoreFilter::fromPatterns({entry}).matches(path), matches);
+    }
+
+    // Each entry is trimmed before use (app/own/1306-eR.js:586), so a stray
+    // space in the settings field cannot silently narrow a filter to nothing.
+    void entriesAreTrimmedBeforeUse_data()
+    {
+        QTest::addColumn<QString>("entry");
+        QTest::addColumn<QString>("path");
+        QTest::addColumn<bool>("matches");
+
+        QTest::newRow("leading space") << "  tmp/"      << "tmp/x.md"        << true;
+        QTest::newRow("trailing space")<< "tmp/  "      << "tmp/x.md"        << true;
+        QTest::newRow("regex padded")  << "  /^tmp/  "  << "tmp/x.md"        << true;
+        QTest::newRow("pad loses match") << "tmp/ "      << "notes/tmp/x.md"  << false;
+    }
+
+    void entriesAreTrimmedBeforeUse()
+    {
+        QFETCH(QString, entry);
+        QFETCH(QString, path);
+        QFETCH(bool, matches);
+        QCOMPARE(IgnoreFilter::fromPatterns({entry}).matches(path), matches);
+    }
+
+    // A whitespace-only entry trims to empty and is dropped
+    // (app/own/1306-eR.js:587). Untrimmed it would compile to a prefix regex
+    // that matches indented paths.
+    void whitespaceOnlyEntriesAreDropped()
+    {
+        const auto f = IgnoreFilter::fromPatterns({QStringLiteral("   ")});
+        QCOMPARE(f.patternCount(), 0);
+        QVERIFY(!f.matches(QStringLiteral("  indented.md")));
+        QVERIFY(!f.matches(QStringLiteral("normal.md")));
+    }
+
+    // The `/…/` form needs length > 2 (app/own/1306-eR.js:588), so a bare
+    // `//` is an escaped literal `^//` — not an empty regex that would match
+    // every path in the vault.
+    void doubleSlashIsALiteralNotAnEmptyRegex()
+    {
+        const auto f = IgnoreFilter::fromPatterns({QStringLiteral("//")});
+        QCOMPARE(f.patternCount(), 1);
+        QVERIFY(!f.matches(QStringLiteral("anything.md")));
+        QVERIFY(!f.matches(QStringLiteral("dir/file.md")));
+
+        // A single slash is likewise a literal.
+        const auto single = IgnoreFilter::fromPatterns({QStringLiteral("/")});
+        QCOMPARE(single.patternCount(), 1);
+        QVERIFY(!single.matches(QStringLiteral("anything.md")));
+    }
+
     void regexForm()
     {
         // /\.(bak|tmp)$/ — anything ending in .bak or .tmp

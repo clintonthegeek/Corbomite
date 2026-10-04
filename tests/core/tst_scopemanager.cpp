@@ -84,6 +84,29 @@ private Q_SLOTS:
         QVERIFY(!mgr()->dispatchKey(&e));
     }
 
+    // Pins the divergence documented at ScopeManager::dispatchKey: Obsidian's
+    // per-window scope stack means a parentless `Modal` scope cuts the chain
+    // (0817-Yb.js:630 + :709), Corbomite's flat stack does not. Change this
+    // only together with the decision about the hotkeys.json dispatcher's
+    // root scope.
+    void testParentlessScopeDoesNotCutScopesBelowIt()
+    {
+        Scope rootish;
+        int rootFired = 0;
+        rootish.registerBinding(Qt::NoModifier, Qt::Key_B,
+            [&](QKeyEvent *) { ++rootFired; return true; });
+
+        Scope parentlessModal; // Scope() default ctor: m_parent == nullptr
+        QVERIFY(!parentlessModal.parent());
+        mgr()->pushScope(&rootish);
+        mgr()->pushScope(&parentlessModal);
+
+        auto e = makeKey(Qt::Key_B);
+        QVERIFY(mgr()->dispatchKey(&e));
+        QCOMPARE(rootFired, 1);
+        QCOMPARE(mgr()->stackDepth(), 2);
+    }
+
     void testUnmatchedKeyReturnsFalse()
     {
         Scope s;

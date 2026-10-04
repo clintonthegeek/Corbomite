@@ -31,6 +31,11 @@ public:
     QStringList formulaOrder;
     QStringList summaryFormulaOrder;
     std::vector<PropertyId> propertyOrder;
+    /// A top-level `summaries:` key was present in the source. Obsidian's
+    /// `summaryFormulas` map is created whenever the key exists and is never
+    /// deleted from, so an emptied map still serialises as `summaries: {}`
+    /// (unlike `formulas`, which is length-guarded and disappears).
+    bool summariesSeen = false;
     std::optional<QString> newItemFolder;
     std::optional<QString> newItemTemplate;
     QVariantMap unrecognizedData;                ///< forward-compat.

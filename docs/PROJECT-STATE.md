@@ -16,20 +16,22 @@
 
 ## Current focus
 
-**Audit-the-audit, complete.** The prior audit's RE corpus was destroyed, so every symbol citation in `docs/obsidian-audit/` was unverifiable — and the docs turned out to contain errors that produce wrong Corbomite code, not just wrong prose. Obsidian 1.13.7 was re-extracted into a readable, indexed, partially-renamed corpus (`RE/extract-obsidian.sh`, reproducible from the `.deb`, corpus gitignored for licensing) and **all 16 domains re-read against it**: **45 addenda, ~14.7k lines, 25 punch-list items (nine P0)**. Suite **339/339**, no code changed. The nine P0s are `app.json`/`appearance.json` splitting on a 16-key allow-list (10 keys in the wrong file → silently reverted by Obsidian), an omitted `.obsidian/<corePluginId>.json` class, no `workspaces.json`, unknown canvas node types deleted on save, `.base` property-ID canonicalisation applied inconsistently, two frontmatter scanners that disagree on CRLF, `metadata` `changed` arg 2 being the file contents not a hash, `hotkeys.json` `"cmd": []` meaning *unbind*, and a 100 ms watcher ENOENT grace. **Next: drain the nine P0s** — see the punch list's `Added 2026-10-03` section.
+**Audit-the-audit corrections are landing.** Suite **345/345** (from 339). Eight of the
+nine audit P0s are closed with mutation-verified tests; 15 new items were filed from the
+implementation pass. Seven agent claims were **refuted rather than coded** — including one
+of our own prior addenda that blamed a frozen doc for a P0 that was really our code's bug,
+and four numbers that were simply wrong. That refutation rate is the argument for
+re-verifying agent claims before implementing them.
 
-**One decision needs no revisiting:** Corbomite will **not** match Obsidian's
-`ALLOW_UNKNOWN_PROTOCOLS: true`, which disables DOMPurify's URI-scheme check so
-`javascript:` hrefs survive on the main render path. `rendering.md` §11's "must match
-this config exactly" is rejected for that one flag on security grounds; the other four
-keys are matched. Fix any future scheme complaint with a narrow allowlist, never a
-blanket re-enable — [`2026-10-03-rendering-sanitiser-deliberate-divergence.md`](obsidian-audit/addenda/2026-10-03-rendering-sanitiser-deliberate-divergence.md).
+**Closed this pass:** the 16-key `app.json`/`appearance.json` partition plus `.obsidian/
+<corePluginId>.json` and the settings value encodings; unknown canvas node/edge
+preservation at byte level; `.base` property-id canonicalisation; `hotkeys.json`
+`"cmd": []` unbinding; the watcher ENOENT grace; hidden-path and `checkPath` parity; the
+quick-switcher fuzzy penalty rule and several search-DSL operators; Bases' `not:`/NOR and
+a batch of DSL builtin corrections.
 
-**Doctrine for the RE work.** The plugin infrastructure is the one place Corbomite
-should be *explicitly different* — a C++ plugin is nothing like a web plugin, and the
-plugin-domain addendum documents a capability surface rather than an API to clone. Every
-other domain translates web paradigms to desktop UX (that is not divergence) while
-staying faithful on **vault format, vault settings, rendering and data files**.
+**Next:** the largest measured gap is **~182 of Obsidian's 190 core command ids are
+unimplemented** — a mapping-table job, not a code fix. Then M5.4/M5.5.
 
 ## Two tracks
 

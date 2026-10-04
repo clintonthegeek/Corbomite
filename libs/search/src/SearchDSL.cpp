@@ -10,9 +10,16 @@ namespace Corbomite::SearchDSL {
 
 namespace {
 
-// Operator table mirroring _internal.js:331191-331265. `exclusive` operators
-// may not nest inside another exclusive operator (Operator "X" cannot be
-// nested within "Y"). `allowSelf` carves out the section→section exception.
+// Operator table, mirroring app/own/1175-SP.js:148-221 verbatim — twelve entries,
+// no more. `whole-word` is deliberately absent: the corpus contains that string
+// only as an icon name for the editor's find/replace toggle
+// (app/own/0713-gg.js:11337), never as a DSL operator. Whole-word *semantics* do
+// exist, but they are what a quoted phrase does (app/own/1166-ZA.js:90).
+//
+// Names are matched case-insensitively (app/own/1170-hP.js:9). `exclusive`
+// operators may not nest inside another exclusive operator ("Operator \"X\" cannot
+// be nested within \"Y\""). `allowSelf` carves out the section→section exception,
+// and it is the OUTER operator's flag that decides, so only `section:` self-nests.
 // `textOnly` rejects non-text operands (the tag-only-text rule).
 struct OperatorSpec {
     bool exclusive = false;
@@ -23,18 +30,18 @@ struct OperatorSpec {
 const QHash<QString, OperatorSpec> &operatorTable()
 {
     static const QHash<QString, OperatorSpec> table = {
+        {QStringLiteral("match-case"), {false, false, false}},
+        {QStringLiteral("ignore-case"),{false, false, false}},
         {QStringLiteral("path"),       {true,  false, false}},
         {QStringLiteral("file"),       {true,  false, false}},
         {QStringLiteral("content"),    {true,  false, false}},
-        {QStringLiteral("tag"),        {true,  false, true }},
         {QStringLiteral("line"),       {true,  false, false}},
         {QStringLiteral("block"),      {true,  false, false}},
         {QStringLiteral("section"),    {true,  true,  false}},
         {QStringLiteral("task"),       {true,  false, false}},
         {QStringLiteral("task-todo"),  {true,  false, false}},
         {QStringLiteral("task-done"),  {true,  false, false}},
-        {QStringLiteral("match-case"), {false, false, false}},
-        {QStringLiteral("ignore-case"),{false, false, false}},
+        {QStringLiteral("tag"),        {true,  false, true }},
     };
     return table;
 }
@@ -64,12 +71,17 @@ struct Token {
     int offset = 0;
 };
 
+// The characters that flush an accumulating text token, per
+// app/own/1173-fP.js:36-79. `"`, `/` and `-` are absent: the tokenizer handles
+// them only at a token *start*, where the outer switch turns them into `quote`,
+// `regex` and `not` tokens, so mid-token they are ordinary characters. Whitespace
+// is handled by `isSpace()` rather than Obsidian's literal-space test.
 bool isDelimiter(QChar c)
 {
     if (c.isSpace()) return true;
     switch (c.unicode()) {
-    case '"': case '/': case '-': case '[': case ']':
-    case '(': case ')': case ':': case '<': case '>':
+    case '[': case ']': case '(': case ')':
+    case ':': case '<': case '>':
         return true;
     default:
         return false;
@@ -163,23 +175,18 @@ private:
         QString body;
         while (m_pos < m_input.length()) {
             const QChar c = m_input.at(m_pos);
-            // Internal hyphen between two text chars stays part of the token —
-            // covers compound operator names (match-case, ignore-case,
-            // task-todo, task-done) that would otherwise split into
-            // text-not-text. A leading or trailing `-` (next to whitespace or
-            // a delimiter) still tokenizes as Not, preserving `foo -bar`.
-            if (c == QLatin1Char('-') && !body.isEmpty()
-                && m_pos + 1 < m_input.length()
-                && !isDelimiter(m_input.at(m_pos + 1))) {
-                body.append(c);
-                ++m_pos;
-                continue;
-            }
             if (isDelimiter(c)) break;
             body.append(c);
             ++m_pos;
         }
-        // Case-sensitive barewords (search-dsl-spec.md §1 tokenizer table).
+        // `-` is NOT a delimiter here: app/own/1173-fP.js:29 only emits a `not`
+        // token when the scan *starts* on a hyphen, so a hyphen inside an
+        // accumulating token is ordinary. That is what keeps `task-todo:` a
+        // single `text` token, and it also makes a trailing hyphen part of the
+        // word: `foo-` is text("foo-"), not text("foo") followed by `not`.
+        //
+        // Case-sensitive barewords (app/own/1173-fP.js:4-24) — `or`, `True` and
+        // `empty` are ordinary text.
         if (body == QLatin1String("OR"))    return {Tok::Or, body, start};
         if (body == QLatin1String("TRUE"))  return {Tok::True, body, start};
         if (body == QLatin1String("FALSE")) return {Tok::False, body, start};
@@ -243,19 +250,14 @@ private:
     SearchNodePtr parseAnd()
     {
         QVector<SearchNodePtr> conjuncts;
+        // `uP` — app/own/1169-uP.js:2-9: `hP` results back-to-back, stopping at
+        // the first one that returns null (a terminator token, or a `-`/`>`/`<`
+        // with no operand). A null is never skipped over.
         while (true) {
             const Tok t = peek().kind;
             if (isTerminator(t) || t == Tok::Or) break;
-            const int before = m_pos;
             SearchNodePtr term = parseTerm();
-            if (!term) {
-                // parseTerm may return null but still advance (e.g. property
-                // stub silently consuming `[…]`). Treat as a no-op term and
-                // keep scanning for siblings; only stop when nothing was
-                // consumed (genuine end of input).
-                if (m_pos == before) break;
-                continue;
-            }
+            if (!term) break;
             conjuncts.append(term);
         }
         if (conjuncts.isEmpty()) return nullptr;
@@ -303,10 +305,30 @@ private:
         case Tok::Text:
             return parseTextOrOpCall();
         case Tok::BracketOpen:
-            // Property syntax — parsed-but-rejected for now (Phase 4b/Cluster I).
-            // Skip until matching ] so the parser can keep moving.
-            return parsePropertyStub();
+            return parseProperty();
+        case Tok::True:
+        case Tok::False:
+        case Tok::Empty:
+            // `hP.js:68` → `_A`. These compare a frontmatter property value, so
+            // they only ever do something useful inside `[key: …]`.
+            return SearchNode::makePropertyValue(consume().value);
+        case Tok::GreaterThan:
+        case Tok::LessThan: {
+            // `hP.js:71` → `aP`, which accepts a text or quoted operand only.
+            const Token op = consume();
+            SearchNodePtr operand = parseTerm();
+            if (!operand) return nullptr;
+            if (operand->kind != SearchNode::Kind::Text
+                && operand->kind != SearchNode::Kind::Phrase) {
+                fail(QStringLiteral("\"%1\" operator cannot be applied to this matcher")
+                         .arg(op.value),
+                     op.offset);
+                return nullptr;
+            }
+            return SearchNode::makeCompare(op.value, operand);
+        }
         default:
+            // Terminators: `]`, `)`, `or`, `colon`, end-of-input (hP.js:41,66,67,69).
             return nullptr;
         }
     }
@@ -314,25 +336,29 @@ private:
     SearchNodePtr parseTextOrOpCall()
     {
         const Token nameTok = consume();
-        if (peek().kind != Tok::Colon) {
+        const QString opName = nameTok.value.toLower();  // hP.js:9
+        // hP.js:7 — a `[` anywhere on the stack disables operator recognition, so a
+        // colon inside a property body is punctuation, not an operator call.
+        if (peek().kind != Tok::Colon || m_operatorStack.contains(QLatin1Char('['))) {
             return SearchNode::makeText(nameTok.value);
         }
         // operator-call: name : term
         const auto &table = operatorTable();
-        if (!table.contains(nameTok.value)) {
+        if (!table.contains(opName)) {
             fail(QStringLiteral("Operator \"%1\" not recognized").arg(nameTok.value),
                  nameTok.offset);
             return nullptr;
         }
-        const OperatorSpec spec = table.value(nameTok.value);
+        const OperatorSpec spec = table.value(opName);
 
-        // Exclusive-nesting check (spec §1 RH table).
+        // Exclusive-nesting check (hP.js:12-17). The OUTER operator's allowSelf
+        // decides, which is why only section→section self-nests.
         if (spec.exclusive) {
-            for (const QString &outer : m_exclusiveStack) {
-                const bool selfPair = (outer == nameTok.value && spec.allowSelf);
+            for (const QString &outer : m_operatorStack) {
+                const bool selfPair = (outer == opName && spec.allowSelf);
                 if (!selfPair) {
                     fail(QStringLiteral("Operator \"%1\" cannot be nested within \"%2\"")
-                             .arg(nameTok.value, outer),
+                             .arg(opName, outer),
                          nameTok.offset);
                     return nullptr;
                 }
@@ -340,52 +366,63 @@ private:
         }
 
         consume();  // ':'
-        if (spec.exclusive) m_exclusiveStack.append(nameTok.value);
+        if (spec.exclusive) m_operatorStack.append(opName);
         SearchNodePtr operand = parseTerm();
-        if (spec.exclusive) m_exclusiveStack.removeLast();
+        if (spec.exclusive) m_operatorStack.removeLast();
 
         if (!operand) {
-            // Trailing colon: substitute empty text matcher (spec §4) — that
+            // Trailing colon: substitute empty text matcher (hP.js:22) — that
             // matcher matches nothing, so the whole branch will be no-op-empty.
             operand = SearchNode::makeText(QString());
         }
 
         if (spec.textOnly) {
-            // Unwrap Group to inspect the inner kind (per spec, tag rejects
-            // non-text operands at parse).
+            // Unwrap Group to inspect the inner kind — a `(` returns its inner
+            // node, so `tag:(foo)` is still text (hP.js:52-64).
             SearchNodePtr toCheck = operand;
             while (toCheck && toCheck->kind == SearchNode::Kind::Group) {
                 toCheck = toCheck->children.value(0);
             }
             if (!toCheck || toCheck->kind != SearchNode::Kind::Text) {
                 fail(QStringLiteral("Operator \"%1\" can only be followed by text")
-                         .arg(nameTok.value),
+                         .arg(opName),
                      nameTok.offset);
                 return nullptr;
             }
         }
 
-        return SearchNode::makeOpCall(nameTok.value, operand);
+        return SearchNode::makeOpCall(opName, operand);
     }
 
-    SearchNodePtr parsePropertyStub()
+    SearchNodePtr parseProperty()
     {
-        // Skip [...] body — depth-balanced. Returns null so the caller treats
-        // this term as absent. Property-call is a Phase 4b deliverable.
-        Q_ASSERT(peek().kind == Tok::BracketOpen);
-        consume();
-        int depth = 1;
-        while (depth > 0 && peek().kind != Tok::End) {
-            const Tok k = consume().kind;
-            if (k == Tok::BracketOpen) ++depth;
-            else if (k == Tok::BracketClose) --depth;
+        // `[key]` / `[key: value]` — hP.js:24-39 → `JA`. Both halves are full
+        // `cP` lists, so `["a" OR "b"]` and `[a: b OR c]` parse.
+        if (m_operatorStack.contains(QLatin1Char('['))) {
+            fail(QStringLiteral("Property cannot be nested within a property."),
+                 peek().offset);
+            return nullptr;
         }
-        return nullptr;
+        consume();  // '['
+        m_operatorStack.append(QStringLiteral("["));
+
+        SearchNodePtr key = parseOr();
+        if (!key) key = SearchNode::makeText(QString());  // hP.js:29
+
+        SearchNodePtr value;
+        if (peek().kind == Tok::Colon) {
+            consume();
+            value = parseOr();  // hP.js:34 — a null value is an existence check
+        }
+
+        m_operatorStack.removeLast();
+        if (peek().kind == Tok::BracketClose) consume();  // hP.js:39, optional
+        return SearchNode::makeProperty(std::move(key), std::move(value));
     }
 
     QVector<Token> m_tokens;
     int m_pos = 0;
-    QStringList m_exclusiveStack;
+    QStringList m_operatorStack;
     QString m_error;
     int m_errorOffset = -1;
 };
@@ -402,14 +439,15 @@ ParseResult parse(const QString &query)
 
 const QStringList &supportedOperators()
 {
-    static const QStringList ops = {
-        QStringLiteral("path"),
-        QStringLiteral("file"),
-        QStringLiteral("content"),
-        QStringLiteral("tag"),
-        QStringLiteral("match-case"),
-        QStringLiteral("ignore-case"),
-    };
+    // Derived from the parser's own table so the two cannot drift. Sorted because
+    // QHash has no order and this feeds a UI list.
+    static const QStringList ops = [] {
+        QStringList out;
+        for (auto it = operatorTable().cbegin(); it != operatorTable().cend(); ++it)
+            out.append(it.key());
+        out.sort();
+        return out;
+    }();
     return ops;
 }
 
@@ -446,6 +484,13 @@ void collectLiteralTerms(const SearchNodePtr &node, QStringList &out)
         // Recurse into column-qualifiers and nested match-case/ignore-case.
         if (!node->children.isEmpty())
             collectLiteralTerms(node->children.value(0), out);
+        return;
+    case SearchNode::Kind::PropertyCall:
+    case SearchNode::Kind::PropertyValue:
+    case SearchNode::Kind::Compare:
+        // A property key is matched by case-insensitive equality, and
+        // Compare/PropertyValue do a numeric or identity test — none of these
+        // literals are content terms, so none belong in a content case filter.
         return;
     default:
         for (const auto &c : node->children) collectLiteralTerms(c, out);
@@ -496,8 +541,11 @@ QString emitOpCall(const SearchNodePtr &node, CompiledPlan &plan, bool negated)
         collectLiteralTerms(operand, plan.caseSensitiveTerms);
         return emitFts5(operand, plan, negated);
     }
-    // line/block/section/task* — recognised by the parser but need
-    // markdown-AST post-filter (Phase 4c).
+    // line/block/section/task* — recognised by the parser but need a
+    // markdown-AST post-filter. The property forms need a frontmatter side
+    // table: `[key]` / `[key: value]` match against frontmatter, and TRUE /
+    // FALSE / EMPTY / `>` / `<` only ever compare a frontmatter property value
+    // (app/own/1163-UA.js:21-28, app/own/1166-ZA.js:190-206).
     plan.unsupported.append(name);
     return {};
 }
@@ -517,6 +565,18 @@ QString emitFts5(const SearchNodePtr &node, CompiledPlan &plan, bool negated)
         return {};
     case SearchNode::Kind::Group:
         return emitFts5(node->children.value(0), plan, negated);
+    case SearchNode::Kind::PropertyCall:
+        plan.unsupported.append(node->children.size() > 1 ? QStringLiteral("[key: value]")
+                                                         : QStringLiteral("[key]"));
+        // Descend so a nested form (`[rating: >4]`, `["a" OR "b"]`) reports too.
+        for (const auto &c : node->children) emitFts5(c, plan, negated);
+        return {};
+    case SearchNode::Kind::PropertyValue:
+        plan.unsupported.append(node->text);
+        return {};
+    case SearchNode::Kind::Compare:
+        plan.unsupported.append(node->text);
+        return {};
     case SearchNode::Kind::Not: {
         // FTS5 NOT is binary (X NOT Y); a top-level bare NOT can't be expressed
         // in MATCH alone. We translate -X as NOT-suffix only when there's a

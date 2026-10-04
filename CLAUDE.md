@@ -186,8 +186,23 @@ directory-scoped — and patching the submodule would be lost on the next
 re-pin. The real fix is a `LABELS "benchmark"` in markoff-canvas; until then
 keep the regex. Without it, "the suite is green" is not a reliable signal.
 
-Baseline (2026-10-01): **329/329 pass** with the exclusion above (331 total
-registered). The only known-flaky pair is the canvas perf pair described above.
+Baseline (2026-10-03): **345/345 pass** with the exclusion above.
+
+### Load-sensitive flakes — "the suite is green" is not yet a reliable signal
+
+Three tests fail intermittently under `-j6`/load while passing standalone. None is
+caused by the code they cover; all are timing- or count-sensitive:
+
+- `tst_forcelayout` (`libs/forcegraph`) — pure timing.
+- `tst_cachedmetadatastore::testRoundTripMultipleFiles` — asserts a watcher signal
+  **count** (2 vs 1); races with the coalescing drain timer.
+- `tst_hover_popover_pinning` — timing-sensitive.
+
+So a single red run is **not** evidence of a regression: re-run the failing test alone
+before investigating. Conversely, do not accept a green full run as proof a timing fix
+landed — pin the specific value in a test that asserts it, which is what the
+2026-10-03 audit-fix pass did throughout (every fix is pinned by an exact-value
+assertion, and was verified red by reverting the fix).
 
 Build and install the release preset (system-wide, separate config/data dirs from dev):
 

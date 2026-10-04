@@ -7,29 +7,27 @@ IgnoreFilter IgnoreFilter::fromPatterns(const QStringList &patterns)
 {
     IgnoreFilter out;
     for (const QString &raw : patterns) {
-        if (raw.isEmpty()) continue;
+        const QString entry = raw.trimmed();
+        if (entry.isEmpty()) continue;
 
-        Pattern p;
-        p.original = raw;
-
-        // `/…/` form → regex; everything else is a plain prefix.
-        if (raw.size() >= 2 && raw.startsWith(QLatin1Char('/'))
-                            && raw.endsWith(QLatin1Char('/'))) {
-            const QString body = raw.mid(1, raw.size() - 2);
-            QRegularExpression re(body);
-            if (re.isValid()) {
-                p.re = std::move(re);
-                p.isRegex = true;
-                out.m_patterns.append(std::move(p));
-            }
-            // Invalid regex: silently skip (matches Obsidian's console-warn + continue).
+        QRegularExpression re;
+        if (entry.size() > 2 && entry.startsWith(QLatin1Char('/'))
+                           && entry.endsWith(QLatin1Char('/'))) {
+            re = QRegularExpression(entry.mid(1, entry.size() - 2),
+                                    QRegularExpression::CaseInsensitiveOption);
         } else {
-            // Plain prefix — anchor at path start, literal-escape.
-            p.re = QRegularExpression(
-                QStringLiteral("^") + QRegularExpression::escape(raw));
-            p.isRegex = false;
-            out.m_patterns.append(std::move(p));
+            // Obsidian escapes with /[.?*+^$[\]\\(){}|-]/g, which is
+            // observationally equivalent to QRegularExpression::escape: an
+            // exhaustive ASCII sweep showed both forms match their own
+            // literal input for every codepoint, differing only in pattern
+            // text.
+            re = QRegularExpression(
+                QLatin1Char('^') + QRegularExpression::escape(entry),
+                QRegularExpression::CaseInsensitiveOption);
         }
+        // Obsidian logs "Bad regex for user ignore filter" and continues.
+        if (!re.isValid()) continue;
+        out.m_patterns.append(std::move(re));
     }
     return out;
 }
@@ -37,7 +35,7 @@ IgnoreFilter IgnoreFilter::fromPatterns(const QStringList &patterns)
 bool IgnoreFilter::matches(const QString &vaultRelativePath) const
 {
     for (const auto &p : m_patterns) {
-        if (p.re.match(vaultRelativePath).hasMatch()) return true;
+        if (p.match(vaultRelativePath).hasMatch()) return true;
     }
     return false;
 }

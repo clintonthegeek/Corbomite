@@ -25,7 +25,7 @@ live) and the open `[workspace]` punch-list items.
 established that `docs/obsidian-audit/domains/workspace.md` §2
 **inverts** the meaning of the split `direction` field — it names the
 divider line's orientation, not the stacking axis of the children. See
-[`obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md`](../../obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md)
+[`obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md`](../../obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md) ⚠️ **2026-10-03: this addendum's *attribution* is wrong** — it claims to refute `workspace.md:79`, but its own replacement table restates line 79 verbatim. Six independent source paths confirm the **doc** was right (`vertical` ⇒ left↔right) and the inversion was in our serializer. Its *code* finding still stands. See [`2026-10-03-workspace-split-direction-source-proof.md`](../../obsidian-audit/addenda/2026-10-03-workspace-split-direction-source-proof.md).
 (written 2026-10-01, ~6 weeks after the L5 fix landed). The related
 2026-06-10 workspace corrections (flat window bounds, `pinned` at two
 levels, `group` sibling of `state`) are in
@@ -375,7 +375,7 @@ switch) not yet run.
 - [ ] **L5.2 — Split.** Create horizontal and vertical splits via both the
       toolbar/menu and drag-to-split; confirm direction matches the divider
       **line** (Obsidian's inverted-looking convention — read
-      [`addenda/2026-10-01-workspace-split-direction-correction.md`](../../obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md)
+      [`addenda/2026-10-01-workspace-split-direction-correction.md`](../../obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md) ⚠️ **2026-10-03: this addendum's *attribution* is wrong** — it claims to refute `workspace.md:79`, but its own replacement table restates line 79 verbatim. Six independent source paths confirm the **doc** was right (`vertical` ⇒ left↔right) and the inversion was in our serializer. Its *code* finding still stands. See [`2026-10-03-workspace-split-direction-source-proof.md`](../../obsidian-audit/addenda/2026-10-03-workspace-split-direction-source-proof.md).
       before touching the serializer) and that three-deep nesting places
       panes in the right quadrants.
 - [ ] **L5.3 — Popout.** Pop a leaf to a new window, then close it via the X,

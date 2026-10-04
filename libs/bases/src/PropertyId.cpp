@@ -10,6 +10,12 @@ QString PropertyId::toString() const
 
 PropertyId parsePropertyId(const QString &s)
 {
+    // Obsidian's `pQ` special-cases the bare string "file" to "file.file"
+    // (app/own/1769-pQ.js:2-4). Without this the round trip is not a fixed
+    // point: the writer emits `file.file` as `file`, which would re-parse as a
+    // *note* property named "file". A frontmatter key literally called "file"
+    // is still addressable as `note.file`.
+    if (s == QLatin1String("file")) return { PropertyKind::File, QStringLiteral("file") };
     const int dot = s.indexOf(QLatin1Char('.'));
     if (dot < 0) {
         // Unprefixed → `note.<name>` (audit §11).
@@ -33,6 +39,23 @@ QString buildPropertyId(const PropertyId &id)
     case PropertyKind::Formula: return QStringLiteral("formula.") + id.name;
     }
     return id.name;
+}
+
+QString serializePropertyId(const PropertyId &id)
+{
+    if (id.kind == PropertyKind::Note) {
+        // A note property whose own name begins with a reserved prefix is
+        // left fully qualified, else the prefix would be re-read as the type.
+        static const QStringList kReserved = {
+            QStringLiteral("file"), QStringLiteral("formula"), QStringLiteral("note")
+        };
+        return kReserved.contains(id.name.split(QLatin1Char('.')).value(0))
+            ? QStringLiteral("note.") + id.name
+            : id.name;
+    }
+    if (id.kind == PropertyKind::File && id.name == QLatin1String("file"))
+        return QStringLiteral("file");
+    return buildPropertyId(id);
 }
 
 const QStringList &filePropertyMembers()

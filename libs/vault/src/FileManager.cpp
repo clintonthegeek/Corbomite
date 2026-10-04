@@ -20,6 +20,7 @@
 #include <markoff/parser/YamlValue.h>
 
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStringList>
 #include <QVariant>
@@ -597,6 +598,42 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
 bool FileManager::deleteProperty(const QString &) { return false; }
 bool FileManager::renameProperty(const QString &, const QString &) { return false; }
 namespace {
+// Obsidian's attachment-name sanitiser, `DD`/`xD`
+// (app/own/1120-DD.js:2, app/own/1118-SD.js:3): `: # | ^ \ CR LF`, the pair
+// `%%` (comment syntax) and the pairs `[[` / `]]` each become a space, then
+// whitespace runs collapse and the result is trimmed. The set exists to strip
+// link syntax back out of a pasted linktext. Hand-rolled rather than a
+// QRegularExpression because the alternation is a simple left-to-right scan
+// and the `[[` / `]]` / `%%` pairs must not match singly.
+QString sanitiseAttachmentName(const QString &linktext)
+{
+    static const QString singles = QStringLiteral(":#|^\\\r\n");
+    QString out;
+    out.reserve(linktext.size());
+    for (int i = 0; i < linktext.size(); ++i) {
+        const QChar ch = linktext.at(i);
+        const QChar next =
+            i + 1 < linktext.size() ? linktext.at(i + 1) : QChar();
+        if (singles.contains(ch)) {
+            out += QLatin1Char(' ');
+        } else if (ch == QLatin1Char('%') && next == QLatin1Char('%')) {
+            out += QLatin1Char(' ');
+            ++i;
+        } else if ((ch == QLatin1Char('[') || ch == QLatin1Char(']'))
+                   && next == ch) {
+            out += QLatin1Char(' ');
+            ++i;
+        } else {
+            out += ch;
+        }
+    }
+    out.replace(QRegularExpression(QStringLiteral("\\s+")), QStringLiteral(" "));
+    out = out.trimmed();
+    // ...then the first 250 UTF-16 code units are kept
+    // (app/own/1129-UD.js:575).
+    return out.left(250);
+}
+
 QString collisionFreeName(Corbomite::Vault *v, const QString &parentPrefix,
                           const QString &desired, const QString &ext)
 {
@@ -677,7 +714,8 @@ QString FileManager::getAvailablePathForAttachment(const QString &linktext,
         if (slash > 0) parentPrefix = sourcePathHint.left(slash) + QLatin1Char('/');
     }
 
-    const QFileInfo fi(linktext);
+    const QFileInfo fi(sanitiseAttachmentName(
+        VaultPaths::normalize(linktext)));
     const QString base = fi.completeBaseName();
     const QString ext  = fi.suffix();
     return collisionFreeName(m_vault, parentPrefix, base, ext);

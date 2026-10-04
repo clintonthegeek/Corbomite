@@ -488,7 +488,53 @@ ValuePtr Evaluator::evalCall(const CallExpr &c, const EvalContext &ctx) const
     }
 
     for (const auto &a : c.args) args.push_back(eval(*a, ctx));
-    return fn->apply(ctx, args);
+
+    // Obsidian's argument binder (app/own/1759-kX.js:353-386). Two rules
+    // matter for behaviour, and both are reproduced:
+    //   * a NullValue bound to a *non-optional* parameter aborts the whole
+    //     call, which then evaluates to NullValue — so
+    //     `note.foo.contains(file.missing)` is falsy, not an error badge;
+    //   * optional parameters receive JS `null` instead, which here is an
+    //     absent ValuePtr (every built-in already handles that via
+    //     `args.size()`/`toStr`).
+    // Arity is checked too. Parameter *type* mismatches are deliberately not
+    // rejected — the built-ins rely on the lenient coercion Obsidian gets
+    // from its `Value` base class. A member call's subject is `args[0]` and is
+    // always forwarded (Obsidian spells it an explicit leading `self` param,
+    // e.g. `1659-expressionstatement.js:65`); only the call-site arguments
+    // are matched against `params`.
+    const QVector<FnParam> &spec = fn->params;
+    const bool isMember = dynamic_cast<MemberExpr *>(c.callee.get()) != nullptr;
+    QVector<ValuePtr> forwarded;
+    forwarded.reserve(args.size());
+    if (isMember) forwarded.append(args.value(0));
+    int slot = 0;
+    bool overflowed = false;
+    auto bind = [&](const ValuePtr &arg) -> bool {
+        if (slot == spec.size()) {
+            if (spec.isEmpty() || !spec.last().variadic) { overflowed = true; return false; }
+            slot--;
+        }
+        const FnParam &p = spec[slot];
+        const bool isNull = arg && dynamic_cast<NullValue *>(arg.get()) != nullptr;
+        if (p.optional && isNull) forwarded.append(ValuePtr{});
+        else {
+            if (isNull && !p.optional) return false;
+            forwarded.append(arg);
+        }
+        slot++;
+        return true;
+    };
+    for (int i = isMember ? 1 : 0, n = args.size(); i < n; ++i) {
+        if (bind(args[i])) continue;
+        return overflowed
+            ? makeError(i18n("too many arguments for '%1'", fn->name))
+            : NullValue::instance();
+    }
+    for (int i = slot, n = spec.size(); i < n; ++i)
+        if (!spec[i].optional && !spec[i].variadic)
+            return makeError(i18n("not enough arguments for '%1'", fn->name));
+    return fn->apply(ctx, forwarded);
 }
 
 }  // namespace Corbomite::Bases

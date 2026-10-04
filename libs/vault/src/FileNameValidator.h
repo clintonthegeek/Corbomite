@@ -14,11 +14,15 @@ class TAbstractFile;
 ///
 /// Rules (in order):
 ///   1. Empty name → rejected.
-///   2. Bad characters `\\ / : * ? " < > |` → rejected.
+///   2. Bad characters → rejected. The set is **platform-conditional**, as
+///      Obsidian's `HD` is (`app/own/1126-FD.js:52,54`): `\ / :` on
+///      POSIX/macOS, `* " \ / < > : | ?` on Windows. A name like `Notes?`
+///      is a legal vault filename on Linux and is accepted here.
 ///   3. Windows reserved basenames (CON, PRN, AUX, NUL, COM1..9, LPT1..9):
 ///      always rejected on Windows; rejected on other OSes only when
 ///      `isFinal == true` (so vaults roaming across OSes don't silently
-///      produce unusable filenames).
+///      produce unusable filenames). Obsidian itself checks this only on
+///      Windows; the advisory pass elsewhere is Corbomite's own.
 ///   4. Collision detection: when `vault` is non-null, a file at the
 ///      resolved candidate path other than `sourceFile` is a collision.
 ///

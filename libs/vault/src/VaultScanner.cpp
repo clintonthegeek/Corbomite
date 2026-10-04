@@ -31,6 +31,9 @@ QVector<NoteMeta> VaultScanner::scan(const QString &vaultRoot) const
             continue;
         }
 
+        // Not an Obsidian behaviour — see the scope note on
+        // `setIgnoreFilter`. Obsidian's ignore filters are a search / graph /
+        // property-edit gate and never gate indexing.
         if (m_ignore.patternCount() > 0 && m_ignore.matches(relPath)) {
             continue;
         }

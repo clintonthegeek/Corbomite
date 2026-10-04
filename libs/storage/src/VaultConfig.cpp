@@ -24,9 +24,9 @@ QString joinConfigPath(const QString &vaultRoot, const QString &tail)
 
 // Serialise using `JSON.stringify(value, undefined, 2)` — 2-space indent, no
 // trailing newline. Qt's QJsonDocument::Indented emits 4-space indent, so we
-// squeeze leading runs of spaces at line starts. Key order follows whatever
-// QJsonObject preserved from construction/parse — VAULT-FORMAT §1 tolerates
-// any order on read, but we still avoid reordering on write.
+// squeeze leading runs of spaces at line starts. Key order is Qt's, not the
+// file's: Qt 6 sorts QJsonObject members, so a rewrite emits codepoint order
+// (VAULT-FORMAT §1 tolerates any order on read).
 QByteArray VaultConfig::serializeObsidianStyle(const QJsonDocument &doc)
 {
     const QByteArray indented = doc.toJson(QJsonDocument::Indented);
@@ -145,6 +145,237 @@ std::optional<QJsonObject> VaultConfig::readAppearanceJson() const
 bool VaultConfig::writeAppearanceJson(const QJsonObject &obj) const
 {
     return writeJson(QStringLiteral("appearance.json"), obj);
+}
+
+// --- app.json / appearance.json partition ---
+
+const QStringList &VaultConfig::appearanceKeys()
+{
+    static const QStringList keys{
+        QStringLiteral("accentColor"),
+        QStringLiteral("theme"),
+        QStringLiteral("cssTheme"),
+        QStringLiteral("enabledCssSnippets"),
+        QStringLiteral("showViewHeader"),
+        QStringLiteral("showRibbon"),
+        QStringLiteral("nativeMenus"),
+        QStringLiteral("translucency"),
+        QStringLiteral("textFontFamily"),
+        QStringLiteral("interfaceFontFamily"),
+        QStringLiteral("monospaceFontFamily"),
+        QStringLiteral("baseFontSize"),
+        QStringLiteral("baseFontSizeAction"),
+        QStringLiteral("slidingSidebar"),
+        QStringLiteral("floatingNavigation"),
+        QStringLiteral("autoFullScreen"),
+    };
+    return keys;
+}
+
+bool VaultConfig::isAppearanceKey(QStringView key)
+{
+    const auto &keys = appearanceKeys();
+    for (const QString &k : keys) {
+        if (k == key) return true;
+    }
+    return false;
+}
+
+QJsonObject VaultConfig::readConfig() const
+{
+    QJsonObject merged = readAppearanceJson().value_or(QJsonObject{});
+    const QJsonObject app = readAppJson().value_or(QJsonObject{});
+    for (auto it = app.begin(); it != app.end(); ++it) {
+        merged.insert(it.key(), it.value());
+    }
+    return merged;
+}
+
+bool VaultConfig::saveConfig(const QJsonObject &merged) const
+{
+    QJsonObject app;
+    QJsonObject appearance;
+    for (auto it = merged.begin(); it != merged.end(); ++it) {
+        if (isAppearanceKey(it.key())) {
+            appearance.insert(it.key(), it.value());
+        } else {
+            app.insert(it.key(), it.value());
+        }
+    }
+    // Both writes are unconditional (app/own/1129-UD.js:145-147): leaving a
+    // stale copy behind in the other file is what makes Obsidian silently
+    // revert a Corbomite-side change.
+    const bool appOk = writeJson(QStringLiteral("app.json"), app);
+    const bool appearanceOk = writeJson(QStringLiteral("appearance.json"), appearance);
+    return appOk && appearanceOk;
+}
+
+bool VaultConfig::setConfigValue(const QString &key, const QJsonValue &value) const
+{
+    QJsonObject merged = readConfig();
+    if (value.isUndefined()) {
+        if (!merged.contains(key)) return true;
+        merged.remove(key);
+    } else {
+        const auto it = merged.find(key);
+        if (it != merged.end() && *it == value) return true;
+        merged.insert(key, value);
+    }
+    return saveConfig(merged);
+}
+
+bool VaultConfig::removeConfigKey(const QString &key) const
+{
+    return setConfigValue(key, QJsonValue(QJsonValue::Undefined));
+}
+
+// --- Core-plugin data: `.obsidian/<corePluginId>.json` ---
+
+bool VaultConfig::isSafeConfigName(const QString &name)
+{
+    if (name.isEmpty()) return false;
+    if (name.contains(QLatin1Char('/')) || name.contains(QLatin1Char('\\'))) return false;
+    return !name.contains(QLatin1String(".."));
+}
+
+std::optional<QJsonObject> VaultConfig::readCorePluginConfig(const QString &corePluginId) const
+{
+    if (!isSafeConfigName(corePluginId)) return std::nullopt;
+    return readJson(corePluginId + QStringLiteral(".json"));
+}
+
+bool VaultConfig::writeCorePluginConfig(const QString &corePluginId, const QJsonObject &obj)
+{
+    if (!isSafeConfigName(corePluginId)) return false;
+    return writeJson(corePluginId + QStringLiteral(".json"), obj);
+}
+
+bool VaultConfig::deleteCorePluginConfig(const QString &corePluginId)
+{
+    if (!m_fs || !isSafeConfigName(corePluginId)) return false;
+    return m_fs->remove(configFilePath(corePluginId + QStringLiteral(".json")));
+}
+
+// --- Value encodings ---
+
+const QStringList &VaultConfig::openBehaviorModes()
+{
+    static const QStringList modes{
+        QString(),            // last opened
+        QStringLiteral("new"),
+        QStringLiteral("file"),
+        QStringLiteral("daily"),
+    };
+    return modes;
+}
+
+QString VaultConfig::openBehaviorPath(const QString &stored)
+{
+    static const QString prefix = QStringLiteral("file:");
+    if (!stored.startsWith(prefix)) return {};
+    return stored.mid(prefix.size());
+}
+
+QString VaultConfig::encodeOpenBehaviorFile(const QString &path)
+{
+    return QStringLiteral("file:") + path;
+}
+
+VaultConfig::AttachmentPath VaultConfig::decodeAttachmentFolderPath(const QString &stored)
+{
+    AttachmentPath out;
+    if (stored == QLatin1String("/")) {
+        out.location = AttachmentLocation::Root;
+        return out;
+    }
+    static const QString subfolderPrefix = QStringLiteral("./");
+    if (stored == QLatin1String(".") || stored == subfolderPrefix) {
+        out.location = AttachmentLocation::CurrentFolder;
+        return out;
+    }
+    if (stored.startsWith(subfolderPrefix)) {
+        out.location = AttachmentLocation::Subfolder;
+        out.value = stored.mid(subfolderPrefix.size());
+        return out;
+    }
+    out.location = AttachmentLocation::Folder;
+    out.value = stored;
+    return out;
+}
+
+QString VaultConfig::encodeAttachmentFolderPath(const AttachmentPath &decoded,
+                                                const QString &fallback)
+{
+    switch (decoded.location) {
+    case AttachmentLocation::Root:
+        return QStringLiteral("/");
+    case AttachmentLocation::CurrentFolder:
+        return QStringLiteral("./");
+    case AttachmentLocation::Subfolder:
+        return QStringLiteral("./")
+            + (decoded.value.isEmpty() ? fallback : decoded.value);
+    case AttachmentLocation::Folder:
+        break;
+    }
+    return decoded.value.isEmpty() ? fallback : decoded.value;
+}
+
+QStringList VaultConfig::decodeFontFamilyStack(const QString &stored)
+{
+    QString normalised = stored;
+    normalised.replace(QLatin1Char('"'), QString());
+    QStringList families = normalised.split(QLatin1Char(','));
+    for (QString &f : families) f = f.trimmed();
+    families.removeAll(QString());
+    return families;
+}
+
+QString VaultConfig::encodeFontFamilyStack(const QStringList &families)
+{
+    return families.join(QLatin1Char(','));
+}
+
+std::optional<bool> VaultConfig::nativeMenus() const
+{
+    const auto config = readConfig();
+    const auto it = config.constFind(QStringLiteral("nativeMenus"));
+    if (it == config.constEnd() || !it->isBool()) return std::nullopt;
+    return it->toBool();
+}
+
+bool VaultConfig::setNativeMenus(std::optional<bool> followOs)
+{
+    // An explicit JSON `null` rather than a deleted key: it is what Obsidian's
+    // defaults table carries (app/own/0920-eE.js:1203) and it keeps the third
+    // state visible on disk.
+    return setConfigValue(QStringLiteral("nativeMenus"),
+                          followOs ? QJsonValue(*followOs) : QJsonValue(QJsonValue::Null));
+}
+
+QString VaultConfig::openBehavior() const
+{
+    const auto config = readConfig();
+    const auto it = config.constFind(QStringLiteral("openBehavior"));
+    return it != config.constEnd() && it->isString() ? it->toString() : QString();
+}
+
+VaultConfig::AttachmentPath VaultConfig::attachmentFolderPath() const
+{
+    const auto config = readConfig();
+    const auto it = config.constFind(QStringLiteral("attachmentFolderPath"));
+    // Obsidian's getConfig falls back to ME, whose attachmentFolderPath is
+    // "/" — vault root (app/own/0920-eE.js:1204).
+    return decodeAttachmentFolderPath(
+        it != config.constEnd() && it->isString()
+            ? it->toString() : QStringLiteral("/"));
+}
+
+QStringList VaultConfig::fontFamilyStack(const QString &key) const
+{
+    const auto config = readConfig();
+    const auto it = config.constFind(key);
+    return decodeFontFamilyStack(
+        it != config.constEnd() && it->isString() ? it->toString() : QString());
 }
 
 std::optional<QStringList> VaultConfig::readCommunityPlugins() const
@@ -342,6 +573,17 @@ QStringList VaultConfig::userIgnoreFilters() const
         if (entry.isString()) filters.append(entry.toString());
     }
     return filters;
+}
+
+bool VaultConfig::setUserIgnoreFilters(const QStringList &filters)
+{
+    if (filters.isEmpty()) {
+        return setConfigValue(QStringLiteral("userIgnoreFilters"),
+                              QJsonValue(QJsonValue::Null));
+    }
+    QJsonArray arr;
+    for (const QString &f : filters) arr.append(f);
+    return setConfigValue(QStringLiteral("userIgnoreFilters"), arr);
 }
 
 } // namespace Corbomite

@@ -170,11 +170,12 @@ void FileExplorerView::onNewCanvasIn(const QString &folder)
     TFolder *parent = nullptr;
     if (!folder.isEmpty()) parent = m_vault->getFolderByPath(folder);
 
-    // Literal empty `.canvas` JSON contract shape (CanvasDocument::toJson()'s
-    // defaults for a document with no nodes/edges) — this plugin doesn't
-    // link against libs/canvas, so the shape is inlined rather than pulling
-    // in a new dependency for one JSON literal.
-    static const QByteArray kEmptyCanvasJson = QByteArrayLiteral("{\n    \"nodes\": [],\n    \"edges\": []\n}\n");
+    // Byte-exact empty `.canvas` as Obsidian writes it: tab indent, no space
+    // after the colon, no trailing newline. Deliberately inlined rather than
+    // linking libs/canvas for one literal -- if libs/canvas is ever added to
+    // this plugin's link line, replace this with
+    // CanvasDocument{}.serializeObsidianStyle() instead.
+    static const QByteArray kEmptyCanvasJson = QByteArrayLiteral("{\n\t\"nodes\":[],\n\t\"edges\":[]\n}");
 
     auto *tf = m_fmProxy->createNewFile(parent, QString(), QStringLiteral("canvas"), kEmptyCanvasJson);
     if (!tf) {

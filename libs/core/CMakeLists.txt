@@ -36,6 +36,8 @@ add_library(corbomite-core SHARED
     include/corbomite/core/Command.h
     src/Hotkey.cpp
     include/corbomite/core/Hotkey.h
+    src/HotkeyManager.cpp
+    include/corbomite/core/HotkeyManager.h
     src/MenuSectionHelper.cpp
     include/corbomite/core/MenuSectionHelper.h
     src/Platform.cpp

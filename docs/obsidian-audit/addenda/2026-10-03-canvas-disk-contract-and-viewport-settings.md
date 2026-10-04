@@ -155,6 +155,13 @@ subclass appends `type` and its fields (`2022-W7.js:364-368,457-461,609-617`). E
 (`app/own/2028-n9.js:35-42`) — §2's stated edge order is right. Node order puts `type`
 **after** geometry (doc correct) and `unknownData` **first** (doc only implies it).
 
+> **REVIEWER NOTE 2026-10-03 — one correction.** F8's colour example is wrong: `"300,0,0"`
+> yields **`#12c0000`** (seven hex digits), not the five-digit `#12c00`. `zb` is
+> `(300).toString(16)` = `"12c"`, then two zero-pads. The *behaviour* claimed — no clamping,
+> and the parser re-normalises on read — is correct and is what was implemented.
+> Separately, F20's characterisation of the pre-fix parser was slightly generous: it also
+> defaulted width/height to 250/60, which F8 does not mention.
+
 ### F8 — NEW: geometry, colour and id normalisation edge cases
 
 - **NaN geometry is rejected, not written.** `n = Math.round(n), …, isNaN(n) || this.x === n || (this.x = n, …)` (`app/own/2020-O7.js:194`) — a `NaN`/`x` of `"12"`/`null` leaves the previous value (constructor default `x=0, y=0, width=100, height=100`, `app/own/2020-O7.js:165`) and is **silently dropped on save**. Also `moveAndResize` re-rounds unconditionally (`app/own/2020-O7.js:219`).

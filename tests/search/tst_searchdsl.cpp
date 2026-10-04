@@ -236,16 +236,40 @@ private Q_SLOTS:
         QCOMPARE(root->children.at(1)->text, QStringLiteral("or"));
     }
 
-    void testPropertyStubSkipped()
+    void testPropertyExistenceCheck()
     {
-        // [aliases] currently parses to nothing, leaving surrounding terms intact.
+        // `[aliases]` is a PropertyCall with a key and no value (an existence
+        // check) — app/own/1170-hP.js:36 builds JA(key, null).
         auto root = parseOk(QStringLiteral("foo [aliases] bar"));
         QVERIFY(root);
         QCOMPARE(root->kind, Kind::And);
-        // Property-call returns null so we get exactly two siblings.
+        QCOMPARE(root->children.size(), 3);
+        QCOMPARE(root->children.at(1)->kind, Kind::PropertyCall);
+        QCOMPARE(root->children.at(1)->children.size(), 1);
+        QCOMPARE(root->children.at(1)->children.at(0)->kind, Kind::Text);
+        QCOMPARE(root->children.at(1)->children.at(0)->text, QStringLiteral("aliases"));
+    }
+
+    void testPropertyWithValue()
+    {
+        auto root = parseOk(QStringLiteral("[author:x]"));
+        QVERIFY(root);
+        QCOMPARE(root->kind, Kind::PropertyCall);
         QCOMPARE(root->children.size(), 2);
-        QCOMPARE(root->children.at(0)->text, QStringLiteral("foo"));
-        QCOMPARE(root->children.at(1)->text, QStringLiteral("bar"));
+        QCOMPARE(root->children.at(0)->text, QStringLiteral("author"));
+        QCOMPARE(root->children.at(1)->kind, Kind::Text);
+        QCOMPARE(root->children.at(1)->text, QStringLiteral("x"));
+    }
+
+    void testPropertyKeyIsAFullOrList()
+    {
+        // app/own/1170-hP.js:28 — the key is a `cP`, so `["a" OR "b"]` works.
+        auto root = parseOk(QStringLiteral("[\"a\" OR \"b\"]"));
+        QVERIFY(root);
+        QCOMPARE(root->kind, Kind::PropertyCall);
+        QCOMPARE(root->children.at(0)->kind, Kind::Or);
+        QCOMPARE(root->children.at(0)->children.size(), 2);
+        QCOMPARE(root->children.at(0)->children.at(0)->kind, Kind::Phrase);
     }
 
     void testSupportedOperatorsList()

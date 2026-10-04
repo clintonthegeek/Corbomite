@@ -171,8 +171,12 @@ private Q_SLOTS:
     // Regression: emitMap previously iterated QVariantMap (alphabetical), so
     // every save shuffled top-level keys (filters/formulas/properties/views)
     // out of canonical doc shape. Round-trip a fully-populated `.base` and
-    // confirm the canonical doc-order (filters → formulas → properties →
-    // summaries → views) survives.
+    // confirm the writer's own order survives.
+    //
+    // The order is Obsidian's `getSerializable()` (app/own/1766-lQ.js:204-230):
+    // filters → formulas → summaries → properties → views → newItem*. It used
+    // to be `properties` before `summaries` here, on the strength of the audit
+    // docs; the restored 1.13.7 writer puts `summaries` first.
     void testTopLevelKeyOrderPreserved()
     {
         const QString src = QStringLiteral(
@@ -208,19 +212,19 @@ private Q_SLOTS:
         QVERIFY2(newItemFolderPos >= 0, "newItemFolder: present");
 
         QVERIFY2(filtersPos < formulasPos,
-                 "filters must precede formulas (canonical order)");
-        QVERIFY2(formulasPos < propertiesPos,
-                 "formulas must precede properties");
-        QVERIFY2(propertiesPos < summariesPos,
-                 "properties must precede summaries");
-        QVERIFY2(summariesPos < viewsPos,
-                 "summaries must precede views");
+                 "filters must precede formulas (writer order)");
+        QVERIFY2(formulasPos < summariesPos,
+                 "formulas must precede summaries");
+        QVERIFY2(summariesPos < propertiesPos,
+                 "summaries must precede properties (writer order, 1766-lQ.js:216-227)");
+        QVERIFY2(propertiesPos < viewsPos,
+                 "properties must precede views");
         // newItemFolder ('n') alphabetises between formulas and properties,
-        // but canonically belongs after views. This catches the bug a purely
+        // but belongs after views. This catches the bug a purely
         // f/f/p/s/v order would miss (since those keys happen to be in
         // alphabetical sequence).
         QVERIFY2(viewsPos < newItemFolderPos,
-                 "newItemFolder must come after views (canonical), not "
+                 "newItemFolder must come after views (writer order), not "
                  "alphabetically between formulas and properties");
     }
 
@@ -329,6 +333,207 @@ private Q_SLOTS:
         QCOMPARE(v->sort[0].direction, QStringLiteral("ASC"));
     }
 
+    // ----- property-id serialisation (Obsidian `hQ`) -----
+
+    void testSerializePropertyIdStripsNotePrefix()
+    {
+        QCOMPARE(serializePropertyId(parsePropertyId(QStringLiteral("note.status"))),
+                 QStringLiteral("status"));
+        QCOMPARE(serializePropertyId(parsePropertyId(QStringLiteral("note.priority"))),
+                 QStringLiteral("priority"));
+        QCOMPARE(serializePropertyId(parsePropertyId(QStringLiteral("status"))),
+                 QStringLiteral("status"));
+    }
+
+    void testSerializePropertyIdShortensFileFile()
+    {
+        QCOMPARE(serializePropertyId(parsePropertyId(QStringLiteral("file.file"))),
+                 QStringLiteral("file"));
+        QCOMPARE(serializePropertyId(parsePropertyId(QStringLiteral("file.name"))),
+                 QStringLiteral("file.name"));
+    }
+
+    void testSerializePropertyIdKeepsReservedAndFormulaPrefixes()
+    {
+        // `note.note.x` survives: stripping would re-read the second segment
+        // as the type.
+        QCOMPARE(serializePropertyId(parsePropertyId(QStringLiteral("note.note.x"))),
+                 QStringLiteral("note.note.x"));
+        QCOMPARE(serializePropertyId(parsePropertyId(QStringLiteral("note.file.y"))),
+                 QStringLiteral("note.file.y"));
+        QCOMPARE(serializePropertyId(parsePropertyId(QStringLiteral("formula.ppux"))),
+                 QStringLiteral("formula.ppux"));
+    }
+
+    // The headline: one `.base` that names the same property in `order:` and
+    // in `properties:` must come back with `order:` in Obsidian's short form
+    // and `properties:` verbatim — and must be a fixed point, so a second
+    // round-trip changes nothing.
+    void testSamePropertyInOrderAndPropertiesRoundTripsStably()
+    {
+        const QString src = QStringLiteral(
+            "properties:\n"
+            "  note.status:\n"
+            "    displayName: Status\n"
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n"
+            "    order:\n"
+            "      - note.status\n");
+        const QString once = BasesQuery::fromString(src)->toString();
+        QVERIFY2(once.contains(QStringLiteral("    - status\n")),
+                 qPrintable(QStringLiteral("order: must be canonicalised to `status`; got:\n%1").arg(once)));
+        QVERIFY2(once.contains(QStringLiteral("  note.status:\n")),
+                 qPrintable(QStringLiteral("properties: key must stay as authored; got:\n%1").arg(once)));
+        QCOMPARE(BasesQuery::fromString(once)->toString(), once);
+    }
+
+    void testPropertiesKeyPreservedUnprefixed()
+    {
+        const QString src = QStringLiteral(
+            "properties:\n"
+            "  status:\n"
+            "    displayName: Status\n"
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n");
+        const QString out = BasesQuery::fromString(src)->toString();
+        QVERIFY2(out.contains(QStringLiteral("  status:\n")),
+                 qPrintable(QStringLiteral("an unprefixed properties: key must not be rewritten; got:\n%1").arg(out)));
+        QVERIFY(!out.contains(QStringLiteral("note.status")));
+    }
+
+    void testViewPropertyIdSitesAllCanonicalised()
+    {
+        const QString src = QStringLiteral(
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n"
+            "    groupBy:\n"
+            "      property: note.status\n"
+            "      direction: ASC\n"
+            "    order:\n"
+            "      - note.status\n"
+            "      - file.file\n"
+            "    sort:\n"
+            "      - property: note.priority\n"
+            "        direction: DESC\n"
+            "    summaries:\n"
+            "      note.price: Total\n");
+        const QString out = BasesQuery::fromString(src)->toString();
+        QVERIFY2(out.contains(QStringLiteral("property: status")), qPrintable(out));
+        QVERIFY2(out.contains(QStringLiteral("- status")), qPrintable(out));
+        QVERIFY2(out.contains(QStringLiteral("- file\n")), qPrintable(out));
+        QVERIFY2(out.contains(QStringLiteral("property: priority")), qPrintable(out));
+        QVERIFY2(out.contains(QStringLiteral("price: Total")), qPrintable(out));
+        QVERIFY(!out.contains(QStringLiteral("note.")));
+        QCOMPARE(BasesQuery::fromString(out)->toString(), out);
+    }
+
+    // The asymmetry the addendum flags: `data.columnSize` is written by
+    // Obsidian with canonical `note.x` keys while `order` loses the prefix
+    // (1972-Z5.js:1021-1029 vs 1766-lQ.js:17). We pass `data` through
+    // byte-for-byte, so both survive.
+    void testViewDataColumnSizeKeysPassedThroughVerbatim()
+    {
+        const QString src = QStringLiteral(
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n"
+            "    order:\n"
+            "      - note.status\n"
+            "    columnSize:\n"
+            "      note.status: 240\n");
+        const QString out = BasesQuery::fromString(src)->toString();
+        QVERIFY2(out.contains(QStringLiteral("      note.status: 240")), qPrintable(out));
+        QVERIFY2(out.contains(QStringLiteral("    - status")), qPrintable(out));
+        auto q = BasesQuery::fromString(out);
+        QCOMPARE(q->views.front()->data.value(QStringLiteral("columnSize")).toMap()
+                     .value(QStringLiteral("note.status")).toInt(), 240);
+    }
+
+    void testEmptyPropertiesBlockOmitted()
+    {
+        // A config with nothing in it serialises to null, so a `properties:`
+        // block made only of empty configs disappears entirely
+        // (1764-jX.js:267-269 + 1766-lQ.js:223-227).
+        const QString src = QStringLiteral(
+            "properties:\n"
+            "  note.status: {}\n"
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n");
+        const QString out = BasesQuery::fromString(src)->toString();
+        QVERIFY2(!out.contains(QStringLiteral("properties:")), qPrintable(out));
+    }
+
+    // `formulas:` is length-guarded and vanishes when emptied; `summaries:`
+    // is not, and persists as `{}` (1766-lQ.js:206-222).
+    void testEmptySummariesPersistsEmptyFormulasDoesNot()
+    {
+        auto q = BasesQuery::fromString(QStringLiteral(
+            "formulas:\n"
+            "  a: \"1\"\n"
+            "summaries:\n"
+            "  s: \"values.sum()\"\n"
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n"));
+        q->formulas.clear();
+        q->summaryFormulas.clear();
+        const QString out = q->toString();
+        QVERIFY2(!out.contains(QStringLiteral("formulas:")), qPrintable(out));
+        QVERIFY2(out.contains(QStringLiteral("summaries: {}")), qPrintable(out));
+    }
+
+    void testSummariesBlockNotDoubleHandled()
+    {
+        // A top-level `summaries:` must be owned by `summaryFormulas` alone.
+        // If it also landed in `unrecognizedData` the two writers would fight
+        // on serialise (the 2026-06-10 finding, still live in 1.13.7 at
+        // 1766-lQ.js:188-202 + :216-222).
+        auto q = BasesQuery::fromString(QStringLiteral(
+            "summaries:\n"
+            "  s: \"values.sum()\"\n"
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n"));
+        QVERIFY(!q->unrecognizedData.contains(QStringLiteral("summaries")));
+        QCOMPARE(q->summaryFormulas.value(QStringLiteral("s")).source(),
+                 QStringLiteral("values.sum()"));
+    }
+
+    void testViewKeyOrderMatchesWriter()
+    {
+        // 1766-lQ.js:9-32: type, name, filters, groupBy, order, sort, limit,
+        // summaries, then free-form data keys.
+        const QString src = QStringLiteral(
+            "views:\n"
+            "  - type: table\n"
+            "    name: All\n"
+            "    limit: 5\n"
+            "    sort:\n"
+            "      - property: note.a\n"
+            "        direction: ASC\n"
+            "    order:\n"
+            "      - file.name\n"
+            "    groupBy:\n"
+            "      property: note.b\n"
+            "      direction: ASC\n"
+            "    filters:\n"
+            "      and:\n"
+            "        - 'true'\n");
+        const QString out = BasesQuery::fromString(src)->toString();
+        const int name = out.indexOf(QStringLiteral("name:"));
+        const int filters = out.indexOf(QStringLiteral("filters:"));
+        const int groupBy = out.indexOf(QStringLiteral("groupBy:"));
+        const int order = out.indexOf(QStringLiteral("order:"));
+        const int sort = out.indexOf(QStringLiteral("sort:"));
+        const int limit = out.indexOf(QStringLiteral("limit:"));
+        QVERIFY(filters > name && groupBy > filters && order > groupBy
+                && sort > order && limit > sort);
+    }
+
     // ----- FilterTree -----
 
     void testFilterLeafTest()
@@ -366,6 +571,25 @@ private Q_SLOTS:
         FilterConjunction c(Conj::Not, {trueLeaf});
         LambdaContext ctx([](const QString &) -> ValuePtr { return nullptr; });
         QVERIFY(!c.test(ctx));
+    }
+
+    // `not:` is NOR, not NAND (app/own/1764-jX.js:232-237). The distinction
+    // only shows up with two children: NAND would be true when both are false,
+    // NOR is false when either is true.
+    void testFilterConjunctionNotIsNorNotNand()
+    {
+        auto trueLeaf  = std::make_shared<FilterRule>(Formula(QStringLiteral("true")));
+        auto falseLeaf = std::make_shared<FilterRule>(Formula(QStringLiteral("false")));
+        LambdaContext ctx([](const QString &) -> ValuePtr { return nullptr; });
+
+        // NOR: !(true || false) == false, !(false || false) == true.
+        QVERIFY(!FilterConjunction(Conj::Not, {trueLeaf, falseLeaf}).test(ctx));
+        QVERIFY(!FilterConjunction(Conj::Not, {falseLeaf, trueLeaf}).test(ctx));
+        QVERIFY(FilterConjunction(Conj::Not, {falseLeaf, falseLeaf}).test(ctx));
+        // NAND would have returned true for {true, false} — that is the
+        // reading this test exists to refute.
+        QVERIFY2(!FilterConjunction(Conj::Not, {trueLeaf, falseLeaf}).test(ctx),
+                 "not: must be NOR, not !(a && b)");
     }
 
     void testFilterOptimizeCollapsesSingleChild()

@@ -91,6 +91,8 @@ void CanvasDuplicateDragTool::mousePressEvent(QGraphicsSceneMouseEvent *event)
             break;
         case NodeType::Link:
             break;
+        case NodeType::Unknown:
+            break;
         }
         if (!item)
             continue;
@@ -140,6 +142,7 @@ void CanvasDuplicateDragTool::removeUncommittedClones()
         case NodeType::File: m_canvasScene->removeFileCardItem(it.key()); break;
         case NodeType::Group: m_canvasScene->removeGroupItem(it.key()); break;
         case NodeType::Link: break;
+        case NodeType::Unknown: break;
         }
     }
     // Restore the original selection so a discarded (below-threshold)

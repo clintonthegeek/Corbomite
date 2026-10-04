@@ -6,16 +6,18 @@
 
 namespace Corbomite {
 
-// Mirrors Obsidian's PreparedQuery shape (search.md §2).
+// Mirrors Obsidian's PreparedQuery shape — `prepareQuery` (app/own/0780-$y.js)
+// for the two-pass matcher and `prepareSimpleSearch` (app/own/0789-ab.js) for the
+// substring one, which shares this struct but fills neither `tokens` beyond a
+// space split nor `fuzzy` at all.
 //
 // `query`  : original user input, case preserved (so renderers can echo it).
 // `tokens` : lowercase whitespace-split words PLUS 1-char punctuation/CJK
 //            singletons, in source order. NOT a word count — "foo-bar" yields
 //            ["foo","-","bar"].
-// `fuzzy`  : lowercase full string, spaces removed. The per-character
-//            fallback alphabet for the second-pass matcher.
-// `simple` : true when produced by prepareSimpleSearch — disables char-fuzzy
-//            fallback and CJK codepoint split.
+// `fuzzy`  : lowercase full string minus literal spaces. The per-character
+//            fallback alphabet for the second-pass matcher; empty when `simple`.
+// `simple` : true when produced by prepareSimpleSearch.
 //
 // Build via FuzzyMatcher::prepareQuery() / prepareSimpleSearch().
 struct PreparedQuery {

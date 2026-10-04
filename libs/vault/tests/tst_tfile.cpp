@@ -52,7 +52,7 @@ void TestTFile::statNullUntilSet()
 void TestTFile::savingDefaultsFalse()
 {
     Corbomite::TFile f(nullptr, QStringLiteral("a.md"));
-    QCOMPARE(f.saving, false);
+    QCOMPARE(f.savingDepth, 0);
 }
 
 void TestTFile::extensionIsLowercase()

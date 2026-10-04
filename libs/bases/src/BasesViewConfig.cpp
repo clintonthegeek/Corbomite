@@ -85,7 +85,7 @@ std::unique_ptr<BasesViewConfig> BasesViewConfig::fromYaml(const Markoff::YamlVa
             });
         }
         else {
-            cfg->unrecognizedData.insert(key, yamlToVariant(v));
+            cfg->data.insert(key, yamlToVariant(v));
         }
     });
 
@@ -102,36 +102,37 @@ QVariantMap BasesViewConfig::toMap() const
     m.insert(QStringLiteral("type"), type);
     m.insert(QStringLiteral("name"), name);
     if (filters) m.insert(QStringLiteral("filters"), filters->serialize());
+    if (groupBy) {
+        QVariantMap gb;
+        gb.insert(QStringLiteral("property"), serializePropertyId(groupBy->property));
+        gb.insert(QStringLiteral("direction"), groupBy->direction);
+        m.insert(QStringLiteral("groupBy"), gb);
+    }
     if (!order.isEmpty()) {
         QVariantList xs;
-        for (const auto &p : order) xs.append(buildPropertyId(p));
+        for (const auto &p : order) xs.append(serializePropertyId(p));
         m.insert(QStringLiteral("order"), xs);
     }
     if (!sort.isEmpty()) {
         QVariantList xs;
         for (const auto &sk : sort) {
             QVariantMap e;
-            e.insert(QStringLiteral("property"), buildPropertyId(sk.property));
+            e.insert(QStringLiteral("property"), serializePropertyId(sk.property));
             e.insert(QStringLiteral("direction"), sk.direction);
             xs.append(e);
         }
         m.insert(QStringLiteral("sort"), xs);
     }
-    if (groupBy) {
-        QVariantMap gb;
-        gb.insert(QStringLiteral("property"), buildPropertyId(groupBy->property));
-        gb.insert(QStringLiteral("direction"), groupBy->direction);
-        m.insert(QStringLiteral("groupBy"), gb);
-    }
     if (limit > 0) m.insert(QStringLiteral("limit"), limit);
     if (!summaries.isEmpty()) {
         QVariantMap s;
         for (auto it = summaries.constBegin(); it != summaries.constEnd(); ++it)
-            s.insert(buildPropertyId(it.key()), it.value());
+            s.insert(serializePropertyId(it.key()), it.value());
         m.insert(QStringLiteral("summaries"), s);
     }
-    // Preserve unrecognizedData last for forward-compat round-trip.
-    for (auto it = unrecognizedData.constBegin(); it != unrecognizedData.constEnd(); ++it) {
+    // `data` last, matching Obsidian: free-form keys are relocated after the
+    // recognised ones on every write (1766-lQ.js:27-31).
+    for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
         if (!m.contains(it.key())) m.insert(it.key(), it.value());
     }
     return m;

@@ -145,30 +145,34 @@ std::shared_ptr<DurationValue> DurationValue::parseFromString(const QString &tex
     const QString t = text.trimmed();
     if (t.isEmpty()) return nullptr;
 
-    // ISO-8601: P[nY][nM][nW][nD][T[nH][nM][nS]]
+    // ISO-8601 branch, reproducing Obsidian's regex verbatim (including its
+    // three quirks) from app/own/1649-dK.js:245-252: it is UNANCHORED, the
+    // `T` is mandatory, `,` is accepted as a decimal separator, and the
+    // fractional-seconds group lands in the *seconds* slot with milliseconds
+    // hard-coded to 0 — so "P1.5S" is 1 second, not 1.5.
     static const QRegularExpression iso(
-        QStringLiteral(R"(^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$)"));
+        QStringLiteral(R"(P(?:([.,\d]+)Y)?(?:([.,\d]+)M)?(?:([.,\d]+)W)?(?:([.,\d]+)D)?T(?:([.,\d]+)H)?(?:([.,\d]+)M)?(?:([.,\d]+)S)?)"));
     auto m = iso.match(t);
     if (m.hasMatch()) {
-        DurationComponents c{};
-        if (!m.captured(1).isEmpty()) c.years = m.captured(1).toLongLong();
-        if (!m.captured(2).isEmpty()) c.months = m.captured(2).toLongLong();
-        if (!m.captured(3).isEmpty()) c.days += m.captured(3).toLongLong() * 7;
-        if (!m.captured(4).isEmpty()) c.days += m.captured(4).toLongLong();
-        if (!m.captured(5).isEmpty()) c.hours = m.captured(5).toLongLong();
-        if (!m.captured(6).isEmpty()) c.minutes = m.captured(6).toLongLong();
-        if (!m.captured(7).isEmpty()) {
-            const double sec = m.captured(7).toDouble();
-            c.seconds = static_cast<qint64>(sec);
-            c.milliseconds = static_cast<qint64>((sec - c.seconds) * 1000.0);
-        }
-        if (c.isZero() && t == QLatin1String("P")) return nullptr;
-        return std::make_shared<DurationValue>(c);
+        // `parseInt` semantics: leading integer only, so "1,5" and "1.5"
+        // both land as 1.
+        auto num = [&m](int g) -> qint64 {
+            const QString raw = m.captured(g);
+            int i = 0;
+            while (i < raw.size() && raw[i].isDigit()) ++i;
+            return i == 0 ? 0 : raw.left(i).toLongLong();
+        };
+        return std::make_shared<DurationValue>(DurationComponents{
+            num(1), num(2), 7 * num(3) + num(4), num(5), num(6), num(7), 0});
     }
 
-    // Shorthand: "(-?\d+)\s*(unit)" — unit case-sensitive per addendum §6.1.
+    // Shorthand "(-?\d+) ?unit". There is deliberately no `ms` /
+    // `millisecond` / `milliseconds` alternative: the unit class is
+    // `[dhmswMy]|(?:second|minute|hour|day|week|month|year)[s]?`, so
+    // `duration("5ms")` matches nothing and yields NullValue. The three
+    // millisecond branches that follow it in Obsidian are unreachable.
     static const QRegularExpression shorthand(
-        QStringLiteral(R"(^(-?\d+)\s*(y|year|years|M|month|months|w|week|weeks|d|day|days|h|hour|hours|m|minute|minutes|s|second|seconds|ms|millisecond|milliseconds)$)"));
+        QStringLiteral(R"(^(-?\d+) ?([dhmswMy]|(?:second|minute|hour|day|week|month|year)[s]?)$)"));
     m = shorthand.match(t);
     if (!m.hasMatch()) return nullptr;
     const qint64 n = m.captured(1).toLongLong();
@@ -188,10 +192,6 @@ std::shared_ptr<DurationValue> DurationValue::parseFromString(const QString &tex
         c.minutes = n;
     else if (unit == QLatin1String("s") || unit == QLatin1String("second") || unit == QLatin1String("seconds"))
         c.seconds = n;
-    else if (unit == QLatin1String("ms") || unit == QLatin1String("millisecond") || unit == QLatin1String("milliseconds"))
-        c.milliseconds = n;
-    else
-        return nullptr;
     return std::make_shared<DurationValue>(c);
 }
 

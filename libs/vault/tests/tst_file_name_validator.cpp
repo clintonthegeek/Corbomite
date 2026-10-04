@@ -16,6 +16,9 @@ private slots:
     void testEmptyNameIsInvalid();
     void testBackslashIsInvalid();
     void testColonIsInvalid();
+    void windowsOnlyCharsAreLegalOnPosix_data();
+    void windowsOnlyCharsAreLegalOnPosix();
+    void windowsOnlyCharsAreRejectedOnWindows();
     void testReservedWindowsNameFlagged();
     void testCollisionDetection();
     void testValidNamePassesWithEmptyReturn();
@@ -50,6 +53,44 @@ void TestFileNameValidator::testColonIsInvalid()
 {
     auto err = Corbomite::validateFileName(QStringLiteral("foo:bar.md"), nullptr, nullptr);
     QVERIFY(!err.isEmpty());
+}
+
+// Obsidian's illegal-character set is platform-conditional
+// (`ND`/`HD`, app/own/1126-FD.js:52,54): `\ / :` on POSIX/macOS, the full
+// `* " \ / < > : | ?` on Windows. A `?` or `|` in a note name is therefore a
+// *legal* vault filename on Linux, and refusing it here would refuse to open
+// or rename a file Obsidian is happy with.
+void TestFileNameValidator::windowsOnlyCharsAreLegalOnPosix_data()
+{
+    QTest::addColumn<QString>("name");
+
+    QTest::newRow("question mark") << QStringLiteral("What?.md");
+    QTest::newRow("pipe")         << QStringLiteral("a|b.md");
+    QTest::newRow("star")         << QStringLiteral("a*b.md");
+    QTest::newRow("quote")        << QStringLiteral("say\"hi\".md");
+    QTest::newRow("lt/gt")        << QStringLiteral("a<b>c.md");
+}
+
+void TestFileNameValidator::windowsOnlyCharsAreLegalOnPosix()
+{
+    QFETCH(QString, name);
+#ifdef Q_OS_WIN
+    QVERIFY(!Corbomite::validateFileName(name, nullptr, nullptr).isEmpty());
+#else
+    QVERIFY2(Corbomite::validateFileName(name, nullptr, nullptr).isEmpty(),
+             qPrintable(name));
+#endif
+}
+
+void TestFileNameValidator::windowsOnlyCharsAreRejectedOnWindows()
+{
+    const auto err = Corbomite::validateFileName(QStringLiteral("What?.md"),
+                                                 nullptr, nullptr);
+#ifdef Q_OS_WIN
+    QVERIFY(!err.isEmpty());
+#else
+    QVERIFY(err.isEmpty());
+#endif
 }
 
 void TestFileNameValidator::testReservedWindowsNameFlagged()

@@ -1760,13 +1760,7 @@ void MainWindow::setupEditor()
                     obsTheme = name;
                 }
             }
-            QJsonObject appearance =
-                m_pluginVaultConfig->readAppearanceJson().value_or(QJsonObject{});
-            const QString existing =
-                appearance.value(QStringLiteral("theme")).toString();
-            if (existing == obsTheme) return;
-            appearance[QStringLiteral("theme")] = obsTheme;
-            m_pluginVaultConfig->writeAppearanceJson(appearance);
+            m_pluginVaultConfig->setConfigValue(QStringLiteral("theme"), obsTheme);
         });
     }
 
@@ -2057,8 +2051,8 @@ void MainWindow::createNewCanvas(const QString &folder)
             parent = created;
     }
 
-    Canvas::CanvasDocument emptyDoc; // {"nodes":[],"edges":[]}
-    const QByteArray content = QJsonDocument(emptyDoc.toJson()).toJson(QJsonDocument::Indented);
+    Canvas::CanvasDocument emptyDoc;
+    const QByteArray content = emptyDoc.serializeObsidianStyle();
 
     auto *tf = m_fileManager->createNewFile(parent, QString(), QStringLiteral("canvas"), content);
     if (!tf)

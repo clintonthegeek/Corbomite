@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
 
+#include <QDateTime>
+
 #include "corbomite/bases/Values.h"
 
 using namespace Corbomite::Bases;
@@ -104,6 +106,50 @@ private Q_SLOTS:
         QCOMPARE(l->length(), 2);
     }
 
+    // `unique()` buckets by `toString()` but deduplicates with strict
+    // `equals` (app/own/1647-tK.js:287-303), so values that stringify alike
+    // but are not `equals` both survive. Loose dedup would collapse these.
+    void testListUniqueIsStrictNotLoose()
+    {
+        // A DurationValue and its own source string land in the same bucket
+        // ("5 days") and are `looseEquals`, but `DurationValue::equals` only
+        // ever matches another DurationValue.
+        QVector<ValuePtr> pair {
+            std::make_shared<DurationValue>(DurationComponents{.days = 5}),
+            std::make_shared<StringValue>(QStringLiteral("5 days"))
+        };
+        QCOMPARE(std::make_shared<ListValue>(pair)->unique()->length(), 2);
+
+        // Same toString, different `equals` (DateValue also compares its
+        // `hasTime` flag) — both kept.
+        QVector<ValuePtr> mixed {
+            std::make_shared<DateValue>(QDateTime(QDate(2024, 1, 1), QTime(0, 0)), false),
+            std::make_shared<DateValue>(QDateTime(QDate(2024, 1, 1), QTime(0, 0)), true)
+        };
+        QCOMPARE(std::make_shared<ListValue>(mixed)->unique()->length(), 2);
+    }
+
+    // The buckets are concatenated in JS object property order, so
+    // integer-like keys come back ascending (1647-tK.js:298-303).
+    void testListUniqueOrdersIntegerKeysAscending()
+    {
+        auto l = list({N(10), N(2), N(1)})->unique();
+        QCOMPARE(l->length(), 3);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->get(0))->data(), 1.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->get(1))->data(), 2.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->get(2))->data(), 10.0);
+    }
+
+    // The comparator is numeric-aware, then localeCompare on toString()
+    // (1647-tK.js:304-310) — not a bare `.sort()`.
+    void testListSortComparesNumbersNumericallyNotAsText()
+    {
+        auto l = list({N(10), N(9), N(100)})->sort();
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->get(0))->data(), 9.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->get(1))->data(), 10.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->get(2))->data(), 100.0);
+    }
+
     void testListSortAscending()
     {
         auto l = list({N(3), N(1), N(2)})->sort();
@@ -178,11 +224,22 @@ private Q_SLOTS:
         QCOMPARE(std::static_pointer_cast<NumberValue>(l->stddev())->data(), 2.0);
     }
 
-    void testListAggregateOnNonNumericYieldsNull()
+    void testListAggregatesFilterNonNumeric()
     {
+        // `getNumbers()` filters non-numerics out rather than poisoning the
+        // whole aggregate (app/own/1647-tK.js:234-239), but `mean()` divides
+        // by the *full* list length (`:343-345`).
         auto l = list({N(1), S("x")});
-        QCOMPARE(l->sum()->type(), QStringLiteral("Null"));
-        QCOMPARE(l->mean()->type(), QStringLiteral("Null"));
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->sum())->data(), 1.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->min())->data(), 1.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->max())->data(), 1.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->median())->data(), 1.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->mean())->data(), 0.5);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->stddev())->data(), 0.0);
+
+        auto allStrings = list({S("x"), S("y")});
+        QCOMPARE(allStrings->sum()->type(), QStringLiteral("Null"));
+        QCOMPARE(allStrings->mean()->type(), QStringLiteral("Null"));
     }
 
     void testListAggregateEmptyYieldsNull()

@@ -4,10 +4,10 @@
 #include "corbomite/vault/TAbstractFile.h"
 #include "corbomite/vault/TFolder.h"
 #include "corbomite/vault/Vault.h"
+#include "PathSafety.h"
 
 #include <KLocalizedString>
 
-#include <QRegularExpression>
 #include <QSet>
 
 namespace Corbomite {
@@ -39,15 +39,18 @@ QString validateFileName(const QString &newName,
     if (newName.isEmpty())
         return i18n("A file name is required.");
 
-    // Bad characters.
-    static const QRegularExpression bad(QStringLiteral(R"([\\/:*?"<>|])"));
-    if (bad.match(newName).hasMatch()) {
-        return i18n(
-            "File name cannot contain any of the following characters: "
-            "\\ / : * ? \" < > |");
+    // Bad characters, per this platform's Obsidian set (`VaultPaths::
+    // illegalPathChars`). On POSIX that is only `\ / :`, so `Notes?` and
+    // `a|b` are legal vault names and must not be refused here.
+    if (VaultPaths::hasIllegalPathChar(newName)) {
+        return i18n("File name cannot contain any of the following "
+                    "characters: %1").arg(
+            VaultPaths::illegalPathCharsForDisplay());
     }
 
-    // Reserved Windows basenames (basename-before-extension check).
+    // Reserved Windows basenames (basename-before-extension check). Obsidian
+    // runs this — and the trailing dot/space check — only when the *running*
+    // platform is Windows (`jD`, app/own/1128-jD.js:2-6).
     const QString basename = newName.section(QLatin1Char('.'), 0, 0).toUpper();
     if (windowsReservedBasenames().contains(basename)) {
 #ifdef Q_OS_WIN

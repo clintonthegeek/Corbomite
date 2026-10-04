@@ -24,7 +24,9 @@
 #include <string>
 #include <unordered_map>
 
+#include "HiddenPaths.h"
 #include "PathNormalization.h"
+#include "PathSafety.h"
 #include "Watcher.h"
 
 #include <QLoggingCategory>
@@ -556,9 +558,14 @@ bool Vault::copy(TAbstractFile *f, const QString &newPath)
 
 void Vault::setConfigDir(const QString &d)
 {
-    if (d.isEmpty() || d == QStringLiteral(".")) return;
-    if (!d.startsWith(QLatin1Char('.'))) return;
-    m_configDir = d;
+    // Obsidian's validateConfigDir (app/own/1129-UD.js:105-108): a single
+    // dot-prefixed segment with no illegal path character in it, so it cannot
+    // be nested. `setConfigDir` then assigns unconditionally, so an invalid
+    // value falls back to `.obsidian` rather than keeping the old one.
+    const bool valid = d != QStringLiteral(".")
+                    && d.startsWith(QLatin1Char('.'))
+                    && !VaultPaths::hasIllegalPathChar(d);
+    m_configDir = valid ? d : QStringLiteral(".obsidian");
 }
 
 namespace {
@@ -693,14 +700,7 @@ void Vault::buildTree()
                 const QString absChild = absDir + QLatin1Char('/') + entry;
                 const QString rel = VaultPaths::normalize(
                     QDir(m_basePath).relativeFilePath(absChild));
-                if (rel.startsWith(QStringLiteral(".obsidian/")) ||
-                    rel == QStringLiteral(".obsidian") ||
-                    rel.startsWith(QStringLiteral(".corbomite/")) ||
-                    rel == QStringLiteral(".corbomite") ||
-                    rel.startsWith(QStringLiteral(".trash/")) ||
-                    rel == QStringLiteral(".trash")) {
-                    continue;
-                }
+                if (VaultPaths::isHiddenPath(rel)) continue;
 
                 const FileStat st = m_adapter->stat(absChild);
                 if (st.isDirectory) {
@@ -838,6 +838,10 @@ void Vault::onExternalCreated(const QString &relPath)
 {
     const QString rel = VaultPaths::normalize(relPath);
     if (m_fileMap.count(rel)) return;  // already tracked
+    // A dot-segment path never enters fileMap, on the create path either —
+    // Obsidian's reconciler routes it to reconcileDeletion, which is why the
+    // initial scan and the watcher agree on visibility.
+    if (VaultPaths::isHiddenPath(rel)) return;
 
     QFileInfo fi(m_basePath + QLatin1Char('/') + rel);
     if (!fi.exists()) return;

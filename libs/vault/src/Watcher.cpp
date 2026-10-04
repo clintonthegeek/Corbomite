@@ -1,13 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "Watcher.h"
 
+#include "HiddenPaths.h"
 #include "corbomite/vault/Vault.h"
 
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
 
+#include <iterator>
+
 namespace Corbomite::detail {
+
+namespace {
+// Obsidian hands a watcher-reported ENOENT a grace period before it removes
+// the node: the first miss schedules one more full reconcile, and only that
+// second pass runs delete-authorised (`app/own/0376-_l.js:829-833`, reached
+// from `onFileChange` → `reconcileFile(real, path, false)` at `:667-670`;
+// adapter-initiated misses pass the default `true` and delete at once).
+// Write-to-temp-then-rename — what `FileSystemAdapter`'s QSaveFile writes are,
+// and what most editors and sync clients do — produces exactly the ENOENT
+// blip that a delete-on-first-miss reconciler turns into a phantom
+// delete/create pair on every save.
+constexpr int kEnoentGraceMs = 100;
+}
 
 Watcher::Watcher(Vault *vault, QObject *parent)
     : QObject(parent)
@@ -16,6 +32,8 @@ Watcher::Watcher(Vault *vault, QObject *parent)
     m_drainTimer.setSingleShot(true);
     m_drainTimer.setInterval(50);
     connect(&m_drainTimer, &QTimer::timeout, this, &Watcher::drainPending);
+    m_graceTimer.setSingleShot(true);
+    connect(&m_graceTimer, &QTimer::timeout, this, &Watcher::drainPending);
     connect(&m_fsw, &QFileSystemWatcher::directoryChanged,
             this, &Watcher::onDirChanged);
     connect(&m_fsw, &QFileSystemWatcher::fileChanged,
@@ -26,25 +44,19 @@ Watcher::~Watcher() = default;
 
 namespace {
 // Tree-visible exclusion (skipped from created/modified/deleted/renamed
-// signals). `.obsidian/` is excluded from the tree but NOT from the
-// rawChange signal — Cluster B (Vault.raw + configChanged) consumes it
-// for plugin event surface.
+// signals). Any dot-segment hides a path, with no configDir exemption —
+// `.obsidian/` is hidden for the same reason `.git/` is. `.obsidian/` is
+// excluded from the tree but NOT from the rawChange signal — Cluster B
+// (Vault.raw + configChanged) consumes it for plugin event surface.
 bool isTreeExcluded(const QString &rel)
 {
-    return rel.startsWith(QStringLiteral(".obsidian/")) ||
-           rel == QStringLiteral(".obsidian") ||
-           rel.startsWith(QStringLiteral(".corbomite/")) ||
-           rel == QStringLiteral(".corbomite") ||
-           rel.startsWith(QStringLiteral(".trash/")) ||
-           rel == QStringLiteral(".trash") ||
-           rel.startsWith(QStringLiteral(".git/")) ||
-           rel == QStringLiteral(".git");
+    return VaultPaths::isHiddenPath(rel);
 }
 
 // Watcher-coverage exclusion (paths we don't bother monitoring at all).
-// `.git` and `.trash` get arbitrarily large and have no plugin or vault
-// relevance; `.corbomite/` is reserved for future host-internal state.
-// `.obsidian/` IS monitored — plugin config is observable via rawChange.
+// This is about inotify/watch-descriptor cost, not tree visibility, so it
+// stays a literal list rather than the dot-segment predicate: `.obsidian/`
+// IS monitored — plugin config is observable via rawChange.
 bool isWatchExcluded(const QString &rel)
 {
     return rel.startsWith(QStringLiteral(".corbomite/")) ||
@@ -62,6 +74,7 @@ void Watcher::start(const QString &basePath)
     m_basePath = QDir::cleanPath(basePath);
     if (m_basePath.isEmpty()) return;
 
+    m_graceClock.start();
     m_fsw.addPath(m_basePath);
     snapshotDirectory(m_basePath);
 
@@ -84,8 +97,10 @@ void Watcher::stop()
     const auto files = m_fsw.files();
     if (!files.isEmpty()) m_fsw.removePaths(files);
     m_knownFiles.clear();
+    m_pendingDelete.clear();
     m_pending.clear();
     m_drainTimer.stop();
+    m_graceTimer.stop();
     m_basePath.clear();
 }
 
@@ -139,7 +154,7 @@ void Watcher::drainPending()
 
     // Separate into deleted + created lists; emit modifieds directly.
     // Tree-visible signals (created/modified/deleted/renamed) skip
-    // .obsidian/ paths; the rawChange signal fires for every change.
+    // dot-segment paths; the rawChange signal fires for every change.
     QStringList createdRels;
     QStringList deletedRels;
     for (auto fit = fresh.cbegin(); fit != fresh.cend(); ++fit) {
@@ -155,8 +170,16 @@ void Watcher::drainPending()
         if (!fresh.contains(kit.key())) deletedRels.append(kit.key());
     }
 
+    // A path still inside its ENOENT grace reappeared, so it was a touch, not
+    // a delete-then-create: forget the pending entry before anything below
+    // can pair it against a create and emit a rename.
+    for (auto it = m_pendingDelete.begin(); it != m_pendingDelete.end();) {
+        it = fresh.contains(it.key()) ? m_pendingDelete.erase(it)
+                                      : std::next(it);
+    }
+
     // Pair delete+create by matching mtime within this drain (best-effort
-    // rename detection). Unpaired entries emit as plain delete / create.
+    // rename detection). Unpaired entries go to the ENOENT grace queue.
     //
     // A folder rename does not touch its files' mtimes (only the parent
     // directory entry moves), so renaming a folder with 2+ files that
@@ -171,6 +194,7 @@ void Watcher::drainPending()
     // mtime-only match when no basename match exists (an actual rename,
     // where old and new basenames legitimately differ).
     QStringList unpairedCreates = createdRels;
+    QStringList unpairedDeletes;
     for (const QString &oldRel : deletedRels) {
         const auto knownIt = m_knownFiles.constFind(oldRel);
         const qint64 oldMtime =
@@ -195,11 +219,39 @@ void Watcher::drainPending()
                 Q_EMIT renamed(oldRel, newRel);
             }
             unpairedCreates.removeAt(matchIndex);
+            m_pendingDelete.remove(oldRel);
         } else {
-            Q_EMIT rawChange(oldRel);
-            if (!isTreeExcluded(oldRel)) Q_EMIT deleted(oldRel);
+            unpairedDeletes.append(oldRel);
         }
     }
+
+    // ENOENT grace: a first miss only arms the clock. The deletion is emitted
+    // by whichever drain first runs with the path still gone after
+    // kEnoentGraceMs has elapsed since the miss was recorded.
+    const qint64 now = m_graceClock.isValid() ? m_graceClock.elapsed() : 0;
+    int recheckIn = -1;
+    const auto arm = [&recheckIn](int ms) {
+        recheckIn = (recheckIn < 0) ? ms : qMin(recheckIn, ms);
+    };
+    for (const QString &rel : unpairedDeletes) {
+        auto it = m_pendingDelete.find(rel);
+        if (it == m_pendingDelete.end()) {
+            m_pendingDelete.insert(rel, now);
+            arm(kEnoentGraceMs);
+            continue;
+        }
+        const int remaining =
+            static_cast<int>(kEnoentGraceMs - (now - it.value()));
+        if (remaining > 0) {
+            arm(remaining);
+            continue;
+        }
+        m_pendingDelete.erase(it);
+        Q_EMIT rawChange(rel);
+        if (!isTreeExcluded(rel)) Q_EMIT deleted(rel);
+    }
+    if (recheckIn > 0) m_graceTimer.start(recheckIn);
+
     for (const QString &newRel : unpairedCreates) {
         Q_EMIT rawChange(newRel);
         if (!isTreeExcluded(newRel)) Q_EMIT created(newRel);
@@ -221,7 +273,17 @@ void Watcher::drainPending()
         if (!m_fsw.files().contains(abs)) m_fsw.addPath(abs);
     }
 
+    // Keep a gracing path in m_knownFiles, at its pre-ENOENT mtime: that is
+    // what makes a reappearance inside the window diff as `modified` (the
+    // atomic-save case) rather than as a create paired against a delete.
+    QHash<QString, qint64> retained;
+    for (auto it = m_pendingDelete.cbegin(); it != m_pendingDelete.cend(); ++it) {
+        retained.insert(it.key(), m_knownFiles.value(it.key()));
+    }
     m_knownFiles = std::move(fresh);
+    for (auto it = retained.cbegin(); it != retained.cend(); ++it) {
+        m_knownFiles.insert(it.key(), it.value());
+    }
     m_pending.clear();
 }
 

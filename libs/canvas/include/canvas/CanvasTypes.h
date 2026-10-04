@@ -3,11 +3,16 @@
 
 #include <QColor>
 #include <QJsonObject>
+#include <QSet>
 #include <QString>
 
 namespace Canvas {
 
-enum class NodeType { Text, File, Link, Group };
+// Unknown: a `type` this build does not model. Upstream's dispatch ends in
+// `if ("group" !== u.type) continue` (app/own/2018-k7.js:424) and getData
+// rebuilds the array from the live registry, so Obsidian *deletes* such a node
+// on the next save — we keep it instead (see CanvasNode::rawData).
+enum class NodeType { Text, File, Link, Group, Unknown };
 enum class Side { Top, Right, Bottom, Left };
 enum class EndType { None, Arrow };
 
@@ -30,6 +35,23 @@ struct CanvasNode {
     // Unknown JSON fields on this node preserved verbatim across load→save
     // (Obsidian spreads ...unknownData; we must too).
     QJsonObject extraData;
+
+    // Set only for NodeType::Unknown: the `type` string exactly as read, and
+    // the whole source object. toJson() emits rawData verbatim instead of
+    // modelling the node, so a type a newer Obsidian (or a plugin) introduced
+    // survives a Corbomite save. Note that Qt sorted rawData's keys when the
+    // file was parsed, so they come back alphabetically rather than in file
+    // order — the keys and values are exact, the sequence is not.
+    QString rawType;
+    QJsonObject rawData;
+
+    // Optional keys this node carried in the source file. Upstream's per-class
+    // omit-lists move such keys into unknownData rather than deleting them, so
+    // a key already holding the value getData() would have generated survives
+    // the round trip: "color":"", "label":"", "subpath":"",
+    // "backgroundStyle":"cover" all stay. Only these are tracked; required
+    // fields are written unconditionally.
+    QSet<QString> explicitKeys;
 };
 
 struct CanvasEdge {
@@ -45,6 +67,17 @@ struct CanvasEdge {
 
     // Unknown JSON fields on this edge preserved verbatim across load→save.
     QJsonObject extraData;
+
+    // True while at least one endpoint id does not resolve to a node. Upstream
+    // imports an edge only `if (o.has(y) && o.has(k))`
+    // (app/own/2018-k7.js:442) and rebuilds the array from the live registry,
+    // so a dangling edge is deleted on the next save. While set, rawData is
+    // emitted verbatim and none of the modelled fields are written.
+    bool unresolved = false;
+    QJsonObject rawData;
+
+    // See CanvasNode::explicitKeys — same rule for fromEnd/toEnd/color/label.
+    QSet<QString> explicitKeys;
 };
 
 // Color mapping from JSON Canvas spec

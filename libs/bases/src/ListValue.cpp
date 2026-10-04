@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/bases/Values.h"
 
+#include <QHash>
+#include <QStringList>
+
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <vector>
 
 namespace Corbomite::Bases {
@@ -89,18 +93,44 @@ std::shared_ptr<ListValue> ListValue::flatten() const
 
 std::shared_ptr<ListValue> ListValue::unique() const
 {
+    // Bucketed by `toString()`, but within a bucket only a strict `equals`
+    // drops the newcomer — so two values that stringify alike but are not
+    // `equals` both survive (app/own/1647-tK.js:287-303). Dedup is strict,
+    // not loose.
+    //
+    // The buckets are then concatenated in JS *object* property order, not
+    // first-seen order: integer-like keys ascending first, everything else in
+    // insertion order. That is why `[10, 2, 1].unique()` comes back
+    // `[1, 2, 10]`.
+    QHash<QString, QVector<ValuePtr>> buckets;
+    QStringList insertionOrder;
+    for (const auto &v : m_data) {
+        const QString key = v ? v->toString() : QString{};
+        if (!buckets.contains(key)) insertionOrder.append(key);
+        auto &bucket = buckets[key];
+        bool strictEqual = false;
+        for (const auto &seen : bucket) {
+            if (Value::staticEquals(v.get(), seen.get())) { strictEqual = true; break; }
+        }
+        if (!strictEqual) bucket.append(v);
+    }
+    QStringList indexKeys;
+    QStringList stringKeys;
+    for (const QString &k : std::as_const(insertionOrder)) {
+        bool numeric = false;
+        const qulonglong asIndex = k.toULongLong(&numeric);
+        if (numeric && k == QString::number(asIndex) && asIndex < 0xFFFFFFFFULL)
+            indexKeys.append(k);
+        else
+            stringKeys.append(k);
+    }
+    std::sort(indexKeys.begin(), indexKeys.end(), [](const QString &a, const QString &b) {
+        return a.toULongLong() < b.toULongLong();
+    });
     QVector<ValuePtr> out;
     out.reserve(m_data.size());
-    for (const auto &v : m_data) {
-        bool duplicate = false;
-        for (const auto &seen : out) {
-            if (Value::staticLooseEquals(v.get(), seen.get())) {
-                duplicate = true;
-                break;
-            }
-        }
-        if (!duplicate) out.append(v);
-    }
+    for (const QString &k : std::as_const(indexKeys)) out.append(buckets.value(k));
+    for (const QString &k : std::as_const(stringKeys)) out.append(buckets.value(k));
     return std::make_shared<ListValue>(out);
 }
 
@@ -144,39 +174,36 @@ QString ListValue::join(const QString &sep) const
 
 // --- numeric aggregates ---
 
-static bool collectNumbers(const QVector<ValuePtr> &xs, std::vector<double> &out)
+// `getNumbers()`: the non-numeric elements are *filtered out*, not fatal — so
+// [1, 2, "x"].sum() is 3 (app/own/1647-tK.js:234-239).
+static std::vector<double> collectNumbers(const QVector<ValuePtr> &xs)
 {
-    out.clear();
+    std::vector<double> out;
     out.reserve(xs.size());
     for (const auto &v : xs) {
-        auto *n = dynamic_cast<NumberValue *>(v.get());
-        if (!n) return false;
-        out.push_back(n->data());
+        if (auto *n = dynamic_cast<NumberValue *>(v.get())) out.push_back(n->data());
     }
-    return true;
+    return out;
 }
 
 ValuePtr ListValue::min() const
 {
-    std::vector<double> xs;
-    if (m_data.isEmpty() || !collectNumbers(m_data, xs))
-        return NullValue::instance();
+    std::vector<double> xs = collectNumbers(m_data);
+    if (xs.empty()) return NullValue::instance();
     return std::make_shared<NumberValue>(*std::min_element(xs.begin(), xs.end()));
 }
 
 ValuePtr ListValue::max() const
 {
-    std::vector<double> xs;
-    if (m_data.isEmpty() || !collectNumbers(m_data, xs))
-        return NullValue::instance();
+    std::vector<double> xs = collectNumbers(m_data);
+    if (xs.empty()) return NullValue::instance();
     return std::make_shared<NumberValue>(*std::max_element(xs.begin(), xs.end()));
 }
 
 ValuePtr ListValue::sum() const
 {
-    std::vector<double> xs;
-    if (!collectNumbers(m_data, xs))
-        return NullValue::instance();
+    std::vector<double> xs = collectNumbers(m_data);
+    if (xs.empty()) return NullValue::instance();
     double s = 0.0;
     for (double x : xs) s += x;
     return std::make_shared<NumberValue>(s);
@@ -184,19 +211,18 @@ ValuePtr ListValue::sum() const
 
 ValuePtr ListValue::mean() const
 {
-    std::vector<double> xs;
-    if (m_data.isEmpty() || !collectNumbers(m_data, xs))
-        return NullValue::instance();
-    double s = 0.0;
-    for (double x : xs) s += x;
-    return std::make_shared<NumberValue>(s / static_cast<double>(xs.size()));
+    // `sum().data / this.length()` — the divisor is the length of the WHOLE
+    // list, not of the numbers in it, so [1, 2, "x"].mean() is 1, not 1.5
+    // (app/own/1647-tK.js:343-345).
+    auto total = std::dynamic_pointer_cast<NumberValue>(sum());
+    if (!total) return NullValue::instance();
+    return std::make_shared<NumberValue>(total->data() / static_cast<double>(m_data.size()));
 }
 
 ValuePtr ListValue::median() const
 {
-    std::vector<double> xs;
-    if (m_data.isEmpty() || !collectNumbers(m_data, xs))
-        return NullValue::instance();
+    std::vector<double> xs = collectNumbers(m_data);
+    if (xs.empty()) return NullValue::instance();
     std::sort(xs.begin(), xs.end());
     const auto n = xs.size();
     const double m = (n % 2)
@@ -207,21 +233,21 @@ ValuePtr ListValue::median() const
 
 ValuePtr ListValue::stddev() const
 {
-    std::vector<double> xs;
-    if (m_data.isEmpty() || !collectNumbers(m_data, xs))
-        return NullValue::instance();
-    double s = 0.0;
-    for (double x : xs) s += x;
-    const double mu = s / static_cast<double>(xs.size());
-    double sumSq = 0.0;
-    for (double x : xs) {
-        const double d = x - mu;
-        sumSq += d * d;
-    }
-    // Population standard deviation (divide by n, not n-1). Addendum §14
-    // flags this as unconfirmed between help-doc and impl — pick population
-    // and document in the preserved-compat-quirks list.
-    return std::make_shared<NumberValue>(std::sqrt(sumSq / static_cast<double>(xs.size())));
+    // Population standard deviation over the numbers only (divide by n, not
+    // n-1); confirmed in source at app/own/1647-tK.js:352-365, which settles
+    // the sample-vs-population question 2026-04-17 §14 left open.
+    std::vector<double> xs = collectNumbers(m_data);
+    if (xs.empty()) return NullValue::instance();
+    auto meanOf = [](const std::vector<double> &v) {
+        double s = 0.0;
+        for (double x : v) s += x;
+        return s / static_cast<double>(v.size());
+    };
+    const double mu = meanOf(xs);
+    std::vector<double> devSq;
+    devSq.reserve(xs.size());
+    for (double x : xs) devSq.push_back((x - mu) * (x - mu));
+    return std::make_shared<NumberValue>(std::sqrt(meanOf(devSq)));
 }
 
 // earliest/latest implementations live in DateValue.cpp (they depend on

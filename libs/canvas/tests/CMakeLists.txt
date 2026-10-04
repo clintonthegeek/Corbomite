@@ -16,6 +16,13 @@ add_test(NAME tst_canvasscene COMMAND tst_canvasscene)
 target_link_libraries(tst_canvasscene PRIVATE Qt6::Test Qt6::Widgets canvas Corbomite::Core)
 set_tests_properties(tst_canvasscene PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# `.canvas` disk contract: byte parity with Obsidian's printer plus the
+# round-trip-loss rules (unknown node types, unresolved edges, defaults).
+add_executable(tst_canvas_diskcontract tst_canvas_diskcontract.cpp)
+add_test(NAME tst_canvas_diskcontract COMMAND tst_canvas_diskcontract)
+target_link_libraries(tst_canvas_diskcontract PRIVATE Qt6::Test Qt6::Widgets canvas)
+set_tests_properties(tst_canvas_diskcontract PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster M Task M3.1 — Obsidian-exact bezier strategy.
 add_executable(tst_canvasbezierstrategy tst_canvasbezierstrategy.cpp)
 add_test(NAME tst_canvasbezierstrategy COMMAND tst_canvasbezierstrategy)

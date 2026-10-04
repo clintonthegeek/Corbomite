@@ -6,6 +6,7 @@
 #include "corbomite/bases/Values.h"
 #include "corbomite/bases/VaultResolver.h"
 
+#include <QDateTime>
 #include <QHash>
 #include <QSet>
 
@@ -76,6 +77,94 @@ private Q_SLOTS:
     void testIconCtor() { NullCtx c; auto v = run(QStringLiteral("icon('star')"), c); QCOMPARE(v->type(), QStringLiteral("Icon")); }
     void testHtmlCtor() { NullCtx c; auto v = run(QStringLiteral("html('<b>x</b>')"), c); QCOMPARE(v->type(), QStringLiteral("HTML")); }
     void testEscapeHTML() { NullCtx c; auto v = run(QStringLiteral("escapeHTML('<a>')"), c); QCOMPARE(v->toString(), QStringLiteral("&lt;a&gt;")); }
+
+    // `html()` returns the HTML value, NOT the Markdown one. The 2026-10-03
+    // addendum §C claims otherwise, but the claim is a quoting artefact: it
+    // dropped the trailing `, t` from both IIFEs in 1649-dK.js:460-478, and
+    // the surviving comma operator selects the *second* class — the one with
+    // `t.type = "HTML", t`. app/own/0025-expressionstatement.js:32 settles it:
+    // the value-type registry maps `HTMLValue: () => SK`, and `html()` returns
+    // `new SK(...)`.
+    void testHtmlCtorIsHtmlValueNotMarkdown() { NullCtx c; auto v = run(QStringLiteral("html('x')"), c); QCOMPARE(v->type(), QStringLiteral("HTML")); }
+    void testHtmlCtorIsNotMarkdownValue() { NullCtx c; auto v = run(QStringLiteral("html('x')"), c); QVERIFY(dynamic_cast<HTMLValue *>(v.get())); QVERIFY(!dynamic_cast<MarkdownValue *>(v.get())); }
+
+    // The charset is exactly [&<>"] (app/own/0546-Od.js:2-9).
+    void testEscapeHTMLLeavesApostropheAlone()
+    {
+        NullCtx c;
+        QCOMPARE(run(QStringLiteral("escapeHTML(\"it's <b>\")"), c)->toString(),
+                 QStringLiteral("it's &lt;b&gt;"));
+        QCOMPARE(run(QStringLiteral("escapeHTML('a&b<c>d\"e')"), c)->toString(),
+                 QStringLiteral("a&amp;b&lt;c&gt;d&quot;e"));
+    }
+
+    // `date()`'s two undocumented numeric forms (1657-expressionstatement.js:
+    // 27-46) and its NullValue failure mode.
+    void testDateNumericForms()
+    {
+        NullCtx c;
+        auto d = std::dynamic_pointer_cast<DateValue>(run(QStringLiteral("date('20240101')"), c));
+        QVERIFY(d);
+        QCOMPARE(d->objectAccess(QStringLiteral("year"))->toString(), QStringLiteral("2024"));
+        QVERIFY(!d->hasTime());
+        auto dt = std::dynamic_pointer_cast<DateValue>(run(QStringLiteral("date('202401011230')"), c));
+        QVERIFY(dt);
+        QVERIFY(dt->hasTime());
+        QCOMPARE(dt->objectAccess(QStringLiteral("hour"))->toString(), QStringLiteral("12"));
+        QCOMPARE(dt->objectAccess(QStringLiteral("minute"))->toString(), QStringLiteral("30"));
+        // Failure is NullValue, never an error Value.
+        QCOMPARE(run(QStringLiteral("date('not a date')"), c)->type(), QStringLiteral("Null"));
+        QCOMPARE(run(QStringLiteral("date('2024010')"), c)->type(), QStringLiteral("Null"));
+    }
+
+    void testDateAcceptsDateValueUnchanged()
+    {
+        // `if (e instanceof gK) return e` — the *same* value, not a reparse.
+        auto now = std::make_shared<DateValue>(QDateTime(QDate(2024, 5, 6), QTime(7, 8, 9)), true);
+        class IdentCtx : public EvalContext
+        {
+        public:
+            ValuePtr v;
+            ValuePtr getByIdentifier(const QString &) const override { return v; }
+        } ctx;
+        ctx.v = now;
+        QCOMPARE(run(QStringLiteral("date(d)"), ctx).get(), now.get());
+    }
+
+    // A URL-shaped string yields a UrlValue, not a LinkValue
+    // (1657-expressionstatement.js:101-108).
+    void testLinkUrlShapedStringYieldsUrlValue()
+    {
+        NullCtx c;
+        auto v = run(QStringLiteral("link('https://example.com')"), c);
+        QCOMPARE(v->type(), QStringLiteral("URL"));
+        auto plain = run(QStringLiteral("link('Some Note')"), c);
+        QCOMPARE(plain->type(), QStringLiteral("Link"));
+        auto display = run(QStringLiteral("link('https://example.com', 'Example')"), c);
+        QCOMPARE(display->type(), QStringLiteral("URL"));
+        QCOMPARE(std::static_pointer_cast<UrlValue>(display)->display(),
+                 QStringLiteral("Example"));
+    }
+
+    // The null-propagating argument binder (1759-kX.js:353-386): a NullValue in
+    // a non-optional slot makes the whole call NullValue, not an error badge.
+    void testNullArgumentNullPropagatesTheCall()
+    {
+        VaultCtx c;
+        c.ids.insert(QStringLiteral("note"), std::make_shared<StringValue>(QStringLiteral("abc")));
+        c.ids.insert(QStringLiteral("missing"), NullValue::instance());
+        QCOMPARE(run(QStringLiteral("note.contains(missing)"), c)->type(), QStringLiteral("Null"));
+        QCOMPARE(run(QStringLiteral("note.startsWith(missing)"), c)->type(), QStringLiteral("Null"));
+        // A real argument still works.
+        QCOMPARE(run(QStringLiteral("note.contains('b')"), c)->toString(), QStringLiteral("true"));
+    }
+
+    void testTooFewArgumentsIsAnError()
+    {
+        NullCtx c;
+        QCOMPARE(run(QStringLiteral("duration()"), c)->type(), QStringLiteral("Error"));
+        QCOMPARE(run(QStringLiteral("duration('1s', '2s')"), c)->type(), QStringLiteral("Error"));
+    }
 
     // ----- Hard-cased `if` -----
 
@@ -195,14 +284,15 @@ private Q_SLOTS:
         QCOMPARE(v->type(), QStringLiteral("Null"));
     }
 
-    void testFileGlobalNoArgsReturnsNull()
+    void testFileGlobalNoArgsIsAnArityError()
     {
-        // file() with no path arg: the DSL passes an empty args vector; the lambda
-        // calls fileAt("") which returns Null when the path is absent from the vault.
+        // `file` declares one required parameter (app/own/
+        // 1657-expressionstatement.js:157), and the argument binder raises
+        // not-enough-arguments rather than calling through with none.
         FakeResolver r;  // files is empty
         VaultCtx c; c.res = &r;
         auto v = run(QStringLiteral("file()"), c);
-        QCOMPARE(v->type(), QStringLiteral("Null"));
+        QCOMPARE(v->type(), QStringLiteral("Error"));
     }
 
     // ----- LinkValue.asFile + linksTo via VaultResolver -----

@@ -6,10 +6,15 @@
 namespace Corbomite {
 
 namespace {
+// `Fl`/`Ll` (app/own/0365-Fl.js:2, 0363-Ll.js:2): split on the last `.`,
+// but a leading dot, a trailing dot, or no dot at all yields extension `""`
+// and basename `== the whole name`. So `.gitignore` → basename
+// `".gitignore"`, extension `""`; `Note.` → basename `"Note."`, extension
+// `""`; `Note.md.bak` → basename `"Note.md"`, extension `"bak"`.
 void deriveBasenameExt(const QString &name, QString &basename, QString &ext)
 {
     const int dot = name.lastIndexOf(QLatin1Char('.'));
-    if (dot <= 0) {
+    if (dot <= 0 || dot == name.length() - 1) {
         basename = name;
         ext.clear();
     } else {

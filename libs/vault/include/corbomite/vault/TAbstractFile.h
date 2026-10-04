@@ -30,8 +30,9 @@ public:
     virtual void setPath(const QString &newPath);
 
     /// Returns the path the file would have if renamed to `newName` within
-    /// its current parent. Strips control chars [\x00-\x1F] and trims.
-    /// Returns empty string when detached (no parent).
+    /// its current parent. Control chars [\x00-\x1F] are replaced with a
+    /// space, then the whole name is trimmed; a root-level parent contributes
+    /// no prefix. Returns empty string when detached (no parent).
     QString getNewPathAfterRename(const QString &newName) const;
 
     virtual ~TAbstractFile() = default;

@@ -58,12 +58,32 @@ private Q_SLOTS:
         QCOMPARE(d->components().hours, qint64(-2));
     }
 
-    void testParseShorthandMsUndocumented()
+    void testParseShorthandMsIsUnreachable()
     {
-        // addendum §14: `ms` is accepted even though help docs don't list it.
-        auto d = DurationValue::parseFromString(QStringLiteral("100ms"));
-        QVERIFY(d);
-        QCOMPARE(d->components().milliseconds, qint64(100));
+        // The unit alternation is `[dhmswMy]|(?:second|minute|hour|day|week|
+        // month|year)[s]?` — no `ms`, and the three millisecond branches
+        // below it in app/own/1649-dK.js:245-267 are dead code. Refutes
+        // 2026-04-17 §6.1/§14.
+        for (const QString &s : {QStringLiteral("100ms"), QStringLiteral("100 millisecond"),
+                                 QStringLiteral("100 milliseconds")})
+            QVERIFY2(!DurationValue::parseFromString(s),
+                     qPrintable(QStringLiteral("duration(\"%1\") must not parse").arg(s)));
+    }
+
+    void testIsoBranchRequiresTAndIsUnanchored()
+    {
+        // The ISO regex has no ^/$ and demands a literal `T`
+        // (app/own/1649-dK.js:246), so "P1D" is not an ISO duration at all.
+        QVERIFY(!DurationValue::parseFromString(QStringLiteral("P1D")));
+        auto embedded = DurationValue::parseFromString(QStringLiteral("foo P1DT bar"));
+        QVERIFY(embedded);
+        QCOMPARE(embedded->components().days, qint64(1));
+        // `,` is accepted as a decimal separator, and the seconds group lands
+        // in the seconds slot with milliseconds hard-coded to 0.
+        auto comma = DurationValue::parseFromString(QStringLiteral("PT1,5S"));
+        QVERIFY(comma);
+        QCOMPARE(comma->components().seconds, qint64(1));
+        QCOMPARE(comma->components().milliseconds, qint64(0));
     }
 
     void testParseCaseSensitivityBetweenMonthAndMinute()

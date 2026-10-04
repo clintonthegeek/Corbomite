@@ -143,15 +143,21 @@ void emitMap(QString &out, const QVariantMap &m, int indent,
         out.append(pad).append(key).append(QStringLiteral(":"));
         const QVariant &v = m.value(key);
         if (v.typeId() == QMetaType::QVariantMap) {
-            out.append(QLatin1Char('\n'));
-            // Per-key submap key order lets the caller preserve user-
-            // authored insertion order for `properties:`/`formulas:`/
-            // `summaries:` blocks even though the underlying QVariantMap
-            // sorts alphabetically. Without this, every save reshuffles
-            // user-keyed dicts (audit: bases.md §"On-disk `.base` format
-            // compatibility").
-            emitMap(out, v.toMap(), indent + 2,
-                    nestedKeyOrder.value(key));
+            const QVariantMap sub = v.toMap();
+            // An empty map must stay `{}` and not become a bare key, which
+            // would re-parse as null. Obsidian's `summaries: {}` depends on
+            // this.
+            if (sub.isEmpty()) out.append(QStringLiteral(" {}"));
+            else {
+                out.append(QLatin1Char('\n'));
+                // Per-key submap key order lets the caller preserve user-
+                // authored insertion order for `properties:`/`formulas:`/
+                // `summaries:` blocks even though the underlying QVariantMap
+                // sorts alphabetically. Without this, every save reshuffles
+                // user-keyed dicts (audit: bases.md §"On-disk `.base` format
+                // compatibility").
+                emitMap(out, sub, indent + 2, nestedKeyOrder.value(key));
+            }
         } else if (v.typeId() == QMetaType::QVariantList) {
             // Per-key item key-order lookup lets the caller dictate the
             // canonical shape of map items inside specific lists (e.g.
@@ -168,11 +174,13 @@ void emitMap(QString &out, const QVariantMap &m, int indent,
 void emitValue(QString &out, const QVariant &v, int indent)
 {
     if (v.typeId() == QMetaType::QVariantMap) {
+        const QVariantMap sub = v.toMap();
+        if (sub.isEmpty()) { out.append(QStringLiteral(" {}")); return; }
         out.append(QLatin1Char('\n'));
         // Nested maps must be indented past the key that introduced them.
         // `indent` here is already the *content* indent (key column), so
         // the sub-map keys need indent+2 to satisfy YAML block-mapping rules.
-        emitMap(out, v.toMap(), indent + 2);
+        emitMap(out, sub, indent + 2);
     } else if (v.typeId() == QMetaType::QVariantList) {
         emitList(out, v.toList(), indent);
     } else {
@@ -227,6 +235,7 @@ std::unique_ptr<BasesQuery> BasesQuery::fromString(const QString &text, QString 
                 q->formulas.insert(fname, Formula(fv.asString()));
             });
         } else if (k == QLatin1String("summaries") && v.isMap()) {
+            q->summariesSeen = true;
             v.forEach([&q](const QString &fname, const Markoff::YamlValue &fv) {
                 if (!q->summaryFormulas.contains(fname))
                     q->summaryFormulaOrder.append(fname);
@@ -235,13 +244,25 @@ std::unique_ptr<BasesQuery> BasesQuery::fromString(const QString &text, QString 
         } else if (k == QLatin1String("properties") && v.isMap()) {
             v.forEach([&q](const QString &pk, const Markoff::YamlValue &pv) {
                 PropertyConfig pc;
+                pc.rawKey = pk;
                 if (pv.isMap()) {
-                    pc.displayName = pv.get(QStringLiteral("displayName")).asString();
+                    // Anything that is not a string `displayName` is
+                    // unrecognized and round-trips (1764-jX.js:259-266).
+                    pv.forEach([&pc](const QString &ck, const Markoff::YamlValue &cv) {
+                        if (ck == QLatin1String("displayName") && cv.isString())
+                            pc.displayName = cv.asString();
+                        else
+                            pc.unrecognizedData.insert(ck, yamlToVariant(cv));
+                    });
                 }
                 const PropertyId id = parsePropertyId(pk);
-                if (!q->properties.contains(id))
+                auto existing = q->properties.find(id);
+                if (existing == q->properties.end()) {
                     q->propertyOrder.push_back(id);
-                q->properties.insert(id, pc);
+                    q->properties.insert(id, pc);
+                } else if (existing->rawKey.isEmpty()) {
+                    existing->rawKey = pc.rawKey;
+                }
             });
         } else if (k == QLatin1String("display") && v.isMap()) {
             // Legacy key — migrate into properties[*].displayName.
@@ -287,30 +308,31 @@ std::unique_ptr<BasesQuery> BasesQuery::fromString(const QString &text, QString 
 
 QString BasesQuery::toString() const
 {
-    // Top-level emission order matches the canonical .base shape from the
-    // Obsidian docs (filters → formulas → properties → summaries → views,
-    // then newItem* afterwards). Prevents diff churn that the alphabetical
-    // QVariantMap iteration would otherwise cause on every save.
+    // Emission order is Obsidian's `getSerializable()` order
+    // (RE/obsidian/1.13.7/renamed/src/app/own/1766-lQ.js:204-230):
+    // unrecognizedData → filters → formulas → summaries → properties → views
+    // → newItemFolder → newItemTemplate. `unrecognizedData` is placed first
+    // here rather than last because it seeds the object there and every later
+    // assignment overwrites it; the visible order of those keys is unchanged.
     static const QStringList kRootOrder = {
         QStringLiteral("filters"),
         QStringLiteral("formulas"),
-        QStringLiteral("properties"),
         QStringLiteral("summaries"),
+        QStringLiteral("properties"),
         QStringLiteral("views"),
         QStringLiteral("newItemFolder"),
         QStringLiteral("newItemTemplate"),
     };
-    // Per-view canonical order — type/name first because that's how the
-    // Obsidian docs (and every Obsidian-authored fixture) start each view.
-    // Unknown view-level keys (BasesViewConfig::unrecognizedData) follow.
+    // Per-view order from `BasesViewConfig::serialize()` (1766-lQ.js:9-32).
+    // Free-form view keys (BasesViewConfig::data) follow via the tail.
     static const QStringList kViewOrder = {
         QStringLiteral("type"),
         QStringLiteral("name"),
         QStringLiteral("filters"),
-        QStringLiteral("limit"),
         QStringLiteral("groupBy"),
-        QStringLiteral("sort"),
         QStringLiteral("order"),
+        QStringLiteral("sort"),
+        QStringLiteral("limit"),
         QStringLiteral("summaries"),
     };
 
@@ -324,15 +346,22 @@ QString BasesQuery::toString() const
         root.insert(QStringLiteral("views"), vs);
     }
 
+    // `properties:` keys are emitted exactly as authored (PropertyConfig::rawKey)
+    // and the whole block is dropped when every config would serialise empty
+    // (1766-lQ.js:223-227 + 1764-jX.js:267-269).
     if (!properties.isEmpty()) {
         QVariantMap props;
         for (auto it = properties.constBegin(); it != properties.constEnd(); ++it) {
             QVariantMap pm;
+            for (auto u = it->unrecognizedData.constBegin();
+                 u != it->unrecognizedData.constEnd(); ++u)
+                pm.insert(u.key(), u.value());
             if (!it->displayName.isEmpty())
                 pm.insert(QStringLiteral("displayName"), it->displayName);
-            props.insert(buildPropertyId(it.key()), pm);
+            if (pm.isEmpty()) continue;
+            props.insert(it->rawKey.isEmpty() ? buildPropertyId(it.key()) : it->rawKey, pm);
         }
-        root.insert(QStringLiteral("properties"), props);
+        if (!props.isEmpty()) root.insert(QStringLiteral("properties"), props);
     }
 
     if (!formulas.isEmpty()) {
@@ -341,7 +370,9 @@ QString BasesQuery::toString() const
             fs.insert(it.key(), it.value().source());
         root.insert(QStringLiteral("formulas"), fs);
     }
-    if (!summaryFormulas.isEmpty()) {
+    // `formulas:` is length-guarded above but `summaries:` is not: an emptied
+    // summary map still emits (1766-lQ.js:206-222).
+    if (!summaryFormulas.isEmpty() || summariesSeen) {
         QVariantMap ss;
         for (auto it = summaryFormulas.constBegin(); it != summaryFormulas.constEnd(); ++it)
             ss.insert(it.key(), it.value().source());
@@ -351,9 +382,9 @@ QString BasesQuery::toString() const
     if (newItemFolder) root.insert(QStringLiteral("newItemFolder"), *newItemFolder);
     if (newItemTemplate) root.insert(QStringLiteral("newItemTemplate"), *newItemTemplate);
 
-    // Preserve unrecognizedData at end for forward-compat round-trip. Keys
-    // not named in kRootOrder land after the canonical keys via
-    // orderedKeys()'s natural-order tail.
+    // Preserve unrecognizedData for forward-compat round-trip. Keys not named
+    // in kRootOrder land after the canonical keys via orderedKeys()'s
+    // natural-order tail.
     for (auto it = unrecognizedData.constBegin(); it != unrecognizedData.constEnd(); ++it) {
         if (!root.contains(it.key())) root.insert(it.key(), it.value());
     }
@@ -365,8 +396,12 @@ QString BasesQuery::toString() const
     if (!propertyOrder.empty()) {
         QStringList propKeys;
         propKeys.reserve(int(propertyOrder.size()));
-        for (const PropertyId &id : propertyOrder)
-            propKeys.append(buildPropertyId(id));
+        for (const PropertyId &id : propertyOrder) {
+            auto it = properties.constFind(id);
+            propKeys.append(it != properties.constEnd() && !it->rawKey.isEmpty()
+                                ? it->rawKey
+                                : buildPropertyId(id));
+        }
         nestedKeyOrder.insert(QStringLiteral("properties"), propKeys);
     }
     if (!formulaOrder.isEmpty())
@@ -375,9 +410,10 @@ QString BasesQuery::toString() const
         nestedKeyOrder.insert(QStringLiteral("summaries"), summaryFormulaOrder);
 
     QString out;
-    emitMap(out, root, 0, kRootOrder,
-            {{ QStringLiteral("views"), kViewOrder }},
-            nestedKeyOrder);
+    if (!root.isEmpty())
+        emitMap(out, root, 0, kRootOrder,
+                {{ QStringLiteral("views"), kViewOrder }},
+                nestedKeyOrder);
 
     if (!out.isEmpty()) out.append(QLatin1Char('\n'));
     return out;

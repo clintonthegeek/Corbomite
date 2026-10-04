@@ -31,6 +31,17 @@ QString toStr(const ValuePtr &v)
     return v ? v->toString() : QString{};
 }
 
+/// `new URL(s)` parseability — the test Obsidian's `link()` uses to decide
+/// between a UrlValue and a LinkValue (app/own/0645-$v.js:2-11). JS accepts
+/// any absolute URL with a scheme, so this requires one rather than an
+/// http/https/file prefix list.
+bool parsesAsUrl(const QString &s)
+{
+    if (s.isEmpty()) return false;
+    const QUrl u(s, QUrl::StrictMode);
+    return u.isValid() && !u.scheme().isEmpty();
+}
+
 double toNumOrZero(const ValuePtr &v)
 {
     if (auto *n = dynamic_cast<NumberValue *>(v.get())) return n->data();
@@ -56,11 +67,27 @@ void registerGlobals(FunctionRegistry &r)
 
     r.addGlobal({
         QStringLiteral("date"),
-        {requiredParam(QStringLiteral("str"), {typeid(StringValue)})},
+        {requiredParam(QStringLiteral("input"), {typeid(StringValue), typeid(DateValue)})},
         [](const EvalContext &, const QVector<ValuePtr> &args) -> ValuePtr {
-            if (args.size() < 1) return err(QStringLiteral("date(str) missing arg"));
-            auto d = DateValue::parseFromString(toStr(args[0]));
-            return d ? std::static_pointer_cast<Value>(d) : err(QStringLiteral("invalid date"));
+            if (args.isEmpty()) return err(QStringLiteral("date(input) missing arg"));
+            if (auto *d = dynamic_cast<DateValue *>(args[0].get())) return args[0];
+            const QString s = toStr(args[0]);
+            if (auto d = DateValue::parseFromString(s))
+                return std::static_pointer_cast<Value>(d);
+            // Two undocumented numeric forms, both built from LOCAL components
+            // (app/own/1657-expressionstatement.js:27-46): YYYYMMDDHHMM and
+            // YYYYMMDD. Failure is NullValue, never an error Value.
+            if (s.size() == 12) {
+                const QDateTime dt(QDate(s.mid(0, 4).toInt(), s.mid(4, 2).toInt(),
+                                         s.mid(6, 2).toInt()),
+                                   QTime(s.mid(8, 2).toInt(), s.mid(10, 2).toInt()));
+                if (dt.isValid()) return std::make_shared<DateValue>(dt, true);
+            } else if (s.size() == 8) {
+                const QDate d(s.mid(0, 4).toInt(), s.mid(4, 2).toInt(), s.mid(6, 2).toInt());
+                if (d.isValid())
+                    return std::make_shared<DateValue>(QDateTime(d, QTime(0, 0)), false);
+            }
+            return NullValue::instance();
         }});
 
     r.addGlobal({
@@ -109,12 +136,27 @@ void registerGlobals(FunctionRegistry &r)
 
     r.addGlobal({
         QStringLiteral("link"),
-        {requiredParam(QStringLiteral("path")), optionalParam(QStringLiteral("display"))},
+        {requiredParam(QStringLiteral("path"), {typeid(StringValue), typeid(LinkValue),
+                                                typeid(FileValue)}),
+         optionalParam(QStringLiteral("display"), {typeid(StringValue)})},
         [](const EvalContext &, const QVector<ValuePtr> &args) -> ValuePtr {
             if (args.isEmpty()) return err(QStringLiteral("link: missing path"));
-            const QString path = toStr(args[0]);
+            const ValuePtr &subject = args[0];
             const QString display = args.size() > 1 ? toStr(args[1]) : QString{};
-            return std::make_shared<LinkValue>(path, QString{}, display);
+            // A URL-shaped string yields a UrlValue, not a LinkValue
+            // (app/own/1657-expressionstatement.js:101-108); an existing
+            // UrlValue passes through. `sourcePath` is "" in every branch.
+            if (auto *uv = dynamic_cast<UrlValue *>(subject.get()))
+                return std::make_shared<UrlValue>(uv->data(), display);
+            if (auto *fv = dynamic_cast<FileValue *>(subject.get()))
+                return std::make_shared<LinkValue>(fv->toString(), QString{}, display);
+            const QString raw = dynamic_cast<LinkValue *>(subject.get())
+                                    ? static_cast<LinkValue *>(subject.get())->data()
+                                    : toStr(subject);
+            if (parsesAsUrl(raw)) return std::make_shared<UrlValue>(raw, display);
+            if (auto resolved = LinkValue::parseFromString(raw))
+                return std::make_shared<LinkValue>(resolved->data(), QString{}, display);
+            return std::make_shared<LinkValue>(raw, QString{}, display);
         }});
 
     r.addGlobal({
@@ -184,11 +226,12 @@ void registerGlobals(FunctionRegistry &r)
         {requiredParam(QStringLiteral("str"), {typeid(StringValue)})},
         [](const EvalContext &, const QVector<ValuePtr> &args) -> ValuePtr {
             QString s = args.isEmpty() ? QString{} : toStr(args[0]);
+            // Charset is exactly [&<>"] (app/own/0546-Od.js:2-9) — the
+            // apostrophe is deliberately not escaped.
             s.replace(QLatin1Char('&'), QLatin1String("&amp;"));
             s.replace(QLatin1Char('<'), QLatin1String("&lt;"));
             s.replace(QLatin1Char('>'), QLatin1String("&gt;"));
             s.replace(QLatin1Char('"'), QLatin1String("&quot;"));
-            s.replace(QLatin1Char('\''), QLatin1String("&#39;"));
             return std::make_shared<StringValue>(s);
         }});
 }

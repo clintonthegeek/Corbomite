@@ -19,6 +19,14 @@ QString hotkeyModifierToString(HotkeyModifier m)
     return {};
 }
 
+QString Hotkey::resolvedKey() const
+{
+    if (code.isEmpty()) return key;
+    if (code.size() == 4 && code.startsWith(QLatin1String("Key")))
+        return code.mid(3);
+    return code;
+}
+
 bool hotkeyModifierFromString(const QString &s, HotkeyModifier *out)
 {
     if (s == QLatin1String("Mod"))   { if (out) *out = HotkeyModifier::Mod;   return true; }
@@ -58,6 +66,7 @@ HotkeyFile HotkeyFile::parse(const QByteArray &json)
                 }
             }
             hk.key = obj.value(QStringLiteral("key")).toString();
+            hk.code = obj.value(QStringLiteral("code")).toString();
             list.append(hk);
         }
         out.order.append(id);
@@ -95,7 +104,13 @@ QByteArray HotkeyFile::serialise() const
             }
             out.append("],\n      \"key\": \"");
             out.append(hk.key.toUtf8());
-            out.append("\"\n    }");
+            out.append("\"");
+            if (!hk.code.isEmpty()) {
+                out.append(",\n      \"code\": \"");
+                out.append(hk.code.toUtf8());
+                out.append("\"");
+            }
+            out.append("\n    }");
         }
         if (!list.isEmpty()) {
             out.append("\n  ]");

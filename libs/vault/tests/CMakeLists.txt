@@ -40,6 +40,14 @@ set_tests_properties(tst_vault_watcher PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 30)
 
+add_executable(tst_vault_hidden_paths tst_vault_hidden_paths.cpp)
+target_link_libraries(tst_vault_hidden_paths
+    PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)
+add_test(NAME tst_vault_hidden_paths COMMAND tst_vault_hidden_paths)
+set_tests_properties(tst_vault_hidden_paths PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 30)
+
 add_executable(tst_vault_echo_suppression tst_vault_echo_suppression.cpp)
 target_link_libraries(tst_vault_echo_suppression
     PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage)

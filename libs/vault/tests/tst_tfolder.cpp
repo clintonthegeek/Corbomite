@@ -11,7 +11,7 @@ private slots:
     void parentPrefixRoot();
     void parentPrefixNonRoot();
     void getNewPathAfterRenameInFolder();
-    void stripsControlCharsAndProducesPath();
+    void controlCharsBecomeSpacesAndTrim();
     void getFileCountRecursive();
     void getFolderCountRecursive();
 };
@@ -46,13 +46,16 @@ void TestTFolder::getNewPathAfterRenameInFolder()
              QStringLiteral("folder/new.md"));
 }
 
-void TestTFolder::stripsControlCharsAndProducesPath()
+// Obsidian *replaces* control chars with a space and then trims
+// (`app/own/1129-UD.js:9-10`). Stripping would fuse `a\x01b` into `ab`, which
+// is a different filename.
+void TestTFolder::controlCharsBecomeSpacesAndTrim()
 {
     Corbomite::TFolder parent(nullptr, QStringLiteral("x"));
     Corbomite::TFile child(nullptr, QStringLiteral("x/a.md"));
     child.parent = &parent;
     QCOMPARE(child.getNewPathAfterRename(QStringLiteral(" b\x01" "c.md ")),
-             QStringLiteral("x/bc.md"));
+             QStringLiteral("x/b c.md"));
 }
 
 void TestTFolder::getFileCountRecursive()

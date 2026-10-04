@@ -18,6 +18,7 @@ private slots:
     void externalDeleteEmitsDeletedWithTombstone();
     void externalRenameEmitsRenamed();
     void externalFolderRenameUpdatesDescendants();
+    void transientEnoentEmitsNoDeleteCreatePair();
     void unloadEmitsClosed();
     void externalChangeEmitsRaw();
     void externalConfigJsonEmitsConfigChanged();
@@ -133,6 +134,51 @@ void TestVaultWatcher::externalFolderRenameUpdatesDescendants()
     // followed its own file, not been cross-wired with the other one.
     QCOMPARE(vault.getFileByPath(QStringLiteral("New/note.md")), originalNote);
     QCOMPARE(vault.getFileByPath(QStringLiteral("New/Sub/nested.md")), originalNested);
+}
+
+void TestVaultWatcher::transientEnoentEmitsNoDeleteCreatePair()
+{
+    QTemporaryDir dir;
+    writeFile(dir.path() + "/a.md", "one");
+    writeFile(dir.path() + "/anchor.md", "anchor");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *a = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(a);
+
+    QSignalSpy delSpy(&vault, &Corbomite::Vault::deletedFile);
+    QSignalSpy creSpy(&vault, &Corbomite::Vault::created);
+    QSignalSpy modSpy(&vault, &Corbomite::Vault::modified);
+
+    // Keep a.md and anchor.md off the same millisecond so the watcher's
+    // best-effort rename pairing cannot swallow anchor's `modified` and hide
+    // the fact that a drain ran.
+    QTest::qSleep(1100);
+
+    // The atomic-save shape: the path goes ENOENT, the replacement lands a
+    // moment later. QSaveFile (what FileSystemAdapter writes with) and most
+    // editors and sync clients do exactly this.
+    QVERIFY(QFile::remove(dir.path() + "/a.md"));
+    writeFile(dir.path() + "/anchor.md", "anchor-two");
+
+    // anchor's `modified` proves a drain ran while a.md was absent, so the
+    // 100 ms grace is armed rather than merely imminent.
+    QTRY_VERIFY_WITH_TIMEOUT(modSpy.count() >= 1, 5000);
+    QVERIFY(!QFileInfo::exists(dir.path() + "/a.md"));
+
+    // Reappear inside the window the drain just opened.
+    writeFile(dir.path() + "/a.md", "two");
+
+    // Well past both the 50 ms drain interval and the 100 ms grace.
+    QTest::qSleep(500);
+
+    QCOMPARE(delSpy.count(), 0);
+    QCOMPARE(creSpy.count(), 0);
+    QCOMPARE(vault.getFileByPath(QStringLiteral("a.md")), a);
+    QCOMPARE(a->deleted, false);
 }
 
 void TestVaultWatcher::unloadEmitsClosed()

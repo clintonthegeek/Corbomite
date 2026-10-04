@@ -330,11 +330,18 @@ private Q_SLOTS:
 
     void testNonDefaultBackgroundStyleEmitted()
     {
-        // Inverse of the cover-omission rule: anything else must still be written.
+        // Inverse of the cover-omission rule: a non-default style alongside a
+        // background must be written. getData() only assigns backgroundStyle
+        // inside the truthy-background branch (app/own/2022-W7.js:617), so a
+        // group with no background never gets one written — the key survives
+        // in that case only via unknownData, which is what
+        // testOrphanBackgroundStyleSurvivesWithoutBackground in
+        // tst_canvas_diskcontract covers.
         Canvas::CanvasDocument doc;
         Canvas::CanvasNode g;
         g.id = QStringLiteral("g");
         g.type = Canvas::NodeType::Group;
+        g.background = QStringLiteral("img/a.png");
         g.backgroundStyle = QStringLiteral("ratio");
         doc.addNode(g);
 

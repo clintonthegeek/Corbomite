@@ -27,6 +27,14 @@ class FunctionRegistry;
 /// Subscribes to MetadataCache cacheChanged/cacheDeleted signals and
 /// schedules a debounced recompute. Emits `resultsChanged()` when the
 /// computed BasesQueryResult has refreshed.
+///
+/// Deliberately has no `view-changed` signal. Obsidian's controller triggers
+/// one at three points inside a single `update()` — missing view, adopting the
+/// name from the config, and a view-*type* change that also rebuilds the child
+/// (`RE/obsidian/1.13.7/renamed/src/app/own/1813-CZ.js:2060,:2061,:2069`) —
+/// plus a fourth in `setQueryAndView` (`:2029`). View selection and view-type
+/// construction live in `BasesView` here, so `setViewConfig` only swaps a
+/// pointer and schedules one recompute; there is no event to fan out.
 class QueryController : public QObject
 {
     Q_OBJECT

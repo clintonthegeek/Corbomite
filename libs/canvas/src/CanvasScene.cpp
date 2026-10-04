@@ -756,6 +756,8 @@ void CanvasScene::onNodeAdded(const QString &id)
         break;
     case NodeType::Link:
         break;
+    case NodeType::Unknown:
+        break;
     }
 }
 

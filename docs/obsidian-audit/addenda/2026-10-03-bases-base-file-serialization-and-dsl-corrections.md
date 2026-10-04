@@ -1,4 +1,7 @@
-# Bases `.base` serialisation **rewrites what you wrote**: property IDs are canonicalised on write, `not:` is NOR not NAND, `html()` returns a *Markdown* value, and `duration("5ms")` can never parse
+# Bases `.base` serialisation **rewrites what you wrote**: property IDs are canonicalised on write, `not:` is NOR not NAND, and `duration("5ms")` can never parse
+
+> ⚠️ **One claim in this document was refuted on review and has been struck: §C, "`html()` returns a
+> *Markdown* value".** It does not — it returns `HTMLValue`. See the reviewer note at §C.
 
 **Date:** 2026-10-03
 **Discovered during:** `bases.md` verification pass against the restored 1.13.7 corpus
@@ -15,7 +18,7 @@ The Bases engine is fully in the corpus and mostly matches the audit — but the
 
 The headline is §A: **the writer canonicalises property IDs.** `order`, `sort`, `groupBy` and `summaries` all run their property IDs through `hQ`, which strips the `note.` prefix and shortens `file.file` to `file` — while the `properties:` map and the newly-discovered `columnSize` map are emitted with **raw** keys. So a single `.base` file carries **two different key conventions for the same logical property**, and `bases.md` §3's schema block shows the pre-canonicalisation form for `order` and the post-canonicalisation form for `properties`, which is the opposite of what the writer does. §F then adds the *entire* per-view-type `data:` key inventory, which §3 gestures at with two examples — `image:` is a real cards key, but `rowHeight: 120` is not a legal value (it is a four-way dropdown string) and the table's `columnSize` map, which persists per-column widths, is missing altogether.
 
-The second headline is §B–§C: two outright semantic errors. **`not:` is NOR, not NAND** (refuting the 2026-04-17 addendum §10), and **`html()` returns the `Markdown` value while nothing at all returns the `HTML` value** — `labelGlobalMarkdown` survives in the locale tables (`main/own/0033-Ke.js:2622`) but no code references it, which answers `bases.md` §13 Q9 in the negative. §D then shows `duration("5ms")` is unreachable because the unit regex has no `ms` alternative, that `date()` accepts two undocumented numeric forms, and that `link("https://…")` returns a **URL** value.
+The second headline is §B: **`not:` is NOR, not NAND** (refuting the 2026-04-17 addendum §10). §C originally claimed a second semantic error — that `html()` returns `Markdown` while the `HTML` value is unreachable — but **that was refuted on review**; see §C. §D then shows `duration("5ms")` is unreachable because the unit regex has no `ms` alternative, that `date()` accepts two undocumented numeric forms, and that `link("https://…")` returns a **URL** value.
 
 §G–§J answer the four open questions the domain doc could not (`QueryController` is at `1813-CZ.js:1893`; the incremental-refresh gate is a `JSON.stringify` fingerprint; the view-type registry verb is `registerView` with a `factory`; `.base` embeds select a named view via `#`).
 
@@ -103,7 +106,21 @@ Rest of the filter tree, which §1 gets structurally right but leaves behavioura
 
 ---
 
-## C. CORRECTION — `html()` returns the **`Markdown`** value; the `HTML` value is unreachable
+> **REVIEWER NOTE 2026-10-03 — this section is REFUTED. Do not implement it.**
+>
+> The addendum dropped the trailing `, t` from both IIFEs it quotes at `1649-dK.js:460-478`.
+> The comma operator selects the *second* class, not the first. Decisive: the public export
+> at `0025-expressionstatement.js:32` binds `HTMLValue: () => SK`, and `1657:171` returns
+> `new SK(...)`. So `html()` returns **`HTMLValue`**, exactly as Corbomite already
+> implemented it — this document's conclusion was wrong and acting on it would have been a
+> regression. The observation about the unreferenced `labelGlobalMarkdown` locale key
+> (`main/own/0033-Ke.js:2622`) is independent of that conclusion and still stands as an
+> observation, but it does not show `HTMLValue` is unreachable.
+>
+> Pinned by `testHtmlCtorIsNotMarkdownValue` and `testHtmlCtorIsHtmlValueNotMarkdown`
+> (`libs/bases/tests/tst_yaml_schema.cpp`), **both of which go red if §C is believed**.
+
+## C. ~~CORRECTION~~ — **REFUTED, see the note above** (original claim: `html()` returns `Markdown`)
 
 `bases.md` §1 says `HTMLValue` is "Produced by formulas", and 2026-04-17 §8.2 says `html(str) → HTMLValue`. Neither is true. `bd.plugins.bases`'s pair of HTML-ish values is declared together, Markdown first:
 
@@ -743,5 +760,5 @@ The rendering/parsing/metadata verification passes against the restored 1.13.7 c
 
 - No corpus or vault code changed. `libs/bases/` untouched.
 - `bases.md` §14's instruction to promote the §3 schema into `VAULT-FORMAT.md` is **blocked** pending §A and §F: `note.status` does not survive a write, `columnSize` does, and neither fact is in the doc. Any Corbomite `.base` writer must apply `hQ` to `order`/`sort`/`groupBy`/`summaries` keys and *not* to `properties:`/`columnSize`, emit `summaries: {}` but not `formulas: {}` when empty, drop `limit: 0`, ignore a non-array `sort`, and relocate free-form view keys after the recognised ones.
-- `libs/bases` planning should treat as spec: NOR `not:`; `html()` as Markdown; no `ms` duration unit; `date()`'s two numeric forms; `link()`'s URL branch; the null-propagating argument binder; the six-class `isEmpty()` surface; and the `group`/`sort` silent-drop rules.
+- `libs/bases` planning should treat as spec: NOR `not:`; no `ms` duration unit; `date()`'s two numeric forms; `link()`'s URL branch; the null-propagating argument binder; the six-class `isEmpty()` surface; and the `group`/`sort` silent-drop rules.
 - Nothing added to `01-markoff-gaps.md` — nothing here is a rendering/editor gap. `02-extension-surfaces.md` is the better home for §K's registry shapes if a plugin surface is ever planned.

@@ -18,6 +18,9 @@ class TestFileManagerMisc : public QObject
 private slots:
     void attachmentPathPicksUnoccupied();
     void attachmentPathSameFolderAsSource();
+    void attachmentNameStripsLinkSyntax_data();
+    void attachmentNameStripsLinkSyntax();
+    void attachmentNameTruncatedAt250Units();
     void generateWikiLinkForMarkdown();
     void generateWikiLinkWithSubpathAndDisplay();
     void insertAppends();
@@ -72,6 +75,57 @@ void TestFileManagerMisc::attachmentPathSameFolderAsSource()
     QCOMPARE(got, QStringLiteral("notes/img.png"));
 }
 
+// Obsidian runs an attachment basename through `DD`/`xD`
+// (app/own/1120-DD.js:2, app/own/1118-SD.js:3) before the collision check:
+// `: # | ^ \ CR LF`, the pair `%%` and the pairs `[[` / `]]` each become a
+// space, then whitespace runs collapse. The set exists to strip link syntax
+// back out of a pasted linktext; `%%` is comment syntax and `|` is the wiki
+// alias separator, so `[[Note|alias]].png` must land as `Note alias .png`'s
+// stem, not as a filename full of brackets and pipes.
+void TestFileManagerMisc::attachmentNameStripsLinkSyntax_data()
+{
+    QTest::addColumn<QString>("linktext");
+    QTest::addColumn<QString>("expected");
+
+    QTest::newRow("wiki link")   << "[[Note]]"                 << QStringLiteral("Note");
+    QTest::newRow("alias")       << "[[Note|alias]].png"       << QStringLiteral("Note alias .png");
+    QTest::newRow("comment")     << "note%%comment.png"        << QStringLiteral("note comment.png");
+    QTest::newRow("drive letter")<< "C:shots.png"              << QStringLiteral("C shots.png");
+    QTest::newRow("caret pipe")  << "a^b|c.png"                << QStringLiteral("a b c.png");
+    QTest::newRow("collapsed")   << "a:::b.png"                << QStringLiteral("a b.png");
+    QTest::newRow("half open")   << "[Note].png"               << QStringLiteral("[Note].png");
+    QTest::newRow("plain")       << "image.png"                << QStringLiteral("image.png");
+}
+
+void TestFileManagerMisc::attachmentNameStripsLinkSyntax()
+{
+    QFETCH(QString, linktext);
+    QFETCH(QString, expected);
+
+    QTemporaryDir dir;
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault v(&fs);
+    v.load(dir.path());
+    Corbomite::FileManager fm(&v, nullptr);
+
+    QCOMPARE(fm.getAvailablePathForAttachment(linktext), expected);
+}
+
+// `DD(...).slice(0, 250)` (app/own/1129-UD.js:575) — 250 UTF-16 code units,
+// applied after the sanitise pass, and before any collision suffix.
+void TestFileManagerMisc::attachmentNameTruncatedAt250Units()
+{
+    QTemporaryDir dir;
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault v(&fs);
+    v.load(dir.path());
+    Corbomite::FileManager fm(&v, nullptr);
+
+    const QString got = fm.getAvailablePathForAttachment(
+        QString(300, QLatin1Char('a')) + QStringLiteral(".png"));
+    QCOMPARE(got.size(), 250);
+}
+
 void TestFileManagerMisc::generateWikiLinkForMarkdown()
 {
     QTemporaryDir dir;
@@ -81,9 +135,9 @@ void TestFileManagerMisc::generateWikiLinkForMarkdown()
     v.load(dir.path());
     Corbomite::FileManager fm(&v, nullptr);
 
-    auto *foo = v.getFileByPath(QStringLiteral("Foo.md"));
-    QVERIFY(foo);
-    QCOMPARE(fm.generateMarkdownLink(foo, QStringLiteral("")),
+    auto *f = v.getFileByPath(QStringLiteral("Foo.md"));
+    QVERIFY(f);
+    QCOMPARE(fm.generateMarkdownLink(f, QStringLiteral("Bar.md")),
              QStringLiteral("[[Foo]]"));
 }
 

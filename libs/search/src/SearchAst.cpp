@@ -68,4 +68,30 @@ SearchNodePtr SearchNode::makeOpCall(QString name, SearchNodePtr operand)
     return n;
 }
 
+SearchNodePtr SearchNode::makeProperty(SearchNodePtr key, SearchNodePtr value)
+{
+    auto n = std::make_shared<SearchNode>();
+    n->kind = Kind::PropertyCall;
+    n->children.append(std::move(key));
+    if (value) n->children.append(std::move(value));
+    return n;
+}
+
+SearchNodePtr SearchNode::makePropertyValue(QString keyword)
+{
+    auto n = std::make_shared<SearchNode>();
+    n->kind = Kind::PropertyValue;
+    n->text = std::move(keyword);
+    return n;
+}
+
+SearchNodePtr SearchNode::makeCompare(QString op, SearchNodePtr operand)
+{
+    auto n = std::make_shared<SearchNode>();
+    n->kind = Kind::Compare;
+    n->text = std::move(op);
+    n->children.append(std::move(operand));
+    return n;
+}
+
 } // namespace Corbomite

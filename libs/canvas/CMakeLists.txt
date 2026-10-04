@@ -9,6 +9,7 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets Svg)
 
 add_library(canvas SHARED
     src/CanvasDocument.cpp
+    src/CanvasJsonPrinter.cpp
     src/CanvasView.cpp
     src/CanvasScene.cpp
     src/CanvasCommands.cpp
@@ -26,6 +27,7 @@ add_library(canvas SHARED
     src/FileCardItem.cpp
     src/CanvasFilePickerDialog.cpp
     include/canvas/CanvasDocument.h
+    include/canvas/CanvasJsonPrinter.h
     include/canvas/CanvasView.h
     include/canvas/CanvasScene.h
     include/canvas/CanvasCommands.h

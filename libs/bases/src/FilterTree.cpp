@@ -25,7 +25,10 @@ bool FilterConjunction::test(const EvalContext &ctx, FunctionRegistry *funcs) co
             if (c && c->test(ctx, funcs)) return true;
         return false;
     case Conj::Not:
-        // Not of the conjunction of children (audit §1 mY definition).
+        // NOR: `not: [a, b]` is `!(a || b)`, i.e. false as soon as any child
+        // passes (app/own/1764-jX.js:232-237). Not `!(a && b)` — the filter
+        // builder labels the group "None of the following are true" and joins
+        // its rows with "or" (app/own/1803-cZ.js:48-66,:136-137).
         for (const auto &c : m_children)
             if (c && c->test(ctx, funcs)) return false;
         return true;

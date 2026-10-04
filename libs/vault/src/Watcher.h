@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QElapsedTimer>
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QObject>
@@ -55,6 +56,13 @@ private:
     QTimer               m_drainTimer;
     QHash<QString, qint64> m_knownFiles;
     QStringList          m_pending;
+
+    /// relPath → elapsed-ms at which the ENOENT was first observed. Kept in
+    /// `m_knownFiles` for its whole life so that a reappearance inside the
+    /// grace window diffs as `modified`, not as a create.
+    QHash<QString, qint64> m_pendingDelete;
+    QElapsedTimer         m_graceClock;
+    QTimer                m_graceTimer;
 
     void snapshotDirectory(const QString &absDir);
     QString toRel(const QString &abs) const;

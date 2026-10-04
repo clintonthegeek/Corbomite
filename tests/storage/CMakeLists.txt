@@ -32,6 +32,12 @@ add_executable(tst_vaultconfig tst_vaultconfig.cpp)
 add_test(NAME tst_vaultconfig COMMAND tst_vaultconfig)
 target_link_libraries(tst_vaultconfig PRIVATE Qt6::Test Corbomite::Storage)
 
+# The app.json/appearance.json partition, the non-enum value encodings, and
+# the `.obsidian/<corePluginId>.json` file class.
+add_executable(tst_vaultconfig_partition tst_vaultconfig_partition.cpp)
+add_test(NAME tst_vaultconfig_partition COMMAND tst_vaultconfig_partition)
+target_link_libraries(tst_vaultconfig_partition PRIVATE Qt6::Test Corbomite::Storage)
+
 add_executable(tst_workspacestate tst_workspacestate.cpp)
 add_test(NAME tst_workspacestate COMMAND tst_workspacestate)
 target_link_libraries(tst_workspacestate PRIVATE Qt6::Test Corbomite::Storage)

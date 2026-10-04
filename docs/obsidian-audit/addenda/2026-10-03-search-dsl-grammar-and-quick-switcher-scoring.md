@@ -351,6 +351,18 @@ suggester `e3` (`app/own/1951-e3.js:2`). Plugin id `"switcher"`, `defaultOn: tru
 showAllFileTypes:false}` (`:2951-2955`), and `showAllFileTypes` is only offered when
 `vault.getConfig("showUnsupportedFiles")` is set (`app/own/2040-Vee.js:3075-3077`).
 
+> **REVIEWER NOTE 2026-10-03 — three corrections to this document.**
+> (a) §C.1's prose inverts the code it quotes: `eb.js:11` is
+> `h.toLowerCase() !== h && p.toLowerCase() !== p`, i.e. **p IS cased-upper**, not "p NOT
+> cased-upper". (b) The two worked examples are wrong as stated: `md`/`m1d` is
+> **-1.1203** before and **-1.0203** after (matching Obsidian) — the "-1.1303" figure is a
+> mis-addition whose own terms sum to -1.1203; and `bc`/`ABc` is **-0.1113 on both sides**,
+> so that pair is refuted. The pair *is* real, but for input `1`/`a1b` (-0.1113 → -0.0113).
+> (c) §A.3 says "eleven operators"; its own listing has **twelve**. Separately, three real
+> defects this document missed: the outer punct/CJK guard, clause B's uncased-char guard, and
+> that strict mode charges no penalty at all rather than accepting without penalty.
+> Exact scores are now pinned in `tst_fuzzy_penalty_rule`.
+
 ### C.1 The candidate string differs from what `file:` searches
 
 `Z4` (`app/own/1949-Z4.js:2`): `"md" === e.extension ? Ol(e.path) : e.path` — for a markdown file

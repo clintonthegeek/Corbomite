@@ -23,10 +23,12 @@ QString TAbstractFile::getNewPathAfterRename(const QString &newName) const
 {
     if (!parent) return {};
 
+    // Obsidian replaces control chars with a space and then trims
+    // (app/own/1129-UD.js:9-10); stripping would fuse `a\tb` into `ab`.
     QString cleaned;
     cleaned.reserve(newName.size());
     for (QChar ch : newName) {
-        if (ch.unicode() >= 0x20) cleaned.append(ch);
+        cleaned.append(ch.unicode() < 0x20 ? QLatin1Char(' ') : ch);
     }
     cleaned = cleaned.trimmed();
     if (cleaned.isEmpty()) return {};
