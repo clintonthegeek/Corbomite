@@ -10,6 +10,108 @@ Conventions:
 
 ---
 
+## 2026-10-02/03 — Audit-the-audit: 16 domains re-verified against restored Obsidian 1.13.7 source
+
+The prior audit's RE corpus was a *renamed* tree at
+`/home/clinton/bin/ObsidianRAW/audit/renamed/…` which no longer exists, with **no
+surviving name map**. Every symbol citation in the 15 domain docs was therefore
+unverifiable, which is why the 2026-06-10 corrections pass had to *refute* claims
+by reasoning rather than by reading code. Three of those refutations turned out to
+be load-bearing.
+
+**Rebuilt the corpus.** `RE/extract-obsidian.sh` reproduces it end to end from
+`obsidian_1.13.7_amd64.deb` in ~5 minutes, idempotently. 345 MB installed → 26 MB
+payload (the Chromium/Electron engine is never extracted; it is excluded at the
+`tar` layer). Pipeline: `unpack-asar.py` (asar → files, written from scratch
+because `dpkg-deb` and `unsquashfs` are absent and there is no network dependency
+wanted) → `explode.js` (webpack numeric module maps → `vendor/`, flattened rollup
+top-level statements → `own/`, one file each) → `extract-i18n.js` → `build-index.js`
+(FTS index: 269k facts over `str`/`prop`/`bindef`/`methdef`/`decl`/`regex`/`tmpl`)
+→ `rename.js` (evidence-based renaming) → `q.js` (query CLI) →
+`build-manifest.js` → `build-seeds.js` (per-domain starting maps).
+
+**Licensing drove the layout.** Obsidian is `License: UNLICENSED`, Vendor: Dynalist
+Inc.; Corbomite is GPLv3. No part of the extracted source, the readable tree, or the
+rename map may be committed — so `RE/*` is ignored with `RE/tools/` re-included.
+Tracking the *tooling* rather than the corpus is the deliberate fix for the
+previous failure: the old corpus was untracked **and** unmapped, which is why it is
+gone and unverifiable. `RE/README.md` says so explicitly.
+
+**Deminification turned out to be tractable, and three facts are why.** (1) No
+source maps ship — the `sourceMappingURL=data:` hit is Obsidian's own *plugin*-map
+stripping regex, so original TypeScript is unrecoverable and deminifying is the
+ceiling. (2) terser mangled *bindings only*: 4,703 `this.X =` and 5,714
+`X.prototype.Y =` with real names against 484 bare 1–2-char property assignments, so
+property/method names and every string literal survived. (3) Only ~2.3k bindings need
+names, and `testvaults/obsidian-api/obsidian.d.ts` (98 classes + 116 interfaces) is a
+first-party naming authority: method-set fingerprinting against it, unioned over the
+`extends` chain, named **43 of ~978** classes — 31 high-confidence, including all 25
+internal plugin classes and `WorkspaceLeaf`/`FileView`/`Setting`/`Plugin`/`Editor`.
+
+**Four traps worth remembering, each of which silently produced wrong output first.**
+rollup reuses one mangled name across every scope — 5,926 `X.prototype.Y =`
+assignments but only **18 distinct names**, `e` alone owning 2,620 — so anything
+keyed on the name collapses ~978 classes into 18; the rename map is keyed on binding
+identity and applied through `@babel/traverse`. Fingerprinting needs **containment,
+not Jaccard**: an implementation is a superset of its declared interface, so
+`WorkspaceLeaf` scores 0.47 Jaccard but 1.00 containment. A 3-member class matches a
+3-member interface at 1.00 — nine unrelated classes all became `FuzzySuggestModal`
+before thresholds demanded absolute evidence. And a regex for `.id = "…"` reports
+43 core plugins including `logo-top-left`, which is an SVG gradient id matched
+*inside a string literal*; AST-exact is **40**.
+
+**The audit pass.** One agent per domain, 16 total, disjoint writes. **45 addenda,
+~14.7k lines**, every claim cited to `bundle/rel:line`; 25 punch-list items, nine of
+them P0. The P0s are cases where the doc is wrong in a way that produces wrong
+Corbomite code: `app.json`/`appearance.json` splits on a **16-key** allow-list not the
+6 documented (10 keys in the wrong file, silently reverted by Obsidian on its next
+save); `.obsidian/<corePluginId>.json` is a whole omitted file class; there is no
+`workspaces.json`; unknown canvas node types and dangling edges are **deleted on the
+next save**; the `.base` writer canonicalises property IDs inconsistently; **two
+frontmatter scanners disagree** on CRLF so a CRLF note's frontmatter is invisible to
+`CachedMetadata`; `metadata` `changed` arg 2 is the file contents, not a hash;
+`hotkeys.json` `"cmd": []` means *unbind*; and the watcher has a **100 ms ENOENT
+grace** that a naive reconciler turns into phantom delete/create pairs on every
+atomic save.
+
+**Security decision, made deliberately rather than by default.** Obsidian runs
+DOMPurify with `ALLOW_UNKNOWN_PROTOCOLS: true`, which short-circuits the
+allowed-scheme regexp so `javascript:` hrefs survive, on the **main render path**.
+`rendering.md` §11 instructs "Corbomite's sanitisation must match this config
+exactly" and §14 calls divergence "a security-bug class". Corbomite **will not**
+reproduce that one flag; the other four are matched. Reasoning: the threat model
+differs (Corbomite is GPLv3, opens arbitrary third-party vaults, renders in a
+desktop webview), fidelity buys nothing observable because no planned feature depends
+on it, nothing in the on-disk format depends on it, and where fidelity conflicts with
+security on a *config value* rather than on *observable behaviour*, security wins.
+The divergence is recorded as
+`2026-10-03-rendering-sanitiser-deliberate-divergence.md` with the residual risk
+stated plainly, and any future scheme complaint is to be fixed with a narrow
+`ALLOWED_URI_REGEXP`, never a blanket re-enable.
+
+**Plugin infrastructure is the one deliberate divergence.** A C++ plugin is nothing
+like a web plugin, so the plugin-domain pass produced a 15-item *capability surface*
+and an explicit "not applicable by design" list rather than a set of gaps. Its
+headline: **Obsidian has no permission model at all** — zero permission hits in the
+loader, `Plugin` class or settings UI; the only gate is `Ab.plugins`. Ours should
+have one.
+
+**Three corrections to my own work, which is the point of the exercise.** (1) An
+agent reported the appearance allow-list as 18 keys; counting the literal gives
+**16**. (2) An agent reported the Lucide table as 1935 entries; `Mg` is `{}` and `Eg`
+declares no own keys, so `getIconIds()` yields **1408**. Both fixed with reviewer
+notes recording the correction. (3) `2026-10-01-workspace-split-direction-correction.md`
+declares it "REFUTES" `workspace.md:79`, then restates line 79 verbatim in its own
+table — six independent source paths confirm the **doc** was right and the inversion
+was in our serializer. That file stays as historical record per the frozen-doc rule;
+the mis-attribution is documented and its *code* finding still stands. Standing rule
+adopted: an addendum refuting a frozen doc needs source proof, not one round-trip.
+
+**No code changed.** Suite 339/339. Docs only: 45 addenda, `PARITY-MATRIX.md` §5
+downgraded ✅→🟡 (five fuzzy constants match, the penalty rule does not), punch list
+to 86 open, and a corrections gate at the top of `addenda/README.md` listing the
+twelve findings most likely to change code about to be written.
+
 ## 2026-10-01 (later) — Cluster bookkeeping pass: 3 orphans retired, 3 dispatchable clusters created
 
 Docs-only pass, same day as the second-sweep appraisal recorded below. No code,

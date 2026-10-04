@@ -791,6 +791,23 @@ parse — perturbing the numbers it measures.
   needs one of: vendored source + pinned commit, an optional external dep, or a
   fetch script — and a separate decision on whether to rewrite history.
 
+  **One update from the 1.13.7 RE (2026-10-03), which changes the picture for the
+  *upstream* ask even though our mmdr situation is unchanged.** Obsidian ships
+  **stock upstream mermaid 11.13.0** — `lib/mermaid.min.js` line 1 is
+  `// Source: https://unpkg.com/mermaid@11.13.0/dist/mermaid.min.js` — not a fork.
+  And its header documents a **local patch**:
+
+  > `// Manual patch: Search for "break-spaces", look behind and replace
+  > return f.width===r&& with return Math.round(f.width)===Math.round(r)&&.`
+
+  That is a float-equality bug in mermaid's `break-spaces` label wrapping, worked
+  around locally rather than upstream. Two consequences: (a) there is a genuine,
+  cheap **upstream bug report** available to file against mermaid, independent of
+  anything Corbomite does; (b) for the planned native parser we do **not** need to
+  RE mermaid at all — the grammar is upstream's own source and we have network.
+  RE is only needed to learn how Obsidian *integrates* it
+  (`app/own/1486-tW.js` calls `mermaid.initialize({fontFamily: "var(--font-mermaid)"})`).
+
 ## Suggested filing order
 
 1. **ASK-M1** (collabtext asserts) — highest severity, smallest diff, three

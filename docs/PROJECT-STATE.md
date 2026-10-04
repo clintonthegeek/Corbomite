@@ -16,83 +16,20 @@
 
 ## Current focus
 
-Remediation sweep. **Suite 339/339.** Tracker: 60 open / 137 closed.
+**Audit-the-audit, complete.** The prior audit's RE corpus was destroyed, so every symbol citation in `docs/obsidian-audit/` was unverifiable — and the docs turned out to contain errors that produce wrong Corbomite code, not just wrong prose. Obsidian 1.13.7 was re-extracted into a readable, indexed, partially-renamed corpus (`RE/extract-obsidian.sh`, reproducible from the `.deb`, corpus gitignored for licensing) and **all 16 domains re-read against it**: **45 addenda, ~14.7k lines, 25 punch-list items (nine P0)**. Suite **339/339**, no code changed. The nine P0s are `app.json`/`appearance.json` splitting on a 16-key allow-list (10 keys in the wrong file → silently reverted by Obsidian), an omitted `.obsidian/<corePluginId>.json` class, no `workspaces.json`, unknown canvas node types deleted on save, `.base` property-ID canonicalisation applied inconsistently, two frontmatter scanners that disagree on CRLF, `metadata` `changed` arg 2 being the file contents not a hash, `hotkeys.json` `"cmd": []` meaning *unbind*, and a 100 ms watcher ENOENT grace. **Next: drain the nine P0s** — see the punch list's `Added 2026-10-03` section.
 
-**Done since the second-sweep appraisal** (2026-10-01 → 02): `ThemeService`
-revival; ~500 lines of dead code; 7 disabled tests re-enabled; cluster
-bookkeeping (E retired, F split into F-a/F-b, Tags pane → Cluster Q, D.5
-specced, L5 checkboxed); `eState.scroll` interop (was P1); `.obsidian/app.json`;
-`resolveSubpath` wired in. **Cluster O closed** — bases + graph providers, tab
-reorder, linked panes, the plugin ViewActions path, O6.T3's shared-panel fix, and
-O7 (3 new verbs, blockers on all 14 stubs, placebo dialogs disabled, palette
-regrouped). **Canvas dark mode** shipped. Canvas file picker lists the Vault.
-**P1s**: the frontmatter closing-fence scan, and `indexFinished` firing on a
-partly-built index.
+**One decision needs no revisiting:** Corbomite will **not** match Obsidian's
+`ALLOW_UNKNOWN_PROTOCOLS: true`, which disables DOMPurify's URI-scheme check so
+`javascript:` hrefs survive on the main render path. `rendering.md` §11's "must match
+this config exactly" is rejected for that one flag on security grounds; the other four
+keys are matched. Fix any future scheme complaint with a narrow allowlist, never a
+blanket re-enable — [`2026-10-03-rendering-sanitiser-deliberate-divergence.md`](obsidian-audit/addenda/2026-10-03-rendering-sanitiser-deliberate-divergence.md).
 
-**A build bug worth naming:** the test gate had three conventions, two of which
-looked like ours but were not. `BUILD_TESTING` is declared by **ECM**, so 12
-subdirectories were reading a third-party default; and no preset ever set
-`CORBOMITE_PORT_BUILD_TESTS`, whose default is OFF. A clean `cmake --preset dev`
-therefore produced **109 tests instead of 345** — all from the markoff-family
-submodule, none of them Corbomite's — and the canonical test command reported
-success against a tree containing none of our tests. Verified by reproduction,
-fixed, and the residual submodule leak documented rather than patched.
-
-Also deleted a **test-only island**: `MarkdownRenderer` + `RegexRenderEngine`
-had zero production references (the runtime has always used `StyledRenderEngine`),
-and existed only to satisfy two QSKIPped tests that asserted nothing. The two
-canvas tests that referenced them were repointed at the production engine first.
-
-**Upstream:** [`docs/UPSTREAM-ASKS.md`](docs/UPSTREAM-ASKS.md) is the index;
-**six per-library handoff documents** sit in [`docs/handoff/`](handoff/) — one
-each for collabtext, markoff-core, markoff-parser, markoff-styled, Graffodil,
-and jkqtmathtext/rapidyaml — ready to send. All three P0s were re-verified by
-hand before writing. See the archive for the full list of 32 findings.
-Three **P0s** verified by hand: collabtext's `assert()`-only guards are a heap
-OOB *write* in release and a version vector that records a delete that never
-happened; Markoff keys collab op payloads without the `BlockId`, so a multi-block
-paste loses two-thirds of its content (reproduced); and the parser's
-`parsedFrontmatter()` sets its "already parsed" flag five lines before writing
-the value, so a concurrent reader gets empty frontmatter.
-
-**Next:**
-1. **LIVE EYEBALL** — the single run-through is
-   [`docs/USER-TESTING.md`](docs/USER-TESTING.md), one maintained file for every
-   pass. First pass done: canvas dark mode confirmed good; two of my own bugs
-   found (§7 shortcuts had **no Ctrl** despite a commit message claiming Obsidian
-   parity; there was **no Tab menu** despite a comment claiming one). Both fixed.
-   **§10 (the settings dialog) is the open one** — diagnosed from source, not
-   reproduced.
-2. **Cluster M** — M5.5 `jump-to-group` (needs `zoomToRect`, which does not
-   exist) + `convert-to-file` (needs 1 new undo command); M5.4 read-only lock
-   (needs a per-file `SessionManager` tier-3 bucket + ~10 mutation gates);
-   M5.1 zoom clamp (blocked on a read-only submodule; consumer-side fix).
-   **M5.3 is blocked on a corpus contradiction** — the plan's stated precedent
-   does not exist, and three audit sources disagree on whether leaf `eState`
-   persists at all. Needs the user's call. M5.2 is dropped: Cluster O shipped it.
-3. **Release hygiene B** — the unreproducible mmdr blob. **DEFERRED by user
-   decision 2026-10-02.** **A decision, not more
-   work**: the Rust source is not in this repo and not reachable from it, so a
-   rebuild is *impossible*, not merely undocumented. Documented honestly in
-   `libs/mmdr/README.md`. It blocks the Mermaid dark-theme item. Three options in
-   the plan; B.3's history-rewrite decision is unrecorded anywhere.
-4. **Dispatch** F-a (File Recovery + Note Composer, ~5–8d) and Q (Tags pane,
-   ~3–5d). Both specced, neither started — these are multi-day and need a
-   dedicated session.
-5. **Smaller punch items** — 11 remaining `if(FALSE)` test gates, 3 classes
-   named `VaultResourceProvider`, the embed single-render gap, `examples/`
-   compile-unverified, Cluster O6.T1/T2/T4.
-
-**Standing lesson** — thirteen of my own claims this session were wrong and were
-caught by checking rather than shipped. The recurring shape is **asserting a
-property in prose that was never checked against the code**: a parity claim about
-a keyboard shortcut that had no `Ctrl`; a comment about a "Tab menu" that did not
-exist; two "the file is inside an `#if 0`" claims that were only *mostly* true,
-each hiding a live symbol outside the block. Also: a falsifiability check that
-came back green against a deliberately reintroduced bug, an over-strong
-invariant that failed on correct behaviour, and a batch of bulk-regex edits that
-matched more than intended. See the audit's §10 — a gate never seen red proves
-nothing.
+**Doctrine for the RE work.** The plugin infrastructure is the one place Corbomite
+should be *explicitly different* — a C++ plugin is nothing like a web plugin, and the
+plugin-domain addendum documents a capability surface rather than an API to clone. Every
+other domain translates web paradigms to desktop UX (that is not divergence) while
+staying faithful on **vault format, vault settings, rendering and data files**.
 
 ## Two tracks
 
@@ -144,6 +81,28 @@ Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/pl
   dot visibility) is best-guess pending a live look — the same standing gate.
 
 ## Recent decisions
+
+- **2026-10-03 — Corbomite does not reproduce Obsidian's sanitiser URI-scheme bypass.**
+  Obsidian runs DOMPurify with `ALLOW_UNKNOWN_PROTOCOLS: true`, which short-circuits the
+  allowed-scheme regexp so `javascript:` hrefs survive, on the main render path. Our
+  doctrine is fidelity on data and format; where fidelity would mean shipping a known XSS
+  vector in an app that opens vaults it did not author, security wins and the divergence is
+  recorded. `rendering.md` §11's absolute "must match exactly" is narrowed to the other four
+  keys. Addendum: `2026-10-03-rendering-sanitiser-deliberate-divergence.md`.
+- **2026-10-03 — the RE corpus stays untracked; the tooling is tracked.** Obsidian is
+  `UNLICENSED` (Dynalist Inc.) and Corbomite is GPLv3, so no part of the extracted source,
+  the readable tree, or the rename map may be committed. `RE/*` is ignored with
+  `RE/tools/` re-included, because the tooling is what makes the corpus reproducible — and
+  the previous corpus was lost precisely because it was untracked with no map. Do not move
+  or delete `RE/tools/`.
+- **2026-10-03 — an addendum refuting a frozen doc requires source proof.** The
+  2026-10-01 split-direction addendum declared it refuted `workspace.md:79`, then restated
+  line 79 verbatim in its own table; six independent source paths confirm the doc was right
+  and the inversion was in our serializer. The 2026-10-01 file stays as historical record;
+  the mis-attribution is documented. Its *code* finding still stands.
+- **2026-10-02 — six per-library handoff documents.** `docs/UPSTREAM-ASKS.md` is the index;
+  the sendable documents are in `docs/handoff/`. All three P0s in it were re-verified by hand
+  before writing, because a data-loss claim should not be taken on trust.
 
 - **2026-10-02 - Cluster O closed; canvas dark mode; frontmatter P1.**
   `BasesViewActions` + `GraphViewActions` (the latter proving a *plugin* can

@@ -584,3 +584,27 @@ was a 1.12.7-era extraction layout. 1.13.7 names:
 - Plugin-facing DSL extensions (whether a plugin can register an operator) were not investigated:
   `AP`'s constructor takes an `operators` argument (`app/own/1175-SP.js:223-224`) defaulting to
   `DP`, and `lP` threads it through, but no public API surface for supplying it was found.
+
+## Why noticed now
+
+The corpus was restored (`RE/obsidian/1.13.7/`), which turned `search.md` §13 Q1 —
+"the DSL parser is out-of-tree, reverse-engineer from user documentation" — into a
+falsifiable claim. It is false: the whole grammar is a ~60-line operator table at
+`app/own/1175-SP.js:148-221`. An implementer following §13 would have hand-built a
+parser from documentation and shipped the wrong grammar, including a `whole-word` flag
+that does not exist.
+
+The second finding surfaced only because the domain agent was told to check
+`docs/PARITY-MATRIX.md` against source: its §5 row claimed quick-switcher fuzzy-scoring
+parity was complete, and it is half true.
+
+## Action taken
+
+- `docs/PARITY-MATRIX.md` §5 downgraded ✅ → 🟡 with the specific gap named (constants
+  match, penalty rule does not).
+- Punched as **P1** in `docs/punch-list.md`, covering both the grammar defects and the
+  `FuzzyMatcher` penalty-rule divergence, with the two worked examples.
+- §F measures `libs/search` against the recovered grammar so the implementation gap is
+  explicit rather than assumed; §G re-anchors every symbol `search.md` cites.
+- The `whole-word` / `ignore-case` correction should be checked before any further
+  search work — `docs/PARITY-MATRIX.md` does not currently mention either flag.

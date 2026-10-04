@@ -18,6 +18,19 @@
 
 ---
 
+## Finding
+
+Seven corrections and seventeen new facts about how a `WorkspaceLeaf` binds to a view,
+restores deferred state, and saves. Sections 1-21 below are the detail; the two that
+change what you would write are:
+
+- **§1 — there is no three-way merge.** `app/own/1810-bZ.js:2-8` diffs base-against-view
+  and re-applies the patch to whatever is on disk, discarding per-patch success. A
+  mid-paragraph user edit can be lost *and* relocated onto the preceding line.
+  `views.md` §1/§12 assert the opposite.
+- **§13 — a second, parallel registry exists** (`app.embedRegistry`), which a
+  `ViewRegistry`-only implementation mis-handles for embeds.
+
 ## 0. Symbol remap for 1.13.7
 
 | `views.md` symbol | 1.13.7 location | split-corpus name |
@@ -627,3 +640,22 @@ in 1.13.7:
 - **`wx`/`Plugin` API surface beyond §14** — `Plugin.registerView`/
   `registerExtensions`/`registerHoverLinkSource` were read (`app/own/1938-c4.js:73-87`); the
   rest of the plugin API is deliberately out of scope per doctrine.
+
+## Why noticed now
+
+The corpus was restored (`RE/obsidian/1.13.7/`), which made `views.md` §1 and §12
+falsifiable for the first time — the previous audit's source tree no longer exists, so
+"does not lose their in-progress edits" could not be checked. It could be checked here,
+and it is false. §1 was additionally verified by **executing** the extracted `bZ`/`mL`
+code against constructed inputs rather than by reading it, which is how the
+"discarded *and* relocated" behaviour was distinguished from the milder
+"discarded" a reader would infer.
+
+## Action taken
+
+- Punched as **P1** (`docs/punch-list.md`) — the merge behaviour and the
+  `embedRegistry` are both unimplemented in Corbomite, so there is no code to correct
+  yet; these constrain the design rather than fix a defect.
+- The 26-row symbol remap (§0) exists because `views.md`'s citations are 1.12.7 offsets
+  and do not map onto the 1.13.7 statement layout. Use §0 before citing this domain.
+- §21 lists what was not read; none of it is load-bearing for the findings above.
