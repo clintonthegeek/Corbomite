@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include <QHash>
 #include <QJsonArray>
@@ -94,6 +95,11 @@ public:
     TAbstractFile  *getAbstractFileByPath(const QString &path) const;
     TFile          *getFileByPath(const QString &path) const;
     TFolder        *getFolderByPath(const QString &path) const;
+
+    /// Deterministic, ascending-`path` order. Obsidian's equivalents
+    /// (`app/own/1129-UD.js:546-551,602-622`) walk the tree / iterate
+    /// fileMap in insertion order, both stable; iterating m_fileMap directly
+    /// is not, so every list below goes through this.
     QVector<TFile *>         getMarkdownFiles() const;
     QVector<TFile *>         getFiles() const;
     QVector<TAbstractFile *> getAllLoadedFiles() const;
@@ -274,6 +280,9 @@ private:
 
     void buildTree();
     void teardownTree();
+
+    /// m_fileMap values in ascending `path` order.
+    std::vector<TAbstractFile *> nodesByPath() const;
 };
 
 } // namespace Corbomite

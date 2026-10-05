@@ -528,7 +528,10 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
             if (refs) sourceSet.insert(src);
         }
     }
+    // QSet iteration is randomised per process; sorting keeps both the
+    // per-file rewrite order and the linkUpdateProgress order reproducible.
     QVector<QString> sources(sourceSet.begin(), sourceSet.end());
+    std::sort(sources.begin(), sources.end());
 
     // Single Vault::rename — for folders this also moves descendants
     // (m_fileMap entries get re-keyed and per-descendant `renamed` signals

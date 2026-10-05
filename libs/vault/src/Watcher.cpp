@@ -154,7 +154,11 @@ void Watcher::drainPending()
 
     // Separate into deleted + created lists; emit modifieds directly.
     // Tree-visible signals (created/modified/deleted/renamed) skip
-    // dot-segment paths; the rawChange signal fires for every change.
+    // dot-segment paths; the rawChange signal fires for every change. Both
+    // lists are built from QHash iteration, whose order is randomised per
+    // process, then sorted: the rename pairing below is a first-match search
+    // over these two lists, so an unsorted order pairs a rename differently
+    // from launch to launch for the same sequence of filesystem events.
     QStringList createdRels;
     QStringList deletedRels;
     for (auto fit = fresh.cbegin(); fit != fresh.cend(); ++fit) {
@@ -169,6 +173,8 @@ void Watcher::drainPending()
     for (auto kit = m_knownFiles.cbegin(); kit != m_knownFiles.cend(); ++kit) {
         if (!fresh.contains(kit.key())) deletedRels.append(kit.key());
     }
+    createdRels.sort();
+    deletedRels.sort();
 
     // A path still inside its ENOENT grace reappeared, so it was a touch, not
     // a delete-then-create: forget the pending entry before anything below

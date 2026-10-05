@@ -169,6 +169,8 @@ void MetadataCache::rebuildVault(const QString &vaultRoot,
     // removed while the app was closed leaves a stale FileCacheEntry (and
     // its derived links in SQLiteIndex) after the next open.
     // Snapshot keys first because onFileDeleted mutates m_pathToFileEntry.
+    // Sorted so the cacheDeleted fan-out for a vault-open reconcile is
+    // reproducible rather than QHash order.
     QStringList stale;
     for (auto it = m_pathToFileEntry.cbegin(), end = m_pathToFileEntry.cend();
          it != end; ++it) {
@@ -176,6 +178,7 @@ void MetadataCache::rebuildVault(const QString &vaultRoot,
             stale.push_back(it.key());
         }
     }
+    stale.sort();
     for (const QString &path : std::as_const(stale)) {
         onFileDeleted(path);
     }
@@ -261,7 +264,15 @@ QString MetadataCache::getFileHash(const QString &path) const
 
 QStringList MetadataCache::allPaths() const
 {
-    return m_pathToFileEntry.keys();
+    // m_pathToFileEntry is a QHash, and QHash iteration order is randomised
+    // per process — `allPaths()` therefore returned a different order on every
+    // launch. That order reaches disk twice: SQLiteIndex::reconcileWithCache
+    // inserts rows in it (so the on-disk rowid order of `links`/`note_tags`
+    // differed run to run), and FileManager::renameFile seeds both its
+    // descendant `moves` list and its first-match `matchMove` from it.
+    QStringList paths = m_pathToFileEntry.keys();
+    paths.sort();
+    return paths;
 }
 
 int MetadataCache::fileCount() const

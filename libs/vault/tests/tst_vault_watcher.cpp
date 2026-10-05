@@ -23,6 +23,7 @@ private slots:
     void externalChangeEmitsRaw();
     void externalConfigJsonEmitsConfigChanged();
     void externalNonConfigDoesNotEmitConfigChanged();
+    void batchCreateEmitsInAscendingPathOrder();
 };
 
 namespace {
@@ -243,6 +244,36 @@ void TestVaultWatcher::externalNonConfigDoesNotEmitConfigChanged()
     writeFile(dir.path() + "/note.md", "y-different");
     QTRY_VERIFY_WITH_TIMEOUT(rawSpy.count() >= 1, 5000);
     QCOMPARE(cfgSpy.count(), 0);
+}
+
+// Watcher::drainPending builds its create/delete lists by iterating QHashes,
+// whose order is randomised per process, and then pairs deletes against creates
+// with a first-match search over those lists. Both the emission order and the
+// pairing therefore varied from launch to launch for the same sequence of
+// filesystem events.
+void TestVaultWatcher::batchCreateEmitsInAscendingPathOrder()
+{
+    QTemporaryDir dir;
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    QSignalSpy spy(&vault, &Corbomite::Vault::created);
+
+    // One batch, written without letting the event loop run, so the 50ms drain
+    // timer sees all of them in a single drain.
+    for (const char *rel : {"f.md", "c.md", "e.md", "a.md", "d.md", "b.md"}) {
+        writeFile(dir.path() + "/" + rel, "x");
+    }
+
+    QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 6, 5000);
+
+    QStringList seen;
+    for (const QList<QVariant> &args : spy)
+        seen << args.first().value<Corbomite::TAbstractFile *>()->path;
+    QStringList sorted = seen;
+    sorted.sort();
+    QCOMPARE(seen, sorted);
 }
 
 QTEST_MAIN(TestVaultWatcher)

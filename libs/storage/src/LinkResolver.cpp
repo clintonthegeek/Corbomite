@@ -29,12 +29,34 @@ int pathDepth(const QString &p)
 }
 
 // VL comparator: shortest path wins, alpha tiebreak on lowercased path.
+// The final tiebreak on the raw path is what makes this a *total* order.
+// Without it two distinct candidates can compare equal — same depth and same
+// lowercased path, i.e. `B/Foo.md` vs `b/foo.md`, a pair a
+// case-insensitive-authored vault produces on a case-sensitive filesystem —
+// and `std::sort` then leaves the winner to whichever order the candidates
+// arrived in. That order was Vault::getFiles()'s unordered_map order, so
+// which file a `[[Foo]]` opened was not reproducible across launches.
 bool pathShorterThan(const QString &a, const QString &b)
 {
     const int da = pathDepth(a);
     const int db = pathDepth(b);
     if (da != db) return da < db;
-    return a.toLower() < b.toLower();
+    const QString la = a.toLower();
+    const QString lb = b.toLower();
+    if (la != lb) return la < lb;
+    return a < b;
+}
+
+// Deterministic pick among paths that share a lowercased form. Same rule the
+// short-name branch uses, so `[[Foo]]` and `[[/B/Foo.md]]` cannot disagree
+// about which of `B/Foo.md` / `b/foo.md` they mean.
+QString bestOf(const QStringList &candidates)
+{
+    QString best;
+    for (const QString &c : candidates) {
+        if (best.isEmpty() || pathShorterThan(c, best)) best = c;
+    }
+    return best;
 }
 
 // Resolve `./` / `../` against `sourceFolder`, returning the normalised
@@ -77,7 +99,10 @@ void LinkResolver::addVaultPath(const QString &relativePath)
     if (!bucket.contains(relativePath)) {
         bucket.append(relativePath);
     }
-    m_exactLowerToActual.insert(relativePath.toLower(), relativePath);
+    QStringList &exact = m_exactLowerToActual[relativePath.toLower()];
+    if (!exact.contains(relativePath)) {
+        exact.append(relativePath);
+    }
 }
 
 void LinkResolver::removeVaultPath(const QString &relativePath)
@@ -89,7 +114,12 @@ void LinkResolver::removeVaultPath(const QString &relativePath)
         it.value().removeAll(relativePath);
         if (it.value().isEmpty()) m_nameToPaths.erase(it);
     }
-    m_exactLowerToActual.remove(relativePath.toLower());
+    const QString lower = relativePath.toLower();
+    auto exactIt = m_exactLowerToActual.find(lower);
+    if (exactIt != m_exactLowerToActual.end()) {
+        exactIt.value().removeAll(relativePath);
+        if (exactIt.value().isEmpty()) m_exactLowerToActual.erase(exactIt);
+    }
 }
 
 int LinkResolver::candidateCount(const QString &basenameLower) const
@@ -131,8 +161,8 @@ ResolvedLink LinkResolver::resolve(const QString &sourcePath,
         QString rooted = linktext.mid(1);
         appendMdIfFinalSegmentHasNoExt(rooted);
         auto hit = m_exactLowerToActual.find(rooted.toLower());
-        if (hit != m_exactLowerToActual.end()) {
-            r.path = hit.value();
+        if (hit != m_exactLowerToActual.end() && !hit.value().isEmpty()) {
+            r.path = bestOf(hit.value());
             r.resolved = true;
         }
         // Rooted miss returns empty (per audit §8.5 — "do not fall through").
@@ -152,8 +182,8 @@ ResolvedLink LinkResolver::resolve(const QString &sourcePath,
         appendMdIfFinalSegmentHasNoExt(resolved);
 
         auto hit = m_exactLowerToActual.find(resolved.toLower());
-        if (hit != m_exactLowerToActual.end()) {
-            r.path = hit.value();
+        if (hit != m_exactLowerToActual.end() && !hit.value().isEmpty()) {
+            r.path = bestOf(hit.value());
             r.resolved = true;
             return r;
         }

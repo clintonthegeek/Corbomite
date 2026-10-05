@@ -205,9 +205,27 @@ bool VaultConfig::saveConfig(const QJsonObject &merged) const
     // Both writes are unconditional (app/own/1129-UD.js:145-147): leaving a
     // stale copy behind in the other file is what makes Obsidian silently
     // revert a Corbomite-side change.
-    const bool appOk = writeJson(QStringLiteral("app.json"), app);
-    const bool appearanceOk = writeJson(QStringLiteral("appearance.json"), appearance);
-    return appOk && appearanceOk;
+    //
+    // Obsidian also awaits the two back to back and lets a rejection on the
+    // second stand, so app.json holds the new values while appearance.json
+    // keeps the old ones — a config split across two files with no record that
+    // it is split, and configTs left un-advanced. Two paths cannot be renamed
+    // in one step, so all-or-nothing has to come from the pre-write bytes:
+    // serialise both payloads up front (so a serialisation failure precedes
+    // any write), snapshot both, then put back the one that landed if the
+    // other fails.
+    if (!m_fs) return false;
+    const QByteArray appBytes = serializeObsidianStyle(app);
+    const QByteArray appearanceBytes = serializeObsidianStyle(appearance);
+    const QString appPath = configFilePath(QStringLiteral("app.json"));
+    const QString appearancePath = configFilePath(QStringLiteral("appearance.json"));
+    const auto appBefore = m_fs->readBinary(appPath);
+    if (!ensureConfigDir()) return false;
+    if (!m_fs->writeBinary(appPath, appBytes)) return false;
+    if (m_fs->writeBinary(appearancePath, appearanceBytes)) return true;
+    if (appBefore) m_fs->writeBinary(appPath, *appBefore);
+    else          m_fs->remove(appPath);
+    return false;
 }
 
 bool VaultConfig::setConfigValue(const QString &key, const QJsonValue &value) const
@@ -494,8 +512,12 @@ std::optional<VaultConfig::CorePlugins> VaultConfig::readCorePlugins() const
         }
     }
 
-    writeCorePlugins(cp);
-    if (migrationBytes.has_value()) {
+    // Retire the migration file only once the modern write has landed: it is
+    // the only remaining record of the intended state, and the legacy array it
+    // is being merged into is presence-encoded (every id true), so deleting it
+    // after a failed write silently re-enables every core plugin the migration
+    // file carried.
+    if (writeCorePlugins(cp) && migrationBytes.has_value()) {
         m_fs->remove(configFilePath(QStringLiteral("core-plugins-migration.json")));
     }
     return cp;

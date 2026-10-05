@@ -53,8 +53,12 @@ private:
     // basename.toLower() -> list of all vault-relative paths with that basename
     QHash<QString, QStringList> m_nameToPaths;
 
-    // Full set of lowercased vault-relative paths, for rooted-absolute lookup.
-    QHash<QString, QString> m_exactLowerToActual;
+    // Full set of vault-relative paths, keyed by their lowercased form, for
+    // rooted-absolute lookup. A multimap, not a map: two paths can share a
+    // lowercased form (`B/Foo.md` / `b/foo.md`) and collapsing them would make
+    // the survivor depend on insertion order. Resolution picks among them with
+    // the same rule step 6 uses.
+    QHash<QString, QStringList> m_exactLowerToActual;
 };
 
 } // namespace Corbomite

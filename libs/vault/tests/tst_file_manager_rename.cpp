@@ -29,6 +29,7 @@ private slots:
     void renameRewritesEveryFrontmatterLinkRegardlessOfKeyOrder();
     void renameMixedFormsInSameBody();
     void renameLeavesUnrelatedLinksAlone();
+    void emitsProgressInAscendingSourceOrder();
 };
 
 namespace {
@@ -267,6 +268,46 @@ void TestFileManagerRename::renameLeavesUnrelatedLinksAlone()
 
     QCOMPARE(readFileAll(h.dir.path() + "/Linker.md"),
              QByteArray("[[Bar]] [[Other]] [Display](Other.md)"));
+}
+
+// QSet iteration is randomised per process, so the per-linker rewrite order was
+// not reproducible. Vault::modify emits `modified` per rewritten file, which is
+// the only place that order is observable (linkUpdateProgress carries a counter,
+// not a path).
+//
+// Note this is *not* reachable through the written bytes: for a bare `[[Foo]]`
+// every candidate move has the same completeBaseName, so
+// `rewriteLinkLiteral` emits the same text whichever move matchMove picks.
+void TestFileManagerRename::emitsProgressInAscendingSourceOrder()
+{
+    RenameHarness h;
+    primeHarness(h, {
+        {QStringLiteral("Foo.md"), "x"},
+        {QStringLiteral("D.md"), "[[Foo]]"},
+        {QStringLiteral("A.md"), "[[Foo]]"},
+        {QStringLiteral("C.md"), "[[Foo]]"},
+        {QStringLiteral("B.md"), "[[Foo]]"},
+    });
+
+    QSignalSpy progress(h.fm.get(), &Corbomite::FileManager::linkUpdateProgress);
+    QSignalSpy modified(&h.vault, &Corbomite::Vault::modified);
+
+    auto *foo = h.vault.getFileByPath(QStringLiteral("Foo.md"));
+    QVERIFY(foo);
+    QVERIFY(h.fm->renameFile(foo, QStringLiteral("Bar.md")));
+
+    QStringList rewritten;
+    for (const QList<QVariant> &args : modified) {
+        rewritten << args.first().value<Corbomite::TFile *>()->path;
+    }
+    QCOMPARE(rewritten, QStringList({QStringLiteral("A.md"),
+                                     QStringLiteral("B.md"),
+                                     QStringLiteral("C.md"),
+                                     QStringLiteral("D.md")}));
+    QCOMPARE(progress.count(), 4);
+    for (const QString &rel : rewritten) {
+        QCOMPARE(readFileAll(h.dir.path() + "/" + rel), QByteArray("[[Bar]]"));
+    }
 }
 
 QTEST_MAIN(TestFileManagerRename)

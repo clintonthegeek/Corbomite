@@ -31,6 +31,8 @@
 
 #include <QLoggingCategory>
 
+#include <algorithm>
+
 Q_LOGGING_CATEGORY(lcVaultSafety, "corbomite.vault.safety")
 
 namespace Corbomite {
@@ -133,11 +135,23 @@ TFolder *Vault::getFolderByPath(const QString &path) const
     return dynamic_cast<TFolder *>(getAbstractFileByPath(path));
 }
 
+std::vector<TAbstractFile *> Vault::nodesByPath() const
+{
+    std::vector<TAbstractFile *> out;
+    out.reserve(m_fileMap.size());
+    for (const auto &kv : m_fileMap) out.push_back(kv.second.get());
+    std::sort(out.begin(), out.end(),
+              [](const TAbstractFile *a, const TAbstractFile *b) {
+                  return a->path < b->path;
+              });
+    return out;
+}
+
 QVector<TFile *> Vault::getMarkdownFiles() const
 {
     QVector<TFile *> out;
-    for (const auto &[k, v] : m_fileMap) {
-        if (auto *f = dynamic_cast<TFile *>(v.get())) {
+    for (TAbstractFile *n : nodesByPath()) {
+        if (auto *f = dynamic_cast<TFile *>(n)) {
             if (f->extension == QStringLiteral("md")) out.append(f);
         }
     }
@@ -147,8 +161,8 @@ QVector<TFile *> Vault::getMarkdownFiles() const
 QVector<TFile *> Vault::getFiles() const
 {
     QVector<TFile *> out;
-    for (const auto &[k, v] : m_fileMap) {
-        if (auto *f = dynamic_cast<TFile *>(v.get())) out.append(f);
+    for (TAbstractFile *n : nodesByPath()) {
+        if (auto *f = dynamic_cast<TFile *>(n)) out.append(f);
     }
     return out;
 }
@@ -157,8 +171,8 @@ QVector<TAbstractFile *> Vault::getAllLoadedFiles() const
 {
     QVector<TAbstractFile *> out;
     out.reserve(static_cast<qsizetype>(m_fileMap.size()));
-    for (const auto &[k, v] : m_fileMap) {
-        if (k != QStringLiteral("/")) out.append(v.get());
+    for (TAbstractFile *n : nodesByPath()) {
+        if (n->path != QLatin1String("/")) out.append(n);
     }
     return out;
 }

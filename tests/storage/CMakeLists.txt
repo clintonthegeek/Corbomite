@@ -32,6 +32,21 @@ add_executable(tst_vaultconfig tst_vaultconfig.cpp)
 add_test(NAME tst_vaultconfig COMMAND tst_vaultconfig)
 target_link_libraries(tst_vaultconfig PRIVATE Qt6::Test Corbomite::Storage)
 
+# saveConfig() writes app.json and appearance.json as two separate renames, and
+# the legacy core-plugins migration deletes its own input file. Both sequences
+# must leave no partial state behind when a write fails.
+add_executable(tst_vaultconfig_atomicity tst_vaultconfig_atomicity.cpp)
+add_test(NAME tst_vaultconfig_atomicity COMMAND tst_vaultconfig_atomicity)
+target_link_libraries(tst_vaultconfig_atomicity PRIVATE Qt6::Test Corbomite::Storage)
+
+# The list-producing Vault accessors and MetadataCache::allPaths() must not hand
+# out unordered_map / QHash iteration order.
+add_executable(tst_iteration_order tst_iteration_order.cpp)
+add_test(NAME tst_iteration_order COMMAND tst_iteration_order)
+target_link_libraries(tst_iteration_order PRIVATE Qt6::Test Qt6::Sql
+    Corbomite::Vault Corbomite::Storage Corbomite::Core)
+set_tests_properties(tst_iteration_order PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # The app.json/appearance.json partition, the non-enum value encodings, and
 # the `.obsidian/<corePluginId>.json` file class.
 add_executable(tst_vaultconfig_partition tst_vaultconfig_partition.cpp)

@@ -248,7 +248,10 @@ bool CachedMetadataStore::persistFrom(const MetadataCache &cache)
         }
     }
 
-    // Prepared INSERT for file_cache.
+    // Prepared INSERT for file_cache. Rows go in ascending path order: both tables
+    // are plain rowid tables, so iterating the QHash snapshots above would
+    // otherwise turn hash order into the on-disk row order — and QHash order
+    // changes from launch to launch.
     {
         QSqlQuery q(db);
         if (!q.prepare(QStringLiteral(
@@ -256,15 +259,18 @@ bool CachedMetadataStore::persistFrom(const MetadataCache &cache)
                 "VALUES (?, ?, ?, ?)"))) {
             return rollbackAndFail();
         }
-        for (auto it = pathEntries.constBegin(); it != pathEntries.constEnd(); ++it) {
+        QStringList paths = pathEntries.keys();
+        paths.sort();
+        for (const QString &path : paths) {
+            const FileCacheEntry &entry = pathEntries[path];
             // Normalise null QString -> empty literal so NOT NULL holds.
             // Unsupported-file entries carry an empty hash (QString{}) which
             // otherwise binds as SQL NULL and trips the schema constraint.
             const QString hash =
-                it.value().hash.isNull() ? QStringLiteral("") : it.value().hash;
-            q.bindValue(0, it.key());
-            q.bindValue(1, it.value().mtimeMs);
-            q.bindValue(2, it.value().size);
+                entry.hash.isNull() ? QStringLiteral("") : entry.hash;
+            q.bindValue(0, path);
+            q.bindValue(1, entry.mtimeMs);
+            q.bindValue(2, entry.size);
             q.bindValue(3, hash);
             if (!q.exec()) {
                 return rollbackAndFail();
@@ -272,7 +278,7 @@ bool CachedMetadataStore::persistFrom(const MetadataCache &cache)
         }
     }
 
-    // Prepared INSERT for metadata_cache.
+    // Prepared INSERT for metadata_cache, ascending hash for the same reason.
     {
         QSqlQuery q(db);
         if (!q.prepare(QStringLiteral(
@@ -280,12 +286,14 @@ bool CachedMetadataStore::persistFrom(const MetadataCache &cache)
                 "VALUES (?, ?, ?)"))) {
             return rollbackAndFail();
         }
-        for (auto it = hashMap.constBegin(); it != hashMap.constEnd(); ++it) {
-            const QJsonObject obj = toPersistedJson(it.value());
+        QStringList hashes = hashMap.keys();
+        hashes.sort();
+        for (const QString &hash : hashes) {
+            const QJsonObject obj = toPersistedJson(hashMap[hash]);
             const QByteArray blob =
                 QJsonDocument(obj).toJson(QJsonDocument::Compact);
-            const int refCount = refCounts.value(it.key(), 0);
-            q.bindValue(0, it.key());
+            const int refCount = refCounts.value(hash, 0);
+            q.bindValue(0, hash);
             q.bindValue(1, QString::fromUtf8(blob));
             q.bindValue(2, refCount);
             if (!q.exec()) {
