@@ -37,5 +37,5 @@ The `LayoutSaver::serializeLayout()` JSON shape is documented in [`docs/superpow
 
 1. The audit's "no public enumeration" caveat does not block recursive split-tree introspection.
 2. `m_tabGroupOf` lag-after-drag (audit `workspace.md` §"High severity" #1) is a follow-up addressable via `Layout::groups()` rather than an architectural blocker — tracked as a punch-list entry post-consolidation.
-3. `WorkspaceSerializer` now uses `LayoutSaver::serializeLayout()` JSON as the source of truth for split topology, joined with `Workspace::findLeafById()` for per-leaf state — see [`docs/superpowers/specs/2026-04-26-workspace-serializer-consolidation-design.md`](../../superpowers/specs/2026-04-26-workspace-serializer-consolidation-design.md).
+3. `WorkspaceSerializer` now uses `LayoutSaver::serializeLayout()` JSON as the source of truth for split topology, joined with `Workspace::findLeafById()` for per-leaf state — see [`docs/superpowers/specs/2026-04-26-workspace-serializer-consolidation-design.md`](../../superpowers/specs/archive/2026-04-26-workspace-serializer-consolidation-design.md).
 4. Per-group `currentTab` round-trips correctly because `Layout::groups()` exposes per-group `currentTabIndex()` directly.

@@ -3,7 +3,7 @@
 **Date:** 2026-10-03
 **Discovered during:** verification pass of `domains/parsing.md` against the restored Obsidian 1.13.7 corpus (`RE/obsidian/1.13.7/`)
 **Supersedes / extends:** `domains/parsing.md` §1 (`getFrontMatterInfo` bullets, `parseFrontMatterAliases`, `processFrontMatter`), §2 `FrontMatterInfo`, §3 (frontmatter wire format), §8; `VAULT-FORMAT.md` §4.1 `FrontMatterInfo` block and §4.2 "CRLF" paragraph and §4.3; re-verifies §5 of `addenda/2026-06-10-vault-path-and-naming-corrections.md`
-**Relevant cluster plans:** `superpowers/plans/2026-08-20-cluster-p-shared-libraries.md` (a shared frontmatter reader/writer is the natural home), `libs/vault/FileManager` property-edit work; any future `processFrontMatter` port
+**Relevant cluster plans:** `superpowers/plans/archive/2026-08-20-cluster-p-shared-libraries.md` (a shared frontmatter reader/writer is the natural home), `libs/vault/FileManager` property-edit work; any future `processFrontMatter` port
 
 ## Finding
 

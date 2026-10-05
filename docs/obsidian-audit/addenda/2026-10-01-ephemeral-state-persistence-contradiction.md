@@ -3,7 +3,7 @@
 **Date:** 2026-10-01
 **Discovered during:** second-sweep remediation, fixing the punch-list item
 "`eState.scroll` stores a 0.0–1.0 scroll fraction, not a visual line"
-([`docs/punch-list.md`](../punch-list.md), re-ranked P4→P1).
+([`docs/punch-list.md`](../../punch-list.md), re-ranked P4→P1).
 **Supersedes / extends:** `domains/views.md` §`EphemeralState` (line 151, 159)
 vs `domains/workspace.md` §2 leaf/history record shapes (lines 214, 220). **These
 two contradict each other and neither is authoritative.**

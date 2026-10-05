@@ -30,7 +30,7 @@
 > `markoff_live` leaf is unlinked (`MARKOFF_BUILD_LIVE=OFF`) and the
 > `CanvasLivePreview` settings toggle is removed. Callouts remain frozen
 > on Markoff E3 (not a canvas gap). Plan:
-> [plan](docs/superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md).
+> [plan](docs/superpowers/plans/archive/2026-08-15-cluster-k-markoff-canvas-adoption.md).
 >
 > **Cluster L — workspace/KDDW stabilization & nativization, L0-L4
 > landed+closed, L5 (soak & closeout) in progress (2026-08-17/18).**

@@ -3,7 +3,7 @@
 **Date:** 2026-10-03
 **Discovered during:** verification pass of `domains/rendering.md` against the restored Obsidian 1.13.7 corpus (`RE/obsidian/1.13.7/`)
 **Supersedes / extends:** `domains/rendering.md` §8 (no callout/bidi invariants), §9 (no callout bullet), §11 rows `Callout chrome` and `Bidi mW.rtl/.ltr/.auto cm-iso decorations`, §12 "Callout chrome" bullet
-**Relevant cluster plans:** `libs/markoff/src/MarkdownTextItem.cpp` (callout parsing); `superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md` (callouts frozen on Markoff E3 — this file records what E3 has to match); `docs/PARITY-MATRIX.md`
+**Relevant cluster plans:** `libs/markoff/src/MarkdownTextItem.cpp` (callout parsing); `superpowers/plans/archive/2026-08-15-cluster-k-markoff-canvas-adoption.md` (callouts frozen on Markoff E3 — this file records what E3 has to match); `docs/PARITY-MATRIX.md`
 
 ## Finding
 

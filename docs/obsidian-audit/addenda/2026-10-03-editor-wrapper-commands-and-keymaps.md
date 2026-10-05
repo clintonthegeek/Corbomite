@@ -3,7 +3,7 @@
 **Date:** 2026-10-03
 **Discovered during:** verification pass of `domains/editor.md` against the restored Obsidian 1.13.7 corpus
 **Supersedes / extends:** `domains/editor.md` §1, §2, §3, §6, §8, §9, §11, §12, §14; `addenda/2026-06-10-editor-timing-and-coverage-corrections.md` §1
-**Relevant cluster plans:** `superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md`, the Cluster O context-sensitive-UI plan, `superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md` (table-cell editing)
+**Relevant cluster plans:** `superpowers/plans/archive/2026-08-20-cluster-n-rich-clipboard.md`, the Cluster O context-sensitive-UI plan, `superpowers/plans/archive/2026-08-15-cluster-k-markoff-canvas-adoption.md` (table-cell editing)
 
 ## Finding
 

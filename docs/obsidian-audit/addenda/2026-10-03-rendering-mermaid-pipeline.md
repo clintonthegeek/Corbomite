@@ -3,7 +3,7 @@
 **Date:** 2026-10-03
 **Discovered during:** verification pass of `domains/rendering.md` against the restored Obsidian 1.13.7 corpus (`RE/obsidian/1.13.7/`)
 **Supersedes / extends:** `domains/rendering.md` §1 (`loadMermaid`), §8 invariant 8, §9 mermaid bullet, §11 (`loadMermaid` row), §12 mermaid bullet, §13 Q11 (partly answered)
-**Relevant cluster plans:** `libs/mmdr/` Rust mermaid bridge; `superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md` (adjacent render-parity work)
+**Relevant cluster plans:** `libs/mmdr/` Rust mermaid bridge; `superpowers/plans/archive/2026-08-15-cluster-k-markoff-canvas-adoption.md` (adjacent render-parity work)
 
 ## Finding
 

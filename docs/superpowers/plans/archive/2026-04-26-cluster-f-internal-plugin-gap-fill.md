@@ -10,8 +10,8 @@
 > day. What genuinely remains splits cleanly into two self-contained
 > clusters:
 >
-> - **[Cluster F-a — File Recovery & Note Composer](2026-10-01-cluster-f-a-file-recovery-and-composer.md)** — items 7 + 8. Self-contained, no substrate dependency, ~5–8d.
-> - **[Cluster F-b — Named Workspaces & Sidedock substrate](2026-10-01-cluster-f-b-workspaces-and-sidedock.md)** — items 9 + 10. **Needs its own spec first**; both items also lost their home class to Cluster L3. ~6–9d.
+> - **[Cluster F-a — File Recovery & Note Composer](../2026-10-01-cluster-f-a-file-recovery-and-composer.md)** — items 7 + 8. Self-contained, no substrate dependency, ~5–8d.
+> - **[Cluster F-b — Named Workspaces & Sidedock substrate](../2026-10-01-cluster-f-b-workspaces-and-sidedock.md)** — items 9 + 10. **Needs its own spec first**; both items also lost their home class to Cluster L3. ~6–9d.
 >
 > **Item-by-item audit (2026-10-01, evidence in the two F plans):**
 >

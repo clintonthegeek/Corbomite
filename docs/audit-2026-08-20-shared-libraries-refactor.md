@@ -31,7 +31,7 @@ Two independent but related problems, both traced to the same root cause
 1. **Disk usage.** `build-dev/` runs 10–11 GB per git worktree. This
    project routinely works across 2-4 worktrees at once (main + per-cluster
    isolation branches, per the project's own worktree convention — see
-   `docs/superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md`'s
+   `docs/superpowers/plans/archive/2026-08-20-cluster-n-rich-clipboard.md`'s
    worktree setup for a recent example). Three simultaneous worktrees
    during this session's Cluster N/O integration work pushed the machine's
    `/home` partition to 99–100% full and caused real link failures ("No
@@ -274,7 +274,7 @@ session. Not decided here:
 ## Corrections (2026-08-20, plan expansion)
 
 The plan-expansion pass for Cluster P
-([`docs/superpowers/plans/2026-08-20-cluster-p-shared-libraries.md`](superpowers/plans/2026-08-20-cluster-p-shared-libraries.md))
+([`docs/superpowers/plans/archive/2026-08-20-cluster-p-shared-libraries.md`](superpowers/plans/archive/2026-08-20-cluster-p-shared-libraries.md))
 verified this report's claims empirically against the built `build-dev/`
 tree (`nm`, `nm -D`, `readelf`, `ldd`), not by reading CMake, and found
 three corrections. **Where this addendum and the report's body disagree,

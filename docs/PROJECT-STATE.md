@@ -37,52 +37,60 @@ one since `docs/obsidian-command-ids.md` is generated. Then resume the L5 soak.
 
 ## Two tracks
 
-Work flows through **two parallel tracks**. Both must be checked at session start.
+Work flows through **two parallel tracks**; both are checked at session start.
 
-1. **Punch list** — flat severity-ranked list of small fixes. File:
-   [`docs/punch-list.md`](punch-list.md). Pick from top (P0 first). Read the
-   2026-10-01 section first — it holds the current P1s.
-2. **Strategic clusters** — multi-phase coordinated work. Index:
-   [`docs/superpowers/plans/INDEX.md`](superpowers/plans/INDEX.md).
+1. **Punch list** — flat, severity-ranked, small fixes: [`punch-list.md`](punch-list.md).
+   **Start at its `Added 2026-10-04` section** — that is the ranked current queue.
+2. **Strategic clusters** — multi-phase coordinated work:
+   [`superpowers/plans/INDEX.md`](superpowers/plans/INDEX.md).
 
 Most P0/P1 punch-list items are **silent vault-format-corruption risks**. Drain them
 before strategic-cluster work unless explicitly redirected.
 
-**Test baseline (2026-10-01):** 329/330 offscreen. The one red,
-`tst_canvas_perf_formatted`, passes standalone — a `-j10` perf-under-load flake, not
-a defect.
+**Tracker (2026-10-04): 91 open / 146 closed / 2 partial**, plus 2 do-not-regress
+guardrails. Verify with `grep -c` on `punch-list.md`.
 
-## Active strategic clusters (snapshot)
+**Test baseline (2026-10-04): 354/356** offscreen with `-E "benchmark|perf"` (two are
+excluded upstream). Three load-sensitive tests are unreliable under `-j6` and named in
+`CLAUDE.md`; a fourth, `tst_metadatacache_worker_integration`, is filed as a **suspected
+real defect** rather than a flake, because all three of its 10 s waits time out rather
+than merely running slow. It is the top P0 in the punch list.
 
-| Cluster | Status (detail in INDEX) | Source |
+## Active strategic clusters
+
+Seven active; INDEX carries the plan-file links and full status.
+
+| Cluster | Status | Next |
 |---|---|---|
-| **L** Workspace/KDDW | **L0–L4 closed. L5 PAUSED mid-flight** — 6 soak scenarios now checkboxed | 2026-08-17 |
-| **M** Canvas authoring | **M0–M4 done.** Next: M5, M6 | 2026-08-19 |
-| **O** Context-sensitive UI | **O0–O4 CLOSED.** Next: O5 (`BasesViewActions`/`GraphViewActions`) | 2026-08-20 |
-| **D** Bases UI | Only D.5 — **spec written 2026-10-01, awaiting review** | Audit |
-| **F-a** File Recovery + Composer | Plan written 2026-10-01, dispatchable, ~5–8d | 2026-10-01 |
-| **F-b** Workspaces + sidedock | Plan written 2026-10-01, **spec-first**, ~6–9d | 2026-10-01 |
-| **Q** Tags pane | Plan written 2026-10-01, dispatchable, ~3–5d | 2026-10-01 |
+| **L** Workspace/KDDW | L0–L4 closed. **L5 soak PAUSED** | **Run the soak** — six `workspace.json` changes landed 2026-10-04 and this is the gate |
+| **M** Canvas authoring | M0–M4 closed. **M5 closed 2026-10-04** (viewport eState, read-only lock, convert-to-file, jump-to-group) | **M6.1** index canvas references; M5.1 camera/easing; M5.2 needs reassessment (its own plan says the floating control cluster duplicates O4's toolbar) |
+| **O** Context-sensitive UI | O0–O7 closed | O6.T1/T2/T4 inspector slots, O7.T6 sidebar raise-on-type — both deferred |
+| **D** Bases UI | Only D.5 — spec written, awaiting review | review, then build |
+| **F-a** File Recovery + Composer | Plan written 2026-10-01, dispatchable, ~5–8d | dispatch |
+| **F-b** Workspaces + sidedock | Plan written 2026-10-01, spec-first, ~6–9d | dispatch |
+| **Q** Tags pane | Plan written 2026-10-01, dispatchable, ~3–5d | dispatch |
 
-Closed (post-reset): A, B, C, E (retired 2026-10-01, never executed), I (by
-absorption), K, N, O, P. **Obsoleted by the foundation rewrite (2026-05-25):**
-G, H, J — J's obsolescence is now confirmed (Cluster K Phase 5 retired the QML
-Live leaf J would have forked around), which closes the open question below.
-**Q is post-reset** (Tags pane), not legacy Cluster Q (closed 2026-04-17) —
-qualify when ambiguous. F no longer exists as a dispatchable stub.
-
-Full table + plan-file links: [`docs/superpowers/plans/INDEX.md`](superpowers/plans/INDEX.md).
+Closed (post-reset): A, B, C, **E** (retired 2026-10-01, never executed), **I** (by
+absorption into O), **K**, **N**, **P**, **D**/**F** (stubs; F split into F-a/F-b).
+**Obsoleted by the foundation rewrite (2026-05-25):** G, H, J. **Q is post-reset**
+(Tags pane), not legacy Cluster Q (closed 2026-04-17) — qualify when ambiguous.
 
 ## Open questions
 
-- **Eyeball-verification backlog.** Eight UI work-packages shipped offscreen-only
-  and have never been seen by a human: D.2 grouped rendering, D.3 panels/drawer,
-  D.4a cell clicks, D.4b export/+New, D.4c undo + drift banner, formula editor
-  popups, filter builder dialog, properties panel. One consolidated session in
-  front of the running app would clear all eight. (Completion popup eyeball DONE
-  2026-06-11.)
-- **Cluster M M4.4's chrome overlay** (handle/dot sizing, colors, hover-vs-selection
-  dot visibility) is best-guess pending a live look — the same standing gate.
+- **Eyeball-verification backlog** — nine UI work-packages shipped offscreen-only and have
+  never been seen by a human: D.2 grouped rendering, D.3 panels/drawer, D.4a cell clicks,
+  D.4b export/+New, D.4c undo + drift banner, formula-editor popups, filter-builder dialog,
+  properties panel, and canvas M4.4's chrome overlay (handle/dot sizing, hover-vs-selection
+  visibility). One consolidated session in front of the running app clears all nine.
+  Tracked in [`USER-TESTING.md`](USER-TESTING.md); deliberately deferred by user decision.
+- **Is `tst_metadatacache_worker_integration` a real defect?** Filed as the top P0 in the
+  punch list's `Added 2026-10-04` section. Three 10 s waits all time out under `-j6`, which
+  reads as a lost signal rather than slow execution. Undiagnosed.
+- **M5.2's on-canvas control cluster** — its own plan says it exists in Obsidian only because
+  Obsidian has no menu bar, and Corbomite has both a canvas menu and a canvas toolbar. Decide
+  slim-to-affordances-only or drop before building it.
+- **`repeatable` hotkeys** unimplemented, and a code-only binding has no user-visible form.
+  Both are Obsidian-parity residuals of the dispatcher, not blockers.
 
 ## Recent decisions
 

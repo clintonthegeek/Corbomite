@@ -9,7 +9,7 @@ P2 ~1d, P3 ~1–3d). Self-contained: **no substrate dependency, no cross-repo
 
 **Why this exists:** items 7 and 8 were named only inside the never-expanded
 Cluster F stub
-([`2026-04-26-cluster-f-internal-plugin-gap-fill.md`](2026-04-26-cluster-f-internal-plugin-gap-fill.md),
+([`2026-04-26-cluster-f-internal-plugin-gap-fill.md`](archive/2026-04-26-cluster-f-internal-plugin-gap-fill.md),
 now split). The second-sweep appraisal filed them as a single punch-list item
 (`[plugin][P2]`, punch-list 2026-10-01 §F) with the note that they are "core
 Obsidian expectations" and "~5–8 days combined, self-contained". That is this
@@ -91,7 +91,7 @@ Corbomite's writer, not a regex — flag as Q3.
 Items 1–6 of the Cluster F stub (command palette, quick switcher, daily notes,
 templates, page preview, word count) were audited on 2026-10-01 and are
 **already shipped as host features**. Their per-item evidence is the table in
-the [Cluster F stub banner](2026-04-26-cluster-f-internal-plugin-gap-fill.md).
+the [Cluster F stub banner](archive/2026-04-26-cluster-f-internal-plugin-gap-fill.md).
 Three residual gaps are recorded there but are **not** F-a's business and are
 deliberately not expanded here:
 

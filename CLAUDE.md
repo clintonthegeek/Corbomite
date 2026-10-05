@@ -1,111 +1,35 @@
-> **State of the world (refreshed 2026-06-10).**
+> **State of the world (refreshed 2026-10-04).**
 >
-> The 2026-05-25 foundation port is history: Markoff's QML/D2 rebuild merged at
-> `v0.7.0-freeze`, the old four-leaf QGraphicsView editor is gone, and Corbomite
-> hosts the **three Markoff leaves** (Canvas LivePreview, Source, Styled) via
-> `NoteEditorWidget`. **Reading mode is a read-only `Markoff::Styled::Editor`
-> leaf** (decided + shipped 2026-05-29; the earlier "read-only Live" steer is
-> retired). `StyledRenderEngine` (2026-05-30) renders canvas cards headlessly.
+> Markoff **contract-v2 is adopted**: find-in-Reading, undo, theme propagation, Ln/Col,
+> goToLine, ephemeral state, format-verb dispatch and zoom all run through the
+> `Markoff::MarkdownView` base, and `MainWindow` is grep-gated leaf-agnostic. Corbomite
+> hosts three Markoff leaves — LivePreview, Source, Styled — via `NoteEditorWidget`;
+> **Reading mode is a read-only `Styled::Editor` leaf**, and `StyledRenderEngine` renders
+> canvas cards headlessly. The old four-leaf QGraphicsView editor is gone.
 >
-> **Contract-v2 adoption COMPLETE (2026-06-10, road-to-dogfood Phase 1):**
-> submodule pinned at `af91a936`; find-in-Reading, undo unification, theme
-> propagation, Ln/Col, goToLine, ephemeral state, format-verb dispatch and
-> zoom all run through the `Markoff::MarkdownView` base (MainWindow is
-> grep-gated leaf-agnostic). **Next major workfront:** road-to-dogfood
-> Phase 2 (completion revival first) —
-> [`docs/superpowers/plans/2026-06-10-road-to-dogfood.md`](docs/superpowers/plans/2026-06-10-road-to-dogfood.md).
+> **Closed:** Cluster O (context-sensitive menu/toolbar/sidebar — doctrine §D1-D7 is
+> normative), Cluster M Phase M5 (viewport persistence, read-only lock, convert-to-file,
+> jump-to-group), Clusters K/N/P/D/F/I (archived). **v0.1.0** shipped 2026-08-18;
+> `origin` is GitHub, not Codeberg. **Cluster L5 soak is paused** and is the gate on
+> further `workspace.json` work.
 >
-> **Dogfood loop started 2026-06-10 (Phase 6).** First real run surfaced a
-> first-run SIGSEGV (use-after-free): double-clicking a recent vault on the
-> welcome screen double-fired `vaultRequested`, so a second vault open tore the
-> vault down while a live editor was attached, and the live binding held the
-> freed `MarkoffDocument` by a never-detaching raw pointer. Fixed both ends —
-> `WelcomeScreen` single-activation + markoff-family retire-on-destroy (re-pin
-> `8112833f` → `af91a936`). Other first-run noise still open (see punch list):
-> repeated `kf.xmlgui: Index 18 is not within range (0-16)`, plugin Id-in-
-> metadata warnings, `qt.qml Invalid QML element name "Theme"`, portal app-id.
+> **The Obsidian audit is source-verified, not prose-verified.** The original corpus was
+> destroyed, so all 16 domains were re-verified against Obsidian 1.13.7 in 2026-10-03:
+> **47 addenda** in [`docs/obsidian-audit/addenda/`](docs/obsidian-audit/addenda/).
+> The corpus is reproducible from the `.deb` via [`RE/extract-obsidian.sh`](RE/extract-obsidian.sh)
+> (corpus gitignored for licensing; tooling tracked). **Check the corrections gate at the
+> top of `addenda/README.md` before implementing from any domain doc** — the frozen docs
+> are wrong in ~45 places, and 9 claims in that batch were refuted by the agents citing
+> them, including one of our own prior addenda.
 >
-> **Cluster K — Markoff canvas leaf adoption, CLOSED (2026-08-18 Phase 5).**
-> LivePreview is solely `Markoff::Canvas::EditorWidget`; the QML
-> `markoff_live` leaf is unlinked (`MARKOFF_BUILD_LIVE=OFF`) and the
-> `CanvasLivePreview` settings toggle is removed. Callouts remain frozen
-> on Markoff E3 (not a canvas gap). Plan:
-> [plan](docs/superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md).
+> Current queue: [`docs/punch-list.md`](docs/punch-list.md) `Added 2026-10-04` section.
+> Parity: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
+> Upstream asks: [`docs/UPSTREAM-ASKS.md`](docs/UPSTREAM-ASKS.md) + [`docs/handoff/`](docs/handoff/).
+> Mermaid is **stock upstream 11.13.0** — see [`RE/README.md`](RE/README.md#mermaid--better-than-expected).
 >
-> **Cluster L — workspace/KDDW stabilization & nativization, L0-L4
-> landed+closed, L5 (soak & closeout) in progress (2026-08-17/18).**
-> Full re-evaluation of the tab/dock layer found a teardown-UAF crash
-> class, persistence split-brain (production save dropping
-> `floating`/`lastOpenFiles`, Corbomite-private keys leaking into the
-> Obsidian-shared `workspace.json`), and Obsidian-literalism residue. L0
-> set the compat doctrine (schema-at-rest fidelity to Obsidian is the
-> only contract; in-memory shape is free to be idiomatic Qt/KDE) —
-> [spec](docs/superpowers/specs/2026-08-17-workspace-compat-boundary.md).
-> L1 fixed the crash class (`Workspace::destroyLeaves`, ASAN-clean).
-> L2 made `workspace.json` persistence
-> full-fidelity and split Corbomite-native state into the doctrine's
-> three tiers. L3 removed dead Obsidian-shape shells, consolidated KDDW
-> init, and fixed router/resize perf. L4 (native UX polish — KDDW chrome,
-> back/forward completion, tab commands, sidebar-width persistence)
-> **live-verified and closed 2026-08-18**. **L5's Obsidian round-trip
-> soak pass found and fixed a P0 bug**: a real Obsidian-authored vault's
-> nested split layout landed scrambled on open, root-caused to an
-> inverted divider-direction convention plus a materialization
-> anchor-ordering bug in `WorkspaceSerializer.cpp` — fixed and
-> live-verified across two round trips against the real vault (punch-list
-> `[cluster-l]`, `decisions-archive.md`). **L5 soak paused, not closed** —
-> superseded same-day by the v0.1.0 release push below; remaining soak
-> items (drag between groups, split, popout, close-undo, vault switch)
-> are still open —
-> [plan](docs/superpowers/plans/2026-08-17-cluster-l-workspace-stabilization.md).
->
-> **v0.1.0 tagged and released (2026-08-18), canonical host moved to
-> GitHub.** Same day as the Cluster K Phase 5 closeout: `origin` retargeted
-> from Codeberg to `git@github.com:clintonthegeek/Corbomite.git` (the
-> `codeberg` remote still exists but is no longer canonical — **the
-> `~/dev/CLAUDE.md` ownership registry has not been updated to match and
-> now conflicts with reality**); `libs/markoff-family` submodule repointed
-> to GitHub Markoff; app identity rebranded to
-> `com.concernednetizen.Corbomite`. Packaging added: AppImage build script,
-> Arch `PKGBUILD`, and a GitHub Actions Ubuntu 25.10 `.deb` CI building on
-> every `v*` tag — plus post-tag fixups (`libtree-sitter-dev` for the `.deb`
-> configure step, Qt6 private-dev packages for KDDockWidgets, a
-> markoff-family bump for a Qt 6.9 `qHash` fix, and a `Qt >= 6.10`
-> version-gate on `endFilterChange`). README rewritten with install/build
-> instructions and screenshots. One stale artifact from the migration: a
-> code comment in `MainWindow.cpp`'s Help-menu wiring still says "homepage
-> + Codeberg" even though `KAboutData` only sets the concernednetizen.com
-> homepage. No docs (`PROJECT-STATE.md`, `decisions-archive.md`) were
-> updated for any of this until now — see the 2026-08-18 decisions-archive
-> entry for full detail. **Next: resume Cluster L5 soak**, or continue
-> hardening the release (multi-distro packaging, CI matrix).
->
-> **Cluster N — rich clipboard (copy-as + smart paste), CLOSED and MERGED
-> to `master` 2026-08-20.** N5 eyeball passed on the branch; a pre-merge
-> cleanup pass then fixed the stalled paste-fix agent's incomplete work
-> (canvas Smart paste still called `applyFlatEdit`, never the finished
-> `Cmd::pasteMarkdown`) plus a BlockQuote marker asymmetry bug in canvas
-> and Styled, and ported the 8 clipboard actions onto `MarkdownViewActions`
-> (Cluster O's O3.T6 had removed the flat `MainWindow` mechanism N was
-> built on while N sat on its own branch). Image paste/drop out of scope.
-> Plan: `docs/superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md`.
-> Post-reset N — not legacy Cluster N.
->
-> **Cluster O — context-sensitive menu/toolbar/sidebar, O0-O3 CLOSED
-> 2026-08-20** (see PROJECT-STATE for the current phase — this banner
-> predates O3's close). Audit report:
-> [`docs/audit-2026-08-20-context-sensitive-ui.md`](docs/audit-2026-08-20-context-sensitive-ui.md);
-> [plan](docs/superpowers/plans/2026-08-20-cluster-o-context-sensitive-ui.md)
-> (doctrine §D1-D7 is normative; all 12 open questions answered by the user).
-> Headline: of ~79 KActions **zero** belong to canvas/bases/graph, 17 are
-> permanently disabled, 7 silently no-op off-markdown. Closed **Cluster I**
-> by absorption in the same pass
-> ([retro](docs/cluster-retros/cluster-i-ui-surfacing.md) — note
-> `cluster-retros/cluster-i.md` is the *pre-reset* Cluster I, a different
-> cluster). Cluster M↔O boundary is recorded in the M plan's Phase M5 banner.
->
-> Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
-> Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).
+> Resolved history (why Reading mode is Styled, the Cluster M↔O boundary, refuted audit
+> claims, v0.1.0 release notes) is archived at
+> [`docs/archive/2026-10-04/pre-consolidation-state-banner.md`](docs/archive/2026-10-04/pre-consolidation-state-banner.md).
 
 ## Long-term project state
 
@@ -115,33 +39,33 @@
 
 **Single source of truth for "where we are":** [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md). ~30 lines — read in 30 seconds at session start. Names current focus across both tracks.
 
-**Punch list (small fixes, severity P0–P6):** [`docs/punch-list.md`](docs/punch-list.md). Flat single file. Top of file is P0; pick from top. Mark `[x]` when committed; do not delete. **P0/P1 items are mostly silent vault-format-corruption risks — drain before strategic-cluster work unless explicitly redirected.**
+**Punch list (small fixes, severity P0–P6):** [`docs/punch-list.md`](docs/punch-list.md). Flat single file. **Start at the `Added 2026-10-04` section** — it is the ranked queue; everything below it is the historical record. Top of file is P0; pick from top. Mark `[x]` when committed; do not delete. **P0/P1 items are mostly silent vault-format-corruption risks — drain before strategic-cluster work unless explicitly redirected.** Checkboxes: `[x]` done, `[~]` partially done, `[ ]` open; the count is in the header with a verifying grep.
 
-**Strategic cluster plans:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). Table of contents over the clusters (10 at the 2026-04-26 reset; most since closed or obsoleted — see INDEX for live status). Closed/obsolete plans live under `plans/archive/` and are linked from INDEX.
+**Strategic cluster plans:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). Table of contents over the clusters (7 active; most others closed or obsoleted — see INDEX for live status). Closed plans live under `plans/archive/` and are linked from INDEX.
 
-**Audit (canonical task source — derived 2026-04-26):** [`docs/audit-2026-04-26/`](docs/audit-2026-04-26/). 14 per-domain sub-reports + synthesis README + 58-item priority list. Punch-list and audit-derived clusters all trace back here. Frozen snapshot — re-run audit cycle to refresh.
+**April 2026 audit (provenance only — NOT a live task source):** [`docs/audit-2026-04-26/`](docs/audit-2026-04-26/). 14 per-domain sub-reports + a 58-item priority list that every early cluster traces back to. Frozen snapshot, triaged and then superseded three times (2026-10-01, 10-03, 10-04). Read it only to understand why a decision was made, never to find current work — the punch list is the tracker.
 
 **Operational rituals (session start, phase done, cluster done):** [`docs/CONTRIBUTING-OPS.md`](docs/CONTRIBUTING-OPS.md). Checklists, not advice.
 
-**Decisions archive (journal):** [`docs/decisions-archive.md`](docs/decisions-archive.md). Append-only closeout summaries + rolled-off decisions. Consult for *why* a prior call was made — not at session start.
+**Decisions archive (journal):** [`docs/decisions-archive.md`](docs/decisions-archive.md). Append-only closeout summaries + rolled-off decisions. Consult for *why* a prior call was made — not at session start. It is large; read only its top section.
 
-**Archive directories are frozen.** `docs/archive/`, `docs/archive-2026-04-26/`, `docs/superpowers/plans/archive/`, and `docs/superpowers/specs/archive/` contain closed/pre-reset work. Don't follow links into them for live tasks.
+**Reverse-engineering corpus (untracked, reproducible):** [`RE/README.md`](RE/README.md). Obsidian 1.13.7 extracted to readable/indexed/partially-renamed JS, queryable via `RE/tools/q.js`. Regenerate with `RE/extract-obsidian.sh`. **Never commit the corpus** — Obsidian is `UNLICENSED` and Corbomite is GPLv3. Do not delete `RE/tools/`: it is the only reason the corpus is reproducible, and losing it is exactly how the previous corpus was lost.
 
-**Reverse-engineered Obsidian audit (canonical reference, read-only except via addenda):** [`docs/obsidian-audit/`](docs/obsidian-audit/). Pass 1 taxonomy + 15 Pass 2 domain docs + 5 Pass 3 synthesis docs. ~94k words of distilled spec. New facts discovered during implementation go in `docs/obsidian-audit/addenda/`, never as edits to the audit docs. **Check `addenda/README.md` § Corrections before implementing from a domain doc** — a 2026-06-10 verification pass confirmed the corpus is ~95% accurate but refuted specific claims (vault naming/casing, workspace window-node shape, editor timing, taxonomy's QueryController). The Pass 3 synthesis docs `FEATURE-MATRIX.md`/`GAP-ANALYSIS.md` are frozen at 2026-04-14 and badly stale on the Corbomite side — use [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md) instead.
+**New facts about Obsidian go in** [`docs/obsidian-audit/addenda/`](docs/obsidian-audit/addenda/), **never as edits to the audit docs.** Per `addenda/README.md`. Addenda are exclusively *new or corrected facts about Obsidian's behaviour* — Corbomite implementation choices go in cluster plans or `docs/cluster-retros/`.
 
-**Local KDE source (do not clone from invent.kde.org):** `~/src/kde/src/<repo>` was checked out for kate, kdevelop, kio, kconfig, kparts, kxmlgui, kwidgetsaddons, ktexteditor, krunner, baloo, okular, poppler, qtkeychain, sonnet (and more), and older cluster plans reference these by absolute local path. **⚠ Verified absent 2026-08-20** — `~/src` currently holds only `codemirror`, `OrgModeParser`, `qtbase`. Re-clone if a plan needs it; in the meantime KF6 API questions can be settled against the installed headers under `/usr/include/KF6/<Component>/` and the installed `.rc` files under `/usr/share/kxmlgui5/`.
+**Upstream asks:** [`docs/UPSTREAM-ASKS.md`](docs/UPSTREAM-ASKS.md) is the index; the sendable documents are in [`docs/handoff/`](docs/handoff/).
+
+**Archives are frozen.** `docs/archive/`, `docs/archive-2026-04-26/`, `docs/superpowers/{plans,specs}/archive/` contain closed and superseded work, including the pre-2026-10-04 `CLAUDE.md` banner. They have rotted relative links by design — **do not follow links into them for live tasks, and do not fix them.**
 
 **Do not regrow `PROJECT-STATE.md`.** Slim is non-negotiable. When a cluster or phase closes, write at most 3 sentences in PROJECT-STATE §Current focus (replacing the previous top entry) and the full closeout paragraph into `decisions-archive.md` under a new dated H2 header. The `**Previously:** …` cascade pattern is banned.
 
 **Session-start ritual (TL;DR — full version in `CONTRIBUTING-OPS.md`):**
 1. Read `docs/PROJECT-STATE.md` top-to-bottom (~30 lines).
-2. Skim `docs/punch-list.md` P0 section. Anything flagged urgent? If yes, drain those before resuming cluster work.
-3. If continuing strategic-cluster work: read the cluster plan(s) for the current focus.
+2. Skim `docs/punch-list.md`'s `Added 2026-10-04` section — that is the queue. Anything P0 there? If yes, drain those before resuming cluster work.
+3. If continuing strategic-cluster work: read the cluster plan for the current focus.
 4. Read audit-doc sections cited in the plan or punch-list item.
 5. Glance at `git log --oneline -10`.
 6. State the situation back: "Per PROJECT-STATE, current focus is X (track: punch-list/cluster), last touched Y; next step is Z. Confirm or redirect?" — wait for confirmation before working.
-
----
 
 ## Building
 

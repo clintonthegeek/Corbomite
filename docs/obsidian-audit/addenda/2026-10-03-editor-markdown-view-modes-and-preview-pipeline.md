@@ -3,7 +3,7 @@
 **Date:** 2026-10-03
 **Discovered during:** verification pass of `domains/editor-markdown.md` against the restored Obsidian 1.13.7 corpus
 **Supersedes / extends:** `domains/editor-markdown.md` §1, §2, §3, §5, §6, §7, §8, §9, §10, §12, §13. Extends `addenda/2026-10-03-editor-wrapper-commands-and-keymaps.md` (the `Editor` wrapper half) and `addenda/2026-06-10-editor-timing-and-coverage-corrections.md` §1/§3 (the `Ml` throttle).
-**Relevant cluster plans:** `superpowers/plans/2026-08-20-cluster-n-rich-clipboard.md` (checkbox round-trip, clipboard verbs), the Cluster O context-sensitive-UI plan (`markdown-viewport-menu` sections), `superpowers/plans/2026-04-03-editor-three-modes.md`, `superpowers/plans/2026-08-17-cluster-l-workspace-stabilization.md` (`leaf.state.mode` / `state.source` round-trip)
+**Relevant cluster plans:** `superpowers/plans/archive/2026-08-20-cluster-n-rich-clipboard.md` (checkbox round-trip, clipboard verbs), the Cluster O context-sensitive-UI plan (`markdown-viewport-menu` sections), `superpowers/plans/2026-04-03-editor-three-modes.md`, `superpowers/plans/2026-08-17-cluster-l-workspace-stabilization.md` (`leaf.state.mode` / `state.source` round-trip)
 
 ## Finding
 

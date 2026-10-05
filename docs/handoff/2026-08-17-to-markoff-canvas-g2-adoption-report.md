@@ -4,7 +4,7 @@
 **Date:** 2026-08-17
 **Corbomite branch:** `feature/find-replace`
 **Markoff pin:** `03f7ceb1` (was `94f661c3` at Cluster K's Phase 0 re-pin, `2026-08-15`)
-**Plan:** [`docs/superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md`](../superpowers/plans/2026-08-15-cluster-k-markoff-canvas-adoption.md) — Phase 3 (gap-fix) now done.
+**Plan:** [`docs/superpowers/plans/archive/2026-08-15-cluster-k-markoff-canvas-adoption.md`](../superpowers/plans/archive/2026-08-15-cluster-k-markoff-canvas-adoption.md) — Phase 3 (gap-fix) now done.
 
 ## TL;DR
 
