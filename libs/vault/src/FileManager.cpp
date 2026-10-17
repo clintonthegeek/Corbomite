@@ -548,6 +548,12 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
         const QStringList all = m_cache->allPaths();
         for (const QString &src : all) {
             if (src == rootOldPath) continue;
+            // Canvas Cache entries are indexed for backlinks, but their
+            // LinkCache positions are card-local (and file/background embeds
+            // have no source span). The Markdown byte-splice below must not
+            // treat those positions as offsets into the JSON document. M6.2
+            // owns the CanvasDocument load/mutate/save path.
+            if (src.endsWith(QStringLiteral(".canvas"), Qt::CaseInsensitive)) continue;
             const auto cm = m_cache->getFileCache(src);
             if (!cm.has_value()) continue;
             bool refs = false;

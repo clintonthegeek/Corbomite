@@ -277,6 +277,53 @@ private Q_SLOTS:
         QCOMPARE(outlinks.at(0).linkType, QStringLiteral("wiki"));
     }
 
+    void testCanvasLinkIndex()
+    {
+        QTemporaryDir tmp;
+        const QString vault = tmp.path() + "/vault";
+        QDir().mkpath(vault);
+
+        SQLiteIndex index;
+        QVERIFY(index.open(tmp.path() + "/test.sqlite"));
+        index.setVaultRoot(vault);
+
+        LinkResolver resolver;
+        resolver.setVaultPaths({QStringLiteral("Target.md"),
+                                QStringLiteral("TextTarget.md"),
+                                QStringLiteral("board.canvas")});
+        MetadataCache cache(resolver);
+        index.setMetadataCache(&cache);
+        QSignalSpy finished(&cache, &MetadataCache::indexFinished);
+
+        const QByteArray canvas = QByteArrayLiteral(
+            "{\"nodes\":["
+            "{\"id\":\"file\",\"type\":\"file\",\"file\":\"Target.md\",\"subpath\":\"#Heading\"},"
+            "{\"id\":\"text\",\"type\":\"text\",\"text\":\"See [[TextTarget]]\"},"
+            "{\"id\":\"group\",\"type\":\"group\",\"background\":\"assets/bg.png\"}]} ");
+        const auto file = writeNote(vault, "board.canvas", canvas);
+        seed(cache, resolver, "board.canvas", file.bytes, file.mtimeMs, &finished);
+
+        const auto outlinks = index.outlinksFor(QStringLiteral("board.canvas"));
+        QCOMPARE(outlinks.size(), 3);
+        bool foundFile = false;
+        bool foundText = false;
+        bool foundBackground = false;
+        for (const LinkInfo &link : outlinks) {
+            if (link.targetPath == QLatin1String("Target.md")
+                && link.subpath == QLatin1String("#Heading")
+                && link.linkType == QLatin1String("embed")) foundFile = true;
+            if (link.targetPath == QLatin1String("TextTarget.md")
+                && link.linkType == QLatin1String("wiki")) foundText = true;
+            if (link.targetPath == QLatin1String("assets/bg.png")
+                && link.linkType == QLatin1String("embed")) foundBackground = true;
+        }
+        QVERIFY(foundFile);
+        QVERIFY(foundText);
+        QVERIFY(foundBackground);
+        QCOMPARE(index.backlinksFor(QStringLiteral("Target.md")).size(), 1);
+        QVERIFY(index.orphanLinks().contains(QStringLiteral("assets/bg.png")));
+    }
+
     // Regression: SQLiteIndex was inserting cache.links and cache.embeds
     // but not cache.frontmatterLinks — so a note declaring `related:
     // "[[Foo]]"` in YAML would have its frontmatter wikilink invisible to

@@ -586,16 +586,29 @@ the model. Reminder: `qRegisterMetaType<Graffodil::IGraphNode*>` in tests.
 Obsidian's mechanism (audit §7): a `linkUpdaters["canvas"]` contract on the
 metadata cache — canvas supplies reference iteration + rewrite; the cache
 supplies rename events. Corbomite equivalent: teach the indexing pipeline
-that `.canvas` is a link-bearing file type. **Run the M6 Explore prompt
-(below) before starting M6.1 — the exact seams are pipeline-specific.**
+that `.canvas` is a link-bearing file type. **M6 Explore completed 2026-10-09**:
+`MainWindow::onVaultOpened` enumerates Markdown and canvas paths into
+`MetadataCache::rebuildVault`; vault create/modify/rename signals use the same
+cache path; `MetadataParser::parse` now dispatches canvas JSON; and
+`SQLiteIndex::onMetadataCacheChanged` writes its links into the existing index.
+The parser's Markdown gate was the missing link: before this change, initial
+scan and mutation handlers admitted only `.md`. `FileManager::renameFile` also
+selects sources by cached link targets, but its Markdown-position rewrite is
+not safe for JSON and remains M6.2's dedicated `CanvasDocument` mutation.
 
-- [ ] **M6.1 Index canvas references** — for each `.canvas` file, extract:
+- [x] **M6.1 Index canvas references** — landed 2026-10-09. MetadataParser extracts
+      file-node paths and subpaths plus group-background paths as embeds, and
+      reuses its Markdown parser for text-card links/embeds. MainWindow includes
+      canvases in initial metadata rebuilds and updates the cache on vault
+      create/modify/rename events. `tst_sqliteindex::testCanvasLinkIndex` pins
+      file-card, text-card, group-background, backlink and unresolved-link rows.
+      Acceptance: for each `.canvas` file, extract:
       file-node `file` paths (+`subpath`), group `background` paths, and
       `[[wikilinks]]`/`[](…)` inside text-node `text` (reuse the markdown
       link extraction the metadata parser already runs on note bodies).
       Feed them into `SQLiteIndex` as outgoing links from the canvas file →
       backlinks ("linked from My Canvas"), outgoing-links, and
-      unresolved-links all light up. Test: `tst_canvas_link_index` (new):
+      unresolved-links all light up. Test: `tst_sqliteindex::testCanvasLinkIndex`:
       canvas fixture with one file node + one wikilink in a text card →
       both appear as links from the canvas.
 - [ ] **M6.2 Rename rewrite** — when `FileManager` rewrites links on a vault

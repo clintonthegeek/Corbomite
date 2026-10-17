@@ -2541,10 +2541,13 @@ void MainWindow::onVaultOpened(const QString &path)
 
     {
         QStringList notePaths;
-        const auto files = m_vaultObj->getMarkdownFiles();
+        const auto files = m_vaultObj->getFiles();
         notePaths.reserve(files.size());
         for (auto *tf : files) {
-            if (tf) notePaths.append(tf->path);
+            if (tf && (tf->extension == QLatin1String("md")
+                       || tf->extension == QLatin1String("canvas"))) {
+                notePaths.append(tf->path);
+            }
         }
         m_metadataCache->rebuildVault(path, notePaths);
     }
@@ -2571,7 +2574,8 @@ void MainWindow::onVaultOpened(const QString &path)
         // Task 0.3 P1 — keep LinkResolver fresh; feed all file types so
         // attachment embeds (e.g. ![[image.png]]) resolve without a reopen.
         if (m_linkResolver) m_linkResolver->addVaultPath(tf->path);
-        if (tf->extension != QLatin1String("md")) return;
+        if (tf->extension != QLatin1String("md")
+            && tf->extension != QLatin1String("canvas")) return;
         if (!m_metadataCache) return;
         const QByteArray bytes = m_vaultObj->read(tf);
         const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;
@@ -2588,7 +2592,8 @@ void MainWindow::onVaultOpened(const QString &path)
                 }
             }
         }
-        if (m_metadataCache && tf->extension == QLatin1String("md")) {
+        if (m_metadataCache && (tf->extension == QLatin1String("md")
+                                || tf->extension == QLatin1String("canvas"))) {
             const QByteArray bytes = m_vaultObj->read(tf);
             const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;
             m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);
@@ -2612,7 +2617,8 @@ void MainWindow::onVaultOpened(const QString &path)
         }
         if (!m_metadataCache) return;
         m_metadataCache->onFileDeleted(oldPath);
-        if (!tf || tf->extension != QLatin1String("md")) return;
+        if (!tf || (tf->extension != QLatin1String("md")
+                    && tf->extension != QLatin1String("canvas"))) return;
         const QByteArray bytes = m_vaultObj->read(tf);
         const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;
         m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);

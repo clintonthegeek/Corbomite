@@ -34,6 +34,7 @@
 #include <QCryptographicHash>
 #include <QHash>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QList>
@@ -293,6 +294,51 @@ ParsedNote MetadataParser::parse(const QByteArray &content,
     const QByteArray hashBytes =
         QCryptographicHash::hash(content, QCryptographicHash::Sha256);
     const QString hashHex = QString::fromLatin1(hashBytes.toHex());
+
+    // Canvas documents participate in the same link index as Markdown notes.
+    // Obsidian models file cards and group backgrounds as embeds; links inside
+    // text cards use the ordinary Markdown link grammar.
+    if (path.endsWith(QStringLiteral(".canvas"), Qt::CaseInsensitive)) {
+        CachedMetadata cache;
+        const QJsonDocument document = QJsonDocument::fromJson(content);
+        if (!document.isObject())
+            return ParsedNote{hashHex, std::move(cache)};
+
+        auto appendEmbed = [&](const QString &target, const QString &subpath) {
+            if (target.isEmpty()) return;
+            LinkCache link;
+            link.link = target + subpath;
+            link.original = target + subpath;
+            if (!cache.embeds) cache.embeds = QVector<LinkCache>{};
+            cache.embeds->append(std::move(link));
+        };
+
+        const QJsonArray nodes = document.object().value(QStringLiteral("nodes")).toArray();
+        for (const QJsonValue &value : nodes) {
+            if (!value.isObject()) continue;
+            const QJsonObject node = value.toObject();
+            const QString type = node.value(QStringLiteral("type")).toString();
+            if (type == QLatin1String("file")) {
+                appendEmbed(node.value(QStringLiteral("file")).toString(),
+                            node.value(QStringLiteral("subpath")).toString());
+            } else if (type == QLatin1String("group")) {
+                appendEmbed(node.value(QStringLiteral("background")).toString(), {});
+            } else if (type == QLatin1String("text")) {
+                const ParsedNote textNote = parse(
+                    node.value(QStringLiteral("text")).toString().toUtf8(),
+                    path + QStringLiteral(".md"), resolver);
+                if (textNote.cache.links) {
+                    if (!cache.links) cache.links = QVector<LinkCache>{};
+                    *cache.links += *textNote.cache.links;
+                }
+                if (textNote.cache.embeds) {
+                    if (!cache.embeds) cache.embeds = QVector<LinkCache>{};
+                    *cache.embeds += *textNote.cache.embeds;
+                }
+            }
+        }
+        return ParsedNote{hashHex, std::move(cache)};
+    }
 
     CachedMetadata cache;
 
