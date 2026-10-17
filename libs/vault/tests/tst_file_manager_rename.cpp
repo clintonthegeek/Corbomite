@@ -8,6 +8,7 @@
 #include <QHash>
 
 #include <memory>
+#include <optional>
 
 #include "corbomite/vault/FileManager.h"
 #include "corbomite/vault/Vault.h"
@@ -30,9 +31,30 @@ private slots:
     void renameMixedFormsInSameBody();
     void renameLeavesUnrelatedLinksAlone();
     void emitsProgressInAscendingSourceOrder();
+    void renameRoutesNonMarkdownThroughLinkRewriter();
 };
 
 namespace {
+
+// Stub LinkRewriter: records the sources it is handed and echoes the mapper
+// result, so the test proves the vault-side seam without depending on
+// libs/canvas.
+class StubRewriter : public Corbomite::LinkRewriter
+{
+public:
+    QString extension() const override { return QStringLiteral("canvas"); }
+    std::optional<QByteArray> rewrite(const QString &path, const QByteArray &,
+                                      const TargetMapper &mapTarget) override
+    {
+        calls.append(path);
+        const std::optional<QString> mapped = mapTarget(QStringLiteral("Foo.md"));
+        if (!mapped.has_value()) return std::nullopt;
+        return QByteArray("rewritten:") + mapped->toUtf8();
+    }
+
+    QStringList calls;
+};
+
 void writeFile(const QString &p, const QByteArray &b)
 {
     QFile f(p);
@@ -308,6 +330,35 @@ void TestFileManagerRename::emitsProgressInAscendingSourceOrder()
     for (const QString &rel : rewritten) {
         QCOMPARE(readFileAll(h.dir.path() + "/" + rel), QByteArray("[[Bar]]"));
     }
+}
+
+// M6.2 seam: a source whose extension has a registered LinkRewriter is
+// handed to that rewriter instead of the Markdown byte-splice, and the
+// bytes it returns are written through the vault. The canvas rewriter
+// itself is tested in libs/canvas.
+void TestFileManagerRename::renameRoutesNonMarkdownThroughLinkRewriter()
+{
+    RenameHarness h;
+    primeHarness(h, {
+        {QStringLiteral("Foo.md"), "Foo body"},
+        {QStringLiteral("board.canvas"),
+         QByteArrayLiteral(
+             R"({"nodes":[{"id":"n1","type":"file","file":"Foo.md",)"
+             R"("x":0,"y":0,"width":250,"height":60}],"edges":[]})")},
+    });
+
+    StubRewriter stub;
+    h.fm->registerLinkRewriter(&stub);
+
+    auto *foo = h.vault.getFileByPath(QStringLiteral("Foo.md"));
+    QVERIFY(foo);
+    QVERIFY(h.fm->renameFile(foo, QStringLiteral("Bar.md")));
+
+    // The canvas was detected via its indexed embed and routed to the stub,
+    // which saw the mapper resolve Foo.md -> Bar.md.
+    QCOMPARE(stub.calls, QStringList{QStringLiteral("board.canvas")});
+    QCOMPARE(readFileAll(h.dir.path() + "/board.canvas"),
+             QByteArray("rewritten:Bar.md"));
 }
 
 QTEST_MAIN(TestFileManagerRename)

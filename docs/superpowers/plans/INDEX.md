@@ -2,7 +2,7 @@
 
 Table of contents. [`../../PROJECT-STATE.md`](../../PROJECT-STATE.md) is the status page. When this file disagrees with it, PROJECT-STATE wins.
 
-**Last updated:** 2026-10-17. Punch-list §Next closed; the current action is trajectory step 3, Cluster M6.2 (rename rewriting), then M6.3. [`2026-10-17-markoff-vnext-finish.md`](2026-10-17-markoff-vnext-finish.md) is the record of landed Markoff work. Do not re-execute its "Already done" section. Do not dispatch [`2026-06-10-road-to-dogfood.md`](2026-06-10-road-to-dogfood.md); its Phases 2–6 were already stale on 2026-10-01.
+**Last updated:** 2026-10-17. Punch-list §Next closed; Cluster M6.2 (canvas rename rewriting) landed. The current action is trajectory step 3, Cluster M6.3 (missing-file placeholder). [`2026-10-17-markoff-vnext-finish.md`](2026-10-17-markoff-vnext-finish.md) is the record of landed Markoff work. Do not re-execute its "Already done" section. Do not dispatch [`2026-06-10-road-to-dogfood.md`](2026-06-10-road-to-dogfood.md); its Phases 2–6 were already stale on 2026-10-01.
 
 The long status essays, the last-updated cascade, and the closed-cluster writeups are frozen at [`../../archive/2026-10-17/cluster-index-before-slim.md`](../../archive/2026-10-17/cluster-index-before-slim.md). Do not execute that file.
 

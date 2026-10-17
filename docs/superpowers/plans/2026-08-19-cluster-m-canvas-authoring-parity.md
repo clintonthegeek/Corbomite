@@ -611,16 +611,23 @@ not safe for JSON and remains M6.2's dedicated `CanvasDocument` mutation.
       unresolved-links all light up. Test: `tst_sqliteindex::testCanvasLinkIndex`:
       canvas fixture with one file node + one wikilink in a text card →
       both appear as links from the canvas.
-- [ ] **M6.2 Rename rewrite** — when `FileManager` rewrites links on a vault
-      rename, include canvases: update `file`/`background` fields (exact
-      path match, and prefix match for folder renames), `subpath` heading/
-      block renames if the existing rewrite handles them for notes, and
-      wikilinks inside text-node `text`. Writes go through `CanvasDocument`
-      load→mutate→save (NOT regex over raw JSON — preserves unknown fields
-      and field order). If the canvas is open, the document instance must be
-      the one mutated (single-writer; grep how open notes handle external
-      rename reconciliation). Test: rename a note referenced by a fixture
-      canvas → canvas file updated, unknown fields intact.
+- [x] **M6.2 Rename rewrite** — landed 2026-10-17. `FileManager` gained a
+      per-extension `LinkRewriter` registry (the vault half of Obsidian's
+      `linkUpdaters[ext]`; interface in `corbomite/core/LinkRewriter.h`).
+      `Canvas::CanvasLinkRewriter` (`libs/canvas`) rewrites, through
+      `CanvasDocument` load→mutate→serialize so unknown fields and key order
+      survive: file-node `file`, group `background`, and wikilink/markdown
+      links in text-node `text`. `subpath` is left untouched, mirroring the
+      note path (which does not rename heading/block subpaths either).
+      `CanvasFileView` registers its live document in
+      `Canvas::CanvasDocumentRegistry` keyed on the vault-relative path, so an
+      open canvas is mutated in place rather than clobbered (single writer;
+      the open view persists it on save); closed canvases are written
+      immediately. `MainWindow` registers the rewriter on open.
+      Tests: `tst_file_manager_rename::renameRoutesNonMarkdownThroughLinkRewriter`
+      (seam), `tst_canvas_link_rewriter` (rewriter + open-doc mutation),
+      `tst_canvas_rename_rewrite` (end-to-end through FileManager, unknown
+      fields intact).
 - [ ] **M6.3 Missing-file placeholder** — `FileCardItem` whose `file`
       doesn't resolve renders the existing empty state plus an i18n'd
       "File not found: <path>" + buttons Create / Locate… / Remove;

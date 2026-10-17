@@ -83,6 +83,12 @@ public:
     /// absolute file path. This is the canvas identity passed to Markoff.
     QString canvasRelativePath() const;
 
+    /// The document this tab owns. The host registers it with
+    /// `Canvas::CanvasDocumentRegistry` (keyed on `canvasRelativePath()`) so
+    /// the rename rewriter mutates the open instance instead of a second
+    /// copy on disk. Never null once the tab is constructed.
+    Canvas::CanvasDocument *canvasDocument() const;
+
     /// Cluster M M5.5 — the two commands, called by CanvasViewActions'
     /// KAction layer. Both are no-ops without a canvas loaded.
     ///

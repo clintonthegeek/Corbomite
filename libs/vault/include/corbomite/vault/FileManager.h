@@ -3,11 +3,14 @@
 
 #include <functional>
 
+#include <QHash>
 #include <QList>
 #include <QObject>
 #include <QString>
 #include <QVariant>
 #include <QVariantMap>
+
+#include "corbomite/core/LinkRewriter.h"
 
 class QWidget;
 
@@ -33,6 +36,14 @@ public:
 
     // ---- Rename with link rewrite ----
     bool renameFile(TAbstractFile *f, const QString &newPath);
+
+    /// Register a per-extension link rewriter (Obsidian's
+    /// `linkUpdaters[ext]`; see `corbomite/core/LinkRewriter.h`). During
+    /// `renameFile`, a source whose extension matches is handed to the
+    /// rewriter instead of the Markdown byte-splice path. Non-owning: the
+    /// rewriter must outlive this FileManager. Replaces any existing
+    /// rewriter for the same extension.
+    void registerLinkRewriter(Corbomite::LinkRewriter *rewriter);
 
     // ---- Atomic frontmatter mutation ----
     using FrontMatterMutator = std::function<void(QVariantMap &)>;
@@ -132,6 +143,9 @@ Q_SIGNALS:
 private:
     Vault         *m_vault;
     MetadataCache *m_cache;
+    // Lowercase extension (no dot) -> non-owning rewriter. See
+    // registerLinkRewriter.
+    QHash<QString, Corbomite::LinkRewriter *> m_linkRewriters;
 };
 
 } // namespace Corbomite

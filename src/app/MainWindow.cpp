@@ -56,6 +56,7 @@
 #include "editor/MarkdownView.h"
 #include "editor/MarkdownViewActions.h"
 #include "canvas/CanvasFileView.h"
+#include "canvas/CanvasLinkRewriter.h"
 #include "bases/BasesViewActions.h"
 #include "canvas/CanvasViewActions.h"
 #include "canvas/CanvasViewTab.h"
@@ -2454,6 +2455,13 @@ void MainWindow::onVaultOpened(const QString &path)
     // FileManager depends on MetadataCache (constructed just above).
     delete m_fileManager;
     m_fileManager = new FileManager(m_vaultObj, m_metadataCache, this);
+
+    // M6.2 — teach FileManager to rewrite `.canvas` link references on rename
+    // (Obsidian's `linkUpdaters["canvas"]`). The rewriter outlives the
+    // FileManager for the vault session; CanvasFileView registers open
+    // documents so renames mutate the live instance.
+    m_canvasLinkRewriter = std::make_unique<Canvas::CanvasLinkRewriter>();
+    m_fileManager->registerLinkRewriter(m_canvasLinkRewriter.get());
 
     m_popoverResources = std::make_unique<VaultScopedResources>(m_vaultObj);
     // 2026-10-01: the MarkoffAdapters (LinkResolverAdapter, MetadataCacheAdapter,

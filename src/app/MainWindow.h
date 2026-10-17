@@ -37,6 +37,10 @@ namespace Markoff::Reading {
 class EmbedRenderer;
 }
 
+namespace Canvas {
+class CanvasLinkRewriter;
+}
+
 namespace Corbomite {
 
 class StatusBarRegistry;
@@ -321,6 +325,9 @@ private:
     std::unique_ptr<Corbomite::CanvasMermaidAdapter> m_canvasMermaidAdapter;
     // Headless styled renderer handed to every CanvasFileView for card content.
     std::unique_ptr<Corbomite::StyledRenderEngine> m_cardRenderEngine;
+    // M6.2 — canvas link rewriter registered with FileManager so a vault
+    // rename updates `.canvas` structural references (linkUpdaters seam).
+    std::unique_ptr<Canvas::CanvasLinkRewriter> m_canvasLinkRewriter;
     EditorSuggestManager *m_suggestManager = nullptr;
     WikiLinkSuggest *m_wikiSuggest = nullptr;
     TagSuggest *m_tagSuggest = nullptr;

@@ -7,6 +7,8 @@
 
 #include "SessionManager.h"
 
+#include <canvas/CanvasDocument.h>
+#include <canvas/CanvasDocumentRegistry.h>
 #include <canvas/CanvasScene.h>
 #include <corbomite/core/ThemeService.h>
 #include <canvas/CanvasView.h>
@@ -77,6 +79,11 @@ CanvasFileView::~CanvasFileView()
     // resolves to Corbomite::View at that point). Disconnecting here,
     // before any base-class destructor has run and while `this` is still
     // fully valid, severs the connection early enough to avoid it.
+    if (m_canvasWidget && !m_registeredCanvasPath.isEmpty()) {
+        Canvas::CanvasDocumentRegistry::instance().detach(
+            m_registeredCanvasPath, m_canvasWidget->canvasDocument());
+        m_registeredCanvasPath.clear();
+    }
     if (m_canvasWidget) {
         if (auto *scene = m_canvasWidget->canvasScene()) {
             disconnect(scene, nullptr, this, nullptr);
@@ -244,6 +251,15 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
             }
         }
     }
+
+    // M6.2 — publish the live document so a vault rename mutates it instead
+    // of writing a second copy to disk (single writer). Keyed on the
+    // vault-relative canvas path, the same key FileManager uses.
+    if (m_canvasWidget && file) {
+        m_registeredCanvasPath = m_canvasWidget->canvasRelativePath();
+        Canvas::CanvasDocumentRegistry::instance().attach(
+            m_registeredCanvasPath, m_canvasWidget->canvasDocument());
+    }
 }
 
 bool CanvasFileView::canEdit() const { return !isReadOnly(); }
@@ -271,6 +287,11 @@ void CanvasFileView::onUnloadFile(NoteDocument *file)
 {
     if (m_canvasWidget && m_canvasWidget->isModified())
         m_canvasWidget->save();
+    if (m_canvasWidget && !m_registeredCanvasPath.isEmpty()) {
+        Canvas::CanvasDocumentRegistry::instance().detach(
+            m_registeredCanvasPath, m_canvasWidget->canvasDocument());
+        m_registeredCanvasPath.clear();
+    }
     FileView::onUnloadFile(file);
 }
 

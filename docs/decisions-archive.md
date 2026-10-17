@@ -10,6 +10,25 @@ Conventions:
 
 ---
 
+## 2026-10-17 — Cluster M6.2: canvas link rewrite on rename
+
+A vault rename now rewrites `.canvas` link references. Obsidian does this with
+`metadataCache.linkUpdaters["canvas"]`; `FileManager` (libs/vault) cannot depend on
+`libs/canvas`, so the seam is a per-extension `Corbomite::LinkRewriter` interface declared in
+`libs/core`, registered on `FileManager`, and implemented by
+`Canvas::CanvasLinkRewriter`. The rewriter loads the file through `CanvasDocument`, updates
+file-node `file`, group `background`, and wikilink/markdown targets in text-node `text`, then
+serializes — so unknown fields and key order survive (not a regex over raw JSON). `subpath`
+is left alone, matching the note path, which does not rename heading/block subpaths.
+
+The open-canvas single-writer rule is met with `Canvas::CanvasDocumentRegistry`: the live
+document is registered keyed on the vault-relative path, so a rename mutates the open
+instance and returns no bytes (the view persists on save) rather than writing a second copy
+to disk behind it; a closed canvas is written immediately. `MainWindow` registers the
+rewriter when the vault opens. Tests: `tst_file_manager_rename` (seam with a stub),
+`tst_canvas_link_rewriter` (rewriter + open-doc mutation), and `tst_canvas_rename_rewrite`
+(end-to-end through `FileManager`, unknown fields intact). Suite 269/269. Next: M6.3.
+
 ## 2026-10-17 — Punch-list §Next closed
 
 Four P0s landed. The metadata-cache `indexFinished` fix waits for worker parses

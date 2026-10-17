@@ -484,6 +484,12 @@ bool FileManager::setFrontMatter(TFile *f, const QList<FrontMatterEntry> &ordere
     return unparseable ? false : wrote;
 }
 
+void FileManager::registerLinkRewriter(Corbomite::LinkRewriter *rewriter)
+{
+    if (!rewriter) return;
+    m_linkRewriters.insert(rewriter->extension().toLower(), rewriter);
+}
+
 bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
 {
     if (!f || !m_vault) return false;
@@ -548,12 +554,11 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
         const QStringList all = m_cache->allPaths();
         for (const QString &src : all) {
             if (src == rootOldPath) continue;
-            // Canvas Cache entries are indexed for backlinks, but their
-            // LinkCache positions are card-local (and file/background embeds
-            // have no source span). The Markdown byte-splice below must not
-            // treat those positions as offsets into the JSON document. M6.2
-            // owns the CanvasDocument load/mutate/save path.
-            if (src.endsWith(QStringLiteral(".canvas"), Qt::CaseInsensitive)) continue;
+            // Non-Markdown link-bearing sources (`.canvas`) are handled by
+            // their registered LinkRewriter, not the byte-splice below, but
+            // they still need to be *detected* here via the cache so the
+            // rewriter is invoked. Their LinkCache positions are card-local
+            // and must never reach the Markdown splice.
             const auto cm = m_cache->getFileCache(src);
             if (!cm.has_value()) continue;
             bool refs = false;
@@ -599,12 +604,39 @@ bool FileManager::renameFile(TAbstractFile *f, const QString &newPath)
         }
     }
 
+    // Bare-path mapper shared by the LinkRewriter path: given a link target
+    // with no subpath/alias, return its post-rename path. `matchMove`
+    // understands both the full vault path and the bare basename form.
+    auto mapTarget = [&](const QString &target) -> std::optional<QString> {
+        const Move *mv = matchMove(target);
+        if (!mv) return std::nullopt;
+        const QString translated = translateTarget(target, mv->oldP, mv->newP);
+        if (translated.isEmpty()) return std::nullopt;
+        return translated;
+    };
+
     int done = 0;
     const int total = sources.size();
     for (const QString &src : sources) {
         auto *sf = m_vault->getFileByPath(src);
         ++done;
         if (!sf) { Q_EMIT linkUpdateProgress(done, total); continue; }
+
+        // Non-Markdown sources go through their registered rewriter, which
+        // loads the format's own document, mutates the structural link
+        // fields, and returns the new bytes (or nullopt when it already
+        // applied the change to a live document).
+        if (Corbomite::LinkRewriter *rw =
+                m_linkRewriters.value(sf->extension.toLower())) {
+            const QByteArray bytes = m_vault->read(sf);
+            const std::optional<QByteArray> rewritten =
+                rw->rewrite(src, bytes, mapTarget);
+            if (rewritten.has_value()) {
+                m_vault->process(sf, [&](const QByteArray &) { return *rewritten; });
+            }
+            Q_EMIT linkUpdateProgress(done, total);
+            continue;
+        }
 
         // Snapshot the cache once per source — drainOnePath has already run
         // by the time we got here (renameFile is invoked synchronously from

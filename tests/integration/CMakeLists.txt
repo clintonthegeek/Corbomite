@@ -50,6 +50,16 @@ set_tests_properties(tst_plugin_type_identity PROPERTIES
 # The plugin .so must exist on disk before this test can find it.
 add_dependencies(tst_plugin_type_identity corbomite-file-explorer)
 
+# Cluster M M6.2 — vault rename through FileManager with the real
+# CanvasLinkRewriter (vault seam + canvas rewriter composed).
+add_executable(tst_canvas_rename_rewrite tst_canvas_rename_rewrite.cpp)
+add_test(NAME tst_canvas_rename_rewrite COMMAND tst_canvas_rename_rewrite)
+target_link_libraries(tst_canvas_rename_rewrite PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Storage Corbomite::Core Corbomite::Vault canvas)
+set_tests_properties(tst_canvas_rename_rewrite PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_obsidian_command_ids tst_obsidian_command_ids.cpp)
 add_test(NAME tst_obsidian_command_ids COMMAND tst_obsidian_command_ids)
 target_link_libraries(tst_obsidian_command_ids PRIVATE

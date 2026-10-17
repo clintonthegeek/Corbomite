@@ -12,6 +12,12 @@ add_test(NAME tst_canvasdocument COMMAND tst_canvasdocument)
 target_link_libraries(tst_canvasdocument PRIVATE Qt6::Test canvas)
 set_tests_properties(tst_canvasdocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster M Phase M6.2 — canvas link rewrite on vault rename.
+add_executable(tst_canvas_link_rewriter tst_canvas_link_rewriter.cpp)
+add_test(NAME tst_canvas_link_rewriter COMMAND tst_canvas_link_rewriter)
+target_link_libraries(tst_canvas_link_rewriter PRIVATE Qt6::Test canvas Corbomite::Core)
+set_tests_properties(tst_canvas_link_rewriter PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_canvasscene tst_canvasscene.cpp)
 add_test(NAME tst_canvasscene COMMAND tst_canvasscene)
 target_link_libraries(tst_canvasscene PRIVATE Qt6::Test Qt6::Widgets canvas Corbomite::Core)

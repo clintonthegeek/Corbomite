@@ -222,6 +222,11 @@ QString CanvasViewTab::localDataKey() const
     return QStringLiteral("canvas-") + canvasRelativePath();
 }
 
+Canvas::CanvasDocument *CanvasViewTab::canvasDocument() const
+{
+    return m_document;
+}
+
 void CanvasViewTab::setLocalDataStore(LocalDataReader reader, LocalDataWriter writer)
 {
     m_localDataReader = std::move(reader);

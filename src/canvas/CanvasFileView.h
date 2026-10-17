@@ -116,6 +116,9 @@ private Q_SLOTS:
 
 private:
     CanvasViewTab *m_canvasWidget = nullptr;
+    /// Vault-relative path the live document is registered under in
+    /// Canvas::CanvasDocumentRegistry (M6.2). Empty when not attached.
+    QString m_registeredCanvasPath;
     /// Raw pointer + explicit disconnect, matching
     /// NoteEditorWidget::setThemeService — the ThemeService outlives every
     /// view (it is owned by MainWindow), and QPointer would force a
