@@ -120,11 +120,13 @@ void MetadataCache::onFileChanged(const QString &path,
         // short-circuit comparisons for any interleaving `onFileChanged`
         // with the old content still work.
         m_worker->enqueueParse(path, content, mtimeMs, newSize);
+        ++m_outstandingParses;
         return;
     }
 
     // New path. Compute hash and enqueue parse.
     m_worker->enqueueParse(path, content, mtimeMs, newSize);
+    ++m_outstandingParses;
 }
 
 // Obsidian spec §3: Vault.read strips a leading UTF-8 BOM (U+FEFF,
@@ -306,6 +308,10 @@ void MetadataCache::onWorkerParsed(const QString &path,
                                    const CachedMetadata &cache,
                                    const QString &hash)
 {
+    // One delivery per enqueueParse. The drain counter stays above zero
+    // until this result is resolved, so indexFinished cannot arm in between.
+    --m_outstandingParses;
+
     // Stat/hash may have moved since enqueue -- if the path currently holds
     // the same hash we just computed, the parse result was for already-known
     // content; still refresh stat and emit cacheChanged so consumers see the
@@ -446,7 +452,11 @@ void MetadataCache::drainOnePath()
     // vault", and indexFinished also triggers persistNow().
     if (--m_pendingWork <= 0) {
         m_pendingWork = 0;
-        m_indexFinishedTimer->start();
+        // Parses still queued in the worker are not on the drain queue.
+        // Arming here would publish a partial index and then fire again
+        // when the rest arrive.
+        if (m_outstandingParses == 0)
+            m_indexFinishedTimer->start();
     }
 }
 

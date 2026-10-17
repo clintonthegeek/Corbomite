@@ -200,10 +200,14 @@ private:
     /// rebuild reported `indexFinished` at 19 files, and the signal also
     /// triggers `persistNow()`, so it was persisting a partial index.
     ///
-    /// This counter is incremented once per ENQUEUED path and decremented once
-    /// per DEQUEUED path, so it measures work actually outstanding and
-    /// `indexFinished` can only fire when there is none left.
+    /// This counter is incremented once per path queued for link resolution
+    /// and decremented once per dequeued path. It does not include parses
+    /// still inside MetadataWorker. Those are `m_outstandingParses`.
+    /// `indexFinished` arms only when both are zero. Observed under parallel
+    /// load on 2026-10-17: the drain counter hit zero after 30 of 50 files,
+    /// the 10ms timer fired, and a later delivery fired the signal again.
     int m_pendingWork = 0;
+    int m_outstandingParses = 0;
     MetadataWorker *m_worker;  // owned via parent (this)
 
     std::unique_ptr<CachedMetadataStore> m_store;

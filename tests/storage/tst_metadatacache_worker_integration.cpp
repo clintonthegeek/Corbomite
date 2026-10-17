@@ -84,11 +84,18 @@ private Q_SLOTS:
 
         MetadataCache cache(resolver);
         QSignalSpy finishedSpy(&cache, &MetadataCache::indexFinished);
+        int filesAtFinish = -1;
+        QObject::connect(&cache, &MetadataCache::indexFinished, &cache, [&]() {
+            filesAtFinish = cache.fileCount();
+        });
 
         cache.rebuildVault(dir.path(), rel);
 
         QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 10000);
 
+        // The signal used to fire while the worker still held parses
+        // (fileCount 30 of 50 under parallel load), then fire again.
+        QCOMPARE(filesAtFinish, 50);
         QCOMPARE(cache.fileCount(), 50);
 
         // Spot-check one entry's metadata.
