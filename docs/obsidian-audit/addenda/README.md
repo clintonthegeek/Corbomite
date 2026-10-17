@@ -32,6 +32,13 @@ findings most likely to change code you are about to write:
 | **Hotkeys** | `hotkeys.json` is override-only: `"cmd": []` **unbinds** (now implemented + dispatched). There are **232** core command ids, not the 115 first reported | `2026-10-04-hotkeys-json-dispatcher.md` |
 | **Workspaces** | There is **no `workspaces.json`** — named workspaces are the plugin's `data.json` | `2026-10-03-workspace-named-workspaces-data-json.md` |
 
+**The frontmatter row is a decision, not an instruction.** The 2026-10-03 frontmatter
+addendum's "implement two scanners" build requirement is **rejected**: Corbomite keeps a
+single permissive reader and splices only the YAML payload, because reproducing the
+indexer's CRLF rejection would make its own properties panel diverge *more* from
+Obsidian, and reproducing the writer's trailing-fence rejection prepends a second block.
+See `2026-10-17-frontmatter-single-scanner-deliberate-divergence.md`.
+
 **One of our own addenda was wrong.** `2026-10-01-workspace-split-direction-correction.md`
 says it "REFUTES" `workspace.md:79`, then its own replacement table restates line 79
 verbatim. Six independent source paths confirm **the doc was right**; the inversion was

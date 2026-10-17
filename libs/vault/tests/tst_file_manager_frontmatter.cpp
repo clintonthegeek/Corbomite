@@ -21,6 +21,9 @@ private slots:
     void emptiedFrontmatterStripsBlockEntirely();
     void preservesUnparseableFrontmatterAndReportsFailure();
     void setFrontMatterPreservesUnparseableFrontmatter();
+    void preservesCrlfDelimitersAndBody();
+    void stripsCrlfBlockLeavingBodyByteIdentical();
+    void splicesTrailingSpaceFenceInsteadOfPrepending();
 };
 
 namespace {
@@ -244,6 +247,82 @@ void TestFileManagerFrontmatter::setFrontMatterPreservesUnparseableFrontmatter()
                             QVariant(QStringLiteral("x")), false}});
 
     QCOMPARE(readFileAll(dir.path() + "/a.md"), orig);
+}
+
+// Regression: Obsidian's processFrontMatter splices only the YAML payload,
+// so a CRLF note keeps its CRLF delimiter lines and body verbatim while the
+// re-emitted YAML is LF. Markoff::Document::withFrontmatter() instead rebuilt
+// the whole block as `---\n…\n---\n`, which rewrote the delimiters to LF and
+// injected a blank line — silent diff churn on every CRLF note. See
+// 2026-10-03-parsing-frontmatter-info-offsets-and-parser-divergence.md
+// Correction 2.
+void TestFileManagerFrontmatter::preservesCrlfDelimitersAndBody()
+{
+    QTemporaryDir dir;
+    const QByteArray orig("---\r\ntitle: old\r\n---\r\nbody\r\n");
+    writeFile(dir.path() + "/a.md", orig);
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    Corbomite::FileManager fm(&vault, nullptr);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    QVERIFY(fm.processFrontMatter(tf, [](QVariantMap &m) {
+        m.insert(QStringLiteral("title"), QStringLiteral("new"));
+    }));
+
+    // Both fences stay CRLF; only the payload line flips to LF; no extra blank
+    // line; body untouched.
+    QCOMPARE(readFileAll(dir.path() + "/a.md"),
+             QByteArray("---\r\ntitle: new\n---\r\nbody\r\n"));
+}
+
+void TestFileManagerFrontmatter::stripsCrlfBlockLeavingBodyByteIdentical()
+{
+    QTemporaryDir dir;
+    writeFile(dir.path() + "/a.md", "---\r\nonly: key\r\n---\r\nbody\r\n");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    Corbomite::FileManager fm(&vault, nullptr);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    QVERIFY(fm.processFrontMatter(tf, [](QVariantMap &m) {
+        m.remove(QStringLiteral("only"));
+    }));
+
+    QCOMPARE(readFileAll(dir.path() + "/a.md"), QByteArray("body\r\n"));
+}
+
+// Mirror case: Obsidian's *indexer* accepts a closing fence with trailing
+// text/space, but its *writer* does not, so a property edit there prepends a
+// second block. Corbomite deliberately diverges (single permissive reader):
+// it splices the existing block instead of creating a duplicate. Pinned so a
+// future "match Obsidian exactly" change cannot reintroduce the corruption
+// silently.
+void TestFileManagerFrontmatter::splicesTrailingSpaceFenceInsteadOfPrepending()
+{
+    QTemporaryDir dir;
+    writeFile(dir.path() + "/a.md", "---\ntitle: old\n--- \nbody\n");
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    Corbomite::FileManager fm(&vault, nullptr);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    QVERIFY(fm.processFrontMatter(tf, [](QVariantMap &m) {
+        m.insert(QStringLiteral("title"), QStringLiteral("new"));
+    }));
+
+    const QByteArray after = readFileAll(dir.path() + "/a.md");
+    QCOMPARE(after, QByteArray("---\ntitle: new\n--- \nbody\n"));
+    QCOMPARE(after.count("---"), 2); // exactly one block, not two
 }
 
 QTEST_MAIN(TestFileManagerFrontmatter)

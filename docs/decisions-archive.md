@@ -10,6 +10,49 @@ Conventions:
 
 ---
 
+## 2026-10-17 — Frontmatter: one permissive reader, splice-only writer
+
+The punch-list P0 that quoted the 2026-10-03 audit addendum read as "implement Obsidian's two
+disagreeing frontmatter scanners." It was reconciled against the closed `[x] P1` that had already
+chosen one parser: Corbomite keeps a single permissive reader (`Markoff::Document::extract`,
+accepting CRLF and a trailing-character closing fence) for both indexing and writing. Reproducing
+the divergence was rejected on two grounds — Corbomite's properties panel reads the *indexer*, so
+rejecting CRLF would make it diverge *more* from Obsidian's writer-based panel, and reproducing the
+writer's trailing-fence rejection prepends a *second* `---` block, corrupting a note on a property
+edit.
+
+The real bug the reconciliation exposed is fixed: `FileManager::processFrontMatter`/`setFrontMatter`
+now splice **only the YAML payload** instead of going through `Markoff::Document::withFrontmatter()`,
+which rebuilt `---\n…\n---\n` unconditionally and so rewrote a CRLF note's delimiters to LF **and**
+injected a blank line on every edit. Pre-existing delimiters and every body byte now survive
+(`spliceFrontmatter()` in `libs/vault/src/FileManager.cpp`). Three cases in
+`tst_file_manager_frontmatter` pin it (falsifiable: all three red against the old code, no others).
+Decision and rationale: `docs/obsidian-audit/addenda/2026-10-17-frontmatter-single-scanner-deliberate-divergence.md`.
+
+## 2026-10-17 — L5 soak closed
+
+Eyeballed in Corbomite [Dev] on `/tmp` copies of DevVault and jsoncanvas, then one Obsidian round trip of the DevVault copy. No production vault was used. Nothing from the soak was fixed inline.
+
+L5.1. A between-group drag works through the KDDockWidgets drop targets. Dropping on the destination tab bar does not. A failed drag draws the tab askew until the next click. Both were accepted. Reopen kept group membership.
+
+L5.2. Split Right duplicates the active leaf. Split Down and drag-to-split made a three-deep nest. The saved file matched the screen: root `horizontal` (Markoff full width on the bottom), then `vertical`, then `horizontal`. Reload showed three columns because `fromJson` forces the root direction to `vertical` before materializing. That is the existing Obsidian `setLayout` parity, pinned by `rootSplit_directionForcedVerticalOnLoad`, not a new defect. Nested directions were kept. The active leaf was kept. The file had no `dimension` keys. The open pane-ratio P3 stays open. Obsidian's later save of a rearranged vault also had no `dimension` keys.
+
+L5.3. The popout window's X and the tab's X both close the leaf and the window. No orphan dock was reported. Dragging the popout onto a main-window drop target moves the leaf and closes the empty float. That is the cascading leaf-close contract. `floating` was written at quit (`Dev/Penelope.md`) and restored, including after Obsidian saved the vault.
+
+L5.4. `Ctrl+Shift+T` restores a leaf into a pane that is still open, at the end of that tab row, focused, and in the mode it had at close. Source mode survived. Closing the last tab collapses the pane, and undo then opens the leaf in whatever pane remains, because `closeLeaf` stores only a live sibling id. Filed.
+
+L5.5. Switching vaults with splits and a popout open did not crash. Vault B's file tree was its own (`readme.md`, `404.md`, `spec/`). The popout closed on the way out. Switching back restored Vault A's floating window and showed no Vault B notes. Vault B had no `workspace.json`. The missing-file path opened two panes: an empty "New tab" and a tab titled with the raw leaf id `909d27b01864b6a8`, with no note loaded. Switching away wrote that tree, so a later open reloads it. Filed. The cause is `readWorkspaceJson` clearing `layoutReady` before `resetToDefaultLayout`, so the "never zero leaves" handler's `setActiveLeaf` is ignored and a second dock is added with no view.
+
+L5.6. Obsidian opened Corbomite's save as arranged, including the popout, and its save omitted an empty `tabs` node (`9c09dfc3b391728b`, `children: []`) that Corbomite's quit had inserted as a second child of the root split. That node was not in the file Corbomite had loaded. Filed. The human then saved three main rows (top row split left/right, Corbomite in the middle and bottom) and a side-by-side popout. Corbomite restored that geometry. Both floating panes showed tab titles and neither the editor nor the back/forward header, until one pane was dragged onto the other inside the float. Filed. Deferral walks only main-window groups, so a visible floating leaf that is not the active leaf is `setDeferred` and loses its guest. A stacked tab group was not part of this arrangement. The stacked-tabs parity row stays partial.
+
+Also seen, and filed, outside the workspace serializer: unfocused Markoff panes paint light in a dark app until focused. `Styled::Editor::setTheme` does not set the text widget's palette.
+
+L5.7. Cluster L is closed. The findings stay open. The next trajectory action is the two frontmatter scanners.
+
+## 2026-10-17 — `indexFinished` waits for worker parses
+
+`MetadataCache` armed `indexFinished` from the link-drain counter alone. Parses still inside `MetadataWorker` were invisible to that counter, so under parallel load the 10ms timer fired after a partial vault (measured: 30 of 50 files) and a later delivery fired the signal a second time. `persistNow()` runs on that signal, so the partial fire was also a partial write. `m_outstandingParses` increments at `enqueueParse` and must be zero, with the drain counter, before the timer starts. Not committed.
+
 ## 2026-10-04 — `.obsidian/hotkeys.json` reaches real shortcuts: the dispatcher, and the scope-stack shape it forced
 
 The command-id work that landed alongside the

@@ -307,6 +307,48 @@ QByteArray applyRewrites(const QByteArray &body, QVector<LinkRewrite> rewrites)
     return s.toUtf8();
 }
 
+// Rebuild a note with its frontmatter replaced, keeping any pre-existing
+// delimiter lines and the body byte-identical. Obsidian's `processFrontMatter`
+// splices only the YAML payload between the `---` fences (`getFrontMatterInfo`'s
+// `from`/`to` bound the payload, not the delimiters), so a CRLF note keeps its
+// CRLF fences and only the re-emitted YAML is LF. Markoff's `withFrontmatter()`
+// instead always rebuilds `---\n…\n---\n`, which normalises CRLF delimiters and
+// can inject a blank line — see `docs/obsidian-audit/addenda/2026-10-03-parsing-
+// frontmatter-info-offsets-and-parser-divergence.md` Correction 2. `doc` must
+// already have parsed `source`. `out` empty (null) means strip the block.
+QByteArray spliceFrontmatter(const QString &source, const Markoff::Document *doc,
+                             const Markoff::YamlValue &out)
+{
+    const auto span = doc->frontmatterSpan();
+    if (!span.has_value()) {
+        // No frontmatter before the mutation — Obsidian's prepend branch, which
+        // uses LF delimiters (there are none to preserve).
+        return doc->withFrontmatter(out).toUtf8();
+    }
+
+    if (out.isNull())
+        return source.mid(span->second).toUtf8(); // strip, body verbatim
+
+    const QString block = source.mid(span->first, span->second - span->first);
+    int closingLen = 0;
+    if (block.endsWith(QStringLiteral("---\r\n")))
+        closingLen = 5;
+    else if (block.endsWith(QStringLiteral("---\n")))
+        closingLen = 4;
+    else if (block.endsWith(QStringLiteral("---"))) // closing fence at EOF
+        closingLen = 3;
+    if (closingLen == 0)
+        return doc->withFrontmatter(out).toUtf8(); // unexpected shape: fall back
+
+    const int openLen = block.indexOf(QLatin1Char('\n')) + 1;
+    const QString openingFence = block.left(openLen);
+    const QString closingLine = block.mid(block.size() - closingLen);
+    const QString yamlBody = out.stringify();
+    return (source.left(span->first) + openingFence + yamlBody + QStringLiteral("\n")
+            + closingLine + source.mid(span->second))
+        .toUtf8();
+}
+
 // Both frontmatter writers round-trip the block through the YAML parser, so an
 // unparseable block cannot be merged into — it can only be replaced. Obsidian's
 // link-fixup applier hits the same wall and returns the buffer with the edit
@@ -374,12 +416,11 @@ bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
         applyVariantMapToYaml(map, keyOrder, next);
 
         // If the mutator emptied the map, strip the frontmatter block
-        // entirely. withFrontmatter(emptyMap) emits a `---\n\n---\n` shell;
-        // Obsidian removes the fence when the value is empty — passing a
-        // default-constructed (null) YamlValue takes the strip branch.
+        // entirely (a default-constructed, null YamlValue takes the strip
+        // branch in spliceFrontmatter).
         const Markoff::YamlValue out =
             map.isEmpty() ? Markoff::YamlValue() : next;
-        return doc->withFrontmatter(out).toUtf8();
+        return spliceFrontmatter(QString::fromUtf8(cur), doc.get(), out);
     });
     return unparseable ? false : wrote;
 }
@@ -438,7 +479,7 @@ bool FileManager::setFrontMatter(TFile *f, const QList<FrontMatterEntry> &ordere
 
         const Markoff::YamlValue out =
             ordered.isEmpty() ? Markoff::YamlValue() : next;
-        return doc->withFrontmatter(out).toUtf8();
+        return spliceFrontmatter(QString::fromUtf8(cur), doc.get(), out);
     });
     return unparseable ? false : wrote;
 }

@@ -60,6 +60,20 @@ private Q_SLOTS:
         QVERIFY(!r.cache.frontmatterPosition.has_value());
     }
 
+    void testCrlfFrontmatter()
+    {
+        LinkResolver resolver;
+        const ParsedNote r = MetadataParser::parse(
+            QByteArrayLiteral("---\r\ntitle: CRLF\r\n---\r\n# Body\r\n"),
+            QStringLiteral("crlf.md"), resolver);
+        QVERIFY(r.cache.frontmatter.has_value());
+        QCOMPARE(r.cache.frontmatter->value(QStringLiteral("title")).toString(),
+                 QStringLiteral("CRLF"));
+        QVERIFY(r.cache.headings.has_value());
+        QCOMPARE(r.cache.headings->size(), 1);
+        QCOMPARE(r.cache.headings->first().heading, QStringLiteral("Body"));
+    }
+
     // 2. Headings at three levels.
     void testParseHeadingsOnly()
     {
