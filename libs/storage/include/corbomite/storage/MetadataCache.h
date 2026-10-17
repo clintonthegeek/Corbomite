@@ -34,8 +34,13 @@ struct FileCacheEntry {
 /// Phase 4 wraps the Phase-3 synchronous core in a QObject that emits five
 /// Qt signals in strict Obsidian-compatible order:
 ///
-///   1. `cacheChanged(path, prevHash, cache)` — synchronous from inside
-///      `onFileChanged` after a successful parse + cache insert.
+///   1. `cacheChanged(path, contents, cache)` — synchronous from inside
+///      `onFileChanged` after a successful parse + cache insert. Argument 2
+///      is the **decoded file text**, not the previous hash: Obsidian's
+///      `changed(file, contents, cache)` passes the just-read body
+///      (`app/own/1306-eR.js:477`; consumer proof at `app/own/1844-R1.js:322`).
+///      It is a full text copy per modify and must not be used as a change
+///      token. See `addenda/2026-10-03-metadata-changed-event-payload.md`.
 ///   2. `linksResolvedFor(path)` — asynchronous, one per event-loop tick
 ///      via `QTimer::singleShot(0, ...)` per-path draining.
 ///   3. `allLinksResolved()` — synchronous from the drain slot once the
@@ -140,7 +145,7 @@ public:
                                const QHash<QString, int> &hashRefCounts);
 
     /// Plugin-facing event bus — Obsidian-named events:
-    ///   "changed"  (path, prevHash, CachedMetadata)
+    ///   "changed"  (path, contents, CachedMetadata)
     ///   "deleted"  (path, CachedMetadata prevCache)
     ///   "resolve"  (path)
     ///   "resolved" ()
@@ -150,7 +155,7 @@ public:
 
 Q_SIGNALS:
     void cacheChanged(const QString &path,
-                      const QString &prevHash,
+                      const QString &contents,
                       const Corbomite::CachedMetadata &cache);
     void cacheDeleted(const QString &path,
                       const Corbomite::CachedMetadata &prevCache);
@@ -173,6 +178,7 @@ private Q_SLOTS:
     /// path-entry / hash-ref-count / dedup bookkeeping, then emits
     /// `cacheChanged` + enqueues the link-resolver continuation.
     void onWorkerParsed(const QString &path,
+                        const QByteArray &content,
                         qint64 mtimeMs,
                         qint64 size,
                         const Corbomite::CachedMetadata &cache,
@@ -232,7 +238,7 @@ private:
     /// and post a per-tick drain continuation (only if no outstanding drain is
     /// already posted, i.e. queue size is 1 post-enqueue). Also stops the
     /// `indexFinished` debounce timer since new work arrived.
-    void emitCacheChanged(const QString &path, const QString &prevHash);
+    void emitCacheChanged(const QString &path, const QString &contents);
 
     /// Flushes the in-memory cache state to the store unconditionally. No-op
     /// if `m_store` is null (persistence not enabled). Also stops the 30s

@@ -63,14 +63,17 @@ private Q_SLOTS:
 
         const QVariantList args = spy.takeFirst();
         QCOMPARE(args.at(0).toString(), QStringLiteral("a.md"));
-        QCOMPARE(args.at(1).toLongLong(), qint64{100});
-        QCOMPARE(args.at(2).toLongLong(), qint64{5});
-        const auto cache = args.at(3).value<CachedMetadata>();
+        // Arg 1 is the exact bytes that were parsed, threaded back so
+        // MetadataCache can emit Obsidian's `changed(path, contents, cache)`.
+        QCOMPARE(args.at(1).toByteArray(), QByteArray("# Hi\n"));
+        QCOMPARE(args.at(2).toLongLong(), qint64{100});
+        QCOMPARE(args.at(3).toLongLong(), qint64{5});
+        const auto cache = args.at(4).value<CachedMetadata>();
         QVERIFY(cache.headings.has_value());
         QCOMPARE(cache.headings->size(), 1);
         QCOMPARE(cache.headings->at(0).heading, QStringLiteral("Hi"));
 
-        const QString hash = args.at(4).toString();
+        const QString hash = args.at(5).toString();
         QCOMPARE(hash.size(), 64);
         // Lowercase hex only.
         for (const QChar c : hash) {

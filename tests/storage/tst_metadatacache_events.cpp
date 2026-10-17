@@ -4,7 +4,7 @@
 // covering: signal-emission ordering, sync-vs-async semantics, short-
 // circuit silence, cacheDeleted snapshot, 10ms indexFinished debounce,
 // burst coalescing, Obsidian-named Events triggers + payload shape,
-// prevHash semantics, and queued-drain order.
+// changed-contents semantics, and queued-drain order.
 
 #include <QTest>
 #include <QSignalSpy>
@@ -362,8 +362,9 @@ private Q_SLOTS:
         QCOMPARE(deletedCount, 1);
     }
 
-    // 14. "changed" event payload has shape (QString path, QString prevHash,
-    //     CachedMetadata).
+    // 14. "changed" event payload has shape (QString path, QString contents,
+    //     CachedMetadata). Arg 2 is the decoded file text, not a hash
+    //     (Obsidian `app/own/1306-eR.js:477`; proof `app/own/1844-R1.js:322`).
     void testEventsTriggerPayloadShape()
     {
         LinkResolver resolver = makeResolver({QStringLiteral("a.md")});
@@ -383,14 +384,14 @@ private Q_SLOTS:
         QTRY_VERIFY_WITH_TIMEOUT(fired, 2000);
         QCOMPARE(captured.size(), 3);
         QCOMPARE(captured.at(0).toString(), QStringLiteral("a.md"));
-        QCOMPARE(captured.at(1).toString(), QString{});  // new-path -> empty prevHash
+        QCOMPARE(captured.at(1).toString(), QStringLiteral("# A\n"));  // the body
         const auto cm = captured.at(2).value<CachedMetadata>();
         QVERIFY(cm.headings.has_value());
         QCOMPARE(cm.headings->at(0).heading, QStringLiteral("A"));
     }
 
-    // 15. New path gets prevHash == "".
-    void testNewPathHasEmptyPrevHash()
+    // 15. A new path carries its body as arg 2 (not an empty hash).
+    void testNewPathCarriesContents()
     {
         LinkResolver resolver = makeResolver({QStringLiteral("a.md")});
         MetadataCache cache(resolver);
@@ -398,11 +399,11 @@ private Q_SLOTS:
 
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# A\n"), 100);
         QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 2000);
-        QCOMPARE(spy.at(0).at(1).toString(), QString{});
+        QCOMPARE(spy.at(0).at(1).toString(), QStringLiteral("# A\n"));
     }
 
-    // 16. Hash change carries the old hash as prevHash.
-    void testHashChangeCarriesOldHashAsPrevHash()
+    // 16. A content change carries the new body as arg 2 (not the old hash).
+    void testHashChangeCarriesNewContents()
     {
         LinkResolver resolver = makeResolver({QStringLiteral("a.md")});
         MetadataCache cache(resolver);
@@ -411,15 +412,13 @@ private Q_SLOTS:
         // Wait for the first parse to complete so the hash is populated.
         QTRY_VERIFY_WITH_TIMEOUT(
             !cache.getFileHash(QStringLiteral("a.md")).isEmpty(), 2000);
-        const QString firstHash = cache.getFileHash(QStringLiteral("a.md"));
-        QVERIFY(!firstHash.isEmpty());
 
         QSignalSpy spy(&cache, &MetadataCache::cacheChanged);
 
         cache.onFileChanged(QStringLiteral("a.md"),
                             QByteArray("# Different\n"), 200);
         QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 2000);
-        QCOMPARE(spy.at(0).at(1).toString(), firstHash);
+        QCOMPARE(spy.at(0).at(1).toString(), QStringLiteral("# Different\n"));
     }
 
     // 17. Queued path drain order matches enqueue order (a -> b -> c).

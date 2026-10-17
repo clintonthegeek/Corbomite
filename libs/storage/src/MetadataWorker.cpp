@@ -75,6 +75,7 @@ void MetadataWorkerLoop::run()
             MetadataParser::parse(item.content, item.path, m_resolver);
 
         Q_EMIT parsed(item.path,
+                      item.content,
                       item.mtimeMs,
                       item.size,
                       result.cache,

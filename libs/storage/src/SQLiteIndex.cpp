@@ -157,10 +157,9 @@ void SQLiteIndex::createTables()
 // --- MetadataCache subscription slots ---
 
 void SQLiteIndex::onMetadataCacheChanged(const QString &path,
-                                         const QString &prevHash,
+                                         const QString &contents,
                                          const CachedMetadata &cache)
 {
-    Q_UNUSED(prevHash);
     if (!m_isOpen) return;
 
     // Ensure the resolver sees this path (no-op if already present). Only
@@ -168,7 +167,9 @@ void SQLiteIndex::onMetadataCacheChanged(const QString &path,
     // but harmless.
     m_resolver.addVaultPath(path);
 
-    writeRowsFromCache(path, cache);
+    // `contents` is the decoded body Obsidian's `changed` carries; use it
+    // instead of re-reading disk.
+    writeRowsFromCache(path, cache, contents);
 }
 
 void SQLiteIndex::onMetadataCacheDeleted(const QString &path,
@@ -199,15 +200,16 @@ void SQLiteIndex::deleteRowsForPath(const QString &path)
     query.exec();
 }
 
-void SQLiteIndex::writeRowsFromCache(const QString &path, const CachedMetadata &cache)
+void SQLiteIndex::writeRowsFromCache(const QString &path, const CachedMetadata &cache,
+                                     const QString &contents)
 {
     QSqlDatabase db = QSqlDatabase::database(m_connectionName);
 
-    // Read body from disk. MetadataCache's `cacheChanged` doesn't carry
-    // the raw content to keep the signal lean; re-reading is cheap and
-    // keeps disk + FTS as the single source of truth.
-    QString content;
-    if (!m_vaultRoot.isEmpty()) {
+    // The event-driven path passes the decoded body Obsidian's `changed`
+    // carries; only the reconcile/migration bootstrap has no parse result
+    // in hand and falls back to reading the file from disk.
+    QString content = contents;
+    if (content.isNull() && !m_vaultRoot.isEmpty()) {
         const QString fullPath = QDir(m_vaultRoot).absoluteFilePath(path);
         QFile f(fullPath);
         if (f.open(QIODevice::ReadOnly)) {

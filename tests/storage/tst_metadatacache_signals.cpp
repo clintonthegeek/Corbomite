@@ -9,9 +9,12 @@
 // Claims under test:
 //   1. MetadataCache exposes exactly 5 signals:
 //        cacheChanged, cacheDeleted, linksResolvedFor, allLinksResolved, indexFinished
-//   2. cacheChanged(path, prevHash, cache) fires after a file is parsed.
-//      - New path → prevHash is "".
-//      - Updated path → prevHash is the old hash (non-empty).
+//   2. cacheChanged(path, contents, cache) fires after a file is parsed.
+//      Argument 2 is the decoded file text (Obsidian's `changed` payload),
+//      not a hash — see
+//      docs/obsidian-audit/addenda/2026-10-03-metadata-changed-event-payload.md.
+//      - New path → contents is the file body.
+//      - Updated path → contents is the new body.
 //      - The CachedMetadata payload reflects the parsed content.
 //   3. cacheDeleted(path, prevCache) fires after onFileDeleted.
 //      - prevCache carries the metadata that was stored before deletion.
@@ -121,8 +124,8 @@ private Q_SLOTS:
         QCOMPARE(spy.at(1).at(0).toString(), QStringLiteral("b.md"));
     }
 
-    // 2c. prevHash is "" for a brand-new path (it had no prior hash in the cache).
-    void testCacheChangedPrevHashEmptyForNewPath()
+    // 2c. Arg 2 is the decoded file body for a brand-new path — not a hash.
+    void testCacheChangedContentsForNewPath()
     {
         LinkResolver resolver = makeResolver({QStringLiteral("fresh.md")});
         MetadataCache cache(resolver);
@@ -131,12 +134,14 @@ private Q_SLOTS:
         cache.onFileChanged(QStringLiteral("fresh.md"), QByteArray("hello\n"), 100);
 
         QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 3000);
-        // Arg index 1 is prevHash — must be empty for a new path.
-        QCOMPARE(spy.at(0).at(1).toString(), QString{});
+        // Arg index 1 is contents. A hash can never equal the file text, so
+        // asserting the text is the strongest form of this check.
+        QCOMPARE(spy.at(0).at(1).toString(), QStringLiteral("hello\n"));
     }
 
-    // 2d. prevHash is the old hash (non-empty) when a file's content changes.
-    void testCacheChangedPrevHashCarriesOldHashOnUpdate()
+    // 2d. Arg 2 is the *new* body when a file's content changes (a hash would
+    // be neither the old nor the new body).
+    void testCacheChangedCarriesNewContentsOnUpdate()
     {
         LinkResolver resolver = makeResolver({QStringLiteral("a.md")});
         MetadataCache cache(resolver);
@@ -145,14 +150,13 @@ private Q_SLOTS:
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# V1\n"), 100);
         QTRY_VERIFY_WITH_TIMEOUT(!cache.getFileHash(QStringLiteral("a.md")).isEmpty(),
                                  3000);
-        const QString firstHash = cache.getFileHash(QStringLiteral("a.md"));
 
-        // Second parse with different content — prevHash should be firstHash.
+        // Second parse with different content — contents should be the new body.
         QSignalSpy spy(&cache, &MetadataCache::cacheChanged);
         cache.onFileChanged(QStringLiteral("a.md"), QByteArray("# V2\n"), 200);
 
         QTRY_COMPARE_WITH_TIMEOUT(spy.count(), 1, 3000);
-        QCOMPARE(spy.at(0).at(1).toString(), firstHash);
+        QCOMPARE(spy.at(0).at(1).toString(), QStringLiteral("# V2\n"));
     }
 
     // 2e. The CachedMetadata payload reflects the parsed content.

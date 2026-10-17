@@ -78,9 +78,10 @@ public:
     /// Rewrite `notes_fts` / `links` / `note_tags` rows for every path the
     /// cache currently knows about. Idempotent — each path's existing rows
     /// are deleted first. Safe to call repeatedly; O(N * file-size) on disk
-    /// I/O because `writeRowsFromCache` re-reads the file body for the FTS
-    /// `content` column. Intended for schema-migration recovery and for the
-    /// initial `setMetadataCache` bootstrap; not called per-mutation.
+    /// I/O because there is no parse result in hand, so the file body is
+    /// read for the FTS `content` column. Intended for schema-migration
+    /// recovery and for the initial `setMetadataCache` bootstrap; not called
+    /// per-mutation (the event path carries the contents).
     void reconcileWithCache();
 
     // --- Read API (UNCHANGED — consumers rely on these) ---
@@ -140,7 +141,7 @@ public:
 
 private Q_SLOTS:
     void onMetadataCacheChanged(const QString &path,
-                                const QString &prevHash,
+                                const QString &contents,
                                 const Corbomite::CachedMetadata &cache);
     void onMetadataCacheDeleted(const QString &path,
                                 const Corbomite::CachedMetadata &prevCache);
@@ -150,8 +151,11 @@ private:
 
     /// Derive `notes_fts` / `links` / `note_tags` rows from a parsed
     /// `CachedMetadata` and write them atomically. Deletes any previous
-    /// rows for `path` first (idempotent update).
-    void writeRowsFromCache(const QString &path, const Corbomite::CachedMetadata &cache);
+    /// rows for `path` first (idempotent update). `contents` is the file
+    /// body for the FTS `content` column; when it is null the body is read
+    /// from disk (the reconcile/migration path, where no parse just ran).
+    void writeRowsFromCache(const QString &path, const Corbomite::CachedMetadata &cache,
+                            const QString &contents = QString());
 
     /// Delete all SQLiteIndex-owned rows for `path`. Called from both
     /// the cache-changed slot (idempotency on update) and the

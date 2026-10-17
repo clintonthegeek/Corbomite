@@ -303,6 +303,7 @@ void MetadataCache::insertWorkerResult(const QString &path,
 }
 
 void MetadataCache::onWorkerParsed(const QString &path,
+                                   const QByteArray &content,
                                    qint64 mtimeMs,
                                    qint64 size,
                                    const CachedMetadata &cache,
@@ -312,14 +313,12 @@ void MetadataCache::onWorkerParsed(const QString &path,
     // until this result is resolved, so indexFinished cannot arm in between.
     --m_outstandingParses;
 
-    // Stat/hash may have moved since enqueue -- if the path currently holds
+    // Stat/hash may have moved since enqueue — if the path currently holds
     // the same hash we just computed, the parse result was for already-known
     // content; still refresh stat and emit cacheChanged so consumers see the
     // mtime update even though dedup kept the same hash entry.
-    QString prevHash;
     auto it = m_pathToFileEntry.find(path);
     if (it != m_pathToFileEntry.end()) {
-        prevHash = it->hash;
         // Release the old hash's ref before we overwrite the entry.
         const QString oldHash = it->hash;
         m_pathToFileEntry.erase(it);
@@ -327,7 +326,9 @@ void MetadataCache::onWorkerParsed(const QString &path,
     }
 
     insertWorkerResult(path, mtimeMs, size, hash, cache);
-    emitCacheChanged(path, prevHash);
+    // Obsidian's `changed` second argument is the decoded file text, not a
+    // hash (`app/own/1306-eR.js:477`, proof at `app/own/1844-R1.js:322`).
+    emitCacheChanged(path, QString::fromUtf8(content));
     scheduleDebouncedPersist();
 }
 
@@ -346,7 +347,7 @@ void MetadataCache::releaseHashRef(const QString &hash)
     }
 }
 
-void MetadataCache::emitCacheChanged(const QString &path, const QString &prevHash)
+void MetadataCache::emitCacheChanged(const QString &path, const QString &contents)
 {
     // New work has arrived: if a debounce timer for indexFinished is pending,
     // it's no longer valid — we'll rearm when the queue drains.
@@ -366,9 +367,9 @@ void MetadataCache::emitCacheChanged(const QString &path, const QString &prevHas
         }
     }
 
-    Q_EMIT cacheChanged(path, prevHash, current);
+    Q_EMIT cacheChanged(path, contents, current);
     m_events.trigger(QStringLiteral("changed"),
-                     {path, prevHash, QVariant::fromValue(current)});
+                     {path, contents, QVariant::fromValue(current)});
 
     m_linkResolverQueue.enqueue(path);
 

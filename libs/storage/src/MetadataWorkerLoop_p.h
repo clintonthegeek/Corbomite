@@ -42,6 +42,7 @@ public:
 
 Q_SIGNALS:
     void parsed(const QString &path,
+                const QByteArray &content,
                 qint64 mtimeMs,
                 qint64 size,
                 const Corbomite::CachedMetadata &cache,

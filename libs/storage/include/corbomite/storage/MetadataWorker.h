@@ -54,8 +54,12 @@ Q_SIGNALS:
     /// `hash` is the 64-char lowercase SHA-256 hex of the content bytes.
     /// `size` is the byte count of the content that was parsed (threaded
     /// through from enqueueParse so downstream consumers can stash stat
-    /// bookkeeping without per-path side state).
+    /// bookkeeping without per-path side state). `content` is the exact
+    /// bytes that were parsed, threaded back so `MetadataCache` can emit
+    /// Obsidian's `changed(path, contents, cache)` payload without a
+    /// second disk read.
     void parsed(const QString &path,
+                const QByteArray &content,
                 qint64 mtimeMs,
                 qint64 size,
                 const Corbomite::CachedMetadata &cache,
