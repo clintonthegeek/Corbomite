@@ -21,6 +21,11 @@ struct RenderOptions {
     // Vault context for resolving links and embeds
     QString vaultRoot;
     QString notePath;
+
+    /// Lookup string for `EditingSessionSource`. Empty means a fresh
+    /// ephemeral key. Notes and file cards use `noteDocumentKeyHint`.
+    /// Text cards use `canvasTextCardKeyHint`. Not persisted.
+    QString documentKeyHint;
 };
 
 } // namespace Corbomite

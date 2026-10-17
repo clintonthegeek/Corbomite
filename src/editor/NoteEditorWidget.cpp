@@ -6,6 +6,7 @@
 #include "HoverPopover.h"
 #include "ViewModeSerializer.h"
 #include "VaultResourceProvider.h"
+#include "corbomite/core/EditingSession.h"
 #include "corbomite/core/EditorSuggest.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/NoteDocument.h"
@@ -25,7 +26,7 @@
 #include <markoff/core/LinkService.h>
 #include <markoff/core/MarkdownView.h>
 #include <markoff/core/MarkoffDocument.h>
-#include <markoff/core/Origin.h>
+
 #include <markoff/source/Editor.h>
 #include <markoff/styled/Editor.h>
 // Cluster K Phase 5: LivePreview is Markoff::Canvas::EditorWidget only.
@@ -538,7 +539,7 @@ bool NoteEditorWidget::insertAtCursor(const QString &text, const QString &caretM
     const Markoff::CursorPos pos =
         leaf ? leaf->cursorPosition() : Markoff::CursorPos{};
 
-    // Insert point in applyFlatEdit's no-separator coordinate space. If the
+    // Insert point in the no-separator concatenation of block texts. If the
     // caret line can't be resolved, fall back to end-of-document (the old
     // append behaviour) rather than dropping the edit.
     uint32_t at;
@@ -560,12 +561,11 @@ bool NoteEditorWidget::insertAtCursor(const QString &text, const QString &caretM
     else
         caretCharIdx = int(body.length());
 
-    // One undo-integrated transaction; propagates to every leaf. NB:
-    // applyFlatEdit canonicalises the inserted text (collapses newline-runs,
-    // never creates empty blocks), so a structural break at a block boundary
-    // is absorbed rather than producing a blank paragraph — text-insertion
-    // semantics, matching the flat-view leaves' own edit path.
-    mdoc->applyFlatEdit(at, at, body.toUtf8(), Markoff::Origin::UserEdit);
+    // One accepted document action. The offset is the no-separator
+    // concatenation of block texts, which insertAtFlatOffset maps back onto
+    // a single block before publishing.
+    if (!m_doc->insertAtFlatOffset(at, body.toUtf8()))
+        return false;
 
     // Deterministic caret — never trust a leaf's own post-edit cursor (mirrors
     // CompletionController). The flat-line arithmetic is the pure, unit-tested
@@ -664,9 +664,11 @@ void NoteEditorWidget::onReplaceRequested()
     const auto cur = fc->matches().at(idx);
     const QString repl = m_findBar->replacementText();
 
-    m_doc->markoff()->replaceMatches(
+    const auto published = m_doc->markoff()->replaceMatches(
         { Markoff::SearchHit{ cur.block, cur.byteOffset, cur.byteLength } },
         repl);
+    if (!publicationCommitted(published))
+        return;
     // replaceMatches flushes synchronously, so fc has already recomputed.
     // Advance past the inserted replacement (avoids re-selecting a replacement
     // that itself contains the needle).
@@ -682,7 +684,9 @@ void NoteEditorWidget::onReplaceAllRequested()
     hits.reserve(fc->matchCount());
     for (const auto &m : fc->matches())
         hits.append(Markoff::SearchHit{ m.block, m.byteOffset, m.byteLength });
-    m_doc->markoff()->replaceMatches(hits, m_findBar->replacementText());
+    const auto published = m_doc->markoff()->replaceMatches(hits, m_findBar->replacementText());
+    if (!publicationCommitted(published))
+        return;
 }
 
 } // namespace Corbomite

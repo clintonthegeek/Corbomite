@@ -57,9 +57,9 @@ void TestVaultModifyReconcile::cleanDoc_processRefreshesBuffer()
 
     auto *note = vault.openDocument(QStringLiteral("t.md"));
     QVERIFY(note);
-    // markdown() routes through serializeForSave(), which appends the
-    // canonical trailing terminator (B1 finalDocumentTerminator == "\n").
-    QCOMPARE(note->markdown(), QStringLiteral("original body\n"));
+    // A pristine import round-trips the file bytes, including the absence
+    // of a trailing newline.
+    QCOMPARE(note->markdown(), QStringLiteral("original body"));
     QVERIFY(!note->isModified());
 
     auto *tf = vault.getFileByPath(QStringLiteral("t.md"));

@@ -46,6 +46,19 @@ public:
     QString markdown() const;
     void    setMarkdown(const QString &text);
 
+    /// First call imports Markdown into the provider-backed document.
+    /// Later calls publish a replacement action, which keeps accepted
+    /// history. Returns false when Markoff does not commit the publication.
+    bool publishMarkdown(const QByteArray &utf8);
+
+    /// Insert `utf8` at a byte offset in the no-separator concatenation of
+    /// block texts. The offset is the one `LineResolve::globalByteOffsetForCursor`
+    /// produces. A payload with a blank line is parsed as Markdown and
+    /// spliced; any other payload is a literal block edit, so leading spaces
+    /// stay in the current block. Requires a document that has already been
+    /// imported.
+    bool insertAtFlatOffset(uint32_t byteOffset, const QByteArray &utf8);
+
     bool isModified() const;
     void setModified(bool modified);
 

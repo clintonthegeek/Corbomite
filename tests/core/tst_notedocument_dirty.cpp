@@ -25,8 +25,8 @@ private Q_SLOTS:
     {
         Corbomite::NoteDocument doc(QStringLiteral("/vault"), QStringLiteral("note.md"));
 
-        // Edit: resetContent emits documentReloaded synchronously (→ dirty) and
-        // schedules a deferred d2DocumentChanged.
+        // Edit: setMarkdown publishes and marks the document dirty at once,
+        // and a deferred d2DocumentChanged is still queued.
         doc.setMarkdown(QStringLiteral("hello"));
         QVERIFY(doc.isModified());
 

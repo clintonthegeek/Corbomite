@@ -94,6 +94,11 @@ public:
     void setRenderEngine(Corbomite::MarkdownRenderEngine *engine);
     Corbomite::MarkdownRenderEngine *renderEngine() const;
 
+    /// Vault root and vault-relative `.canvas` path used as Markoff session
+    /// key hints. An empty canvas path leaves text-card hints empty, which
+    /// is what unit tests do. Does not replace the QTextEdit card editor.
+    void setSessionContext(const QString &vaultRoot, const QString &canvasRelativePath);
+
     // File content resolver
     using FileResolver = std::function<QString(const QString &filePath)>;
     void setFileResolver(FileResolver resolver);
@@ -399,6 +404,8 @@ private:
     /// stable snapshot; never null, never half-updated.
     CanvasPalette m_palette;
     Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;
+    QString m_vaultRoot;
+    QString m_canvasRelativePath;
     FileResolver m_fileResolver;
     FileSaver m_fileSaver;
     FilePickerRequestor m_filePickerRequestor;

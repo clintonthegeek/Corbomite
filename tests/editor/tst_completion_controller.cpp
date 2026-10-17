@@ -152,12 +152,12 @@ private Q_SLOTS:
         rig.ctl.popup()->selectNext();
         QVERIFY(rig.ctl.popup()->acceptCurrent());
         QTRY_COMPARE(QString::fromUtf8(rig.doc->markoff()->serializeForSave()),
-                     QStringLiteral("hello @apple!\n"));
+                     QStringLiteral("hello @apple!"));
         QCOMPARE(rig.leaf.m_pos.column, 14);
         QVERIFY(!rig.ctl.isActive());
         rig.doc->markoff()->undoD2();
         QTRY_COMPARE(QString::fromUtf8(rig.doc->markoff()->serializeForSave()),
-                     QStringLiteral("hello @ap\n"));
+                     QStringLiteral("hello @ap"));
     }
 
     void acceptWithStaleTrigger_abortsSilently()
@@ -170,7 +170,7 @@ private Q_SLOTS:
         rig.placeCursor(1, 3);
         QTRY_VERIFY(!rig.ctl.isActive());
         QCOMPARE(QString::fromUtf8(rig.doc->markoff()->serializeForSave()),
-                 QStringLiteral("hello @a\n"));
+                 QStringLiteral("hello @a"));
         Q_UNUSED(popup)
     }
 
@@ -190,7 +190,7 @@ private Q_SLOTS:
         QTest::keyClick(&rig.leaf, Qt::Key_Down);    // second row: banana
         QTest::keyClick(&rig.leaf, Qt::Key_Return);
         QTRY_COMPARE(QString::fromUtf8(rig.doc->markoff()->serializeForSave()),
-                     QStringLiteral("hello @banana!\n"));
+                     QStringLiteral("hello @banana!"));
         QVERIFY(!rig.ctl.isActive());
     }
 
@@ -202,7 +202,7 @@ private Q_SLOTS:
         QTest::keyClick(&rig.leaf, Qt::Key_Escape);
         QTRY_VERIFY(!rig.ctl.isActive());
         QCOMPARE(QString::fromUtf8(rig.doc->markoff()->serializeForSave()),
-                 QStringLiteral("hello @\n"));
+                 QStringLiteral("hello @"));
     }
 
     // Regression: the popup must size its height to the number of visible

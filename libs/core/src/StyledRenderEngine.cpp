@@ -2,9 +2,12 @@
 #include "corbomite/core/StyledRenderEngine.h"
 #include "corbomite/core/LinkUtils.h"
 
+#include "corbomite/core/EditingSession.h"
 #include "corbomite/core/RenderedDocument.h"
 #include "corbomite/core/RenderOptions.h"
 #include "corbomite/core/SubpathExtract.h"
+
+#include <markoff/core/MarkoffDocument.h>
 
 #include <QTextDocument>
 
@@ -43,7 +46,14 @@ std::unique_ptr<RenderedDocument> StyledRenderEngine::render(
     }
 
     auto doc = std::make_unique<QTextDocument>();
-    m_renderer.renderInto(doc.get(), md.toUtf8());
+    // The byte overload of renderInto mints a private ephemeral key and
+    // never asks EditingSessionSource. Paint the document this session
+    // opened. openForRender imports only while the provider is waiting;
+    // a ready live note is painted as-is, so this subpath slice is not
+    // written into it. A refused open leaves the QTextDocument empty.
+    const OpenDocument opened = openForRender(md.toUtf8(), options.documentKeyHint);
+    if (opened.imported && opened.document)
+        m_renderer.renderInto(doc.get(), opened.document.get());
     return RenderedDocument::fromQTextDocument(std::move(doc));
 }
 

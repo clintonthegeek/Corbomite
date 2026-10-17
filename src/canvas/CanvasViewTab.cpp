@@ -79,6 +79,7 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
 
     m_document->loadFromFile(filePath);
     m_view->setDocument(m_document);
+    m_view->canvasScene()->setSessionContext(m_vaultRoot, canvasRelativePath());
 
     // File-card paths in a .canvas file are vault-relative (Obsidian spec),
     // not relative to the canvas file's own directory. Fall back to the
@@ -202,19 +203,23 @@ void CanvasViewTab::setFileLister(std::function<QStringList()> lister)
     m_fileLister = std::move(lister);
 }
 
-QString CanvasViewTab::localDataKey() const
+QString CanvasViewTab::canvasRelativePath() const
 {
     // Obsidian keys on TFile.path, i.e. vault-relative with forward slashes
     // (app/own/2028-n9.js:565 — "canvas-" + e.path). Outside a vault there is
-    // no such path, so fall back to the absolute file path: still a stable,
-    // still machine-local, still tier-3-only key.
+    // no such path, so fall back to the absolute file path.
     QString rel = m_filePath;
     if (!m_vaultRoot.isEmpty()) {
         const QString candidate = QDir(m_vaultRoot).relativeFilePath(m_filePath);
         if (!candidate.startsWith(QStringLiteral("..")))
             rel = candidate;
     }
-    return QStringLiteral("canvas-") + rel;
+    return rel;
+}
+
+QString CanvasViewTab::localDataKey() const
+{
+    return QStringLiteral("canvas-") + canvasRelativePath();
 }
 
 void CanvasViewTab::setLocalDataStore(LocalDataReader reader, LocalDataWriter writer)

@@ -40,17 +40,10 @@ void TstVaultSaveRefusesOrc::saveDocument_withOrcInCanonical_returnsFalseAndDoes
     NoteDocument *doc = vault.openDocument(relPath);
     QVERIFY(doc);
 
-    // Inject U+FFFC into the canonical buffer via the markoff handle.
-    // Build the polluted string programmatically so the literal encoding
-    // isn't subject to editor/shell-UTF-8 quirks.
-    // resetContent() with Origin::ExternalReloadClean calls buffer->reset()
-    // directly (bypassing applyCanonicalDelta), so the debug Q_ASSERTs in
-    // MarkoffDocument::applyCanonicalDelta are not triggered by this seed.
     QString pollutedCanonical = QStringLiteral("Hello, ");
     pollutedCanonical.append(QChar(QChar::ObjectReplacementCharacter));
     pollutedCanonical.append(QStringLiteral("world.\n"));
-    doc->markoff()->resetContent(pollutedCanonical.toUtf8(),
-                                 Markoff::Origin::ExternalReloadClean);
+    QVERIFY(doc->publishMarkdown(pollutedCanonical.toUtf8()));
 
     QSignalSpy failedSpy(doc, &NoteDocument::saveFailed);
     const bool ok = vault.saveDocument(doc);

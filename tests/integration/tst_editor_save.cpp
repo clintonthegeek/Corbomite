@@ -32,10 +32,9 @@ private Q_SLOTS:
         vault.load(tmp.path());
 
         auto *doc = vault.openDocument(QStringLiteral("test.md"));
-        // serializeForSave() canonicalises to a single trailing newline
-        // (CommonMark; Markoff B1 buffer convention), so round-trips of
-        // content lacking one gain a terminal "\n". Accepted 2026-05-25.
-        QCOMPARE(doc->markdown(), QStringLiteral("original content\n"));
+        // A pristine import round-trips the file bytes. A later
+        // replaceMarkdown does the same for the bytes it was given.
+        QCOMPARE(doc->markdown(), QStringLiteral("original content"));
         QVERIFY(!doc->isModified());
 
         doc->setMarkdown(QStringLiteral("modified content"));
@@ -47,7 +46,7 @@ private Q_SLOTS:
         // Read directly from disk
         QFile f(tmp.path() + "/test.md");
         f.open(QIODevice::ReadOnly);
-        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("modified content\n"));
+        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("modified content"));
     }
 
     void testSavePreservesUtf8()
@@ -61,8 +60,7 @@ private Q_SLOTS:
         vault.load(tmp.path());
 
         auto *doc = vault.openDocument(QStringLiteral("utf8.md"));
-        // Canonical trailing newline on serialize (see testOpenModifySave).
-        QCOMPARE(doc->markdown(), content + QStringLiteral("\n"));
+        QCOMPARE(doc->markdown(), content);
 
         // Modify and save
         QString newContent = content + QStringLiteral("\n\nMore text");
@@ -72,7 +70,7 @@ private Q_SLOTS:
         // Verify
         QFile f(tmp.path() + "/utf8.md");
         f.open(QIODevice::ReadOnly);
-        QCOMPARE(QString::fromUtf8(f.readAll()), newContent + QStringLiteral("\n"));
+        QCOMPARE(QString::fromUtf8(f.readAll()), newContent);
     }
 
     void testCreateAndSave()
@@ -93,8 +91,7 @@ private Q_SLOTS:
 
         QFile f(tmp.path() + "/brand-new.md");
         f.open(QIODevice::ReadOnly);
-        // Canonical trailing newline on save (see testOpenModifySave).
-        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("# Brand New Note\n\nContent here.\n"));
+        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("# Brand New Note\n\nContent here."));
     }
 };
 

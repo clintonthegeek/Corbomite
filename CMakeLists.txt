@@ -80,6 +80,20 @@ endif()
 add_subdirectory(libs/jkqtmathtext)
 add_subdirectory(libs/mmdr)
 
+# Markoff's document engine is the installed CollabText Core package. Do not
+# point this at a CollabText checkout. COLLABTEXT_ROOT overrides the dev
+# default, which is the alpha5 prefix next to this repo.
+if(DEFINED ENV{COLLABTEXT_ROOT})
+    list(PREPEND CMAKE_PREFIX_PATH "$ENV{COLLABTEXT_ROOT}")
+else()
+    set(_corbomite_collabtext_hint
+        "${CMAKE_SOURCE_DIR}/../Markoff/build-collabtext-alpha5/install")
+    if(EXISTS "${_corbomite_collabtext_hint}/lib/cmake/collabtext/collabtext-config.cmake")
+        list(PREPEND CMAKE_PREFIX_PATH "${_corbomite_collabtext_hint}")
+    endif()
+endif()
+find_package(collabtext CONFIG REQUIRED COMPONENTS core)
+
 set(MARKOFF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # TODO(port-foundation-exploration): foundation-exploration retired the
 # single top-level MARKOFF_BUILD_TESTS gate; each leaf now has its own
@@ -95,6 +109,9 @@ set(MARKOFF_PARSER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(MARKOFF_STYLED_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # Cluster K Phase 5 — do not build the QML Live leaf into Corbomite.
 set(MARKOFF_BUILD_LIVE OFF CACHE BOOL "" FORCE)
+# Markoff's provider-consumer tests are a Markoff-repo suite. They require
+# MARKOFF_BUILD_TESTS and are not part of Corbomite's ctest run.
+set(MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS OFF CACHE BOOL "" FORCE)
 # Phase B bridge (MARKOFF_READING_USE_REAL_COREDEPS) retired in Markoff
 # v0.3.0 (Phase C1). markoff-reading now consumes host-provided
 # implementations of `Markoff::*` / `Markoff::Vault::*` interfaces via

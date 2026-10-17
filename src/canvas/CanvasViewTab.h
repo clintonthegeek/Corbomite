@@ -78,6 +78,11 @@ public:
     /// otherwise the absolute file path.
     QString localDataKey() const;
 
+    /// Path half of `localDataKey()`, without the `canvas-` prefix.
+    /// Vault-relative when the file is inside the vault, otherwise the
+    /// absolute file path. This is the canvas identity passed to Markoff.
+    QString canvasRelativePath() const;
+
     /// Cluster M M5.5 — the two commands, called by CanvasViewActions'
     /// KAction layer. Both are no-ops without a canvas loaded.
     ///

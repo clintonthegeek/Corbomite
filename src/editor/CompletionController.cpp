@@ -3,6 +3,7 @@
 
 #include "CompletionPopup.h"
 #include "LineResolve.h"
+#include "corbomite/core/EditingSession.h"
 #include "corbomite/core/EditorSuggest.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/NoteDocument.h"
@@ -202,7 +203,11 @@ void CompletionController::accept(const QString &display, const QString &insertT
     edit.withinBlockByteOffset = b0;
     edit.removedBytes = b1 - b0;
     edit.insertedUtf8 = insertText.toUtf8();
-    mdoc->applyBlockEdit(edit);          // undo-integrated; propagates to all leaves
+    const auto published = mdoc->applyBlockEdit(edit);
+    if (!publicationCommitted(published)) {
+        dismiss();
+        return;
+    }
 
     // Deterministic post-insert caret — never rely on a leaf's own
     // post-edit cursor behavior (spec §5).

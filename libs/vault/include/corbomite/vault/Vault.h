@@ -201,8 +201,8 @@ public Q_SLOTS:
 public:
     /// Called by the UI after the user resolves an externalReloadConflict
     /// modal (keep-mine / take-theirs / merged). Applies `resolvedContent`
-    /// to the document via Origin::ExternalReloadResolved, clearing the
-    /// undo stack and the dirty flag.
+    /// to the document as one replacement action and clears the dirty flag.
+    /// Accepted history is kept, so undo restores the previous projection.
     void resolveExternalReload(NoteDocument *doc, const QString &resolvedContent);
 
     /// Returns true when the underlying filesystem the loaded vault sits on
@@ -224,7 +224,7 @@ private:
     /// Reconcile an open NoteDocument with bytes just written by `modify()`.
     /// A self-write suppresses the watcher echo, so without this the live
     /// editor buffer would go stale vs disk. Refresh-if-clean, signal-if-dirty
-    /// — reuses the external-reload mechanism (resetContent / the
+    /// — reuses the external-reload mechanism (publishMarkdown / the
     /// externalReloadConflict signal). No-op when no doc is open for `rel`
     /// or the open doc already holds these bytes. `rel` is the normalized
     /// vault-relative path (TFile::path form, same key as m_docs).

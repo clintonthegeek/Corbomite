@@ -53,10 +53,7 @@ void TstVaultSaveReload::saveDocument_writesCanonicalBytesExactly()
     auto *note = vault.openDocument(QStringLiteral("t.md"));
     QVERIFY(note);
 
-    // Set new content via markoff() directly with FirstOpen origin.
-    // Use u8 literal for the snowman so the compiler encodes it correctly.
-    note->markoff()->resetContent(QString::fromUtf8("raw bytes \xe2\x98\x83").toUtf8(),
-                                  Markoff::Origin::FirstOpen);
+    QVERIFY(note->publishMarkdown(QString::fromUtf8("raw bytes \xe2\x98\x83").toUtf8()));
     note->setModified(true);
 
     QVERIFY(vault.saveDocument(note));
@@ -86,7 +83,7 @@ void TstVaultSaveReload::openDocument_notModifiedAfterHydration()
     QVERIFY(note);
 
     // Content should be hydrated correctly.
-    QCOMPARE(note->markdown(), QStringLiteral("initial content\n"));
+    QCOMPARE(note->markdown(), QStringLiteral("initial content"));
     // FirstOpen contentsChanged must NOT leave the note dirty.
     QVERIFY(!note->isModified());
 }

@@ -8,11 +8,43 @@
 
 #include <markoff/core/MarkoffDocument.h>
 #include <markoff/core/FindController.h>
-#include <markoff/core/Origin.h>
+#include <markoff/vnext/ActionPublicationCoordinator.h>
 
 #include "FindBar.h"
 
+#include <memory>
+
 using namespace Corbomite;
+
+// This target links markoff_core only. Open through the ephemeral provider
+// the same way the host session does, without pulling in corbomite-core.
+struct OpenedMarkoff {
+    std::unique_ptr<Markoff::VNext::DocumentStorageProvider> provider;
+    std::unique_ptr<Markoff::MarkoffDocument> document;
+    bool imported = false;
+    Markoff::MarkoffDocument *get() const { return document.get(); }
+};
+
+static OpenedMarkoff openImported(const QByteArray &markdown)
+{
+    static int serial = 0;
+    OpenedMarkoff out;
+    auto provider = Markoff::VNext::makeEphemeralDocumentStorageProvider();
+    if (!provider.ok())
+        return out;
+    out.provider = std::move(provider).value();
+    auto opened = Markoff::MarkoffDocument::open(
+        *out.provider,
+        {QStringLiteral("findbar-test-%1").arg(++serial), 1},
+        Markoff::VNext::StorageMode::ephemeral);
+    if (!opened.ok())
+        return out;
+    out.document = std::move(opened).value();
+    const auto published = out.document->importInitialMarkdown(markdown);
+    out.imported = published.state == Markoff::VNext::ActionPublicationState::committed
+        || published.state == Markoff::VNext::ActionPublicationState::committedHistoryPending;
+    return out;
+}
 
 class TstFindBar : public QObject {
     Q_OBJECT
@@ -56,9 +88,9 @@ void TstFindBar::unbound_safe()
 
 void TstFindBar::textChanged_updatesController()
 {
-    Markoff::MarkoffDocument doc(1);
-    doc.resetContent(QByteArray("Hello world\n"), Markoff::Origin::FirstOpen);
-    Markoff::FindController fc(&doc);
+    auto opened = openImported(QByteArray("Hello world\n"));
+    QVERIFY(opened.imported);
+    Markoff::FindController fc(opened.get());
 
     FindBar bar;
     bar.setController(&fc);
@@ -72,10 +104,10 @@ void TstFindBar::textChanged_updatesController()
 
 void TstFindBar::matchesChanged_updatesCountLabel()
 {
-    Markoff::MarkoffDocument doc(1);
     // "test" appears 3 times.
-    doc.loadFromMarkdown(QByteArray("test alpha test beta test\n"));
-    Markoff::FindController fc(&doc);
+    auto opened = openImported(QByteArray("test alpha test beta test\n"));
+    QVERIFY(opened.imported);
+    Markoff::FindController fc(opened.get());
     fc.activate();  // Host activates before showing the bar (see Task 7 showFindBar).
 
     FindBar bar;
@@ -91,9 +123,9 @@ void TstFindBar::matchesChanged_updatesCountLabel()
 
 void TstFindBar::noMatch_showsNoMatches()
 {
-    Markoff::MarkoffDocument doc(1);
-    doc.loadFromMarkdown(QByteArray("hello\n"));
-    Markoff::FindController fc(&doc);
+    auto opened = openImported(QByteArray("hello\n"));
+    QVERIFY(opened.imported);
+    Markoff::FindController fc(opened.get());
     fc.activate();  // Host activates before showing the bar (see Task 7 showFindBar).
 
     FindBar bar;
@@ -109,9 +141,9 @@ void TstFindBar::noMatch_showsNoMatches()
 
 void TstFindBar::prevNextButton_disabledWhenNoMatches()
 {
-    Markoff::MarkoffDocument doc(1);
-    doc.loadFromMarkdown(QByteArray("hello\n"));
-    Markoff::FindController fc(&doc);
+    auto opened = openImported(QByteArray("hello\n"));
+    QVERIFY(opened.imported);
+    Markoff::FindController fc(opened.get());
     fc.activate();  // Host activates before showing the bar (see Task 7 showFindBar).
 
     FindBar bar;
@@ -137,9 +169,9 @@ void TstFindBar::prevNextButton_disabledWhenNoMatches()
 
 void TstFindBar::returnKey_callsFindNext()
 {
-    Markoff::MarkoffDocument doc(1);
-    doc.loadFromMarkdown(QByteArray("test alpha test beta test\n"));
-    Markoff::FindController fc(&doc);
+    auto opened = openImported(QByteArray("test alpha test beta test\n"));
+    QVERIFY(opened.imported);
+    Markoff::FindController fc(opened.get());
     fc.activate();
 
     FindBar bar;
@@ -154,9 +186,9 @@ void TstFindBar::returnKey_callsFindNext()
 
 void TstFindBar::shiftReturn_callsFindPrev()
 {
-    Markoff::MarkoffDocument doc(1);
-    doc.loadFromMarkdown(QByteArray("test alpha test beta test\n"));
-    Markoff::FindController fc(&doc);
+    auto opened = openImported(QByteArray("test alpha test beta test\n"));
+    QVERIFY(opened.imported);
+    Markoff::FindController fc(opened.get());
     fc.activate();
 
     FindBar bar;
@@ -174,9 +206,9 @@ void TstFindBar::shiftReturn_callsFindPrev()
 
 void TstFindBar::nextButton_callsFindNext()
 {
-    Markoff::MarkoffDocument doc(1);
-    doc.loadFromMarkdown(QByteArray("test alpha test beta test\n"));
-    Markoff::FindController fc(&doc);
+    auto opened = openImported(QByteArray("test alpha test beta test\n"));
+    QVERIFY(opened.imported);
+    Markoff::FindController fc(opened.get());
     fc.activate();
 
     FindBar bar;
@@ -192,9 +224,9 @@ void TstFindBar::nextButton_callsFindNext()
 
 void TstFindBar::prevButton_callsFindPrev()
 {
-    Markoff::MarkoffDocument doc(1);
-    doc.loadFromMarkdown(QByteArray("test alpha test beta test\n"));
-    Markoff::FindController fc(&doc);
+    auto opened = openImported(QByteArray("test alpha test beta test\n"));
+    QVERIFY(opened.imported);
+    Markoff::FindController fc(opened.get());
     fc.activate();
 
     FindBar bar;

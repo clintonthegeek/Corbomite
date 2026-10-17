@@ -268,10 +268,9 @@ bool Vault::modify(TFile *f, const QByteArray &body, const WriteHints &hints)
 // back from disk:
 //   - no open doc                  → nothing to do (tree/cache already updated).
 //   - already byte-equal           → no-op (don't churn the CRDT / undo stack).
-//   - clean (no unsaved edits)      → resetContent + setModified(false): the
-//                                     watermark re-records so the deferred
-//                                     documentReloaded/d2DocumentChanged the
-//                                     reset queues cannot re-dirty the doc.
+//   - clean (no unsaved edits)      → publishMarkdown + setModified(false): the
+//                                     watermark re-records so a deferred
+//                                     d2DocumentChanged cannot re-dirty the doc.
 //   - dirty (unsaved user edits)    → DO NOT clobber; emit externalReloadConflict
 //                                     so the editor layer can decide (same
 //                                     conflict seam the watcher path uses).
@@ -286,11 +285,15 @@ void Vault::reconcileOpenDocument(const QString &rel, const QByteArray &body)
     if (doc->markoff()->serializeForSave() == body) return;
 
     if (!doc->isModified()) {
-        // Clean: adopt the new bytes wholesale, clear the undo stack.
-        doc->markoff()->resetContent(body, Markoff::Origin::ExternalReloadClean);
-        // resetContent emits documentReloaded (which re-dirties via the
-        // !modified && hasUnsavedEdits() gate); reset to false afterwards so
-        // the doc ends consistent-with-disk and the watermark is re-recorded.
+        // Clean: publish the new bytes as one replacement action. History is
+        // kept, so a later undo restores the pre-reload projection. That is
+        // the provider-backed contract; we do not open a second document.
+        if (!doc->publishMarkdown(body)) {
+            qCWarning(lcVaultSafety,
+                "Vault::reconcileOpenDocument: Markdown replacement was not committed for \"%s\"",
+                qUtf8Printable(rel));
+            return;
+        }
         doc->setModified(false);
     } else {
         // Dirty: never lose the user's unsaved edits. Defer to the editor
@@ -762,14 +765,11 @@ NoteDocument *Vault::openDocument(const QString &relPath)
     auto *doc = new NoteDocument(m_basePath, rel, this);
     if (auto *tf = getFileByPath(rel)) {
         const QByteArray bytes = cachedRead(tf);
-        // TODO(port-foundation-exploration): resetContent only populates the
-        // legacy buffer (d->buffer); D2 per-block CRDT state (which
-        // iterateBlocks queries) is built only by loadFromMarkdown. Using
-        // loadFromMarkdown for the FirstOpen path so views actually see
-        // content. resetContent stays for ExternalReload paths below until
-        // we verify the same fix applies (it likely does — Origin's only
-        // remaining role is undo-stack handling).
-        doc->markoff()->loadFromMarkdown(bytes);
+        if (!doc->publishMarkdown(bytes)) {
+            qCWarning(lcVaultSafety,
+                "Vault::openDocument: initial Markdown import was not committed for \"%s\"",
+                qUtf8Printable(rel));
+        }
     }
     // FirstOpen emits contentsChanged which sets modified=true; undo that.
     doc->setModified(false);
@@ -790,11 +790,19 @@ bool Vault::saveDocument(NoteDocument *doc)
     TFile *tf = getFileByPath(rel);
     if (!tf) return false;
 
-    // Write canonical UTF-8 bytes verbatim — no QTextDocumentWriter, no
-    // format coercion. serializeForSave() is the MarkoffDocument's D2-aware
-    // canonical save serializer; toMarkdown() reads the legacy buffer which
-    // D2 edits do not update (Markoff handoff 2026-05-21-save-path-data-loss.md).
-    const QByteArray bytes = doc->markoff()->serializeForSave();
+    // Markdown is the export. The accepted revision is what a later
+    // collaboration plugin will recover from; acknowledging it does not
+    // compact that history.
+    const auto snapshot = doc->markoff()->snapshotForExport();
+    if (!snapshot.ok()) {
+        qCWarning(lcVaultSafety,
+            "Vault::saveDocument: no export snapshot for rel=\"%s\"",
+            qUtf8Printable(rel));
+        Q_EMIT doc->saveFailed();
+        Q_EMIT documentSaveFailed(rel, QStringLiteral("document has no export snapshot"));
+        return false;
+    }
+    const QByteArray bytes = snapshot.value().markdown;
 
     // Terminal guard (C8 Task 5.4): the canonical buffer must never contain
     // U+FFFC. If it does, a presentation-layer glyph leaked into the source
@@ -842,6 +850,11 @@ bool Vault::saveDocument(NoteDocument *doc)
         tf->stat->mtimeMs   = nowMs;
     }
 
+    if (!doc->markoff()->acknowledgeExport(snapshot.value()).ok()) {
+        qCWarning(lcVaultSafety,
+            "Vault::saveDocument: export acknowledgement rejected for rel=\"%s\"",
+            qUtf8Printable(rel));
+    }
     doc->setModified(false);
     Q_EMIT doc->saved();
     Q_EMIT documentSaved(rel);
@@ -939,12 +952,12 @@ void Vault::onExternalModified(const QString &relPath)
     const QString newContent = QString::fromUtf8(diskFile.readAll());
 
     if (!doc->isModified()) {
-        // Clean case: apply wholesale, clear undo stack, emit documentReloaded.
-        // TODO(port-foundation-exploration): resetContent takes QByteArray.
-        doc->markoff()->resetContent(newContent.toUtf8(), Markoff::Origin::ExternalReloadClean);
-        // resetContent emits documentReloaded, which fires NoteDocument's
-        // handler and sets modified=true (because !d->modified was true before
-        // the reload). Explicitly reset to false after the reload.
+        if (!doc->publishMarkdown(newContent.toUtf8())) {
+            qCWarning(lcVaultSafety,
+                "Vault::onExternalModified: Markdown replacement was not committed for \"%s\"",
+                qUtf8Printable(rel));
+            return;
+        }
         doc->setModified(false);
     } else {
         // Dirty case: do NOT auto-apply; defer to UI via the conflict signal.
@@ -955,10 +968,11 @@ void Vault::onExternalModified(const QString &relPath)
 void Vault::resolveExternalReload(NoteDocument *doc, const QString &resolvedContent)
 {
     if (!doc) return;
-    // TODO(port-foundation-exploration): resetContent takes QByteArray.
-    doc->markoff()->resetContent(resolvedContent.toUtf8(), Markoff::Origin::ExternalReloadResolved);
-    // Same reasoning as the clean case: resetContent → documentReloaded →
-    // NoteDocument sets modified=true; override to false post-merge.
+    if (!doc->publishMarkdown(resolvedContent.toUtf8())) {
+        qCWarning(lcVaultSafety,
+            "Vault::resolveExternalReload: Markdown replacement was not committed");
+        return;
+    }
     doc->setModified(false);
 }
 

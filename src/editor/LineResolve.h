@@ -26,12 +26,11 @@ std::optional<ResolvedLine> resolveLine(const Markoff::MarkoffDocument *doc, int
 /// offset into the block buffer. Clamps charPos to [0, length].
 uint32_t byteOffsetForChar(const QString &blockText, int charPos);
 
-/// Global UTF-8 byte offset of the (line, column) caret in the coordinate
-/// space MarkoffDocument::applyFlatEdit indexes: the no-separator
+/// Global UTF-8 byte offset of the (line, column) caret in the no-separator
 /// concatenation of blockText(id) over iterateBlocks() order. `column` is
 /// 1-based and clamped to the resolved line's length. nullopt when the line
-/// cannot be resolved (see resolveLine). This is the bridge a flat,
-/// structural insert-at-cursor (e.g. template insertion) uses.
+/// cannot be resolved (see resolveLine). NoteDocument::insertAtFlatOffset
+/// maps this offset back onto one block. Template insertion uses that path.
 std::optional<uint32_t> globalByteOffsetForCursor(
     const Markoff::MarkoffDocument *doc, int line, int column);
 

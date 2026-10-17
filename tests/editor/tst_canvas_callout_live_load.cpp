@@ -5,16 +5,10 @@
 // MarkoffDocument::loadFromMarkdown unit test (markoff-canvas's own
 // tst_canvas_side_content already covers that in isolation).
 //
-// Vault::openDocument's FirstOpen path calls
-// `doc->markoff()->loadFromMarkdown(bytes)` (see Vault.cpp) specifically
-// because plain resetContent() only populates the legacy flat buffer, not
-// the D2 per-block CRDT state that `iterateBlocks()`/View/BlockPresentation
-// consume — the same class of gap that caused the 2026-08 image-block
-// promotion bug. This test reproduces that exact call sequence (not
-// NoteDocument::setMarkdown(), which still routes through resetContent)
-// and confirms the canvas LivePreview leaf's View::isCalloutBlock() fires
-// for the resulting block, i.e. callouts are NOT blocked on any live-load
-// promotion gap.
+// Vault::openDocument's first-open path calls NoteDocument::publishMarkdown,
+// which is the initial import into the provider-backed document. This test
+// uses that same call and confirms the canvas LivePreview leaf's
+// View::isCalloutBlock() fires for the resulting block.
 //
 // Runs under QT_QPA_PLATFORM=offscreen.
 
@@ -44,10 +38,8 @@ private Q_SLOTS:
         QVERIFY(QTest::qWaitForWindowExposed(&widget));
 
         NoteDocument doc(QStringLiteral("/tmp/vault"), QStringLiteral("note.md"));
-        // Vault::openDocument's exact FirstOpen sequence — loadFromMarkdown,
-        // not setMarkdown()/resetContent().
-        doc.markoff()->loadFromMarkdown(
-            QByteArrayLiteral("> [!note]\n> Some callout body text.\n"));
+        QVERIFY(doc.publishMarkdown(
+            QByteArrayLiteral("> [!note]\n> Some callout body text.\n")));
 
         widget.setNoteDocument(&doc);
 
@@ -71,8 +63,8 @@ private Q_SLOTS:
         QVERIFY(QTest::qWaitForWindowExposed(&widget));
 
         NoteDocument doc(QStringLiteral("/tmp/vault"), QStringLiteral("note2.md"));
-        doc.markoff()->loadFromMarkdown(
-            QByteArrayLiteral("> Just a plain quote, no callout marker.\n"));
+        QVERIFY(doc.publishMarkdown(
+            QByteArrayLiteral("> Just a plain quote, no callout marker.\n")));
 
         widget.setNoteDocument(&doc);
 

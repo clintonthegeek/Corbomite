@@ -16,6 +16,8 @@ add_library(corbomite-core SHARED
     src/NoteMeta.cpp
     src/NoteDocument.cpp
     include/corbomite/core/NoteDocument.h
+    src/EditingSession.cpp
+    include/corbomite/core/EditingSession.h
     src/RenderedDocument.cpp
     src/MarkdownRenderEngine.cpp
     src/SubpathExtract.cpp

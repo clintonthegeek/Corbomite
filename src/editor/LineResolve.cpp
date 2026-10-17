@@ -43,9 +43,9 @@ std::optional<uint32_t> globalByteOffsetForCursor(
     const auto rl = resolveLine(doc, line);
     if (!rl) return std::nullopt;
 
-    // applyFlatEdit's coordinate space concatenates blockText with NO
-    // separators, so the cursor block's base offset is the sum of preceding
-    // block byte sizes only.
+    // The flat offset concatenates blockText with NO separators, so the
+    // cursor block's base offset is the sum of preceding block byte sizes
+    // only.
     const auto ids = doc->iterateBlocks();
     uint32_t base = 0;
     for (int r = 0; r < rl->blockRow; ++r)

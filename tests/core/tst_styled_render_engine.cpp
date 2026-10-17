@@ -46,6 +46,18 @@ private Q_SLOTS:
         QVERIFY(text.contains(QStringLiteral("bravo")));
         QVERIFY(!text.contains(QStringLiteral("alpha")));
     }
+
+    void render_documentKeyHint_stillPaintsBody()
+    {
+        StyledRenderEngine engine;
+        Corbomite::RenderOptions opts;
+        opts.documentKeyHint = QStringLiteral("/vault\nnotes/a.md");
+        auto rendered = engine.render(QStringLiteral("# Title\n\nbody text here"), opts);
+        QVERIFY(rendered != nullptr);
+        QTextDocument *doc = rendered->toQTextDocument();
+        QVERIFY(doc != nullptr);
+        QVERIFY(doc->toPlainText().contains(QStringLiteral("body text here")));
+    }
 };
 
 QTEST_MAIN(StyledRenderEngineTest)

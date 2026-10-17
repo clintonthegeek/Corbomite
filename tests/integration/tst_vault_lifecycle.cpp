@@ -54,8 +54,8 @@ private Q_SLOTS:
 
         // Open and modify note
         auto *opened = vault.openDocument(QStringLiteral("note1.md"));
-        // serializeForSave() canonicalises to a single trailing newline (Markoff B1).
-        QCOMPARE(opened->markdown(), QStringLiteral("# Note 1\n"));
+        // A pristine import round-trips the file bytes.
+        QCOMPARE(opened->markdown(), QStringLiteral("# Note 1"));
         opened->setMarkdown(QStringLiteral("# Modified Note 1"));
         QVERIFY(opened->isModified());
 
@@ -66,7 +66,7 @@ private Q_SLOTS:
         // Verify on disk
         QFile f(tmp.path() + "/note1.md");
         f.open(QIODevice::ReadOnly);
-        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("# Modified Note 1\n"));
+        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("# Modified Note 1"));
 
         // Rename
         QVERIFY(fileManager.renameFileByPath(QStringLiteral("new-note.md"), QStringLiteral("renamed.md")));

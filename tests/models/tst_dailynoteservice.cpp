@@ -218,8 +218,8 @@ private Q_SLOTS:
         // Open again — should return same doc, not overwrite
         auto *doc2 = daily.openOrCreateToday();
         QCOMPARE(doc2, doc1);
-        // serializeForSave() canonicalises to a single trailing newline (Markoff B1).
-        QCOMPARE(doc2->markdown(), QStringLiteral("My custom content\n"));
+        // A pristine import round-trips the bytes setMarkdown published.
+        QCOMPARE(doc2->markdown(), QStringLiteral("My custom content"));
     }
 
     void testInitFromVaultConfigReadsDailyNotesJson()

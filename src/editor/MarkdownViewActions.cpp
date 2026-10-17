@@ -495,15 +495,15 @@ void MarkdownViewActions::setupActions()
                         i18n("markoff: no insert-media verb (only insertLink exists)"));
     registerPlannedAction(QStringLiteral("insert_code_block"),
                         QStringLiteral("code-block"), i18n("Insert Code Block"),
-                        i18n("markoff:block-kind change (code fence); applyFlatEdit is Paragraph-only"));
+                        i18n("Needs a real block-kind change (code fence); a flat text insert stays a paragraph"));
     registerPlannedAction(QStringLiteral("insert_block_quote"),
                         QStringLiteral("format-text-blockquote"),
                         i18n("Insert Block Quote"),
-                        i18n("markoff:block-kind change (blockquote); applyFlatEdit is Paragraph-only"));
+                        i18n("Needs a real block-kind change (blockquote); a flat text insert stays a paragraph"));
     registerPlannedAction(QStringLiteral("insert_horizontal_rule"),
                         QStringLiteral("distribute-horizontal-center"),
                         i18n("Insert Horizontal Rule"),
-                        i18n("markoff:block-kind change (thematic break); applyFlatEdit is Paragraph-only"));
+                        i18n("Needs a real block-kind change (thematic break); a flat text insert stays a paragraph"));
     registerPlannedAction(QStringLiteral("toggle_checkbox"),
                         QStringLiteral("checkbox"), i18n("Toggle Checkbox"),
                         i18n("markoff:task-state toggle; the ListItem marker is outside the edited byte span"));
@@ -577,7 +577,7 @@ void MarkdownViewActions::setupActions()
     //
     // They are now registered disabled with a stated blocker, consistent with
     // every other planned action. Deliberately NOT shipped as an
-    // applyFlatEdit-based fake — that inserts flat Paragraphs, which is not a
+    // flat-text fake — that would insert paragraphs, which is not a
     // table and would corrupt the note. Re-enable when O7.T3's Markoff verbs
     // land. The dialog classes themselves are left in place; they are still
     // the right UI once there is something to insert them into.

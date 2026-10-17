@@ -13,6 +13,7 @@
 #include "canvas/FileCardItem.h"
 #include "canvas/GroupItem.h"
 #include "canvas/EdgeItem.h"
+#include "corbomite/core/EditingSession.h"
 #include "corbomite/core/MarkdownRenderEngine.h"
 #include "corbomite/core/RenderOptions.h"
 
@@ -51,6 +52,18 @@
 #include <QUndoStack>
 #include <QtMath>
 #include <KLocalizedString>
+
+namespace {
+
+Corbomite::RenderOptions textCardOptions(const QString &canvasRelativePath, const QString &nodeId)
+{
+    Corbomite::RenderOptions opts;
+    if (!canvasRelativePath.isEmpty() && !nodeId.isEmpty())
+        opts.documentKeyHint = Corbomite::canvasTextCardKeyHint(canvasRelativePath, nodeId);
+    return opts;
+}
+
+} // namespace
 
 namespace Canvas {
 
@@ -464,7 +477,8 @@ TextCardItem *CanvasScene::addTextCardItem(const CanvasNode &node)
 
     // Render text card content via engine if available
     if (m_renderEngine && !node.text.isEmpty()) {
-        auto rendered = m_renderEngine->render(node.text);
+        auto rendered = m_renderEngine->render(
+            node.text, textCardOptions(m_canvasRelativePath, node.id));
         item->setRenderedDocument(std::move(rendered));
     }
 
@@ -519,6 +533,13 @@ void CanvasScene::removeEdgeItem(const QString &id)
 // Render engine and file resolver
 // ---------------------------------------------------------------------------
 
+void CanvasScene::setSessionContext(const QString &vaultRoot, const QString &canvasRelativePath)
+{
+    m_vaultRoot = vaultRoot;
+    m_canvasRelativePath = canvasRelativePath;
+    reRenderAllCards();
+}
+
 void CanvasScene::setRenderEngine(Corbomite::MarkdownRenderEngine *engine)
 {
     m_renderEngine = engine;
@@ -539,7 +560,8 @@ void CanvasScene::reRenderAllCards()
                 card->setRenderedDocument(nullptr);
                 continue;
             }
-            card->setRenderedDocument(m_renderEngine->render(text));
+            card->setRenderedDocument(m_renderEngine->render(
+                text, textCardOptions(m_canvasRelativePath, card->nodeId())));
         } else if (auto *file = dynamic_cast<FileCardItem *>(node)) {
             renderFileCard(file);
         }
@@ -877,6 +899,13 @@ void CanvasScene::renderFileCard(FileCardItem *item)
 
     Corbomite::RenderOptions opts;
     opts.subpath = item->nodeData().subpath;
+    opts.vaultRoot = m_vaultRoot;
+    opts.notePath = item->nodeData().file;
+    // Same hint as NoteDocument for this file. openForRender will not
+    // import this (possibly subpath-sliced) buffer when that document is
+    // already ready.
+    if (!m_vaultRoot.isEmpty() && !item->nodeData().file.isEmpty())
+        opts.documentKeyHint = Corbomite::noteDocumentKeyHint(m_vaultRoot, item->nodeData().file);
 
     auto rendered = m_renderEngine->render(markdown, opts);
     item->setRenderedDocument(std::move(rendered));
@@ -967,7 +996,8 @@ void CanvasScene::onNodeChanged(const QString &id)
     if (auto *card = textCardItem(id)) {
         card->setNodeData(node);
         if (m_renderEngine && !node.text.isEmpty()) {
-            auto rendered = m_renderEngine->render(node.text);
+            auto rendered = m_renderEngine->render(
+                node.text, textCardOptions(m_canvasRelativePath, node.id));
             card->setRenderedDocument(std::move(rendered));
         }
     } else if (auto *file = fileCardItem(id)) {
@@ -1415,7 +1445,8 @@ void CanvasScene::finishInlineEdit()
         }
         // Re-render if engine is available
         if (m_renderEngine) {
-            auto rendered = m_renderEngine->render(newText);
+            auto rendered = m_renderEngine->render(
+                newText, textCardOptions(m_canvasRelativePath, nodeId));
             card->setRenderedDocument(std::move(rendered));
         }
     }
