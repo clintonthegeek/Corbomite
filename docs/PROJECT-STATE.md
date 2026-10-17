@@ -6,11 +6,11 @@ Where we are. Not a journal. A closeout is a paragraph in [`decisions-archive.md
 
 Do these in order. Do not start a later step while an earlier one is open. A box blocked on an upstream handoff does not hold the next step.
 
-**Current action:** Cluster M6.3 missing-file placeholder (trajectory step 3).
+**Current action:** trajectory step 4 — the punch-list backlog (open P1s first), then clusters F-a, Q, D.5, F-b and Cluster O's inspector slots.
 
 1. **Markoff vNext** landed (`150446a2`): the pin (`dca64686`), the session seam, canvas paint identity, and the host comment cleanup. The card-editor swap and the re-pin check stay open in **Now**, blocked on the Markoff handoff, and do not hold step 3. Re-apply the `DocumentRenderer` history-pending check on every re-pin; do not build a collaboration journal.
 2. **Punch-list §Next closed 2026-10-17.** The metadata-cache `indexFinished` fix (`30b9f264`), the frontmatter single-reader decision plus payload splice (`f5e5bf13`), the canvas-reference index M6.1 (`faba8c25`), and the metadata `changed` payload (`3f1d05f1`) are all in the tree. Full closeout in [`decisions-archive.md`](decisions-archive.md).
-3. **Cluster M6.2 landed 2026-10-17.** `FileManager` routes non-Markdown sources through a per-extension `LinkRewriter`, and `Canvas::CanvasLinkRewriter` rewrites file-node, group, and text-card links through `CanvasDocument`; open canvases are mutated in place. Next is M6.3, the missing-file placeholder.
+3. **Cluster M6 landed in code** (M6.2 `05961e27`): `FileManager` routes non-Markdown sources through a per-extension `LinkRewriter`, and `Canvas::CanvasLinkRewriter` rewrites file-node, group, and text-card links through `CanvasDocument`; M6.3 adds the missing-file placeholder with Create / Locate… / Remove and vault-event auto-resolve. M6's live-eyeball exit check is queued as punch-list `[canvas][P3][cluster-m]`.
 4. **Later** — the punch-list backlog, then clusters F-a, Q, D.5, and F-b, plus Cluster O's leftover inspector slots. Index: [`superpowers/plans/INDEX.md`](superpowers/plans/INDEX.md). `2026-06-10-road-to-dogfood.md` is not a dispatch.
 
 Markdown files stay the on-disk contract. Standing constraints are the guardrails at the top of [`punch-list.md`](punch-list.md).

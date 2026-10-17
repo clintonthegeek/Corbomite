@@ -12,6 +12,12 @@ add_test(NAME tst_canvasdocument COMMAND tst_canvasdocument)
 target_link_libraries(tst_canvasdocument PRIVATE Qt6::Test canvas)
 set_tests_properties(tst_canvasdocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster M Phase M6.3 — missing-file placeholder (logic up to the live check).
+add_executable(tst_canvas_missing_file tst_canvas_missing_file.cpp)
+add_test(NAME tst_canvas_missing_file COMMAND tst_canvas_missing_file)
+target_link_libraries(tst_canvas_missing_file PRIVATE Qt6::Test Qt6::Widgets canvas Corbomite::Core)
+set_tests_properties(tst_canvas_missing_file PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster M Phase M6.2 — canvas link rewrite on vault rename.
 add_executable(tst_canvas_link_rewriter tst_canvas_link_rewriter.cpp)
 add_test(NAME tst_canvas_link_rewriter COMMAND tst_canvas_link_rewriter)

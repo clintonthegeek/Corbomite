@@ -93,6 +93,14 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
         return QString::fromUtf8(file.readAll());
     });
 
+    // M6.3 — distinguish a missing file-card target from an existing empty
+    // file, so the placeholder only appears for a dangling card.
+    m_view->canvasScene()->setFileExistsChecker([resolveBase](const QString &path) -> bool {
+        if (path.isEmpty())
+            return false;
+        return QFileInfo::exists(resolveBase + QLatin1Char('/') + path);
+    });
+
     m_view->canvasScene()->setFileSaver([resolveBase](const QString &path, const QString &content) {
         QString fullPath = resolveBase + QLatin1Char('/') + path;
         QFile file(fullPath);
@@ -225,6 +233,12 @@ QString CanvasViewTab::localDataKey() const
 Canvas::CanvasDocument *CanvasViewTab::canvasDocument() const
 {
     return m_document;
+}
+
+void CanvasViewTab::refreshFileCards(const QString &vaultRelativePath)
+{
+    if (auto *scene = m_view ? m_view->canvasScene() : nullptr)
+        scene->refreshFileCards(vaultRelativePath);
 }
 
 void CanvasViewTab::setLocalDataStore(LocalDataReader reader, LocalDataWriter writer)

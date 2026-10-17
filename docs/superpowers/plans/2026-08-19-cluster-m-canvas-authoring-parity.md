@@ -628,16 +628,25 @@ not safe for JSON and remains M6.2's dedicated `CanvasDocument` mutation.
       (seam), `tst_canvas_link_rewriter` (rewriter + open-doc mutation),
       `tst_canvas_rename_rewrite` (end-to-end through FileManager, unknown
       fields intact).
-- [ ] **M6.3 Missing-file placeholder** — `FileCardItem` whose `file`
-      doesn't resolve renders the existing empty state plus an i18n'd
-      "File not found: <path>" + buttons Create / Locate… / Remove;
-      auto-resolve: on vault create/rename events matching the path,
-      re-render the card (subscribe via the vault watcher the scene's host
-      already has — thread through `CanvasViewTab`). Test: fixture with a
-      dangling file node → placeholder; create the file → card renders.
+- [x] **M6.3 Missing-file placeholder** — landed 2026-10-17 (logic + offscreen
+      tests). `CanvasScene::setFileExistsChecker` separates "missing" from
+      "exists but empty"; a card whose `file` does not resolve paints
+      i18n("File not found: %1") plus Create / Locate… / Remove
+      (`FileCardItem::buttonAt` hit-tests them; `CanvasScene::mousePressEvent`
+      routes them; the actions are public for testing). Create writes an empty
+      file via the file-saver, Locate re-picks a path, Remove pushes
+      `CmdRemoveCard`. Auto-resolve: `CanvasScene::refreshFileCards` +
+      `CanvasViewTab`/`CanvasFileView::refreshFileCards`, driven from
+      `MainWindow`'s Vault created/modified/deleted/renamed handlers. Tests:
+      `tst_canvas_missing_file` (placeholder, empty-vs-missing, refresh,
+      hit-testing, create/locate/remove).
+      **Live eyeball QUEUED (punch-list `[canvas][P3]`)** — the buttons'
+      pixels, hover/cursor, and the real create/locate/remove flow need the
+      app; offscreen-green does not close M6 interaction work.
 - Exit: a canvas behaves like a first-class vault citizen — its links appear
   in backlinks/outgoing/unresolved panels, renames never break it, and a
-  dangling card is a recoverable state, not a blank.
+  dangling card is a recoverable state, not a blank. **M6.2 + M6.3 code is
+  in; the M6 exit's live-eyeball half is queued.**
 
 ## Explore-agent dispatch prompts
 

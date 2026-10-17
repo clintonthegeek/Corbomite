@@ -6,7 +6,7 @@ Read this, then [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md). That file is t
 
 Follow the trajectory in order. Do not start a later step while an earlier one is open. A box that says it is blocked on an upstream handoff does not hold the next step. The canvas card editor is that box.
 
-The current action is trajectory step 3: Cluster M6.3 (missing-file placeholder). Then the backlog.
+The current action is trajectory step 4: the punch-list backlog (open P1s first), then clusters F-a, Q, D.5, F-b and Cluster O's inspector slots. Cluster M6's live-eyeball exit check is queued in the punch-list.
 
 Markoff vNext's unblocked work is already in the working tree, uncommitted. Do not redo it. Do not build a collaboration journal. Markdown files stay the on-disk contract.
 

@@ -103,6 +103,28 @@ public:
     using FileResolver = std::function<QString(const QString &filePath)>;
     void setFileResolver(FileResolver resolver);
 
+    // M6.3 — distinguishes "file missing" from "file exists but is empty" for
+    // the file-card placeholder. When unset, an empty resolver result is
+    // treated as missing (the pre-M6.3 behaviour).
+    using FileExists = std::function<bool(const QString &filePath)>;
+    void setFileExistsChecker(FileExists checker);
+
+    /// Unlike the resolver, this reports whether a file node's target exists.
+    bool fileCardResolves(const QString &filePath) const;
+
+    // M6.3 — the three missing-file placeholder button actions. Public and
+    // separately callable (same rationale as createFileCardViaPicker()) so
+    // tests can exercise them without synthesising mouse events. Each returns
+    // true when it acted.
+    bool createMissingFileCard(const QString &nodeId);
+    bool locateMissingFileCard(const QString &nodeId);
+    bool removeMissingFileCard(const QString &nodeId);
+
+    /// M6.3 auto-resolve: re-render every file card whose `file` equals
+    /// `filePath` (vault create/rename), or every file card when `filePath`
+    /// is empty.
+    void refreshFileCards(const QString &filePath = QString());
+
     // File content saver
     using FileSaver = std::function<void(const QString &filePath, const QString &content)>;
     void setFileSaver(FileSaver saver);
@@ -407,6 +429,7 @@ private:
     QString m_vaultRoot;
     QString m_canvasRelativePath;
     FileResolver m_fileResolver;
+    FileExists m_fileExists;
     FileSaver m_fileSaver;
     FilePickerRequestor m_filePickerRequestor;
     FileNameRequestor m_fileNameRequestor;

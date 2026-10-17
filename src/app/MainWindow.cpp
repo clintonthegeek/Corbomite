@@ -2572,11 +2572,22 @@ void MainWindow::onVaultOpened(const QString &path)
         m_metadataCache->onFileChanged(relPath, bytes, mtimeMs);
     });
 
+    // M6.3 — a vault create/rename can resolve a dangling canvas file card.
+    // Refresh every open canvas for the affected path(s).
+    auto refreshCanvasCards = [this](const QString &path) {
+        if (!m_workspace || path.isEmpty()) return;
+        for (auto *leaf : m_workspace->allLeaves()) {
+            if (auto *cfv = qobject_cast<CanvasFileView *>(leaf->view()))
+                cfv->refreshFileCards(path);
+        }
+    };
+
     // Q.0 P7 — external-filesystem events flow through Vault's signals.
     // Self-writes are suppressed by Vault's echo-suppression ledger, so these
     // handlers only fire for genuinely external mutations.
     connect(m_vaultObj, &Vault::created, this,
-            [this](TAbstractFile *f) {
+            [this, refreshCanvasCards](TAbstractFile *f) {
+        if (f) refreshCanvasCards(f->path);
         auto *tf = dynamic_cast<TFile *>(f);
         if (!tf) return;
         // Task 0.3 P1 — keep LinkResolver fresh; feed all file types so
@@ -2589,8 +2600,9 @@ void MainWindow::onVaultOpened(const QString &path)
         const qint64 mtimeMs = tf->stat ? tf->stat->mtimeMs : 0;
         m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);
     });
-    connect(m_vaultObj, &Vault::modified, this, [this](TFile *tf) {
+    connect(m_vaultObj, &Vault::modified, this, [this, refreshCanvasCards](TFile *tf) {
         if (!tf) return;
+        refreshCanvasCards(tf->path);
         // Every TextFileView learns about external modifications so it can
         // reload / three-way-merge as appropriate.
         if (m_workspace) {
@@ -2607,16 +2619,22 @@ void MainWindow::onVaultOpened(const QString &path)
             m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);
         }
     });
-    connect(m_vaultObj, &Vault::deletedFile, this, [this](TAbstractFile *f) {
+    connect(m_vaultObj, &Vault::deletedFile, this, [this, refreshCanvasCards](TAbstractFile *f) {
         if (!f) return;
+        // A delete can make a file card dangle.
+        refreshCanvasCards(f->path);
         // Task 0.3 P1 — keep LinkResolver fresh on delete.
         if (m_linkResolver) m_linkResolver->removeVaultPath(f->path);
         if (!m_metadataCache) return;
         m_metadataCache->onFileDeleted(f->path);
     });
     connect(m_vaultObj, &Vault::renamed, this,
-            [this](TAbstractFile *f, const QString &oldPath) {
+            [this, refreshCanvasCards](TAbstractFile *f, const QString &oldPath) {
         if (!f) return;
+        // A rename can resolve a dangling card (new path) or create one
+        // (old path).
+        refreshCanvasCards(f->path);
+        refreshCanvasCards(oldPath);
         auto *tf = dynamic_cast<TFile *>(f);
         // Task 0.3 P1 — keep LinkResolver fresh on rename (all file types).
         if (m_linkResolver && tf) {

@@ -578,6 +578,75 @@ void CanvasScene::setFileResolver(FileResolver resolver)
     m_fileResolver = std::move(resolver);
 }
 
+void CanvasScene::setFileExistsChecker(FileExists checker)
+{
+    m_fileExists = std::move(checker);
+}
+
+bool CanvasScene::fileCardResolves(const QString &filePath) const
+{
+    if (filePath.isEmpty())
+        return false;
+    if (m_fileExists)
+        return m_fileExists(filePath);
+    // No checker (unit tests / detached scenes): missing and empty cannot be
+    // told apart, so report present and let the resolver content decide. The
+    // placeholder + buttons require an explicit checker, which the real app
+    // always sets.
+    return true;
+}
+
+bool CanvasScene::createMissingFileCard(const QString &nodeId)
+{
+    if (!m_document || m_readOnly || !m_fileSaver)
+        return false;
+    const CanvasNode node = m_document->node(nodeId);
+    if (node.type != NodeType::File || node.file.isEmpty())
+        return false;
+    m_fileSaver(node.file, QString());
+    refreshFileCards(node.file);
+    return true;
+}
+
+bool CanvasScene::locateMissingFileCard(const QString &nodeId)
+{
+    if (!m_document || m_readOnly || !m_filePickerRequestor)
+        return false;
+    const QString picked = m_filePickerRequestor();
+    if (picked.isEmpty())
+        return false;
+    CanvasNode node = m_document->node(nodeId);
+    if (node.type != NodeType::File)
+        return false;
+    node.file = picked;
+    // updateNode emits nodeChanged -> onNodeChanged -> renderFileCard.
+    m_document->updateNode(node);
+    return true;
+}
+
+bool CanvasScene::removeMissingFileCard(const QString &nodeId)
+{
+    if (!m_document || m_readOnly || !m_undoStack)
+        return false;
+    m_undoStack->push(new CmdRemoveCard(m_document, nodeId));
+    return true;
+}
+
+void CanvasScene::refreshFileCards(const QString &filePath)
+{
+    if (!m_document)
+        return;
+    const QVector<CanvasNode> nodes = m_document->nodes();
+    for (const CanvasNode &node : nodes) {
+        if (node.type != NodeType::File)
+            continue;
+        if (!filePath.isEmpty() && node.file != filePath)
+            continue;
+        if (auto *item = fileCardItem(node.id))
+            renderFileCard(item);
+    }
+}
+
 void CanvasScene::setFileSaver(FileSaver saver)
 {
     m_fileSaver = std::move(saver);
@@ -884,17 +953,22 @@ FileCardItem *CanvasScene::fileCardItem(const QString &id) const
 
 void CanvasScene::renderFileCard(FileCardItem *item)
 {
-    if (!item || !m_renderEngine)
+    if (!item)
         return;
+
+    // M6.3 — a card whose target does not resolve shows the placeholder and
+    // never renders body content. Missing requires an explicit exists
+    // checker (see fileCardResolves).
+    const bool missing = !fileCardResolves(item->nodeData().file);
+    item->setMissing(missing);
+    if (missing || !m_renderEngine) {
+        item->setRenderedDocument(nullptr);
+        return;
+    }
 
     QString markdown;
     if (m_fileResolver) {
         markdown = m_fileResolver(item->nodeData().file);
-    }
-
-    if (markdown.isEmpty()) {
-        item->setRenderedDocument(nullptr);
-        return;
     }
 
     Corbomite::RenderOptions opts;
@@ -1602,6 +1676,25 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
         // Click outside proxy -> finish editing, then handle normally
         finishInlineEdit();
         finishFileCardEdit();
+    }
+
+    // M6.3 — route the missing-file placeholder buttons before the tools see
+    // the press.
+    if (auto *card = dynamic_cast<FileCardItem *>(itemAt(event->scenePos(), QTransform()))) {
+        if (card->isMissing()) {
+            const int button = card->buttonAt(card->mapFromScene(event->scenePos()));
+            if (button >= 0) {
+                const QString nodeId = card->nodeId();
+                switch (button) {
+                case FileCardItem::CreateButton: createMissingFileCard(nodeId); break;
+                case FileCardItem::LocateButton: locateMissingFileCard(nodeId); break;
+                case FileCardItem::RemoveButton: removeMissingFileCard(nodeId); break;
+                default: break;
+                }
+                event->accept();
+                return;
+            }
+        }
     }
 
     GraphScene::mousePressEvent(event);

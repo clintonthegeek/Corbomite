@@ -146,6 +146,12 @@ void CanvasFileView::setRenderEngine(MarkdownRenderEngine *engine)
 
 CanvasViewTab *CanvasFileView::canvasWidget() const { return m_canvasWidget; }
 
+void CanvasFileView::refreshFileCards(const QString &vaultRelativePath)
+{
+    if (m_canvasWidget)
+        m_canvasWidget->refreshFileCards(vaultRelativePath);
+}
+
 void CanvasFileView::setFileLister(std::function<QStringList()> lister)
 {
     m_fileLister = std::move(lister);

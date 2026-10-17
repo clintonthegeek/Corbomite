@@ -48,6 +48,10 @@ public:
     void setRenderEngine(MarkdownRenderEngine *engine);
     CanvasViewTab *canvasWidget() const;
 
+    /// M6.3 — forward to the canvas tab so a vault create/rename re-resolves
+    /// dangling file cards. Empty path refreshes every card.
+    void refreshFileCards(const QString &vaultRelativePath = QString());
+
     /// Cluster M leftover — canvas dark mode. Follows the host's ThemeService
     /// so an Obsidian-authored dark vault gets a dark canvas instead of a
     /// white one with white cards on it. Same injection shape as

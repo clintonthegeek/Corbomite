@@ -4,7 +4,10 @@
 #include <canvas/CanvasPalette.h>
 
 #include <QFileInfo>
+#include <QFont>
+#include <QFontMetricsF>
 #include <QPainter>
+#include <QStringList>
 #include <QStyleOptionGraphicsItem>
 #include <QTextDocument>
 #include <KLocalizedString>
@@ -47,6 +50,63 @@ void FileCardItem::setRenderedDocument(std::unique_ptr<Corbomite::RenderedDocume
 bool FileCardItem::hasRenderedDocument() const
 {
     return m_renderedDoc && m_renderedDoc->toQTextDocument() != nullptr;
+}
+
+void FileCardItem::setMissing(bool missing)
+{
+    if (m_missing == missing)
+        return;
+    m_missing = missing;
+    update();
+}
+
+QStringList FileCardItem::buttonLabels()
+{
+    return { i18n("Create"), i18n("Locate…"), i18n("Remove") };
+}
+
+QVector<QRectF> FileCardItem::buttonRects() const
+{
+    if (!m_missing)
+        return {};
+
+    // Deterministic font so paint() and buttonAt() agree without a painter.
+    QFont f;
+    f.setPointSize(9);
+    const QFontMetricsF fm(f);
+
+    constexpr qreal kButtonHeight = 20.0;
+    constexpr qreal kButtonGap = 6.0;
+    const qreal y = kTitleBarHeight + kTextPadding + 20.0; // below the message
+    qreal x = kTextPadding;
+
+    QVector<QRectF> rects;
+    const QStringList labels = buttonLabels();
+    rects.reserve(labels.size());
+    for (const QString &label : labels) {
+        const qreal w = fm.horizontalAdvance(label) + 16.0;
+        rects.append(QRectF(x, y, w, kButtonHeight));
+        x += w + kButtonGap;
+    }
+    return rects;
+}
+
+QRectF FileCardItem::buttonRect(int index) const
+{
+    const QVector<QRectF> rects = buttonRects();
+    if (index < 0 || index >= rects.size())
+        return {};
+    return rects.at(index);
+}
+
+int FileCardItem::buttonAt(const QPointF &itemPos) const
+{
+    const QVector<QRectF> rects = buttonRects();
+    for (int i = 0; i < rects.size(); ++i) {
+        if (rects.at(i).contains(itemPos))
+            return i;
+    }
+    return -1;
 }
 
 QString FileCardItem::displayTitle() const
@@ -127,16 +187,35 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
         doc->drawContents(painter);
         painter->restore();
     } else {
-        // No content — show placeholder
+        // No content — missing-file placeholder (M6.3): message + buttons.
         painter->save();
         painter->setPen(pal.missingForeground);
         QFont placeholderFont = painter->font();
         placeholderFont.setItalic(true);
         painter->setFont(placeholderFont);
         const qreal textTop = kTitleBarHeight + kTextPadding;
-        painter->drawText(QRectF(kTextPadding, textTop, rect.width() - 2 * kTextPadding, 30),
+        painter->drawText(QRectF(kTextPadding, textTop, rect.width() - 2 * kTextPadding, 18),
                           Qt::AlignLeft | Qt::AlignTop,
-                          i18n("File not found"));
+                          i18n("File not found: %1", m_data.file));
+        painter->restore();
+
+        // Buttons drawn with the light body font (not the italic message
+        // font). geometry is shared with buttonAt() via buttonRects().
+        painter->save();
+        QFont buttonFont = painter->font();
+        buttonFont.setItalic(false);
+        buttonFont.setPointSize(9);
+        painter->setFont(buttonFont);
+        const QStringList labels = buttonLabels();
+        const QVector<QRectF> rects = buttonRects();
+        for (int i = 0; i < rects.size() && i < labels.size(); ++i) {
+            const QRectF r = rects.at(i);
+            painter->setPen(QPen(pal.border));
+            painter->setBrush(pal.cardBackground.lighter(103));
+            painter->drawRoundedRect(r, 4.0, 4.0);
+            painter->setPen(pal.titleStripForeground);
+            painter->drawText(r, Qt::AlignCenter, labels.at(i));
+        }
         painter->restore();
     }
 

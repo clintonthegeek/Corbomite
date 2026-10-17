@@ -4,7 +4,7 @@ Open work only. The order is the trajectory in [`PROJECT-STATE.md`](PROJECT-STAT
 
 Closed history, including every former `[x]`, is frozen at [`archive/2026-10-17/punch-list-2026-10-17-full.md`](archive/2026-10-17/punch-list-2026-10-17-full.md). Do not execute that file. A box is marked `[x]` when the work is in the tree; say in the line if it is not committed yet.
 
-**Current:** **86 open / 7 closed / 2 partial**, plus **5 guardrails**.
+**Current:** **87 open / 7 closed / 2 partial**, plus **5 guardrails**.
 Verify with `grep -c '^- \[ \]' docs/punch-list.md`, `grep -c '^- \[x\]'`, `grep -c '^- \[~\]'`.
 
 ## Guardrails
@@ -81,6 +81,7 @@ After the Next section. Within a severity, order is the old list order. Cluster 
 
 ### P3
 
+- [ ] [canvas][P3][cluster-m] **M6.3 missing-file placeholder — live eyeball pending (user).** Code + 9 offscreen cases landed 2026-10-17 (`tst_canvas_missing_file`). Needs the app: a dangling file card must paint "File not found: <path>" with Create / Locate… / Remove buttons, the buttons must hover/click, Create must write the file and re-render the card, Locate must re-pick and re-render, Remove must delete the node, and a vault create/rename of the missing path must resolve the card without reopening the canvas. Offscreen-green does not close M6 interaction work. Plan: `docs/superpowers/plans/2026-08-19-cluster-m-canvas-authoring-parity.md` M6.3.
 - [ ] **P3** `docs` — **one of our own addenda was wrong.** `2026-10-01-workspace-split-direction-correction.md` claims to refute `workspace.md:79`, then its own table restates line 79 verbatim; six independent source paths confirm the **doc** was right and the inversion was in our serializer. Leave the 2026-10-01 file in place as historical record (frozen), but the mis-attribution is recorded. `docs/obsidian-audit/addenda/2026-10-03-workspace-split-direction-source-proof.md`
 - [ ] **P3** `core` — `Hotkey::operator==` compares modifiers order-sensitively, but Obsidian sorts them, so `{Mod,Alt}` != `{Alt,Mod}` in C++ though equal in Obsidian. `docs/obsidian-audit/addenda/2026-10-03-core-command-and-hotkey-contracts.md`
 - [ ] **P3** `bases` — `summariesSeen` bookkeeping means `summaries: {}` persists when emptied while `formulas:` disappears — matching Obsidian's guard asymmetry, but the asymmetry looks like a bug and will read as one. Pinned by `testEmptySummariesPersistsEmptyFormulasDoesNot`.

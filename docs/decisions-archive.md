@@ -10,6 +10,26 @@ Conventions:
 
 ---
 
+## 2026-10-17 — Cluster M6 closed in code (M6.2 + M6.3)
+
+Two items. **M6.2** rewrites `.canvas` link references on a vault rename through a
+per-extension `LinkRewriter` seam (Obsidian's `linkUpdaters[ext]`), with `CanvasLinkRewriter`
+updating file-node, group, and text-card links via `CanvasDocument`, and an open-canvas
+single-writer registry so a live document is mutated rather than clobbered (commit
+`05961e27`). **M6.3** adds the missing-file placeholder: `CanvasScene::setFileExistsChecker`
+separates missing from empty, a dangling card paints "File not found: <path>" with Create /
+Locate… / Remove (`FileCardItem::buttonAt` + `CanvasScene::mousePressEvent` routing), and
+`MainWindow`'s Vault created/modified/deleted/renamed handlers call `refreshFileCards()` so
+the card resolves without reopening the canvas. Offscreen suite **270/270**.
+
+One deliberate scope call: the missing state requires an explicit exists checker, so a card
+with no checker in a unit test is treated as present, not missing — that keeps the
+pre-existing "click to select/move a file card" tests honest instead of letting placeholder
+buttons swallow the click. The plan's M6 exit line requires a live eyeball (button pixels,
+hover/click, the real create/locate/remove flows); that check is queued as punch-list
+`[canvas][P3][cluster-m]`, so M6 is code-complete, not phase-closed. Trajectory step 4 (the
+punch-list backlog) is now the current action.
+
 ## 2026-10-17 — Cluster M6.2: canvas link rewrite on rename
 
 A vault rename now rewrites `.canvas` link references. Obsidian does this with

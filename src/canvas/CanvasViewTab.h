@@ -89,6 +89,11 @@ public:
     /// copy on disk. Never null once the tab is constructed.
     Canvas::CanvasDocument *canvasDocument() const;
 
+    /// M6.3 — re-render file cards whose target appeared (vault create) or
+    /// changed, so a dangling card resolves without reopening the canvas.
+    /// Empty `vaultRelativePath` refreshes every file card.
+    void refreshFileCards(const QString &vaultRelativePath = QString());
+
     /// Cluster M M5.5 — the two commands, called by CanvasViewActions'
     /// KAction layer. Both are no-ops without a canvas loaded.
     ///
