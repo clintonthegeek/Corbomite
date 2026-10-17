@@ -177,13 +177,12 @@ void TestVaultHiddenPaths::watcherDoesNotEmitCreatedForHiddenPaths()
     QVERIFY(!vault.getFileByPath(QStringLiteral(".johns-notes/late.md")));
 }
 
-// Guard, not a red-before test: `Vault` has no ignore-filter surface today, so
-// this passes both before and after. It exists so that wiring
-// `userIgnoreFilters` into the tree — the wrong reading of the setting, and the
-// one `VaultScanner::scan` still embodies — fails here. In Obsidian the filter
-// gates search results / graph nodes / property-edit candidates and nothing
-// else; an ignored note stays in `fileMap`, in `getFiles()`, and in link
-// resolution. Only a dot segment hides a path.
+// Guard, not a red-before test: `Vault` has no ignore-filter surface, so this
+// passes both before and after. It exists so that wiring `userIgnoreFilters`
+// into the tree — the wrong reading of the setting — fails here. In Obsidian
+// the filter gates search results / graph nodes / property-edit candidates and
+// nothing else; an ignored note stays in `fileMap`, in `getFiles()`, and in
+// link resolution. Only a dot segment hides a path.
 void TestVaultHiddenPaths::userIgnoreFilterDoesNotHideAnythingFromTheTree()
 {
     QTemporaryDir dir;

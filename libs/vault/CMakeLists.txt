@@ -22,8 +22,6 @@ add_library(vault SHARED
     src/Vault.cpp
     src/PathNormalization.h
     src/PathNormalization.cpp
-    include/corbomite/vault/VaultScanner.h
-    src/VaultScanner.cpp
     src/Watcher.h
     src/Watcher.cpp
     include/corbomite/vault/FileManager.h

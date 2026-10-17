@@ -10,9 +10,6 @@ add_executable(tst_filesystemadapter tst_filesystemadapter.cpp)
 add_test(NAME tst_filesystemadapter COMMAND tst_filesystemadapter)
 target_link_libraries(tst_filesystemadapter PRIVATE Qt6::Test Corbomite::Storage)
 
-add_executable(tst_vaultscanner tst_vaultscanner.cpp)
-add_test(NAME tst_vaultscanner COMMAND tst_vaultscanner)
-target_link_libraries(tst_vaultscanner PRIVATE Qt6::Test Corbomite::Vault Corbomite::Storage Corbomite::Core)
 
 add_executable(tst_sqliteindex tst_sqliteindex.cpp)
 add_test(NAME tst_sqliteindex COMMAND tst_sqliteindex)

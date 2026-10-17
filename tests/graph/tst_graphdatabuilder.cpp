@@ -94,6 +94,38 @@ private Q_SLOTS:
         QCOMPARE(result.edges.size(), 2); // A->B, B->C
     }
 
+    // userIgnoreFilters gate graph nodes (Obsidian app/own/1851-h0.js:162):
+    // an ignored note and any edge touching it are dropped, but it is NOT a
+    // tree/index gate.
+    void testGlobalGraphDropsIgnoredPaths()
+    {
+        QTemporaryDir tmp;
+        QString vault = tmp.path() + "/vault";
+        createFile(vault + "/A.md", "Links to [[D]]");
+        createFile(vault + "/drafts/D.md", "ignored");
+
+        Corbomite::FileSystemAdapter fs;
+        Corbomite::Vault vaultObj(&fs);
+        vaultObj.load(vault);
+
+        Corbomite::LinkResolver resolver;
+        Corbomite::MetadataCache cache(resolver);
+        Corbomite::SQLiteIndex index;
+        indexVault(vault, vaultObj, resolver, cache, index, tmp.path() + "/index.sqlite");
+
+        Corbomite::VaultProxy  vaultProxy(&vaultObj, grantedPermissions(), QStringLiteral("t"));
+        Corbomite::SearchProxy searchProxy(&index, grantedPermissions(), QStringLiteral("t"));
+
+        const auto ignore =
+            Corbomite::IgnoreFilter::fromPatterns({QStringLiteral("drafts/")});
+        auto result = Corbomite::GraphDataBuilder::buildGlobalGraph(&searchProxy, &vaultProxy,
+                                                                    ignore);
+
+        QCOMPARE(result.nodes.size(), 1);  // drafts/D.md dropped
+        QCOMPARE(result.nodes.at(0).id, QStringLiteral("A.md"));
+        QCOMPARE(result.edges.size(), 0);  // A->D dropped
+    }
+
     void testUnresolvedNodes()
     {
         QTemporaryDir tmp;

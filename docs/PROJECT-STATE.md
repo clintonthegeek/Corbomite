@@ -17,7 +17,7 @@ Markdown files stay the on-disk contract. Standing constraints are the guardrail
 
 ## Facts a session needs
 
-- Tests (2026-10-17): **267/267** with `cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 10`, on Markoff `dca64686`. Markoff's own tests are off. The previous pin's count was 354.
+- Tests (2026-10-17): **269/269** with `cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 10`, on Markoff `dca64686`. Markoff's own tests are off. (Was 267 at session start; +2 canvas tests, −1 retired `tst_vaultscanner`.)
 - Punch-list counts live in that file's header. Closed history: [`archive/2026-10-17/punch-list-2026-10-17-full.md`](archive/2026-10-17/punch-list-2026-10-17-full.md).
 - Dev config is `~/.config/corbomite-devrc`. Do not commit the RE corpus. Do not follow links into `docs/archive/` for live tasks.
 

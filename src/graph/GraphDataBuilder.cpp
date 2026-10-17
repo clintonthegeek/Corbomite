@@ -5,6 +5,9 @@
 #include "corbomite/vault/proxies/VaultProxy.h"
 
 #include <QApplication>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
 #include <QPalette>
 #include <QRegularExpression>
 #include <QSet>
@@ -67,17 +70,21 @@ static void classifyNode(ForceGraph::GraphNode &node, int deg, bool exists)
     node.color = colorForType(node.type);
 }
 
-GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search, VaultProxy *vault)
+GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search, VaultProxy *vault,
+                                                            const IgnoreFilter &ignore)
 {
     Result result;
     if (!search || !vault) return result;
 
-    // Collect all note paths and their degrees
+    // Collect all note paths and their degrees. Ignored paths are dropped
+    // here as well as from the node list, so an ignored note contributes no
+    // degree and no edge.
     QHash<QString, int> degree;
     auto allFiles = vault->getMarkdownFiles();
     QSet<QString> existingPaths;
 
     for (TFile *f : allFiles) {
+        if (ignore.matches(f->path)) continue;
         existingPaths.insert(f->path);
         degree[f->path] = 0;
     }
@@ -88,6 +95,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
 
     for (const auto &link : allLinks) {
         if (link.linkType == QStringLiteral("embed")) continue;
+        if (ignore.matches(link.sourcePath) || ignore.matches(link.targetPath)) continue;
 
         degree[link.sourcePath]++;
         degree[link.targetPath]++;
@@ -112,6 +120,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
 
     // Build nodes
     for (TFile *f : allFiles) {
+        if (ignore.matches(f->path)) continue;
         ForceGraph::GraphNode node;
         node.id = f->path;
         node.label = f->basename;
@@ -134,6 +143,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
 
     // Add unresolved nodes
     for (const auto &path : unresolvedPaths) {
+        if (ignore.matches(path)) continue;
         ForceGraph::GraphNode node;
         node.id = path;
         QString name = path;
@@ -146,9 +156,10 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
         result.nodes.append(node);
     }
 
-    // Build edges (skip embeds)
+    // Build edges (skip embeds and anything touching an ignored path)
     for (const auto &link : allLinks) {
         if (link.linkType == QStringLiteral("embed")) continue;
+        if (ignore.matches(link.sourcePath) || ignore.matches(link.targetPath)) continue;
 
         ForceGraph::GraphEdge edge;
         edge.sourceId = link.sourcePath;
@@ -159,8 +170,24 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
     return result;
 }
 
+IgnoreFilter GraphDataBuilder::ignoreFilterFor(VaultProxy *vault)
+{
+    if (!vault) return {};
+    const QJsonValue app = vault->readConfigJson(QStringLiteral("app"));
+    if (!app.isObject()) return {};
+    const QJsonArray arr =
+        app.toObject().value(QStringLiteral("userIgnoreFilters")).toArray();
+    QStringList patterns;
+    patterns.reserve(arr.size());
+    for (const QJsonValue &v : arr) {
+        if (v.isString()) patterns.append(v.toString());
+    }
+    return IgnoreFilter::fromPatterns(patterns);
+}
+
 GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SearchProxy *search, VaultProxy *vault,
-                                                            const QString &centerNotePath, int depth)
+                                                            const QString &centerNotePath, int depth,
+                                                            const IgnoreFilter &ignore)
 {
     Result result;
     if (!search || !vault || centerNotePath.isEmpty()) return result;
@@ -179,6 +206,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SearchProxy *search, 
         auto outlinks = search->outlinksFor(path);
         for (const auto &link : outlinks) {
             if (link.linkType == QStringLiteral("embed")) continue;
+            if (ignore.matches(link.targetPath)) continue;
             if (!collected.contains(link.targetPath)) {
                 collected.insert(link.targetPath);
                 queue.enqueue({link.targetPath, d + 1});
@@ -188,6 +216,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SearchProxy *search, 
         // Backlinks
         auto backlinks = search->backlinksFor(path);
         for (const auto &link : backlinks) {
+            if (ignore.matches(link.sourcePath)) continue;
             if (!collected.contains(link.sourcePath)) {
                 collected.insert(link.sourcePath);
                 queue.enqueue({link.sourcePath, d + 1});

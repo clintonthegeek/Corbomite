@@ -5,7 +5,6 @@
 #include "corbomite/storage/CaseSensitivityProbe.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/IgnoreFilter.h"
-#include "corbomite/vault/VaultScanner.h"
 // VaultTrash deleted in Q.0 Phase 3 Task 3.7 — its behavior lives on
 // Vault::trash now, covered by libs/vault/tests/tst_vault_trash.cpp.
 
@@ -191,37 +190,23 @@ private Q_SLOTS:
         QVERIFY(!f.matches(QStringLiteral("anything.md")));
     }
 
-    // --- IgnoreFilter wired into VaultScanner ---
-
-    void scannerHonoursIgnoreFilter()
+    // The filter is matched on the full vault-relative path and is
+    // case-insensitive; a bare entry is an anchored literal prefix, so
+    // `tmp/` does not match a nested `Notes/tmp/x.md`.
+    void bareEntryIsAnchoredPrefix()
     {
-        QTemporaryDir tmp;
-        FileSystemAdapter fs;
-        fs.write(tmp.path() + QStringLiteral("/kept.md"), QStringLiteral("a"));
-        fs.write(tmp.path() + QStringLiteral("/tmp/scratch.md"),
-                 QStringLiteral("b"));
-        fs.write(tmp.path() + QStringLiteral("/drafts/inprogress.md"),
-                 QStringLiteral("c"));
-
-        VaultScanner scanner;
-        scanner.setIgnoreFilter(IgnoreFilter::fromPatterns(
-            {QStringLiteral("tmp/"), QStringLiteral("drafts/")}));
-
-        const auto notes = scanner.scan(tmp.path());
-        QCOMPARE(notes.size(), 1);
-        QCOMPARE(notes[0].relativePath, QStringLiteral("kept.md"));
+        const auto f = IgnoreFilter::fromPatterns({QStringLiteral("drafts/")});
+        QVERIFY(f.matches(QStringLiteral("drafts/wip.md")));
+        QVERIFY(f.matches(QStringLiteral("DRAFTS/WIP.MD")));
+        QVERIFY(!f.matches(QStringLiteral("Notes/drafts/wip.md")));
     }
 
-    void scannerWithoutFilterBehavesAsBefore()
+    // A `/…/` entry is a raw unanchored regex.
+    void slashedEntryIsUnanchoredRegex()
     {
-        QTemporaryDir tmp;
-        FileSystemAdapter fs;
-        fs.write(tmp.path() + QStringLiteral("/a.md"), QStringLiteral("a"));
-        fs.write(tmp.path() + QStringLiteral("/b/c.md"), QStringLiteral("c"));
-
-        VaultScanner scanner; // no filter installed
-        const auto notes = scanner.scan(tmp.path());
-        QCOMPARE(notes.size(), 2);
+        const auto f = IgnoreFilter::fromPatterns({QStringLiteral("/^private/")});
+        QVERIFY(f.matches(QStringLiteral("private/secret.md")));
+        QVERIFY(!f.matches(QStringLiteral("Notes/private/secret.md")));
     }
 };
 

@@ -78,7 +78,8 @@ GraphViewTab::~GraphViewTab()
 
 void GraphViewTab::buildGraph()
 {
-    auto data = GraphDataBuilder::buildGlobalGraph(m_search, m_vault);
+    auto data = GraphDataBuilder::buildGlobalGraph(
+        m_search, m_vault, GraphDataBuilder::ignoreFilterFor(m_vault));
 
     // Cap at 10K — beyond that, GPU acceleration (P8) is needed
     static constexpr int MAX_GRAPH_NODES = 10000;

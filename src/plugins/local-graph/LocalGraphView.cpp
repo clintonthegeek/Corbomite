@@ -66,7 +66,9 @@ void LocalGraphView::refresh()
         m_engine->clear();
         return;
     }
-    auto data = GraphDataBuilder::buildLocalGraph(m_search, m_vault, m_currentPath, 2);
+    auto data = GraphDataBuilder::buildLocalGraph(
+        m_search, m_vault, m_currentPath, 2,
+        GraphDataBuilder::ignoreFilterFor(m_vault));
     m_graphView->setNodes(data.nodes);
     m_graphView->setEdges(data.edges);
     if (!data.nodes.isEmpty()) {

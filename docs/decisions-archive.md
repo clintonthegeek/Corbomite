@@ -10,6 +10,28 @@ Conventions:
 
 ---
 
+## 2026-10-17 — userIgnoreFilters wired into the graph gate; VaultScanner retired
+
+The `vault` P1 (`userIgnoreFilters`) reconciled. Its facts were right: the entries are
+regexes, and the filters gate *search / graph / property-edit*, never the tree or the index
+(addendum `2026-10-03-vault-hidden-paths-and-userignore.md`). The remaining work was the
+scope half.
+
+**Decision: wire the graph gate, delete the redundant scanner.** `IgnoreFilter` (the regex
+grammar, already correct) is now live: `GraphDataBuilder::buildGlobalGraph`/`buildLocalGraph`
+take an `IgnoreFilter` and drop ignored nodes and edges, built from
+`VaultProxy::readConfigJson("app")` via `ignoreFilterFor()`, and passed by the graph-view and
+local-graph plugins. `VaultScanner` — dead since `Vault::buildTree` superseded its scan, and
+embodying the deliberately-wrong "filter hides from the tree" reading — is **deleted** with
+its test. This contradicts the 2026-10-01 sweep's "`VaultScanner`+`IgnoreFilter` need wiring,
+not deletion", and the reasoning is recorded here: what needed wiring was the *filter*, not
+the scanner; the scanner duplicated `Vault::buildTree` and its only unique behaviour was the
+mistake. `tst_vault_hidden_paths` still guards against ever wiring the filter into the tree.
+
+The **search gate** is split out as a new P2 item: it needs a config seam into the search
+plugin (no `VaultProxy` there today). Property-edit gates have no live code
+(`deleteProperty`/`renameProperty` are stubs). Suite 269/269 (one test target retired).
+
 ## 2026-10-17 — Cluster M6 closed in code (M6.2 + M6.3)
 
 Two items. **M6.2** rewrites `.canvas` link references on a vault rename through a

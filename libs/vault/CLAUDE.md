@@ -9,7 +9,7 @@ refactoring operations.
 
 Collapses what used to be split across `Corbomite::VaultModel` (libs/models),
 the Task-7 path-only `Corbomite::Vault` (libs/core, deleted), `VaultProcess`
-+ `VaultTrash` + `VaultScanner` (libs/storage), `FileWatchReactor`
++ `VaultTrash` (libs/storage), `FileWatchReactor`
 (src/reactors), and parts of `VaultService` (src/app). Shape-parity with
 Obsidian's `App.vault` + `App.fileManager` — see
 `../../docs/superpowers/specs/2026-04-16-vault-architecture-design.md`.
