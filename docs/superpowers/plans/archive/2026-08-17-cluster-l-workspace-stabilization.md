@@ -2,21 +2,11 @@
 
 **Date:** 2026-08-17
 **Type:** Full plan
-**Status:** **L0-L4 landed and closed** (L4 live-verified 2026-08-18 —
-D1 title-bar/tab chrome and D4 sidebar width restore both confirmed
-working in a live dogfood pass). **L5 is PAUSED mid-flight, not "not
-started" and not closed** — it ran on 2026-08-18, found a **P0**
-(Obsidian round-trip scrambles nested split layouts), fixed it, added the
-`fixture16_nestedSplitFirstChild_matchesObsidianGeometry` geometry
-regression test, and then paused for the v0.1.0 release with **5 of 6
-soak scenarios never run**. The scenario checkboxes are in Phase L5 below;
-resume there, not here. See `docs/PROJECT-STATE.md` (Cluster L row) for
-the one-line current state and `docs/decisions-archive.md` (dated
-2026-08-17, five "Cluster L Phase..." entries; 2026-08-18 for the L5 P0)
-for full closeout detail per phase, including exact commit shas and test
-results. This plan file's phase descriptions below are left as originally
-written (the *intent*); do not infer completion status from this section
-— check PROJECT-STATE first.
+**Status:** **Closed 2026-10-17.** L0–L4 were already closed. L5 was
+eyeballed in the running app on copies of DevVault and jsoncanvas under
+`/tmp/l5-soak/`. Findings are punch-list `[cluster-l]` items. The closeout
+is `docs/decisions-archive.md` under `2026-10-17 — L5 soak closed`. Do not
+resume the soak. This file is archived; PROJECT-STATE is the status page.
 **Source:** Full re-evaluation of the workspace/tab/dock layer (this
 session), building on `docs/audit-2026-04-26/workspace.md` (many of whose
 top findings have since been fixed — this plan covers what's *still*
@@ -335,7 +325,7 @@ KActionCollection where applicable, D4 sidebar persistence revival
 (wire the dormant KateMDI save/restore; delete the hardcoded
 200/false). Each lands as its own small commit against the punch list.
 
-### Phase L5 — Soak & closeout — **PAUSED mid-flight (2026-08-18); 5 of 6 scenarios never run**
+### Phase L5 — Soak & closeout — **CLOSED 2026-10-17, eyeballed**
 
 One dedicated dogfood session hammering tabs: drag between groups,
 split, popout, close-undo, vault switch, Obsidian round-trip (open the
@@ -349,9 +339,8 @@ scrambling bug**, resolved — see punch-list `[cluster-l]` and
 divider-line-vs-stacking-axis direction inversion plus a
 materialization anchor-ordering bug in `WorkspaceSerializer.cpp`; fix
 verified live against a real Obsidian-authored vault, two round trips).
-New geometry-asserting regression test `fixture16` added. Remaining
-soak scenarios (drag between groups, split, popout, close-undo, vault
-switch) not yet run.
+New geometry-asserting regression test `fixture16` added. The remaining
+scenarios were eyeballed on 2026-10-17; the checklist below is the record.
 
 #### L5 scenario checklist (the phase's actual deliverable)
 
@@ -366,28 +355,28 @@ switch) not yet run.
 > inline; L5's job is to *find*, and the fix pass is scheduled separately
 > (CONTRIBUTING-OPS Ritual 4, step 5).
 
-- [ ] **L5.1 — Drag a tab between groups.** Move a leaf from one tab group to
+- [x] **L5.1 — Drag a tab between groups.** 2026-10-17: the move worked through KDDockWidgets drop targets. Dropping on the tab bar itself does not. A failed drag draws the tab askew until the next click. Accepted. Reopen kept both groups' membership. Move a leaf from one tab group to
       another with the mouse; confirm the group it left updates its
       `currentTab`, the destination's `m_tabGroupOf` is correct, and reopening
       the vault restores both groups' membership. (This is the drag-lag class
       Cluster Y once fixed; the regression test is shape-only, so only eyes
       catch a drag that works but reports the wrong group.)
-- [ ] **L5.2 — Split.** Create horizontal and vertical splits via both the
+- [x] **L5.2 — Split.** 2026-10-17: Split Right duplicates the active leaf. Split Down and drag-to-split produced a three-deep nest whose saved directions matched the screen (`horizontal` = top/bottom). Reload forced the root to `vertical` (three columns). That force is the existing `setLayout` parity test, not a new defect. No `dimension` keys, which is the open P3. Create horizontal and vertical splits via both the
       toolbar/menu and drag-to-split; confirm direction matches the divider
       **line** (Obsidian's inverted-looking convention — read
       [`addenda/2026-10-01-workspace-split-direction-correction.md`](../../obsidian-audit/addenda/2026-10-01-workspace-split-direction-correction.md) ⚠️ **2026-10-03: this addendum's *attribution* is wrong** — it claims to refute `workspace.md:79`, but its own replacement table restates line 79 verbatim. Six independent source paths confirm the **doc** was right (`vertical` ⇒ left↔right) and the inversion was in our serializer. Its *code* finding still stands. See [`2026-10-03-workspace-split-direction-source-proof.md`](../../obsidian-audit/addenda/2026-10-03-workspace-split-direction-source-proof.md).
       before touching the serializer) and that three-deep nesting places
       panes in the right quadrants.
-- [ ] **L5.3 — Popout.** Pop a leaf to a new window, then close it via the X,
+- [x] **L5.3 — Popout.** 2026-10-17: the window X and the tab X close the leaf and the window. Dragging the popout back onto a main-window drop target moves the leaf and closes the empty float. `floating` was on disk at quit and came back, including through Obsidian. Pop a leaf to a new window, then close it via the X,
       then `reparentToMain`; confirm no orphan dock widgets, the leaf returns
       to the main window, and `floating` round-trips through `workspace.json`
       (Cluster L2 restored the `floating` key that production saves used to
       drop).
-- [ ] **L5.4 — Close-undo.** Close a tab group and undo it; confirm
+- [x] **L5.4 — Close-undo.** 2026-10-17: a leaf closed from a pane that stays open returns there, at the end of the tab row, focused, in the mode it had (source mode survived). Closing the last tab collapses the pane, and undo then opens the leaf in the remaining pane. Filed. Close a tab group and undo it; confirm
       `closeLeaf`/`undoCloseLeaf` restores leaves *and* their view state, and
       that focus lands somewhere sensible (a focus-restoration bug is invisible
       to a JSON round-trip test).
-- [ ] **L5.5 — Vault switch.** With several tabs, popout windows, and split
+- [x] **L5.5 — Vault switch.** 2026-10-17: no crash. Vault B's file tree was its own. The popout closed on the way out and Vault A's `floating` leaf came back. A vault with no `workspace.json` opened as two panes, one titled with a raw leaf id, and that bad tree was saved. Filed. With several tabs, popout windows, and split
       groups open, switch vaults and back; confirm teardown leaves nothing
       behind (this is the SIGSEGV-class scenario), the per-vault sidecar state
       does not bleed, and the restored layout matches what was there.
@@ -397,16 +386,8 @@ switch) not yet run.
         verified live; `fixture16_nestedSplitFirstChild_matchesObsidianGeometry`
         added as a geometry regression guard. (punch-list `[cluster-l]` P0,
         `[x]`.)
-  - [ ] **Second iteration — still owed.** Repeat with a *different*
-        arrangement (e.g. three-way splits, a stacked-tab group, a popout) to
-        confirm the two-phase seed-then-fill fix is not specific to the
-        original repro, and to cover the shape the P0's fixture did not.
-- [ ] **L5.7 — Phase closeout (only after the above).** Ritual 3: closeout
-      paragraph into `decisions-archive.md`, Cluster L row → Done in both
-      `PROJECT-STATE.md` and `INDEX.md`, plan → `archive/`, `PARITY-MATRIX.md`
-      workspace rows updated. **Until then L5 stays paused-open, not closed** —
-      five untested scenarios in a layer that has already produced one P0 is
-      not a closed phase.
+  - [x] **Second iteration — 2026-10-17.** Three rows in the main window and a side-by-side popout, on a `/tmp` copy. Obsidian opened Corbomite's save as arranged and dropped an empty `tabs` node that quit had inserted. Corbomite restored the main geometry and the popout's split. Both floating panes showed tab titles and no view until one was dragged onto the other. Filed. A stacked tab group was not in this arrangement.
+- [x] **L5.7 — Phase closeout.** 2026-10-17. Closeout in `decisions-archive.md`, retro in `docs/cluster-retros/cluster-l.md`, INDEX Closed row, plan and spec archived. Findings stay open on the punch list.
 
 **Why this phase matters more than its size:** it found a P0 that shape-only
 serializer tests passed straight through, and that took two live round trips

@@ -20,6 +20,7 @@ library, each addressed to that library's maintainers and self-contained — are
 | **markoff-styled** | [`handoff/2026-10-02-to-markoff-styled-theme-received-but-unused.md`](handoff/2026-10-02-to-markoff-styled-theme-received-but-unused.md) | 1 × P1 — receives a `Theme` and ignores it; Reading mode has no dark theme |
 | **Graffodil** | [`handoff/2026-10-02-to-graffodil-lifetime-theming-and-scale.md`](handoff/2026-10-02-to-graffodil-lifetime-theming-and-scale.md) | 1 × P0 — `BatchRenderer` destructor touches freed items |
 | **jkqtmathtext / rapidoaml** | [`handoff/2026-10-02-to-jkqtmathtext-and-rapidyaml-vendoring-hygiene.md`](handoff/2026-10-02-to-jkqtmathtext-and-rapidyaml-vendoring-hygiene.md) | Unpinned vendored copy (our fault, but unfixable without a release statement) |
+| **markoff canvas cards** | [`handoff/2026-10-17-to-markoff-canvas-cards-and-session.md`](handoff/2026-10-17-to-markoff-canvas-cards-and-session.md) | Embeddable card editor, many open scopes, keep headless `renderInto(MarkoffDocument*)`, mid-block paste that splices and keeps leading spaces. Session hook stays on our side. |
 
 Each handoff states its severity, how the finding was verified, what it costs
 *us* specifically, and a suggested fix shape — and each says plainly where we

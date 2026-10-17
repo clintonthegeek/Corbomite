@@ -13,6 +13,8 @@ that could double it (it is an architecture change, not a feature). The two
 items are separable: Workspaces can ship without the substrate if the substrate
 work is deferred.
 
+> **2026-10-17 correction.** Named layouts are the Workspaces plugin file `.obsidian/plugins/workspaces/data.json`. There is no `.obsidian/workspaces.json`. Text below that names `workspaces.json` is the 2026-10-01 inference, not a file to create. Addendum: `docs/obsidian-audit/addenda/2026-10-03-workspace-named-workspaces-data-json.md`. This plan is trajectory step 4. Do not dispatch it, and do not rewrite the body to chase the old filename.
+
 **Why this exists:** items 9 and 10 came from Cluster C's closeout
 (`decisions-archive.md` 2026-04-27, "Sidedock-as-tree + named-workspaces
 reassigned to F") and then sat in the never-expanded F stub. Worse, item 10
@@ -200,10 +202,9 @@ spec, not a phase of this one.
       (serializer owns it) vs passthrough (keep `m_unknownRoot`). Whatever is
       chosen, keep `unknownRootKeysSurviveRoundTrip`
       (`tests/core/tst_workspace_session.cpp:701`) green.
-- [ ] **S2.5** Cluster L5's outstanding soak scenarios (**drag between groups,
-      split, popout, close-undo, vault switch**) must be re-run if the tree
-      moves underneath them — see
-      [`2026-08-17-cluster-l-workspace-stabilization.md`](2026-08-17-cluster-l-workspace-stabilization.md) Phase L5.
+- [ ] **S2.5** The Cluster L5 soak ran on 2026-10-17 (see
+      [`archive/2026-08-17-cluster-l-workspace-stabilization.md`](archive/2026-08-17-cluster-l-workspace-stabilization.md)).
+      Re-run those scenarios only if S2 moves the workspace tree underneath them.
 - [ ] **S2.6** Live eyeball for anything touching layout, keyboard, or focus.
 
 ---
@@ -216,7 +217,7 @@ spec, not a phase of this one.
 | `tst_workspace_session::unknownRootKeysSurviveRoundTrip` | **existing** | must stay green through S2 (`tests/core/tst_workspace_session.cpp:701`) |
 | `tst_workspace_serializer` (fixture set) | **existing** | add fixtures only if S2 changes what the serializer owns |
 | ASAN run of the workspace/dock teardown paths | gate, not a test binary | S2.3 — the Cluster L1 discipline |
-| Cluster L5 soak scenarios | manual, human | S2.5 — checkbox list lives in the Cluster L plan |
+| Cluster L5 soak scenarios | ran 2026-10-17 | S2.5 — re-run only if S2 moves the tree. Record is the archived Cluster L plan. |
 
 ---
 

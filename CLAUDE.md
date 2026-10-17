@@ -1,71 +1,4 @@
-> **State of the world (refreshed 2026-10-04).**
->
-> Markoff **contract-v2 is adopted**: find-in-Reading, undo, theme propagation, Ln/Col,
-> goToLine, ephemeral state, format-verb dispatch and zoom all run through the
-> `Markoff::MarkdownView` base, and `MainWindow` is grep-gated leaf-agnostic. Corbomite
-> hosts three Markoff leaves — LivePreview, Source, Styled — via `NoteEditorWidget`;
-> **Reading mode is a read-only `Styled::Editor` leaf**, and `StyledRenderEngine` renders
-> canvas cards headlessly. The old four-leaf QGraphicsView editor is gone.
->
-> **Closed:** Cluster O (context-sensitive menu/toolbar/sidebar — doctrine §D1-D7 is
-> normative), Cluster M Phase M5 (viewport persistence, read-only lock, convert-to-file,
-> jump-to-group), Clusters K/N/P/D/F/I (archived). **v0.1.0** shipped 2026-08-18;
-> `origin` is GitHub, not Codeberg. **Cluster L5 soak is paused** and is the gate on
-> further `workspace.json` work.
->
-> **The Obsidian audit is source-verified, not prose-verified.** The original corpus was
-> destroyed, so all 16 domains were re-verified against Obsidian 1.13.7 in 2026-10-03:
-> **47 addenda** in [`docs/obsidian-audit/addenda/`](docs/obsidian-audit/addenda/).
-> The corpus is reproducible from the `.deb` via [`RE/extract-obsidian.sh`](RE/extract-obsidian.sh)
-> (corpus gitignored for licensing; tooling tracked). **Check the corrections gate at the
-> top of `addenda/README.md` before implementing from any domain doc** — the frozen docs
-> are wrong in ~45 places, and 9 claims in that batch were refuted by the agents citing
-> them, including one of our own prior addenda.
->
-> Current queue: [`docs/punch-list.md`](docs/punch-list.md) `Added 2026-10-04` section.
-> Parity: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
-> Upstream asks: [`docs/UPSTREAM-ASKS.md`](docs/UPSTREAM-ASKS.md) + [`docs/handoff/`](docs/handoff/).
-> Mermaid is **stock upstream 11.13.0** — see [`RE/README.md`](RE/README.md#mermaid--better-than-expected).
->
-> Resolved history (why Reading mode is Styled, the Cluster M↔O boundary, refuted audit
-> claims, v0.1.0 release notes) is archived at
-> [`docs/archive/2026-10-04/pre-consolidation-state-banner.md`](docs/archive/2026-10-04/pre-consolidation-state-banner.md).
-
-## Long-term project state
-
-> **Read this section first if you are starting a new session.** Corbomite tracks work across **two parallel tracks**: a flat severity-ranked **punch list** of small fixes, and **strategic clusters** for multi-phase coordinated initiatives. State persists across sessions in dedicated files; do not infer status from conversation context.
->
-> **Tracking system was reset 2026-04-26** after a comprehensive audit. Pre-reset cluster lettering (legacy A–Y) lives in `docs/superpowers/plans/archive/` + `docs/decisions-archive.md`. New post-reset lettering started fresh at A.
-
-**Single source of truth for "where we are":** [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md). ~30 lines — read in 30 seconds at session start. Names current focus across both tracks.
-
-**Punch list (small fixes, severity P0–P6):** [`docs/punch-list.md`](docs/punch-list.md). Flat single file. **Start at the `Added 2026-10-04` section** — it is the ranked queue; everything below it is the historical record. Top of file is P0; pick from top. Mark `[x]` when committed; do not delete. **P0/P1 items are mostly silent vault-format-corruption risks — drain before strategic-cluster work unless explicitly redirected.** Checkboxes: `[x]` done, `[~]` partially done, `[ ]` open; the count is in the header with a verifying grep.
-
-**Strategic cluster plans:** [`docs/superpowers/plans/INDEX.md`](docs/superpowers/plans/INDEX.md). Table of contents over the clusters (7 active; most others closed or obsoleted — see INDEX for live status). Closed plans live under `plans/archive/` and are linked from INDEX.
-
-**April 2026 audit (provenance only — NOT a live task source):** [`docs/audit-2026-04-26/`](docs/audit-2026-04-26/). 14 per-domain sub-reports + a 58-item priority list that every early cluster traces back to. Frozen snapshot, triaged and then superseded three times (2026-10-01, 10-03, 10-04). Read it only to understand why a decision was made, never to find current work — the punch list is the tracker.
-
-**Operational rituals (session start, phase done, cluster done):** [`docs/CONTRIBUTING-OPS.md`](docs/CONTRIBUTING-OPS.md). Checklists, not advice.
-
-**Decisions archive (journal):** [`docs/decisions-archive.md`](docs/decisions-archive.md). Append-only closeout summaries + rolled-off decisions. Consult for *why* a prior call was made — not at session start. It is large; read only its top section.
-
-**Reverse-engineering corpus (untracked, reproducible):** [`RE/README.md`](RE/README.md). Obsidian 1.13.7 extracted to readable/indexed/partially-renamed JS, queryable via `RE/tools/q.js`. Regenerate with `RE/extract-obsidian.sh`. **Never commit the corpus** — Obsidian is `UNLICENSED` and Corbomite is GPLv3. Do not delete `RE/tools/`: it is the only reason the corpus is reproducible, and losing it is exactly how the previous corpus was lost.
-
-**New facts about Obsidian go in** [`docs/obsidian-audit/addenda/`](docs/obsidian-audit/addenda/), **never as edits to the audit docs.** Per `addenda/README.md`. Addenda are exclusively *new or corrected facts about Obsidian's behaviour* — Corbomite implementation choices go in cluster plans or `docs/cluster-retros/`.
-
-**Upstream asks:** [`docs/UPSTREAM-ASKS.md`](docs/UPSTREAM-ASKS.md) is the index; the sendable documents are in [`docs/handoff/`](docs/handoff/).
-
-**Archives are frozen.** `docs/archive/`, `docs/archive-2026-04-26/`, `docs/superpowers/{plans,specs}/archive/` contain closed and superseded work, including the pre-2026-10-04 `CLAUDE.md` banner. They have rotted relative links by design — **do not follow links into them for live tasks, and do not fix them.**
-
-**Do not regrow `PROJECT-STATE.md`.** Slim is non-negotiable. When a cluster or phase closes, write at most 3 sentences in PROJECT-STATE §Current focus (replacing the previous top entry) and the full closeout paragraph into `decisions-archive.md` under a new dated H2 header. The `**Previously:** …` cascade pattern is banned.
-
-**Session-start ritual (TL;DR — full version in `CONTRIBUTING-OPS.md`):**
-1. Read `docs/PROJECT-STATE.md` top-to-bottom (~30 lines).
-2. Skim `docs/punch-list.md`'s `Added 2026-10-04` section — that is the queue. Anything P0 there? If yes, drain those before resuming cluster work.
-3. If continuing strategic-cluster work: read the cluster plan for the current focus.
-4. Read audit-doc sections cited in the plan or punch-list item.
-5. Glance at `git log --oneline -10`.
-6. State the situation back: "Per PROJECT-STATE, current focus is X (track: punch-list/cluster), last touched Y; next step is Z. Confirm or redirect?" — wait for confirmation before working.
+> **Orientation is [`AGENTS.md`](AGENTS.md).** Status lives only in [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md). This file is build, test, and library layout. When this file and PROJECT-STATE disagree, PROJECT-STATE wins.
 
 ## Building
 
@@ -99,31 +32,25 @@ wall-clock timing tests must be excluded (see below):
 cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 10
 ```
 
-**Why `-E "benchmark|perf"` and not just `-E benchmark`** (2026-10-01): four
-tests measure wall-clock time and flake red under `-j10` from machine load
-alone, all passing standalone. `tst_benchmark_layout` (libs/forcegraph) carries
-a native `LABELS "benchmark"`, but `tst_canvas_perf_500` and
-`tst_canvas_perf_formatted` come from the markoff-family submodule with **no
-label at all**, so `-E benchmark` does not reach them. A parent-directory
+**Why `-E "benchmark|perf"` and not just `-E benchmark`** (2026-10-01): the wall-clock tests flake red under `-j10` from machine load alone, and pass standalone. `tst_benchmark_layout` (libs/forcegraph) carries a native `LABELS "benchmark"`, but `tst_canvas_perf_500` and `tst_canvas_perf_formatted` come from the markoff-family submodule with **no label at all**, so `-E benchmark` does not reach them. A parent-directory
 `set_tests_properties` cannot fix this either — CTest test properties are
 directory-scoped — and patching the submodule would be lost on the next
 re-pin. The real fix is a `LABELS "benchmark"` in markoff-canvas; until then
 keep the regex. Without it, "the suite is green" is not a reliable signal.
 
-Baseline (2026-10-04): **354/354 pass** with the exclusion above.
+Baseline (2026-10-17): **267/267 pass** with the exclusion above, on the local Markoff pin `dca64686`. Markoff's own tests are excluded because `MARKOFF_BUILD_TESTS` and `MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS` are forced OFF. The 2026-10-04 count of 354 belongs to the previous pin.
 
 ### Load-sensitive flakes — "the suite is green" is not yet a reliable signal
 
-**Four** tests fail intermittently under `-j6`/load while passing standalone. None is
+**Three** tests fail intermittently under load while passing standalone. None is
 caused by the code they cover; all are timing- or count-sensitive:
 
 - `tst_forcelayout` (`libs/forcegraph`) — pure timing.
 - `tst_cachedmetadatastore::testRoundTripMultipleFiles` — asserts a watcher signal
   **count** (2 vs 1); races with the coalescing drain timer.
 - `tst_hover_popover_pinning` — timing-sensitive.
-- `tst_metadatacache_worker_integration` — observed at **30.5 s** under `-j6` versus
-  **0.26 s** standalone, a ~100x spread. That ratio is large enough to be worth a look
-  if it ever appears in CI; so far it has only been seen under parallel load.
+
+`tst_metadatacache_worker_integration` is **not** on this list. Its 2026-10-17 diagnosis is on the punch list: `indexFinished` was arming while worker parses were still outstanding. A fast pass is not what closed it.
 
 So a single red run is **not** evidence of a regression: re-run the failing test alone
 before investigating. Conversely, do not accept a green full run as proof a timing fix
@@ -150,6 +77,8 @@ Corbomite requires these system libraries at build time:
 - tree-sitter (vendored inside the `libs/markoff-family/` submodule, under `libs/markoff-parser/`)
 - jkqtmathtext (vendored at `libs/jkqtmathtext/`)
 - Optional: `qt6keychain` for persistent SecretStorage (auto-disables if absent)
+
+Local KDE Frameworks checkouts, when you need to read upstream, are under `~/src/kde/src/<repo>`. Do not clone them from invent.kde.org.
 
 ### Dev Build Isolation
 
@@ -186,7 +115,7 @@ Cluster O Phase O3, 2026-08-20 — see `decisions-archive.md`).
 | `libs/bases` | `Corbomite::Bases` | `.base` files: YAML schema, formula lexer/parser/evaluator, table view + toolbar panels (largest lib) |
 | `libs/canvas` | `canvas` | `.canvas` files: JSON round-trip, scene/items/tools, undo commands |
 | `libs/forcegraph` | `forcegraph` | Force-directed graph layout (Barnes-Hut, multilevel); zero Corbomite deps |
-| `libs/markoff-family` | (submodule) | The Markoff editor family: markoff-core (D2 CRDT model), markoff-live (QML), markoff-source, markoff-styled, markoff-parser (tree-sitter), collabtext, rapidyaml |
+| `libs/markoff-family` | (submodule) | Markoff editor family: markoff-core, markoff-source, markoff-styled, markoff-parser (tree-sitter), rapidyaml. CollabText is the installed package, not the untracked `libs/markoff-family/libs/collabtext/` tree. Do not `add_subdirectory` that tree. `MARKOFF_BUILD_LIVE` stays OFF. |
 | `libs/mmdr` | `mmdr` (IMPORTED) | Pre-built Rust Mermaid renderer (`libmermaid_rs_renderer.a` + C FFI header) |
 | `libs/jkqtmathtext` | `jkqtmathtext` | Vendored LaTeX math rendering (LGPL) |
 

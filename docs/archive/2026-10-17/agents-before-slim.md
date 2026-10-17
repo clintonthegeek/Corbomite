@@ -1,3 +1,5 @@
+> **Archived 2026-10-17. Do not execute this file.** Orientation is [`AGENTS.md`](../../../AGENTS.md). Status is [`PROJECT-STATE.md`](../../PROJECT-STATE.md).
+>
 > **State of the world (refreshed 2026-06-10).**
 >
 > The 2026-05-25 foundation port is history: Markoff's QML/D2 rebuild merged at
@@ -32,31 +34,11 @@
 > on Markoff E3 (not a canvas gap). Plan:
 > [plan](docs/superpowers/plans/archive/2026-08-15-cluster-k-markoff-canvas-adoption.md).
 >
-> **Cluster L — workspace/KDDW stabilization & nativization, L0-L4
-> landed+closed, L5 (soak & closeout) in progress (2026-08-17/18).**
-> Full re-evaluation of the tab/dock layer found a teardown-UAF crash
-> class, persistence split-brain (production save dropping
-> `floating`/`lastOpenFiles`, Corbomite-private keys leaking into the
-> Obsidian-shared `workspace.json`), and Obsidian-literalism residue. L0
-> set the compat doctrine (schema-at-rest fidelity to Obsidian is the
-> only contract; in-memory shape is free to be idiomatic Qt/KDE) —
-> [spec](docs/superpowers/specs/2026-08-17-workspace-compat-boundary.md).
-> L1 fixed the crash class (`Workspace::destroyLeaves`, ASAN-clean).
-> L2 made `workspace.json` persistence
-> full-fidelity and split Corbomite-native state into the doctrine's
-> three tiers. L3 removed dead Obsidian-shape shells, consolidated KDDW
-> init, and fixed router/resize perf. L4 (native UX polish — KDDW chrome,
-> back/forward completion, tab commands, sidebar-width persistence)
-> **live-verified and closed 2026-08-18**. **L5's Obsidian round-trip
-> soak pass found and fixed a P0 bug**: a real Obsidian-authored vault's
-> nested split layout landed scrambled on open, root-caused to an
-> inverted divider-direction convention plus a materialization
-> anchor-ordering bug in `WorkspaceSerializer.cpp` — fixed and
-> live-verified across two round trips against the real vault (punch-list
-> `[cluster-l]`, `decisions-archive.md`). **Next: continue L5 soak**
-> (drag between groups, split, popout, close-undo, vault switch), then
-> closeout —
-> [plan](docs/superpowers/plans/2026-08-17-cluster-l-workspace-stabilization.md).
+> **Cluster L — closed 2026-10-17.** L0–L5 are done, including the live
+> soak. Do not resume it. Findings are open `[cluster-l]` punch-list items.
+> Status is [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md). Closeout is
+> [`docs/decisions-archive.md`](docs/decisions-archive.md). Plan:
+> [archive](docs/superpowers/plans/archive/2026-08-17-cluster-l-workspace-stabilization.md).
 >
 > Current parity status: [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md).
 > Port history: [`docs/port-foundation-exploration.md`](docs/port-foundation-exploration.md) (historical).

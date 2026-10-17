@@ -17,9 +17,7 @@ At present, **Corbmite is useful a text-based linked notes app**. So if you want
 
 The canvas loading is relatively complete, but canvas creation tools are not. The Bases pages also seem to work, but you may find bugs! The Markdown rendering is basic at present, and most embeddeding features need to wait for Qt 6.12 to be released in coming months.
 
-There is a plugin system, and many features are in-fact implemented as plugins. These are *not* compatible with Obsidian plugins, but the system has been designed along similar lines for familiarity. Given the unstable nature of the Markoff markdown renderer, it is not advisable to attempt to create any plugins yet.
-
-One feature soon for experimental development will be enabling the collabtext CRDT engine, allowing live multi-user collaborative editing, Google Docs style! Basically, all that's left to implement is transport and UX.
+There is a plugin system, and many features are implemented as plugins. These are not compatible with Obsidian plugins. The seam is there so a later plugin can add Google Docs-style collaboration. That plugin is not the current work. Stock single-user editing is. Markdown files stay the vault format.
 
 ![Graph view screenshot](docs/screenshot2.png)
 
@@ -89,13 +87,12 @@ alongside it and shared where useful:
   independent, reusable library — not Corbomite-specific — but Corbomite is
   currently its primary consumer and the two are developed in close
   coordination.
-- **[collabtext](https://github.com/clintonthegeek/collabtext)** is a CRDT
-  (conflict-free replicated data type) text-editing engine, nested as a
-  submodule inside Markoff (`libs/markoff-family/libs/collabtext`). It gives
-  Markoff's document model real-time collaborative-editing semantics — local
-  edits and (future) remote/multi-user edits converge deterministically —
-  even though Corbomite doesn't yet expose any multi-user collaboration
-  feature itself.
+- **[collabtext](https://github.com/clintonthegeek/collabtext)** is the CRDT
+  engine Markoff's document model uses. Corbomite finds it as an installed
+  CMake package. It is not a submodule of this repository, and an untracked
+  copy under `libs/markoff-family/libs/collabtext/` must not be compiled.
+  Corbomite does not expose multi-user editing. A later plugin can supply
+  the session. The vault on disk stays markdown files.
 - **[Graffodil](https://github.com/clintonthegeek/Graffodil)** is a
   standalone force-directed graph visualization project. Corbomite's graph
   view (`libs/forcegraph`) shares lineage and layout-algorithm heritage with
@@ -110,12 +107,12 @@ alongside it and shared where useful:
 
 ## Getting the Source
 
-Corbomite depends on a chain of git submodules — most importantly the
-**Markoff** editor family, which in turn nests the **collabtext** CRDT
-library. **A plain `git clone` is not enough**: without the submodules the
-build fails at configure time with errors like
-`Target "..." links to: Markoff::Parser but the target was not found` or
-`libs/collabtext is empty`.
+Corbomite depends on the **Markoff** editor family as a git submodule.
+**A plain `git clone` is not enough**: without it the build fails at
+configure time because `Markoff::Parser` is missing. CollabText is an
+installed CMake package, not a nested submodule to compile. Do not
+`add_subdirectory` an untracked `libs/markoff-family/libs/collabtext/`
+tree.
 
 ### Clone with submodules (recommended)
 
@@ -131,14 +128,15 @@ cd Corbomite
 git submodule update --init --recursive
 ```
 
-The `--recursive` flag is **required**, not optional: it pulls the nested
-`collabtext` submodule inside `libs/markoff-family`. The submodule tree is:
+Initialize the Markoff submodule after a plain clone:
 
 ```
 Corbomite
 └── libs/markoff-family        → Markoff      (git@github.com:clintonthegeek/Markoff.git)
-    └── libs/collabtext        → collabtext   (git@github.com:clintonthegeek/collabtext.git)
 ```
+
+CollabText is resolved by CMake from `COLLABTEXT_ROOT` or the sibling
+install prefix. It is not a submodule of this tree.
 
 > **Access note:** the submodules are hosted on GitHub over SSH. You need an
 > SSH key registered with a GitHub account that can read these repositories.
