@@ -71,8 +71,16 @@ QString ThreeWayMerge::threeWayMerge(const QString &base,
         baseToRemote[bi] = ri;
 
     // Walk through base lines, building merged output.
-    // Strategy: for each region of base, check if local or remote changed it.
-    // If only one changed, take that change. If both changed, remote wins.
+    //
+    // A base line kept unchanged in one side and changed/deleted in the other
+    // is the easy case: take the change. When a base line is changed on BOTH
+    // sides it matches in neither LCS, so it is emitted by neither branch and
+    // both replacement runs are appended in order (local, then remote) at the
+    // next match. The merge therefore keeps both edits — it never drops one
+    // and never relocates one onto a neighbour. That is a deliberate
+    // divergence from Obsidian's two-sided diff/patch (`bZ`), which loses and
+    // moves overlapping edits; see
+    // docs/obsidian-audit/addenda/2026-10-17-views-three-way-merge-deliberate-divergence.md.
     QStringList result;
 
     // Track where we are in local and remote

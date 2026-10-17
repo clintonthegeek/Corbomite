@@ -1,4 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+//
+// ThreeWayMerge is a deliberate divergence from Obsidian's external-modify
+// merge (`bZ`, a two-sided diff/patch that drops and relocates overlapping
+// edits). These tests pin the Corbomite contract: an overlapping same-line
+// change keeps BOTH edits rather than picking a winner or dropping one.
+// See docs/obsidian-audit/addenda/2026-10-17-views-three-way-merge-deliberate-divergence.md
 #include <QTest>
 #include "corbomite/core/ThreeWayMerge.h"
 
@@ -38,13 +44,27 @@ private Q_SLOTS:
         QVERIFY(merged.contains(QStringLiteral("line3-remote")));
     }
 
-    void conflictRemoteWins()
+    // A single line changed on both sides keeps both edits, local first.
+    void conflictingSingleLineKeepsBoth()
     {
         QString base = QStringLiteral("AAA");
         QString local = QStringLiteral("BBB");
         QString remote = QStringLiteral("CCC");
-        QString merged = ThreeWayMerge::threeWayMerge(base, local, remote);
-        QVERIFY(!merged.isEmpty());
+        QCOMPARE(ThreeWayMerge::threeWayMerge(base, local, remote),
+                 QStringLiteral("BBB\nCCC"));
+    }
+
+    // The addendum's overlapping same-line case: neither edit is lost and
+    // neither is relocated onto a neighbouring line (the failure mode of
+    // Obsidian's two-sided patch). This is the regression the 2026-10-03
+    // addendum asked for.
+    void overlappingSameLineEditKeepsBothUnrelocated()
+    {
+        const QString base = QStringLiteral("para one\npara two\npara three\n");
+        const QString local = QStringLiteral("para one\npara two USER EDIT\npara three\n");
+        const QString remote = QStringLiteral("para one\npara two DISK EDIT\npara three\n");
+        QCOMPARE(ThreeWayMerge::threeWayMerge(base, local, remote),
+                 QStringLiteral("para one\npara two USER EDIT\npara two DISK EDIT\npara three\n"));
     }
 
     void emptyBase()

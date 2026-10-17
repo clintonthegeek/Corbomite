@@ -98,6 +98,31 @@ private Q_SLOTS:
         QVERIFY(view.content.contains(QStringLiteral("line3-remote")));
     }
 
+    // Overlapping same-line edit: both survive, neither relocated. This is
+    // the case Obsidian's two-sided patch corrupts; Corbomite deliberately
+    // diverges (see addenda/2026-10-17-views-three-way-merge-deliberate-divergence.md).
+    void externalModifyOverlappingSameLineKeepsBoth()
+    {
+        MemoryAdapter2 adapter;
+        adapter.files[QStringLiteral("/vault/test.md")] =
+            QStringLiteral("para one\npara two\npara three\n");
+
+        MergeTestView view(nullptr);
+        view.setDataAdapter(&adapter);
+        view.setVaultRoot(QStringLiteral("/vault"));
+
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        view.loadFile(doc);
+
+        view.content = QStringLiteral("para one\npara two USER EDIT\npara three\n");
+        adapter.files[QStringLiteral("/vault/test.md")] =
+            QStringLiteral("para one\npara two DISK EDIT\npara three\n");
+        view.onExternalModify(QStringLiteral("test.md"));
+
+        QCOMPARE(view.content,
+                 QStringLiteral("para one\npara two USER EDIT\npara two DISK EDIT\npara three\n"));
+    }
+
     void wrongFileIgnored()
     {
         MemoryAdapter2 adapter;

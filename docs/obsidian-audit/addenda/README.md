@@ -39,6 +39,11 @@ indexer's CRLF rejection would make its own properties panel diverge *more* from
 Obsidian, and reproducing the writer's trailing-fence rejection prepends a second block.
 See `2026-10-17-frontmatter-single-scanner-deliberate-divergence.md`.
 
+**The views externally-modify merge is a decision too.** The 2026-10-03 views addendum's
+`bZ` two-sided diff/patch (which drops and relocates overlapping edits) is **not**
+reproduced: `TextFileView::onExternalModify` uses a real line-LCS three-way merge that
+keeps both edits. See `2026-10-17-views-three-way-merge-deliberate-divergence.md`.
+
 **One of our own addenda was wrong.** `2026-10-01-workspace-split-direction-correction.md`
 says it "REFUTES" `workspace.md:79`, then its own replacement table restates line 79
 verbatim. Six independent source paths confirm **the doc was right**; the inversion was
