@@ -13,6 +13,10 @@
 
 #include <QTest>
 #include <QApplication>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QTemporaryDir>
 #include <QTreeView>
 #include <QLineEdit>
 #include <QTabBar>
@@ -49,6 +53,33 @@ private:
     CorbomiteApp *m_app = nullptr;
     MainWindow *m_mainWindow = nullptr;
     QString m_vaultPath;
+    // Every test runs against a writable copy of the starter vault, so a save
+    // (testSaveShortcut appends and saves "Start Here.md") can never mutate
+    // the tracked fixture in testvaults/. Removed when this object dies.
+    QTemporaryDir m_vaultDir;
+
+    // Recursive directory copy. QFile::copy refuses an existing destination,
+    // which cannot happen here because m_vaultDir is fresh.
+    static bool copyDirRecursively(const QString &src, const QString &dst)
+    {
+        const QDir srcDir(src);
+        if (!srcDir.exists())
+            return false;
+        if (!QDir().mkpath(dst))
+            return false;
+        const QFileInfoList entries = srcDir.entryInfoList(
+            QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
+        for (const QFileInfo &fi : entries) {
+            const QString dstPath = dst + QLatin1Char('/') + fi.fileName();
+            if (fi.isDir()) {
+                if (!copyDirRecursively(fi.absoluteFilePath(), dstPath))
+                    return false;
+            } else if (!QFile::copy(fi.absoluteFilePath(), dstPath)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     // Helper: process events and wait for UI to settle
     void settle(int ms = 200)
@@ -105,10 +136,20 @@ private Q_SLOTS:
             KAboutLicense::GPL_V3);
         KAboutData::setApplicationData(aboutData);
 
-        // Resolve vault path relative to the source tree
-        m_vaultPath = QStringLiteral(CORBOMITE_SOURCE_DIR "/testvaults/starter-vault/PKM LM");
-        QVERIFY2(QDir(m_vaultPath).exists(),
-                 qPrintable(QStringLiteral("Starter vault not found at: ") + m_vaultPath));
+        // Copy the starter vault into a scratch dir and run every test against
+        // the copy. Pointing m_vaultPath at the tracked source let
+        // testSaveShortcut append to and save "Start Here.md" for real,
+        // mutating a tracked fixture with no cleanup.
+        const QString sourceVault =
+            QStringLiteral(CORBOMITE_SOURCE_DIR "/testvaults/starter-vault/PKM LM");
+        QVERIFY2(QDir(sourceVault).exists(),
+                 qPrintable(QStringLiteral("Starter vault not found at: ") + sourceVault));
+        QVERIFY2(m_vaultDir.isValid(), "could not create a temp dir for the vault copy");
+        // Keep the directory name: Vault::getName() is the basename, and
+        // testOpenVault asserts it is "PKM LM".
+        m_vaultPath = m_vaultDir.path() + QStringLiteral("/PKM LM");
+        QVERIFY2(copyDirRecursively(sourceVault, m_vaultPath),
+                 "could not copy the starter vault to a temp dir");
 
         // Create the app stack (NO KDBusService — would conflict with running instance)
         m_app = new CorbomiteApp(this);
