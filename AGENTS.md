@@ -6,7 +6,7 @@ Read this, then [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md). That file is t
 
 Follow the trajectory in order. Do not start a later step while an earlier one is open. A box that says it is blocked on an upstream handoff does not hold the next step. The canvas card editor is that box.
 
-The current action is the first open box under **Next** in [`docs/punch-list.md`](docs/punch-list.md): the metadata `changed` payload. Then Cluster M6.2 and M6.3. Then the backlog.
+The current action is trajectory step 3: Cluster M6.2 (rename rewriting), then M6.3. Then the backlog.
 
 Markoff vNext's unblocked work is already in the working tree, uncommitted. Do not redo it. Do not build a collaboration journal. Markdown files stay the on-disk contract.
 

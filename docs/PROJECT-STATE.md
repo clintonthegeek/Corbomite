@@ -6,10 +6,10 @@ Where we are. Not a journal. A closeout is a paragraph in [`decisions-archive.md
 
 Do these in order. Do not start a later step while an earlier one is open. A box blocked on an upstream handoff does not hold the next step.
 
-**Current action:** the metadata `changed` payload in punch-list §Next.
+**Current action:** Cluster M6.2 rename rewriting (trajectory step 3), then M6.3.
 
-1. **Markoff vNext** is in the working tree, uncommitted. The pin, the session seam, canvas paint identity, and the host comment cleanup are landed. Offscreen suite **267/267** on this pin. The card-editor swap stays blocked on the Markoff handoff and does not hold the current action. Re-apply the `DocumentRenderer` history-pending check on every re-pin. Do not build a collaboration journal. Do not redo this step.
-2. **Punch-list §Next, in progress.** Two `[x]` items are in the tree, not committed: the metadata-cache fix (`indexFinished` waits until worker parses are done), and the frontmatter decision — one permissive reader, and `FileManager` splices only the YAML payload so a CRLF note's delimiters survive a property edit. The L5 soak is closed. Its findings are open `[cluster-l]` backlog items, after the metadata `changed` payload.
+1. **Markoff vNext** landed (`150446a2`): the pin (`dca64686`), the session seam, canvas paint identity, and the host comment cleanup. The card-editor swap and the re-pin check stay open in **Now**, blocked on the Markoff handoff, and do not hold step 3. Re-apply the `DocumentRenderer` history-pending check on every re-pin; do not build a collaboration journal.
+2. **Punch-list §Next closed 2026-10-17.** The metadata-cache `indexFinished` fix (`30b9f264`), the frontmatter single-reader decision plus payload splice (`f5e5bf13`), the canvas-reference index M6.1 (`faba8c25`), and the metadata `changed` payload (`3f1d05f1`) are all in the tree. Full closeout in [`decisions-archive.md`](decisions-archive.md).
 3. **Then — Cluster M**: M6.2 rename rewriting, then M6.3 missing-file placeholder.
 4. **Later** — the punch-list backlog, then clusters F-a, Q, D.5, and F-b, plus Cluster O's leftover inspector slots. Index: [`superpowers/plans/INDEX.md`](superpowers/plans/INDEX.md). `2026-06-10-road-to-dogfood.md` is not a dispatch.
 

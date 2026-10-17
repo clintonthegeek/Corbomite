@@ -10,6 +10,20 @@ Conventions:
 
 ---
 
+## 2026-10-17 — Punch-list §Next closed
+
+Four P0s landed. The metadata-cache `indexFinished` fix waits for worker parses
+(`m_outstandingParses`), not just the link-drain counter (`30b9f264`). The frontmatter
+scanners item resolved as a deliberate divergence — one permissive reader, and
+`FileManager` splices only the YAML payload so a CRLF note's delimiters survive a property
+edit (`f5e5bf13`; addendum `2026-10-17-frontmatter-single-scanner-deliberate-divergence.md`).
+Canvas references now enter the link index (M6.1, `faba8c25`). And metadata `changed`'s
+second argument is the decoded file contents, not the old hash: `MetadataCache` emits
+`cacheChanged(path, contents, cache)`, the worker threads the parsed bytes back so
+`SQLiteIndex` stops re-reading disk for the FTS body, and the plugin `"changed"` event
+matches Obsidian (`3f1d05f1`; addendum `2026-10-03-metadata-changed-event-payload.md`).
+Offscreen suite 267/267 after each. The next trajectory action is Cluster M6.2.
+
 ## 2026-10-17 — Frontmatter: one permissive reader, splice-only writer
 
 The punch-list P0 that quoted the 2026-10-03 audit addendum read as "implement Obsidian's two
