@@ -32,6 +32,7 @@ private slots:
     void renameLeavesUnrelatedLinksAlone();
     void emitsProgressInAscendingSourceOrder();
     void renameRoutesNonMarkdownThroughLinkRewriter();
+    void renameWithUnparseableFrontmatterRewritesBodyOnly();
 };
 
 namespace {
@@ -359,6 +360,33 @@ void TestFileManagerRename::renameRoutesNonMarkdownThroughLinkRewriter()
     QCOMPARE(stub.calls, QStringList{QStringLiteral("board.canvas")});
     QCOMPARE(readFileAll(h.dir.path() + "/board.canvas"),
              QByteArray("rewritten:Bar.md"));
+}
+
+// Parity with Obsidian's `ZF` failure mode (`app/own/1304-ZF.js:22-24`): when
+// the frontmatter will not parse, the body link splices still apply but the
+// frontmatter links are silently left stale. Corbomite reaches the same result
+// by a different route — the parser yields no `frontmatterLinks` for an
+// unparseable block — and this pins it so a future "fix" does not silently
+// change the contract.
+void TestFileManagerRename::renameWithUnparseableFrontmatterRewritesBodyOnly()
+{
+    RenameHarness h;
+    primeHarness(h, {
+        {QStringLiteral("Foo.md"), "Foo body"},
+        {QStringLiteral("Linker.md"),
+         QByteArrayLiteral("---\ntitle: \"unterminated\nrelated: \"[[Foo]]\"\n---\n"
+                            "See [[Foo]]\n")},
+    });
+
+    auto *foo = h.vault.getFileByPath(QStringLiteral("Foo.md"));
+    QVERIFY(foo);
+    QVERIFY(h.fm->renameFile(foo, QStringLiteral("Bar.md")));
+
+    const QByteArray after = readFileAll(h.dir.path() + "/Linker.md");
+    QVERIFY2(after.contains("See [[Bar]]"), "body link must be rewritten");
+    // The unparseable frontmatter is left byte-identical (stale link and all).
+    QVERIFY2(after.contains("related: \"[[Foo]]\""),
+             "frontmatter must be left untouched on a parse error (Obsidian parity)");
 }
 
 QTEST_MAIN(TestFileManagerRename)

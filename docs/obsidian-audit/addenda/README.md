@@ -44,6 +44,11 @@ See `2026-10-17-frontmatter-single-scanner-deliberate-divergence.md`.
 reproduced: `TextFileView::onExternalModify` uses a real line-LCS three-way merge that
 keeps both edits. See `2026-10-17-views-three-way-merge-deliberate-divergence.md`.
 
+**Rename link-fixup is also a decision.** Obsidian's `ZF` re-dumps the whole frontmatter
+through js-yaml (dotted keys no-op, untouched properties reformat); `FileManager::renameFile`
+splices link literals and preserves the rest. See
+`2026-10-17-rename-link-fixup-splice-vs-redump.md`.
+
 **One of our own addenda was wrong.** `2026-10-01-workspace-split-direction-correction.md`
 says it "REFUTES" `workspace.md:79`, then its own replacement table restates line 79
 verbatim. Six independent source paths confirm **the doc was right**; the inversion was
