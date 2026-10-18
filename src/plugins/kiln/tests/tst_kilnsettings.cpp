@@ -17,6 +17,7 @@ private slots:
     void roundTripsThroughJson();
     void omitsLinkBaseWhenEmpty();
     void omitsSelectKeysTheEngineWouldReadAsUnset();
+    void omitsAnEmptySectionAndKeepsANamedOne();
     void carriesTheLiveVaultPath();
     void rejectsADuplicateName();
     void rejectsAProjectionThatSelectsNothing();
@@ -113,6 +114,29 @@ void TestKilnSettings::omitsSelectKeysTheEngineWouldReadAsUnset()
     QVERIFY(select.contains(QStringLiteral("folders")));
     QVERIFY(select.contains(QStringLiteral("deny")));
     QVERIFY(!select.contains(QStringLiteral("orderFrom")));
+}
+
+void TestKilnSettings::omitsAnEmptySectionAndKeepsANamedOne()
+{
+    // Empty is the instruction — each note's own folder is its section — and it is the
+    // engine's own default, so writing `""` would say nothing. A named one is kept,
+    // because it is what moves a folder's notes somewhere else.
+    KilnSettings settings;
+    settings.output = QStringLiteral("/tmp/site");
+    settings.projections.append(siteProjection());
+
+    const QJsonObject empty = settings.toJson(QStringLiteral("/vault"));
+    QVERIFY(!empty.value(QStringLiteral("projections")).toArray().at(0).toObject()
+                 .contains(QStringLiteral("section")));
+    QCOMPARE(KilnSettings::fromJson(empty).projections.first().section, QString());
+    QCOMPARE(KilnSettings::fromJson(empty).problem(), QString());
+
+    settings.projections.first().section = QStringLiteral("docs");
+    const QJsonObject named = settings.toJson(QStringLiteral("/vault"));
+    QCOMPARE(named.value(QStringLiteral("projections")).toArray().at(0).toObject()
+                 .value(QStringLiteral("section")).toString(),
+             QStringLiteral("docs"));
+    QCOMPARE(KilnSettings::fromJson(named).projections.first().section, QStringLiteral("docs"));
 }
 
 void TestKilnSettings::carriesTheLiveVaultPath()

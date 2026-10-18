@@ -20,7 +20,7 @@ struct KilnProjection
     QStringList folders;      ///< cohort: notes under these top-level folders
     QStringList deny;         ///< note paths or bare filenames held back
     QString orderFrom;        ///< a note whose link order is the running order
-    QString section = QStringLiteral("software");
+    QString section;
     QString shape = QStringLiteral("bundle");        ///< bundle | leaf
     QString frontMatter = QStringLiteral("yaml");    ///< yaml | toml
     QStringList fieldOrder;

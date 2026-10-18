@@ -93,7 +93,11 @@ QJsonObject KilnProjection::toJson() const
     QJsonObject object;
     object.insert(QStringLiteral("name"), name);
     object.insert(QStringLiteral("select"), select);
-    object.insert(QStringLiteral("section"), section);
+    // Left out when empty, like `linkBase` and for the same reason: empty is the
+    // instruction, not a value. Empty means each note's own folder is its section, which
+    // is the engine's own default too, so writing `""` would say nothing.
+    if (!section.trimmed().isEmpty())
+        object.insert(QStringLiteral("section"), section.trimmed());
     object.insert(QStringLiteral("shape"), shape);
     object.insert(QStringLiteral("frontMatter"), frontMatter);
     if (!fieldOrder.isEmpty())
@@ -158,8 +162,9 @@ QString KilnProjection::problem() const
         return i18n("Projection '%1' has an unknown shape '%2'.", name, shape);
     if (frontMatter != QLatin1String("yaml") && frontMatter != QLatin1String("toml"))
         return i18n("Projection '%1' has an unknown front matter format '%2'.", name, frontMatter);
-    if (section.trimmed().isEmpty())
-        return i18n("Projection '%1' has no section, so its pages have nowhere to go.", name);
+    // No section is required. Empty means each note's own folder is its section, which is
+    // what lets one projection publish `software/` and `techniques/` into two sections —
+    // demanding a section here would force the author to file both under one heading.
     return QString();
 }
 

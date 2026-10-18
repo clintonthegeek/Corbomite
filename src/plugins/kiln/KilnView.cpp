@@ -129,7 +129,10 @@ KilnView::KilnView(PluginContext *context, KilnRunner *runner, QWidget *parent)
     m_orderFrom = new QLineEdit(this);
     m_orderFrom->setPlaceholderText(i18n("a note whose links, in order, are the running order"));
     m_section = new QLineEdit(this);
-    m_section->setPlaceholderText(i18n("software"));
+    m_section->setPlaceholderText(i18n("empty uses each note's own folder"));
+    m_section->setToolTip(i18n("The section to publish into. Empty means a note's own folder is its section, "
+                               "so `software/` and `techniques/` publish into both. Set it to move a folder's "
+                               "notes elsewhere — the folders inside that one then nest under it."));
     m_shape = new QComboBox(this);
     m_shape->addItems({QStringLiteral("bundle"), QStringLiteral("leaf")});
     m_frontMatter = new QComboBox(this);
