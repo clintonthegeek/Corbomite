@@ -1928,6 +1928,7 @@ void MainWindow::setupEditor()
             {QStringLiteral("properties"), QStringLiteral("corbomite-properties")},
             {QStringLiteral("local-graph"), QStringLiteral("corbomite-local-graph")},
             {QStringLiteral("bookmarks"),   QStringLiteral("corbomite-bookmarks")},
+            {QStringLiteral("kiln"),        QStringLiteral("corbomite-kiln")},
         };
         const QString pluginId = slugToPluginId.value(slug, slug);
         const QString toolViewId = pluginId + QStringLiteral("_panel");

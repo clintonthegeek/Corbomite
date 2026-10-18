@@ -1,0 +1,27 @@
+{
+    "KPlugin": {
+        "Id": "corbomite-kiln",
+        "Name": "Kiln",
+        "Description": "Publish a subset of the vault as a Hugo content tree",
+        "Icon": "document-export",
+        "Version": "0.1.0",
+        "License": "GPL-3.0-or-later",
+        "Category": "Core",
+        "EnabledByDefault": true,
+        "Authors": [{"Name": "Corbomite Developers"}]
+    },
+    "X-Corbomite-Trusted": @X_CORBOMITE_TRUSTED@,
+    "X-Corbomite-ApiLevel": 1,
+    "X-Corbomite-Permissions": [
+        "vault.read",
+        "config",
+        "workspace",
+        "process",
+        "ui.commands",
+        "ui.views"
+    ],
+    "X-Corbomite-MinVersion": "0.1.0",
+    "X-Corbomite-DockArea": "right",
+    "X-Corbomite-DockIcon": "document-export",
+    "X-Corbomite-DockTitle": "Kiln"
+}
