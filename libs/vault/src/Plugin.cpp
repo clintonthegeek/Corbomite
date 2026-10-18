@@ -63,9 +63,14 @@ void Plugin::loadSessionState(QObject *, const QJsonObject &)
 {
 }
 
-KTextEditor::ConfigPage *Plugin::configPage(int, QWidget *)
+QWidget *Plugin::configPage(int, QWidget *)
 {
     return nullptr;
+}
+
+QString Plugin::configPageTitle(int) const
+{
+    return {};
 }
 
 // ---- Cluster B Phase 1 — plugin extension verb facades -----------------

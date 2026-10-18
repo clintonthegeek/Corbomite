@@ -69,8 +69,9 @@ and register your subclass with `K_PLUGIN_FACTORY_WITH_JSON`. Inherits
 | `focus` | `virtual void focus(QObject *view)` | Called when the user presses the plugin's focus shortcut (e.g. Ctrl+Shift+F for Search). Default sets focus on `view` if it is a `QWidget`. Override for plugins whose view contains a non-root focus target (e.g. focusing a `QLineEdit` inside a tree panel). |
 | `saveSessionState` | `virtual QJsonObject saveSessionState(QObject *view) const` | Serialize per-plugin state (tree expansion, sidebar scroll) across vault close/reopen. Host stores the result under `_corbomite.plugins.<pluginId>` in `workspace.json`. Default returns empty object. |
 | `loadSessionState` | `virtual void loadSessionState(QObject *view, const QJsonObject &state)` | Apply previously-saved state. Host calls once after `createView` returns and before the view appears on screen. Default is no-op. |
-| `configPages` | `virtual int configPages() const` | Number of KConfig settings pages this plugin provides. Default `0`. |
-| `configPage` | `virtual KTextEditor::ConfigPage *configPage(int number, QWidget *parent)` | Factory for a specific KConfig page. Default returns `nullptr`. |
+| `configPages` | `virtual int configPages() const` | Number of settings pages this plugin provides, hosted in **Settings → Plugins → Configure…**. Default `0` — no button appears. |
+| `configPage` | `virtual QWidget *configPage(int number, QWidget *parent)` | Factory for settings page `number`. Host calls it for every index in `[0, configPages())` after the plugin is loaded and takes ownership of the widget it returns. Default returns `nullptr`, which makes the host skip that index. |
+| `configPageTitle` | `virtual QString configPageTitle(int number) const` | Tab label for page `number`, used only when `configPages() > 1`. Default returns an empty string; the host then shows a generic `Page N`. |
 
 ---
 
@@ -453,8 +454,8 @@ KConfigGroup PluginContext::config();
 
 Gated on `config`. Returns an empty group if the permission is
 ungranted. Per-plugin KConfig group under Corbomite's global
-configuration. Use this for KDE-native preferences (anything you would
-otherwise surface through `KTextEditor::ConfigPage`).
+configuration. Use this for machine-local preferences — the ones your
+`configPage()` renders that must *not* travel with the vault.
 
 For vault-scoped persistent state, prefer `saveData` / `loadData`
 below — they travel with the vault.
@@ -480,6 +481,45 @@ test harness). `saveData` returns `false` on I/O failure.
 State stored here travels with the vault — a vault copied to a USB
 stick carries its plugin data with it. State stored via `config()`
 lives in `~/.config/corbomiterc` and is machine-local.
+
+---
+
+## Settings pages
+
+```cpp
+int      configPages() const;                       // override: how many
+QWidget *configPage(int number, QWidget *parent);    // override: build one
+QString  configPageTitle(int number) const;          // override: tab label
+```
+
+Override `configPages()` to return a non-zero count and the plugin gets
+a **Configure…** button in **Settings → Plugins** for its own row. The
+button appears only while the plugin is loaded — a disabled plugin has
+no `PluginContext`, so there is nothing to build a page against.
+
+Clicking it opens a dialog that calls `configPage(i, parent)` for each
+index in `[0, configPages())` and hosts the returned widgets; with more
+than one page they are shown as tabs, labelled by `configPageTitle(i)`.
+Return `nullptr` for an index the plugin does not offer. The host takes
+ownership of every widget you return.
+
+The host does not mediate persistence: your page writes through
+`saveData()` / `config()` itself and re-reads on construction. Any
+external `data.json` edit re-enters through
+`Plugin::onExternalSettingsChange()`, which is the hook for refreshing
+an open settings page.
+
+```cpp
+int MyPlugin::configPages() const { return 1; }
+
+QWidget *MyPlugin::configPage(int number, QWidget *parent)
+{
+    if (number != 0) return nullptr;
+    auto *page = new QWidget(parent);
+    // … build rows, read loadData(), write saveData() on change
+    return page;
+}
+```
 
 ---
 

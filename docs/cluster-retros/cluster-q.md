@@ -183,4 +183,36 @@ Follow-ups still open: #1 (keyring), #5 (properties test
 rewrite), #7 (dedicated SearchProxy), #8 (richer proxies than
 raw exposure).
 
-Length: ~830 words.
+## Post-Q closeout, 2026-10-18 — plugin settings pages
+
+Task 11 shipped the Settings → Plugins page, and `Plugin::configPages()` /
+`configPage(int, QWidget *)` with it — but nothing ever called them.
+`PluginsPage` built no "Configure…" button, and the factory's return type
+was `KTextEditor::ConfigPage *`, a type no `find_package`, `PKGBUILD` or
+AppImage step declared. A plugin author who implemented the override
+compiled against a dependency Corbomite does not ship, for a button that
+did not exist. The declared hook was a dead surface, and the only two
+working configuration paths were `PluginContext::config()` (a KConfig
+group) and `loadData()` / `saveData()` (vault-scoped `data.json`, atomic
+via `QSaveFile`, both gated on the `config` token, with
+`Plugin::onExternalSettingsChange()` firing on external edits via the
+per-plugin `QFileSystemWatcher`).
+
+Resolved by making the surface real rather than deleting it, and by
+dropping KTextEditor entirely: `configPage` now returns `QWidget *`,
+`configPageTitle(int)` labels the tabs of a multi-page plugin, and
+`PluginsPage` hosts the returned widgets in a dialog opened by a
+per-plugin Configure… button that appears only while the plugin is
+loaded (a disabled plugin has no `PluginContext` to build against). The
+host does not mediate persistence; the page writes through
+`saveData()` / `config()`.
+
+Two defects surfaced on the way. `PluginsPage::rebuild()` refreshed the
+detail pane only through `currentRowChanged`, which is not connected
+during the constructor — the initially selected plugin showed an empty
+pane until the user selected another row and came back. And the pane's
+teardown removed widgets from the layout but left them parented, so the
+previous pane kept painting at its old geometry until the event loop
+processed the deferred deletions.
+
+Length: ~1010 words.

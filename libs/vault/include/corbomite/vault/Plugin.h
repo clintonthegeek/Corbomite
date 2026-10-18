@@ -18,7 +18,6 @@ class QIcon;
 class QWidget;
 class QString;
 class QUrl;
-namespace KTextEditor { class ConfigPage; }
 
 namespace Corbomite {
 
@@ -37,7 +36,7 @@ class DecorationProvider;
 ///   - `onLoad(PluginContext*)`  — called once at plugin enable
 ///   - `onUnload()`              — called once at plugin disable
 ///   - `createView(MainWindow*)` — per-window UI factory; default returns nullptr
-///   - `configPages()` / `configPage(int, QWidget*)` — KConfig pages
+///   - `configPages()` / `configPage(int, QWidget*)` — Settings → Plugins pages
 ///
 /// Lifecycle entry-point is `load(PluginContext*)`, NOT `Component::load()`:
 /// PluginManager calls `plugin->load(ctx)`, which captures the context and
@@ -82,11 +81,26 @@ public:
     /// Default is a no-op.
     virtual void loadSessionState(QObject *view, const QJsonObject &state);
 
-    /// Number of KConfig pages this plugin provides. Default 0.
+    /// Number of settings pages this plugin provides. Default 0 — no
+    /// "Configure…" button appears in Settings → Plugins.
     virtual int configPages() const { return 0; }
 
-    /// KConfig page factory. Default returns nullptr.
-    virtual KTextEditor::ConfigPage *configPage(int number, QWidget *parent);
+    /// Settings-page factory. The host calls this from Settings → Plugins
+    /// ("Configure…") for every index in `[0, configPages())`, after the
+    /// plugin is loaded. Returns a widget parented to `parent` — the host
+    /// takes ownership of it — or nullptr to skip that index. Default
+    /// returns nullptr.
+    ///
+    /// The plugin persists whatever the user changes through
+    /// `PluginContext::saveData()` / `config()`; the host does not mediate
+    /// writes, and both of those accessors are gated on the `config`
+    /// permission token.
+    virtual QWidget *configPage(int number, QWidget *parent);
+
+    /// Tab label for the page returned by `configPage(number, ...)`, used
+    /// only when `configPages() > 1`. Default returns an empty string, and
+    /// the host falls back to a generic numbered label.
+    virtual QString configPageTitle(int number) const;
 
     // ---- Cluster B Phase 1 — plugin extension verbs --------------------
     // Convenience wrappers over the per-registrar proxies on PluginContext.

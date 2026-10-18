@@ -60,7 +60,8 @@ The following surfaces are shape-stable from Cluster N close:
 - The `Plugin` virtual lifecycle hooks: `onLoad(PluginContext*)`,
   `onUnload()`, `createView(MainWindow*)`, `focus(QObject*)`,
   `saveSessionState(QObject*)`, `loadSessionState(QObject*,
-  QJsonObject)`, `configPages()`, `configPage(int, QWidget*)`.
+  QJsonObject)`, `configPages()`, `configPage(int, QWidget*)`,
+  `configPageTitle(int)`.
 - `PluginContext` accessors (`vault`, `fileManager`,
   `metadataCache`, `search`, `workspace`, `commands`, `views`,
   `menus`, `network`, `secrets`, `process`, `config`, `loadData`,

@@ -3,6 +3,7 @@
 
 #include <QWidget>
 
+class QDialog;
 class QLabel;
 class QListWidget;
 class QListWidgetItem;
@@ -15,6 +16,13 @@ class PluginManager;
 /// Settings page that lists every discovered plugin alongside its enable
 /// state, declared permissions, and a per-plugin "Configure…" button when
 /// the plugin exposes config pages.
+///
+/// The button appears only for a plugin that is currently loaded (a
+/// disabled plugin has no instance and no `PluginContext` to build a page
+/// against) and reports `configPages() > 0`. Clicking it opens a modal
+/// dialog hosting the widgets from `Plugin::configPage(i, parent)`; the
+/// plugin persists its own changes through
+/// `PluginContext::saveData()` / `config()`.
 ///
 /// Trusted plugins (built-ins) auto-grant their declared permissions, so
 /// the per-permission checkboxes are read-only — there's nothing to
@@ -48,6 +56,7 @@ public:
 private Q_SLOTS:
     void onSelectionChanged();
     void onItemChanged(QListWidgetItem *item);
+    void onConfigureClicked();
 
 private:
     void rebuild();
@@ -60,6 +69,12 @@ private:
     QVBoxLayout   *m_detailLayout = nullptr;
     bool m_settingChecked = false; // re-entry guard for itemChanged
     bool m_currentEditable = false;
+
+    /// Open plugin settings dialog, or nullptr. Owned by this page and
+    /// destroyed on close (`Qt::WA_DeleteOnClose`), so it never outlives
+    /// the plugin instance whose widget it hosts.
+    QDialog *m_configDialog = nullptr;
+    QString  m_configPluginId;     // plugin m_configDialog belongs to
 };
 
 } // namespace Corbomite

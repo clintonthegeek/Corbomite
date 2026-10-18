@@ -2,18 +2,24 @@
 #include "PluginsPage.h"
 
 #include "corbomite/core/PluginApi.h"
+#include "corbomite/vault/Plugin.h"
 #include "corbomite/vault/PluginManager.h"
 #include "corbomite/vault/PluginPermissionGrantDialog.h"
 
 #include <KAboutData>
 #include <KLocalizedString>
+#include <KMessageBox>
 #include <QCheckBox>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
+#include <QPushButton>
 #include <QSplitter>
+#include <QTabWidget>
 #include <QVBoxLayout>
 
 namespace Corbomite {
@@ -62,7 +68,14 @@ PluginsPage::PluginsPage(PluginManager *mgr, QWidget *parent)
         connect(m_mgr, &PluginManager::pluginEnabled, this,
                 [this](const QString &) { rebuild(); }, Qt::QueuedConnection);
         connect(m_mgr, &PluginManager::pluginDisabled, this,
-                [this](const QString &) { rebuild(); }, Qt::QueuedConnection);
+                [this](const QString &id) {
+                    // Disable destroys the instance and its PluginContext, so
+                    // a settings dialog built from them must not outlive it.
+                    if (m_configDialog && m_configPluginId == id) {
+                        m_configDialog->close();
+                    }
+                    rebuild();
+                }, Qt::QueuedConnection);
     }
 }
 
@@ -92,12 +105,16 @@ void PluginsPage::rebuild()
             m_list->addItem(item);
         }
     }
-    m_list->blockSignals(false);
     if (m_list->count() > 0 && m_list->currentRow() < 0) {
         m_list->setCurrentRow(0);
-    } else {
-        refreshDetail(m_list->currentRow());
     }
+    m_list->blockSignals(false);
+    // Refresh explicitly rather than leaning on currentRowChanged: on the
+    // first rebuild the signal isn't connected yet (the connection is made
+    // after this call in the constructor), which left the initially
+    // selected row showing an empty detail pane until the user selected a
+    // different row and came back.
+    refreshDetail(m_list->currentRow());
 }
 
 void PluginsPage::onSelectionChanged()
@@ -126,10 +143,16 @@ void PluginsPage::onItemChanged(QListWidgetItem *item)
 
 void PluginsPage::refreshDetail(int row)
 {
-    // Tear down existing detail widgets.
+    // Tear down existing detail widgets. Detach now — a widget left as a
+    // child keeps painting at its old geometry and still turns up in
+    // findChild — but destroy later, since the caller may be inside one of
+    // these widgets' signal handlers.
     while (m_detailLayout->count() > 0) {
         QLayoutItem *child = m_detailLayout->takeAt(0);
-        if (auto *w = child->widget()) w->deleteLater();
+        if (auto *w = child->widget()) {
+            w->setParent(nullptr); // also hides it
+            w->deleteLater();
+        }
         delete child;
     }
     m_detailHeading = nullptr;
@@ -235,7 +258,96 @@ void PluginsPage::refreshDetail(int row)
         m_detailLayout->addWidget(none);
     }
 
+    // Configure… — only for a loaded plugin that offers pages. A disabled
+    // plugin has no instance and no PluginContext, so there is nothing to
+    // build a page against.
+    if (info.instance && info.instance->configPages() > 0) {
+        auto *configure = new QPushButton(i18n("Configure…"), m_detail);
+        configure->setObjectName(QStringLiteral("pluginConfigureButton"));
+        connect(configure, &QPushButton::clicked,
+                this, &PluginsPage::onConfigureClicked);
+        m_detailLayout->addWidget(configure);
+    }
+
     m_detailLayout->addStretch();
+}
+
+void PluginsPage::onConfigureClicked()
+{
+    if (!m_mgr) return;
+    const int row = m_list->currentRow();
+    if (row < 0 || row >= m_mgr->pluginCount()) return;
+
+    const auto &info = m_mgr->pluginByIndex(row);
+    if (!info.instance) return;
+
+    const int pageCount = info.instance->configPages();
+    if (pageCount <= 0) return;
+
+    // One dialog at a time, rebuilt from scratch on each click: the plugin
+    // reads its settings when the page is constructed, and a disable while
+    // the dialog is open destroys the instance underneath it.
+    if (m_configDialog) m_configDialog->close();
+
+    const QString id = info.metaData.base().pluginId();
+    const QString name = info.metaData.base().name();
+
+    auto *dlg = new QDialog(this);
+    dlg->setObjectName(QStringLiteral("pluginConfigDialog"));
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->setWindowTitle(i18n("Configure %1", name));
+    auto *dlgLayout = new QVBoxLayout(dlg);
+
+    QTabWidget *tabs = pageCount > 1 ? new QTabWidget(dlg) : nullptr;
+    if (tabs) {
+        tabs->setObjectName(QStringLiteral("pluginConfigTabs"));
+        dlgLayout->addWidget(tabs);
+    }
+
+    int built = 0;
+    for (int i = 0; i < pageCount; ++i) {
+        auto *host = new QWidget;
+        auto *hostLayout = new QVBoxLayout(host);
+        QWidget *page = info.instance->configPage(i, host);
+        if (!page) {
+            delete host;
+            continue;
+        }
+        hostLayout->addWidget(page);
+        if (tabs) {
+            const QString title = info.instance->configPageTitle(i);
+            tabs->addTab(host, title.isEmpty() ? i18n("Page %1", i + 1) : title);
+        } else {
+            dlgLayout->addWidget(host);
+        }
+        ++built;
+    }
+
+    if (built == 0) {
+        // configPages() > 0 but the factory produced nothing — the plugin
+        // broke its half of the contract. Say so instead of opening an
+        // empty dialog.
+        dlg->deleteLater();
+        KMessageBox::error(this,
+            i18n("%1 reports settings pages but supplied none.", name),
+            i18n("Plugin settings"));
+        return;
+    }
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, dlg);
+    buttons->setObjectName(QStringLiteral("pluginConfigButtons"));
+    connect(buttons, &QDialogButtonBox::rejected, dlg, &QDialog::close);
+    dlgLayout->addWidget(buttons);
+
+    dlg->adjustSize();
+    m_configDialog = dlg;
+    m_configPluginId = id;
+    // Compare rather than clear blindly: closing a previous dialog defers
+    // its deletion, and that lambda must not null the new dialog's pointer.
+    connect(dlg, &QObject::destroyed, this, [this, dlg]() {
+        if (m_configDialog == dlg) m_configDialog = nullptr;
+    });
+    dlg->open();
 }
 
 int PluginsPage::rowCount() const { return m_list->count(); }
