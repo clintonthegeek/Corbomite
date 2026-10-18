@@ -11,10 +11,13 @@ Configure and build the dev preset:
 
 ```bash
 cmake --preset dev
-cmake --build --preset dev -j 10
+cmake --build --preset dev -j 3
 ```
 
-Always pass `-j 10` to `cmake --build` — the default serial build is slow on this tree. Use the same `-j 10` for incremental rebuilds.
+Use `-j 3` for `cmake --build` and `ctest`. This machine has **4 cores and other
+users**, so `-j 3` is the ceiling — the old `-j 10` was set for a different
+development machine. (Serial is needlessly slow; higher than `-j 3` starves the
+box.) Use the same `-j 3` for incremental rebuilds.
 
 Run:
 ```bash
@@ -29,10 +32,10 @@ is required or ~24 GUI tests abort trying to reach the display, and the
 wall-clock timing tests must be excluded (see below):
 
 ```bash
-cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 10
+cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 3
 ```
 
-**Why `-E "benchmark|perf"` and not just `-E benchmark`** (2026-10-01): the wall-clock tests flake red under `-j10` from machine load alone, and pass standalone. `tst_benchmark_layout` (libs/forcegraph) carries a native `LABELS "benchmark"`, but `tst_canvas_perf_500` and `tst_canvas_perf_formatted` come from the markoff-family submodule with **no label at all**, so `-E benchmark` does not reach them. A parent-directory
+**Why `-E "benchmark|perf"` and not just `-E benchmark`** (2026-10-01): the wall-clock tests flake red under parallel load alone, and pass standalone. `tst_benchmark_layout` (libs/forcegraph) carries a native `LABELS "benchmark"`, but `tst_canvas_perf_500` and `tst_canvas_perf_formatted` come from the markoff-family submodule with **no label at all**, so `-E benchmark` does not reach them. A parent-directory
 `set_tests_properties` cannot fix this either — CTest test properties are
 directory-scoped — and patching the submodule would be lost on the next
 re-pin. The real fix is a `LABELS "benchmark"` in markoff-canvas; until then
@@ -62,7 +65,7 @@ Build and install the release preset (system-wide, separate config/data dirs fro
 
 ```bash
 cmake --preset release
-cmake --build --preset release -j 10
+cmake --build --preset release -j 3
 sudo cmake --install build-release
 ```
 
