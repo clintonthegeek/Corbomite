@@ -12,6 +12,8 @@
 #include "corbomite/core/ViewRegistry.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 
+#include <markoff/core/MarkoffDocument.h>
+
 #include <QMenu>
 #include <QStringList>
 #include <QTest>
@@ -38,6 +40,7 @@ private slots:
     void insertFrontmatterPropertyFindsOpeningFenceUnclosed();
     void onMoreOptionsMenuDispatchesAddPropertyCommand();
     void onMoreOptionsMenuContributesViewLinkedSubmenu();
+    void insertFrontmatterPropertyIsUndoable();
 };
 
 void TestMarkdownView::insertFrontmatterPropertyCreatesBlockIfMissing()
@@ -241,6 +244,34 @@ void TestMarkdownView::onMoreOptionsMenuContributesViewLinkedSubmenu()
     backlinksAct->trigger();
     QVERIFY(dispatched.contains(
         QStringLiteral("corbomite-backlinks:open")));
+}
+
+// Regression for the old "add blank row destroys undo history" P1. On the
+// pre-vNext path `setMarkdown` went through `resetContent(Origin::TestFixture)`,
+// which rebuilt the D2 buffer and cleared the undo stack, so Ctrl+Z could not
+// reverse the added row (and a later undoD2 corrupted the document). After the
+// provider-backed migration `setMarkdown` -> publishMarkdown -> replaceMarkdown
+// is a single undoable document action, so the row reverses cleanly.
+void TestMarkdownView::insertFrontmatterPropertyIsUndoable()
+{
+    NoteDocument doc(QStringLiteral("/tmp/vault"), QStringLiteral("note.md"));
+    QVERIFY(doc.publishMarkdown(QByteArrayLiteral("---\ntitle: Foo\n---\nBody\n")));
+    doc.setModified(false);
+
+    ViewRegistry registry;
+    WorkspaceLeaf leaf(&registry);
+    MarkdownView view(&leaf);
+    view.editorWidget()->setNoteDocument(&doc);
+
+    const QString before = doc.markdown();
+    view.insertFrontmatterProperty();
+    const QString after = doc.markdown();
+    QVERIFY2(after != before, "the add-row action must change the document");
+    QVERIFY2(after.count(QStringLiteral("\n---")) == 1,
+             "the row is added inside the existing block");
+
+    doc.markoff()->undoD2();
+    QCOMPARE(doc.markdown(), before);
 }
 
 QTEST_MAIN(TestMarkdownView)

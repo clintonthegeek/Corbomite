@@ -10,6 +10,19 @@ Conventions:
 
 ---
 
+## 2026-10-17 — properties "add blank row" P1 fixed by the vNext migration
+
+The long-standing `[editor][P1]` — `MarkdownView::insertFrontmatterProperty` destroying the
+user's undo history — is **resolved by the provider-backed migration, not by a targeted
+fix**. The old path routed the user edit through `NoteDocument::setMarkdown` →
+`resetContent(Origin::TestFixture)`, which rebuilt the D2 buffer and cleared the undo stack
+(and made `undoD2()` corrupt the document). On pin `dca64686`, `setMarkdown` →
+`publishMarkdown` → `replaceMarkdown`, a single undoable document action; the `resetContent`
+/ `Origin` / `wipeD2State` path is gone. Verified end-to-end: `insertFrontmatterProperty()`
+then `undoD2()` restores the prior bytes, pinned by
+`tst_markdown_view::insertFrontmatterPropertyIsUndoable`. The item's "needs a Markoff API"
+plan is moot — the API that arrived is `replaceMarkdown`.
+
 ## 2026-10-17 — workspace `direction`: confirmed parity, item closed
 
 The `[~]` workspace-direction P1 reconciled. Its direction half is **Obsidian parity, not a
