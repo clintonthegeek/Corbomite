@@ -8,17 +8,35 @@ a later session can tell the difference between "tested" and "asserted in a unit
 test". Items marked 🤖 were checked by an automated test; items marked 👤 need a
 person. An item with neither is not done.
 
-Last updated: **2026-10-02**, after the first inspector pass and a
-build-hygiene pass.
+Last updated: **2026-10-18**, for the 2026-10-17 gates (§13: Cluster F-a File
+Recovery + Note Composer, the canvas M6 exit) and the four L5 fixes (§11), plus
+the two surfaces that landed 2026-10-18 (§14: the Kiln panel, Settings →
+Plugins). Nothing above §11 was rewritten; §11 was rewritten because the soak
+it listed is closed.
+
+Two things to know before walking this:
+
+- Run it against **copies** of a vault, not a production one. §13b's merge
+  moves the source note to the trash on purpose, and §13a's restore overwrites
+  a file. The 2026-10-17 L5 soak used `/tmp` copies of DevVault and jsoncanvas;
+  that is the right shape for this pass too.
+- The dev tree is current with `HEAD` as of 2026-10-18 15:25 — a
+  `cmake --build --preset dev` at that point had nothing to compile. The app is
+  `build-dev/bin/libCorbomiteApp.so` (the `bin/Corbomite` stub just loads it),
+  and bundled plugins are `build-dev/lib/plugins/corbomite/*.so`. If a rebuild
+  compiles nothing, what you are running is the tree.
 
 ---
 
 ## How to build and run
 
 ```bash
-cmake --build --preset dev -j 10
+cmake --build --preset dev -j 3
 ./build-dev/bin/Corbomite
 ```
+
+`-j 3`, not `-j 10`: this machine has 4 shared cores. `-j 10` was for the old
+dev box.
 
 The dev build is isolated: config `~/.config/corbomite-devrc`, data
 `~/.local/share/corbomite-dev/`, window title `Corbomite [Dev]`. It will not
@@ -145,11 +163,37 @@ If step 3 or 6 fails, say so and I will dig into the Markoff leaf appliers
 (`markoff-live`'s `binding->setTheme`, `markoff-styled`'s `m_styleApplier`) — I
 verified both *push* the theme, but not that either has a live view attached.
 
-## 11. Carried over from earlier passes 👤
+## 11. The 2026-10-17 L5 soak, and the four fixes it produced 👤
 
-- [ ] **Cluster L5 soak** — 6 scenarios, checkboxed in the plan
-- [ ] **L5 human-eyeball backlog** from the 2026-08-17 soak
-- [ ] Drag a tab between groups; split; popout; close-undo; vault switch
+**The soak is discharged — do not re-run it.** It was closed 2026-10-17
+(closeout: `decisions-archive.md` → "2026-10-17 — L5 soak closed"); it ran
+L5.1–L5.6 on `/tmp` copies of DevVault and jsoncanvas plus one Obsidian round
+trip, and found four defects. All four were **fixed and pinned offscreen that
+same day, and none has been re-run live** — so the fixes, not the soak, are
+what is outstanding. The test named on each line is what pins it; a line that
+fails means that test passed for the wrong reason.
+
+- [ ] 👤 Restore a workspace whose popout holds two notes side by side → both
+      floating panes **render their views**, not just their tab titles, without
+      dragging one onto the other
+      (`tst_workspace_popout::restoreFloatingLeaf_isNotDeferred`)
+- [ ] 👤 Close the **last tab in a pane** (the pane collapses) → undo close
+      restores it as **its own pane on the same side**, not tabbed into the
+      survivor (`tst_workspace_session::undoCloseLeafRestoresCollapsedSplitPane`)
+- [ ] 👤 Open a vault with **no `workspace.json`** → exactly one empty leaf, no
+      second pane, and no tab titled with a raw 16-hex id
+      (`tst_workspace_session::missingWorkspaceJsonWithHostNeverZeroHandlerCreatesOneLeaf`)
+- [ ] 👤 Arrange splits, quit, then read `workspace.json` → no empty `tabs`
+      node (`children: []`) beside a real split. That node was Corbomite's, not
+      in the file it had loaded, and Obsidian's own save omitted it.
+- [ ] 👤 Regression over the same ground: drag a tab between groups; Split
+      Right / Split Down; popout; switch vault with splits and a popout open →
+      no crash, no lost tree
+
+**Accepted on 2026-10-17 — do not re-file these two.** A between-group drag
+works through the KDDW drop targets but **dropping on the destination tab bar**
+does not; and a failed drag leaves the tab drawn askew until the next click.
+Both were eyeballed and accepted as-is.
 
 ## 11b. Build hygiene — verified by inspection, worth one confirmation 👤
 
@@ -157,11 +201,13 @@ The test gate was unified 2026-10-02 and a real bug was fixed with it. Nothing
 here should need you, but if anything below surprises you, say so.
 
 - [ ] 👤 `rm -rf build-dev && cmake --preset dev` from scratch, then confirm
-      `ctest -N` in `build-dev` reports **345** tests. It previously reported
-      **109** — all from the markoff-family submodule, none of them ours —
-      because no preset set the test gate and its default is OFF. It only
-      appeared to work because this machine's `build-dev/` cache was already
-      configured. If you ever get 109, the gate is off again.
+      `ctest -N -E 'benchmark|perf'` in `build-dev` reports a few hundred tests
+      (**277** measured 2026-10-18; the number moves with every test added, so
+      what matters is the order of magnitude, not the exact figure). It
+      previously reported **109** — all from the markoff-family submodule, none
+      of them ours — because no preset set the test gate and its default is
+      OFF. It only appeared to work because this machine's `build-dev/` cache
+      was already configured. If you ever get 109, the gate is off again.
 - [ ] 👤 `cmake --preset release -B /tmp/rel-check` then `ctest -N` should show
       only the ~109 submodule tests, and **no** Corbomite ones.
 
@@ -173,6 +219,101 @@ here should need you, but if anything below surprises you, say so.
 - [ ] Disable a plugin at runtime, then re-enable
 - [ ] `.obsidian/app.json`: rename link format + trash option survive a restart
 - [ ] A note whose frontmatter contains `----` — "Add property" must not corrupt it
+
+---
+
+## 13. Cluster F-a + the canvas M6 exit — new 2026-10-17 👤
+
+Four gates, all in the tree, all offscreen-green and none validatable
+offscreen. The punch list carries each as its own box.
+
+### 13a. File Recovery + Version history (F-a P1.8)
+
+- [ ] 👤 Settings → **File Recovery** exists: interval in minutes (**0 = Off**,
+      default 60), max snapshot age (default 7 days), per-file snapshot count
+      (default 50)
+- [ ] 👤 Drop the interval to 1–5 min, open a note, type, leave it dirty, wait
+      it out
+- [ ] 👤 Note hamburger (…) → **Version history** → the modal renders: a list
+      newest-first, a read-only preview, **red markers** on save-failure
+      entries
+- [ ] 👤 **Restore this version** → the file is overwritten on disk **and** the
+      leaf reloads from disk. The restore writes through the recovery store,
+      not `Vault`, so a leaf that keeps showing the old text is the bug
+- [ ] 👤 Close the vault (or quit) → the recovery directory is purged per the
+      retention policy
+
+### 13b. "Merge entire file with…" (F-a P3.7) — use a vault copy
+
+- [ ] 👤 Note hamburger → **Merge entire file with…** → stage 1 is a fuzzy
+      picker that **excludes the source**, stage 2 asks append or prepend and
+      states the destructive consequence
+- [ ] 👤 Append a second note into a target, then repeat with prepend → the
+      body moves, the source's frontmatter is stripped, the source lands in the
+      **configured trash** (`.trash` or system per `.obsidian/app.json`), and
+      the target opens
+- [ ] 👤 **Cancel** at each stage → both files byte-untouched
+- [ ] 👤 Merge a note that a canvas or another note links → the link fix-up
+      leaves no dangling reference
+
+### 13c. Canvas M6 exit — rename rewriting (M6.2) + missing-file (M6.3)
+
+- [ ] 👤 Rename a note that a canvas points at — a **file card**, a **group
+      background**, a **text-card link** → the `.canvas` is rewritten, the
+      canvas still renders, and the link shows as resolved in
+      backlinks/outgoing
+- [ ] 👤 Rename **the canvas itself** → same
+- [ ] 👤 Open a canvas whose file card points at a file that does not exist →
+      the card paints **"File not found: <path>"** with **Create / Locate… /
+      Remove**
+- [ ] 👤 The three buttons hover and click (their paint state and hit-testing
+      are exactly what the offscreen cases cannot see)
+- [ ] 👤 **Create** writes the file and re-renders the card in place;
+      **Locate…** re-picks and re-renders; **Remove** deletes the node
+- [ ] 👤 With the canvas still open, create or rename a file into that missing
+      path from outside → the card resolves **without reopening the canvas**
+
+---
+
+## 14. Kiln panel + Settings → Plugins — new 2026-10-18 👤
+
+Landed in `c3365ee3` / `50cb9c9e` / `277c006b` and `190cf24e`. No trajectory
+step names either, so these lines are the only gate they have.
+
+### 14a. The Kiln panel
+
+- [ ] 👤 Command palette → **Kiln: open the panel** (and **Kiln: check the
+      projection** / **Kiln: write the pages**) → the panel opens in the right
+      dock area
+- [ ] 👤 Set the engine with **Browse…** — `kiln` is **not** on `PATH`; the
+      built binary is `~/dev/Kiln/build/kiln`
+- [ ] 👤 Point the engine at a **wrong** path and run → the panel says the
+      engine failed to start. A silent no-op is the failure mode here: the
+      runner only learns about a bad path from `FailedToStart`, never from
+      `finished()`
+- [ ] 👤 Add and remove a projection; set its **Folders**, **Held back**,
+      **Running order**, **Section**, **Shape** (bundle|leaf), **Front
+      matter**, **Fields**, **Link base** and **Taxonomies** → the **section
+      list matches what the engine itself derives**, including the **"A nested
+      tag also carries its parents"** switch
+- [ ] 👤 **Check** (tooltip: writes nothing) against a real vault → the report
+      renders the engine's findings; **Project** and **Write the site shell**
+      write to the configured **Site directory**; **Reveal** and **Copy
+      config** work (the copied JSON is what `kiln check --config -` reads)
+- [ ] 👤 Hand-edit the plugin's `data.json` on disk → the panel reloads. Its own
+      save must not re-enter (it compares before acting)
+
+### 14b. Settings → Plugins detail pane
+
+- [ ] 👤 Settings → **Plugins** → the detail pane is **populated on open** for
+      the initially selected plugin. It used to be empty until you selected
+      another row and came back
+- [ ] 👤 Click down the plugin list → nothing is left painting at the previous
+      row's geometry
+- [ ] 👤 **No Configure… button anywhere** — that is the correct result: no
+      bundled plugin offers `configPages()` today, so the button is exercised
+      only by `tst_plugins_page`'s fake plugin
+- [ ] 👤 Disable and re-enable a plugin → list and detail pane stay consistent
 
 ---
 
@@ -195,9 +336,11 @@ That is enough for me to root-cause most things without guessing.
 |---|---|
 | §1–§8 | First inspector pass, 2026-10-02 |
 | §9, §10 | Bugs reported in that pass |
-| §11 | Cluster L5, 2026-08-17 |
+| §11 | Cluster L5 soak, 2026-08-17; **rewritten 2026-10-18** — the soak closed 2026-10-17, and its four fixes are the open half |
 | §11b | Build-hygiene pass, 2026-10-02 (test-gate unification) |
 | §12 | Standing regressions; §12's last line is the frontmatter-fence P1 fix |
+| §13 | The 2026-10-17 gates: Cluster F-a (P1.8, P3.7) and the canvas M6 exit (M6.2, M6.3) |
+| §14 | Surfaces landed 2026-10-18: the Kiln panel and Settings → Plugins `190cf24e` |
 
 Automated coverage lives in the suite, not here — if an item above says 🤖, the
 assertion is in `tests/`. This file is for the things a test cannot see.
