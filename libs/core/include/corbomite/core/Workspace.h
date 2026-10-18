@@ -27,7 +27,14 @@ struct UndoEntry {
     QString leafId;
     QJsonObject state;
     QJsonObject eState;
+    // Where to restore the leaf. When it closed with a live sibling in its own
+    // tab group, `parentId` is that sibling and `parentSide` is empty (restore
+    // as a tab beside it). When the leaf was the last tab in its pane and the
+    // pane collapsed, `parentId` is the first live leaf of the adjacent pane
+    // in the enclosing split and `parentSide` is "left"/"right"/"top"/"bottom"
+    // (restore as a fresh split on that side, so the divider returns).
     QString parentId;
+    QString parentSide;
     QString rootId;
     LeafHistory leafHistory;
     bool pinned = false;

@@ -576,6 +576,83 @@ void Workspace::detachLeavesOfType(const QString &type)
     for (auto *leaf : toClose) closeLeaf(leaf);
 }
 
+namespace {
+
+bool tabsNodeContains(const QJsonObject &tabs, const QString &leafId)
+{
+    for (const auto &c : tabs.value(QStringLiteral("children")).toArray()) {
+        if (c.toObject().value(QStringLiteral("id")).toString() == leafId)
+            return true;
+    }
+    return false;
+}
+
+QString firstLeafIdInJson(const QJsonObject &node)
+{
+    const QString type = node.value(QStringLiteral("type")).toString();
+    if (type == QLatin1String("tabs")) {
+        const auto a = node.value(QStringLiteral("children")).toArray();
+        return a.isEmpty() ? QString()
+                           : a.first().toObject().value(QStringLiteral("id")).toString();
+    }
+    if (type == QLatin1String("leaf"))
+        return node.value(QStringLiteral("id")).toString();
+    for (const auto &c : node.value(QStringLiteral("children")).toArray()) {
+        const QString id = firstLeafIdInJson(c.toObject());
+        if (!id.isEmpty())
+            return id;
+    }
+    return {};
+}
+
+// Find the split node that *directly* holds `leafId`'s tabs, and the index of
+// that tabs child.
+bool findParentSplit(const QJsonObject &node, const QString &leafId,
+                     QJsonObject &parent, int &idx)
+{
+    if (node.value(QStringLiteral("type")).toString() != QLatin1String("split"))
+        return false;
+    const auto children = node.value(QStringLiteral("children")).toArray();
+    for (int i = 0; i < children.size(); ++i) {
+        const QJsonObject c = children.at(i).toObject();
+        if (c.value(QStringLiteral("type")).toString() == QLatin1String("tabs")
+            && tabsNodeContains(c, leafId)) {
+            parent = node;
+            idx = i;
+            return true;
+        }
+        if (findParentSplit(c, leafId, parent, idx))
+            return true;
+    }
+    return false;
+}
+
+// The adjacent pane's first live leaf + the side the closed pane occupied in
+// its split, from the serialized Obsidian-shape tree.
+bool findSplitNeighbour(const QJsonObject &mainNode, const QString &leafId,
+                        QString &siblingLeafId, QString &side)
+{
+    QJsonObject parent;
+    int idx = -1;
+    if (!findParentSplit(mainNode, leafId, parent, idx))
+        return false;
+    const auto children = parent.value(QStringLiteral("children")).toArray();
+    if (children.size() < 2)
+        return false;
+    const int sibIdx = (idx == 0) ? 1 : 0;
+    siblingLeafId = firstLeafIdInJson(children.at(sibIdx).toObject());
+    if (siblingLeafId.isEmpty())
+        return false;
+    const bool first = (idx == 0);
+    if (parent.value(QStringLiteral("direction")).toString() == QLatin1String("horizontal"))
+        side = first ? QStringLiteral("top") : QStringLiteral("bottom");
+    else
+        side = first ? QStringLiteral("left") : QStringLiteral("right");
+    return true;
+}
+
+}  // namespace
+
 void Workspace::closeLeaf(WorkspaceLeaf *leaf)
 {
     if (!leaf || !m_leavesById.contains(leaf->id()))
@@ -596,6 +673,20 @@ void Workspace::closeLeaf(WorkspaceLeaf *leaf)
         if (sib != leaf) {
             entry.parentId = sib->id();
             break;
+        }
+    }
+    // No live sibling in the group: this was the last tab in its pane, so its
+    // pane collapses on close. Capture the adjacent pane + side from the
+    // current tree so undoCloseLeaf can restore the split rather than dropping
+    // the note into whatever pane remains (L5 soak 2026-10-17).
+    if (entry.parentId.isEmpty()) {
+        QString sib;
+        QString side;
+        if (findSplitNeighbour(serialize().value(QStringLiteral("main")).toObject(),
+                               entry.leafId, sib, side)
+            && m_leavesById.contains(sib)) {
+            entry.parentId = sib;
+            entry.parentSide = side;
         }
     }
     m_undoHistory.prepend(entry);
@@ -629,9 +720,31 @@ void Workspace::undoCloseLeaf()
     WorkspaceLeaf *originalSibling = entry.parentId.isEmpty()
         ? nullptr
         : m_leavesById.value(entry.parentId);
-    auto *leaf = originalSibling
-        ? createLeafInGroupOf(originalSibling)
-        : createLeafInActiveGroup();
+    WorkspaceLeaf *leaf = nullptr;
+    if (originalSibling && entry.parentSide.isEmpty()) {
+        // Closed with a live sibling in its own group: restore as a tab.
+        leaf = createLeafInGroupOf(originalSibling);
+    } else if (originalSibling && !entry.parentSide.isEmpty()
+               && originalSibling->dockWidget()) {
+        // Closed as the last tab of a pane that collapsed: recreate the split
+        // on the same side of the adjacent pane, so the divider returns.
+        leaf = new WorkspaceLeaf(m_registry, this);
+        registerLeaf(leaf);
+        const auto loc =
+            entry.parentSide == QLatin1String("left") ? KDDockWidgets::Location_OnLeft
+          : entry.parentSide == QLatin1String("right") ? KDDockWidgets::Location_OnRight
+          : entry.parentSide == QLatin1String("top") ? KDDockWidgets::Location_OnTop
+          : KDDockWidgets::Location_OnBottom;
+        {
+            const QSignalBlocker blocker(leaf->dockWidget());
+            originalSibling->dockWidget()->dockWidget()->addDockWidgetToContainingWindow(
+                leaf->dockWidget()->dockWidget(), loc,
+                originalSibling->dockWidget()->dockWidget());
+        }
+        m_tabGroupOf.insert(leaf, generateTabGroupId());
+    }
+    if (!leaf)
+        leaf = createLeafInActiveGroup();
     if (!leaf)
         return;
     // m_leavesById is keyed on the auto-generated id of the freshly created

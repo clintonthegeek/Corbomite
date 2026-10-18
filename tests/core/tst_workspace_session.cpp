@@ -53,6 +53,9 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 
 #include <kddockwidgets/core/DockRegistry.h>
+#include <kddockwidgets/core/Group.h>
+#include <kddockwidgets/qtwidgets/DockWidget.h>
+#include <kddockwidgets/qtwidgets/MainWindow.h>
 
 using namespace Corbomite;
 
@@ -876,6 +879,55 @@ private Q_SLOTS:
         QCOMPARE(innerChildren.at(1).toObject().value(QStringLiteral("id")).toString(),
                  QStringLiteral("botright1111aaa"));
         QCOMPARE(innerChildren.at(1).toObject().value(QStringLiteral("dimension")).toInt(-1), 50);
+    }
+
+    // L5 soak 2026-10-17: closing the last tab in a pane collapses the pane,
+    // and undoCloseLeaf put the note back into whatever pane remained (the
+    // divider never returned), because closeLeaf stored only a live same-group
+    // sibling. It now also records the adjacent pane + side from the live tree
+    // and recreates the split.
+    void undoCloseLeafRestoresCollapsedSplitPane()
+    {
+        auto *reg = makeRegistry(this);
+        auto *ws = new Workspace(reg, this);
+        ws->kddwMainWindow()->show();
+
+        const auto groupOf = [](WorkspaceLeaf *l) -> KDDockWidgets::Core::Group * {
+            if (!l || !l->dockWidget() || !l->dockWidget()->dockWidget())
+                return nullptr;
+            auto *dw = l->dockWidget()->dockWidget();
+            for (auto *g : KDDockWidgets::DockRegistry::self()->groups())
+                for (auto *d : g->dockWidgets())
+                    if (d == dw) return g;
+            return nullptr;
+        };
+
+        auto *a = ws->createLeafInActiveGroup();
+        QVERIFY(a);
+        auto *b = ws->splitLeaf(a, Qt::Horizontal);  // b in a pane to a's right
+        QVERIFY(b);
+        ws->setActiveLeaf(a);
+
+        ws->closeLeaf(b);  // last tab in its pane -> the pane collapses
+        QCOMPARE(ws->allLeaves().size(), 1);
+        QCoreApplication::processEvents();  // flush the deferred teardown
+
+        ws->undoCloseLeaf();
+        QCoreApplication::processEvents();
+        QCOMPARE(ws->allLeaves().size(), 2);
+
+        WorkspaceLeaf *restored = nullptr;
+        for (auto *l : ws->allLeaves()) {
+            if (l != a) restored = l;
+        }
+        QVERIFY(restored);
+
+        auto *groupA = groupOf(a);
+        auto *groupR = groupOf(restored);
+        QVERIFY(groupA);
+        QVERIFY(groupR);
+        QVERIFY2(groupA != groupR,
+                 "undo must recreate the split, not tab the note into the remaining pane");
     }
 };
 
