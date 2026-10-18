@@ -34,6 +34,7 @@ private slots:
     void testCommandDispatcherReceivesRevealCommand();
     void testDisabledPlaceholdersHaveTooltips();
     void testBookmarkCallbackEnablesMenuEntry();
+    void testVersionHistoryCallbackEnablesMenuEntry();
 };
 
 namespace {
@@ -298,6 +299,43 @@ void TestEditableFileViewMenu::testBookmarkCallbackEnablesMenuEntry()
     QVERIFY(bookmark);
     QVERIFY(bookmark->isEnabled());
     bookmark->trigger();
+    QVERIFY(called);
+    QCOMPARE(seen, QStringLiteral("foo.md"));
+}
+
+void TestEditableFileViewMenu::testVersionHistoryCallbackEnablesMenuEntry()
+{
+    QTemporaryDir tmp;
+    TestEditableView view;
+    QScopedPointer<NoteDocument> doc(
+        makeDoc(nullptr, tmp.path(), QStringLiteral("foo.md")));
+    QVERIFY(view.loadFile(doc.data()));
+
+    bool called = false;
+    QString seen;
+    view.setVersionHistoryCallback([&](NoteDocument *d, QWidget *) {
+        called = true;
+        if (d) seen = d->relativePath();
+    });
+
+    QMenu menu;
+    MenuSectionHelper helper(&menu);
+    view.onMoreOptionsMenu(helper);
+    helper.finalize();
+
+    QAction *versionHistory = nullptr;
+    auto walk = [&](QList<QAction *> acts) {
+        for (QAction *a : acts) {
+            if (a->text() == QStringLiteral("Version history")) versionHistory = a;
+        }
+    };
+    walk(menu.actions());
+    for (QAction *a : menu.actions())
+        if (a->menu()) walk(a->menu()->actions());
+
+    QVERIFY(versionHistory);
+    QVERIFY(versionHistory->isEnabled());
+    versionHistory->trigger();
     QVERIFY(called);
     QCOMPARE(seen, QStringLiteral("foo.md"));
 }

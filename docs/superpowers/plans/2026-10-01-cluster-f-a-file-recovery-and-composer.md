@@ -215,19 +215,19 @@ deliberately not expanded here:
       or renamed) — Obsidian removes the entry immediately (addendum §2).
 - [x] **P1.4** Enumerate snapshots for one file, newest-first, with a
       human-readable timestamp.
-- [ ] **P1.5** Version History modal: list + preview pane + "Restore this
+- [x] **P1.5** Version History modal: list + preview pane + "Restore this
       version". Use `StyledRenderEngine` for the preview (it renders headlessly;
       see `libs/core/include/corbomite/core/StyledRenderEngine.h`) so the modal
       matches the hover popover.
-- [ ] **P1.6** Restore action per Q4, including the pre-restore safety copy.
-- [ ] **P1.7** **Activate the disabled menu slot.** Replace the
+- [x] **P1.6** Restore action per Q4, including the pre-restore safety copy.
+- [x] **P1.7** **Activate the disabled menu slot.** Replace the
       `setEnabled(false)` "Version history" action at
       `libs/core/src/EditableFileView.cpp:136` with a real handler, and
       **update `tests/core/tst_editable_file_view_menu.cpp:243-264`**, which
       today asserts the slot is disabled. (Tests define expected behaviour —
       this one encodes a placeholder state that is deliberately ending.)
 - [ ] **P1.8** Live-eyeball requirement (see §7) for the modal and restore.
-- [ ] **P1.9** `tst_version_history` — snapshot listing order, pruning,
+- [x] **P1.9** `tst_version_history` — snapshot listing order, pruning,
       failure-entry exemption, restore round trip.
 
 ### Phase P2 — Note Composer: the modal

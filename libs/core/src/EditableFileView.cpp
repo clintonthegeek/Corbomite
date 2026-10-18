@@ -50,6 +50,11 @@ void EditableFileView::setBookmarkCallback(NoteDocumentCallback cb)
     m_bookmarkCallback = std::move(cb);
 }
 
+void EditableFileView::setVersionHistoryCallback(NoteDocumentCallback cb)
+{
+    m_versionHistoryCallback = std::move(cb);
+}
+
 void EditableFileView::setVaultAbsolutePathResolver(
     std::function<QString(NoteDocument *)> resolver)
 {
@@ -134,9 +139,16 @@ void EditableFileView::onMoreOptionsMenu(MenuSectionHelper &helper)
     auto *versionAct = new QAction(
         QIcon::fromTheme(QStringLiteral("chronometer")),
         i18n("Version history"), this);
-    versionAct->setEnabled(false);
-    versionAct->setToolTip(
-        i18n("Requires Cluster T: File Recovery plugin"));
+    if (m_versionHistoryCallback) {
+        connect(versionAct, &QAction::triggered, this, [this] {
+            if (m_versionHistoryCallback && m_file)
+                m_versionHistoryCallback(m_file, this);
+        });
+    } else {
+        versionAct->setEnabled(false);
+        versionAct->setToolTip(
+            i18n("File Recovery is unavailable for this vault"));
+    }
     helper.addToSection(versionAct, QStringLiteral("action"));
 
     // ---- info.copy: "Copy path" submenu ----

@@ -155,6 +155,13 @@ add_test(NAME tst_recovery_snapshot COMMAND tst_recovery_snapshot)
 target_link_libraries(tst_recovery_snapshot PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
 set_tests_properties(tst_recovery_snapshot PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster F-a Phase P1 — Version History: listing, preview, restore round
+# trip, pre-restore safety copy.
+add_executable(tst_version_history tst_version_history.cpp)
+add_test(NAME tst_version_history COMMAND tst_version_history)
+target_link_libraries(tst_version_history PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
+set_tests_properties(tst_version_history PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster F-a Phase P1 — recovery retention (age/count ceilings, failure
 # exemption, vault-exit purge, newest-first listing).
 add_executable(tst_recovery_pruning tst_recovery_pruning.cpp)

@@ -88,6 +88,8 @@ add_library(corbomite-core SHARED
     include/corbomite/core/RecoveryService.h
     src/RecoveryStore.cpp
     include/corbomite/core/RecoveryStore.h
+    src/VersionHistoryService.cpp
+    include/corbomite/core/VersionHistoryService.h
     include/corbomite/core/DataAdapter.h
     src/ViewRegistry.cpp
     include/corbomite/core/ViewRegistry.h

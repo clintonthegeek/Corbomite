@@ -56,6 +56,7 @@ add_library(CorbomiteApp SHARED
     dialogs/QuickSwitcherDelegate.cpp
     dialogs/QuickSwitcher.cpp
     dialogs/TemplatePicker.cpp
+    dialogs/VersionHistoryDialog.cpp
     graph/GraphDataBuilder.cpp
     canvas/CanvasFileView.cpp
     canvas/CanvasFileView.h

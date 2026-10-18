@@ -85,6 +85,8 @@
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
 #include "dialogs/TemplatePicker.h"
+#include "dialogs/VersionHistoryDialog.h"
+#include "corbomite/core/VersionHistoryService.h"
 #include "RibbonToolBar.h"
 #include "RibbonStateController.h"
 #include "corbomite/models/TemplateService.h"
@@ -1153,6 +1155,19 @@ void MainWindow::propagateServicesToView(View *view)
                 }
             }
         }
+        // Cluster F-a P1.7 — activate the "Version history" slot. Wires the
+        // per-view action to the Version History modal over this vault's
+        // recovery store; a restore is a hard overwrite, so reload the leaf
+        // from disk once the modal accepts (the store write bypasses Vault,
+        // so no modified event fires to do it for us).
+        efv->setVersionHistoryCallback(
+            [this, efv](NoteDocument *doc, QWidget *parent) {
+                if (!doc || !m_fsAdapter || !m_vaultObj) return;
+                VersionHistoryService svc(m_fsAdapter.get(), m_vaultObj->basePath());
+                VersionHistoryDialog dlg(&svc, doc->relativePath(), parent);
+                if (dlg.exec() == QDialog::Accepted && dlg.restored())
+                    efv->loadFile(doc);
+            });
         efv->setVaultAbsolutePathResolver(resolveAbs);
         efv->setVaultNameResolver([vaultObj]() -> QString {
             if (!vaultObj) return QString();
