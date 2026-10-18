@@ -177,6 +177,11 @@ private:
     void createNewBase(const QString &folder = QString());
     void saveCurrentNote();
     void showQuickSwitcher();
+    /// The quick switcher's create row: open the typed name if the vault
+    /// already holds it (the switcher lists notes only, so `.canvas`/`.base`
+    /// files and attachments are invisible to it), otherwise create what the
+    /// name asks for — a canvas, a base, or a markdown note.
+    void createFromQuickSwitcher(const QString &typedName);
     void showCommandPalette();
     void showSearchPanel();
     void showSearchForQuery(const QString &query);

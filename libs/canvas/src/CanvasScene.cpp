@@ -1679,22 +1679,30 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
     }
 
     // M6.3 — route the missing-file placeholder buttons before the tools see
-    // the press.
-    if (auto *card = dynamic_cast<FileCardItem *>(itemAt(event->scenePos(), QTransform()))) {
-        if (card->isMissing()) {
-            const int button = card->buttonAt(card->mapFromScene(event->scenePos()));
-            if (button >= 0) {
-                const QString nodeId = card->nodeId();
-                switch (button) {
-                case FileCardItem::CreateButton: createMissingFileCard(nodeId); break;
-                case FileCardItem::LocateButton: locateMissingFileCard(nodeId); break;
-                case FileCardItem::RemoveButton: removeMissingFileCard(nodeId); break;
-                default: break;
-                }
-                event->accept();
-                return;
-            }
+    // the press. Walking the item stack, not just the topmost item, is load
+    // bearing: the M4.4 chrome overlay sits above every node (z 1000) and its
+    // shape covers the whole card, so itemAt() returns the overlay rather than
+    // the card — and because the overlay is up whenever the pointer is over
+    // the card, a topmost-only check left these buttons painting but
+    // unpressable. Same shape as ReconnectEdgeTool::findNodeAt().
+    const QList<QGraphicsItem *> stack =
+        items(event->scenePos(), Qt::IntersectsItemShape, Qt::DescendingOrder, QTransform());
+    for (QGraphicsItem *candidate : stack) {
+        auto *card = dynamic_cast<FileCardItem *>(candidate);
+        if (!card || !card->isMissing())
+            continue;
+        const int button = card->buttonAt(card->mapFromScene(event->scenePos()));
+        if (button < 0)
+            continue;
+        const QString nodeId = card->nodeId();
+        switch (button) {
+        case FileCardItem::CreateButton: createMissingFileCard(nodeId); break;
+        case FileCardItem::LocateButton: locateMissingFileCard(nodeId); break;
+        case FileCardItem::RemoveButton: removeMissingFileCard(nodeId); break;
+        default: break;
         }
+        event->accept();
+        return;
     }
 
     GraphScene::mousePressEvent(event);

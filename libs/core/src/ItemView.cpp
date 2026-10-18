@@ -20,6 +20,19 @@ ItemView::ItemView(WorkspaceLeaf *leaf, QWidget *parent)
     : View(leaf, parent)
 {
     buildHeader();
+
+    // The view's own name can arrive after onOpen(). A file-backed view is
+    // opened empty and handed its file afterwards, and a rename changes the
+    // name later still. FileView emits displayTextChanged for exactly that —
+    // the leaf listens so its tab caption refreshes, and this keeps the
+    // in-view header in step as well. Without it the header keeps whatever
+    // onOpen() saw, which on a canvas is FileView's "No file" forever.
+    if (m_titleLabel) {
+        connect(this, &View::displayTextChanged, this, [this] {
+            m_titleLabel->setText(getDisplayText());
+            m_iconLabel->setPixmap(QIcon::fromTheme(getIcon()).pixmap(16, 16));
+        });
+    }
 }
 
 void ItemView::buildHeader()

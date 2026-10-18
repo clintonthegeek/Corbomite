@@ -218,6 +218,24 @@ Markoff::FindController *findControllerFor(NoteEditorWidget *neWidget)
     return noteDoc->findController();
 }
 
+/// The container a typed name asks for, or empty for a note. `.canvas` and
+/// `.base` are the two containers a user can name from the keyboard, and they
+/// are exactly the non-markdown extensions the view registry maps to a view
+/// (`MainWindow`'s `registerViewWithExtensions` calls). Matched
+/// case-insensitively, like every other extension check on this path.
+QString quickSwitcherContainerExtension(const QString &typedName)
+{
+    static const QStringList kContainers{
+        QStringLiteral("canvas"),
+        QStringLiteral("base"),
+    };
+    for (const QString &ext : kContainers) {
+        if (typedName.endsWith(QLatin1Char('.') + ext, Qt::CaseInsensitive))
+            return ext;
+    }
+    return QString();
+}
+
 } // namespace
 
 MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
@@ -2363,13 +2381,71 @@ void MainWindow::showQuickSwitcher()
     connect(switcher, &QuickSwitcher::noteSelected,
             this, &MainWindow::onNoteActivated);
     connect(switcher, &QuickSwitcher::createNoteRequested,
-            this, [this](const QString &name) {
-        if (!m_fileManager) return;
-        auto *tf = m_fileManager->createMarkdownNote(name, QString());
-        if (tf) openFileInWorkspace(tf->path);
-    });
+            this, &MainWindow::createFromQuickSwitcher);
 
     switcher->show();
+}
+
+void MainWindow::createFromQuickSwitcher(const QString &typedName)
+{
+    if (!m_fileManager || !m_vaultObj)
+        return;
+
+    const QString typed = typedName.trimmed();
+    if (typed.isEmpty())
+        return;
+
+    // 1. A name the vault already holds is opened, never answered with a
+    //    second file. The switcher lists notes only, so a `.canvas`, a
+    //    `.base` or an attachment carrying the typed name is invisible to it
+    //    — that is how typing `m6.canvas` next to an existing `m6.canvas`
+    //    produced an empty `m6.canvas.md` beside it.
+    for (const QString &candidate : {typed, typed + QStringLiteral(".md")}) {
+        if (auto *existing = m_vaultObj->getAbstractFileByPath(candidate)) {
+            openFileInWorkspace(existing->path);
+            return;
+        }
+    }
+
+    // 2. A typed name that names a container creates that container, seeded
+    //    the way File → New Canvas / New Base seeds it, and opens through the
+    //    view registry — which is what gives it the canvas or bases view
+    //    instead of a markdown editor.
+    const QString ext = quickSwitcherContainerExtension(typed);
+    if (!ext.isEmpty()) {
+        QString folder;
+        QString stem = typed;
+        const int slash = typed.lastIndexOf(QLatin1Char('/'));
+        if (slash >= 0) {
+            folder = typed.left(slash);
+            stem = typed.mid(slash + 1);
+        }
+        stem.chop(ext.size() + 1);  // drop the ".canvas" / ".base" suffix
+
+        TFolder *parent = m_vaultObj->getRoot();
+        if (!folder.isEmpty()) {
+            if (auto *existingFolder = m_vaultObj->getFolderByPath(folder))
+                parent = existingFolder;
+            else if (auto *createdFolder = m_vaultObj->createFolder(folder))
+                parent = createdFolder;
+        }
+
+        const QByteArray seed = (ext == QLatin1String("canvas"))
+            ? Canvas::CanvasDocument().serializeObsidianStyle()
+            : QByteArray();
+        if (auto *tf = m_fileManager->createNewFile(parent, stem, ext, seed))
+            openFileInWorkspace(tf->path);
+        return;
+    }
+
+    // 3. Anything else is a markdown note. A typed ".md" is the name the user
+    //    chose, not a stem to append another extension to (`createNewFile`
+    //    appends unconditionally, so `note.md` used to become `note.md.md`).
+    QString noteName = typed;
+    if (noteName.endsWith(QLatin1String(".md"), Qt::CaseInsensitive))
+        noteName.chop(3);
+    if (auto *tf = m_fileManager->createMarkdownNote(noteName, QString()))
+        openFileInWorkspace(tf->path);
 }
 
 QString MainWindow::resolveOrCreateNoteTarget(const QString &relativePath)

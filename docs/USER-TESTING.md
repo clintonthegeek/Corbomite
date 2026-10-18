@@ -8,11 +8,19 @@ a later session can tell the difference between "tested" and "asserted in a unit
 test". Items marked 🤖 were checked by an automated test; items marked 👤 need a
 person. An item with neither is not done.
 
-Last updated: **2026-10-18**, for the 2026-10-17 gates (§13: Cluster F-a File
-Recovery + Note Composer, the canvas M6 exit) and the four L5 fixes (§11), plus
-the two surfaces that landed 2026-10-18 (§14: the Kiln panel, Settings →
-Plugins). Nothing above §11 was rewritten; §11 was rewritten because the soak
-it listed is closed.
+Last updated: **2026-10-18 (second pass)**, after a live pass driven through
+the running dev build (xdotool under XWayland, `/tmp` copies of the starter
+vault). That pass found and fixed four defects the offscreen suite could not
+see — the editor theme was never saved (§10), a view header never followed its
+own name (§13c's canvas read "No file"), the canvas placeholder's buttons were
+unreachable under the chrome overlay (§13c), and
+`Plugin::onExternalSettingsChange()` never fired (§14) — and turned up one
+open data-loss item: canvas edits are buffered until the view unloads and an
+external edit to an open `.canvas` is discarded (§13c, punch-list P1).
+Sections marked *(verified 2026-10-18)* below were driven in the app.
+
+The one clock-bound item is §13a (File Recovery): start it first, since the
+snapshot interval is measured in minutes.
 
 Two things to know before walking this:
 
@@ -144,6 +152,19 @@ input, and do nothing.
 
 ## 10. ⚠ Settings — the one that is NOT done
 
+> **2026-10-18 — found and fixed; this section is now a confirmation pass.**
+> Your report ("app themes work, editor themes don't save — Apply and OK make
+> no difference") was a **third** factor, and not `0c4b224f`'s two: the dialog
+> never wrote the key at all. `SettingsDialog` is a `KPageDialog` with a
+> hand-written `applySettings()` that enumerates widgets by `objectName`, and
+> the `markoffTheme` branch was missing — `MarkoffTheme` was never in
+> `corbomite-devrc`, so `MainWindow` always read the `"Follow system"` default
+> and the editor tracked the app palette forever. Fixed and pinned by
+> `tests/dialogs/tst_settingsdialog` (Apply and OK; red without the branch).
+> Verified live 2026-10-18 with xdotool: choosing Dark + Apply writes
+> `MarkoffTheme=Dark` and the editor repaints while the chrome stays put.
+> Walk the sequence below to confirm it the way you'd use it.
+
 Two causes were fixed (9c, 9d). **They were diagnosed from source, not
 reproduced by running the dialog**, and your description may involve a third
 factor. Please walk the exact sequence:
@@ -258,6 +279,29 @@ offscreen. The punch list carries each as its own box.
 
 ### 13c. Canvas M6 exit — rename rewriting (M6.2) + missing-file (M6.3)
 
+> **2026-10-18 — M6.3's half passes live; M6.2 is still to check.** Create,
+> Locate…, Remove and the vault-event auto-resolve were all driven in the app
+> (screenshots in the session): Create wrote the file and the card became a
+> real card in place; Locate… opened the picker and rewrote the node;
+> Remove deleted the node; creating the target outside the app resolved the
+> card with no reopen, and deleting it turned the card back into the
+> placeholder. **One defect found and fixed in that pass:** the buttons
+> painted but could not be **pressed** — the press was routed through
+> `QGraphicsScene::itemAt()` and the chrome overlay sits above every node, so
+> the topmost item was never the card. Now routed by walking the item stack,
+> pinned by `tst_canvas_missing_file::pressOnButtonReachesItThroughAnItemAbove`.
+>
+> **New, unfixed, and worth knowing before you use canvases in anger:** canvas
+> edits are buffered in memory and written only when the view unloads, and an
+> external edit to an open `.canvas` is discarded. Repro that produced it:
+> (1) open a canvas, drag a card and press Remove on a placeholder → the file
+> on disk still holds the pre-edit bytes; close the tab → it is written at
+> that moment (so a crash or force-kill in between loses the edits);
+> (2) with the canvas open, rewrite the `.canvas` outside the app → the view
+> does not notice, and the close-time write puts the old in-memory document
+> back over the external edit. Filed as a P1 in the punch list; the fix is a
+> save-trigger plus an external-change policy, not new plumbing.
+
 - [ ] 👤 Rename a note that a canvas points at — a **file card**, a **group
       background**, a **text-card link** → the `.canvas` is rewritten, the
       canvas still renders, and the link shows as resolved in
@@ -265,13 +309,17 @@ offscreen. The punch list carries each as its own box.
 - [ ] 👤 Rename **the canvas itself** → same
 - [ ] 👤 Open a canvas whose file card points at a file that does not exist →
       the card paints **"File not found: <path>"** with **Create / Locate… /
-      Remove**
+      Remove** *(verified 2026-10-18)*
 - [ ] 👤 The three buttons hover and click (their paint state and hit-testing
-      are exactly what the offscreen cases cannot see)
+      are exactly what the offscreen cases cannot see) *(click verified
+      2026-10-18; hover/cursor feel still a human call)*
 - [ ] 👤 **Create** writes the file and re-renders the card in place;
       **Locate…** re-picks and re-renders; **Remove** deletes the node
+      *(all three verified 2026-10-18)*
 - [ ] 👤 With the canvas still open, create or rename a file into that missing
       path from outside → the card resolves **without reopening the canvas**
+      *(verified 2026-10-18, both directions: create resolves, delete dangles
+      again)*
 
 ---
 
@@ -279,6 +327,19 @@ offscreen. The punch list carries each as its own box.
 
 Landed in `c3365ee3` / `50cb9c9e` / `277c006b` and `190cf24e`. No trajectory
 step names either, so these lines are the only gate they have.
+
+> **2026-10-18 — §14a partly walked, §14b fully walked, both pass so far.** The
+> panel opens in the right dock (cramped at its default width); with the engine
+> at `~/dev/Kiln/build/kiln`, a projection over `PKM LM` and a site directory,
+> **Check** produced a real dry run (30 notes selected, nothing written) and
+> **Project** wrote the Hugo tree; a **wrong** engine path is reported in the
+> panel instead of failing silently. Setting the panel up by hand-editing
+> `.obsidian/plugins/corbomite-kiln/data.json` **now reaches the open panel** —
+> it did not, because `Plugin::onExternalSettingsChange()` never fired in
+> production (the watch install was a stub); fixed and pinned in
+> `tst_plugin_external_settings`. §14b: the detail pane is populated on open,
+> row switching leaves no stale painting, and there is no Configure… button
+> anywhere — the correct result.
 
 ### 14a. The Kiln panel
 

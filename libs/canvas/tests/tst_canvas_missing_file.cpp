@@ -5,6 +5,7 @@
 // it re-renders when the target appears. This covers the logic up to the
 // visual/interaction check, which is a live eyeball (the plan's M6 exit).
 #include <QTest>
+#include <QGraphicsSceneMouseEvent>
 #include <QSet>
 #include <QPointF>
 
@@ -32,6 +33,14 @@ CanvasNode fileNode(const QString &id, const QString &file)
     n.height = 100;
     return n;
 }
+
+/// `CanvasScene::mousePressEvent` is protected (it is an override), so a test
+/// that drives a real press has to lift it.
+class PressableCanvasScene : public CanvasScene
+{
+public:
+    using CanvasScene::mousePressEvent;
+};
 }  // namespace
 
 class TestCanvasMissingFile : public QObject
@@ -42,6 +51,7 @@ private slots:
     void existingEmptyFileRenders();
     void refreshResolvesAfterFileAppears();
     void buttonHitTesting();
+    void pressOnButtonReachesItThroughAnItemAbove();
     void createButtonWritesAndResolves();
     void locateButtonReassignsFile();
     void removeButtonRemovesNode();
@@ -126,6 +136,40 @@ void TestCanvasMissingFile::buttonHitTesting()
     }
     QCOMPARE(item->buttonAt(QPointF(1, 1)), -1);
     QVERIFY(item->buttonRect(99).isNull());
+}
+
+void TestCanvasMissingFile::pressOnButtonReachesItThroughAnItemAbove()
+{
+    // Live finding 2026-10-18: the buttons painted but could not be pressed.
+    // The press was routed with QGraphicsScene::itemAt(), and the M4.4 chrome
+    // overlay sits above every node (z 1000) with a shape covering the whole
+    // card — and it is up whenever the pointer is over the card, so the
+    // top-most item was never the card. Anything above the card reproduces it
+    // (a plain rect here, so this does not depend on the overlay's class).
+    CanvasDocument doc;
+    doc.addNode(fileNode(QStringLiteral("n1"), QStringLiteral("new.md")));
+
+    PressableCanvasScene scene;
+    scene.setFileExistsChecker([](const QString &) { return false; });
+    QString created;
+    scene.setFileSaver([&created](const QString &p, const QString &) { created = p; });
+    scene.setDocument(&doc);
+
+    auto *card = scene.fileCardItem(QStringLiteral("n1"));
+    QVERIFY(card && card->isMissing());
+
+    auto *above = scene.addRect(card->sceneBoundingRect(), QPen(Qt::NoPen), Qt::NoBrush);
+    QVERIFY(above);
+    above->setZValue(1000);
+
+    QGraphicsSceneMouseEvent event(QEvent::GraphicsSceneMousePress);
+    event.setScenePos(card->mapToScene(card->buttonRect(FileCardItem::CreateButton).center()));
+    event.setButton(Qt::LeftButton);
+    event.setButtons(Qt::LeftButton);
+    scene.mousePressEvent(&event);
+
+    QCOMPARE(created, QStringLiteral("new.md"));
+    QVERIFY(event.isAccepted());
 }
 
 void TestCanvasMissingFile::createButtonWritesAndResolves()
