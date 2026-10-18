@@ -149,6 +149,12 @@ add_executable(tst_threewaymerge tst_threewaymerge.cpp)
 add_test(NAME tst_threewaymerge COMMAND tst_threewaymerge)
 target_link_libraries(tst_threewaymerge PRIVATE Qt6::Test Corbomite::Core)
 
+# Cluster F-a Phase P0 — periodic File Recovery snapshot.
+add_executable(tst_recovery_snapshot tst_recovery_snapshot.cpp)
+add_test(NAME tst_recovery_snapshot COMMAND tst_recovery_snapshot)
+target_link_libraries(tst_recovery_snapshot PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
+set_tests_properties(tst_recovery_snapshot PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_view_lifecycle tst_view_lifecycle.cpp)
 add_test(NAME tst_view_lifecycle COMMAND tst_view_lifecycle)
 target_link_libraries(tst_view_lifecycle PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)

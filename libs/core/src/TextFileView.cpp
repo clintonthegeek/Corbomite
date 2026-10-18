@@ -67,7 +67,7 @@ void TextFileView::save(bool immediate)
 
     if (!success) {
         m_lastSavedData = previousLastSaved;
-        writeBackup(currentData);
+        writeRecoverySnapshot(currentData, /*failure=*/true);
         Q_EMIT saveError(m_file->relativePath());
     } else {
         m_dirty = false;
@@ -134,13 +134,13 @@ void TextFileView::onExternalModify(const QString &relativePath)
     setViewData(merged, false);
 }
 
-void TextFileView::writeBackup(const QString &content)
+void TextFileView::writeRecoverySnapshot(const QString &content, bool failure)
 {
     if (m_vaultRoot.isEmpty() || !m_adapter || !m_file) return;
 
-    // Backup destination lives OUTSIDE the vault so the recovery copy
-    // doesn't appear in the file tree, search index, tag/graph views, or
-    // re-trigger Vault::modified for the leaf that just failed to save.
+    // Recovery store lives OUTSIDE the vault so the copy doesn't appear in the
+    // file tree, search index, tag/graph views, or re-trigger Vault::modified
+    // for the leaf that just failed to save (2026-04-27 decision).
     const QString dataRoot =
         QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     if (dataRoot.isEmpty()) return;
@@ -157,12 +157,16 @@ void TextFileView::writeBackup(const QString &content)
     m_adapter->mkpath(recoveryDir);
 
     QString baseName = QFileInfo(m_file->relativePath()).baseName();
-    QString timestamp = QDateTime::currentDateTime().toString(Qt::ISODate);
+    QString timestamp = QDateTime::currentDateTime().toString(Qt::ISODateWithMs);
     timestamp.replace(QLatin1Char(':'), QLatin1Char('-'));
-    QString backupPath = recoveryDir + QLatin1Char('/') + baseName
-                         + QLatin1Char('-') + timestamp + QStringLiteral(".md");
+    // Suffix distinguishes periodic snapshots (".snapshot.md", prunable) from
+    // save-failure backups (".failure.md", never pruned).
+    const QString suffix = failure ? QStringLiteral(".failure.md")
+                                   : QStringLiteral(".snapshot.md");
+    const QString path = recoveryDir + QLatin1Char('/') + baseName
+                         + QLatin1Char('-') + timestamp + suffix;
 
-    m_adapter->write(backupPath, content);
+    m_adapter->write(path, content);
 }
 
 } // namespace Corbomite

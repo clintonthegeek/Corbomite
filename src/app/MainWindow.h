@@ -54,6 +54,7 @@ class WorkspaceLeaf;
 class NoteEditorWidget;
 class CanvasMermaidAdapter;
 class MarkdownView;
+class RecoveryService;
 namespace Bases { class BasesView; }
 class CanvasFileView;
 class AutosaveReactor;
@@ -328,6 +329,9 @@ private:
     // M6.2 — canvas link rewriter registered with FileManager so a vault
     // rename updates `.canvas` structural references (linkUpdaters seam).
     std::unique_ptr<Canvas::CanvasLinkRewriter> m_canvasLinkRewriter;
+    // Cluster F-a P0 — host-level periodic File Recovery snapshot service,
+    // created on vault open and stopped/reset on close.
+    std::unique_ptr<Corbomite::RecoveryService> m_recovery;
     EditorSuggestManager *m_suggestManager = nullptr;
     WikiLinkSuggest *m_wikiSuggest = nullptr;
     TagSuggest *m_tagSuggest = nullptr;

@@ -84,6 +84,8 @@ add_library(corbomite-core SHARED
     include/corbomite/core/EditableFileView.h
     src/TextFileView.cpp
     include/corbomite/core/TextFileView.h
+    src/RecoveryService.cpp
+    include/corbomite/core/RecoveryService.h
     include/corbomite/core/DataAdapter.h
     src/ViewRegistry.cpp
     include/corbomite/core/ViewRegistry.h

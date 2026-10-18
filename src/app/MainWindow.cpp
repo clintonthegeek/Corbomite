@@ -17,6 +17,7 @@
 #include "corbomite/core/FileView.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/TextFileView.h"
+#include "corbomite/core/RecoveryService.h"
 #include <markoff/core/FindController.h>
 #include "canvas/CanvasViewTab.h"
 #include <canvas/CanvasDocument.h>
@@ -2463,6 +2464,22 @@ void MainWindow::onVaultOpened(const QString &path)
     m_canvasLinkRewriter = std::make_unique<Canvas::CanvasLinkRewriter>();
     m_fileManager->registerLinkRewriter(m_canvasLinkRewriter.get());
 
+    // Cluster F-a P0 — periodic File Recovery snapshots. One host-level timer;
+    // it walks the live text leaves for dirty ones (the 2 s per-view save
+    // debounce handles the common case, this covers a crash/force-kill before
+    // a save lands). Started here, stopped in onVaultClosed.
+    m_recovery = std::make_unique<RecoveryService>([this]() {
+        QList<TextFileView *> views;
+        if (!m_workspace)
+            return views;
+        for (auto *leaf : m_workspace->allLeaves()) {
+            if (auto *v = qobject_cast<TextFileView *>(leaf->view()))
+                views.append(v);
+        }
+        return views;
+    }, this);
+    m_recovery->start();
+
     m_popoverResources = std::make_unique<VaultScopedResources>(m_vaultObj);
     // 2026-10-01: the MarkoffAdapters (LinkResolverAdapter, MetadataCacheAdapter,
     // MetadataParserImpl) that used to be allocated here are deleted along with
@@ -2812,6 +2829,14 @@ void MainWindow::onVaultClosed()
     m_pluginVaultConfig.reset();
 
     saveSessionState();
+
+    // Stop periodic recovery before the workspace drops its views; a snapshot
+    // of a vault the user is leaving must not be taken (and never after the
+    // workspace is torn down).
+    if (m_recovery) {
+        m_recovery->stop();
+        m_recovery.reset();
+    }
 
     // Reset workspace to empty default layout. destroyTree() safely
     // releases all views before the vault destroys NoteDocuments.

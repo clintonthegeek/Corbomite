@@ -163,32 +163,45 @@ deliberately not expanded here:
 
 ### Phase P0 — Periodic dirty snapshot (the actual data-loss fix)
 
-- [ ] **P0.1** Host-level snapshot timer. A `QObject` owned by `MainWindow`
+> **Landed 2026-10-17.** `RecoveryService` (`libs/core`) owns the host-level timer
+> (default 60 min, 0 disables); `MainWindow` creates/starts it on vault open and
+> stops/resets it on close, feeding it the live text leaves from the workspace.
+> `TextFileView::writeBackup` is promoted to public
+> `writeRecoverySnapshot(content, failure)` with a filename convention that
+> distinguishes periodic snapshots (`.snapshot.md`) from save-failure backups
+> (`.failure.md`). P0.5 is satisfied by delegation: `writeRecoverySnapshot` goes
+> through `DataAdapter::write`, and the production `FileSystemAdapter::write`
+> is `QSaveFile` + `commit()` (temp file + atomic rename), so a crash mid-write
+> cannot leave a truncated copy. P0.6 is the out-of-vault invariant, pinned (as
+> a guard, per the plan) in `tst_recovery_snapshot`. P1 (retention, settings,
+> Version History modal, menu activation) remains open.
+
+- [x] **P0.1** Host-level snapshot timer. A `QObject` owned by `MainWindow`
       (or a small `RecoveryService` in `libs/core` if that is where the seams
       land), interval from settings, default 60 min (addendum §1). Started on
       vault open, stopped on vault close. **Never** write a vault the user is
       not inside.
-- [ ] **P0.2** Dirty-leaf walk. Query the workspace for live `TextFileView`
+- [x] **P0.2** Dirty-leaf walk. Query the workspace for live `TextFileView`
       leaves, take `getViewData()` from the **dirty** ones only, and skip any
       leaf whose content equals what was last snapshotted. Add a
       `TextFileView::isDirty()` accessor if `m_dirty` is not already
       reachable (`libs/core/include/corbomite/core/TextFileView.h:45`).
-- [ ] **P0.3** Reuse `writeBackup` rather than adding a second writer. It
+- [x] **P0.3** Reuse `writeBackup` rather than adding a second writer. It
       already does the out-of-vault + per-vault-id path
       (`libs/core/src/TextFileView.cpp:137-165`); promoting it from private to
       a snapshot entry point is the smallest change that preserves the
       2026-04-27 decision. Confirm the timestamp granularity is enough to keep
       multiple snapshots per minute (it is: `Qt::ISODate`).
-- [ ] **P0.4** Mark periodic snapshots distinctly from save-failure backups so
+- [x] **P0.4** Mark periodic snapshots distinctly from save-failure backups so
       retention pruning (§P1.2) can tell them apart. Obsidian's discriminator is
       a `{"failure": true}` flag; the file-per-snapshot equivalent is a naming
       convention — decide in Q1.
-- [ ] **P0.5** Corrupt/partial-write safety: write to a temp name then rename,
+- [x] **P0.5** Corrupt/partial-write safety: write to a temp name then rename,
       so a crash *during* a snapshot cannot leave a truncated recovery copy.
-- [ ] **P0.6** Guard against the failure mode that motivated the 2026-04-27
+- [x] **P0.6** Guard against the failure mode that motivated the 2026-04-27
       decision: assert in a test that no snapshot path is inside the vault
       root. This is the invariant the previous bug violated.
-- [ ] **P0.7** `tst_recovery_snapshot` — new test binary under `tests/core/`.
+- [x] **P0.7** `tst_recovery_snapshot` — new test binary under `tests/core/`.
 
 ### Phase P1 — Retention, settings, Version History modal
 
