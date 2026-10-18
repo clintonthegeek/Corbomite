@@ -1154,22 +1154,25 @@ void Workspace::deserialize(const QJsonObject &json)
     // now read from the live KDDW Group rather than synthesized from
     // "first leaf in group", so the deferred set is more accurate than
     // pre-consolidation.
+    // Iterate the GLOBAL group registry, not just the main window's layout:
+    // a floating (popout) window's groups live in their own layout, so
+    // `m_kddwMain->mainWindow()->layout()->groups()` misses them and every
+    // floating leaf would be deferred — its view never materializes and the
+    // popout shows bare tab titles until a pane is dragged (L5 soak
+    // 2026-10-17). DockRegistry::groups() spans every window.
     QHash<QString, WorkspaceLeaf *> currentInGroup;
-    auto *coreMain = m_kddwMain ? m_kddwMain->mainWindow() : nullptr;
-    if (auto *layout = coreMain ? coreMain->layout() : nullptr) {
-        for (auto *grp : layout->groups()) {
-            if (grp->dockWidgetCount() == 0) continue;
-            int idx = grp->currentTabIndex();
-            if (idx < 0 || idx >= grp->dockWidgetCount()) idx = 0;
-            const QString uniqueName = grp->dockWidgetAt(idx)->uniqueName();
-            const QString stripped = m_vaultId.isEmpty()
-                ? uniqueName
-                : (uniqueName.startsWith(m_vaultId + QChar(':'))
-                    ? uniqueName.mid(m_vaultId.size() + 1)
-                    : uniqueName);
-            if (auto *leaf = findLeafById(stripped))
-                currentInGroup.insert(m_tabGroupOf.value(leaf), leaf);
-        }
+    for (auto *grp : KDDockWidgets::DockRegistry::self()->groups()) {
+        if (grp->dockWidgetCount() == 0) continue;
+        int idx = grp->currentTabIndex();
+        if (idx < 0 || idx >= grp->dockWidgetCount()) idx = 0;
+        const QString uniqueName = grp->dockWidgetAt(idx)->uniqueName();
+        const QString stripped = m_vaultId.isEmpty()
+            ? uniqueName
+            : (uniqueName.startsWith(m_vaultId + QChar(':'))
+                ? uniqueName.mid(m_vaultId.size() + 1)
+                : uniqueName);
+        if (auto *leaf = findLeafById(stripped))
+            currentInGroup.insert(m_tabGroupOf.value(leaf), leaf);
     }
     for (auto *leaf : m_leaves) {
         if (leaf == m_activeLeaf) continue;

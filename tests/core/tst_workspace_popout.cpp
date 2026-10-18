@@ -36,7 +36,42 @@ private Q_SLOTS:
     void closeFloatingWindow_reapsWorkspaceWindowShell();
     void restoreFloatingWindow_preservesGeometry();
     void restoreFloatingWindow_preservesMaximize();
+    void restoreFloatingLeaf_isNotDeferred();
 };
+
+// L5 soak 2026-10-17: a restored floating split showed tab titles and no view
+// until a pane was dragged, because fromJson's deferral walked only the main
+// window's groups — every floating leaf was marked deferred and lost its view.
+// The deferral now iterates the global group registry, so a floating group's
+// current leaf materializes.
+void TestWorkspacePopout::restoreFloatingLeaf_isNotDeferred()
+{
+    ViewRegistry registry;
+    Workspace ws(QStringLiteral("vault-popout-defer"), &registry);
+    ws.kddwMainWindow()->show();
+
+    auto *main = ws.createLeafInActiveGroup();
+    QVERIFY(main);
+    auto *floating = ws.createLeafInGroupOf(main);
+    QVERIFY(floating);
+    ws.setActiveLeaf(main);  // floating is NOT the active leaf
+
+    auto *win = ws.popoutLeaf(floating);
+    QVERIFY(win != nullptr);
+
+    const QString floatingId = floating->id();
+    const QJsonObject json = ws.serialize();
+    QVERIFY(json.contains(QStringLiteral("floating")));
+
+    Workspace ws2(QStringLiteral("vault-popout-defer"), &registry);
+    ws2.kddwMainWindow()->show();
+    ws2.deserialize(json);
+
+    auto *restored = ws2.findLeafById(floatingId);
+    QVERIFY(restored);
+    QVERIFY2(!restored->isDeferred(),
+             "a floating group's current leaf must not be deferred on restore");
+}
 
 void TestWorkspacePopout::popoutLeaf_createsFloatingWindow()
 {
