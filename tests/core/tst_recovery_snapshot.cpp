@@ -81,7 +81,8 @@ private Q_SLOTS:
         view.requestSave();  // marks dirty (timer never fires without an event loop)
         QVERIFY(view.isDirty());
 
-        RecoveryService service([&view]() { return QList<TextFileView *>{&view}; });
+        RecoveryService service([&view]() { return QList<TextFileView *>{&view}; },
+                               &adapter, QStringLiteral("/vault"));
         QCOMPARE(service.snapshotNow(), 1);
 
         const QString key = recoveryKey(adapter);
@@ -106,7 +107,8 @@ private Q_SLOTS:
         view.loadFile(doc);
         QVERIFY(!view.isDirty());
 
-        RecoveryService service([&view]() { return QList<TextFileView *>{&view}; });
+        RecoveryService service([&view]() { return QList<TextFileView *>{&view}; },
+                               &adapter, QStringLiteral("/vault"));
         QCOMPARE(service.snapshotNow(), 0);
         QVERIFY(recoveryKey(adapter).isEmpty());
     }
@@ -125,7 +127,8 @@ private Q_SLOTS:
         view.content = QStringLiteral("edited");
         view.requestSave();
 
-        RecoveryService service([&view]() { return QList<TextFileView *>{&view}; });
+        RecoveryService service([&view]() { return QList<TextFileView *>{&view}; },
+                               &adapter, QStringLiteral("/vault"));
         QCOMPARE(service.snapshotNow(), 1);
         QCOMPARE(service.snapshotNow(), 0);  // dirty, but unchanged since last snapshot
 
@@ -151,7 +154,9 @@ private Q_SLOTS:
 
     void disabledIntervalDoesNotStart()
     {
-        RecoveryService service([]() { return QList<TextFileView *>{}; });
+        MemoryAdapter adapter;
+        RecoveryService service([]() { return QList<TextFileView *>{}; },
+                               &adapter, QStringLiteral("/vault"));
         service.setIntervalMinutes(0);
         service.start();
         QVERIFY(!service.isRunning());

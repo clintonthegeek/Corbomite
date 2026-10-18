@@ -42,6 +42,7 @@ private:
     void setupFilesPage();
     void setupAppearancePage();
     void setupDailyNotesPage();
+    void setupFileRecoveryPage();
     void setupPluginsPage();
     void setupHotkeysPage();
     void applySettings();

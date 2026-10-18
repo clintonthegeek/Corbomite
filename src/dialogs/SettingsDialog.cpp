@@ -40,6 +40,7 @@ SettingsDialog::SettingsDialog(PluginManager *plugins,
     setupFilesPage();
     setupAppearancePage();
     setupDailyNotesPage();
+    setupFileRecoveryPage();
     setupHotkeysPage();
     setupPluginsPage();
 
@@ -232,6 +233,49 @@ void SettingsDialog::setupDailyNotesPage()
     item->setIcon(QIcon::fromTheme(QStringLiteral("view-calendar-day")));
 }
 
+void SettingsDialog::setupFileRecoveryPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QFormLayout(page);
+    auto *settings = CorbomiteSettings::self();
+
+    // Snapshot interval: Obsidian's dropdown is Off / 5 / 15 / 30 / 60 / 120.
+    auto *interval = new QComboBox;
+    interval->addItem(i18n("Off"), 0);
+    interval->addItem(i18n("5 minutes"), 5);
+    interval->addItem(i18n("15 minutes"), 15);
+    interval->addItem(i18n("30 minutes"), 30);
+    interval->addItem(i18n("60 minutes"), 60);
+    interval->addItem(i18n("120 minutes"), 120);
+    int idx = interval->findData(settings->intervalMinutes());
+    if (idx >= 0) interval->setCurrentIndex(idx);
+    interval->setObjectName(QStringLiteral("recoveryIntervalMinutes"));
+    layout->addRow(i18n("Snapshot interval:"), interval);
+
+    auto *maxAge = new QComboBox;
+    for (int days : {1, 3, 7, 14, 30})
+        maxAge->addItem(i18np("%1 day", "%1 days", days), days);
+    int ageIdx = maxAge->findData(settings->maxAgeDays());
+    if (ageIdx >= 0) maxAge->setCurrentIndex(ageIdx);
+    maxAge->setObjectName(QStringLiteral("recoveryMaxAgeDays"));
+    layout->addRow(i18n("Maximum snapshot age:"), maxAge);
+
+    auto *maxSnaps = new QSpinBox;
+    maxSnaps->setRange(1, 1000);
+    maxSnaps->setValue(settings->maxSnapshotsPerFile());
+    maxSnaps->setObjectName(QStringLiteral("recoveryMaxSnapshotsPerFile"));
+    layout->addRow(i18n("Maximum snapshots per file:"), maxSnaps);
+
+    auto *note = new QLabel(i18n(
+        "Snapshots are stored outside the vault and are pruned by age and "
+        "count. Save-failure backups are never pruned."));
+    note->setWordWrap(true);
+    layout->addRow(note);
+
+    auto item = addPage(page, i18n("File Recovery"));
+    item->setIcon(QIcon::fromTheme(QStringLiteral("document-revert")));
+}
+
 void SettingsDialog::setupPluginsPage()
 {
     auto *page = new PluginsPage(m_plugins);
@@ -317,6 +361,12 @@ void SettingsDialog::applySettings()
         settings->setDailyNoteDateFormat(w->text());
     if (auto *w = findChild<QLineEdit *>(QStringLiteral("dailyNoteTemplate")))
         settings->setDailyNoteTemplate(w->text());
+    if (auto *w = findChild<QComboBox *>(QStringLiteral("recoveryIntervalMinutes")))
+        settings->setIntervalMinutes(w->currentData().toInt());
+    if (auto *w = findChild<QComboBox *>(QStringLiteral("recoveryMaxAgeDays")))
+        settings->setMaxAgeDays(w->currentData().toInt());
+    if (auto *w = findChild<QSpinBox *>(QStringLiteral("recoveryMaxSnapshotsPerFile")))
+        settings->setMaxSnapshotsPerFile(w->value());
 
     settings->save();
 }

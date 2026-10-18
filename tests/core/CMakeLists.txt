@@ -155,6 +155,13 @@ add_test(NAME tst_recovery_snapshot COMMAND tst_recovery_snapshot)
 target_link_libraries(tst_recovery_snapshot PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
 set_tests_properties(tst_recovery_snapshot PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster F-a Phase P1 — recovery retention (age/count ceilings, failure
+# exemption, vault-exit purge, newest-first listing).
+add_executable(tst_recovery_pruning tst_recovery_pruning.cpp)
+add_test(NAME tst_recovery_pruning COMMAND tst_recovery_pruning)
+target_link_libraries(tst_recovery_pruning PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core Corbomite::Storage)
+set_tests_properties(tst_recovery_pruning PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_view_lifecycle tst_view_lifecycle.cpp)
 add_test(NAME tst_view_lifecycle COMMAND tst_view_lifecycle)
 target_link_libraries(tst_view_lifecycle PRIVATE Qt6::Test Qt6::Widgets Corbomite::Core)

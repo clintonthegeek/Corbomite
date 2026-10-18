@@ -2477,7 +2477,13 @@ void MainWindow::onVaultOpened(const QString &path)
                 views.append(v);
         }
         return views;
-    }, this);
+    }, m_fsAdapter.get(), path, this);
+    {
+        auto *settings = CorbomiteSettings::self();
+        m_recovery->setIntervalMinutes(settings->intervalMinutes());
+        m_recovery->setRetention(settings->maxAgeDays(),
+                                 settings->maxSnapshotsPerFile());
+    }
     m_recovery->start();
 
     m_popoverResources = std::make_unique<VaultScopedResources>(m_vaultObj);
@@ -2636,22 +2642,30 @@ void MainWindow::onVaultOpened(const QString &path)
             m_metadataCache->onFileChanged(tf->path, bytes, mtimeMs);
         }
     });
-    connect(m_vaultObj, &Vault::deletedFile, this, [this, refreshCanvasCards](TAbstractFile *f) {
+    connect(m_vaultObj, &Vault::deletedFile, this, [this, refreshCanvasCards, path](TAbstractFile *f) {
         if (!f) return;
         // A delete can make a file card dangle.
         refreshCanvasCards(f->path);
+        // Cluster F-a P1.3 — a file that left the vault keeps no retained
+        // recovery entry (Obsidian removes it immediately; no undelete).
+        if (f->path.endsWith(QLatin1String(".md")))
+            RecoveryStore(m_fsAdapter.get(), path).removeAll(f->path);
         // Task 0.3 P1 — keep LinkResolver fresh on delete.
         if (m_linkResolver) m_linkResolver->removeVaultPath(f->path);
         if (!m_metadataCache) return;
         m_metadataCache->onFileDeleted(f->path);
     });
     connect(m_vaultObj, &Vault::renamed, this,
-            [this, refreshCanvasCards](TAbstractFile *f, const QString &oldPath) {
+            [this, refreshCanvasCards, path](TAbstractFile *f, const QString &oldPath) {
         if (!f) return;
         // A rename can resolve a dangling card (new path) or create one
         // (old path).
         refreshCanvasCards(f->path);
         refreshCanvasCards(oldPath);
+        // Cluster F-a P1.3 — the old path's recovery entry is removed on
+        // rename (snapshots are keyed to the path, not the file identity).
+        if (oldPath.endsWith(QLatin1String(".md")))
+            RecoveryStore(m_fsAdapter.get(), path).removeAll(oldPath);
         auto *tf = dynamic_cast<TFile *>(f);
         // Task 0.3 P1 — keep LinkResolver fresh on rename (all file types).
         if (m_linkResolver && tf) {
@@ -3168,6 +3182,20 @@ void MainWindow::applyCanvasSettings()
     }
 }
 
+void MainWindow::applyRecoverySettings()
+{
+    if (!m_recovery)
+        return;
+    auto *settings = CorbomiteSettings::self();
+    m_recovery->setRetention(settings->maxAgeDays(),
+                             settings->maxSnapshotsPerFile());
+    m_recovery->setIntervalMinutes(settings->intervalMinutes());
+    // setIntervalMinutes stops the timer when the new value is 0 (Off) and
+    // re-arms with the new period otherwise; restart only when it is enabled.
+    if (m_recovery->intervalMinutes() > 0)
+        m_recovery->start();
+}
+
 void MainWindow::onSettingsApplied()
 {
     applyTheme();
@@ -3175,6 +3203,7 @@ void MainWindow::onSettingsApplied()
     applyAutosaveDelay();
     applyReadableLineWidth();
     applyCanvasSettings();
+    applyRecoverySettings();
 }
 
 } // namespace Corbomite

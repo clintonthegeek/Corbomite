@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/RecoveryService.h"
 
+#include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/TextFileView.h"
 
 #include <QTimer>
 
 namespace Corbomite {
 
-RecoveryService::RecoveryService(ViewProvider provider, QObject *parent)
+RecoveryService::RecoveryService(ViewProvider provider,
+                                 DataAdapter *adapter,
+                                 QString vaultRoot,
+                                 QObject *parent)
     : QObject(parent)
     , m_provider(std::move(provider))
+    , m_store(adapter, std::move(vaultRoot))
     , m_timer(new QTimer(this))
 {
     m_timer->setSingleShot(false);
@@ -26,6 +31,12 @@ void RecoveryService::setIntervalMinutes(int minutes)
     m_timer->setInterval(m_intervalMinutes * 60 * 1000);
     if (m_timer->isActive())
         m_timer->start();  // re-arm with the new interval
+}
+
+void RecoveryService::setRetention(int maxAgeDays, int maxPerFile)
+{
+    m_maxAgeDays = maxAgeDays;
+    m_maxPerFile = maxPerFile;
 }
 
 void RecoveryService::start()
@@ -47,17 +58,21 @@ bool RecoveryService::isRunning() const
 
 int RecoveryService::snapshotNow()
 {
-    if (!m_provider)
+    if (!m_provider || !m_store.isValid())
         return 0;
 
     int written = 0;
     for (TextFileView *view : m_provider()) {
-        if (!view || !view->isDirty())
+        if (!view || !view->isDirty() || !view->file())
             continue;
         const QString data = view->getViewData();
         if (m_lastSnapshot.value(view) == data)
             continue;  // unchanged since the last snapshot this run
-        view->writeRecoverySnapshot(data, /*failure=*/false);
+
+        const QString rel = view->file()->relativePath();
+        if (m_store.write(rel, data, /*failure=*/false).isEmpty())
+            continue;  // store not writable; do not advance the dedup marker
+        m_store.prune(rel, m_maxAgeDays, m_maxPerFile);
         m_lastSnapshot.insert(view, data);
         ++written;
     }

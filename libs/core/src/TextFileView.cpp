@@ -3,13 +3,10 @@
 #include "corbomite/core/TextFileView.h"
 #include "corbomite/core/ThreeWayMerge.h"
 #include "corbomite/core/NoteDocument.h"
-#include "corbomite/core/PathUtils.h"
+#include "corbomite/core/RecoveryStore.h"
 #include "corbomite/core/DataAdapter.h"
 
 #include <QTimer>
-#include <QDateTime>
-#include <QFileInfo>
-#include <QStandardPaths>
 
 namespace Corbomite {
 
@@ -134,39 +131,14 @@ void TextFileView::onExternalModify(const QString &relativePath)
     setViewData(merged, false);
 }
 
+// Save-failure path only. Periodic snapshots are written by RecoveryService,
+// which owns a RecoveryStore and the retention policy; both share the same
+// on-disk layout through RecoveryStore.
 void TextFileView::writeRecoverySnapshot(const QString &content, bool failure)
 {
-    if (m_vaultRoot.isEmpty() || !m_adapter || !m_file) return;
-
-    // Recovery store lives OUTSIDE the vault so the copy doesn't appear in the
-    // file tree, search index, tag/graph views, or re-trigger Vault::modified
-    // for the leaf that just failed to save (2026-04-27 decision).
-    const QString dataRoot =
-        QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (dataRoot.isEmpty()) return;
-
-    // Per-vault subdir keyed by basename + stable 12-char SHA-256 prefix of
-    // the absolute vault path (same keying as PathUtils::vaultId / the index +
-    // metadata-cache location). Uses a sibling "file-recovery" subtree so the
-    // two concerns don't share a directory.
-    const QString id = PathUtils::vaultId(m_vaultRoot);
-    if (id.isEmpty()) return;
-
-    const QString recoveryDir =
-        dataRoot + QStringLiteral("/file-recovery/") + id;
-    m_adapter->mkpath(recoveryDir);
-
-    QString baseName = QFileInfo(m_file->relativePath()).baseName();
-    QString timestamp = QDateTime::currentDateTime().toString(Qt::ISODateWithMs);
-    timestamp.replace(QLatin1Char(':'), QLatin1Char('-'));
-    // Suffix distinguishes periodic snapshots (".snapshot.md", prunable) from
-    // save-failure backups (".failure.md", never pruned).
-    const QString suffix = failure ? QStringLiteral(".failure.md")
-                                   : QStringLiteral(".snapshot.md");
-    const QString path = recoveryDir + QLatin1Char('/') + baseName
-                         + QLatin1Char('-') + timestamp + suffix;
-
-    m_adapter->write(path, content);
+    if (!m_file) return;
+    RecoveryStore(m_adapter, m_vaultRoot)
+        .write(m_file->relativePath(), content, failure);
 }
 
 } // namespace Corbomite

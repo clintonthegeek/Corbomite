@@ -205,15 +205,15 @@ deliberately not expanded here:
 
 ### Phase P1 — Retention, settings, Version History modal
 
-- [ ] **P1.1** Settings page (File Recovery section): interval, max age,
+- [x] **P1.1** Settings page (File Recovery section): interval, max age,
       max snapshots per file. Keys into `src/app/corbomite.kcfg` (that is the
       live settings schema file; `corbomitesettings.kcfgc` holds the page
       labels).
-- [ ] **P1.2** Pruning pass, run on snapshot write: drop snapshots past the age
+- [x] **P1.2** Pruning pass, run on snapshot write: drop snapshots past the age
       or count ceiling, **never** dropping failure-flagged ones (addendum §2).
-- [ ] **P1.3** Prune a file's snapshots when the file leaves the vault (deleted
+- [x] **P1.3** Prune a file's snapshots when the file leaves the vault (deleted
       or renamed) — Obsidian removes the entry immediately (addendum §2).
-- [ ] **P1.4** Enumerate snapshots for one file, newest-first, with a
+- [x] **P1.4** Enumerate snapshots for one file, newest-first, with a
       human-readable timestamp.
 - [ ] **P1.5** Version History modal: list + preview pane + "Restore this
       version". Use `StyledRenderEngine` for the preview (it renders headlessly;

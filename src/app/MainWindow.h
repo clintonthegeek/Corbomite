@@ -163,6 +163,7 @@ private:
     /// CanvasAlignmentStrategy/CanvasView, not just the focused one (same
     /// shape as applyReadableLineWidth() above).
     void applyCanvasSettings();
+    void applyRecoverySettings();
     void setupSidebars();
     void setupStatusBar();
     void setupEditor();

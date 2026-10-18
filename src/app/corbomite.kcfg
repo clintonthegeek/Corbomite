@@ -112,6 +112,32 @@
     </entry>
   </group>
 
+  <group name="FileRecovery">
+    <!-- Cluster F-a P1.1 — File Recovery policy. Mirrors Obsidian's
+         Settings → File Recovery: interval in minutes (0 = Off, default 60),
+         maximum snapshot age in days (default 7), and the per-file snapshot
+         count ceiling (default 50). Save-failure backups are never pruned and
+         have no setting. -->
+    <entry name="IntervalMinutes" type="Int">
+      <label>Automatic snapshot interval in minutes (0 disables)</label>
+      <default>60</default>
+      <min>0</min>
+      <max>1440</max>
+    </entry>
+    <entry name="MaxAgeDays" type="Int">
+      <label>Maximum age of a periodic snapshot in days before it is pruned</label>
+      <default>7</default>
+      <min>1</min>
+      <max>365</max>
+    </entry>
+    <entry name="MaxSnapshotsPerFile" type="Int">
+      <label>Maximum periodic snapshots retained per file</label>
+      <default>50</default>
+      <min>1</min>
+      <max>1000</max>
+    </entry>
+  </group>
+
   <group name="DailyNotes">
     <entry name="DailyNoteDateFormat" type="String">
       <label>Date format for daily note filenames (Moment.js tokens)</label>
