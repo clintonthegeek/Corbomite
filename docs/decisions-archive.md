@@ -10,6 +10,21 @@ Conventions:
 
 ---
 
+## 2026-10-17 — workspace `direction`: confirmed parity, item closed
+
+The `[~]` workspace-direction P1 reconciled. Its direction half is **Obsidian parity, not a
+defect**: `WorkspaceWindow`'s constructor passes a literal `"vertical"` and `deserializeLayout`
+never feeds `e.direction` back (`app/own/1928-Y6.js:315-318`, `1932-r4.js:1132`), so a
+hand-edited `"horizontal"` popout is discarded on load and `"vertical"` written back.
+`WorkspaceSerializer` does exactly that (`:325-330` on load, `:1278-1283` on save), pinned by
+`tst_workspace_serializer::windowNode_directionAlwaysVertical` and
+`rootSplit_directionForcedVerticalOnLoad`. No code change.
+
+The addendum's "no code change follows yet — outside Corbomite's scope (no popout support)"
+premise is stale: popout shipped in Cluster L2, and the hard-code landed with it. The
+maximised-bounds half stays open as its own P2 (KDDW exposes no per-window geometry). The
+separate P3 `docs` item about the 2026-10-01 addendum's mis-attribution is unaffected.
+
 ## 2026-10-17 — userIgnoreFilters wired into the graph gate; VaultScanner retired
 
 The `vault` P1 (`userIgnoreFilters`) reconciled. Its facts were right: the entries are
