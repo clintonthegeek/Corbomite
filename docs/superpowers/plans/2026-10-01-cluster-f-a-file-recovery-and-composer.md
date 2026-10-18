@@ -2,7 +2,10 @@
 
 **Date:** 2026-10-01
 **Type:** Full plan (split out of the Cluster F stub, items 7 + 8)
-**Status:** **Plan written 2026-10-01 — ready to dispatch. Not started.**
+**Status:** **Landed 2026-10-17** — all phases implemented and offscreen-tested
+(suite 274/274). Only the two live-eyeball gates remain (P1.8, P3.7); they are
+queued in `docs/punch-list.md`. Commits: P0 `186f67f3`, P1.1–P1.4 `4dc0f607`,
+P1.5–P1.7 `f9b4b7e7`, P2/P3 `cfa9f0cb`.
 **Sizing:** ~5–8 days of implementation across four phases (P0 ~1d, P1 ~2d,
 P2 ~1d, P3 ~1–3d). Self-contained: **no substrate dependency, no cross-repo
 (Markoff) dependency, no other cluster blocked.**
@@ -312,27 +315,33 @@ P0 lands, the guard is not testing what it claims.
 
 - [ ] Force-kill the app mid-edit; on restart the unsaved content of every
       open leaf is recoverable from the Version History modal, with no manual
-      file hunting.
+      file hunting. → live eyeball (P1.8).
 - [ ] Snapshot path is verifiably outside the vault root (P0.6 green, and
       confirmed by eye in a real vault: no recovery files appear in the file
-      tree, search results, or the graph).
-- [ ] Retention behaves: a vault left open for a day holds a bounded number of
-      snapshots; save-failure backups are never pruned.
+      tree, search results, or the graph). → P0.6 is green in
+      `tst_recovery_snapshot`; the real-vault half is a live eyeball.
+- [x] Retention behaves: a vault left open for a day holds a bounded number of
+      snapshots; save-failure backups are never pruned. → `tst_recovery_pruning`.
 - [ ] "Version history" is enabled, opens the modal from the hamburger, and
-      restores.
+      restores. → enabled + wired (P1.7, `tst_editable_file_view_menu`); the
+      render-and-restore half is live eyeball.
 - [ ] "Merge entire file with…" completes a real merge: body moves, source is
-      in the trash, target opens. Cancel is a true no-op.
-- [ ] No new leaf-typed dispatch in `MainWindow` (Cluster O doctrine); no
-      `grep` hit for a new `qobject_cast` on the markdown view.
-- [ ] `cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 10`
-      green, and every new test has been seen red once.
-- [ ] **Live eyeball pass done by a human** for P1.8 and P3.7 — modal
-      rendering, restore, and the destructive merge cannot be validated
+      in the trash, target opens. Cancel is a true no-op. → pipeline + dialog
+      offscreen-tested; the interactive flow is live eyeball (P3.7).
+- [x] No new leaf-typed dispatch in `MainWindow` (Cluster O doctrine); no
+      `grep` hit for a new `qobject_cast` on the markdown view. → the merge
+      action is `MarkdownView::onMoreOptionsMenu`, trigger injected via
+      `setMergeFileTrigger`.
+- [x] `cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 3`
+      green, and every new test has been seen red once. → 274/274 on
+      2026-10-17. (Build/test uses `-j 3` on this machine.)
+- [ ] **Live eyeball pass done by a human** for P1.8 and P3.7 —
+      modal rendering, restore, and the destructive merge cannot be validated
       offscreen. This is standing project policy for UI/interaction work (same
       gate Cluster L Phase L4 D1/D4 passed), not a formality.
-- [ ] Punch list updated: the `[plugin][P2]` File-Recovery/Composer item and the
-      older `periodic crash-recovery snapshot` item (`punch-list.md:393`) both
-      marked `[x]` with commit shas.
+- [x] Punch list updated: the File-Recovery and Composer items and the older
+      `periodic crash-recovery snapshot` item are marked `[x]` with commit
+      shas, with the two live-eyeball boxes queued alongside.
 
 ---
 
