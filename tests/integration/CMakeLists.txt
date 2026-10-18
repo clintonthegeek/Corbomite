@@ -60,6 +60,15 @@ target_link_libraries(tst_canvas_rename_rewrite PRIVATE
 set_tests_properties(tst_canvas_rename_rewrite PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Cluster F-a P3.6 — Note Composer pipeline (Vault + FileManager).
+add_executable(tst_merge_file_pipeline tst_merge_file_pipeline.cpp)
+add_test(NAME tst_merge_file_pipeline COMMAND tst_merge_file_pipeline)
+target_link_libraries(tst_merge_file_pipeline PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Storage Corbomite::Core Corbomite::Vault)
+set_tests_properties(tst_merge_file_pipeline PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_obsidian_command_ids tst_obsidian_command_ids.cpp)
 add_test(NAME tst_obsidian_command_ids COMMAND tst_obsidian_command_ids)
 target_link_libraries(tst_obsidian_command_ids PRIVATE

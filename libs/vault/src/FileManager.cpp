@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/vault/FileManager.h"
 #include "corbomite/storage/VaultConfig.h"
+#include "corbomite/core/MergeFiles.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
 #include "PathNormalization.h"
@@ -844,6 +845,52 @@ bool FileManager::insertIntoFile(TFile *f, const QByteArray &content, InsertMode
         // ships plain append/prepend.
         return mode == InsertMode::Append ? (cur + content) : (content + cur);
     });
+}
+
+bool FileManager::mergeFileInto(TFile *source, TFile *target, InsertMode mode)
+{
+    if (!source || !target || !m_vault) return false;
+    if (source == target) return false;
+
+    // Read the source body first (its frontmatter is stripped — Obsidian
+    // discards it even when the target has none).
+    const QByteArray srcBytes = m_vault->read(source);
+    const QString srcBody = MergeFiles::stripFrontmatter(QString::fromUtf8(srcBytes));
+
+    // RMW the target atomically. A crash here leaves the source untouched.
+    const bool wrote = m_vault->process(target, [&](const QByteArray &cur) -> QByteArray {
+        return MergeFiles::compose(QString::fromUtf8(cur), srcBody,
+                                   mode == InsertMode::Prepend)
+            .toUtf8();
+    });
+    if (!wrote) return false;
+
+    // Source trashed only after the target write succeeded, honouring the
+    // configured trash mode (not a hardcoded vault trash).
+    return routeThroughTrash(source);
+}
+
+bool FileManager::routeThroughTrash(TAbstractFile *f)
+{
+    if (!f || !m_vault) return false;
+
+    KConfigGroup files(KSharedConfig::openConfig(), QStringLiteral("Files"));
+    const QString trashOpt =
+        files.readEntry(QStringLiteral("TrashOption"), QStringLiteral("system"));
+
+    VaultConfig::TrashMode mode = VaultConfig::TrashMode::SystemTrash;
+    {
+        const VaultConfig cfg = m_vault->vaultConfig();
+        const VaultConfig::TrashMode kcfgMode =
+            (trashOpt == QLatin1String("permanent")) ? VaultConfig::TrashMode::Permanent
+          : (trashOpt == QLatin1String("vault"))     ? VaultConfig::TrashMode::VaultTrash
+          : VaultConfig::TrashMode::SystemTrash;
+        mode = cfg.appTrashMode(kcfgMode);
+    }
+
+    if (mode == VaultConfig::TrashMode::Permanent)
+        return m_vault->remove(f, dynamic_cast<TFolder *>(f) != nullptr);
+    return m_vault->trash(f, mode == VaultConfig::TrashMode::SystemTrash);
 }
 
 QString FileManager::generateMarkdownLink(TFile *target,

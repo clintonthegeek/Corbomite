@@ -99,6 +99,13 @@ public:
     void setFindTrigger(FindTrigger trigger);
     void setReplaceTrigger(FindTrigger trigger);
 
+    /// Cluster F-a P3.3/P3.4 — "Merge entire file with…". The action lives in
+    /// the markdown hamburger's `action` section and is owned by this view
+    /// (the provider mechanism), not a MainWindow leaf-type branch. Nullable;
+    /// when unset the item is disabled.
+    using MergeTrigger = std::function<void(QWidget *parent)>;
+    void setMergeFileTrigger(MergeTrigger trigger);
+
     /// Cluster R Task 3.4 — hamburger-menu contribution: Split/Reading/Source/
     /// AddProperty/ExportPDF/... plus the view.linked submenu. Chains up to
     /// EditableFileView::onMoreOptionsMenu for universal file-menu items.
@@ -115,6 +122,7 @@ private:
     PdfExportTrigger m_pdfExportTrigger;
     FindTrigger m_findTrigger;
     FindTrigger m_replaceTrigger;
+    MergeTrigger m_mergeFileTrigger;
 };
 
 } // namespace Corbomite

@@ -232,38 +232,57 @@ deliberately not expanded here:
 
 ### Phase P2 — Note Composer: the modal
 
-- [ ] **P2.1** `MergeFileDialog` (two stages in one dialog class, or two
+> **Landed 2026-10-17.** `MergeFileDialog` (`src/dialogs`) is a two-stage
+> QStackedWidget dialog: stage 1 is a `Corbomite::FuzzyMatcher`-filtered list
+> that never offers the source; stage 2 is the append/prepend confirm with the
+> destructive-consequence copy, the frontmatter-discard note (Q3) and the
+> link-rewrite caveat (P3.5). It only chooses; the merge is FileManager's job.
+> The `tst_merge_file_dialog` case drives the widgets directly (set filter,
+> Next, toggle prepend, Merge/Cancel) without an event loop.
+
+- [x] **P2.1** `MergeFileDialog` (two stages in one dialog class, or two
       widgets — the addendum draws two): stage 1 fuzzy file picker listing all
       `.md` files **except the source**, stage 2 confirm with append/prepend
       radio buttons and the destructive-consequence text.
-- [ ] **P2.2** Reuse rather than reinvent: the fuzzy proxy/filter machinery
+- [x] **P2.2** Reuse rather than reinvent: the fuzzy proxy/filter machinery
       from `src/dialogs/QuickSwitcher.cpp` and the confirm-dialog shape from
       `src/dialogs/TemplatePicker.cpp`. Do **not** enable QuickSwitcher's
       create-on-no-match behaviour here.
-- [ ] **P2.3** i18n all strings; `QIcon::fromTheme` for icons; KDE button
+- [x] **P2.3** i18n all strings; `QIcon::fromTheme` for icons; KDE button
       placement (`QDialogButtonBox` with a `Merge` accept role).
-- [ ] **P2.4** `tst_merge_file_dialog` — stage-1 list excludes the source,
+- [x] **P2.4** `tst_merge_file_dialog` — stage-1 list excludes the source,
       filter works, append/prepend toggle round-trips, Cancel leaves both
       files untouched.
 
 ### Phase P3 — Note Composer: the pipeline + surface
 
-- [ ] **P3.1** Merge pipeline, in addendum §3 order: read source → strip
+> **Landed 2026-10-17.** `MergeFiles::stripFrontmatter`/`compose` (libs/core) are
+> the pure pieces; `FileManager::mergeFileInto` reads the source, strips its
+> frontmatter, RMWs the target (append or prepend, `\n\n` separators), then
+> routes the source through `routeThroughTrash` — the configured
+> `[Files]/TrashOption` / `.obsidian/app.json` `trashOption` mode, not a
+> hardcoded vault trash (P3.2). Target-first ordering means a crash in between
+> duplicates rather than loses. The action lives in `MarkdownView::
+> onMoreOptionsMenu`'s `action` section, its trigger injected by MainWindow via
+> `setMergeFileTrigger` — no leaf-type branch in MainWindow (P3.4). P3.7
+> (live eyeball of the destructive flow) remains open.
+
+- [x] **P3.1** Merge pipeline, in addendum §3 order: read source → strip
       frontmatter per Q3 → RMW into target → trash source → open target in the
       active leaf. Do it atomically (target write first, trash second) so a
       crash between the two leaves a duplicated body rather than data loss.
-- [ ] **P3.2** Respect the existing trash-option setting rather than always
+- [x] **P3.2** Respect the existing trash-option setting rather than always
       trashing.
-- [ ] **P3.3** KAction + menu entry in the markdown hamburger's `action`
+- [x] **P3.3** KAction + menu entry in the markdown hamburger's `action`
       section (addendum §1: section `action`, not `view.linked` — confirm
       against `docs/obsidian-audit/domains/ui-bundle.md §4` section-order
       before wiring).
-- [ ] **P3.4** Widen through Cluster O's provider mechanism rather than adding
+- [x] **P3.4** Widen through Cluster O's provider mechanism rather than adding
       a `MainWindow` branch: the action belongs to the markdown view provider
       (`MarkdownViewActions`), consistent with Cluster O doctrine §D1–D7. No
       new leaf-typed dispatch in `MainWindow`.
-- [ ] **P3.5** The link-rewrite caveat as **copy** in the confirm dialog.
-- [ ] **P3.6** `tst_merge_file_pipeline` — append and prepend byte-exact,
+- [x] **P3.5** The link-rewrite caveat as **copy** in the confirm dialog.
+- [x] **P3.6** `tst_merge_file_pipeline` — append and prepend byte-exact,
       frontmatter stripped, source trashed, target opened, target untouched on
       cancel, and no action when the target is the source.
 - [ ] **P3.7** Live-eyeball requirement (see §7).

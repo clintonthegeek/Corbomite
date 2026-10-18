@@ -31,6 +31,11 @@ add_test(NAME tst_momentformatpreview COMMAND tst_momentformatpreview)
 target_link_libraries(tst_momentformatpreview PRIVATE Qt6::Test CorbomiteApp)
 set_tests_properties(tst_momentformatpreview PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_merge_file_dialog tst_merge_file_dialog.cpp)
+add_test(NAME tst_merge_file_dialog COMMAND tst_merge_file_dialog)
+target_link_libraries(tst_merge_file_dialog PRIVATE Qt6::Test CorbomiteApp)
+set_tests_properties(tst_merge_file_dialog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_plugins_page tst_plugins_page.cpp)
 add_test(NAME tst_plugins_page COMMAND tst_plugins_page)
 target_link_libraries(tst_plugins_page PRIVATE Qt6::Test CorbomiteApp Corbomite::Vault KF6::CoreAddons KF6::ConfigCore)

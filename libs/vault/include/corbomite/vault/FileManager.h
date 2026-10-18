@@ -108,6 +108,14 @@ public:
     enum class InsertMode { Append, Prepend };
     bool insertIntoFile(TFile *f, const QByteArray &content, InsertMode mode);
 
+    /// Note Composer (Cluster F-a P3): move `source`'s whole body into
+    /// `target` (append or prepend), stripping the source's frontmatter, then
+    /// trash `source`. The target is written first (atomic RMW) and the source
+    /// trashed second, so a crash between the two leaves a duplicated body
+    /// rather than data loss. Returns false — without trashing anything — if
+    /// either file is null, they are the same file, or the write fails.
+    bool mergeFileInto(TFile *source, TFile *target, InsertMode mode);
+
     // ---- Link generation ----
     QString generateMarkdownLink(TFile *target,
                                  const QString &sourcePath,
@@ -141,6 +149,12 @@ Q_SIGNALS:
     void linkUpdateProgress(int done, int total);
 
 private:
+    /// Route `f` through the vault's configured trash mode (`[Files]/
+    /// TrashOption` with the vault's `.obsidian/app.json` `trashOption`
+    /// winning) without prompting. Permanent → `Vault::remove`, otherwise
+    /// `Vault::trash` with system-vs-`.trash/` chosen by the mode.
+    bool routeThroughTrash(TAbstractFile *f);
+
     Vault         *m_vault;
     MetadataCache *m_cache;
     // Lowercase extension (no dot) -> non-owning rewriter. See

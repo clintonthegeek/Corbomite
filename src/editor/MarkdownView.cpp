@@ -260,6 +260,11 @@ void MarkdownView::setReplaceTrigger(FindTrigger trigger)
     m_replaceTrigger = std::move(trigger);
 }
 
+void MarkdownView::setMergeFileTrigger(MergeTrigger trigger)
+{
+    m_mergeFileTrigger = std::move(trigger);
+}
+
 void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
 {
     // ---- pane: Split right / Split down ----
@@ -416,6 +421,19 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
                 [dispatch, cmdId] { dispatch(cmdId); });
         linkedSub->addToSection(act, QStringLiteral("action"));
     }
+
+    // ---- action: Merge entire file with… (Cluster F-a P3.3) ----
+    auto *mergeAct = new QAction(
+        QIcon::fromTheme(QStringLiteral("document-merge")),
+        i18n("Merge entire file with…"), this);
+    if (m_mergeFileTrigger) {
+        connect(mergeAct, &QAction::triggered, this, [this] {
+            if (m_mergeFileTrigger) m_mergeFileTrigger(this);
+        });
+    } else {
+        mergeAct->setEnabled(false);
+    }
+    helper.addToSection(mergeAct, QStringLiteral("action"));
 
     // ---- Chain to EditableFileView for universal file-menu items ----
     // Until Phase 2 Task 2.8 lands, this resolves to View::onMoreOptionsMenu

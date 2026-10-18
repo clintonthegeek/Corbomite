@@ -85,6 +85,7 @@
 #include "dialogs/SettingsDialog.h"
 #include "dialogs/QuickSwitcher.h"
 #include "dialogs/TemplatePicker.h"
+#include "dialogs/MergeFileDialog.h"
 #include "dialogs/VersionHistoryDialog.h"
 #include "corbomite/core/VersionHistoryService.h"
 #include "RibbonToolBar.h"
@@ -1202,6 +1203,43 @@ void MainWindow::propagateServicesToView(View *view)
         });
         mv->setFindTrigger([this](QWidget *) { onFind(); });
         mv->setReplaceTrigger([this](QWidget *) { onReplace(); });
+
+        // Cluster F-a P3.3/P3.4 — "Merge entire file with…". The action is
+        // owned by the markdown view's hamburger (no MainWindow leaf-type
+        // branch); this wires its trigger to the Note Composer modal and the
+        // FileManager merge pipeline.
+        mv->setMergeFileTrigger([this](QWidget *parent) {
+            if (!m_vaultObj || !m_fileManager) return;
+            auto *srcView = qobject_cast<MarkdownView *>(parent);
+            auto *doc = srcView ? srcView->file() : nullptr;
+            if (!doc) return;
+            const QString sourceRel = doc->relativePath();
+
+            QStringList candidates;
+            const auto files = m_vaultObj->getFiles();
+            for (auto *tf : files) {
+                if (!tf || tf->extension != QLatin1String("md")) continue;
+                if (tf->path == sourceRel) continue;  // never the source
+                candidates.append(tf->path);
+            }
+
+            MergeFileDialog dlg(sourceRel, candidates, parent);
+            if (dlg.exec() != QDialog::Accepted) return;
+            const QString targetRel = dlg.selectedTarget();
+            if (targetRel.isEmpty() || targetRel == sourceRel) return;
+
+            auto *src = m_vaultObj->getFileByPath(sourceRel);
+            auto *tgt = m_vaultObj->getFileByPath(targetRel);
+            if (!src || !tgt) return;
+            const auto mode = dlg.prependSelected()
+                ? FileManager::InsertMode::Prepend
+                : FileManager::InsertMode::Append;
+            if (!m_fileManager->mergeFileInto(src, tgt, mode)) {
+                Notice::post(i18n("Merge failed."));
+                return;
+            }
+            openFileInWorkspace(targetRel);
+        });
 
         auto *editor = mv->editorWidget();
         if (editor) {
