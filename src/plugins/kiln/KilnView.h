@@ -100,6 +100,7 @@ private:
     QLineEdit *m_linkBase = nullptr;
     QLineEdit *m_taxonomies = nullptr;
     QCheckBox *m_related = nullptr;
+    QCheckBox *m_tagParents = nullptr;
     QCheckBox *m_fragments = nullptr;
     QCheckBox *m_scaffold = nullptr;
     QPushButton *m_checkButton = nullptr;

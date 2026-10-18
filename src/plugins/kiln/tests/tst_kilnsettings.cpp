@@ -27,6 +27,7 @@ private slots:
     void describesAnEngineThatNeverStarted();
     void describesARunThatDidNotHappen();
     void theSiteShellKeysRoundTrip();
+    void tagParentsIsWrittenOnlyWhenOff();
     void describesTheShellAndMovedUrls();
 };
 
@@ -270,6 +271,27 @@ void TestKilnSettings::theSiteShellKeysRoundTrip()
     QCOMPARE(again.projections.first().fragments, false);
     QCOMPARE(again.projections.first().scaffold, true);
     QCOMPARE(again.problem(), QString());
+}
+
+void TestKilnSettings::tagParentsIsWrittenOnlyWhenOff()
+{
+    // The engine defaults it on, so the stored config says nothing when it is on — the
+    // same rule `related` and `fragments` follow.
+    KilnSettings settings;
+    settings.output = QStringLiteral("/tmp/site");
+    settings.projections.append(siteProjection());
+
+    const QJsonObject on = settings.toJson(QStringLiteral("/vault"));
+    QVERIFY(!on.value(QStringLiteral("projections")).toArray().at(0).toObject()
+                 .contains(QStringLiteral("tagParents")));
+    QCOMPARE(KilnSettings::fromJson(on).projections.first().tagParents, true);
+
+    settings.projections.first().tagParents = false;
+    const QJsonObject off = settings.toJson(QStringLiteral("/vault"));
+    QCOMPARE(off.value(QStringLiteral("projections")).toArray().at(0).toObject()
+                 .value(QStringLiteral("tagParents")).toBool(true),
+             false);
+    QCOMPARE(KilnSettings::fromJson(off).projections.first().tagParents, false);
 }
 
 void TestKilnSettings::describesTheShellAndMovedUrls()

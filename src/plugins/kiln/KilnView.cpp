@@ -145,6 +145,9 @@ KilnView::KilnView(PluginContext *context, KilnRunner *runner, QWidget *parent)
     m_taxonomies->setPlaceholderText(i18n("series, author=authors"));
     m_related = new QCheckBox(i18n("Let Hugo work out related pages"), this);
     m_related->setToolTip(i18n("From shared tags, keywords and series — no list to maintain"));
+    m_tagParents = new QCheckBox(i18n("A nested tag also carries its parents"), this);
+    m_tagParents->setToolTip(i18n("So `/tags/gui/` lists what `/tags/gui/widgets/` does. Hugo makes no "
+                                "page for a term nobody carries, so without this the parent is a 404"));
     m_fragments = new QCheckBox(i18n("Write Kiln's config fragments"), this);
     m_fragments->setToolTip(i18n("config/_default/markup.toml and friends; Kiln rewrites only its own"));
     m_scaffold = new QCheckBox(i18n("Write the site shell too"), this);
@@ -162,6 +165,7 @@ KilnView::KilnView(PluginContext *context, KilnRunner *runner, QWidget *parent)
     projectionForm->addRow(i18n("Link base"), m_linkBase);
     projectionForm->addRow(i18n("Taxonomies"), m_taxonomies);
     projectionForm->addRow(QString(), m_related);
+    projectionForm->addRow(QString(), m_tagParents);
     projectionForm->addRow(QString(), m_fragments);
     projectionForm->addRow(QString(), m_scaffold);
 
@@ -217,7 +221,7 @@ KilnView::KilnView(PluginContext *context, KilnRunner *runner, QWidget *parent)
                              m_section, m_fieldOrder, m_linkBase, m_taxonomies}) {
         connect(field, &QLineEdit::textChanged, this, &KilnView::onFieldChanged);
     }
-    for (QCheckBox *box : {m_related, m_fragments, m_scaffold}) {
+    for (QCheckBox *box : {m_related, m_tagParents, m_fragments, m_scaffold}) {
         connect(box, &QCheckBox::toggled, this, &KilnView::onFieldChanged);
     }
     for (QComboBox *combo : {m_shape, m_frontMatter}) {
@@ -324,6 +328,7 @@ void KilnView::loadProjectionIntoForm(int index)
                             static_cast<QWidget *>(m_linkBase),
                             static_cast<QWidget *>(m_taxonomies),
                             static_cast<QWidget *>(m_related),
+                            static_cast<QWidget *>(m_tagParents),
                             static_cast<QWidget *>(m_fragments),
                             static_cast<QWidget *>(m_scaffold)}) {
         widget->setEnabled(valid);
@@ -339,6 +344,7 @@ void KilnView::loadProjectionIntoForm(int index)
         m_linkBase->clear();
         m_taxonomies->clear();
         m_related->setChecked(true);
+        m_tagParents->setChecked(true);
         m_fragments->setChecked(true);
         m_scaffold->setChecked(false);
         m_loading = false;
@@ -358,6 +364,7 @@ void KilnView::loadProjectionIntoForm(int index)
     m_linkBase->setText(projection.linkBase);
     m_taxonomies->setText(joinTaxonomies(projection.taxonomies));
     m_related->setChecked(projection.related);
+    m_tagParents->setChecked(projection.tagParents);
     m_fragments->setChecked(projection.fragments);
     m_scaffold->setChecked(projection.scaffold);
     m_loading = false;
@@ -380,6 +387,7 @@ void KilnView::storeFormIntoProjection()
     projection.linkBase = m_linkBase->text().trimmed();
     projection.taxonomies = splitTaxonomies(m_taxonomies->text());
     projection.related = m_related->isChecked();
+    projection.tagParents = m_tagParents->isChecked();
     projection.fragments = m_fragments->isChecked();
     projection.scaffold = m_scaffold->isChecked();
 

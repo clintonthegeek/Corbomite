@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCheckBox>
 #include <QDir>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
@@ -33,6 +35,7 @@ private slots:
     void settingsSurviveTheHostStore();
     void copylessDefaultIsNotRunnable();
     void theScaffoldActionRunsTheScaffoldMode();
+    void theTagParentsBoxReflectsAndWritesTheSetting();
 };
 
 namespace {
@@ -242,6 +245,57 @@ void TestKilnView::theScaffoldActionRunsTheScaffoldMode()
 
     QCOMPARE(runner.calls, 1);
     QCOMPARE(runner.lastMode, QStringLiteral("scaffold"));
+}
+
+void TestKilnView::theTagParentsBoxReflectsAndWritesTheSetting()
+{
+    // A checkbox that does not reach the config is the failure mode worth pinning: the
+    // panel would look right and the engine would never hear about it. Found by its label,
+    // because the form has several boxes and `findChild` returns whichever is first.
+    const auto boxFor = [](KilnView &view, const QString &needle) -> QCheckBox * {
+        for (QCheckBox *candidate : view.findChildren<QCheckBox *>()) {
+            if (candidate->text().contains(needle))
+                return candidate;
+        }
+        return nullptr;
+    };
+    Harness harness;
+    const QString site = harness.dir.path() + QStringLiteral("/site");
+
+    // Default: on, and absent from the config, because on is the engine's own default.
+    harness.seed(harness.usableSettings(site));
+    {
+        FakeKilnRunner runner;
+        KilnView view(&harness.ctx, &runner);
+        QCheckBox *box = boxFor(view, QStringLiteral("nested tag"));
+        QVERIFY(box);
+        QVERIFY(box->isChecked());
+        QVERIFY(!view.configForRun().value(QStringLiteral("projections")).toArray().at(0).toObject()
+                     .contains(QStringLiteral("tagParents")));
+
+        // Ticking it off must reach the config the engine is handed.
+        box->setChecked(false);
+        QCOMPARE(view.configForRun().value(QStringLiteral("projections")).toArray().at(0).toObject()
+                     .value(QStringLiteral("tagParents")).toBool(true),
+                 false);
+    }
+
+    // And the other direction: a stored `false` comes back as an unticked box.
+    harness.seed(harness.usableSettings(site));
+    {
+        QJsonObject stored = harness.stored();
+        QJsonArray projections = stored.value(QStringLiteral("projections")).toArray();
+        QJsonObject projection = projections.at(0).toObject();
+        projection.insert(QStringLiteral("tagParents"), false);
+        stored.insert(QStringLiteral("projections"), QJsonArray{projection});
+        harness.seed(stored);
+
+        FakeKilnRunner runner;
+        KilnView view(&harness.ctx, &runner);
+        QCheckBox *box = boxFor(view, QStringLiteral("nested tag"));
+        QVERIFY(box);
+        QVERIFY(!box->isChecked());
+    }
 }
 
 QTEST_MAIN(TestKilnView)

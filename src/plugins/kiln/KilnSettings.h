@@ -30,6 +30,9 @@ struct KilnProjection
     /// Extra Hugo taxonomies: front-matter key -> taxonomy name.
     QMap<QString, QString> taxonomies;
     bool related = true;      ///< configure `.Related` indices
+    /// A nested tag also carries its parents, so `/tags/gui/` lists what
+    /// `/tags/gui/widgets/` does. Hugo makes no page for a term nobody carries.
+    bool tagParents = true;
     bool fragments = true;    ///< write Kiln's own config fragments
     bool scaffold = false;    ///< write the site shell as well
 

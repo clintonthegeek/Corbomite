@@ -118,6 +118,8 @@ QJsonObject KilnProjection::toJson() const
     // stored config says what the author decided and nothing else.
     if (!related)
         object.insert(QStringLiteral("related"), false);
+    if (!tagParents)
+        object.insert(QStringLiteral("tagParents"), false);
     if (!fragments)
         object.insert(QStringLiteral("fragments"), false);
     if (scaffold)
@@ -146,6 +148,7 @@ KilnProjection KilnProjection::fromJson(const QJsonObject &object)
     for (auto it = taxonomies.constBegin(); it != taxonomies.constEnd(); ++it)
         projection.taxonomies.insert(it.key(), it.value().toString());
     projection.related = object.value(QStringLiteral("related")).toBool(true);
+    projection.tagParents = object.value(QStringLiteral("tagParents")).toBool(true);
     projection.fragments = object.value(QStringLiteral("fragments")).toBool(true);
     projection.scaffold = object.value(QStringLiteral("scaffold")).toBool(false);
     return projection;
