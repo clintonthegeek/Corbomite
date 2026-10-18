@@ -49,6 +49,11 @@ through js-yaml (dotted keys no-op, untouched properties reformat); `FileManager
 splices link literals and preserves the rest. See
 `2026-10-17-rename-link-fixup-splice-vs-redump.md`.
 
+**The 2026-10-03 editor addendum contradicts itself on `debounce`.** Correction 11 is right
+(`Ml` = non-resetting leading-arm throttle); its §20 row calling `Ml` "lodash `debounce` …
+trailing-edge" is wrong. Corbomite keeps trailing QTimers. See
+`2026-10-17-debounce-trailing-vs-leading-arm.md`.
+
 **One of our own addenda was wrong.** `2026-10-01-workspace-split-direction-correction.md`
 says it "REFUTES" `workspace.md:79`, then its own replacement table restates line 79
 verbatim. Six independent source paths confirm **the doc was right**; the inversion was
