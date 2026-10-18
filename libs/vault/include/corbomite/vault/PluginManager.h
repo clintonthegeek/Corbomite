@@ -177,12 +177,17 @@ protected:
     virtual QVersionNumber appVersion() const;
 
 private Q_SLOTS:
-    void onDataJsonChanged(const QString &path);
+    void onDataWatchChanged(const QString &path);
 
 private:
     QSet<QString> loadGrantedPermissions(const QString &id) const;
     void saveGrantedPermissions(const QString &id, const QSet<QString> &granted);
     void writeEnabledState(const QString &id, bool enabled);
+    /// Start watching the plugin's `data.json` directory, if the host wired
+    /// one. No-op on a plugin with no context or no data dir.
+    void installDataWatch(const QString &id);
+    /// Drop the watch a disabled plugin owned.
+    void removeDataWatch(const QString &id);
 
     QString m_systemPath;
     QString m_userPath;
@@ -194,11 +199,12 @@ private:
     PromptFn  m_promptHandler;
     ContextConfigurator m_contextConfigurator;
 
-    // Cluster B Phase 3.3 — per-plugin data.json watcher. Maps absolute
-    // data.json path -> plugin id so the watcher's fileChanged slot can
-    // dispatch to the right plugin.
+    // Cluster B Phase 3.3 — per-plugin data.json watch. Maps the plugin's
+    // data *directory* -> plugin id, plus the mtime of its data.json that the
+    // plugin has already been told about, so one save fires one notification.
     QFileSystemWatcher m_dataJsonWatcher;
-    QHash<QString, QString> m_dataJsonPathToPluginId;
+    QHash<QString, QString> m_dataWatchDirToPluginId;
+    QHash<QString, QDateTime> m_dataJsonMtime;
 };
 
 } // namespace Corbomite

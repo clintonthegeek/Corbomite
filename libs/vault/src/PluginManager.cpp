@@ -13,7 +13,9 @@
 #include <KPluginMetaData>
 #include <KSharedConfig>
 
+#include <QDateTime>
 #include <QDebug>
+#include <QFileInfo>
 #include <QHash>
 #include <QJsonObject>
 #include <QStandardPaths>
@@ -63,8 +65,10 @@ PluginManager::PluginManager(QObject *parent)
     , m_userPath(defaultUserPath())
     , m_config(KSharedConfig::openConfig())
 {
+    connect(&m_dataJsonWatcher, &QFileSystemWatcher::directoryChanged,
+            this, &PluginManager::onDataWatchChanged);
     connect(&m_dataJsonWatcher, &QFileSystemWatcher::fileChanged,
-            this, &PluginManager::onDataJsonChanged);
+            this, &PluginManager::onDataWatchChanged);
 }
 
 PluginManager::~PluginManager()
@@ -318,23 +322,10 @@ bool PluginManager::enablePlugin(const QString &id)
     }
     info->enabled = true;
 
-    // Cluster B Phase 3.3 — install per-plugin data.json watcher.
-    // setPluginDataDir was called by the configurator above, so the
-    // canonical data dir is reachable; resolve to the data.json file.
-    if (info->context) {
-        const QString dir = QStringLiteral("");
-        // PluginContext doesn't expose the dir directly; reconstruct from
-        // metadata + the configurator-set base. The configurator path is
-        // <vault>/.obsidian/plugins/<id>/, so write a probe file path
-        // here only if the data.json already exists (saveData() will
-        // create it on first call). On subsequent loads the file exists
-        // and the watcher hooks it; on the very first load the plugin
-        // hasn't written yet and the watcher attaches lazily on first
-        // saveData (out of scope for Phase 3.3 — first-run plugins
-        // don't see external changes until they save once).
-        // For the test harness we use simulateExternalSettingsChange.
-        Q_UNUSED(dir);
-    }
+    // Cluster B Phase 3.3 — install the per-plugin data.json watch. The
+    // configurator above handed the context its data dir, so the file is
+    // resolved through it rather than by re-deriving the vault layout here.
+    installDataWatch(id);
 
     writeEnabledState(id, true);
     Q_EMIT pluginLoaded(id);
@@ -356,36 +347,97 @@ bool PluginManager::disablePlugin(const QString &id, bool persist)
     info->context = nullptr;
     info->enabled = false;
 
-    // Cluster B Phase 3.3 — drop watcher entries belonging to this plugin.
-    QStringList toDrop;
-    for (auto it = m_dataJsonPathToPluginId.constBegin();
-         it != m_dataJsonPathToPluginId.constEnd(); ++it) {
-        if (it.value() == id) toDrop.append(it.key());
-    }
-    for (const auto &path : toDrop) {
-        m_dataJsonWatcher.removePath(path);
-        m_dataJsonPathToPluginId.remove(path);
-    }
+    // Cluster B Phase 3.3 — drop the watch this plugin owned.
+    removeDataWatch(id);
 
     if (persist) writeEnabledState(id, false);
     Q_EMIT pluginDisabled(id);
     return true;
 }
 
-void PluginManager::onDataJsonChanged(const QString &path)
+void PluginManager::installDataWatch(const QString &id)
 {
-    auto it = m_dataJsonPathToPluginId.constFind(path);
-    if (it == m_dataJsonPathToPluginId.constEnd()) return;
-    const QString pluginId = it.value();
-    auto *info = const_cast<PluginInfo *>(pluginById(pluginId));
-    if (!info || !info->instance) return;
-    info->instance->onExternalSettingsChange();
+    const auto *info = pluginById(id);
+    if (!info || !info->context)
+        return;
+    const QString dir = info->context->pluginDataDir();
+    if (dir.isEmpty())
+        return;
 
-    // QFileSystemWatcher drops the file on certain edits (atomic-rename
-    // saves replace the inode). Re-add the path to keep watching.
-    if (!m_dataJsonWatcher.files().contains(path)) {
-        m_dataJsonWatcher.addPath(path);
+    // Watch the directory AND data.json. Neither alone covers the ways a
+    // data.json changes: a directory watch sees a first save or an atomic
+    // rename but not an in-place rewrite, and a file watch does the opposite
+    // (and is dropped by the rename, which replaces the inode). The handler
+    // compares mtimes, so the two together still produce one notification per
+    // change.
+    bool watched = m_dataJsonWatcher.addPath(dir);
+    const QString dataFile = dir + QStringLiteral("/data.json");
+    const QFileInfo data(dataFile);
+    if (data.exists()) {
+        watched = m_dataJsonWatcher.addPath(dataFile) || watched;
+        m_dataJsonMtime.insert(dir, data.lastModified());
     }
+    if (watched) {
+        m_dataWatchDirToPluginId.insert(dir, id);
+    } else {
+        qWarning().noquote() << "PluginManager: cannot watch" << dir
+                             << "for plugin" << id
+                             << "— external data.json edits will not reach it";
+    }
+}
+
+void PluginManager::removeDataWatch(const QString &id)
+{
+    QStringList toDrop;
+    for (auto it = m_dataWatchDirToPluginId.constBegin();
+         it != m_dataWatchDirToPluginId.constEnd(); ++it) {
+        if (it.value() == id)
+            toDrop.append(it.key());
+    }
+    for (const QString &dir : toDrop) {
+        m_dataJsonWatcher.removePath(dir);
+        m_dataJsonWatcher.removePath(dir + QStringLiteral("/data.json"));
+        m_dataJsonMtime.remove(dir);
+        m_dataWatchDirToPluginId.remove(dir);
+    }
+}
+
+void PluginManager::onDataWatchChanged(const QString &path)
+{
+    // Either signal lands here: `path` is the plugin's data directory for a
+    // directory event, or data.json itself for a file event.
+    QString dir = path;
+    if (!m_dataWatchDirToPluginId.contains(dir))
+        dir = QFileInfo(path).absolutePath();
+    auto it = m_dataWatchDirToPluginId.constFind(dir);
+    if (it == m_dataWatchDirToPluginId.constEnd())
+        return;
+    const QString pluginId = it.value();
+
+    const QString dataFile = dir + QStringLiteral("/data.json");
+    const QFileInfo data(dataFile);
+    if (!data.exists())
+        return;
+
+    // A directory watch also fires for the QSaveFile temp file and for any
+    // other file the plugin drops in its own directory. Only a data.json
+    // whose mtime we have not seen is news, so one save is one notification.
+    const QDateTime modified = data.lastModified();
+    if (m_dataJsonMtime.value(dir) == modified)
+        return;
+    m_dataJsonMtime.insert(dir, modified);
+
+    // An atomic rename replaces the inode and silently drops a file watch;
+    // re-add both, since a plugin may also remove and recreate its directory.
+    if (!m_dataJsonWatcher.directories().contains(dir))
+        m_dataJsonWatcher.addPath(dir);
+    if (!m_dataJsonWatcher.files().contains(dataFile))
+        m_dataJsonWatcher.addPath(dataFile);
+
+    auto *info = const_cast<PluginInfo *>(pluginById(pluginId));
+    if (!info || !info->instance)
+        return;
+    info->instance->onExternalSettingsChange();
 }
 
 void PluginManager::simulateExternalSettingsChange(const QString &pluginId)

@@ -163,10 +163,10 @@ void SettingsDialog::setupAppearancePage()
         //     written at selection time while the service's active name was
         //     only re-read from kcfg at MainWindow construction.
         //
-        // Instead the combobox only carries the objectName, so KConfigDialog's
-        // standard binding writes the key on OK/Apply, and MainWindow applies
-        // it from configChanged (see MainWindow::onSettingsApplied).
-        editorTheme->setProperty("themeServiceNames", true);
+        // So the selection is only read on OK/Apply, by applySettings() below
+        // — this dialog is a KPageDialog, NOT a KConfigDialog, so there is no
+        // standard binding to rely on. `applySettings()` must list this widget
+        // or the choice is silently dropped (it was, until 2026-10-18).
         layout->addRow(i18n("Editor theme:"), editorTheme);
 
         auto *importBtn = new QPushButton(i18n("Import QOwnNotes scheme…"));
@@ -353,6 +353,16 @@ void SettingsDialog::applySettings()
         settings->setPromptDelete(w->isChecked());
     if (auto *w = findChild<QComboBox *>(QStringLiteral("theme")))
         settings->setTheme(w->currentData().toString());
+    // Editor theme. The combo carries theme *names* as its text (the service's
+    // own vocabulary), and there is no other writer of `MarkoffTheme` — this
+    // dialog is a KPageDialog with this hand-written applySettings, not a
+    // KConfigDialog, so nothing binds the widget to the key automatically.
+    // Missing this branch is what left the key at its "Follow system" default
+    // for every user: the editor dropdown moved, Apply/OK wrote every other
+    // key, and the editor kept tracking the app palette. See
+    // `tst_settingsdialog`.
+    if (auto *w = findChild<QComboBox *>(QStringLiteral("markoffTheme")))
+        settings->setMarkoffTheme(w->currentText());
     if (auto *w = findChild<QLineEdit *>(QStringLiteral("templateFolder")))
         settings->setTemplateFolder(w->text());
     if (auto *w = findChild<QLineEdit *>(QStringLiteral("dailyNoteFolder")))

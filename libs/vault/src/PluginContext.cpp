@@ -310,6 +310,11 @@ void PluginContext::setPluginDataDir(const QString &dir)
     m_dataStore.reset();
 }
 
+QString PluginContext::pluginDataDir() const
+{
+    return m_pluginDataDir;
+}
+
 QJsonObject PluginContext::loadData() const
 {
     if (!hasPermission(QLatin1String(kConfig))) return {};

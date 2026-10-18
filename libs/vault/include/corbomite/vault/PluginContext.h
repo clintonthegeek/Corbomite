@@ -149,6 +149,11 @@ public:
     /// Host wiring — PluginManager calls this before plugin->load().
     void setPluginDataDir(const QString &dir);
 
+    /// The directory `saveData()` writes `data.json` into, as wired by the
+    /// host. Empty when the host hasn't wired one (e.g. no vault open), which
+    /// is also when `loadData()`/`saveData()` are inert.
+    QString pluginDataDir() const;
+
 private:
     PluginMetaData m_meta;
     QSet<QString>  m_granted;

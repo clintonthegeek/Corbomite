@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QTemporaryDir>
@@ -58,6 +59,8 @@ private slots:
     void simulateInvokesVirtualOnEnabledPlugin();
     void simulateOnDisabledPluginIsNoOp();
     void simulateOnUnknownPluginIsNoOp();
+    void externalDataJsonWriteInvokesEnabledPlugin();
+    void externalDataJsonWriteAfterDisableIsIgnored();
 };
 
 void TestPluginExternalSettings::simulateInvokesVirtualOnEnabledPlugin()
@@ -111,6 +114,82 @@ void TestPluginExternalSettings::simulateOnUnknownPluginIsNoOp()
     Corbomite::PluginManager mgr;
     mgr.simulateExternalSettingsChange(QStringLiteral("nonexistent"));
     // No assertion needed — just verifying no crash.
+}
+
+void TestPluginExternalSettings::externalDataJsonWriteInvokesEnabledPlugin()
+{
+    QTemporaryDir cfg;
+    QTemporaryDir dataDir;
+    FakeStats stats;
+    Corbomite::PluginManager mgr;
+    mgr.setConfig(KSharedConfig::openConfig(
+        cfg.filePath(QStringLiteral("corbomite-test.rc")),
+        KConfig::SimpleConfig));
+    mgr.setFactoryOverride([&stats](const Corbomite::PluginMetaData &)
+                                -> Corbomite::Plugin * {
+        return new FakePlugin(&stats);
+    });
+    // The host wires the data dir before load; without it there is no
+    // data.json to watch. MainWindow does the same at plugin load.
+    mgr.setContextConfigurator([&dataDir](Corbomite::PluginContext *ctx) {
+        ctx->setPluginDataDir(dataDir.path());
+    });
+    mgr.ingest({makeFixture(QStringLiteral("plug-c"))},
+                Corbomite::PluginMetaData::Origin::System);
+    QVERIFY(mgr.enablePlugin(QStringLiteral("plug-c")));
+    QCOMPARE(stats.externalSettingsChanges, 0);
+
+    // Falsifiable: the old install path was a stub that never populated the
+    // path→plugin map, so the watcher's slot always returned early and no
+    // external write ever reached a plugin. The first write is also the
+    // interesting one — it *creates* data.json, which a file watch could not
+    // have attached to.
+    const QString dataFile = dataDir.filePath(QStringLiteral("data.json"));
+    {
+        QFile f(dataFile);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(R"({"answer": 42})");
+    }
+    QTRY_COMPARE_WITH_TIMEOUT(stats.externalSettingsChanges, 1, 5000);
+
+    // One save, one notification: the QSaveFile temp file must not double-fire.
+    QTest::qWait(50);  // distinct mtime, so the second write is a change
+    {
+        QFile f(dataFile);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(R"({"answer": 43})");
+    }
+    QTRY_COMPARE_WITH_TIMEOUT(stats.externalSettingsChanges, 2, 5000);
+}
+
+void TestPluginExternalSettings::externalDataJsonWriteAfterDisableIsIgnored()
+{
+    QTemporaryDir cfg;
+    QTemporaryDir dataDir;
+    FakeStats stats;
+    Corbomite::PluginManager mgr;
+    mgr.setConfig(KSharedConfig::openConfig(
+        cfg.filePath(QStringLiteral("corbomite-test.rc")),
+        KConfig::SimpleConfig));
+    mgr.setFactoryOverride([&stats](const Corbomite::PluginMetaData &)
+                                -> Corbomite::Plugin * {
+        return new FakePlugin(&stats);
+    });
+    mgr.setContextConfigurator([&dataDir](Corbomite::PluginContext *ctx) {
+        ctx->setPluginDataDir(dataDir.path());
+    });
+    mgr.ingest({makeFixture(QStringLiteral("plug-d"))},
+                Corbomite::PluginMetaData::Origin::System);
+    QVERIFY(mgr.enablePlugin(QStringLiteral("plug-d")));
+    QVERIFY(mgr.disablePlugin(QStringLiteral("plug-d")));
+
+    QFile f(dataDir.filePath(QStringLiteral("data.json")));
+    QVERIFY(f.open(QIODevice::WriteOnly));
+    f.write(R"({"answer": 1})");
+    f.close();
+
+    QTest::qWait(300);
+    QCOMPARE(stats.externalSettingsChanges, 0);
 }
 
 QTEST_MAIN(TestPluginExternalSettings)

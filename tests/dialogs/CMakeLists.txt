@@ -40,3 +40,8 @@ add_executable(tst_plugins_page tst_plugins_page.cpp)
 add_test(NAME tst_plugins_page COMMAND tst_plugins_page)
 target_link_libraries(tst_plugins_page PRIVATE Qt6::Test CorbomiteApp Corbomite::Vault KF6::CoreAddons KF6::ConfigCore)
 set_tests_properties(tst_plugins_page PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_settingsdialog tst_settingsdialog.cpp)
+add_test(NAME tst_settingsdialog COMMAND tst_settingsdialog)
+target_link_libraries(tst_settingsdialog PRIVATE Qt6::Test CorbomiteApp KF6::ConfigCore)
+set_tests_properties(tst_settingsdialog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

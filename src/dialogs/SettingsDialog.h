@@ -45,8 +45,13 @@ private:
     void setupFileRecoveryPage();
     void setupPluginsPage();
     void setupHotkeysPage();
+
+private Q_SLOTS:
+    /// Reads every widget into the kcfg skeleton and saves. A slot so the
+    /// regression test can drive it without synthesising a button click.
     void applySettings();
 
+private:
     PluginManager *m_plugins;
     Core::ThemeService *m_themeService;
     ActionCollections m_actionCollections;
