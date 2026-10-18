@@ -10,6 +10,19 @@ Conventions:
 
 ---
 
+## 2026-10-17 — Mermaid / mmdr work dropped
+
+Decided to **drop** the mermaid-rendering backlog rather than carry it as blocked work.
+Mermaid is a nice-to-have, not a first-release blocker; a real fix (reproducible
+`libmermaid_rs_renderer.a`, and the dark-theme parameter) needs the upstream Rust source at a
+pinned commit — whose checkout does not exist on this machine — and would entail substantial
+Markoff work for bespoke in-document artefacts, which Markoff cannot accommodate yet. Three
+open punch-list items were removed: the Phase B "unreproducible mmdr blob" decision item, the
+Phase B 0-of-3 reproduce-from-scratch DoD item, and the "mermaid renders light on dark"
+item. The 34 MB `.a` stays committed and `libs/mmdr/README.md`'s caveats stand, so the gap
+remains visible in-code. Revisit only after the first release and only if Markoff grows the
+in-document-artefact support it needs.
+
 ## 2026-10-17 — properties "add blank row" P1 fixed by the vNext migration
 
 The long-standing `[editor][P1]` — `MarkdownView::insertFrontmatterProperty` destroying the
