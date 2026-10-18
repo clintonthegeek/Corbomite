@@ -1209,7 +1209,16 @@ void Workspace::readWorkspaceJson(const QString &vaultPath)
         // so layoutReady fires exactly once for downstream consumers.
         setLayoutReady(false);
         resetToDefaultLayout();
-        auto *leaf = createLeafInActiveGroup();
+        // resetToDefaultLayout emits layoutChanged, and the host's
+        // never-zero-leaves handler (MainWindow) answers by creating an empty
+        // leaf. Reuse that leaf instead of creating a second one: with
+        // layoutReady still false the handler's setActiveLeaf was ignored, and
+        // an unconditional createLeafInActiveGroup() here docked a second,
+        // view-less pane beside it whose tab kept its raw 16-hex id
+        // (L5 soak 2026-10-17). When no host handler is attached the list is
+        // empty and we create the single default leaf ourselves.
+        auto *leaf = m_leaves.isEmpty() ? createLeafInActiveGroup()
+                                        : m_leaves.first();
         setLayoutReady(true);
         if (leaf)
             setActiveLeaf(leaf);

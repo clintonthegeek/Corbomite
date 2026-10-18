@@ -599,6 +599,38 @@ private Q_SLOTS:
                  "Implementation leaves it null when tabs has no leaf (DIV-2 divergence).");
     }
 
+    // L5 soak 2026-10-17: a vault with no workspace.json opened TWO panes, one
+    // titled with a raw 16-hex leaf id. The host's never-zero-leaves handler
+    // answers resetToDefaultLayout's layoutChanged by creating an empty leaf
+    // (its setActiveLeaf is ignored while layoutReady is false); the missing-file
+    // path then created a SECOND leaf, docked beside the first with no view.
+    // Simulate the host handler and assert a single leaf.
+    void missingWorkspaceJsonWithHostNeverZeroHandlerCreatesOneLeaf()
+    {
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        auto *reg = makeRegistry(this);
+        auto *ws = new Workspace(reg, this);
+
+        // Mirror MainWindow's never-zero-leaves handler.
+        connect(ws, &Workspace::layoutChanged, ws, [ws]() {
+            if (!ws->allLeaves().isEmpty()) return;
+            auto *leaf = ws->createLeafInActiveGroup();
+            if (!leaf) return;
+            QJsonObject vs;
+            vs[QStringLiteral("type")] = QStringLiteral("empty");
+            leaf->setViewState(vs);
+            ws->setActiveLeaf(leaf);
+        });
+
+        ws->readWorkspaceJson(tempDir.path());
+
+        QCOMPARE(ws->allLeaves().size(), 1);
+        QVERIFY(ws->activeLeaf() != nullptr);
+        QVERIFY(ws->activeLeaf() == ws->allLeaves().first());
+    }
+
     // Extra round-trip: full serialize → deserialize consistency with lastOpenFiles
     void fullRoundTripConsistency()
     {
