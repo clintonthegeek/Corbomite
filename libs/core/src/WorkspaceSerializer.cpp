@@ -474,6 +474,52 @@ void walkLayoutNode(const QJsonObject &layoutNode,
                     Corbomite::Workspace *workspace,
                     int depth);
 
+// Drop empty child nodes (a collapsed group or a container whose children all
+// went away) — but only when the parent still has another child. KDDW's dump
+// can retain such an empty node beside a real one (the L5 soak's quit wrote a
+// second, empty `tabs` child of the root split; Obsidian opened and re-saved
+// without it). A *sole* empty child is kept: it is the shell of a floating
+// window with no live leaves, and dropping it would delete the window.
+void pruneEmptyChildren(SplitNode &n)
+{
+    const auto emptySplit = [](const SplitNode &s) {
+        return s.splitChildren.isEmpty() && s.tabsChildren.isEmpty();
+    };
+    if (n.splitChildren.size() + n.tabsChildren.size() <= 1)
+        return;
+
+    QList<TabsNode> keptTabs;
+    QHash<int, int> tabRemap;
+    for (int i = 0; i < n.tabsChildren.size(); ++i) {
+        if (n.tabsChildren.at(i).children.isEmpty())
+            continue;
+        tabRemap.insert(i, keptTabs.size());
+        keptTabs.append(n.tabsChildren.at(i));
+    }
+    QList<SplitNode> keptSplits;
+    QHash<int, int> splitRemap;
+    for (int i = 0; i < n.splitChildren.size(); ++i) {
+        if (emptySplit(n.splitChildren.at(i)))
+            continue;
+        splitRemap.insert(i, keptSplits.size());
+        keptSplits.append(n.splitChildren.at(i));
+    }
+    n.tabsChildren = keptTabs;
+    n.splitChildren = keptSplits;
+
+    QList<QPair<bool, int>> order;
+    order.reserve(n.childOrder.size());
+    for (const auto &e : n.childOrder) {
+        if (e.first) {
+            if (splitRemap.contains(e.second))
+                order.append({true, splitRemap.value(e.second)});
+        } else if (tabRemap.contains(e.second)) {
+            order.append({false, tabRemap.value(e.second)});
+        }
+    }
+    n.childOrder = order;
+}
+
 void walkLayoutContainer(const QJsonObject &containerNode,
                          const QJsonObject &frames,
                          SplitNode &out,
@@ -487,6 +533,7 @@ void walkLayoutContainer(const QJsonObject &containerNode,
     const auto children = containerNode.value(QStringLiteral("children")).toArray();
     for (const auto &v : children)
         walkLayoutNode(v.toObject(), frames, out, workspace, depth + 1);
+    pruneEmptyChildren(out);
     applyContainerAttrs(out, depth, firstLeafIdOfSplit(out));
 }
 
