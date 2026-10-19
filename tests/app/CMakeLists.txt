@@ -21,6 +21,15 @@ add_test(NAME tst_recent_vaults COMMAND tst_recent_vaults)
 target_link_libraries(tst_recent_vaults PRIVATE Qt6::Test CorbomiteApp)
 set_tests_properties(tst_recent_vaults PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# 2026-10-18 — the app's user-message channel (status bar + alert entry +
+# desktop notification), which replaced the floating Notice toast.
+add_executable(tst_messageservice tst_messageservice.cpp)
+add_test(NAME tst_messageservice COMMAND tst_messageservice)
+target_link_libraries(tst_messageservice PRIVATE
+    Qt6::Test Qt6::Widgets CorbomiteApp)
+set_tests_properties(tst_messageservice PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster R Task 3.3 — ExportToPdf wraps QPrinter+QTextDocument to write
 # PDFs for a TFile via Vault::read. The test uses the no-dialog seam.
 add_executable(tst_export_to_pdf tst_export_to_pdf.cpp)

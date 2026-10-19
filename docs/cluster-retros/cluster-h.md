@@ -30,3 +30,39 @@ Mostly faithful. Two scope adjustments:
 When the plan's scope spans both substrate (libs/core registries) and integration (MainWindow wiring), be explicit about the integration depth in each phase. Phase 4's "RibbonSlot" was ambiguous about whether docking-in-MainWindow was required; deferring it was the right call but I should have noted it as out-of-scope upfront rather than discovering it during implementation.
 
 Build registry classes with their `registerBuiltins()` helper from the start — having the same code path that plugins will eventually use *also* register the shipped defaults gives free coverage of the plugin-facing API on every test run.
+
+## Post-closeout, 2026-10-18 — the toast is gone; messages got a channel
+
+Phase 5's `Notice` was a floating tooltip anchored to the **screen's**
+bottom-right. It was never wrong in the middle of its own window, but it was
+wrong in the two cases that matter: a message about a document could be drawn
+outside the app's window (seen live, over a terminal, while the app was
+minimised), and it left no trace once dismissed — if you looked away, the
+message was simply gone.
+
+Replaced by `MessageService` (app layer, owned by `MainWindow`), which is now
+the only way the app tells the user something: the status bar's transient area
+for everything, a persistent alert entry in the status bar for warning/error,
+and a desktop notification for warning/error **only when the window is not in
+front of the user** — active *and* not minimised, since a minimised window
+still reports active under XWayland. `Notice` and its test are deleted; the
+five `Notice::post` sites in `MainWindow` migrated (plugin load failure, merge
+failure, view restore failure, metadata-cache open failure, document save
+failure).
+
+Two things worth carrying forward from doing it:
+
+- **The layer was right; the sink was wrong.** Keeping `Notice::post`'s
+  fire-and-forget shape was fine — what needed fixing was *where* it drew and
+  *what else* it did. The service keeps the same call ergonomics
+  (`postFrom(context, text, severity)`) and adds the sinks.
+- **KNotification is the framework-shaped API and it does not work here.**
+  `KNotificationPermission::checkPermission()` reported Granted and
+  `sendEvent()` produced no `Notify` call on the session bus at all, while an
+  identical `notify-send` call in the same window arrived and popped up. The
+  dev build has no installed desktop file for the daemon to attribute the
+  notification to (punch-list P6) and KNotification swallows that silently.
+  The shipped transport is therefore a direct `org.freedesktop.Notifications`
+  call over QtDBus, with the framework dependency dropped again. Before adding
+  a framework "for correctness", check that the framework's writer actually
+  writes under our install condition.

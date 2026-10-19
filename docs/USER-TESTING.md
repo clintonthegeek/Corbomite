@@ -291,16 +291,16 @@ offscreen. The punch list carries each as its own box.
 > the topmost item was never the card. Now routed by walking the item stack,
 > pinned by `tst_canvas_missing_file::pressOnButtonReachesItThroughAnItemAbove`.
 >
-> **New, unfixed, and worth knowing before you use canvases in anger:** canvas
-> edits are buffered in memory and written only when the view unloads, and an
-> external edit to an open `.canvas` is discarded. Repro that produced it:
-> (1) open a canvas, drag a card and press Remove on a placeholder → the file
-> on disk still holds the pre-edit bytes; close the tab → it is written at
-> that moment (so a crash or force-kill in between loses the edits);
-> (2) with the canvas open, rewrite the `.canvas` outside the app → the view
-> does not notice, and the close-time write puts the old in-memory document
-> back over the external edit. Filed as a P1 in the punch list; the fix is a
-> save-trigger plus an external-change policy, not new plumbing.
+> **New, and fixed the same day:** canvas edits used to be buffered in memory
+> and written only when the view unloaded, and an external edit to an open
+> `.canvas` was discarded. Both are gone: a mutation now autosaves after the
+> `[Editor] Autosave delay` (2 s default, the same setting notes use), and an
+> external write is adopted when you have nothing unsaved — with a status-bar
+> message — or, when you do, your version is kept and the app says so in the
+> status bar **and** as a desktop notification if the window is not in front of
+> you ("saving will replace the file"). Both were driven live 2026-10-18
+> (notification seen on the desktop). Pinned by `tst_canvas_persistence`
+> (autosave, adopt-on-reload, and the policy cases).
 
 - [ ] 👤 Rename a note that a canvas points at — a **file card**, a **group
       background**, a **text-card link** → the `.canvas` is rewritten, the

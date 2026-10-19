@@ -6,6 +6,7 @@
 #include "corbomite/core/NoteDocument.h"
 
 #include "SessionManager.h"
+#include "app/MessageService.h"
 
 #include <canvas/CanvasDocument.h>
 #include <canvas/CanvasDocumentRegistry.h>
@@ -135,6 +136,43 @@ void CanvasFileView::setState(const QJsonObject &state)
         if (auto *view = m_canvasWidget->canvasView())
             view->setViewState(viewState);
     }
+}
+
+void CanvasFileView::onExternalModify(const QString &relativePath)
+{
+    if (!m_canvasWidget || !file())
+        return;
+    if (file()->relativePath() != relativePath)
+        return;
+
+    // Our own autosave writes through QFile (not Vault::modify), so its echo
+    // arrives here too — classify() drops it because the bytes match.
+    const QByteArray disk = m_canvasWidget->diskBytes();
+    const QByteArray ours = m_canvasWidget->serializedBytes();
+    const auto action = CanvasViewTab::classifyExternalEdit(
+        ours, disk, m_canvasWidget->isModified(), m_lastExternalDisk);
+    if (action == CanvasViewTab::ExternalEdit::NoChange)
+        return;
+
+    m_lastExternalDisk = disk;
+
+    if (action == CanvasViewTab::ExternalEdit::ReloadFromDisk) {
+        if (m_canvasWidget->reloadFromDisk()) {
+            MessageService::postFrom(this,
+                i18n("\"%1\" changed on disk — canvas reloaded.", relativePath),
+                MessageService::Severity::Info);
+        }
+        return;
+    }
+
+    // KeepLocalAndWarn: the user has edits in flight and the file moved
+    // underneath them. Say so, and say what happens next, because the pending
+    // autosave will replace the file with this document.
+    MessageService::postFrom(this,
+        i18n("\"%1\" changed on disk while you were editing. Keeping your "
+             "version — saving will replace the file.",
+             relativePath),
+        MessageService::Severity::Warning);
 }
 
 void CanvasFileView::setRenderEngine(MarkdownRenderEngine *engine)

@@ -44,6 +44,7 @@ class CanvasLinkRewriter;
 namespace Corbomite {
 
 class StatusBarRegistry;
+class MessageService;
 class FileSystemAdapter;
 class Vault;
 class FileManager;
@@ -365,6 +366,10 @@ private:
 
     // Cluster B Phase 2 — host-wide status-bar registry.
     Corbomite::StatusBarRegistry *m_statusBarRegistry = nullptr;
+    /// The app's user-message channel (status bar + alert entry + desktop
+    /// notification). Owned here; every view reaches it through
+    /// `MessageService::forContext()`.
+    MessageService *m_messages = nullptr;
 
     // Cluster Q (Tasks 13-20) — tool views hosting plugin createView()
     // output. Keyed by plugin id; the value is the QWidget the

@@ -108,6 +108,15 @@ public:
     /// promoted to EditableFileView.
     void onMoreOptionsMenu(MenuSectionHelper &helper) override;
 
+    /// External edit to this canvas' file. Nothing unsaved here → adopt the
+    /// file and say so; edits in flight → keep them and say so (the pending
+    /// autosave then replaces the file, which the notice warns about).
+    /// Obsidian's own canvas silently replaces the view with the file in
+    /// both cases — its canvas view sets `isPlaintext = false`, which skips
+    /// both the merge and the "File changed" notice
+    /// (`app/own/2028-n9.js:805`, `app/own/1813-CZ.js:83-92`).
+    void onExternalModify(const QString &relativePath) override;
+
 protected:
     void onLoadFile(NoteDocument *file) override;
     void onUnloadFile(NoteDocument *file) override;
@@ -133,6 +142,9 @@ private:
     LocalDataWriter m_localDataWriter;
     MarkdownRenderEngine *m_renderEngine = nullptr;
     CommandDispatch m_canvasCommandDispatcher;
+    /// The last external revision this view reacted to, so one external write
+    /// warns once rather than once per `Vault::modified` event.
+    QByteArray m_lastExternalDisk;
 };
 
 } // namespace Corbomite

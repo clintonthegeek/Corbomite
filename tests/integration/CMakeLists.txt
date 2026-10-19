@@ -60,6 +60,21 @@ target_link_libraries(tst_canvas_rename_rewrite PRIVATE
 set_tests_properties(tst_canvas_rename_rewrite PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Canvas persistence, 2026-10-18 — debounced autosave and the external-edit
+# policy (adopt when clean, keep local and warn when not). Uses the real
+# CanvasViewTab against a temp-dir .canvas file.
+add_executable(tst_canvas_persistence tst_canvas_persistence.cpp)
+add_test(NAME tst_canvas_persistence COMMAND tst_canvas_persistence)
+target_include_directories(tst_canvas_persistence PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/canvas
+)
+target_link_libraries(tst_canvas_persistence PRIVATE
+    Qt6::Test Qt6::Widgets
+    CorbomiteApp canvas
+)
+set_tests_properties(tst_canvas_persistence PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Cluster F-a P3.6 — Note Composer pipeline (Vault + FileManager).
 add_executable(tst_merge_file_pipeline tst_merge_file_pipeline.cpp)
 add_test(NAME tst_merge_file_pipeline COMMAND tst_merge_file_pipeline)

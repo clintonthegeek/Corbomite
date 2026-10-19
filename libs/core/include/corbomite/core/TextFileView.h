@@ -39,7 +39,7 @@ public:
     virtual void setViewData(const QString &data, bool clear) = 0;
     virtual void clear() = 0;
 
-    void onExternalModify(const QString &relativePath);
+    void onExternalModify(const QString &relativePath) override;
 
 Q_SIGNALS:
     void saved();

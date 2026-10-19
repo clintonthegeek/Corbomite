@@ -26,6 +26,18 @@ public:
     QJsonObject getState() const override;
     void setState(const QJsonObject &state) override;
 
+    /// Another writer changed this view's file on disk. The host calls this
+    /// for every file-backed view when `Vault` reports a modify it did not
+    /// write itself (`Vault`'s echo-suppression ledger filters our own saves,
+    /// so anything reaching here is genuinely external). `relativePath` is
+    /// vault-relative; a view must ignore it unless it is its own file.
+    ///
+    /// Default: nothing. A view whose on-screen state is not the file's
+    /// content has nothing to reconcile. `TextFileView` three-way merges;
+    /// `CanvasFileView` adopts the file when it has nothing unsaved and keeps
+    /// its edits (telling the user) when it does.
+    virtual void onExternalModify(const QString &relativePath);
+
 protected:
     virtual void onLoadFile(NoteDocument *file);
     virtual void onUnloadFile(NoteDocument *file);

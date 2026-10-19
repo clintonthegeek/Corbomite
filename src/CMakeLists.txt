@@ -14,6 +14,8 @@ add_library(CorbomiteApp SHARED
     app/ActionContextController.h
     app/CorbomiteApp.cpp
     app/ExportToPdf.cpp
+    app/MessageService.cpp
+    app/MessageService.h
     app/MainWindow.cpp
     app/RecentVaults.cpp
     app/SessionManager.cpp
@@ -48,7 +50,6 @@ add_library(CorbomiteApp SHARED
     dialogs/CalloutPickerDialog.cpp
     dialogs/CreateVaultDialog.cpp
     dialogs/InsertTableDialog.cpp
-    dialogs/Notice.cpp
     dialogs/MomentFormatPreview.cpp
     dialogs/SettingsDialog.cpp
     dialogs/PluginsPage.cpp

@@ -108,6 +108,7 @@ void FileView::setState(const QJsonObject &state)
 
 void FileView::onLoadFile(NoteDocument *) {}
 void FileView::onUnloadFile(NoteDocument *) {}
+void FileView::onExternalModify(const QString &) {}
 
 void FileView::onOpen()
 {

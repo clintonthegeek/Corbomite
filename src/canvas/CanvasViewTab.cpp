@@ -12,6 +12,8 @@
 
 #include <KLocalizedString>
 
+#include "corbomitesettings.h"
+
 #include <QDir>
 #include <algorithm>
 #include <QDirIterator>
@@ -21,6 +23,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPointer>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace Corbomite {
@@ -190,6 +193,24 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
 
     installConvertToFileSeams();
 
+    // Autosave: arm on every mutation, write the whole document on timeout.
+    // `modificationChanged(false)` comes back from saveToFile(), so only the
+    // `true` edge arms the timer — otherwise a save would schedule its own
+    // successor forever. The interval is read at arm time, so a change to
+    // Settings → Editor → Autosave delay applies to the next edit without a
+    // rewire.
+    m_autosaveTimer = new QTimer(this);
+    m_autosaveTimer->setSingleShot(true);
+    connect(m_autosaveTimer, &QTimer::timeout, this, [this] {
+        if (m_document->isModified())
+            save();
+    });
+
+    connect(m_document, &Canvas::CanvasDocument::modificationChanged,
+            this, [this](bool modified) {
+                if (modified)
+                    m_autosaveTimer->start(CorbomiteSettings::self()->autoSaveDelayMs());
+            });
     connect(m_document, &Canvas::CanvasDocument::modificationChanged,
             this, &CanvasViewTab::modificationChanged);
     connect(m_view->canvasScene(), &Canvas::CanvasScene::readOnlyChanged,
@@ -275,6 +296,60 @@ QString CanvasViewTab::filePath() const
 bool CanvasViewTab::save()
 {
     return m_document->saveToFile(m_filePath);
+}
+
+QByteArray CanvasViewTab::serializedBytes() const
+{
+    return m_document->serializeObsidianStyle();
+}
+
+QByteArray CanvasViewTab::diskBytes() const
+{
+    if (m_filePath.isEmpty())
+        return {};
+    QFile file(m_filePath);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};  // null, not an empty-but-present file
+    return file.readAll();
+}
+
+CanvasViewTab::ExternalEdit CanvasViewTab::classifyExternalEdit(const QByteArray &ours,
+                                                               const QByteArray &disk,
+                                                               bool hasUnsavedEdits,
+                                                               const QByteArray &lastSeenDisk)
+{
+    // Unreadable file: never act on a failed read.
+    if (disk.isNull())
+        return ExternalEdit::NoChange;
+    // Already identical either way — nothing to reconcile, and the pending
+    // autosave would write these very bytes.
+    if (disk == ours)
+        return ExternalEdit::NoChange;
+    // This revision has been handled already; don't warn twice for one write.
+    if (disk == lastSeenDisk)
+        return ExternalEdit::NoChange;
+    return hasUnsavedEdits ? ExternalEdit::KeepLocalAndWarn
+                           : ExternalEdit::ReloadFromDisk;
+}
+
+bool CanvasViewTab::reloadFromDisk()
+{
+    if (m_filePath.isEmpty())
+        return false;
+
+    // A pending autosave would write the document we are about to replace.
+    m_autosaveTimer->stop();
+
+    if (!m_document->loadFromFile(m_filePath))
+        return false;
+    m_document->setModified(false);
+
+    // loadFromJson() replaces the document's contents without emitting the
+    // per-node signals the scene syncs on (the initial load happens before
+    // the scene is attached), so hand the same document back to the scene to
+    // repopulate. The camera lives on the view, so it survives.
+    m_view->canvasScene()->setDocument(m_document);
+    return true;
 }
 
 bool CanvasViewTab::isModified() const

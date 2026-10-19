@@ -36,6 +36,37 @@ public:
     bool save();
     bool isModified() const;
 
+    /// The canonical Obsidian-style bytes for the document as it stands now —
+    /// exactly what `save()` would write.
+    QByteArray serializedBytes() const;
+
+    /// The file's current bytes, or a **null** array when it cannot be read
+    /// (distinguishable from a legitimately empty file).
+    QByteArray diskBytes() const;
+
+    /// Replace the in-memory document with the file's current bytes and
+    /// repopulate the scene from it. Safe only when this tab has nothing
+    /// unsaved to lose — that decision belongs to the caller (see
+    /// `classifyExternalEdit`). The camera and the read-only lock are
+    /// deliberately left alone: a reload is not a reopen.
+    bool reloadFromDisk();
+
+    /// What to do about an external edit to an open canvas.
+    enum class ExternalEdit {
+        NoChange,          ///< nothing readable, or disk already matches us
+        ReloadFromDisk,    ///< nothing unsaved: adopt the file
+        KeepLocalAndWarn,  ///< unsaved edits here: keep them and tell the user
+    };
+
+    /// The policy, pure so it can be pinned without a view. `ours` is
+    /// `serializedBytes()`, `hasUnsavedEdits` is `isModified()`, and
+    /// `lastSeenDisk` is the revision the caller already reacted to (empty on
+    /// first sight, so repeated events for one revision warn once).
+    static ExternalEdit classifyExternalEdit(const QByteArray &ours,
+                                             const QByteArray &disk,
+                                             bool hasUnsavedEdits,
+                                             const QByteArray &lastSeenDisk);
+
     /// Cluster R Task 3.6 — access to the underlying CanvasScene so
     /// CanvasFileView can drive its render-to-image / render-to-svg
     /// export pipeline.
@@ -130,6 +161,14 @@ private:
     Canvas::CanvasView *m_view;
     QString m_filePath;
     QString m_vaultRoot;
+
+    /// Debounced autosave. Every mutation of the document arms it with the
+    /// `[Editor] AutoSaveDelayMs` delay (the same setting TextFileView uses),
+    /// so canvas edits reach disk without waiting for the tab to close or for
+    /// Ctrl+S — Obsidian's canvas does the same through `View.requestSave()`
+    /// (`app/own/2018-k7.js:477-490`). Packaged as a member because it also
+    /// has to be stopped before a disk reload.
+    QTimer *m_autosaveTimer = nullptr;
     LocalDataReader m_localDataReader;
     LocalDataWriter m_localDataWriter;
     std::function<QString()> m_fileNameRequestor;
