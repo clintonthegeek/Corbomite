@@ -280,6 +280,83 @@ private Q_SLOTS:
         QVERIFY(f.ws.previousActiveLeaf() != f.ws.activeLeaf());
     }
 
+    // ---- tabSiblings: the tab-group membership answer -------------------
+
+    // Go to Tab N resolves the target through this list, so it has to be tab
+    // ordered and include the leaf itself. It used to be built by pairing
+    // `tabGroupIdOf()` with `groupMembers()`, which live in two different id
+    // spaces (the serializer's stacked key vs the linked-pane id) and so
+    // always came back empty — every tab jump returned early and moved nothing
+    // (found live 2026-10-18). A `groupMembers(leaf->group())`-shaped answer
+    // would be empty here, not reordered, which is what makes this falsifiable.
+    void tabSiblingsIsTabOrderedAndIncludesSelf() {
+        Fixture f;
+        f.build();
+        const auto members = f.ws.tabSiblings(f.b);
+        QCOMPARE(members.size(), 3);
+        QCOMPARE(members.at(0), f.a);
+        QCOMPARE(members.at(1), f.b);
+        QCOMPARE(members.at(2), f.c);
+        QCOMPARE(members.indexOf(f.b), f.ws.leafIndexInGroup(f.b));
+        QCOMPARE(members.size(), f.ws.leafCountInGroup(f.a));
+    }
+
+    void tabSiblingsIsEmptyForANullLeaf() {
+        Fixture f;
+        f.build();
+        QVERIFY(f.ws.tabSiblings(nullptr).isEmpty());
+    }
+
+    // The order follows the tab bar, not creation: after moving c left the
+    // list must report the new order, or "Go to Tab 2" would select the wrong
+    // tab. Pinned with an actual move rather than a fresh fixture on purpose.
+    void tabSiblingsFollowsATabMove() {
+        Fixture f;
+        f.build();
+        QVERIFY(f.ws.moveLeafWithinGroup(f.c, -1));
+        const auto members = f.ws.tabSiblings(f.a);
+        QCOMPARE(members.at(0), f.a);
+        QCOMPARE(members.at(1), f.c);
+        QCOMPARE(members.at(2), f.b);
+    }
+
+    // ---- tab-group id: the serializer's stacked-state key ---------------
+
+    // `tabGroupIdOf` is what the serializer keys per-group stacked state on, so
+    // a leaf sitting on an empty id is a group whose stacked flag cannot be
+    // written back (the write path reads the pane's first leaf). Every leaf
+    // that gets docked must therefore leave with a usable id, and leaves tabbed
+    // into one pane must agree on it — a pane whose tabs disagree keys two
+    // different stacked flags and loses one of them.
+    void tabbedLeavesShareANonEmptyStackedKey() {
+        Fixture f;
+        f.build();
+        const QString idA = f.ws.tabGroupIdOf(f.a);
+        QVERIFY2(!idA.isEmpty(), "a docked leaf has no tab-group id to key on");
+        QCOMPARE(f.ws.tabGroupIdOf(f.b), idA);
+        QCOMPARE(f.ws.tabGroupIdOf(f.c), idA);
+
+        // And the key round-trips as stacked state, which is its whole job.
+        QVERIFY(!f.ws.isTabGroupStacked(idA));
+        f.ws.setTabGroupStacked(idA, true);
+        QVERIFY(f.ws.isTabGroupStacked(idA));
+    }
+
+    // A leaf created without placement (the serializer's path, which assigns
+    // dock group + id explicitly afterwards) must not hand its *hole* on to a
+    // leaf later tabbed into it: inheriting "" would leave both on an id no
+    // stacked flag can be keyed to.
+    void tabbingIntoAPlacelessLeafMintsAKeyRatherThanInheritingTheHole() {
+        Fixture f;
+        auto *anchor = f.ws.createLeafInGroupOf(nullptr);
+        QVERIFY(anchor);
+        auto *second = f.ws.createLeafInGroupOf(anchor);
+        QVERIFY(second);
+        QVERIFY2(!f.ws.tabGroupIdOf(anchor).isEmpty(),
+                 "the anchor ended up with no tab-group id");
+        QCOMPARE(f.ws.tabGroupIdOf(second), f.ws.tabGroupIdOf(anchor));
+    }
+
 private:
     // setActiveLeaf is gated on layout-ready, which tests must flip
     // explicitly or the call silently does nothing.

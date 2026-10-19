@@ -144,6 +144,11 @@ input, and do nothing.
       linked; trigger again → unlinked
 - [ ] 👤 **Pin a tab first, then link** → the other becomes pinned too
       (`workspace.md:392`: joining a pinned group forces the new member pinned)
+- [ ] 👤 **Alt+1 / Alt+2 / Alt+Last Tab switches tabs** *(fixed 2026-10-18 — the
+      tab-jump lookup was pairing two unrelated "group" notions and always came
+      back empty, so the shortcut fired and nothing moved. Still needs a hand
+      pass: with 3+ tabs open, Alt+2 must land on the second tab, not the
+      leftmost one.)*
 
 ## 8. Graph provider registration (O5.T4) 👤
 

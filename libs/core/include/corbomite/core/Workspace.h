@@ -188,6 +188,24 @@ public:
     /// not in any tab group.
     int leafCountInGroup(WorkspaceLeaf *leaf) const;
 
+    /// Every leaf sharing `leaf`'s tab group (its pane), **in tab order**,
+    /// including `leaf` itself; empty when `leaf` has no live dock widget.
+    /// This is the membership accessor for tab-group questions — it reads
+    /// KDDW's live group, the same substrate as `leafIndexInGroup`/
+    /// `leafCountInGroup`/`moveLeafWithinGroup`, which are all documented as
+    /// "tab group".
+    ///
+    /// Do NOT reach for `tabGroupIdOf()` + `groupMembers()` here: those are
+    /// two different notions of "group". `groupMembers()` answers the
+    /// *linked-pane* question and compares `WorkspaceLeaf::group()` — the id
+    /// `linkLeaves()`/`unlinkLeaf()`/`isLinkedPane()` traffic in and the
+    /// serializer round-trips as the leaf's `group` key. `tabGroupIdOf()`
+    /// answers the *serializer's* question and reads `m_tabGroupOf`, already
+    /// documented above as "no longer authoritative for membership". Pairing
+    /// them returns an empty list, which is what silently disabled Go to
+    /// Tab 1..8 (found live 2026-10-18).
+    QVector<WorkspaceLeaf *> tabSiblings(WorkspaceLeaf *leaf) const;
+
     /// Move `leaf` one slot left (-1) or right (+1) within its tab group,
     /// returning true if it actually moved. Clamps at the ends: a leaf that
     /// is already leftmost (or rightmost) is a no-op returning false, so the

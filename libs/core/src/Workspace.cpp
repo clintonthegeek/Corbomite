@@ -514,8 +514,15 @@ WorkspaceLeaf *Workspace::createLeafInGroupOf(WorkspaceLeaf *sibling)
         if (sibling && sibling->dockWidget()) {
             sibling->dockWidget()->dockWidget()->addDockWidgetAsTab(
                 leaf->dockWidget()->dockWidget());
-            // Inherit the sibling's tab group identity.
-            m_tabGroupOf.insert(leaf, m_tabGroupOf.value(sibling, QString{}));
+            // Inherit the sibling's tab group identity — but never inherit an
+            // *empty* one. `m_tabGroupOf` is the serializer's stacked-state key
+            // (see the liveTabSiblings note above), so a leaf sitting on "" is
+            // a group whose stacked flag cannot be written back: the serializer
+            // reads it off the frame's first leaf. Minting instead of copying
+            // the hole keeps the two leaves' ids equal *and* usable.
+            const QString siblingGroup = m_tabGroupOf.value(sibling, QString{});
+            m_tabGroupOf.insert(leaf, siblingGroup.isEmpty() ? generateTabGroupId()
+                                                             : siblingGroup);
         } else {
             m_kddwMain->addDockWidget(leaf->dockWidget(),
                                        KDDockWidgets::Location_OnRight);
@@ -1000,6 +1007,12 @@ int Workspace::leafIndexInGroup(WorkspaceLeaf *leaf) const
 int Workspace::leafCountInGroup(WorkspaceLeaf *leaf) const
 {
     return liveTabSiblings(m_leaves, leaf).size();
+}
+
+QVector<WorkspaceLeaf *> Workspace::tabSiblings(WorkspaceLeaf *leaf) const
+{
+    // The single membership answer for tab-group questions; see the header.
+    return liveTabSiblings(m_leaves, leaf);
 }
 
 void Workspace::closeOtherLeavesInGroupOf(WorkspaceLeaf *leaf)

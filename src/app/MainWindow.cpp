@@ -1711,9 +1711,12 @@ void MainWindow::setupActions()
         if (!m_workspace) return;
         auto *active = m_workspace->activeLeaf();
         if (!active) return;
-        const QString groupId = m_workspace->tabGroupIdOf(active);
-        if (groupId.isEmpty()) return;
-        const auto members = m_workspace->groupMembers(groupId);
+        // tabSiblings(), NOT tabGroupIdOf() + groupMembers(): those two live in
+        // different id spaces ("serializer's stacked key" vs "linked-pane
+        // id"), so the lookup came back empty and every jump returned here
+        // without moving anything (found live 2026-10-18). The sibling list is
+        // tab-ordered, which is what "Go to Tab N" means.
+        const auto members = m_workspace->tabSiblings(active);
         if (members.isEmpty()) return;
         const int target = (index < 0) ? members.size() - 1
                                         : qMin(index, members.size() - 1);
