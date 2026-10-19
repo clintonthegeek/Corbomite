@@ -14,10 +14,10 @@ self-contained document addressed to the Markoff maintainers, carrying every
 open ask with its evidence — is:
 
 **[`handoff/2026-10-18-to-markoff-consolidated-open-asks.md`](handoff/2026-10-18-to-markoff-consolidated-open-asks.md)**
-— 36 numbered asks plus a table of smaller items, ordered P0 → P3: 7 × P0
+— 39 numbered asks plus a table of smaller items, ordered P0 → P3: 7 × P0
 (collabtext `assert()` guards and `Global::meet`; markoff-parser frontmatter race
 and stale CSTs; Graffodil `BatchRenderer` teardown and edge endpoints;
-markoff-core collab op keying), 18 × P1, 10 × P2, 1 × P3.
+markoff-core collab op keying), 19 × P1, 12 × P2, 1 × P3.
 
 **Consolidated 2026-10-18 by user decision** — it replaces the per-library
 handoffs as the live document. Those earlier files are **kept only as the record
@@ -32,7 +32,7 @@ what is actually open:
 | 2026-10-02 | [`handoff/2026-10-02-to-markoff-styled-theme-received-but-unused.md`](handoff/2026-10-02-to-markoff-styled-theme-received-but-unused.md) | M7, M20, M21, M23–M25 |
 | 2026-10-02 | [`handoff/2026-10-02-to-graffodil-lifetime-theming-and-scale.md`](handoff/2026-10-02-to-graffodil-lifetime-theming-and-scale.md) | M5, M6, M14, M15, M19 |
 | 2026-10-02 | [`handoff/2026-10-02-to-jkqtmathtext-and-rapidyaml-vendoring-hygiene.md`](handoff/2026-10-02-to-jkqtmathtext-and-rapidyaml-vendoring-hygiene.md) | smaller-items table |
-| 2026-10-17 | [`handoff/2026-10-17-to-markoff-canvas-cards-and-session.md`](handoff/2026-10-17-to-markoff-canvas-cards-and-session.md) | still open as a workstream; no severity class, so not numbered |
+| 2026-10-17 | [`handoff/2026-10-17-to-markoff-canvas-cards-and-session.md`](handoff/2026-10-17-to-markoff-canvas-cards-and-session.md) | M37, M38, M39 (numbered 2026-10-18); three of its five questions are closed by source evidence, recorded inside the asks |
 | 2026-10-01 / 2026-06-10 | the frontmatter handoffs | M33, M34, M35 (swept in 2026-10-18) |
 
 **New in the consolidated document** (not previously in this index — three

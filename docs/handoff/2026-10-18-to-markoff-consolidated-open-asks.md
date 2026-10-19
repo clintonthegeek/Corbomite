@@ -15,6 +15,20 @@ index are now numbered here (ASK-M33, ASK-M34), one more was recovered from the
 2026-10-01 and 2026-06-10 frontmatter handoffs (ASK-M35), and one new
 build-hygiene ask is filed from this week's work (ASK-M36).
 
+The **2026-10-17 canvas-cards handoff** was previously carried as an unnumbered
+workstream. It is now numbered, as **ASK-M37** (embeddable card editor, P1),
+**ASK-M38** (one session per document key, P2) and **ASK-M39** (mid-block paste
+splice, P2) — one ask per decision we actually need, rather than five numbered
+items that mixed two asks with three questions. Of that document's five
+questions, **three are now closed by reading your own source and are not being
+re-asked**: paint-without-re-import is already delivered (the pointer
+`renderInto` overload exists and is `const`, and our paint path uses it); a
+durable provider may already keep many scopes open at once
+(`ReferenceProvider::open` tracks only a per-key `activeDocuments` set); and
+`EditorWidget` already imposes no central-editor constraint at construction. Each
+closure is stated with its evidence inside the ask it belongs to, so a reply can
+dispute it cheaply.
+
 **How to read it.** Severity first, then the library. Each entry states what
 happens, the evidence with `file:line` and quoted code, what it costs Corbomite
 specifically, the ask, and how the finding was verified. Every finding was
@@ -35,8 +49,8 @@ At a glance:
 | Severity | Count | Where |
 |---|---|---|
 | P0 | 7 | collabtext ×2, markoff-parser ×2, Graffodil ×2, markoff-core ×1 |
-| P1 | 18 | Markoff (cross-cutting / core / live) ×11, Graffodil ×3, markoff-parser ×3, markoff-styled ×1 |
-| P2 | 10 | Markoff ×5, markoff-core ×2, markoff-parser ×1, build friction ×1, test infrastructure ×1 |
+| P1 | 19 | Markoff (cross-cutting / core / live / canvas) ×12, Graffodil ×3, markoff-parser ×3, markoff-styled ×1 |
+| P2 | 12 | Markoff ×7, markoff-core ×2, markoff-parser ×1, build friction ×1, test infrastructure ×1 |
 | P3 | 1 | markoff-parser ×1 |
 | — | 21 rows | a table of smaller items, listed for completeness at the end |
 
@@ -465,6 +479,62 @@ int endPos = source.indexOf(QStringLiteral("\n---"), 3);
 **Ask:** check that the character after `\n---` is `\r`, `\n`, or EOF, via a shared `findClosingFence()` helper at both call sites (`:42`, `:191`); the `:57` EOF branch is already correct. **Acceptance:** add the four failing cases from the handoff to `tst_frontmatter.cpp` — `----`, `--- `, `---foo`, and the round-trip-preservation Case D.
 **Verified:** Traces were derived directly from `extract()` and checked against the code, not invented; the handoff supplies a falsifiable `tst_frontmatter` oracle (Cases A–D). The 2026-10-01 handoff (§4) records that the pin moved ~2 months to `5d8850369` and the line was unchanged; confirmed still unchanged at the current pin `dca64686` (`Document.cpp:42`).
 
+### ASK-M37 · Markoff: a canvas text card cannot be edited without either a `QTextEdit` proxy or forking the editor
+**Severity:** P1 — blocks the card-editor swap, the last canvas authoring gap we cannot close host-side
+
+**What we are asking for.** We want to put an **embeddable, card-sized editor**
+over a canvas card's rectangle in a `QGraphicsProxyWidget`. `Canvas::EditorWidget`
+is the right leaf, and it is worth saying why before the ask: its constructor
+(`EditorWidget.cpp:89-102`) only parents a `View` and a `CanvasActionController`
+into a zero-margin `QVBoxLayout`. **There is no central-editor assumption to
+argue about** — no toolbar, no minimum size, no `setSizePolicy` override
+anywhere in the leaf. What is missing is a *documented* way to embed it at card
+size, plus one behaviour we cannot express with what is public.
+
+**Evidence.**
+- `EditorWidget.cpp:89-102` — constructor: `new View(this)`, an action
+  controller, and `QVBoxLayout` with `setContentsMargins(0,0,0,0)` and
+  `setSpacing(0)`. Grepped `EditorWidget.cpp` and `View.cpp` for
+  `setMinimumSize` / `minimumSizeHint` / `setSizePolicy`: no hits.
+- `markoff/core/MarkdownView.h:14-40` — the base is a `QWidget` with a fully
+  virtual contract (`setDocument`, `setCursorPosition`, `setReadOnly`,
+  `caretRect`, …) and no size policy of its own. Embeddable in principle;
+  nothing says so.
+- `markoff/styled/DocumentRenderer.h:33-42` — **this half of the 2026-10-17 ask
+  is already delivered.** Both `renderInto` overloads are public and `const`, one
+  taking `const MarkoffDocument *`, one taking bytes; the header itself documents
+  the per-frame pattern ("own a `QTextDocument`, renderInto it once, and
+  paint/measure it directly"). Our paint path already uses the pointer overload
+  and never re-imports a `ready` document, so there is no per-frame identity
+  minting. **No ask here** — we struck it from the older document's live status
+  rather than re-asking it.
+
+**What we still need.**
+1. **A documented embedded/card mode.** Either a constructor flag on
+   `EditorWidget` (host-controlled size, read-only until the card is the one
+   being edited) or a header statement that the leaf is embeddable as-is and
+   the host owns geometry. We will not fork a second editor.
+2. **Scroll ownership when embedded.** `View` is a `QAbstractScrollArea`; a card
+   must not scroll itself independently of the canvas zoom.
+   `setScrollPositionVisualLine`/`scrollPositionVisualLine` are public and
+   virtual (`MarkdownView.h:24-25`), so we can drive it — but there is no flag to
+   suppress the scrollbars or hand scrolling to the host.
+
+**Cost to Corbomite:** today's card editing is a `QTextEdit` proxy — plain text
+in, plain text out, stored back into the node on focus loss. So a card gets no
+Markdown editing at all: no live formatting, no link interaction, no block
+structure. That is the whole remaining gap in canvas authoring; the rest of
+Cluster M is host-side work we have already landed.
+
+**Ask:** items 1 and 2. We would rather be told this leaf is deliberately
+single-purpose than discover it by crashing.
+
+**Verified:** `EditorWidget.cpp:89-102` and the absence of size-policy calls read
+directly at the pin `dca64686`; `MarkdownView.h:14-40` and
+`DocumentRenderer.h:33-42` quoted. The "no ask on repaint" half was verified by
+re-reading the renderer header against item 3 of the 2026-10-17 handoff, which is
+now satisfied.
+
 ## Priority 2 — API gaps and smaller correctness
 
 ### ASK-M20 · Markoff: `Session` is not on the polymorphic base contract
@@ -546,6 +616,117 @@ if (d->session && document()) document()->destroySession(d->session);
 **Cost to Corbomite:** 500 mutex round-trips per parse on a 500-heading document, perturbing the numbers the probe exists to measure.
 **Ask:** compile out unless `MARKOFF_PERF` is defined; key the map on `quintptr` (string-literal address) instead of `QString`.
 **Verified:** Read directly at the quoted lines (markoff-parser handoff §5); no reproduction is claimed.
+
+### ASK-M38 · Markoff: one document key gets one session — so a card's paint session and its edit session collide
+**Severity:** P2 — a hard one-session-per-key limit that decides our card architecture
+
+**What happens:** `EphemeralProvider::open` refuses a second session for a
+document key that already has one, and the key is **document-wide, not
+epoch-wide**. `documentLeaseKey` returns `scope.documentKey` alone, with the
+reason in a comment: *"The service lease is document-wide, not epoch-wide. A
+transition to a new epoch cannot open a second writer while an old epoch remains
+active."* So a second `open()` for the same card returns `writer_conflict` even at
+a different epoch.
+
+**Evidence:** `libs/markoff-collabtext-vnext/src/DocumentStorageProvider.cpp:1661-1676`:
+```cpp
+if (mode != StorageMode::ephemeral)
+    return Error(ErrorCode::unsupported_operation,
+                 "ephemeral provider cannot open durable storage");
+if (!validScope(scope))
+    return Error(ErrorCode::invalid_identity,
+                 "storage scope requires a bounded UTF-8 document key and nonzero epoch");
+std::lock_guard lock(m_state->mutex);
+const QString lease = documentLeaseKey(scope);
+if (m_state->activeDocuments.contains(lease))
+    return Error(ErrorCode::writer_conflict,
+                 "ephemeral document already has an active session");
+```
+`documentLeaseKey` `:98-103`; `validScope` `:90-96` requires a non-empty,
+UTF-8-round-tripping key of at most 256 bytes and a non-zero epoch.
+
+**One of our two 2026-10-17 questions is answered by this code, and we are
+closing it rather than re-asking.** We asked whether a durable provider may keep
+many scopes open at once. **Yes.** `ReferenceProvider::open` (`:1689`) tracks
+only the same per-key `activeDocuments` set, so one durable provider can hold
+every open note *and* every open card, keyed by distinct `documentKey`. That
+question is closed; our default remains one ephemeral provider per document,
+which matches the limit exactly.
+
+**What is still open** is the consequence for cards specifically. A card's bytes
+live in the `.canvas` JSON, so a card key is
+`canvas:<vault-relative .canvas path>#<node id>` — not a filesystem path. That
+satisfies `validScope`, but it means the **paint** session and the **edit**
+session for one card want the *same* key at the same time: paint opens a session
+document (`openForRender`), and once the card owns a real document the editor will
+hold it. Under the lease rule above only one of those can be open. We need to
+know which you intend:
+
+1. **One session per card, shared by paint and edit** — paint holds a non-owning
+   view of the document the editor already owns. This is our preference, and it
+   needs no API change, only confirmation that a paint pass may hold a
+   `MarkoffDocument *` it does not own. Note the pointer `renderInto` overload is
+   already `const` and takes `const MarkoffDocument *`
+   (`DocumentRenderer.h:33-34`), which is the shape we need; we just want that
+   confirmed for the shared case rather than inferred.
+2. **Distinct keys for paint and edit** — accepting that they then hold
+   independent state and a painted card can lag the edited one.
+
+**Cost to Corbomite:** we cannot write the card-editor swap without knowing which
+of these holds, because it decides whether a card has one document or two. We
+have deliberately **not** guessed and **not** worked around it: our cards are
+still `QTextEdit` proxies (ASK-M37), so nothing is currently broken. We would
+rather fix the architecture than ship a second, divergent card document.
+
+**Ask:** confirm (1) or (2).
+
+**Verified:** all four quoted sites read directly at `dca64686`. Our side is in
+the tree rather than inferred — `libs/core/include/corbomite/core/EditingSession.h:17-39`
+states that `keyHint` is "a stable lookup string, not a document UUID and not a
+vault path that anyone should persist", and specifies the card key form.
+
+### ASK-M39 · Markoff: a mid-block `pasteMarkdownAt` splits the block and trims the payload
+**Severity:** P2 — a paste into the middle of a block produces three blocks where one belongs, and leading whitespace is silently dropped
+
+**What happens:** `pasteMarkdownAt` delegates to
+`pasteMarkdownReplacingRange(target, byteOffset, target, byteOffset, …)` — an
+empty replacement range, i.e. an insertion. Two consequences, both traced from
+the control flow:
+
+1. **The payload is trimmed.** `cleaned = cleaned.trimmed()` at `:3906`, before
+   parsing. Pasting `" more"` at a caret yields `"more"` — the leading space that
+   made it a continuation is gone.
+2. **The head is severed and the tail lands on the wrong block.** With no
+   selection, `reuseTarget` is false for any mid-block offset (`:3971-3972`
+   requires `byteOffset == 0`), so `:4127-4131` truncates the target at the
+   caret and `:4152-4176` inserts the parsed payload as **new** blocks after it.
+   The suffix is then re-appended to the **last pasted block**
+   (`:4197-4203`), not to the head. So `"Hello"` plus `"X\n\nY"` at byte 3
+   becomes `"Hel"` / `"X"` / `"Ylo"` — three blocks — where a flat splice
+   (prefix + payload + suffix, then parse) would give `"HelX\n\nYlo"`.
+
+**Evidence:** `MarkoffDocumentVNext.cpp:3883-3888` (`pasteMarkdownAt` →
+`pasteMarkdownReplacingRange` with an empty range); `cleaned.trimmed()` `:3906`;
+`reuseTarget` `:3971-3972`; the head cut `:4127-4131`; new-block insertion
+`:4152-4176`; tail re-append to `lastBlock` `:4197-4203`.
+
+**Cost to Corbomite:** template insertion is affected — a multi-block template
+pasted mid-block loses its leading indentation and is split around the caret —
+and any future card editor hits the same path, which is why it also gates
+ASK-M37's swap. We currently emulate the flat splice by replacing the whole
+block range with `prefix + payload + suffix` and re-parsing, and by using
+`applyBlockEdit` when the payload has no blank line. That emulation is a
+workaround we would rather delete.
+
+**Ask:** a flat splice primitive — take `prefix + payload + suffix`, parse once,
+commit as one action — or, if the current behaviour is deliberate, say so and we
+will keep emulating. Either answer is useful; silence means we keep the
+workaround forever.
+
+**Verified:** all sites read directly at the pin, and the three-block result is
+traced from that code rather than from the older document's prose. Our own
+emulation lives in `MainWindow::insertTemplate`, so neither side of this ask is
+inferred from the other.
 
 ## Priority 3 — build and integration hygiene
 
