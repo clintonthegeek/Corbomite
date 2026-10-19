@@ -7,23 +7,48 @@ around them.
 
 ---
 
-## → Per-library handoff documents (these are the ones to send)
+## → The handoff document (this is the one to send)
 
-This file is the **internal index**. The outward-facing documents — one per
-library, each addressed to that library's maintainers and self-contained — are:
+This file is the **internal index**. The outward-facing artifact — a single,
+self-contained document addressed to the Markoff maintainers, carrying every
+open ask with its evidence — is:
 
-| Library | Document | Leads with |
+**[`handoff/2026-10-18-to-markoff-consolidated-open-asks.md`](handoff/2026-10-18-to-markoff-consolidated-open-asks.md)**
+— 36 numbered asks plus a table of smaller items, ordered P0 → P3: 7 × P0
+(collabtext `assert()` guards and `Global::meet`; markoff-parser frontmatter race
+and stale CSTs; Graffodil `BatchRenderer` teardown and edge endpoints;
+markoff-core collab op keying), 18 × P1, 10 × P2, 1 × P3.
+
+**Consolidated 2026-10-18 by user decision** — it replaces the per-library
+handoffs as the live document. Those earlier files are **kept only as the record
+of what was sent on which date**; do not add to them, and read this one to know
+what is actually open:
+
+| Sent | Document | Now carried as |
 |---|---|---|
-| **collabtext** | [`handoff/2026-10-02-to-collabtext-assert-guards-and-watermark-meet.md`](handoff/2026-10-02-to-collabtext-assert-guards-and-watermark-meet.md) | 2 × P0 — `assert()`-only guards are a heap OOB write; `Global::meet` is not a meet |
-| **markoff-core** | [`handoff/2026-10-02-to-markoff-core-collab-op-keying.md`](handoff/2026-10-02-to-markoff-core-collab-op-keying.md) | 1 × P0 — collab op keying loses content, with reproduction |
-| **markoff-parser** | [`handoff/2026-10-02-to-markoff-parser-frontmatter-race-and-incremental.md`](handoff/2026-10-02-to-markoff-parser-frontmatter-race-and-incremental.md) | 2 × P0 — frontmatter cache can publish empty; stale CSTs survive a failed parse |
-| **markoff-styled** | [`handoff/2026-10-02-to-markoff-styled-theme-received-but-unused.md`](handoff/2026-10-02-to-markoff-styled-theme-received-but-unused.md) | 1 × P1 — receives a `Theme` and ignores it; Reading mode has no dark theme |
-| **Graffodil** | [`handoff/2026-10-02-to-graffodil-lifetime-theming-and-scale.md`](handoff/2026-10-02-to-graffodil-lifetime-theming-and-scale.md) | 1 × P0 — `BatchRenderer` destructor touches freed items |
-| **jkqtmathtext / rapidoaml** | [`handoff/2026-10-02-to-jkqtmathtext-and-rapidyaml-vendoring-hygiene.md`](handoff/2026-10-02-to-jkqtmathtext-and-rapidyaml-vendoring-hygiene.md) | Unpinned vendored copy (our fault, but unfixable without a release statement) |
-| **markoff canvas cards** | [`handoff/2026-10-17-to-markoff-canvas-cards-and-session.md`](handoff/2026-10-17-to-markoff-canvas-cards-and-session.md) | Embeddable card editor, many open scopes, keep headless `renderInto(MarkoffDocument*)`, mid-block paste that splices and keeps leading spaces. Session hook stays on our side. |
+| 2026-10-02 | [`handoff/2026-10-02-to-collabtext-assert-guards-and-watermark-meet.md`](handoff/2026-10-02-to-collabtext-assert-guards-and-watermark-meet.md) | M1, M29 (+ M28) |
+| 2026-10-02 | [`handoff/2026-10-02-to-markoff-core-collab-op-keying.md`](handoff/2026-10-02-to-markoff-core-collab-op-keying.md) | M2, M8–M13, M22, M26–M28, M34 |
+| 2026-10-02 | [`handoff/2026-10-02-to-markoff-parser-frontmatter-race-and-incremental.md`](handoff/2026-10-02-to-markoff-parser-frontmatter-race-and-incremental.md) | M3, M4, M30–M32 |
+| 2026-10-02 | [`handoff/2026-10-02-to-markoff-styled-theme-received-but-unused.md`](handoff/2026-10-02-to-markoff-styled-theme-received-but-unused.md) | M7, M20, M21, M23–M25 |
+| 2026-10-02 | [`handoff/2026-10-02-to-graffodil-lifetime-theming-and-scale.md`](handoff/2026-10-02-to-graffodil-lifetime-theming-and-scale.md) | M5, M6, M14, M15, M19 |
+| 2026-10-02 | [`handoff/2026-10-02-to-jkqtmathtext-and-rapidyaml-vendoring-hygiene.md`](handoff/2026-10-02-to-jkqtmathtext-and-rapidyaml-vendoring-hygiene.md) | smaller-items table |
+| 2026-10-17 | [`handoff/2026-10-17-to-markoff-canvas-cards-and-session.md`](handoff/2026-10-17-to-markoff-canvas-cards-and-session.md) | still open as a workstream; no severity class, so not numbered |
+| 2026-10-01 / 2026-06-10 | the frontmatter handoffs | M33, M34, M35 (swept in 2026-10-18) |
 
-Each handoff states its severity, how the finding was verified, what it costs
-*us* specifically, and a suggested fix shape — and each says plainly where we
+**New in the consolidated document** (not previously in this index — three
+recovered from the handoffs above, one filed this week):
+
+- **ASK-M33** — markoff-core: the frontmatter D2-undo edit path.
+- **ASK-M34** — markoff-core: the stale undo comment in `Origin.h`.
+- **ASK-M35** — markoff-parser: the frontmatter closing-fence match lacks an EOL
+  check, so `----` / `--- ` / `---foo` close the block early.
+- **ASK-M36** — markoff-parser: `tests/` is added with no gate, so a host cannot
+  switch the leaf's 13 tests off; and `MARKOFF_CANVAS_BUILD_TESTS` defaults ON.
+  Found by the `USER-TESTING.md` §11b build-hygiene check; Corbomite's half is
+  fixed (`CMakeLists.txt` now FORCEs the canvas gate off).
+
+Each ask states its severity, how the finding was verified, what it costs *us*
+specifically, and a suggested fix shape — and the document says plainly where we
 would rather be shown wrong than carry a workaround.
 
 ---
