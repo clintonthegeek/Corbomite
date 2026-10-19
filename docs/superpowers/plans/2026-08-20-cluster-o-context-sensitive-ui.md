@@ -127,19 +127,27 @@ wins. Named in O3.T4.
 
 ### D5 — Menubar stability (**Q2**)
 
-Universal menus must never move. The base `corbomiteui.rc` gains a merge marker:
+Universal menus must never move, and Settings / Help stay rightmost as a pair.
 
-```xml
-<MenuBar>
-  <Menu name="file"/> <Menu name="edit"/> <Menu name="go"/> <Menu name="view"/>
-  <Merge name="viewtype_merge"/>
-  <!-- Settings + Help appended by KXMLGUI -->
-</MenuBar>
-```
-
-Every provider declares its menu with `append="viewtype_merge"`. Result: File / Edit /
-Go / View never shift, Settings / Help stay rightmost, and the type menu always
-appears in exactly one slot between them. Verified in O3.V2.
+> **CORRECTED 2026-10-18 — the merge marker below does not work, and was removed.**
+> The original design put `<Merge name="viewtype_merge"/>` at the end of the
+> `<MenuBar>` and had every provider declare `append="viewtype_merge"`. Live
+> check: the provider menu landed *after* Settings/Help ("File Edit View Go Tab
+> Settings Help Graph"), and `<MergeLocal>` behaved the same. `KXMLGUIClient::
+> mergeXML` only honours `append="X"` for children merged **inside** a
+> `<MergeLocal name="X"/>` element, and that element is deleted by whichever
+> client merges through it first — whether or not it used the point — so at most
+> one client can ever be placed by it. A child client's new top-level container
+> is otherwise appended to the end of the parent.
+>
+> What the code does instead: providers declare their top-level menu with **no**
+> `append=` attribute (they keep KXMLGUI's natural tail), and
+> `MainWindow::moveStandardMenusLast()` re-appends the `settings` and `help`
+> menus after every factory rebuild (`clientAdded`/`clientRemoved`, queued via
+> `QTimer::singleShot(0, …)`). Live result, verified 2026-10-18 on all four tab
+> types: `File Edit View Go Tab Format Heading Insert Table Settings Help`
+> (markdown), `… Tab Graph Settings Help` (graph), `… Bases …`, `… Canvas …`.
+> Providers must never redeclare a universal menu by name.
 
 ### D6 — Shortcut scoping (**Q10**)
 
@@ -798,8 +806,9 @@ Ask in this order; stop at the first "yes":
    means something on canvas)? → **that type's `ViewActions` provider.**
    Two sub-cases:
    - It needs a **new top-level menu slot** (Format, Heading, Canvas, …) →
-     declare a `<Menu name="…" append="viewtype_merge"/>` in the provider's
-     own XML (per D5). The name must be unique to this provider — see C4.
+     declare a plain `<Menu name="…">` (no `append=`) in the provider's own
+     XML; it lands at the menubar tail, before Settings/Help (corrected D5).
+     The name must be unique to this provider — see C4.
    - It's a natural extension of an **existing universal menu** (e.g.
      markdown's Editor Mode submenu living inside `view`) → merge into that
      container by name without `append=`; multiple clients sharing a
@@ -871,8 +880,9 @@ provider unbinds. Concretely:
 
 - **Never declare a `<Menu>` in both `corbomiteui.rc.in` and a provider's
   own XML with the same `name`.** If you're adding a brand-new provider
-  menu, it exists *only* in the provider's XML, `append="viewtype_merge"`,
-  full stop — don't also stub it in the base rc "for clarity."
+  menu, it exists *only* in the provider's XML, with no `append=` attribute
+  (corrected D5, 2026-10-18) — don't also stub it in the base rc "for
+  clarity."
 - **Reusing an existing universal container name on purpose** (e.g.
   merging into `view`) is fine — that container is *meant* to have multiple
   contributing clients and is never expected to disappear.
@@ -926,9 +936,11 @@ graph):
       `ViewRegistrar::registerViewActions` (O5.T4). Eagerness is a *host*
       guarantee; a plugin provider cannot be eager and does not need to be,
       because `registeredViewActionTypes()` lets a late observer adopt it.
-- [x] Every new top-level `<Menu>` uses `append="viewtype_merge"` and a `name`
-      no other client declares (C4). — verified: `viewtype_merge` appears in
-      all four providers' XML, on menu names `view`/`canvas`/`bases`/`graph`.
+- [x] Every new top-level `<Menu>` uses a `name` no other client declares
+      (C4). — verified across all four providers. **Corrected 2026-10-18:** the
+      `append="viewtype_merge"` half of this box is withdrawn; that attribute
+      never placed a menu mid-bar (see corrected D5), the four attributes are
+      removed, and `MainWindow::moveStandardMenusLast()` owns the tail.
 - [x] `bind(View*)`/`unbind()` follow the disconnect discipline: store every
       per-view `QMetaObject::Connection` and disconnect it at the top of
       `bind()` and in `unbind()`. — all four open with `disconnect(m_contextConnection)`.

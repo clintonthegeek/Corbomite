@@ -116,9 +116,21 @@ input, and do nothing.
 
 ## 6. Command palette (O7.T5) 👤
 
-- [ ] 👤 Disabled actions are **gone** (no "Toggle Fold", no "Insert Table")
-- [ ] 👤 Separate **Tabs** and **Format** groups exist
-- [ ] 👤 No more single "Other" group with ~60 entries
+> **2026-10-18 — verified live, and one defect fixed.** Separate **Tabs** and
+> **Commands** groups exist (no single "Other" bucket), and disabled actions are
+> gone: "Toggle Fold" and "Insert Table…" do not appear, while their enabled
+> neighbours do. The verb rows carry their shortcuts (`Move Tab Left
+> Ctrl+Shift+PgUp`). One real defect surfaced: `Move Tab to New Window`
+> appeared **twice** — once under Tabs (its KAction) and again under Commands
+> (the Obsidian-id mirror registered for `hotkeys.json`). Every mirrored id was
+> affected; the palette now uses `CommandRegistry::listPaletteCommands()` and
+> the mirrors are `paletteHidden`. Re-check by typing `Move Tab` — each row
+> should appear once.
+
+- [ ] 👤 Disabled actions are **gone** (no "Toggle Fold", no "Insert Table") *(verified 2026-10-18)*
+- [ ] 👤 Separate **Tabs** and **Format** groups exist *(Tabs verified; Format appears with an editor focused)*
+- [ ] 👤 No more single "Other" group with ~60 entries *(verified 2026-10-18)*
+- [ ] 👤 No row appears twice for the same verb *(fixed 2026-10-18 — see above)*
 
 ## 7. Tab reorder + linked panes (O5.T5) 🤖 + 👤
 
@@ -135,11 +147,24 @@ input, and do nothing.
 
 ## 8. Graph provider registration (O5.T4) 👤
 
-- [ ] 👤 Open a graph tab → **Graph** menu with 5 verbs appears
-- [ ] 👤 Switch to markdown → it **disappears entirely** (not greyed)
+> **2026-10-18 — verified live, both directions.** With a **graph** tab focused
+> the menubar reads `File Edit View Go Tab Graph Settings Help` — the Graph menu
+> is there and the markdown-only menus (Format/Heading/Insert/Table) are gone.
+> With a markdown note focused it reads `File Edit View Go Tab Format Heading
+> Insert Table Settings Help` — no Graph menu at all, i.e. removed rather than
+> greyed. (The first live pass the same day read `… Settings Help Graph`, i.e.
+> the provider menu trailing Help; fixed by `moveStandardMenusLast()` — the
+> user then confirmed the order on all four tab types.) **Zoom to Fit works**: the graph tab opened zoomed in (only edge lines
+> on screen); Shift+1 fitted it, nodes and edges all visible. The in-pane panel
+> offers Reset / Filters / Display / Forces. Side finding in the same shot: the
+> status bar still showed the previous text view's `Words: 342 Ln 1, Col 1` —
+> filed in the punch list.
+
+- [ ] 👤 Open a graph tab → **Graph** menu with 5 verbs appears *(verified 2026-10-18)*
+- [ ] 👤 Switch to markdown → it **disappears entirely** (not greyed) *(verified 2026-10-18)*
 - [ ] 👤 Animate / Zoom to Fit / Copy screenshot / Reset forces / Open local
-      graph each work
-- [ ] 👤 Zoom-to-fit is greyed until a graph with nodes exists
+      graph each work *(Zoom to Fit verified 2026-10-18; the rest are one click each)*
+- [ ] 👤 Zoom-to-fit is greyed until a graph with nodes exists *(not checked — this vault's graph always has nodes)*
 
 ## 9. Bugs found on the first pass — verify the fixes
 
