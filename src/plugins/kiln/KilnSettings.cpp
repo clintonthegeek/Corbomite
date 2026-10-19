@@ -228,8 +228,11 @@ QString describeReport(const QJsonObject &report, int exitCode, const QString &s
     }
 
     if (!report.value(QStringLiteral("ok")).toBool()) {
-        return i18n("The run did not happen: %1")
-                .arg(report.value(QStringLiteral("error")).toString());
+        // Argument to i18n(), not a later .arg() — see the same fix in
+        // MarkdownViewActions: a placeholder with no argument becomes
+        // "(i18n_ARGUMENT_MISSING)" in the string.
+        return i18n("The run did not happen: %1",
+                    report.value(QStringLiteral("error")).toString());
     }
 
     QString out = i18n("Target %1%2\nSelected %3   links rewritten %4\n",

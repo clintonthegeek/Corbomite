@@ -401,8 +401,12 @@ void MarkdownViewActions::setupActions()
         if (!icon.isEmpty()) act->setIcon(QIcon::fromTheme(icon));
         if (!shortcut.isEmpty()) KActionCollection::setDefaultShortcut(act, shortcut);
         act->setProperty("blockedOn", blockedOn);
-        act->setToolTip(i18n("%1 (not yet available — blocked on: %2)")
-                            .arg(label, blockedOn));
+        // The arguments go to i18n(), not to a later .arg(): a format string
+        // with placeholders and no arguments makes KI18n substitute
+        // "(i18n_ARGUMENT_MISSING)" for each one immediately, so the tooltip
+        // read "Insert Table…(i18n_ARGUMENT_MISSING)(not yet available —
+        // blocked on: …(i18n_ARGUMENT_MISSING)" (seen live 2026-10-18).
+        act->setToolTip(i18n("%1 (not yet available — blocked on: %2)", label, blockedOn));
         act->setEnabled(false);
         return act;
     };
