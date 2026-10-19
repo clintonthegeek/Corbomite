@@ -102,11 +102,23 @@ set(MARKOFF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # headers Corbomite doesn't expose to its build. Clean-up: have Markoff
 # make MARKOFF_BUILD_TESTS the canonical gate that propagates to all
 # leaves.
+#
+# Only four leaves actually honour a variable of this shape — core, source,
+# styled and canvas (`if(NOT DEFINED MARKOFF_<LEAF>_BUILD_TESTS)`) — and
+# canvas defaults its gate to ON when undefined, so it has to be named here
+# or its two tests register in every configure, release included (found
+# 2026-10-18 by the USER-TESTING §11b check: a release configure reported 17
+# tests where this comment claimed the only survivors would be gated ones).
+# MARKOFF_LIVE_BUILD_TESTS and MARKOFF_PARSER_BUILD_TESTS below are inert:
+# markoff-live has no such gate, and markoff-parser does an ungated
+# `add_subdirectory(tests)`, so its 13 tests cannot be switched off from here
+# at all — filed upstream (ASK-M36 in the consolidated handoff, docs/handoff/2026-10-18-to-markoff-consolidated-open-asks.md).
 set(MARKOFF_CORE_BUILD_TESTS   OFF CACHE BOOL "" FORCE)
 set(MARKOFF_LIVE_BUILD_TESTS   OFF CACHE BOOL "" FORCE)
 set(MARKOFF_SOURCE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(MARKOFF_PARSER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(MARKOFF_STYLED_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(MARKOFF_CANVAS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # Cluster K Phase 5 — do not build the QML Live leaf into Corbomite.
 set(MARKOFF_BUILD_LIVE OFF CACHE BOOL "" FORCE)
 # Markoff's provider-consumer tests are a Markoff-repo suite. They require

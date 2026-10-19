@@ -246,33 +246,33 @@ Both were eyeballed and accepted as-is.
 The test gate was unified 2026-10-02 and a real bug was fixed with it. Nothing
 here should need you, but if anything below surprises you, say so.
 
-> **2026-10-18 — both checks run by the assistant; one doc figure was wrong.**
-> Dev (existing `build-dev/`, no reconfigure): **280** tests, **279** with
-> `-E 'benchmark|perf'` — consistent with the "few hundred" bound and up from
-> the 277 recorded earlier the same day. Release (`/tmp/rel-check`, fresh
-> configure): **17** tests, **none of them Corbomite's** — the "~109 submodule
-> tests" figure in the box below is stale and has been corrected.
+> **2026-10-18 — both checks run by the assistant; one doc figure was wrong, one
+> host-side gate fixed.** Dev: **278** tests, **277** with
+> `-E 'benchmark|perf'` (the "few hundred" bound holds; the 277 recorded earlier
+> the same day is now exact again). Release (`/tmp/rel-check`, fresh configure):
+> **15** tests, **none of them Corbomite's** — the box's "~109 submodule tests"
+> was stale and is corrected below.
 >
-> The 17 are structural, not a regression: `markoff-parser/CMakeLists.txt:95`
-> does `add_subdirectory(tests)` with **no gate at all** (13 of the 17), and
-> `markoff-canvas/CMakeLists.txt:90-91` defaults `MARKOFF_CANVAS_BUILD_TESTS`
-> to **ON** when undefined — a leaf missing from the FORCE-OFF list at
-> `CMakeLists.txt:105-109`, which claims to switch every per-leaf gate off
-> (2 tests; the last 2 are ECM's `appstreamtest`). So those register in every
-> configure, dev or release. Reducing the release configure to zero submodule
-> tests means adding the canvas gate and an upstream ask for the parser one;
-> leaving it is harmless (they build and pass).
+> Two leaves were leaking into every configure, including release:
+> `markoff-canvas`'s gate defaults **ON** when undefined and was absent from the
+> FORCE-OFF list at `CMakeLists.txt:116-121`, so its 2 tests always registered
+> (**fixed**: added, release 17 → 15, dev 280 → 278). `markoff-parser` does
+> `add_subdirectory(tests)` with **no gate at all** (`markoff-parser/CMakeLists.
+> txt:95`), so its 13 tests cannot be switched off from the host — filed upstream
+> as ASK-M33. The remaining 2 are ECM's `appstreamtest`. Also inert:
+> `MARKOFF_LIVE_BUILD_TESTS`/`MARKOFF_PARSER_BUILD_TESTS` in that list name no
+> gate the leaves read; `MARKOFF_CORE/SOURCE/STYLED` are real.
 
 - [ ] 👤 `rm -rf build-dev && cmake --preset dev` from scratch, then confirm
       `ctest -N -E 'benchmark|perf'` in `build-dev` reports a few hundred tests
-      (**279** measured 2026-10-18; the number moves with every test added, so
+      (**277** measured 2026-10-18; the number moves with every test added, so
       what matters is the order of magnitude, not the exact figure). It
       previously reported **109** — all from the markoff-family submodule, none
       of them ours — because no preset set the test gate and its default is
       OFF. It only appeared to work because this machine's `build-dev/` cache
       was already configured. If you ever get 109, the gate is off again.
 - [ ] 👤 `cmake --preset release -B /tmp/rel-check` then `ctest -N` should show
-      **no Corbomite tests** *(verified 2026-10-18 — 17 tests, all
+      **no Corbomite tests** *(verified 2026-10-18 — 15 tests, all
       markoff-family plus `appstreamtest`; the "~109" this box used to predict
       was wrong, see the note above)*.
 
