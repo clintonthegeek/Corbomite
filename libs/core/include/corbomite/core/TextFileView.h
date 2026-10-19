@@ -24,8 +24,20 @@ public:
     void setDataAdapter(DataAdapter *adapter);
     void setVaultRoot(const QString &root);
 
-    /// True when there are unsaved edits (a debounced save is pending).
+    /// True when there are unsaved edits to *this view's own writer* (a
+    /// debounced save is pending). Only the subclasses that save through
+    /// `requestSave()`/`save()` set this — BasesView does, the markdown path
+    /// does not.
     bool isDirty() const { return m_dirty; }
+
+    /// True when this view holds content that is not on disk yet, whichever
+    /// writer owns it. Two producers: the view's own debounced save
+    /// (`m_dirty`), and the loaded `NoteDocument`'s modified flag — markdown
+    /// writes go through `Vault::saveDocument` from `AutosaveReactor`, so a
+    /// modified note is unsaved while `m_dirty` stays false. Anything asking
+    /// "is this view's content safe?" (the recovery snapshot walk) must use
+    /// this, not `isDirty()`.
+    bool hasUnsavedChanges() const;
 
     /// Write a recovery snapshot of `content` for the current file.
     /// `failure` marks a save-*failure* backup, which retention pruning never

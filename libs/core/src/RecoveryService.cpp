@@ -63,7 +63,12 @@ int RecoveryService::snapshotNow()
 
     int written = 0;
     for (TextFileView *view : m_provider()) {
-        if (!view || !view->isDirty() || !view->file())
+        // hasUnsavedChanges(), not isDirty(): markdown writes go through
+        // Vault::saveDocument from AutosaveReactor, so a modified note is
+        // unsaved while the view's own dirty flag stays false — keying on
+        // isDirty() here meant a note was never snapshotted, which is the
+        // whole point of the periodic pass.
+        if (!view || !view->hasUnsavedChanges() || !view->file())
             continue;
         const QString data = view->getViewData();
         if (m_lastSnapshot.value(view) == data)

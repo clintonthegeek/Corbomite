@@ -78,6 +78,13 @@ void TextFileView::save(bool immediate)
     }
 }
 
+bool TextFileView::hasUnsavedChanges() const
+{
+    if (m_dirty)
+        return true;
+    return m_file && m_file->isModified();
+}
+
 void TextFileView::saveImmediately()
 {
     if (m_dirty)
