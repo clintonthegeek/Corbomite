@@ -140,6 +140,18 @@ private Q_SLOTS:
             // disabled menu entry learns why rather than assuming a bug.
             QVERIFY2(a->toolTip().contains(blocked),
                      qPrintable(QStringLiteral("%1 tooltip omits its blocker").arg(id)));
+            // And the blocker must be *substituted*, not its placeholder. The
+            // format string used to be passed to i18n() with no arguments and
+            // arg()'d afterwards, so KI18n filled each placeholder with
+            // "(i18n_ARGUMENT_MISSING)" and the tooltip read as nonsense
+            // (found live 2026-10-18). contains(blocked) alone does not catch
+            // that — the blocker text arrives either way.
+            QVERIFY2(!a->toolTip().contains(QStringLiteral("ARGUMENT_MISSING"),
+                                            Qt::CaseInsensitive),
+                     qPrintable(QStringLiteral("%1 tooltip has unsubstituted i18n "
+                                               "placeholders: %2").arg(id, a->toolTip())));
+            QVERIFY2(a->toolTip().contains(a->text()),
+                     qPrintable(QStringLiteral("%1 tooltip omits its own label").arg(id)));
             QVERIFY2(!a->isEnabled(),
                      qPrintable(QStringLiteral("%1 is a stub but is enabled").arg(id)));
         }

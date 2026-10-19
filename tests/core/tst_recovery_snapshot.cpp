@@ -95,6 +95,35 @@ private Q_SLOTS:
                  qPrintable(QStringLiteral("recovery path inside the vault: ") + key));
     }
 
+    void snapshotsNoteSavedThroughVaultRatherThanTheView()
+    {
+        // The markdown path's writer is AutosaveReactor → Vault::saveDocument,
+        // so a modified note has `m_dirty == false`. Keying the walk on
+        // isDirty() (2026-10-18, found live: a full minute with a modified
+        // note wrote nothing) made periodic recovery inert for notes.
+        MemoryAdapter adapter;
+        adapter.files[QStringLiteral("/vault/test.md")] = QStringLiteral("hello");
+
+        ConcreteTextFileView view(nullptr);
+        view.setDataAdapter(&adapter);
+        view.setVaultRoot(QStringLiteral("/vault"));
+        auto *doc = new NoteDocument(QStringLiteral("/vault"), QStringLiteral("test.md"), &view);
+        view.loadFile(doc);
+
+        view.content = QStringLiteral("edited through the vault");
+        doc->setModified(true);
+        QVERIFY2(!view.isDirty(), "the markdown path never sets the view's own dirty flag");
+        QVERIFY(view.hasUnsavedChanges());
+
+        RecoveryService service([&view]() { return QList<TextFileView *>{&view}; },
+                               &adapter, QStringLiteral("/vault"));
+        QCOMPARE(service.snapshotNow(), 1);
+
+        const QString key = recoveryKey(adapter);
+        QVERIFY2(!key.isEmpty(), "a modified note must produce a recovery snapshot");
+        QCOMPARE(adapter.files.value(key), QStringLiteral("edited through the vault"));
+    }
+
     void skipsCleanView()
     {
         MemoryAdapter adapter;

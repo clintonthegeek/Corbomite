@@ -404,6 +404,37 @@ private Q_SLOTS:
         QCOMPARE(reg.listAvailable().size(), 0);
     }
 
+    void paletteHiddenCommandsStayExecutableButLeaveThePalette()
+    {
+        CommandRegistry reg;
+        Command shown;
+        shown.id = QStringLiteral("theme:shown");
+        shown.name = QStringLiteral("Shown");
+        shown.callback = [] {};
+        reg.addCommand(shown);
+
+        int runs = 0;
+        Command mirrored;
+        mirrored.id = QStringLiteral("workspace:move-to-new-window");
+        mirrored.name = QStringLiteral("Move Tab to New Window");
+        mirrored.paletteHidden = true;
+        mirrored.callback = [&runs] { ++runs; };
+        reg.addCommand(mirrored);
+
+        QStringList palette;
+        for (const auto *c : reg.listPaletteCommands()) palette.append(c->id);
+        QCOMPARE(palette, QStringList{QStringLiteral("theme:shown")});
+
+        // Hidden from the palette, not from anything else: an id a vault's
+        // hotkeys.json names must still resolve and dispatch.
+        QVERIFY(reg.isAvailable(QStringLiteral("workspace:move-to-new-window")));
+        QVERIFY(reg.executeById(QStringLiteral("workspace:move-to-new-window")));
+        QCOMPARE(runs, 1);
+        QStringList available;
+        for (const auto *c : reg.listAvailable()) available.append(c->id);
+        QVERIFY(available.contains(QStringLiteral("workspace:move-to-new-window")));
+    }
+
     void testDanglingAliasIsUnavailable()
     {
         // A target removed after the alias was added leaves the alias inert,
