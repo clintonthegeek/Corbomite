@@ -1708,12 +1708,24 @@ void MainWindow::setupActions()
     for (int i = 1; i <= 8; ++i) {
         auto *act = ac->addAction(QStringLiteral("tab_jump_%1").arg(i));
         act->setText(i18n("Go to Tab %1", i));
-        ac->setDefaultShortcut(act, QKeySequence(Qt::CTRL | (Qt::Key_0 + i)));
+        // Alt+digit, NOT Ctrl+digit. Ctrl+1..6 is Heading 1..6 in the
+        // markdown view's own collection (`MarkdownViewActions`, installed
+        // while a markdown leaf is focused). KDE merges every installed
+        // collection into one shortcut map and treats a shared sequence as
+        // ambiguous — which disables *both* actions and pops a warning. Found
+        // live 2026-10-18: with the editor focused, Ctrl+6 raised "Ambiguous
+        // shortcut detected" and did nothing, so neither the heading nor the
+        // tab jump worked. Obsidian's complete default-hotkey table has no
+        // Ctrl+digit binding at all (addendum 2026-10-03-core-command-and-
+        // hotkey-contracts §defaults), so neither binding is an Obsidian
+        // contract; the editor's is the one in use, and Alt+digit is Kate's
+        // convention for tab switching.
+        ac->setDefaultShortcut(act, QKeySequence(Qt::ALT | (Qt::Key_0 + i)));
         connect(act, &QAction::triggered, this, [jumpToTab, i]() { jumpToTab(i - 1); });
     }
     auto *jumpLastTab = ac->addAction(QStringLiteral("tab_jump_last"));
     jumpLastTab->setText(i18n("Go to Last Tab"));
-    ac->setDefaultShortcut(jumpLastTab, QKeySequence(Qt::CTRL | Qt::Key_9));
+    ac->setDefaultShortcut(jumpLastTab, QKeySequence(Qt::ALT | Qt::Key_9));
     connect(jumpLastTab, &QAction::triggered, this, [jumpToTab]() { jumpToTab(-1); });
 
     // D3: pin-tab. Primitives (WorkspaceLeaf::pinned/setPinned,
