@@ -20,7 +20,7 @@ const QString kGraphGuiXml = QStringLiteral(
     "<!DOCTYPE gui SYSTEM \"kpartgui.dtd\">"
     "<gui name=\"graph_view_actions\" version=\"1\">"
     "  <MenuBar>"
-    "    <Menu name=\"graph\" append=\"viewtype_merge\">"
+    "    <Menu name=\"graph\">"
     "      <text>&amp;Graph</text>"
     "      <Action name=\"graph_open_local\"/>"
     "      <Separator/>"

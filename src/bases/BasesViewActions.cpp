@@ -20,7 +20,7 @@ const QString kBasesGuiXml = QStringLiteral(
     "<!DOCTYPE gui SYSTEM \"kpartgui.dtd\">"
     "<gui name=\"bases_view_actions\" version=\"1\">"
     "  <MenuBar>"
-    "    <Menu name=\"bases\" append=\"viewtype_merge\">"
+    "    <Menu name=\"bases\">"
     "      <text>&amp;Bases</text>"
     "      <Action name=\"bases_properties\"/>"
     "      <Action name=\"bases_sort_group\"/>"

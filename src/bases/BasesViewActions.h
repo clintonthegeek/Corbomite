@@ -28,8 +28,9 @@ class View;
 /// surfaces"). Anchoring still works because the buttons survive; a menu- or
 /// palette-triggered action shows the same panel under the same button.
 ///
-/// The Bases menu itself merges at `viewtype_merge`, so it disappears with
-/// the tab rather than greying out, matching the Canvas menu's O4 precedent.
+/// The Bases menu itself merges just after Edit (`append="view"`), so it
+/// disappears with the tab rather than greying out, matching the Canvas menu's
+/// O4 precedent.
 /// "Results" is a container action owning the Copy-table/Export-CSV menu,
 /// mirroring the RE's `Results menu ($X)` — `bases.md` §1 records it as
 /// also holding a limit input and "Show all", which Corbomite's bases table

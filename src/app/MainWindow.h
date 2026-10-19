@@ -169,6 +169,22 @@ private:
     void setupStatusBar();
     void setupEditor();
     void setupRibbonToolBar();
+    /// Cluster O Phase O3 (§D5) — keep Settings/Help at the tail of the
+    /// menubar.
+    ///
+    /// A ViewActions provider's top-level menu (Format/Heading/Insert/Table,
+    /// Graph, Bases, Canvas) is a *new* container for a child KXMLGUIClient,
+    /// so KXMLGUI appends it to the end of the menubar — past the Settings
+    /// and Help menus the framework adds itself, giving "File Edit View Go
+    /// Tab Settings Help Graph". No rc attribute can ask for a middle
+    /// position: `append="X"` is only honoured inside a `<MergeLocal
+    /// name="X"/>` element, and that element is *removed* by whichever client
+    /// merges first, whether or not it used the point
+    /// (KXMLGUIClient::mergeXML). So the order is enforced here instead:
+    /// providers keep KXMLGUI's natural tail, and these two menus are
+    /// re-appended after every factory rebuild (Settings then Help, so the
+    /// pair stays together and rightmost).
+    void moveStandardMenusLast();
 
     // Action handlers
     void openVaultDialog();

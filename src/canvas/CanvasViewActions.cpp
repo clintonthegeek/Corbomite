@@ -25,7 +25,7 @@ const QString kCanvasGuiXml = QStringLiteral(
     "<!DOCTYPE gui SYSTEM \"kpartgui.dtd\">"
     "<gui name=\"canvas_view_actions\" version=\"1\">"
     "  <MenuBar>"
-    "    <Menu name=\"canvas\" append=\"viewtype_merge\">"
+    "    <Menu name=\"canvas\">"
     "      <text>&amp;Canvas</text>"
     "      <Action name=\"canvas_snap_grid\"/>"
     "      <Action name=\"canvas_snap_objects\"/>"

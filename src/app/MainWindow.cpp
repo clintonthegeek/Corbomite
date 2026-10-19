@@ -43,6 +43,9 @@
 #include "corbomite/core/Command.h"
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/HotkeyDispatcher.h"
+#include <KXMLGUIFactory>
+#include <QMenu>
+#include <QMenuBar>
 #include <QTimer>
 #include <markoff/core/EmbedRegistry.h>
 #include <markoff/core/CodeBlockProcessorRegistry.h>
@@ -325,6 +328,18 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     // (O5.T4) it needs no plugin-facing registration path.
     m_basesViewActions = new BasesViewActions(this);
     m_actionContext->registerProvider(m_basesViewActions);
+
+    // Cluster O Phase O3 (§D5) — the menubar tail. KXMLGUI appends a
+    // provider's new top-level menu after the Settings/Help menus it adds
+    // itself, and no rc attribute can place it in the middle (see
+    // moveStandardMenusLast()). Enforce the tail here: once for the clients
+    // already installed above, then after every factory rebuild — a queued
+    // call, because the menubar is mid-rebuild inside the signals.
+    connect(guiFactory(), &KXMLGUIFactory::clientAdded, this,
+            [this] { QTimer::singleShot(0, this, &MainWindow::moveStandardMenusLast); });
+    connect(guiFactory(), &KXMLGUIFactory::clientRemoved, this,
+            [this] { QTimer::singleShot(0, this, &MainWindow::moveStandardMenusLast); });
+    moveStandardMenusLast();
 
     // Cluster V Task 1.7 — theme dispatcher. applyTheme() applies the
     // Appearance/Theme kcfg key via KColorSchemeManager; onSettingsApplied
@@ -2170,6 +2185,29 @@ void MainWindow::setupRibbonToolBar()
     // RibbonStateController is bound lazily in onVaultOpened when a
     // SessionManager exists. Until then, no icons are registered and the
     // toolbar is visibly empty — intentional per the design spec.
+}
+
+void MainWindow::moveStandardMenusLast()
+{
+    if (!guiFactory()) return;
+
+    QMenuBar *bar = menuBar();
+    if (!bar) return;
+
+    // Settings before Help, both after everything else. menuAction() is the
+    // bar's own action for the menu, so removing and re-adding it is the
+    // supported way to reorder a QMenuBar.
+    for (const auto &name : {QStringLiteral("settings"), QStringLiteral("help")}) {
+        auto *menu = qobject_cast<QMenu *>(guiFactory()->container(name, this));
+        if (!menu) continue;
+
+        QAction *action = menu->menuAction();
+        if (!action) continue;
+        if (!bar->actions().isEmpty() && bar->actions().constLast() == action) continue;
+
+        bar->removeAction(action);
+        bar->addAction(action);
+    }
 }
 
 void MainWindow::openVaultDialog()

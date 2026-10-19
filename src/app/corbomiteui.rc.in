@@ -1,5 +1,19 @@
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="@CORBOMITE_COMPONENT_NAME@" version="13">
+<gui name="@CORBOMITE_COMPONENT_NAME@" version="17">
+  <!--
+    BUMP `version` WHENEVER THIS FILE'S MENUS/ACTIONS CHANGE.
+
+    KXMLGUI writes a merged copy of this file to
+    ~/.local/share/kxmlgui5/<component>/ and only rewrites it when the version
+    here is newer than the cached one. `0c4b224f` added `<Menu name="tab">`
+    without a bump, so every install that already had a version-13 cache kept
+    a menubar with no Tab menu — invisible to the tests, which run in
+    QStandardPaths test mode and therefore always build a fresh cache. Found
+    live 2026-10-18 (the menubar read "File Edit View Go Settings Help Format
+    Heading Insert Table"). Bumping to 14 makes the next launch rewrite the
+    cache once; a stuck menu can always be cleared by deleting the cached file
+    (see docs/USER-TESTING.md, "How to build and run").
+  -->
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -30,6 +44,21 @@
       <Action name="edit_find_previous"/>
       <Action name="edit_replace"/>
     </Menu>
+    <!-- Cluster O Phase O3 (§D5) — where each ViewActions provider's
+         context-sensitive top-level menu (Format/Heading/Insert/Table for
+         markdown, Graph, Bases, Canvas, ...) goes.
+
+         There is no merge point here on purpose. KXMLGUI resolves a child
+         client's `append="X"` as *"insert me immediately before the existing
+         element named X"* (KXMLGUIClient::mergeXML), not "into X" and not
+         "at the merge point X" — an `append` that names no existing element
+         silently falls through to the end of the menubar, past the Settings
+         and Help menus KXMLGUI adds at runtime. So every provider declares
+         `append="view"`, which lands its menu directly after Edit, where the
+         editing-adjacent verbs belong. Settings and Help then stay rightmost
+         as a pair. Never declare a `<Merge`/`<MergeLocal`> point for this.
+         REMEMBER: bump `version` on the <gui> element when this file changes
+         (the cache is keyed on it). -->
     <Menu name="go">
       <text>&amp;Go</text>
       <Action name="quick_switcher"/>
@@ -77,12 +106,6 @@
       <Action name="view_zoom_out"/>
       <Action name="view_zoom_reset"/>
     </Menu>
-    <!-- Cluster O Phase O3 (§D5) — the merge point every ViewActions
-         provider's top-level menu (Format/Heading/Insert/Table for
-         markdown, ...) appends at, via append="viewtype_merge" in the
-         provider's own <gui> XML. File/Edit/Go/View above never move;
-         Settings/Help (added automatically by KXMLGUI) stay rightmost. -->
-    <Merge name="viewtype_merge"/>
   </MenuBar>
   <ToolBar name="mainToolBar" noMerge="1" iconText="icononly">
     <text>Main Toolbar</text>

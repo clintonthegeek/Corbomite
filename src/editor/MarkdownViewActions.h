@@ -22,8 +22,8 @@ class View;
 ///
 /// Owns everything Appendix A of the plan assigns to "MarkdownViewActions":
 /// the Format / Heading / Insert / Table menus (new top-level menus merged
-/// in at the `viewtype_merge` point, §D5), the View ▸ Editor Mode radio
-/// group + `editor_toggle_mode` + the three fold stubs (merged into the
+/// in the slot just after Edit (`append="view"`, §D5), the View ▸ Editor Mode
+/// radio group + `editor_toggle_mode` + the three fold stubs (merged into the
 /// pre-existing, always-present View menu), and `insert_template`. Moved
 /// verbatim out of `MainWindow::setupActions()` / `corbomiteui.rc.in` —
 /// the connect() bodies are unchanged, just re-targeted at the bound
