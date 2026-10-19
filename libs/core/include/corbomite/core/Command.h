@@ -47,6 +47,18 @@ struct Command
     QString icon;          ///< Optional icon name (Qt theme lookup)
     bool mobileOnly = false;
 
+    /// Keep this entry out of the command palette.
+    ///
+    /// Set for entries that exist only so an Obsidian command id is
+    /// addressable — hotkey dispatch, `.obsidian/hotkeys.json`, view hamburger
+    /// menus — while the same verb is *already* offered by a KAction in the
+    /// window's collection. The palette builds one group from the actions and
+    /// one from the registry, so without this the identical label appears
+    /// twice (`workspace:move-to-new-window` under Tabs and again under
+    /// Commands, seen live 2026-10-18). Obsidian has no such second layer: its
+    /// palette lists commands, and a command *is* the action.
+    bool paletteHidden = false;
+
     /// Non-empty ⇒ this entry is a second name for `aliasOf`, not a command of
     /// its own. Set only by `CommandRegistry::addAlias`; a spec that sets it by
     /// hand gets its callbacks ignored.
@@ -113,6 +125,15 @@ public:
     /// Subset of listCommands() that are currently available (i.e.
     /// a non-check callback is set, or the check returns true).
     QVector<Command *> listAvailable();
+
+    /// The command palette's rows: `listAvailable()` minus the entries that
+    /// exist only to make an Obsidian id addressable (`paletteHidden`). The
+    /// palette also builds groups from the window's KActions, and a mirrored
+    /// command carries that action's own label — so without this the same verb
+    /// is listed twice (`workspace:move-to-new-window` under Tabs and again
+    /// under Commands; seen live 2026-10-18). Use this in the palette and
+    /// `listAvailable()` everywhere else.
+    QVector<Command *> listPaletteCommands();
 
     /// True if the command is registered and currently available.
     bool isAvailable(const QString &id) const;

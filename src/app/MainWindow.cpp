@@ -460,6 +460,9 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
             c.id = id;
             c.name = label;
             c.icon = icon;
+            // Same reason as the kObsidianIds mirrors below: `split_right` and
+            // `split_down` are already palette entries as their own KActions.
+            c.paletteHidden = true;
             c.checkCallback = [actionFor, id](bool checking) -> bool {
                 auto *act = actionFor(id);
                 if (!act || !act->isEnabled()) return false;
@@ -524,6 +527,10 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
             c.id = obsidianId;
             c.name = act->text();
             c.icon = act->icon().name();
+            // The verb is already in the palette as this very action, under
+            // its own group. This entry exists so the Obsidian id is
+            // addressable (hotkeys.json, executeById, view hamburgers).
+            c.paletteHidden = true;
             c.checkCallback = [actionFor, actionId = QString::fromLatin1(row.actionId)]
                               (bool checking) -> bool {
                 auto *a = actionFor(actionId);
@@ -2357,7 +2364,10 @@ void MainWindow::showCommandPalette()
 
     if (m_commandRegistry) {
         QList<QAction *> commandActions;
-        for (auto *cmd : m_commandRegistry->listAvailable()) {
+        // listPaletteCommands(), not listAvailable(): commands registered only
+        // to make an Obsidian id addressable are already here as their own
+        // KActions, and listing both put the same label in the palette twice.
+        for (auto *cmd : m_commandRegistry->listPaletteCommands()) {
             auto *action = new QAction(cmd->name.isEmpty() ? cmd->id : cmd->name, bar);
             if (!cmd->icon.isEmpty()) action->setIcon(QIcon::fromTheme(cmd->icon));
             const QString id = cmd->id;

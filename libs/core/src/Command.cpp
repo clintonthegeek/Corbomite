@@ -106,6 +106,16 @@ QVector<Command *> CommandRegistry::listAvailable()
     return out;
 }
 
+QVector<Command *> CommandRegistry::listPaletteCommands()
+{
+    QVector<Command *> out;
+    for (Command *cmd : listAvailable()) {
+        if (cmd && !cmd->paletteHidden)
+            out.append(cmd);
+    }
+    return out;
+}
+
 bool CommandRegistry::isAvailable(const QString &id) const
 {
     const auto *cmd = findCommand(id);

@@ -86,7 +86,7 @@ private slots:
     void everyObsidianIdIsRegistered();
     void everyObsidianIdGatesOnItsKAction();
     void everyObsidianIdTriggersItsKAction();
-    void obsidianIdsAreListedInThePalette();
+    void bridgeIdsAreRegisteredButNotADuplicatePaletteRow();
     void labelsComeFromTheKAction();
     void noBridgeIsMissingFromThisTable();
     void splitIdsStillDispatchForViewHeaderMenus();
@@ -153,25 +153,32 @@ void TstMainWindowObsidianCommands::everyObsidianIdTriggersItsKAction()
     }
 }
 
-void TstMainWindowObsidianCommands::obsidianIdsAreListedInThePalette()
+void TstMainWindowObsidianCommands::bridgeIdsAreRegisteredButNotADuplicatePaletteRow()
 {
     CorbomiteApp app;
     MainWindow w(&app);
     auto *registry = w.commandRegistry();
-    auto *ac = w.actionCollection();
 
-    QStringList listed;
-    for (const auto *cmd : registry->listCommands())
-        if (!registry->isAlias(cmd->id)) listed.append(cmd->id);
+    QStringList palette;
+    for (const auto *cmd : registry->listPaletteCommands())
+        palette.append(cmd->id);
 
-    // Palette-visible == available, so compare against availability rather than
-    // listAvailable(): the vault gate greys out most of these in a headless run.
+    // A bridge has two jobs: make the Obsidian id addressable (hotkeys.json,
+    // executeById, view hamburger menus) and NOT become a second row in the
+    // palette. The verb is already there as its own KAction, and the palette
+    // builds a group from the actions and another from the registry — so a
+    // bridge that is not paletteHidden lists the same label twice
+    // (`workspace:move-to-new-window` under both Tabs and Commands; found live
+    // 2026-10-18). This case used to assert the opposite, which is how the
+    // duplicate shipped.
     for (const auto &b : kBridges) {
         const QString id = QString::fromLatin1(b.obsidianId);
-        QVERIFY2(listed.contains(id),
-                 qPrintable(QStringLiteral("%1 would not appear in the palette").arg(id)));
+        QVERIFY2(registry->findCommand(id),
+                 qPrintable(QStringLiteral("%1 is not registered at all").arg(id)));
+        QVERIFY2(!palette.contains(id),
+                 qPrintable(QStringLiteral(
+                     "%1 would duplicate its own KAction in the palette").arg(id)));
     }
-    Q_UNUSED(ac);
 }
 
 void TstMainWindowObsidianCommands::labelsComeFromTheKAction()
