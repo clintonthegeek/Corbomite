@@ -7,6 +7,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
+# The card view: a canvas card is edited in Markoff's canvas leaf in
+# embedded (card) mode, over the card's own session document.
+add_executable(tst_canvas_card_editor tst_canvas_card_editor.cpp)
+add_test(NAME tst_canvas_card_editor COMMAND tst_canvas_card_editor)
+target_link_libraries(tst_canvas_card_editor PRIVATE
+    Qt6::Test Qt6::Widgets canvas Corbomite::Core)
+set_tests_properties(tst_canvas_card_editor PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_canvasdocument tst_canvasdocument.cpp)
 add_test(NAME tst_canvasdocument COMMAND tst_canvasdocument)
 target_link_libraries(tst_canvasdocument PRIVATE Qt6::Test canvas)

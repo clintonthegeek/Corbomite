@@ -4,7 +4,7 @@ Open work only. The order is the trajectory in [`PROJECT-STATE.md`](PROJECT-STAT
 
 Closed history, including every former `[x]`, is frozen at [`archive/2026-10-17/punch-list-2026-10-17-full.md`](archive/2026-10-17/punch-list-2026-10-17-full.md). Do not execute that file. A box is marked `[x]` when the work is in the tree; say in the line if it is not committed yet.
 
-**Current:** **72 open / 36 closed / 0 partial**, plus **5 guardrails**.
+**Current:** **70 open / 38 closed / 0 partial**, plus **5 guardrails**.
 Verify with `grep -c '^- \[ \]' docs/punch-list.md`, `grep -c '^- \[x\]'`, `grep -c '^- \[~\]'`.
 
 ## Guardrails
@@ -19,12 +19,12 @@ These are constraints, not tasks. Building them would be a bug.
 
 ## Now — Markoff vNext
 
-Detail and the do-not list: [`superpowers/plans/2026-10-17-markoff-vnext-finish.md`](superpowers/plans/2026-10-17-markoff-vnext-finish.md). Comment cleanup (§3) is in the tree. The card-editor box stays open until Markoff ships handoff item 1. The re-pin check stays open.
+Detail and the do-not list: [`superpowers/plans/2026-10-17-markoff-vnext-finish.md`](superpowers/plans/2026-10-17-markoff-vnext-finish.md). Comment cleanup (§3) is in the tree. The card-editor box and the re-pin check closed on 2026-10-20.
 
 - [x] [markoff][P1] **Provider-backed note session.** Submodule `dca64686`, CollabText alpha5, `EditingSessionSource`, `noteDocumentKeyHint`, `publishMarkdown` / `insertAtFlatOffset` / save watermark, vault `snapshotForExport`. Landed `150446a2`; offscreen suite 267/267 on 2026-10-17. Plan: "Already done".
 - [x] [markoff][canvas][P1] **Paint identity.** `openForRender` (no import when `ready`), `RenderOptions.documentKeyHint`, `StyledRenderEngine` pointer `renderInto`, `CanvasScene::setSessionContext`, file cards use the note hint, publication checks in completion and both replace slots, `DocumentRenderer` byte path accepts `committedHistoryPending` (submodule dirty; do not commit it). `tst_styled_render_engine` covers a key hint. Landed `150446a2`.
-- [ ] [markoff][canvas][P2] **Card editor swap, blocked on Markoff.** When handoff item 1 ships, replace the canvas `QTextEdit` per plan §1. Store `serializeForSave()` in `CmdEditText`. File-card inline save writes that projection, through the open `NoteDocument` when one exists. Do not start while the widget is missing. Handoff: `docs/handoff/2026-10-17-to-markoff-canvas-cards-and-session.md`.
-- [ ] [markoff][P3] **Re-apply the `DocumentRenderer` history-pending check on every submodule re-pin.** Exact condition is in plan §2. Host paint uses the pointer overload; the byte path still blanks a card if the hunk is lost.
+- [x] [markoff][canvas][P2] **Card editor swap — Markoff shipped the card view, and it is integrated.** Upstream `aae3727d` added the card (embedded) mode to `Markoff::Canvas::EditorWidget`; the canvas `QTextEdit` is gone. A text card is edited in that leaf over its **own session document** (`openImportedDocument` under `canvasTextCardKeyHint`), and the card stores the document's **projection** (`serializeForSave()`), not a widget string; the file card edits the note-hint document and writes that projection through `m_fileSaver`. The leaf arrives read-only and the host promotes the card being edited; the host owns the geometry. `CmdEditText`'s undo contract is unchanged (old text, new text, one command). Pinned by `tst_canvas_card_editor` (7 cases: the leaf is the Markoff card view and is editable, the projection is stored and undone, the focus contract, the file-card projection, and a card whose document cannot open is not edited). Verified live under Xvfb: double-click → type → click away → the card stores the projection → undo restores the old text. Closeout: `docs/decisions-archive.md`, heading `2026-10-20 — the card view is integrated`.
+- [x] [markoff][P3] **Re-apply the `DocumentRenderer` history-pending check on every submodule re-pin.** The re-pin to `e0b96bf8` kept the hunk (plan §2's condition: the byte path accepts `committedHistoryPending` as well as `committed`). The submodule's working tree still carries it — **do not commit the submodule**; the parent only moves the gitlink.
 - [x] [markoff][P3] **Retire host comments that name `applyFlatEdit`, `resetContent`, or `documentReloaded`.** Done in the host files named in plan §3. User-visible reasons in `MarkdownViewActions.cpp` no longer name the removed method. `tst_line_resolve`, `tst_notedocument_dirty`, and `tst_note_editor_widget_insert_at_cursor` passed, then the offscreen suite was 267/267. Landed `150446a2`.
 
 ## Next — P0s (closed 2026-10-17)

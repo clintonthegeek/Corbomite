@@ -41,7 +41,7 @@ directory-scoped — and patching the submodule would be lost on the next
 re-pin. The real fix is a `LABELS "benchmark"` in markoff-canvas; until then
 keep the regex. Without it, "the suite is green" is not a reliable signal.
 
-Baseline (2026-10-17): **267/267 pass** with the exclusion above, on the local Markoff pin `dca64686`. Markoff's own tests are excluded because `MARKOFF_BUILD_TESTS` and `MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS` are forced OFF. The 2026-10-04 count of 354 belongs to the previous pin.
+Baseline (2026-10-20): **265/265 pass** with the exclusion above, on the local Markoff pin `e0b96bf8`. Markoff's own tests are excluded because `MARKOFF_BUILD_TESTS` and `MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS` are forced OFF. The 2026-10-17 count of 267 (and the 274 recorded in `docs/PROJECT-STATE.md`) belong to the previous pin: two test files were retired with their features since, and the card editor added one. The 2026-10-04 count of 354 belongs to an earlier pin still.
 
 ### Load-sensitive flakes — "the suite is green" is not yet a reliable signal
 

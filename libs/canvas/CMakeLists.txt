@@ -56,6 +56,11 @@ target_include_directories(canvas
 )
 target_link_libraries(canvas PUBLIC Qt6::Core Qt6::Widgets Qt6::Svg Corbomite::Core Graffodil::Core KF6::I18n Corbomite::Search)
 
+# The card editor is Markoff's canvas leaf in embedded (card) mode — the
+# widget the card view is built on. It is linked here (not through
+# corbomite-core) because only the canvas embeds it.
+target_link_libraries(canvas PUBLIC Markoff::Canvas)
+
 # Install rule — needed now that the app carries a runtime DT_NEEDED on
 # this library instead of embedding it statically. Not part of the
 # CorbomiteTargets export set (no Corbomite:: alias); canvas itself isn't

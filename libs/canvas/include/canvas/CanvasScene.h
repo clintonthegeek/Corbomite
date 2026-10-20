@@ -10,6 +10,7 @@
 #include <QRectF>
 #include <QVector>
 #include <functional>
+#include <memory>
 #include "CanvasTypes.h"
 
 class QIODevice;
@@ -18,10 +19,16 @@ class QUndoStack;
 class QUndoCommand;
 class QGraphicsProxyWidget;
 class QGraphicsSceneDragDropEvent;
-class QTextEdit;
+
+namespace Markoff {
+namespace Canvas {
+class EditorWidget;
+} // namespace Canvas
+} // namespace Markoff
 
 namespace Corbomite {
 class MarkdownRenderEngine;
+struct OpenDocument;
 }
 
 namespace Graffodil {
@@ -96,7 +103,8 @@ public:
 
     /// Vault root and vault-relative `.canvas` path used as Markoff session
     /// key hints. An empty canvas path leaves text-card hints empty, which
-    /// is what unit tests do. Does not replace the QTextEdit card editor.
+    /// is what unit tests do. The card editor opens its document under the
+    /// same hint the paint uses.
     void setSessionContext(const QString &vaultRoot, const QString &canvasRelativePath);
 
     // File content resolver
@@ -441,7 +449,14 @@ private:
 
     // Inline editing state
     QGraphicsProxyWidget *m_editProxy = nullptr;
-    QTextEdit *m_editWidget = nullptr;
+    /// The card editor: Markoff's canvas leaf in embedded (card) mode. It
+    /// is a window onto the session document below — the leaf never owns
+    /// the text, the document does.
+    Markoff::Canvas::EditorWidget *m_editWidget = nullptr;
+    /// The session document the card editor is bound to. It owns the
+    /// Markoff document, so it must outlive the editor: the editor holds a
+    /// raw pointer to it.
+    std::unique_ptr<Corbomite::OpenDocument> m_editDocument;
     QString m_editingNodeId;
     QMetaObject::Connection m_focusConnection;
     QGraphicsProxyWidget *m_labelEditProxy = nullptr;

@@ -10,6 +10,45 @@ Conventions:
 
 ---
 
+## 2026-10-20 — The card view is integrated
+
+Markoff shipped the card view (upstream `aae3727d`, "card (embedded) mode — the host owns
+geometry, scrolling and chrome"), so the canvas `QTextEdit` is gone. A canvas text card is
+now edited in `Markoff::Canvas::EditorWidget` with `setEmbeddedMode(true)`, over the card's
+**own session document** — `openImportedDocument` under `canvasTextCardKeyHint`, the same hint
+the paint uses, so a plugin sees one document per card. The card stores the document's
+**projection** (`serializeForSave()`), never a widget string; the file card edits the
+note-hint document (`openForRender` under `noteDocumentKeyHint`, so a plugin's live note is
+never imported over) and writes that projection through `m_fileSaver`. The leaf arrives
+read-only and the host promotes the card being edited; the host owns the geometry, the scroll
+position and the focus. `CmdEditText`'s undo contract is unchanged: old text, new text, one
+command.
+
+Three decisions came out of the integration, and they are the ones worth keeping:
+
+- **The document owns the text, the leaf is a window onto it.** That is why the editor is
+  bound to a session document rather than handed the card's string, and why the stored text is
+  the projection. It also means an edit that cannot open its document must not start: a
+  document that never took the import projects an empty text, and writing that back would
+  erase the card.
+- **The edit ends on the scene's click, not on the application's focus.** A
+  `QGraphicsProxyWidget` keeps the embedded leaf a top-level widget with
+  `WA_DontShowOnScreen`; its window never becomes the application's active window, so
+  `QApplication::focusChanged` never fires for it. The canvas therefore finishes the edit from
+  its own `mousePressEvent` (a press outside the editor proxy), and the focus watcher only
+  catches a focus that leaves the editor's subtree. Filed as a Markoff gap: the card mode
+  documents the host's duties for geometry, scrolling and chrome, but not for focus.
+- **One frontmatter reader, and the writer refuses what it cannot splice.** The re-pin to
+  `e0b96bf8` also brought upstream's strict frontmatter fence, which changed a 2026-10-17
+  decision rather than just closing an ask. That is its own entry below
+  (`2026-10-20 — The strict frontmatter fence, and what the writer does with it`).
+
+Pinned by `tst_canvas_card_editor` (7 cases). Verified live under Xvfb: double-click a
+card, type, click away — the card stores the projection and one undo step restores the old
+text. The offscreen suite is 265/265.
+
+---
+
 ## 2026-10-20 — The strict frontmatter fence, and what the writer does with it
 
 The re-pin to Markoff `e0b96bf8` (taken for the card view) brought upstream `5c0e5c6a`,

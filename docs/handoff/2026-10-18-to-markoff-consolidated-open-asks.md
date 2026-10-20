@@ -6,6 +6,17 @@
 **Status:** every ask below is open as of this date; nothing here is a request for
 a decision we have already made ourselves
 
+**Update 2026-10-20:** two of these asks have since been answered upstream and are
+closed on our side — **ASK-M37** (the embeddable card editor) by `aae3727d`, "card
+(embedded) mode", which Corbomite has integrated, and **ASK-M35** (the frontmatter
+closing-fence EOL check) by `5c0e5c6a`, "require a complete closing frontmatter
+fence". The M35 answer changed a Corbomite decision rather than just closing an
+ask: the shared reader is now Obsidian's writer rule, so the writer refuses the
+frontmatter write it can no longer splice instead of prepending a second `---`
+block — see
+[`docs/obsidian-audit/addenda/2026-10-20-strict-frontmatter-fence-and-the-writers-refusal.md`](../obsidian-audit/addenda/2026-10-20-strict-frontmatter-fence-and-the-writers-refusal.md).
+The rest of this document is unchanged: the asks below stand as they were sent.
+
 This is the **single document** for everything Corbomite is asking of the Markoff
 project. It replaces the per-library handoffs as the live artifact: the seven
 documents under `docs/handoff/2026-10-02-*` and their neighbours were sent

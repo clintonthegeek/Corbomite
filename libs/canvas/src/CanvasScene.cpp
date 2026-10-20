@@ -24,6 +24,9 @@
 #include <graffodil/IGraphNode.h>
 #include <graffodil/IGraphEdge.h>
 
+#include <markoff/canvas/EditorWidget.h>
+#include <markoff/core/MarkoffDocument.h>
+
 #include <QApplication>
 #include <QClipboard>
 #include <QCursor>
@@ -48,7 +51,6 @@
 #include <QSet>
 #include <QSvgGenerator>
 #include <utility>
-#include <QTextEdit>
 #include <QUndoStack>
 #include <QtMath>
 #include <KLocalizedString>
@@ -61,6 +63,32 @@ Corbomite::RenderOptions textCardOptions(const QString &canvasRelativePath, cons
     if (!canvasRelativePath.isEmpty() && !nodeId.isEmpty())
         opts.documentKeyHint = Corbomite::canvasTextCardKeyHint(canvasRelativePath, nodeId);
     return opts;
+}
+
+// The card editor is Markoff's canvas leaf in embedded (card) mode: a window
+// onto a session document rather than a scroller. The host owns the
+// geometry — the leaf imposes no minimum size and no size policy — and
+// promotes the card being edited, because a card arrives read-only.
+Markoff::Canvas::EditorWidget *createCardEditor(Markoff::MarkoffDocument *document,
+                                                const QRectF &bounds)
+{
+    auto *editor = new Markoff::Canvas::EditorWidget;
+    editor->setEmbeddedMode(true);
+    editor->setDocument(document);
+    editor->setReadOnly(false);
+    editor->setFixedSize(static_cast<int>(bounds.width()),
+                         static_cast<int>(bounds.height()));
+    return editor;
+}
+
+// The keyboard focus can sit on the editor or on any of its children —
+// Markoff's view is the widget that actually takes it. The edit ends only
+// when the focus has left the editor subtree.
+bool focusInsideEditor(const QWidget *editor, const QWidget *focus)
+{
+    if (!editor || !focus)
+        return false;
+    return focus == editor || editor->isAncestorOf(focus);
 }
 
 } // namespace
@@ -226,7 +254,7 @@ CanvasScene::~CanvasScene()
 
     // Commit/tear down any in-progress inline edit BEFORE
     // QGraphicsScene::~QGraphicsScene() starts deleting items. Deleting a
-    // focused QTextEdit/QLineEdit synchronously fires
+    // focused card editor/QLineEdit synchronously fires
     // QApplication::focusChanged, which the edit-start code connects back
     // to this scene (m_focusConnection) to auto-finish on focus loss — if
     // that connection is still live when the base-class destructor deletes
@@ -1464,20 +1492,34 @@ void CanvasScene::beginInlineEdit(TextCardItem *card)
 
     m_editingNodeId = card->nodeId();
 
-    m_editWidget = new QTextEdit;
-    m_editWidget->setPlainText(card->nodeData().text);
-    m_editWidget->setFixedSize(static_cast<int>(card->boundingRect().width()),
-                               static_cast<int>(card->boundingRect().height()));
-    m_editWidget->setFrameShape(QFrame::NoFrame);
+    // The card is a window onto its own session document. The hint is the
+    // one the paint uses, so a plugin sees one document per card. An empty
+    // hint (unit tests) gets a throwaway document.
+    const QString hint =
+        textCardOptions(m_canvasRelativePath, m_editingNodeId).documentKeyHint;
+    m_editDocument = std::make_unique<Corbomite::OpenDocument>(
+        Corbomite::openImportedDocument(card->nodeData().text.toUtf8(), hint));
+    // A document that did not take the import projects an empty text, and
+    // that projection is what the card would store. Refuse the edit rather
+    // than write the emptiness back.
+    if (!m_editDocument->document || !m_editDocument->imported) {
+        m_editDocument.reset();
+        m_editingNodeId.clear();
+        return;
+    }
+
+    m_editWidget = createCardEditor(m_editDocument->document.get(),
+                                     card->boundingRect());
 
     m_editProxy = addWidget(m_editWidget);
     m_editProxy->setPos(card->pos());
     m_editProxy->setZValue(100);
 
-    m_editWidget->setFocus();
+    // The leaf is a container; its view is the widget that takes the focus.
+    m_editWidget->view()->setFocus();
 
     // Finish editing on focus loss
-    connect(m_editWidget, &QTextEdit::destroyed, this, [this]() {
+    connect(m_editWidget, &QObject::destroyed, this, [this]() {
         m_editProxy = nullptr;
         m_editWidget = nullptr;
         m_editingNodeId.clear();
@@ -1486,7 +1528,7 @@ void CanvasScene::beginInlineEdit(TextCardItem *card)
     // Disconnect any previous focus watcher, then connect a new one
     disconnect(m_focusConnection);
     m_focusConnection = connect(qApp, &QApplication::focusChanged, this, [this](QWidget * /*old*/, QWidget *now) {
-        if (m_editWidget && now != m_editWidget) {
+        if (m_editWidget && !focusInsideEditor(m_editWidget, now)) {
             finishInlineEdit();
         }
     });
@@ -1497,15 +1539,21 @@ void CanvasScene::finishInlineEdit()
     if (!m_editProxy || !m_editWidget)
         return;
 
-    const QString newText = m_editWidget->toPlainText();
+    // The projection is the text: the leaf never owns it, the document
+    // does. This is what goes into the undo command and back onto the card.
+    const QString newText = m_editDocument && m_editDocument->document
+        ? QString::fromUtf8(m_editDocument->document->serializeForSave())
+        : QString();
     const QString nodeId = m_editingNodeId;
 
-    // Remove the proxy widget
+    // Remove the proxy widget. It owns the leaf, so the leaf dies here —
+    // before the document it points at, which is reset below.
     removeItem(m_editProxy);
     delete m_editProxy;
     m_editProxy = nullptr;
     m_editWidget = nullptr;
     m_editingNodeId.clear();
+    m_editDocument.reset();
 
     // Disconnect the tracked focus connection
     disconnect(m_focusConnection);
@@ -1537,24 +1585,40 @@ void CanvasScene::beginFileCardEdit(FileCardItem *card)
     m_editingFileCardId = card->nodeId();
 
     // Load file content
-    QString content;
+    QByteArray content;
     if (m_fileResolver) {
-        content = m_fileResolver(card->nodeData().file);
+        content = m_fileResolver(card->nodeData().file).toUtf8();
     }
 
-    m_editWidget = new QTextEdit;
-    m_editWidget->setPlainText(content);
-    m_editWidget->setFixedSize(static_cast<int>(card->boundingRect().width()),
-                               static_cast<int>(card->boundingRect().height()));
-    m_editWidget->setFrameShape(QFrame::NoFrame);
+    // The note's own session document, under the same hint the paint uses:
+    // a plugin that already has the note open hands back its live
+    // projection, and the resolver bytes are imported only when the
+    // document is still empty. The slice is never imported over a live
+    // note.
+    QString hint;
+    if (!m_vaultRoot.isEmpty() && !card->nodeData().file.isEmpty())
+        hint = Corbomite::noteDocumentKeyHint(m_vaultRoot, card->nodeData().file);
+    m_editDocument = std::make_unique<Corbomite::OpenDocument>(
+        Corbomite::openForRender(content, hint));
+    // Same rule as the text card: a document that never took the bytes
+    // projects an empty text, and that is what the saver would write over
+    // the note.
+    if (!m_editDocument->document || !m_editDocument->imported) {
+        m_editDocument.reset();
+        m_editingFileCardId.clear();
+        return;
+    }
+
+    m_editWidget = createCardEditor(m_editDocument->document.get(),
+                                     card->boundingRect());
 
     m_editProxy = addWidget(m_editWidget);
     m_editProxy->setPos(card->pos());
     m_editProxy->setZValue(100);
 
-    m_editWidget->setFocus();
+    m_editWidget->view()->setFocus();
 
-    connect(m_editWidget, &QTextEdit::destroyed, this, [this]() {
+    connect(m_editWidget, &QObject::destroyed, this, [this]() {
         m_editProxy = nullptr;
         m_editWidget = nullptr;
         m_editingFileCardId.clear();
@@ -1562,7 +1626,7 @@ void CanvasScene::beginFileCardEdit(FileCardItem *card)
 
     disconnect(m_focusConnection);
     m_focusConnection = connect(qApp, &QApplication::focusChanged, this, [this](QWidget *, QWidget *now) {
-        if (m_editWidget && now != m_editWidget) {
+        if (m_editWidget && !focusInsideEditor(m_editWidget, now)) {
             finishFileCardEdit();
         }
     });
@@ -1573,7 +1637,10 @@ void CanvasScene::finishFileCardEdit()
     if (!m_editProxy || !m_editWidget || m_editingFileCardId.isEmpty())
         return;
 
-    const QString newContent = m_editWidget->toPlainText();
+    // The projection, not a widget string: the leaf never owns the text.
+    const QString newContent = m_editDocument && m_editDocument->document
+        ? QString::fromUtf8(m_editDocument->document->serializeForSave())
+        : QString();
     const QString nodeId = m_editingFileCardId;
 
     removeItem(m_editProxy);
@@ -1581,6 +1648,7 @@ void CanvasScene::finishFileCardEdit()
     m_editProxy = nullptr;
     m_editWidget = nullptr;
     m_editingFileCardId.clear();
+    m_editDocument.reset();
     disconnect(m_focusConnection);
 
     // Save to file via callback

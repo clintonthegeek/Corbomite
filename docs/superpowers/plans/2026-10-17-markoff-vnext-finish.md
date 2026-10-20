@@ -1,12 +1,12 @@
 # Finish the Markoff vNext integration
 
-**Date:** 2026-10-17. **Status:** hard seam landed in the working tree, not committed. This file is the rest of the job.
+**Date:** 2026-10-17. **Status:** hard seam landed in the working tree, not committed. This file is the rest of the job. **Updated 2026-10-20:** §1 landed on pin `e0b96bf8`; §2's hunk survived that re-pin.
 
 Read this file before editing. It is PROJECT-STATE trajectory step 1. The punch-list section `## Now — Markoff vNext` is the checkbox form of the same work. Cluster M6.2 and M6.3 stay in the Cluster M plan and start only after punch-list §Next. This is not a new cluster and it is not M6.
 
 ## Already done — do not redo
 
-Markoff submodule `libs/markoff-family` is detached at `dca64686` (local `master`, 21 commits ahead of GitHub `origin/master` `28e9a734`). CollabText is the installed package `0.2.0-alpha.5` (`e8a8e7d1`), found via `COLLABTEXT_ROOT` or the sibling prefix `../Markoff/build-collabtext-alpha5/install`. Root `CMakeLists.txt` forces `MARKOFF_BUILD_LIVE=OFF` and `MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS=OFF` before `add_subdirectory(libs/markoff-family)`.
+Markoff submodule `libs/markoff-family` is detached at **`e0b96bf8`** (was `dca64686`; the 2026-10-20 re-pin took upstream's card mode `aae3727d` and its strict frontmatter fence `5c0e5c6a`). CollabText is the installed package `0.2.0-alpha.5` (`e8a8e7d1`), found via `COLLABTEXT_ROOT` or the sibling prefix `../Markoff/build-collabtext-alpha5/install`. Root `CMakeLists.txt` forces `MARKOFF_BUILD_LIVE=OFF` and `MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS=OFF` before `add_subdirectory(libs/markoff-family)`.
 
 `EditingSessionSource` is the plugin seam (`libs/core/include/corbomite/core/EditingSession.h`). The default source mints one ephemeral provider per `bindingFor` call. `setEditingSessionSource(nullptr)` restores it. The pointer is not owned.
 
@@ -44,20 +44,29 @@ Offscreen `ctest -E "benchmark|perf"` on 2026-10-17: **267/267**. Markoff's own 
 
 ## Remaining work, in order
 
-### 1. Leave the card editor until Markoff ships it
+### 1. The card editor — landed 2026-10-20
 
-Handoff: `docs/handoff/2026-10-17-to-markoff-canvas-cards-and-session.md` item 1. The widget must be a bounded `MarkdownView` (or `Canvas::EditorWidget` with a card flag): host-controlled size, no toolbar, embeddable in a `QGraphicsProxyWidget`. When that widget exists, and not before:
+Handoff: `docs/handoff/2026-10-17-to-markoff-canvas-cards-and-session.md` item 1. Markoff shipped the widget: upstream `aae3727d` added the card (embedded) mode to `Markoff::Canvas::EditorWidget` — the host owns the geometry, the scrolling and the chrome; the card arrives read-only and the host promotes it. Pin `e0b96bf8`.
 
-1. In `CanvasScene::beginInlineEdit`, put that widget in `m_editProxy` instead of `QTextEdit`. Open the card with `openImportedDocument(text.toUtf8(), canvasTextCardKeyHint(...))` when the hint is non-empty, and keep the `OpenDocument` alive until `finishInlineEdit`. An empty hint (unit tests) may keep a throwaway document.
-2. `finishInlineEdit` must store `serializeForSave()` into `CmdEditText`, then paint with `openForRender` and the same hint. Do not store `QTextEdit::toPlainText()`.
-3. File-card edit (`beginFileCardEdit` / `finishFileCardEdit`) still writes through `m_fileSaver`. When the card editor exists, write `serializeForSave()` of the open `NoteDocument` when one is open for `noteDocumentKeyHint(vaultRoot, file)`, otherwise of a document opened with `openImportedDocument` on the resolver bytes. Do not write a widget string that differs from that projection.
-4. Keep `CmdEditText`'s undo contract: old text, new text, one command. The new text is the projection bytes.
+What landed, against the four steps below:
 
-Until item 1 exists, steps 1–3 are blocked. Do not start them.
+1. `CanvasScene::beginInlineEdit` puts a `Markoff::Canvas::EditorWidget` (embedded mode) in `m_editProxy` instead of the `QTextEdit`. The card is opened with `openImportedDocument(text.toUtf8(), canvasTextCardKeyHint(...))` and the `OpenDocument` is held by the scene until `finishInlineEdit`. An empty hint (unit tests) gets a throwaway document.
+2. `finishInlineEdit` stores `serializeForSave()` into `CmdEditText`, then paints with `openForRender` and the same hint (the paint path was already that). It never stores a widget string.
+3. File-card edit still writes through `m_fileSaver`, and writes the projection of the note-hint document. The open is `openForRender(resolverBytes, noteDocumentKeyHint(...))`: it returns the plugin's live note when the provider is `ready` and imports the resolver bytes only while the document is empty, so a live note is never imported over (the "do not" list forbids that, and `openImportedDocument` would have done it).
+4. `CmdEditText`'s undo contract is unchanged: old text, new text, one command.
+
+Two host decisions came out of it, both recorded in [`decisions-archive.md`](../../decisions-archive.md) (`2026-10-20 — The card view is integrated`):
+
+- **An edit whose document did not open must not start.** A document that never took the import projects an empty text, and that projection is what the card would store — so the edit is refused instead of erasing the card.
+- **The edit ends on the scene's click, not on the application's focus.** A `QGraphicsProxyWidget` keeps the embedded leaf a top-level widget with `WA_DontShowOnScreen`; its window never becomes the application's active window, so `QApplication::focusChanged` never fires for it. The scene's `mousePressEvent` (a press outside the editor proxy) finishes the edit; the focus watcher only catches a focus that leaves the editor's subtree. Filed as a Markoff gap in `docs/obsidian-audit/01-markoff-gaps.md`.
+
+Pinned by `tst_canvas_card_editor` (7 cases) and verified live under Xvfb. The re-pin also brought upstream's strict frontmatter fence (`5c0e5c6a`), which is a separate change — see [`2026-10-20-strict-frontmatter-fence-and-the-writers-refusal.md`](../../obsidian-audit/addenda/2026-10-20-strict-frontmatter-fence-and-the-writers-refusal.md).
 
 ### 2. Re-apply the renderer one-liner on every re-pin
 
 `libs/markoff-family/libs/markoff-styled/src/DocumentRenderer.cpp`, byte `renderInto`: after `importInitialMarkdown`, return without painting only when the state is neither `committed` nor `committedHistoryPending`. The current comment in that function is the reason. Host paint no longer uses this overload (`StyledRenderEngine` uses the pointer overload). Hover and any future byte-path caller still need it. If a re-pin drops the hunk, put it back. Do not send it upstream by editing `/home/clinton/dev/Markoff` unless the user asks.
+
+**Checked on the 2026-10-20 re-pin to `e0b96bf8`: the hunk is still there** (the byte path accepts `committedHistoryPending` as well as `committed`). The submodule's working tree carries it; the submodule is not committed.
 
 ### 3. Comments that still name removed APIs
 
@@ -84,10 +93,10 @@ A single red timing test is re-run alone before it is called a regression. `tst_
 
 `docs/handoff/2026-10-17-to-markoff-canvas-cards-and-session.md`, indexed from `docs/UPSTREAM-ASKS.md`:
 
-1. Embeddable card editor. Gates section 1 above.
+1. Embeddable card editor. **Answered 2026-10-20** — upstream `aae3727d` shipped the card (embedded) mode; §1 is landed. The follow-up that came out of it: the mode documents the host's duties for geometry, scrolling and chrome, but not for focus, and a `QGraphicsProxyWidget` host cannot use application-level focus to notice that the user left the card. Filed in `docs/obsidian-audit/01-markoff-gaps.md`.
 2. A durable provider may keep many scopes open. Ephemeral stays one session per provider.
 3. Keep `renderInto(QTextDocument*, const MarkoffDocument*)` public and cheap.
 4. Optional publication that adopts external bytes without an undo step. Do not change `replaceMarkdown` to drop history. Clean reload undo restoring the pre-reload text is intentional.
 5. `pasteMarkdownAt` should splice and keep leading spaces. Gates deletion of `insertAtFlatOffset`'s workaround.
 
-The "what a canvas card is today" paragraph in that handoff now matches the pointer paint path. The `QTextEdit` editor is still what item 1 replaces.
+The "what a canvas card is today" paragraph in that handoff now matches the pointer paint path. The `QTextEdit` editor it describes was replaced on 2026-10-20 (§1).
