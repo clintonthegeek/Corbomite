@@ -14,6 +14,8 @@ class TstVaultSaveReload : public QObject
     Q_OBJECT
 private slots:
     void saveDocument_writesCanonicalBytesExactly();
+    void saveDocument_preservesIrregularBlankLineRuns();
+    void saveDocument_preservesBlankLineRunsAroundAnEdit();
     void openDocument_notModifiedAfterHydration();
     void openDocument_newFile_notModified();
     void saveDocument_returnsFalseForUnknownFile();
@@ -65,6 +67,86 @@ void TstVaultSaveReload::saveDocument_writesCanonicalBytesExactly()
     QCOMPARE(disk, expected);
     // Sanity: the snowman is present on disk.
     QVERIFY(disk.contains("\xe2\x98\x83"));
+}
+
+void TstVaultSaveReload::saveDocument_preservesIrregularBlankLineRuns()
+{
+    // The 2026-06-10 triage found that Markoff's D2 serializer collapsed
+    // runs of 2+ blank lines to one on every save, and the disposition was
+    // "accept + document". That serializer is retired: the vNext document
+    // keeps the source bytes and re-emits them, so a file with irregular
+    // blank-line spacing now round-trips byte-for-byte through a save.
+    // This pins the behaviour, so a re-pin that brings the collapse back
+    // goes red here instead of into a user's vault.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QByteArray original =
+        "# Title\n"
+        "\n"
+        "\n"
+        "\n"
+        "para one\n"
+        "\n"
+        "\n"
+        "\n"
+        "para two\n";
+    writeFile(dir.path() + "/runs.md", original);
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *note = vault.openDocument(QStringLiteral("runs.md"));
+    QVERIFY(note);
+
+    QVERIFY(vault.saveDocument(note));
+
+    // Byte-identical: no run collapsed, nothing added, nothing removed.
+    QCOMPARE(readFile(dir.path() + "/runs.md"), original);
+}
+
+void TstVaultSaveReload::saveDocument_preservesBlankLineRunsAroundAnEdit()
+{
+    // The same property after an edit: the changed text is what lands, and
+    // the blank-line runs around it survive.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    const QByteArray original =
+        "# Title\n"
+        "\n"
+        "\n"
+        "\n"
+        "para one\n"
+        "\n"
+        "\n"
+        "\n"
+        "para two\n";
+    writeFile(dir.path() + "/edited.md", original);
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+
+    auto *note = vault.openDocument(QStringLiteral("edited.md"));
+    QVERIFY(note);
+
+    const QByteArray edited =
+        "# Title\n"
+        "\n"
+        "\n"
+        "\n"
+        "para one, edited\n"
+        "\n"
+        "\n"
+        "\n"
+        "para two\n";
+    QVERIFY(note->publishMarkdown(edited));
+    note->setModified(true);
+    QVERIFY(vault.saveDocument(note));
+
+    QCOMPARE(readFile(dir.path() + "/edited.md"), edited);
 }
 
 void TstVaultSaveReload::openDocument_notModifiedAfterHydration()
