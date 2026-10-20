@@ -10,6 +10,43 @@ Conventions:
 
 ---
 
+## 2026-10-20 — The strict frontmatter fence, and what the writer does with it
+
+The re-pin to Markoff `e0b96bf8` (taken for the card view) brought upstream `5c0e5c6a`,
+"require a complete closing frontmatter fence". The shared reader — the one the indexer, the
+writer and the vNext document all use — is now **Obsidian's writer rule**: a closing fence
+must be a complete `---` line. The permissive rule the 2026-10-17 decision was built on is
+gone, and it is gone for a stated reason: the plain prefix search also accepted `----`,
+`--- ` and `---foo` as closers, "which silently cut the body short on round-trip".
+
+The 2026-10-17 decision made its *splice* conditional on the reader finding a span ("splice
+in place … where the reader found a span"). Under the strict reader there is no span for the
+trailing-fence class, so there is nothing to splice, and the writer's other standing
+invariant — **never create a second `---` block** — has to be kept by refusing the write and
+keeping the bytes. `FileManager::frontmatterUnusable` now refuses that class the way it
+already refused an unparseable YAML block.
+
+**One reader is kept — upstream's.** No host-side fork of the fence rule, so the 2026-10-17
+"one reader" invariant stands, and the panel parity that decision was protecting improves:
+`PropertiesView` reads the indexer path and Obsidian's panel reads the writer path, so with
+the writer's rule in both, the panel is now *exact* against Obsidian's for both fence classes
+(CRLF and trailing-space). The two costs are the ones the 2026-10-17 addendum already named
+as the price of a strict reader: the frontmatter tags and links of a trailing-fence note
+leave the search index and the graph, and a rename leaves a stale link inside such a block.
+
+The guard is not a second scanner: `carriesRejectedFenceBlock` never computes a span and
+never parses YAML, it only asks whether a fence-like line follows the opening fence that the
+reader rejected — and it only runs when the reader found *no* block, so every such line is
+one the reader rejected. Pinned by
+`tst_file_manager_frontmatter::refusesTrailingSpaceFenceInsteadOfPrepending` (the bytes are
+kept exactly and there is still only one block) and
+`::prependsToNoteWhoseBodyStartsWithThematicBreak` (the guard's boundary: a note whose body
+opens with a thematic break has no block to reject, so the writer still prepends one).
+
+Addendum: `docs/obsidian-audit/addenda/2026-10-20-strict-frontmatter-fence-and-the-writers-refusal.md`.
+
+---
+
 ## 2026-10-17 — Mermaid / mmdr work dropped
 
 Decided to **drop** the mermaid-rendering backlog rather than carry it as blocked work.

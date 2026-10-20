@@ -350,20 +350,71 @@ QByteArray spliceFrontmatter(const QString &source, const Markoff::Document *doc
         .toUtf8();
 }
 
+// The shared reader (`Markoff::Document::extract`) accepts a closing fence only
+// when it is a complete `---` line, exactly like Obsidian's own writer scanner
+// (`getFrontMatterInfo`, regex `---(\r?\n|$)`). A note can still open a block
+// the reader rejects: the opening fence is there, but the closing one carries
+// a trailing character (`--- `, `---foo`, `----`). The reader then finds no
+// block at all and hands the whole file back as body, so the writer's prepend
+// branch would leave *two* `---` blocks in the file — the first one would
+// swallow the new frontmatter and the old block would end up in the body.
+//
+// This is a guard, not a second frontmatter scanner: it never computes a span
+// and never parses YAML. It only asks whether a fence-like line follows the
+// opening fence. Call it only when the reader found *no* block: the reader
+// stops at the first complete `---` line, so in that case every fence-like
+// line behind the opening one is one it rejected.
+bool carriesRejectedFenceBlock(const QString &source)
+{
+    if (!source.startsWith(QStringLiteral("---\n"))
+        && !source.startsWith(QStringLiteral("---\r\n")))
+        return false;
+
+    // Past the opening fence; the reader's own closer search starts there too.
+    int pos = source.indexOf(QLatin1Char('\n')) + 1;
+    while (pos < source.size()) {
+        const int eol = source.indexOf(QLatin1Char('\n'), pos);
+        const int len = (eol < 0 ? source.size() : eol) - pos;
+        if (source.mid(pos, len).startsWith(QStringLiteral("---")))
+            return true;
+        if (eol < 0)
+            break;
+        pos = eol + 1;
+    }
+    return false;
+}
+
 // Both frontmatter writers round-trip the block through the YAML parser, so an
 // unparseable block cannot be merged into — it can only be replaced. Obsidian's
 // link-fixup applier hits the same wall and returns the buffer with the edit
 // silently dropped (app/own/1304-ZF.js:21-25); here the whole block would be
 // discarded, so refuse instead and keep the bytes.
+//
+// A note that opens a block the reader rejected is refused for the same
+// reason: the writer has no span to splice, and prepending a second block
+// would corrupt the note. The 2026-10-17 decision made the splice
+// conditional on the reader finding a span; a strict reader finds none, so
+// the standing invariant — the writer never creates a second `---` block —
+// is kept by refusing.
 // Returns true when `doc` is unusable for a frontmatter rewrite.
-bool frontmatterUnusable(const Markoff::Document *doc, const QString &path)
+bool frontmatterUnusable(const Markoff::Document *doc, const QString &path,
+                         const QString &source)
 {
     const QString err = doc->frontmatterParseError();
-    if (err.isEmpty()) return false;
-    qWarning("Corbomite: refusing to rewrite frontmatter of %s — the existing "
-             "block is not valid YAML, so the write would discard it (%s)",
-             qPrintable(path), qPrintable(err));
-    return true;
+    if (!err.isEmpty()) {
+        qWarning("Corbomite: refusing to rewrite frontmatter of %s — the existing "
+                 "block is not valid YAML, so the write would discard it (%s)",
+                 qPrintable(path), qPrintable(err));
+        return true;
+    }
+    if (!doc->frontmatterSpan().has_value() && carriesRejectedFenceBlock(source)) {
+        qWarning("Corbomite: refusing to rewrite frontmatter of %s — the note opens a "
+                 "frontmatter block whose closing fence the reader does not accept, and "
+                 "prepending another block would leave two of them in the file",
+                 qPrintable(path));
+        return true;
+    }
+    return false;
 }
 
 } // namespace
@@ -378,7 +429,7 @@ bool FileManager::processFrontMatter(TFile *f, FrontMatterMutator mut)
         auto doc = Markoff::Document::fromMarkdown(QString::fromUtf8(cur));
         if (!doc) return cur;
 
-        if (frontmatterUnusable(doc.get(), f->path)) {
+        if (frontmatterUnusable(doc.get(), f->path, QString::fromUtf8(cur))) {
             unparseable = true;
             return cur;
         }
@@ -436,7 +487,7 @@ bool FileManager::setFrontMatter(TFile *f, const QList<FrontMatterEntry> &ordere
         auto doc = Markoff::Document::fromMarkdown(QString::fromUtf8(cur));
         if (!doc) return cur;
 
-        if (frontmatterUnusable(doc.get(), f->path)) {
+        if (frontmatterUnusable(doc.get(), f->path, QString::fromUtf8(cur))) {
             unparseable = true;
             return cur;
         }

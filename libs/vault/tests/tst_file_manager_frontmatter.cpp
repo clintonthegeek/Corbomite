@@ -23,7 +23,8 @@ private slots:
     void setFrontMatterPreservesUnparseableFrontmatter();
     void preservesCrlfDelimitersAndBody();
     void stripsCrlfBlockLeavingBodyByteIdentical();
-    void splicesTrailingSpaceFenceInsteadOfPrepending();
+    void refusesTrailingSpaceFenceInsteadOfPrepending();
+    void prependsToNoteWhoseBodyStartsWithThematicBreak();
 };
 
 namespace {
@@ -300,14 +301,41 @@ void TestFileManagerFrontmatter::stripsCrlfBlockLeavingBodyByteIdentical()
 
 // Mirror case: Obsidian's *indexer* accepts a closing fence with trailing
 // text/space, but its *writer* does not, so a property edit there prepends a
-// second block. Corbomite deliberately diverges (single permissive reader):
-// it splices the existing block instead of creating a duplicate. Pinned so a
-// future "match Obsidian exactly" change cannot reintroduce the corruption
-// silently.
-void TestFileManagerFrontmatter::splicesTrailingSpaceFenceInsteadOfPrepending()
+// second block. The shared reader is Obsidian's writer rule (a closing fence
+// must be a complete `---` line), so it finds no block here and the writer
+// has no span to splice. The standing invariant from 2026-10-17 — the
+// writer never creates a second `---` block — is kept by refusing the write
+// and keeping the bytes. Pinned so a future change cannot reintroduce the
+// duplicate block silently.
+void TestFileManagerFrontmatter::refusesTrailingSpaceFenceInsteadOfPrepending()
 {
     QTemporaryDir dir;
-    writeFile(dir.path() + "/a.md", "---\ntitle: old\n--- \nbody\n");
+    const QByteArray original = "---\ntitle: old\n--- \nbody\n";
+    writeFile(dir.path() + "/a.md", original);
+
+    Corbomite::FileSystemAdapter fs;
+    Corbomite::Vault vault(&fs);
+    vault.load(dir.path());
+    Corbomite::FileManager fm(&vault, nullptr);
+
+    auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
+    QVERIFY(tf);
+    QVERIFY(!fm.processFrontMatter(tf, [](QVariantMap &m) {
+        m.insert(QStringLiteral("title"), QStringLiteral("new"));
+    }));
+
+    // The bytes are kept exactly — no second block, no rewritten fence.
+    QCOMPARE(readFileAll(dir.path() + "/a.md"), original);
+}
+
+// The guard's boundary: a note whose *body* opens with a thematic break has
+// no frontmatter block at all, so the writer prepends one as usual. The
+// reader finds no block either, but there is no rejected fence line behind
+// the opening one, so nothing is refused.
+void TestFileManagerFrontmatter::prependsToNoteWhoseBodyStartsWithThematicBreak()
+{
+    QTemporaryDir dir;
+    writeFile(dir.path() + "/a.md", "---\n\nbody\n");
 
     Corbomite::FileSystemAdapter fs;
     Corbomite::Vault vault(&fs);
@@ -317,12 +345,12 @@ void TestFileManagerFrontmatter::splicesTrailingSpaceFenceInsteadOfPrepending()
     auto *tf = vault.getFileByPath(QStringLiteral("a.md"));
     QVERIFY(tf);
     QVERIFY(fm.processFrontMatter(tf, [](QVariantMap &m) {
-        m.insert(QStringLiteral("title"), QStringLiteral("new"));
+        m.insert(QStringLiteral("tag"), QStringLiteral("new"));
     }));
 
     const QByteArray after = readFileAll(dir.path() + "/a.md");
-    QCOMPARE(after, QByteArray("---\ntitle: new\n--- \nbody\n"));
-    QCOMPARE(after.count("---"), 2); // exactly one block, not two
+    QVERIFY(after.startsWith("---\ntag: new\n---\n"));
+    QVERIFY(after.endsWith("---\n\nbody\n"));
 }
 
 QTEST_MAIN(TestFileManagerFrontmatter)
