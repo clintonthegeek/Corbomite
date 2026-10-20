@@ -73,6 +73,23 @@ config format, not a reimplementation of Obsidian's UI.
 See [`docs/PARITY-MATRIX.md`](docs/PARITY-MATRIX.md) for a detailed,
 continuously-updated breakdown of feature parity against Obsidian.
 
+### Known differences from Obsidian
+
+Two behaviours are deliberate, documented, and worth knowing before you point
+Corbomite at a vault you care about:
+
+- **A structural edit re-flows blank-line spacing in that file.** Typing never
+  touches it — a note's blank lines and its final newline survive a save
+  byte-for-byte. But an edit that changes the *structure* of a note (splitting
+  a paragraph, toggling a list, inserting a block) re-serializes the file, and
+  a run of 2+ blank lines collapses to one. No text is lost; only the spacing
+  changes, once, in that one file. Obsidian keeps the spacing exactly.
+- **A note whose frontmatter block is malformed is left alone.** If a note
+  opens with `---` but its closing fence is not a complete `---` line (say
+  `--- ` or `---foo`), Corbomite does not recognise a frontmatter block there
+  and **refuses** to write properties into it, rather than prepending a second
+  block. Obsidian silently prepends one. The file is left byte-identical.
+
 ## Relationship to Markoff, collabtext, and Graffodil
 
 Corbomite is built on top of a small family of sibling projects, developed

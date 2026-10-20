@@ -166,6 +166,6 @@ Dispatches to the two dedicated docs:
 - [ ] Phases 0–3 complete; Phase 4 canvas-edges + graph-persistence + tags pane done
 - [ ] Phase 5 legal items + dead-code purge + renames done; no `#if 0` corpse files; no `TODO(port-…)` markers
 - [ ] 2+ weeks of live-vault dogfooding without a data-loss or interop incident
-- [ ] Obsidian round-trip: a week of alternating sessions produces no *unexplained* diffs (blank-line-run normalization is an **expected, documented** diff — Markoff B1 §2; see [`docs/handoff/2026-06-10-blank-line-collapse-triage.md`](../../handoff/2026-06-10-blank-line-collapse-triage.md))
+- [ ] Obsidian round-trip: a week of alternating sessions produces no *unexplained* diffs (blank-line-run normalization is an **expected, documented** diff — Markoff B1 §2; see [`docs/handoff/2026-06-10-blank-line-collapse-triage.md`](../../handoff/2026-06-10-blank-line-collapse-triage.md)). **Narrowed 2026-10-20:** the normalization now happens only after a *structural* edit (split a paragraph, toggle a list) in a file that has irregular blank-line spacing — a plain typing session no longer touches it at all (the vNext document keeps the source bytes; pinned by `tst_vault_save_reload::saveDocument_preservesIrregularBlankLineRuns`). Accepted + documented 2026-10-20 (user).
 - [ ] Docs: CLAUDE.md/PARITY-MATRIX current; README accurate (deps, third-party, build); LICENSE present
 - [ ] Eyeball backlog empty; 251/251 tests; zero disabled-but-visible menu actions
