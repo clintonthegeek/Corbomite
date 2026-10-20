@@ -157,7 +157,7 @@ void FileExplorerView::onNewNoteIn(const QString &folder)
 
 void FileExplorerView::onNewCanvasIn(const QString &folder)
 {
-    // M2.6 — "Create new canvas" (FileExplorer folder-context-menu half of
+    // "Create new canvas" (FileExplorer folder-context-menu half of
     // the command; see MainWindow::createNewCanvas() for the command-
     // palette half, which this mirrors). No name prompt: creates
     // "Untitled.canvas" (dedup-numbered on collision via the same
@@ -190,7 +190,7 @@ void FileExplorerView::onNewCanvasIn(const QString &folder)
 
 void FileExplorerView::onNewBaseIn(const QString &folder)
 {
-    // Cluster D D.6 — mirrors onNewCanvasIn() above. No seed content needed:
+    // Mirrors onNewCanvasIn() above. No seed content needed:
     // BasesQuery::fromString treats an empty string as a valid default
     // one-view "Table" query, so "Untitled.base" opens directly into an
     // editable table with no JSON/YAML literal to inline here.

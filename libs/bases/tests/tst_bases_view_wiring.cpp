@@ -258,7 +258,7 @@ private Q_SLOTS:
         QCOMPARE(title->toString(), QStringLiteral("Alpha"));
     }
 
-    // ---- Cluster O Phase O5.T1/T2 -------------------------------------
+    // ---- toolbar-action adoption -------------------------------------
     //
     // These cover the *view-side* half of the toolbar-action adoption: that
     // a button really becomes a setDefaultAction() carrier, that the
@@ -287,7 +287,7 @@ private Q_SLOTS:
     }
 
     // A vault-bound view can create entries; an unbound one cannot. This is
-    // the O5.T2 "+New disabled when the query has no writable target" rule.
+    // the "+New disabled when the query has no writable target" rule.
     void createNewEntryNeedsAVault() {
         BasesView bv(nullptr);
         bv.setViewData(QString::fromUtf8(kBase), true);
@@ -302,7 +302,7 @@ private Q_SLOTS:
     }
 
     // Adopting an action turns the button into a carrier: triggering the
-    // action must run the same code the button runs. Before O5.T1 the action
+    // action must run the same code the button runs. Before the action
     // could not exist at all, and the button's behaviour was unreachable
     // from any other surface.
     void adoptedActionDrivesTheSameCodeAsTheButton() {
@@ -364,7 +364,7 @@ private Q_SLOTS:
 
     // Both surfaces must route to the same code, and there must be exactly
     // one "Copy table" / "Export CSV" pair — two menus would be two
-    // definitions, which is the thing O5.T1 exists to prevent.
+    // definitions, which is the thing the adoption exists to prevent.
     void resultsMenuChildrenAreSharedAndWired() {
         BasesView bv(nullptr);
         bv.setViewData(QString::fromUtf8(kBase), true);

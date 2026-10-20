@@ -29,9 +29,9 @@ public:
     void setLinkDistance(double distance);
     void setDamping(double damping);
 
-    // Getters, added for Cluster O Phase O6.T3. The engine had setters only,
+    // Getters. The engine had setters only,
     // which made it impossible to assert that a GraphControlsPanel and the
-    // engine it drives actually agree — the O6.T3 test needed exactly that
+    // engine it drives actually agree — a test needs exactly that
     // check, and "assume they match because both start at defaults" is not a
     // falsifiable claim once a panel is created lazily.
     double centerForce() const { return m_centerForce; }

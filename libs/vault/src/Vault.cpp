@@ -2,7 +2,7 @@
 #include "corbomite/vault/Vault.h"
 
 #include "corbomite/core/NoteDocument.h"
-// TODO(port-foundation-exploration): Markoff::ParsePool retired with D4.
+// Port history: Markoff::ParsePool retired with D4.
 // #include <markoff/ParsePool.h>
 #include <markoff/core/MarkoffDocument.h>
 #include "corbomite/vault/TAbstractFile.h"
@@ -54,7 +54,7 @@ Vault::Vault(DataAdapter *adapter, QObject *parent)
     m_root = root.get();
     m_fileMap.emplace(QStringLiteral("/"), std::move(root));
 
-    // TODO(port-foundation-exploration): ParsePool retired.
+    // Port history: ParsePool retired.
 
     m_watcher = std::make_unique<detail::Watcher>(this);
     connect(m_watcher.get(), &detail::Watcher::created,
@@ -804,7 +804,7 @@ bool Vault::saveDocument(NoteDocument *doc)
     }
     const QByteArray bytes = snapshot.value().markdown;
 
-    // Terminal guard (C8 Task 5.4): the canonical buffer must never contain
+    // Terminal guard: the canonical buffer must never contain
     // U+FFFC. If it does, a presentation-layer glyph leaked into the source
     // of truth. Refuse the write, emit saveFailed, and leave disk untouched.
     // U+FFFC in UTF-8 is the three-byte sequence EF BF BC.

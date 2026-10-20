@@ -13,7 +13,7 @@ class MetadataCacheReader;
 class WorkspaceController;
 
 /// Backlinks side panel — moved from src/sidebar/BacklinksPanel.{h,cpp}
-/// during the Cluster Q migration to InternalPlugin form.
+/// during the migration to InternalPlugin form.
 ///
 /// All plugin-side state (current file path) lives here; refresh is
 /// triggered by MetadataCacheReader::cacheChanged and

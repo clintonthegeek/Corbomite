@@ -16,13 +16,13 @@ namespace Canvas {
 /// predicate (CanvasScene ctor) and CanvasResizeTool's own press handling,
 /// so both agree on exactly what counts as "starting a resize" — see
 /// spec §3.5's resizeHit() contract (resize zones only act on an
-/// already-selected item, matching pre-M1 UX).
+/// already-selected item, matching the earlier UX).
 CanvasNodeItem *findResizeTarget(Graffodil::GraphScene *scene,
                                   const QPointF &scenePos,
                                   CanvasNodeItem::ResizeMode *modeOut = nullptr);
 
 /// Consumer resize tool — Graffodil ships no resize tool. Verbatim port of
-/// the pre-M1 SelectMoveTool::DragMode::Resize math (same 8-mode geometry,
+/// the earlier SelectMoveTool::DragMode::Resize math (same 8-mode geometry,
 /// same kMinSize=40 clamp), routed into the scene's CompositeTool ahead of
 /// SelectMoveTool. Signal-only: never touches CanvasDocument directly (see
 /// spec §3.6 / plan Appendix B rule 1) — CanvasScene pushes CmdResizeCard

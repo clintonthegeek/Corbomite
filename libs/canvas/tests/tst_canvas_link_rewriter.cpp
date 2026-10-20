@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Cluster M M6.2 — CanvasLinkRewriter. A vault rename must update the
+// CanvasLinkRewriter. A vault rename must update the
 // structural link references inside a `.canvas` (file-node `file`, group
 // `background`, and text-card wikilinks / markdown links) through
 // CanvasDocument, preserving unknown fields, and must mutate the open live

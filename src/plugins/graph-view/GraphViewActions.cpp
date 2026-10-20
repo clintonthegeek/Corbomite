@@ -114,7 +114,7 @@ void GraphViewActions::setupActions()
     // Delegated to the host's CommandRegistry rather than reimplemented:
     // both of these already have exactly one implementation, and duplicating
     // them is how "the graph's screenshot looks different from the command
-    // palette's screenshot" bugs happen (doctrine §D3).
+    // palette's screenshot" bugs happen.
     auto *openLocal = ac->addAction(QStringLiteral("graph_open_local"));
     openLocal->setText(i18n("Open Local Graph"));
     openLocal->setIcon(QIcon::fromTheme(QStringLiteral("preferences-system-network")));

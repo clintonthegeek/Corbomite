@@ -26,8 +26,8 @@ class VaultConfig;
 /// Kate's `KatePluginManager` (see `docs/kde-power-software-design-guide/
 /// 06-plugin-architecture.md` §"Kate Plugin Manager Pattern").
 ///
-/// Task 5 scope: discovery + trust normalization + version-compat gate. Load,
-/// enable/disable, and KConfig persistence land in Task 6.
+/// Scope: discovery + trust normalization + version-compat gate. Load,
+/// enable/disable, and KConfig persistence are also implemented.
 class PluginManager : public QObject
 {
     Q_OBJECT
@@ -95,7 +95,7 @@ public:
     /// to grey out this row?" can do so without null-checks.
     LoadState loadState(const QString &id) const;
 
-    // Load / unload lifecycle (Task 6)
+    // Load / unload lifecycle
     bool enablePlugin(const QString &id);
 
     /// Unload a plugin. When `persist` is true (default — user action via
@@ -126,8 +126,8 @@ public:
 
     /// Resolve a Corbomite plugin id to its Obsidian counterpart slug.
     /// Honours `X-Obsidian-Id` manifest field first, falls back to a
-    /// hard-coded alias dictionary covering the in-tree internal plugins
-    /// shipped at Cluster Q close. Returns an empty string for
+    /// hard-coded alias dictionary covering the internal plugins shipped
+    /// in-tree. Returns an empty string for
     /// Corbomite-only plugins that have neither.
     QString obsidianIdFor(const QString &corbomiteId) const;
 
@@ -199,7 +199,7 @@ private:
     PromptFn  m_promptHandler;
     ContextConfigurator m_contextConfigurator;
 
-    // Cluster B Phase 3.3 — per-plugin data.json watch. Maps the plugin's
+    // Per-plugin data.json watch. Maps the plugin's
     // data *directory* -> plugin id, plus the mtime of its data.json that the
     // plugin has already been told about, so one save fires one notification.
     QFileSystemWatcher m_dataJsonWatcher;

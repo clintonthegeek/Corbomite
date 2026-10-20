@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Clinton Molyneux <clinton@concernednetizen.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Cluster Y Phase 3: Obsidian-shape workspace.json round-trip against the
+// Obsidian-shape workspace.json round-trip against the
 // KDDockWidgets layout substrate.  Private implementation header — not part
 // of libs/core's public include/ tree.  Tests reach in via
 // target_include_directories(... PRIVATE libs/core/src).
@@ -36,7 +36,7 @@ QByteArray toJsonText(const QJsonObject &root);
 /// Reconstruct the KDDW MainWindow's layout from Obsidian-shape JSON.
 /// Creates DockWidgets and attaches them; if workspace is non-null,
 /// also creates WorkspaceLeaf wrappers with cached icon+title (deferred to
-/// later phase).
+/// later stage).
 void fromJson(const QJsonObject &json,
               KDDockWidgets::QtWidgets::MainWindow *main,
               Workspace *workspace);

@@ -46,8 +46,8 @@ namespace {
 // Tree-visible exclusion (skipped from created/modified/deleted/renamed
 // signals). Any dot-segment hides a path, with no configDir exemption —
 // `.obsidian/` is hidden for the same reason `.git/` is. `.obsidian/` is
-// excluded from the tree but NOT from the rawChange signal — Cluster B
-// (Vault.raw + configChanged) consumes it for plugin event surface.
+// excluded from the tree but NOT from the rawChange signal — the
+// Vault.raw + configChanged surface consumes it for plugin events.
 bool isTreeExcluded(const QString &rel)
 {
     return VaultPaths::isHiddenPath(rel);

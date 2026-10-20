@@ -26,11 +26,11 @@ public:
 
     void buildGraph();
 
-    /// Cluster O Phase O6.T3 — each tab OWNS its controls panel.
+    /// Each tab OWNS its controls panel.
     ///
     /// This used to be a singleton handed in from GraphViewPlugin and wired
     /// by every tab with ~13 connect() calls and no disconnect, so two open
-    /// graph tabs both reacted to one panel's sliders (report §4.3). Owning
+    /// graph tabs both reacted to one panel's sliders. Owning
     /// it fixes that by construction and removes the need for a disconnect.
     ///
     /// The panel is created on first request so it is not built for a tab
@@ -40,22 +40,21 @@ public:
     bool ownsControlsPanel() const { return !m_controlsPanel.isNull(); }
     void setMetadataCache(MetadataCacheReader *cache);
 
-    /// Cluster O Phase O1.T3 — access to the underlying ForceGraphView so
-    /// GraphView can dispatch View::zoomIn/Out/Reset onto the real
-    /// viewport transform.
+    /// Access to the underlying ForceGraphView so GraphView can dispatch
+    /// View::zoomIn/Out/Reset onto the real viewport transform.
     ForceGraph::ForceGraphView *graphView() const { return m_graphView; }
 
-    // ---- Cluster O Phase O5.T3 — the graph verbs, hoisted out of the
+    // ---- the graph verbs, hoisted out of the
     // controls panel's clicked lambdas so GraphViewActions can drive them.
     //
     // Both bodies are unchanged; only their home moved. Same pattern as the
-    // bases toolbar in O5.T1.
+    // bases toolbar.
     void animate();          ///< re-randomize positions and restart layout
     void resetForces();      ///< reset the controls panel's sliders to defaults
     void zoomToFitGraph();   ///< fit the whole graph in the viewport
     bool isGraphBuilt() const;
 
-    /// O6.T3 test seam — the tab's own engine's forces. Exposed because the
+    /// Test seam — the tab's own engine's forces. Exposed because the
     /// per-instance fix is only verifiable if each tab's engine state can be
     /// read independently, and the panel only exposes its own copy.
     double engineCenterForce() const;

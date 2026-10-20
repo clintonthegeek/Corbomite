@@ -268,7 +268,7 @@ endif()
 
 # Tests
 #
-# CORBOMITE_PORT_BUILD_TESTS is the single canonical test gate for the whole
+# CORBOMITE_BUILD_TESTS is the single canonical test gate for the whole
 # tree. The `dev` preset sets it ON, `release`/`appimage` set it OFF.
 #
 # The gate was previously OFF-by-default with NO preset override, which meant a
@@ -280,19 +280,19 @@ endif()
 # NOTE: `BUILD_TESTING` is NOT used as a gate here. ECM's
 # kde-modules/KDECMakeSettings.cmake declares `option(BUILD_TESTING ... ON)`,
 # so 12 subdirectories that read it were reading a third-party default rather
-# than our setting. Do not reintroduce it; use CORBOMITE_PORT_BUILD_TESTS.
+# than our setting. Do not reintroduce it; use CORBOMITE_BUILD_TESTS.
 #
 # Residual, known and unfixed: with the gate OFF, markoff-family still
 # registers ~109 of its own tests unconditionally. Patching it there would be
 # lost on the next submodule re-pin.
-option(CORBOMITE_PORT_BUILD_TESTS "Enable Corbomite tests during foundation-exploration port" OFF)
-if(CORBOMITE_PORT_BUILD_TESTS)
+option(CORBOMITE_BUILD_TESTS "Build the Corbomite test suite" OFF)
+if(CORBOMITE_BUILD_TESTS)
 enable_testing()
 
-# Cluster P Phase P2 — structural guard against the corbomite-core <->
-# corbomite-storage dependency cycle (C3) reappearing. Not tied to any one
-# library's test directory since it inspects the whole build's dependency
-# graph via `cmake --graphviz`; see cmake/CheckNoLibraryCycles.cmake.
+# Structural guard against the corbomite-core <-> corbomite-storage
+# dependency cycle reappearing. Not tied to any one library's test
+# directory since it inspects the whole build's dependency graph via
+# `cmake --graphviz`; see cmake/CheckNoLibraryCycles.cmake.
 add_test(NAME tst_no_library_cycles
     COMMAND ${CMAKE_COMMAND} -DBINARY_DIR=${CMAKE_BINARY_DIR}
             -P ${CMAKE_SOURCE_DIR}/cmake/CheckNoLibraryCycles.cmake)
@@ -318,7 +318,7 @@ add_subdirectory(tests/graph)
 add_subdirectory(tests/sidebar)
 endif()
 # libs/forcegraph and libs/canvas gate their own tests/ subdirectories on
-# CORBOMITE_PORT_BUILD_TESTS inside their CMakeLists.txt.
+# CORBOMITE_BUILD_TESTS inside their CMakeLists.txt.
 # TODO(port-foundation-exploration): Markoff foundation-exploration retired
 # the top-level tests/ directory; cross-leaf tests are now per-leaf or absent.
 # Re-evaluate once the port has settled on which Markoff tests Corbomite wants

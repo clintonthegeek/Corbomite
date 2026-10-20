@@ -105,7 +105,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
         }
     }
 
-    // Build tag → notes reverse map for tooltips. Phase 8: CachedMetadata
+    // Build tag → notes reverse map for tooltips. CachedMetadata
     // stores tags with the leading '#' (Obsidian shape); strip it for display.
     QHash<QString, QStringList> noteTags; // path → [tag1, tag2, ...]
     const auto tags = search->allTags();

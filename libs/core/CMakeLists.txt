@@ -8,7 +8,7 @@ find_package(KF6I18n REQUIRED)
 find_package(KF6CoreAddons REQUIRED)
 find_package(KF6Config REQUIRED)
 find_package(KF6ColorScheme REQUIRED)
-# Cluster O Phase O3 (O3.T1) — ViewActions is a KXMLGUIClient (the Tier-A
+# ViewActions is a KXMLGUIClient (the Tier-A
 # provider mechanism), so libs/core now needs KF6::XmlGui.
 find_package(KF6XmlGui REQUIRED)
 
@@ -58,11 +58,9 @@ add_library(corbomite-core SHARED
     include/corbomite/core/EditorSuggest.h
     src/MomentFormatter.cpp
     include/corbomite/core/MomentFormatter.h
-    include/corbomite/core/VaultResourceProvider.h
+    include/corbomite/core/ResourceResolver.h
     src/MarkdownRenderChild.cpp
     include/corbomite/core/MarkdownRenderChild.h
-    src/EmbedDepthGuard.cpp
-    include/corbomite/core/EmbedDepthGuard.h
     src/PostProcessorRegistry.cpp
     include/corbomite/core/PostProcessorRegistry.h
     src/MermaidRenderer.cpp
@@ -182,7 +180,7 @@ target_link_libraries(corbomite-core
     # interface — their .cmake config files aren't installed, so an
     # out-of-tree consumer can't find_package() them. This no longer means
     # "plugins must resolve these symbols themselves": since corbomite-core
-    # is SHARED (Cluster P Phase P3), each submodule's object code is baked
+    # is SHARED, each submodule's object code is baked
     # into libcorbomite-core.so itself and plugins get it for free by
     # linking Corbomite::Core, exactly like any other symbol core exports.
     # BUILD_INTERFACE here is purely about satisfying CMake's target-lookup
@@ -194,7 +192,7 @@ target_link_libraries(corbomite-core
         $<BUILD_INTERFACE:markoff-parser>
         $<BUILD_INTERFACE:markoff_core>
         $<BUILD_INTERFACE:markoff_styled>
-        # TODO(port-foundation-exploration): markoff_reading retired.
+        # Port history: markoff_reading retired.
         # $<BUILD_INTERFACE:markoff_reading>
     )
 

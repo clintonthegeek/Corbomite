@@ -8,7 +8,7 @@
 #include <graffodil/EdgePathStrategy.h>
 #include <graffodil/TerminusStyle.h>
 
-// Cluster M leftover (canvas dark mode) — see CanvasPalette.h.
+// Canvas dark mode — see CanvasPalette.h.
 static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
 {
     static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
@@ -33,7 +33,7 @@ EdgeItem::EdgeItem(CanvasNodeItem *from, CanvasNodeItem *to, const CanvasEdge &d
     Graffodil::EdgeLabelStyle style;
     style.font = QFont();
     style.font.setPointSize(9);
-    // Cluster M leftover: edge label colours follow the scene palette. The
+    // Edge label colours follow the scene palette. The
     // ctor may run before the item has a scene, so fall back to light here and
     // let applyEndsAndPen()'s sibling re-apply once it is in the scene.
     {

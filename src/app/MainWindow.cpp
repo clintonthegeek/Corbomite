@@ -5,9 +5,9 @@
 #include "CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
 #include "editor/CanvasMermaidAdapter.h"
-// Leaf-agnostic consumption (Phase 1, contract v2): MainWindow dispatches
+// Leaf-agnostic consumption: MainWindow dispatches
 // every editor operation through the Markoff::MarkdownView base — no
-// concrete leaf headers may appear in this file (Task 10 grep gate).
+// concrete leaf headers may appear in this file.
 #include <markoff/core/MarkdownView.h>
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
@@ -37,7 +37,7 @@
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/storage/VaultConfig.h"
 #include "corbomite/core/NoteDocument.h"
-#include "reactors/AutosaveReactor.h"
+#include "AutosaveReactor.h"
 #include "SessionManager.h"
 
 #include "corbomite/core/Command.h"
@@ -57,7 +57,7 @@
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
 #include "ExportToPdf.h"
-#include "editor/MarkdownView.h"
+#include "editor/MarkdownFileView.h"
 #include "editor/MarkdownViewActions.h"
 #include "canvas/CanvasFileView.h"
 #include "canvas/CanvasLinkRewriter.h"
@@ -77,7 +77,7 @@
 #include <QDesktopServices>
 #include "corbomite/core/MenuEventEmitter.h"
 #include "corbomite/core/MenuSectionHelper.h"
-#include "corbomite/core/VaultResourceProvider.h"
+#include "corbomite/core/ResourceResolver.h"
 #include "editor/HoverPopover.h"
 #include "editor/TagSuggest.h"
 #include "editor/WikiLinkSuggest.h"
@@ -136,7 +136,7 @@ namespace Corbomite {
 
 namespace {
 
-class VaultScopedResources : public Corbomite::Core::VaultResourceProvider
+class VaultScopedResources : public Corbomite::Core::ResourceResolver
 {
 public:
     explicit VaultScopedResources(Vault *vault) : m_vault(vault) {}
@@ -242,7 +242,7 @@ QString quickSwitcherContainerExtension(const QString &typedName)
 } // namespace
 
 MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
-    : CorbomiteMDI::MainWindow(parent)
+    : ToolViewHost::HostWindow(parent)
     , m_app(app)
 {
 #ifdef CORBOMITE_DEV_BUILD
@@ -253,7 +253,7 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     setComponentName(QStringLiteral("corbomite"), i18n("Corbomite"));
 #endif
 
-    // Cluster O Phase O1.T1 — constructed before setupActions() populates
+    // Constructed before setupActions() populates
     // actionCollection() (the controller only looks actions up by name on
     // refresh(), so population order doesn't matter) and before
     // setupEditor() creates m_workspace (setWorkspace() is wired below,
@@ -280,22 +280,22 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     // since addToolBar() appends in the same area in insertion order.
     setupRibbonToolBar();
 
-    // Cluster O Phase O3 — ViewActions provider mechanism. Providers are
-    // eagerly constructed (O3.T2 — the Hotkeys page needs every type's
+    // ViewActions provider mechanism. Providers are
+    // eagerly constructed (the Hotkeys page needs every type's
     // shortcuts even with no matching tab open) and registered with the
-    // controller; only *installation* is dynamic (O3.T3, driven by
+    // controller; only *installation* is dynamic (driven by
     // ActionContextController::rebindActiveView() on every leaf/view-type
     // change). setGuiFactory() must come first — guiFactory() only exists
     // meaningfully once setupGUI() above has run. The toolbar, like the
     // Ribbon above, is created AFTER setupGUI() for the same reason
     // (KXMLGUI's Default flag would otherwise delete a programmatically-
     // added toolbar); registerToolBar()'s immediate applyToolBarPolicies()
-    // call is therefore also the D4-trap reapply (nothing could have
+    // call is therefore also the reapply (nothing could have
     // silently overridden this toolbar's visibility before it existed).
     m_actionContext->setGuiFactory(guiFactory());
 
-    // Cluster O Phase O5.T4 — start watching the ViewRegistry for
-    // ViewActions providers registered by PLUGINS (graph, O5.T3). Host types
+    // Start watching the ViewRegistry for
+    // ViewActions providers registered by PLUGINS (e.g. graph). Host types
     // register directly below; this covers the view types whose registration
     // happens in a plugin .so. Must come after setGuiFactory so a provider
     // already registered at this point can be installed immediately.
@@ -312,7 +312,7 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     m_markdownToolBar->addActions(m_markdownViewActions->toolBarActions());
     m_actionContext->registerToolBar(QStringLiteral("markdown"), m_markdownToolBar);
 
-    // Cluster O Phase O4 — CanvasViewActions, same eager-construct /
+    // CanvasViewActions, same eager-construct /
     // register-provider / register-toolbar shape as markdown above.
     m_canvasViewActions = new CanvasViewActions(this);
     m_actionContext->registerProvider(m_canvasViewActions);
@@ -323,13 +323,13 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     m_canvasToolBar->addActions(m_canvasViewActions->toolBarActions());
     m_actionContext->registerToolBar(QStringLiteral("canvas"), m_canvasToolBar);
 
-    // Cluster O Phase O5 — BasesViewActions, same shape. Bases is
+    // BasesViewActions, same shape. Bases is
     // host-registered (MainWindow::setupViews), so unlike graph's provider
-    // (O5.T4) it needs no plugin-facing registration path.
+    // it needs no plugin-facing registration path.
     m_basesViewActions = new BasesViewActions(this);
     m_actionContext->registerProvider(m_basesViewActions);
 
-    // Cluster O Phase O3 (§D5) — the menubar tail. KXMLGUI appends a
+    // The menubar tail. KXMLGUI appends a
     // provider's new top-level menu after the Settings/Help menus it adds
     // itself, and no rc attribute can place it in the middle (see
     // moveStandardMenusLast()). Enforce the tail here: once for the clients
@@ -341,9 +341,9 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
             [this] { QTimer::singleShot(0, this, &MainWindow::moveStandardMenusLast); });
     moveStandardMenusLast();
 
-    // Cluster V Task 1.7 — theme dispatcher. applyTheme() applies the
+    // Theme dispatcher. applyTheme() applies the
     // Appearance/Theme kcfg key via KColorSchemeManager; onSettingsApplied
-    // is the choke point reused by future appliers (V.2 autosave-delay, etc.)
+    // is the choke point reused by future appliers (e.g. autosave-delay).
     applyTheme();
     connect(CorbomiteSettings::self(), &KConfigSkeleton::configChanged,
             this, &MainWindow::onSettingsApplied);
@@ -440,8 +440,8 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     connect(m_hotkeyReloadTimer, &QTimer::timeout, this,
             [this] { reloadVaultHotkeys(m_hotkeyPath); });
 
-    // Cluster R Task 3.2: register `markdown:add-metadata-property` so
-    // MarkdownView.onMoreOptionsMenu's "Add file property" action can dispatch
+    // Register `markdown:add-metadata-property` so
+    // MarkdownFileView.onMoreOptionsMenu's "Add file property" action can dispatch
     // without reaching back into MainWindow directly.
     {
         Command addProp;
@@ -568,7 +568,7 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
 
     m_embedRegistry = std::make_unique<Markoff::EmbedRegistry>();
     m_mermaidRenderer = std::make_unique<Corbomite::Core::MermaidRenderer>();
-    // P5.4 canvas mermaid seam adapter — wraps m_mermaidRenderer.
+    // Canvas mermaid seam adapter — wraps m_mermaidRenderer.
     m_canvasMermaidAdapter = std::make_unique<Corbomite::CanvasMermaidAdapter>(m_mermaidRenderer.get());
     m_cardRenderEngine = std::make_unique<Corbomite::StyledRenderEngine>();
     // Hover preview (2026-06-11) — reuse the canvas-card render engine; it is
@@ -583,11 +583,11 @@ MainWindow::MainWindow(CorbomiteApp *app, QWidget *parent)
     m_suggestManager->registerSuggest(m_wikiSuggest);
     m_suggestManager->registerSuggest(m_tagSuggest);
 
-    // Cluster B Phase 1 — host-wide plugin extension registries.
+    // Host-wide plugin extension registries.
     m_pluginPostProcessors = std::make_unique<Corbomite::Core::PostProcessorRegistry>();
     m_pluginCodeBlocks = std::make_unique<Markoff::CodeBlockProcessorRegistry>();
 
-    // Cluster B Phase 3.2 — wire corbomite:// URL routing through
+    // Wire corbomite:// URL routing through
     // QDesktopServices. obsidian:// is opt-in via Settings (deferred
     // follow-up: persist the toggle and call setUrlHandler on toggle).
     QDesktopServices::setUrlHandler(
@@ -628,7 +628,7 @@ MainWindow::~MainWindow()
     delete m_autosave;
     m_autosave = nullptr;
 
-    // FileWatchReactor teardown removed (Q.0 P2 T2.2).
+    // FileWatchReactor teardown removed — file watching is owned by Vault.
 
     delete m_sessionManager;
     m_sessionManager = nullptr;
@@ -638,7 +638,7 @@ MainWindow::~MainWindow()
     if (m_metadataCache) {
         m_metadataCache->close();
     }
-    // Q.0 P6 — FileManager references MetadataCache; tear down first.
+    // FileManager references MetadataCache; tear down first.
     delete m_fileManager;
     m_fileManager = nullptr;
     if (m_vaultObj) m_vaultObj->unload();
@@ -651,7 +651,7 @@ MainWindow::~MainWindow()
     delete m_linkResolver;
     m_linkResolver = nullptr;
 
-    // Cluster R Task 3.1 aftershock: plugin CommandRegistrars hold a raw
+    // Plugin CommandRegistrars hold a raw
     // CommandRegistry* that must still be alive when they unload. Disable
     // every loaded plugin before deleting the registry so each plugin's
     // PluginContext (and its CommandRegistrar child) tears down against a
@@ -672,7 +672,6 @@ MainWindow::~MainWindow()
     delete m_commandRegistry;
     m_commandRegistry = nullptr;
 
-    // TODO(port): m_embedRenderer field disabled — see MainWindow.h.
     m_embedRegistry.reset();
 }
 
@@ -686,35 +685,19 @@ void MainWindow::closeEvent(QCloseEvent *event)
         saveSessionState();
     }
 
-    CorbomiteMDI::MainWindow::closeEvent(event);
+    ToolViewHost::HostWindow::closeEvent(event);
 }
 
 // --- Helper methods ---
 
-void MainWindow::triggerEditorAction(Markoff::ActionId id)
-{
-    auto *editor = activeEditor();
-    if (!editor) return;
-
-    // TODO(port-foundation-exploration): find/replace dispatch retired —
-    // MarkdownView::showFindBar/showReplaceBar virtuals removed by find-
-    // session-scope. Find is now consumer-owned via Markoff::FindController +
-    // attachFindController; reimplement here as part of the find UI port
-    // (the actual next-step feature work). Replace flow deferred to a later
-    // micro-spec.
-    //
-    // For now: no-op on find/replace IDs.
-    (void)id;
-}
-
-// Cluster O Phase O3.T6 — onSetHeading/onInsertCallout/onInsertTable moved
-// into MarkdownViewActions (they now operate on the bound MarkdownView
+// onSetHeading/onInsertCallout/onInsertTable moved
+// into MarkdownViewActions (they now operate on the bound MarkdownFileView
 // instead of MainWindow's activeEditor()/activeMarkdownView() accessors).
 
-// Cluster O Phase O1.T1 — refreshEditorActions()/updateEditorActionStates()
-// (which used to disagree — see O1.T6) moved into
+// refreshEditorActions()/updateEditorActionStates()
+// (which used to disagree) moved into
 // ActionContextController::updateMarkdownActionStates(). onEditorContextChanged
-// stays here as a thin public-slot forwarder: it is Phase C6's documented test
+// stays here as a thin public-slot forwarder: it is the documented test
 // seam (tests can invoke it with a synthetic EditorContext without a live
 // Markoff editor), but the actual heading-radio sync + Tier-B refresh now
 // live on the controller, which also owns the live wiring (see
@@ -727,10 +710,10 @@ void MainWindow::onEditorContextChanged(const Markoff::EditorContext &ctx)
 void MainWindow::connectEditorContextMenu(NoteEditorWidget *editor)
 {
     if (!editor) return;
-    // TODO(port-foundation-exploration): aboutToShowContextMenu signal lived
-    // on the old Markoff::Editor. Context-menu wiring needs porting against
-    // Live::EditorWidget's eventual context-menu surface (LiveContextMenu
-    // Handler is already in the new live leaf; bridge to it as a follow-up).
+    // Pending: the editor's right-click menu is not wired. The
+    // aboutToShowContextMenu signal lived on the old Markoff::Editor; the
+    // live leaf carries a LiveContextMenu handler, and bridging the two is
+    // still pending.
     (void)editor;
 }
 
@@ -738,16 +721,16 @@ void MainWindow::onAboutToShowContextMenu(QMenu *menu,
                                           const Markoff::EditorContext &ctx,
                                           const QPoint & /*globalPos*/)
 {
-    // TODO(port-foundation-exploration): paired with connectEditorContextMenu.
+    // Paired with connectEditorContextMenu — see the note there.
     (void)menu;
     (void)ctx;
 }
 
-MarkdownView *MainWindow::activeMarkdownView() const
+MarkdownFileView *MainWindow::activeMarkdownView() const
 {
     if (!m_workspace || !m_workspace->activeLeaf())
         return nullptr;
-    return qobject_cast<MarkdownView *>(m_workspace->activeLeaf()->view());
+    return qobject_cast<MarkdownFileView *>(m_workspace->activeLeaf()->view());
 }
 
 Corbomite::Bases::BasesView *MainWindow::activeBasesView() const
@@ -773,9 +756,9 @@ NoteEditorWidget *MainWindow::activeEditor() const
 
 void MainWindow::onFind()
 {
-    // Cluster O Phase O1.T5 — Bases already owns a search box in its
-    // toolbar; route edit_find there instead of silently doing nothing
-    // (report §3.2/§4.6). Only edit_find has a bases-side equivalent —
+    // Bases already owns a search box in its
+    // toolbar; route edit_find there instead of silently doing nothing.
+    // Only edit_find has a bases-side equivalent —
     // replace/find-next/find-prev stay markdown-only (disabled elsewhere
     // by ActionContextController::updateFindAndTemplateActions()).
     if (auto *bv = activeBasesView()) {
@@ -809,8 +792,8 @@ void MainWindow::onFindPrev()
 // viewport concerns the host has no opinion about." Corbomite therefore does
 // NOT bind those keys (doing so caused a KActionCollection ambiguity →
 // "Ctrl+= is ambiguous, no action triggered"). The View-menu zoom items
-// dispatch through the polymorphic View::zoomIn/Out/Reset virtuals (Cluster O
-// Phase O1.T3) — MarkdownView/CanvasFileView/GraphView each override onto
+// dispatch through the polymorphic View::zoomIn/Out/Reset virtuals —
+// MarkdownFileView/CanvasFileView/GraphView each override onto
 // their own real viewport. This retires the activeEditor() special-case that
 // used to mean canvas and graph had no zoom action at all.
 void MainWindow::onZoomIn()
@@ -837,7 +820,7 @@ void MainWindow::onAboutApp()
     dlg.exec();
 }
 
-// Cluster O Phase O3.T6 — cycleEditorMode() moved into MarkdownViewActions
+// cycleEditorMode() moved into MarkdownViewActions
 // (editor_toggle_mode's trigger).
 
 void MainWindow::openFileInWorkspace(const QString &relativePath)
@@ -888,7 +871,7 @@ bool MainWindow::confirmCloseUnsaved()
 
     QStringList modifiedPaths;
     for (auto *leaf : m_workspace->allLeaves()) {
-        auto *mv = qobject_cast<MarkdownView *>(leaf->view());
+        auto *mv = qobject_cast<MarkdownFileView *>(leaf->view());
         if (!mv) continue;
         auto *editor = mv->editorWidget();
         if (editor && editor->noteDocument() && editor->noteDocument()->isModified()) {
@@ -949,16 +932,16 @@ void MainWindow::saveSessionState()
     if (!m_sessionManager) return;
     m_sessionManager->blockSaving();
     m_sessionManager->saveWindowGeometry(saveGeometry(), saveState());
-    // D4: real pixel widths from CorbomiteMDI (Sidebar::lastSize),
+    // Real pixel widths from ToolViewHost (Sidebar::lastSize),
     // replacing the previous hardcoded 200/false/200. Left/Right share one
-    // visibility toggle at the CorbomiteMDI level (setSidebarsVisibleInternal
+    // visibility toggle at the ToolViewHost level (setSidebarsVisibleInternal
     // hides/shows all sidebars together) — there's no independent
     // right-sidebar visibility to persist, so both pass sidebarsVisible().
     m_sessionManager->saveSidebarState(
         sidebarsVisible(), sidebarWidth(KMultiTabBar::Left),
         sidebarsVisible(), sidebarWidth(KMultiTabBar::Right));
-    // Expanded-folder persistence moved into FileExplorer plugin
-    // (Cluster Q Task 18); follow-up: surface a plugin-side helper
+    // Expanded-folder persistence moved into FileExplorer plugin;
+    // follow-up: surface a plugin-side helper
     // that SessionManager can query via WorkspaceController.
     m_sessionManager->unblockSaving();
     m_sessionManager->saveNow();
@@ -1056,7 +1039,7 @@ void MainWindow::hostPluginView(const QString &pluginId)
     if (!toolView || !toolView->layout()) {
         // MDI refused the slot — most likely an identifier collision with
         // a prior tool view that hasn't been released yet (see
-        // CorbomiteMDI::createToolView). Log so the next occurrence isn't
+        // ToolViewHost::createToolView). Log so the next occurrence isn't
         // silent; drop the orphaned plugin widget.
         qWarning() << "MainWindow::hostPluginView: MDI refused tool view for"
                    << pluginId << "(id=" << toolViewId
@@ -1105,7 +1088,7 @@ void MainWindow::releasePluginView(const QString &pluginId)
     // Destroy synchronously so the next hostPluginView for the same
     // plugin id (e.g. on vault switch) doesn't collide with a still-alive
     // tool view of the same identifier. A queued deleteLater would make
-    // CorbomiteMDI::MainWindow::createToolView see the old instance and
+    // ToolViewHost::HostWindow::createToolView see the old instance and
     // refuse to host the new one, leaving sidebars empty until the next
     // relayout that never comes.
     delete (toolView ? toolView : widget);
@@ -1115,7 +1098,7 @@ void MainWindow::propagateServicesToView(View *view)
 {
     if (!view) return;
 
-    // Cluster M leftover — canvas dark mode. Canvas is the one leaf type that
+    // Canvas dark mode. Canvas is the one leaf type that
     // paints its own background rather than using a themed widget, so it needs
     // ThemeService injected explicitly; without this an Obsidian dark vault
     // showed a white canvas with white cards on it.
@@ -1123,7 +1106,20 @@ void MainWindow::propagateServicesToView(View *view)
         if (m_themeService)
             cfv->setThemeService(m_themeService);
 
-        // Cluster M leftover — the canvas file picker lists the VAULT's files
+        // The canvas read-only lock is stored per file in the session
+        // manager's local data. CanvasFileView can resolve the same store
+        // by walking the widget tree, but passing it explicitly is the
+        // supported path.
+        if (m_sessionManager) {
+            auto *sm = m_sessionManager;
+            cfv->setLocalDataStore(
+                [sm](const QString &key) { return sm->fileLocalData(key); },
+                [sm](const QString &key, const QJsonObject &value) {
+                    sm->setFileLocalData(key, value);
+                });
+        }
+
+        // The canvas file picker lists the VAULT's files
         // instead of walking the filesystem. Two wins: it honours whatever
         // Vault already excludes, and it is one in-memory list instead of a
         // recursive QDirIterator over the whole vault on every picker open.
@@ -1180,7 +1176,7 @@ void MainWindow::propagateServicesToView(View *view)
                 if (auto *f = resolveTFile(doc))
                     fm->promptForDeletion(f, parent);
             });
-        // Cluster S task 3.2: route the per-view "Bookmark…" hamburger entry
+        // Route the per-view "Bookmark…" hamburger entry
         // through the bookmarks plugin's Q_INVOKABLE modal slot. Guarded by
         // plugin presence — when the plugin is disabled the callback stays
         // unset and EditableFileView grays the menu entry out.
@@ -1198,7 +1194,7 @@ void MainWindow::propagateServicesToView(View *view)
                 }
             }
         }
-        // Cluster F-a P1.7 — activate the "Version history" slot. Wires the
+        // Activate the "Version history" slot. Wires the
         // per-view action to the Version History modal over this vault's
         // recovery store; a restore is a hard overwrite, so reload the leaf
         // from disk once the modal accepts (the store write bypasses Vault,
@@ -1221,13 +1217,13 @@ void MainWindow::propagateServicesToView(View *view)
         });
     }
 
-    if (auto *mv = qobject_cast<MarkdownView *>(view)) {
+    if (auto *mv = qobject_cast<MarkdownFileView *>(view)) {
         if (m_app->isOpen())
             mv->setVault(m_vaultObj);
         mv->setHoverPopover(m_hoverPopover);
         mv->setEditorSuggestManager(m_suggestManager);
 
-        // Cluster R Task 3.4: inject command-dispatch + PDF-export wiring so
+        // Inject command-dispatch + PDF-export wiring so
         // the hamburger menu actions can reach the host registry + Vault.
         auto *cmds = m_commandRegistry;
         mv->setMarkdownCommandDispatcher(
@@ -1236,7 +1232,7 @@ void MainWindow::propagateServicesToView(View *view)
             });
         auto *vaultObj = m_vaultObj;
         mv->setPdfExportTrigger([this, vaultObj](QWidget *parent) {
-            auto *mv2 = qobject_cast<MarkdownView *>(parent);
+            auto *mv2 = qobject_cast<MarkdownFileView *>(parent);
             auto *doc = mv2 ? mv2->file() : nullptr;
             if (!doc || !vaultObj) return;
             auto *tfile = vaultObj->getFileByPath(doc->relativePath());
@@ -1246,13 +1242,13 @@ void MainWindow::propagateServicesToView(View *view)
         mv->setFindTrigger([this](QWidget *) { onFind(); });
         mv->setReplaceTrigger([this](QWidget *) { onReplace(); });
 
-        // Cluster F-a P3.3/P3.4 — "Merge entire file with…". The action is
+        // "Merge entire file with…". The action is
         // owned by the markdown view's hamburger (no MainWindow leaf-type
         // branch); this wires its trigger to the Note Composer modal and the
         // FileManager merge pipeline.
         mv->setMergeFileTrigger([this](QWidget *parent) {
             if (!m_vaultObj || !m_fileManager) return;
-            auto *srcView = qobject_cast<MarkdownView *>(parent);
+            auto *srcView = qobject_cast<MarkdownFileView *>(parent);
             auto *doc = srcView ? srcView->file() : nullptr;
             if (!doc) return;
             const QString sourceRel = doc->relativePath();
@@ -1286,12 +1282,12 @@ void MainWindow::propagateServicesToView(View *view)
 
         auto *editor = mv->editorWidget();
         if (editor) {
-            // P5.4 seams — mermaid rendering + embed dispatch on the canvas
+            // Mermaid rendering + embed dispatch seams on the canvas
             // LivePreview leaf.
             editor->setMermaidRenderer(m_canvasMermaidAdapter.get());
             editor->setEmbedRegistry(m_embedRegistry.get());
 
-            // Task 0.2: NoteEditorWidget::linkActivated now fires (via
+            // NoteEditorWidget::linkActivated now fires (via
             // DefaultLinkService wired in NoteEditorWidget ctor + Reading
             // construction). Resolve the raw wikilink target through
             // LinkResolver for proper vault-wide disambiguation before
@@ -1333,7 +1329,7 @@ void MainWindow::propagateServicesToView(View *view)
                                  : rawTarget + QStringLiteral(".md"));
                 });
             }
-            // Cluster K: canvas leaf's inline title band doubles as a
+            // The canvas leaf's inline title band doubles as a
             // rename affordance. Property-guarded like linkActivated above
             // — this block re-runs on every leaf re-attach.
             if (!editor->property("_mw_titlerename").toBool()) {
@@ -1382,7 +1378,7 @@ void MainWindow::propagateServicesToView(View *view)
     }
 
     if (auto *cv = qobject_cast<CanvasFileView *>(view)) {
-        // Cluster R Task 3.6 — hamburger-menu command dispatcher.
+        // Hamburger-menu command dispatcher.
         auto *cmds = m_commandRegistry;
         cv->setCanvasCommandDispatcher([cmds](const QString &commandId) {
             if (cmds) cmds->executeById(commandId);
@@ -1395,7 +1391,7 @@ void MainWindow::propagateServicesToView(View *view)
 
     if (auto *bv = qobject_cast<Corbomite::Bases::BasesView *>(view)) {
         bv->setServices(m_vaultObj, m_metadataCache, m_fileManager);
-        // Bases Phase 2 — `this` in formulas should track the active leaf's
+        // `this` in formulas should track the active leaf's
         // file. Subscribe to Workspace::activeLeafChanged and re-resolve
         // through the live Vault on each transition; also seed once with
         // whatever leaf is currently active.
@@ -1452,7 +1448,7 @@ void MainWindow::setupActions()
 
     KStandardAction::quit(qApp, &QApplication::quit, ac);
     auto *prefsAction = KStandardAction::preferences(this, [this]() {
-        // Cluster O Phase O3.T2 — the Hotkeys page needs every provider's
+        // The Hotkeys page needs every provider's
         // collection, not just the universal one, so every type's
         // shortcuts show even with no matching tab open. m_markdownViewActions
         // is null the first time setupActions() itself runs (constructed
@@ -1582,7 +1578,7 @@ void MainWindow::setupActions()
     zoomReset->setIcon(QIcon::fromTheme(QStringLiteral("zoom-original")));
     connect(zoomReset, &QAction::triggered, this, &MainWindow::onZoomReset);
 
-    // editor_toggle_mode moved to MarkdownViewActions (Cluster O O3.T6).
+    // editor_toggle_mode moved to MarkdownViewActions.
 
     auto *quickSwitcher = ac->addAction(QStringLiteral("quick_switcher"));
     quickSwitcher->setText(i18n("Quick Switcher"));
@@ -1608,7 +1604,7 @@ void MainWindow::setupActions()
     ac->setDefaultShortcut(graphView, QKeySequence(Qt::CTRL | Qt::Key_G));
     connect(graphView, &QAction::triggered, this, &MainWindow::openGraphView);
 
-    // insert_template moved to MarkdownViewActions (Cluster O O3.T6) —
+    // insert_template moved to MarkdownViewActions —
     // MainWindow::insertTemplate() stays here (owns TemplateService) and is
     // connected to the provider's insertTemplateRequested() signal instead.
 
@@ -1618,7 +1614,7 @@ void MainWindow::setupActions()
     connect(dailyNote, &QAction::triggered, this, &MainWindow::openDailyNote);
 
     // View > Editor Mode radio group moved to MarkdownViewActions
-    // (Cluster O O3.T6) — view_source_mode/view_editing_mode/
+    // — view_source_mode/view_editing_mode/
     // view_reading_mode object names are preserved there.
 
     // Tab shortcuts
@@ -1678,7 +1674,7 @@ void MainWindow::setupActions()
             m_workspace->undoCloseLeaf();
     });
 
-    // Back/forward (D2): per-leaf navigation history, already wired to the
+    // Back/forward: per-leaf navigation history, already wired to the
     // tab-frame's nav buttons (ItemView) via WorkspaceLeaf::goBack/
     // goForward. Ctrl+Alt+Left/Right is the KDE/browser convention for the
     // same action at the keyboard-shortcut level.
@@ -1704,7 +1700,7 @@ void MainWindow::setupActions()
                 leaf->goForward();
     });
 
-    // D3: jump-to-tab. Ctrl+1..8 = that 1-based tab index in the active
+    // Jump-to-tab. Ctrl+1..8 = that 1-based tab index in the active
     // tab group; Ctrl+9 = the last tab. Standard browser/editor
     // convention (Firefox, Chrome, most terminal emulators).
     auto jumpToTab = [this](int index /* -1 == last */) {
@@ -1746,9 +1742,9 @@ void MainWindow::setupActions()
     ac->setDefaultShortcut(jumpLastTab, QKeySequence(Qt::ALT | Qt::Key_9));
     connect(jumpLastTab, &QAction::triggered, this, [jumpToTab]() { jumpToTab(-1); });
 
-    // D3: pin-tab. Primitives (WorkspaceLeaf::pinned/setPinned,
-    // Workspace::propagatePinToGroup) already existed from Cluster K/L
-    // groundwork; this is the one-call command wrapper the plan asked for.
+    // Pin-tab. Primitives (WorkspaceLeaf::pinned/setPinned,
+    // Workspace::propagatePinToGroup) already existed in the workspace
+    // layer; this is the one-call command wrapper over them.
     // No default shortcut — Obsidian/Kate both leave pin as a menu/
     // command-palette-only action, not a global keybinding.
     m_actionPinTab = ac->addAction(QStringLiteral("tab_pin_toggle"));
@@ -1763,9 +1759,7 @@ void MainWindow::setupActions()
         }
     });
 
-    // D3: move-to-new-window. One-call wrapper over the popout/floating
-    // primitive kept from Phase L3's C1 audit (WorkspaceWindow/popoutLeaf).
-    // Cluster O Phase O5.T5 (Cluster I Phase 5 tail): tab reordering.
+    // Tab reordering.
     // Ctrl+Shift+PgUp/PgDn match Obsidian's own bindings for these. Both
     // clamp at the ends and return false there, so ActionContextController
     // disables them rather than offering a no-op.
@@ -1789,7 +1783,7 @@ void MainWindow::setupActions()
             m_workspace->moveLeafWithinGroup(leaf, +1);
     });
 
-    // Cluster O Phase O5.T5 — "Link with active pane". Checkable, and
+    // "Link with active pane". Checkable, and
     // grounded in the reverse-engineered behaviour (audit
     // `workspace.md:123` + `:392`): `setGroupMember` creates or REUSES the
     // target's group id, and joining a pinned group forces the new member
@@ -1825,11 +1819,10 @@ void MainWindow::setupActions()
             m_workspace->popoutLeaf(leaf);
     });
 
-    // D3: toggle-stacked. Decision per the plan's "advisory-only or hide"
-    // choice: advisory-only. isTabGroupStacked/setTabGroupStacked already
-    // exist and round-trip the bit through workspace.json (Obsidian
+    // Toggle-stacked: advisory-only. isTabGroupStacked/setTabGroupStacked
+    // already exist and round-trip the bit through workspace.json (Obsidian
     // interop), but KDDW has no stacked-tabs rendering mode to hook —
-    // building one is out of scope for a "missing tab command" finding.
+    // building one is out of scope here.
     // The action flips the bit and tells the user via the status bar
     // rather than silently doing nothing, so it isn't a dead button.
     m_actionToggleStacked = ac->addAction(QStringLiteral("tab_toggle_stacked"));
@@ -1848,9 +1841,9 @@ void MainWindow::setupActions()
             3000);
     });
 
-    // Cluster V Phase 2+3 (Format/Heading/Insert/Table/Fold editor
-    // actions) moved into MarkdownViewActions (Cluster O O3.T6).
-    // Initial enable-state: no active MarkdownView yet (m_actionContext's
+    // The Format/Heading/Insert/Table/Fold editor
+    // actions moved into MarkdownViewActions.
+    // Initial enable-state: no active MarkdownFileView yet (m_actionContext's
     // workspace isn't wired until setupEditor() runs; refresh() tolerates a
     // null workspace and is re-run once it is).
     m_actionContext->refresh();
@@ -1898,7 +1891,7 @@ void MainWindow::setupEditor()
     m_viewRegistry = new ViewRegistry(this);
     m_viewRegistry->registerViewWithExtensions(
         {QStringLiteral("md")}, QStringLiteral("markdown"),
-        &MarkdownView::factory);
+        &MarkdownFileView::factory);
     m_viewRegistry->registerViewWithExtensions(
         {QStringLiteral("canvas")}, QStringLiteral("canvas"),
         &CanvasFileView::factory);
@@ -1970,7 +1963,7 @@ void MainWindow::setupEditor()
         });
     }
 
-    // Cluster R Task 3.1: plugin `:open` commands dispatch through
+    // Plugin `:open` commands dispatch through
     // Workspace::revealDockView → this slot, which resolves slug to tool-view
     // id (`<slug>_panel`) and raises it.
     connect(m_workspace, &Workspace::revealDockViewRequested, this,
@@ -2003,8 +1996,8 @@ void MainWindow::setupEditor()
         }
     });
 
-    // Cluster R Task 3.7: route Workspace::commandRequested → the host
-    // CommandRegistry. Used by GraphView / CanvasFileView / MarkdownView
+    // Route Workspace::commandRequested → the host
+    // CommandRegistry. Used by GraphView / CanvasFileView / MarkdownFileView
     // hamburger actions that need to invoke a registered command without
     // holding the CommandRegistry directly.
     connect(m_workspace, &Workspace::commandRequested, this,
@@ -2075,11 +2068,11 @@ void MainWindow::setupEditor()
             propagateServicesToView(leaf->view());
         updateWindowTitle(activeEditor());
 
-        // Cluster O Phase O1.T1/T2 — all action-state rebinding (back/
+        // All action-state rebinding (back/
         // forward history, pin/stacked check-state, format/heading
         // enable-state, editor-mode radio sync) is now one call: the
         // controller rebinds its own per-leaf AND per-view connections
-        // (including the in-place view-type-swap case fixed by T2) and
+        // (including the in-place view-type-swap case) and
         // runs a full refresh().
         if (m_actionContext) m_actionContext->bindActiveLeaf(leaf);
 
@@ -2102,14 +2095,14 @@ void MainWindow::setupEditor()
             });
         }
 
-        // TODO(port-foundation-exploration): cursorPositionChanged(int,int)
-        // was on the old Markoff::Editor. EditorWidget's cursor signals come
-        // via binding()->cursorState() — re-wire when the Table submenu's
-        // cursorInTable gate is reimplemented against the new context shape.
+        // The cursor signal that gated the Table submenu lived on the old
+        // Markoff::Editor; the leaf's cursor state now comes from the
+        // editor context, and the Table actions stay disabled until the
+        // table model lands upstream.
         if (editor) {
-            // Phase C6 — context-menu contribution (currently a TODO
-            // no-op body; format/heading/context wiring now lives on
-            // ActionContextController, see bindActiveLeaf() above).
+            // Context-menu contribution: the format/heading/context wiring
+            // lives on ActionContextController (see bindActiveLeaf() above);
+            // the editor's own right-click menu is not wired yet.
             connectEditorContextMenu(editor);
             // C2 — wire ThemeService so this editor follows theme changes.
             if (m_themeService)
@@ -2126,32 +2119,29 @@ void MainWindow::setupEditor()
 void MainWindow::setupSidebars()
 {
     // FileExplorer panel migrated to InternalPlugin
-    // "corbomite-file-explorer" (Cluster Q Task 18). MainWindow no
+    // "corbomite-file-explorer". MainWindow no
     // longer constructs the tree, NotesTreeModel, or the right-click
     // file ops — all live inside the plugin via VaultProxy +
     // FileManagerProxy + WorkspaceController. Session expanded-folders
     // persistence is a follow-up; see Recent decisions.
 
-    // Search panel migrated to InternalPlugin "corbomite-search"
-    // (Cluster Q Task 17).
+    // Search panel migrated to InternalPlugin "corbomite-search".
 
-    // Backlinks panel migrated to InternalPlugin "corbomite-backlinks"
-    // (Cluster Q Task 13). MainWindow no longer constructs it; the
+    // Backlinks panel migrated to InternalPlugin "corbomite-backlinks".
+    // MainWindow no longer constructs it; the
     // plugin's createView() output is hosted by hostPluginView() when
     // PluginManager fires pluginLoaded.
 
-    // Outlinks panel migrated to InternalPlugin "corbomite-outlinks"
-    // (Cluster Q Task 14). MainWindow no longer constructs it.
+    // Outlinks panel migrated to InternalPlugin "corbomite-outlinks".
+    // MainWindow no longer constructs it.
 
-    // Properties panel migrated to InternalPlugin "corbomite-properties"
-    // (Cluster Q Task 16).
+    // Properties panel migrated to InternalPlugin "corbomite-properties".
 
-    // Outline panel migrated to InternalPlugin "corbomite-outline"
-    // (Cluster Q Task 15). Scroll-to-line on item click is deferred —
+    // Outline panel migrated to InternalPlugin "corbomite-outline".
+    // Scroll-to-line on item click is deferred —
     // no host-side editor accessor exposed via WorkspaceController yet.
 
-    // LocalGraph panel migrated to InternalPlugin "corbomite-local-graph"
-    // (Cluster Q Task 19).
+    // LocalGraph panel migrated to InternalPlugin "corbomite-local-graph".
 
     // Graph Controls panel is hosted by corbomite-graph-view plugin's
     // createView path — shows up as a Right-side tool view when the
@@ -2166,7 +2156,7 @@ void MainWindow::setupStatusBar()
     statusBar()->addPermanentWidget(m_wordCountLabel);
     statusBar()->addPermanentWidget(m_cursorPosLabel);
 
-    // Cluster B Phase 2 — host-wide plugin status-bar registry.
+    // Host-wide plugin status-bar registry.
     m_statusBarRegistry = new Corbomite::StatusBarRegistry(statusBar(), this);
 
     // The app's one user-message channel: the status bar for everything, a
@@ -2257,20 +2247,20 @@ void MainWindow::createNewNote()
 
 void MainWindow::createNewCanvas(const QString &folder)
 {
-    // M2.6 — "Create new canvas": Obsidian-style create-then-rename, not
+    // "Create new canvas": Obsidian-style create-then-rename, not
     // createNewNote()'s upfront QInputDialog prompt. Creates
     // "Untitled.canvas" (dedup-numbered on collision, same
     // FileManager::createNewFile()/collisionFreeName() rule
     // createMarkdownNote() uses), opens it, then triggers a rename.
     //
-    // Divergence from the plan's literal wording: there is no existing
+    // There is no existing
     // "inline-rename-on-creation" mechanism to mirror — createNewNote()
     // and FileExplorerView::onNewNoteIn() both prompt for a name via
     // QInputDialog *before* creating the file, not after. Building a new
     // inline-edit-on-creation mechanism (tab-title or tree-row inline
     // editor triggered automatically post-create) is out of scope here;
     // this instead reuses FileManager::promptForFileRename() — the same
-    // modal rename dialog F2 / the tree's "Rename..." action already use
+    // modal rename dialog the tree's "Rename..." action already uses
     // — as the closest existing "start a rename" primitive. Noted for a
     // follow-up if a true inline-rename-on-creation flow gets built for
     // notes generally.
@@ -2301,7 +2291,7 @@ void MainWindow::createNewCanvas(const QString &folder)
 
 void MainWindow::createNewBase(const QString &folder)
 {
-    // Cluster D D.6 — same create-then-rename flow as createNewCanvas()
+    // Same create-then-rename flow as createNewCanvas()
     // above. Unlike canvas, no seed content is needed: BasesQuery::fromString
     // already treats an empty string as a valid default one-view "Table"
     // query (audit's [CRIT] empty-file invariant, BasesQuery.cpp), so
@@ -2335,7 +2325,7 @@ void MainWindow::saveCurrentNote()
     auto *leaf = m_workspace->activeLeaf();
     if (!leaf || !leaf->view()) return;
 
-    // For MarkdownView the NoteDocument is the source of truth for
+    // For MarkdownFileView the NoteDocument is the source of truth for
     // modification state. Save through Vault::saveDocument — it writes
     // via Vault::modify so the self-write echo-suppression ledger keeps
     // our own save from re-firing as an external modify event.
@@ -2345,9 +2335,9 @@ void MainWindow::saveCurrentNote()
         return;
     }
 
-    // Cluster O Phase O1.T4 — CanvasFileView is a bare FileView, not a
+    // CanvasFileView is a bare FileView, not a
     // TextFileView, so the fallback below never reached it: Ctrl+S was a
-    // real no-op on a canvas tab (report §3.1). BasesView already worked
+    // real no-op on a canvas tab. BasesView already worked
     // via the TextFileView fallback (BasesView : TextFileView).
     if (auto *cv = qobject_cast<CanvasFileView *>(leaf->view())) {
         if (auto *tab = cv->canvasWidget())
@@ -2368,16 +2358,16 @@ void MainWindow::showCommandPalette()
     KActionCollection *ac = actionCollection();
     QList<QAction *> fileActions, viewActions, editActions, tabActions, formatActions;
 
-    // Cluster O Phase O7.T5. Three fixes over the old bucket-by-prefix:
+    // Three fixes over a plain bucket-by-prefix grouping:
     //
     //  1. DISABLED ACTIONS ARE DROPPED. The palette listed every stub, so
     //     "Toggle Fold" and "Insert Table..." were as prominent as Bold —
     //     and both did nothing. Every stub now also carries a `blockedOn`
-    //     property (O7.T2); the greyed-out ones are simply not offered.
+    //     property; the greyed-out ones are simply not offered.
     //  2. TABS AND FORMAT GOT THEIR OWN GROUPS. Everything that was not
-    //     file_/view_ fell into "Other", which by O5 held the tab commands,
-    //     the heading radios, the whole Format menu and every stub — the
-    //     report's "~60 actions in Other" complaint.
+    //     file_/view_ used to fall into "Other", which held the tab
+    //     commands, the heading radios, the whole Format menu and every
+    //     stub.
     //  3. A provider's own actions are labelled by their view TYPE, read
     //     from the provider's componentName, so Bases/Canvas/Graph/Markdown
     //     entries are distinguishable rather than anonymous.
@@ -2585,7 +2575,7 @@ void MainWindow::navigateActiveLeafTo(const QString &relativePath)
     m_workspace->pushLastOpenFile(target);
 }
 
-// Cluster O Phase O1.T1 — updateBackForwardActions()/updateTabStateActions()
+// updateBackForwardActions()/updateTabStateActions()
 // moved into ActionContextController (same bodies, looked up by
 // actionCollection()->action(id) instead of the cached m_action* pointers).
 
@@ -2626,8 +2616,8 @@ void MainWindow::onVaultOpened(const QString &path)
 
     // NotesTreeModel lives entirely inside the FileExplorer plugin now —
     // MainWindow used to construct one here "in case" some host-side
-    // consumer needed it, but none ever appeared. Removed in Cluster N
-    // Task 2.5 when NotesTreeModel migrated onto VaultProxy.
+    // consumer needed it, but none ever appeared. It was removed when
+    // NotesTreeModel migrated onto VaultProxy.
 
     delete m_autosave;
     m_autosave = new AutosaveReactor(m_vaultObj, this);
@@ -2660,14 +2650,14 @@ void MainWindow::onVaultOpened(const QString &path)
     delete m_fileManager;
     m_fileManager = new FileManager(m_vaultObj, m_metadataCache, this);
 
-    // M6.2 — teach FileManager to rewrite `.canvas` link references on rename
+    // Teach FileManager to rewrite `.canvas` link references on rename
     // (Obsidian's `linkUpdaters["canvas"]`). The rewriter outlives the
     // FileManager for the vault session; CanvasFileView registers open
     // documents so renames mutate the live instance.
     m_canvasLinkRewriter = std::make_unique<Canvas::CanvasLinkRewriter>();
     m_fileManager->registerLinkRewriter(m_canvasLinkRewriter.get());
 
-    // Cluster F-a P0 — periodic File Recovery snapshots. One host-level timer;
+    // Periodic File Recovery snapshots. One host-level timer;
     // it walks the live text leaves for dirty ones (the 2 s per-view save
     // debounce handles the common case, this covers a crash/force-kill before
     // a save lands). Started here, stopped in onVaultClosed.
@@ -2800,7 +2790,7 @@ void MainWindow::onVaultOpened(const QString &path)
         m_metadataCache->onFileChanged(relPath, bytes, mtimeMs);
     });
 
-    // M6.3 — a vault create/rename can resolve a dangling canvas file card.
+    // A vault create/rename can resolve a dangling canvas file card.
     // Refresh every open canvas for the affected path(s).
     auto refreshCanvasCards = [this](const QString &path) {
         if (!m_workspace || path.isEmpty()) return;
@@ -2810,7 +2800,7 @@ void MainWindow::onVaultOpened(const QString &path)
         }
     };
 
-    // Q.0 P7 — external-filesystem events flow through Vault's signals.
+    // External-filesystem events flow through Vault's signals.
     // Self-writes are suppressed by Vault's echo-suppression ledger, so these
     // handlers only fire for genuinely external mutations.
     connect(m_vaultObj, &Vault::created, this,
@@ -2818,7 +2808,7 @@ void MainWindow::onVaultOpened(const QString &path)
         if (f) refreshCanvasCards(f->path);
         auto *tf = dynamic_cast<TFile *>(f);
         if (!tf) return;
-        // Task 0.3 P1 — keep LinkResolver fresh; feed all file types so
+        // Keep LinkResolver fresh; feed all file types so
         // attachment embeds (e.g. ![[image.png]]) resolve without a reopen.
         if (m_linkResolver) m_linkResolver->addVaultPath(tf->path);
         if (tf->extension != QLatin1String("md")
@@ -2853,11 +2843,11 @@ void MainWindow::onVaultOpened(const QString &path)
         if (!f) return;
         // A delete can make a file card dangle.
         refreshCanvasCards(f->path);
-        // Cluster F-a P1.3 — a file that left the vault keeps no retained
+        // A file that left the vault keeps no retained
         // recovery entry (Obsidian removes it immediately; no undelete).
         if (f->path.endsWith(QLatin1String(".md")))
             RecoveryStore(m_fsAdapter.get(), path).removeAll(f->path);
-        // Task 0.3 P1 — keep LinkResolver fresh on delete.
+        // Keep LinkResolver fresh on delete.
         if (m_linkResolver) m_linkResolver->removeVaultPath(f->path);
         if (!m_metadataCache) return;
         m_metadataCache->onFileDeleted(f->path);
@@ -2869,12 +2859,12 @@ void MainWindow::onVaultOpened(const QString &path)
         // (old path).
         refreshCanvasCards(f->path);
         refreshCanvasCards(oldPath);
-        // Cluster F-a P1.3 — the old path's recovery entry is removed on
+        // The old path's recovery entry is removed on
         // rename (snapshots are keyed to the path, not the file identity).
         if (oldPath.endsWith(QLatin1String(".md")))
             RecoveryStore(m_fsAdapter.get(), path).removeAll(oldPath);
         auto *tf = dynamic_cast<TFile *>(f);
-        // Task 0.3 P1 — keep LinkResolver fresh on rename (all file types).
+        // Keep LinkResolver fresh on rename (all file types).
         if (m_linkResolver && tf) {
             m_linkResolver->removeVaultPath(oldPath);
             m_linkResolver->addVaultPath(tf->path);
@@ -2919,10 +2909,10 @@ void MainWindow::onVaultOpened(const QString &path)
         const bool leftVisible = sidebar.value(QStringLiteral("leftVisible")).toBool(true);
         setSidebarsVisibleInternal(leftVisible, true);
 
-        // D4: the width half of "restore persisted widths/visibility" —
+        // The width half of "restore persisted widths/visibility" —
         // visibility was already wired (above); widths were saved
         // (SessionManager::saveSidebarState) but never read back into
-        // CorbomiteMDI. sidebarState()'s width fields default to 200 (the
+        // ToolViewHost. sidebarState()'s width fields default to 200 (the
         // pre-existing hardcoded value) when absent, so this is a no-op on
         // first run / old sessions.
         setSidebarWidth(KMultiTabBar::Left,
@@ -2986,10 +2976,6 @@ void MainWindow::onVaultOpened(const QString &path)
     if (m_workspace) {
         m_workspace->readWorkspaceJson(path);
     }
-
-    const auto folders = m_sessionManager->expandedFolders();
-    // Expanded-folder restore moved into the plugin (Cluster Q Task 18).
-    Q_UNUSED(folders);
 
     m_sessionManager->unblockSaving();
 
@@ -3071,7 +3057,7 @@ void MainWindow::onVaultClosed()
 
     delete m_autosave;
     m_autosave = nullptr;
-    // FileWatchReactor teardown removed (Q.0 P2 T2.2).
+    // FileWatchReactor teardown removed — file watching is owned by Vault.
     delete m_sessionManager;
     m_sessionManager = nullptr;
 
@@ -3088,15 +3074,12 @@ void MainWindow::onVaultClosed()
     if (m_tagSuggest) m_tagSuggest->setIndex(nullptr);
     if (m_hoverPopover) m_hoverPopover->setResources(nullptr);
 
-
-    // TODO(port-foundation-exploration): EmbedRenderer teardown disabled.
-    // if (m_embedRenderer) { m_embedRenderer->setMetadataCache(nullptr); ... }
     m_popoverResources.reset();
 
     if (m_metadataCache) {
         m_metadataCache->close();
     }
-    // Q.0 P6 — FileManager references MetadataCache; tear down first.
+    // FileManager references MetadataCache; tear down first.
     delete m_fileManager;
     m_fileManager = nullptr;
     if (m_vaultObj) m_vaultObj->unload();
@@ -3107,8 +3090,6 @@ void MainWindow::onVaultClosed()
     // Drop the Markoff adapter shims before deleting their wrapped pointers.
     // Consumers were nulled above; resetting now means a fresh open's
     // re-creation can't transiently destroy a still-referenced shim.
-    // TODO(port-foundation-exploration): adapter fields disabled.
-    // m_linkResolverAdapter.reset(); m_metadataCacheAdapter.reset(); m_metadataParserImpl.reset();
     delete m_metadataCache;
     m_metadataCache = nullptr;
     delete m_linkResolver;
@@ -3141,7 +3122,7 @@ void MainWindow::openGraphView()
 
 void MainWindow::showSearchPanel()
 {
-    // Search panel is an InternalPlugin (Cluster Q Task 17). Surface its
+    // Search panel is an InternalPlugin. Surface its
     // tool view via the plugin-id-derived slot, then dispatch focus through
     // the plugin so SearchPlugin can land caret on its QLineEdit rather
     // than the tool-view root widget.
@@ -3196,9 +3177,9 @@ void MainWindow::insertTemplate()
     QString expanded = m_templateService->loadAndExpand(name, editor->noteDocument()->name());
     if (expanded.isEmpty()) return;
 
-    // Insert at the caret (one undo-integrated D2 edit) rather than appending
+    // Insert at the caret (one undo-integrated edit) rather than appending
     // at end-of-document. The {{cursor}} marker, if present, positions the
-    // caret post-insert. (road-to-dogfood Phase 2 — template-at-cursor.)
+    // caret post-insert (template-at-cursor).
     editor->insertAtCursor(expanded, TemplateService::cursorMarker());
 }
 
@@ -3217,10 +3198,10 @@ void MainWindow::onCursorInfoChanged(int line, int column, int wordCount)
     m_cursorPosLabel->setText(i18n("Ln %1, Col %2", line, column));
 }
 
-// Cluster O Phase O1.T7 — updateVaultActions() moved into
+// updateVaultActions() moved into
 // ActionContextController::updateVaultActions(), split out into
-// updateSaveAction() (O1.T4, type-aware) and updateEditorModeActions()/
-// updateFindAndTemplateActions() (O1.T5/T7, type-aware) so file_save,
+// updateSaveAction() (type-aware) and updateEditorModeActions()/
+// updateFindAndTemplateActions() (type-aware) so file_save,
 // the editor-mode radios, and insert_template stop being enabled on tabs
 // where they were previously silent no-ops.
 
@@ -3362,7 +3343,7 @@ void MainWindow::applyReadableLineWidth()
     const bool readable = CorbomiteSettings::self()->readableLineWidth();
     for (auto *leaf : m_workspace->allLeaves()) {
         if (leaf->isDeferred()) continue;
-        auto *mv = qobject_cast<MarkdownView *>(leaf->view());
+        auto *mv = qobject_cast<MarkdownFileView *>(leaf->view());
         auto *editor = mv ? mv->editorWidget() : nullptr;
         if (editor) editor->applyReadableLineWidth(readable);
     }

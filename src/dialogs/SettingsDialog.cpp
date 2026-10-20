@@ -171,22 +171,13 @@ void SettingsDialog::setupAppearancePage()
 
         auto *importBtn = new QPushButton(i18n("Import QOwnNotes scheme…"));
         connect(importBtn, &QPushButton::clicked, this, [this, editorTheme] {
-            const QString home = QDir::homePath();
-            const QString suggestedDir = home + QStringLiteral("/.config/PBE/QOwnNotes");
-            const QString path = QFileDialog::getOpenFileName(
-                this, i18n("Import QOwnNotes scheme"),
-                QDir(suggestedDir).exists() ? suggestedDir : home,
-                i18n("INI files (*.conf *.ini);;All files (*)"));
-            if (path.isEmpty()) return;
-
-            // TODO(port-foundation-exploration): Markoff::Theme::importFromQOwnNotesIni
-            // retired with the old Theme shape; importing themes from QOwnNotes
-            // .ini files is disabled until the theme port is tackled. Show a
-            // placeholder message instead.
+            // Importing a QOwnNotes .ini scheme needs Markoff's theme
+            // importer, which does not exist yet — the old one went with the
+            // previous theme shape. Say so before asking the user to pick a
+            // file, rather than after.
             KMessageBox::information(this,
-                i18n("QOwnNotes scheme import is temporarily disabled during "
-                     "the Markoff foundation-exploration port."),
-                i18n("Import disabled"));
+                i18n("Importing a QOwnNotes scheme is not implemented yet."),
+                i18n("Import unavailable"));
             return;
         });
         layout->addRow(QString(), importBtn);
@@ -295,7 +286,7 @@ void SettingsDialog::setupHotkeysPage()
         // single-instance navigation. Reset target stays on Default;
         // changes commit on apply via the editor's own save/undo.
         //
-        // Cluster O Phase O3.T2 — one collection is no longer enough:
+        // One collection is no longer enough:
         // every ViewActions provider's collection must show here too
         // (eagerly constructed, so its shortcuts exist even with no tab
         // of that type open), or the Hotkeys page would only ever show

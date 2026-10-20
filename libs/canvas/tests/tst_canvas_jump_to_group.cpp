@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Cluster M Phase M5.5 — "Canvas: Jump to group".
+// "Canvas: Jump to group".
 //
 //   app/own/2028-n9.js:667-677  the canvas:jump-to-group command
 //   app/own/2028-n9.js:289-314  l9, the suggest modal: items are the

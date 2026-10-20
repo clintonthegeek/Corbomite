@@ -34,7 +34,7 @@ private:
 ///
 /// Usage: inherit alongside QObject — or embed as a member — and expose
 /// `on/off/trigger` on the owning type as needed. Kept as a plain base
-/// (not CRTP) per the Cluster C exploration: Qt MOC does not process
+/// (not CRTP): Qt MOC does not process
 /// templates, and a non-virtual plain base composes cleanly with any
 /// QObject subclass without complicating MOC.
 ///
@@ -50,7 +50,7 @@ private:
 ///     the first exception is scheduled to rethrow on the next event-loop
 ///     tick via `QTimer::singleShot(0, ...)` (chosen over
 ///     `Qt::QueuedConnection` because queued invocations swallow
-///     exceptions silently — see Cluster C exploration).
+///     exceptions silently).
 ///
 /// Listeners can safely `offref` themselves during dispatch; the copy-
 /// before-iterate invariant ensures in-flight dispatch isn't disturbed.

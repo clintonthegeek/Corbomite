@@ -33,7 +33,7 @@ class QEvent;
 class QChildEvent;
 class KToggleAction;
 
-namespace CorbomiteMDI
+namespace ToolViewHost
 {
 
 /**
@@ -46,7 +46,7 @@ class ToolView;
 class GUIClient : public QObject, public KXMLGUIClient
 {
 public:
-    explicit GUIClient(class MainWindow *mw);
+    explicit GUIClient(class HostWindow *mw);
 
     void registerToolView(ToolView *tv);
     void unregisterToolView(ToolView *tv);
@@ -57,7 +57,7 @@ private:
     void updateActions();
 
 private:
-    MainWindow *m_mw;
+    HostWindow *m_mw;
     KToggleAction *m_showSidebarsAction;
     struct ToolViewActions {
         ToolView *toolview = nullptr;
@@ -76,7 +76,7 @@ class ToolView : public QFrame
 
     friend class Sidebar;
     friend class MultiTabBar;
-    friend class MainWindow;
+    friend class HostWindow;
     friend class GUIClient;
 
 protected:
@@ -86,12 +86,12 @@ protected:
      * You should only add one widget as child to this toolview, it will
      * be automatically set to be the focus proxy of the toolview.
      */
-    ToolView(class MainWindow *mainwin, class Sidebar *sidebar, QWidget *parent, const QString &identifier);
+    ToolView(class HostWindow *mainwin, class Sidebar *sidebar, QWidget *parent, const QString &identifier);
 
 public:
     ~ToolView() override;
 
-    MainWindow *mainWindow()
+    HostWindow *mainWindow()
     {
         return m_mainWin;
     }
@@ -121,7 +121,7 @@ protected:
     void actionEvent(QActionEvent *event) override;
 
 private:
-    MainWindow *m_mainWin;
+    HostWindow *m_mainWin;
     Sidebar *m_sidebar;
     KToolBar *m_toolbar;
 
@@ -216,7 +216,7 @@ class Sidebar : public QSplitter
     friend class MultiTabBar;
 
 public:
-    Sidebar(KMultiTabBar::KMultiTabBarPosition pos, QSplitter *sp, class MainWindow *mainwin, QWidget *parent);
+    Sidebar(KMultiTabBar::KMultiTabBarPosition pos, QSplitter *sp, class HostWindow *mainwin, QWidget *parent);
 
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
@@ -233,7 +233,7 @@ public:
 
     QWidget *tabButtonForToolview(ToolView *widget) const
     {
-        for (CorbomiteMDI::Sidebar::ToolViewData d : m_toolviews) {
+        for (ToolViewHost::Sidebar::ToolViewData d : m_toolviews) {
             if (d.toolview == widget) {
                 return d.tabbar->tabBar()->tab(d.id);
             }
@@ -268,9 +268,9 @@ public:
         return m_tabBarStyle;
     }
 
-    /// Cluster L Phase L4 (D4): the pixel width (expanded splitter size)
+    /// The pixel width (expanded splitter size)
     /// this sidebar last had while visible — the same value updateSidebar()
-    /// re-applies on expand. Exposed so MainWindow can hand it to
+    /// re-applies on expand. Exposed so the host window can hand it to
     /// SessionManager instead of the previous hardcoded 200 literal.
     int lastSize() const { return m_lastSize; }
     /// Sets the remembered width and, if the sidebar is currently expanded,
@@ -320,7 +320,7 @@ private:
 
     MultiTabBar *tabBar(ToolView *tv) const
     {
-        for (CorbomiteMDI::Sidebar::ToolViewData d : m_toolviews) {
+        for (ToolViewHost::Sidebar::ToolViewData d : m_toolviews) {
             if (d.toolview == tv)
                 return d.tabbar;
         }
@@ -349,7 +349,7 @@ private:
         DownRightAction = 32,
     };
 
-    MainWindow *m_mainWin;
+    HostWindow *m_mainWin;
 
     KMultiTabBar::KMultiTabBarPosition m_tabBarPosition{};
     KMultiTabBar::KMultiTabBarStyle m_tabBarStyle{};
@@ -366,7 +366,7 @@ private:
 
     ToolViewData dataForId(int id)
     {
-        for (const CorbomiteMDI::Sidebar::ToolViewData &d : m_toolviews) {
+        for (const ToolViewHost::Sidebar::ToolViewData &d : m_toolviews) {
             if (d.id == id)
                 return d;
         }
@@ -398,15 +398,15 @@ Q_SIGNALS:
     void dragEnded();
 };
 
-class MainWindow : public KXmlGuiWindow
+class HostWindow : public KXmlGuiWindow
 {
     Q_OBJECT
 
     friend class ToolView;
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
-    ~MainWindow() override;
+    explicit HostWindow(QWidget *parent = nullptr);
+    ~HostWindow() override;
 
     /**
      * Create a new tool view in the given sidebar position.
@@ -426,7 +426,7 @@ public:
 
     void setSidebarsVisibleInternal(bool visible, bool hideFullySilent);
 
-    /// Cluster L Phase L4 (D4): pixel width (Sidebar::lastSize) for the
+    /// Pixel width (Sidebar::lastSize) for the
     /// sidebar at `pos`. 200 (Sidebar's own default) if that sidebar
     /// doesn't exist. Exposed so the app layer can persist/restore real
     /// widths instead of the previous hardcoded literal.
@@ -449,7 +449,7 @@ public Q_SLOTS:
 
     void hideToolViews();
 
-    CorbomiteMDI::ToolViewPosition toolViewPosition(QWidget *toolview);
+    ToolViewHost::ToolViewPosition toolViewPosition(QWidget *toolview);
 
 protected:
     void toolViewDeleted(ToolView *widget);
@@ -498,10 +498,10 @@ private:
 
     // 2026-10-01: m_restoreConfig / m_restoreGroup and Sidebar's
     // m_sessionRestoreRunning were removed with the Kate session-restore
-    // machinery (MainWindow::{startRestore,finishRestore,saveSession} and
+    // machinery (HostWindow::{startRestore,finishRestore,saveSession} and
     // Sidebar::{startRestoreSession,restoreSession,saveSession}). That whole
-    // cluster had zero callers — Cluster L Phase L2 superseded it with
-    // src/app/SessionManager, which MainWindow::saveSessionState drives
+    // group of functions had zero callers — superseded with
+    // src/app/SessionManager, which HostWindow::saveSessionState drives
     // instead. startRestore() was the only writer of m_restoreConfig, so the
     // four blocks that read it (addToolView, moveToolView, showToolView,
     // hideToolView) became always-false and went with it.
@@ -519,7 +519,7 @@ private:
 Q_SIGNALS:
     void sigShowPluginConfigPage(QObject *plugin, int id);
     void tabForToolViewAdded(QWidget *toolView, QWidget *tab);
-    void toolViewMoved(QWidget *toolView, CorbomiteMDI::ToolViewPosition newPos);
+    void toolViewMoved(QWidget *toolView, ToolViewHost::ToolViewPosition newPos);
 };
 
-} // namespace CorbomiteMDI
+} // namespace ToolViewHost

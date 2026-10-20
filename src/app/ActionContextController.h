@@ -26,7 +26,7 @@ namespace Corbomite {
 class Workspace;
 class WorkspaceLeaf;
 class CorbomiteApp;
-class MarkdownView;
+class MarkdownFileView;
 class NoteEditorWidget;
 class CanvasFileView;
 class View;
@@ -37,10 +37,7 @@ namespace Bases {
 class BasesView;
 }
 
-/// Cluster O Phase O1 (O1.T1) — the app-shell action-state controller,
-/// extracted from MainWindow per the 2026-06-10 decomposition spec's
-/// deferred "action-framework redesign" step (superseded here — see
-/// `docs/superpowers/plans/2026-08-20-cluster-o-context-sensitive-ui.md`).
+/// The app-shell action-state controller.
 ///
 /// Owns the Tier-B (enablement) and Tier-C (check-state) refresh logic
 /// that used to be five scattered `MainWindow` methods
@@ -51,10 +48,8 @@ class BasesView;
 /// `actionCollection()` (a `KXmlGuiWindow` requirement) and hands the
 /// pointer to this controller, which never deletes it.
 ///
-/// D1 doctrine: Tier A (presence — which actions exist in the chrome at
-/// all) stays static/universal until Phase O3 builds the `ViewActions`
-/// provider mechanism. This controller is Tier B/C only — "no new
-/// mechanism" per O1's phase banner.
+/// Tier A (presence — which actions exist in the chrome at all) belongs to
+/// the `ViewActions` provider mechanism. This controller is Tier B/C only.
 class ActionContextController : public QObject
 {
     Q_OBJECT
@@ -71,27 +66,27 @@ public:
     /// leaf) and immediately runs a full refresh(). Call on every
     /// `Workspace::activeLeafChanged`.
     ///
-    /// O1.T2: the controller ALSO reconnects on the leaf's own
+    /// The controller ALSO reconnects on the leaf's own
     /// `viewChanged` (not just on `Workspace::activeLeafChanged`), so an
     /// in-place view-type swap — `WorkspaceLeaf::navigate()` swapping a
     /// markdown leaf to a canvas viewState without the active leaf
     /// pointer itself changing — refreshes action state too. Before this
     /// fix, `Workspace::setActiveLeaf` early-returning on an unchanged
     /// leaf meant `activeLeafChanged` never fired for that case, and
-    /// nothing but back/forward listened to `viewChanged`
-    /// (report §4.2).
+    /// nothing but back/forward listened to `viewChanged`.
     void bindActiveLeaf(WorkspaceLeaf *leaf);
 
     /// Master refresh — recomputes every tracked action's Tier B
     /// enable-state and Tier C check-state for the CURRENT context
     /// (active leaf's view type + capability + vault-open). Safe to call
-    /// any time; cheap (no XMLGUI rebuild — that is Phase O3's job).
+    /// any time; cheap (no XMLGUI rebuild — that is the ViewActions
+    /// provider mechanism's job).
     void refresh();
 
     // --- Active-view accessors, moved out of MainWindow so this
-    // controller (and later O2+ provider code) has one place to ask
+    // controller (and the provider code) has one place to ask
     // "what's focused right now." ---
-    MarkdownView *activeMarkdownView() const;
+    MarkdownFileView *activeMarkdownView() const;
     Bases::BasesView *activeBasesView() const;
     CanvasFileView *activeCanvasView() const;
     NoteEditorWidget *activeEditor() const;
@@ -101,24 +96,24 @@ public:
     /// there is no active leaf/view.
     QString currentViewType() const;
 
-    /// Introspection used by `tst_action_context_no_silent_noop` (O1's
-    /// phase gate): does action `id` have a REAL handler for the CURRENT
+    /// Introspection used by `tst_action_context_no_silent_noop`: does
+    /// action `id` have a REAL handler for the CURRENT
     /// context? This is ground truth independent of the action's current
-    /// enabled bit — the bug class O1 fixes is exactly "enabled, but
-    /// triggering it silently does nothing," so for every action this
-    /// controller enables, this must return true. Actions this controller
-    /// does not track (universal `KStandardAction`s, workspace/tab
+    /// enabled bit — the bug class this controller fixes is exactly
+    /// "enabled, but triggering it silently does nothing," so for every
+    /// action this controller enables, this must return true. Actions this
+    /// controller does not track (universal `KStandardAction`s, workspace/tab
     /// plumbing with no view-type dependency, etc.) default to "has a
     /// handler" — the table below only needs to enumerate the
-    /// view-type-restricted surface, which is exactly O1's subject
-    /// matter.
+    /// view-type-restricted surface, which is exactly this controller's
+    /// subject matter.
     bool hasHandlerForCurrentContext(const QString &actionId) const;
 
     // -------------------------------------------------------------
-    // Cluster O Phase O3 — the ViewActions provider mechanism (D1 Tier A:
+    // The ViewActions provider mechanism (Tier A:
     // presence). Providers are constructed eagerly by MainWindow and
     // registered here by view type; only *installation* — addClient()/
-    // removeClient() on the KXMLGUIFactory — is dynamic (O3.T2/T3).
+    // removeClient() on the KXMLGUIFactory — is dynamic.
     // -------------------------------------------------------------
 
     /// MainWindow calls this once, right after setupGUI() (the factory
@@ -129,7 +124,7 @@ public:
     /// for every provider before the first bindActiveLeaf().
     void registerProvider(ViewActions *provider);
 
-    /// Cluster O Phase O5.T4 — hook the ViewRegistry's provider signals so a
+    /// Hook the ViewRegistry's provider signals so a
     /// PLUGIN-registered view type can ship its own ViewActions. Host types
     /// still register directly via registerProvider() in MainWindow's ctor.
     ///
@@ -146,9 +141,9 @@ public:
     ViewActions *currentProvider() const { return m_currentProvider; }
 
     /// Registers `toolBar` as the persistent toolbar for `viewType`'s
-    /// provider (O3.T4, §D4) — created by MainWindow AFTER setupGUI(),
+    /// provider — created by MainWindow AFTER setupGUI(),
     /// same as the pre-existing RibbonToolBar. Wires the toolbar's
-    /// context-menu override (Q3) and immediately applies the persisted
+    /// context-menu override and immediately applies the persisted
     /// policy.
     void registerToolBar(const QString &viewType, KToolBar *toolBar);
 
@@ -162,14 +157,14 @@ public:
     /// Re-applies every registered toolbar's visibility from its
     /// persisted policy + the current context. Safe to call any time;
     /// called from refresh() and once more explicitly wherever a
-    /// toolbar's visibility could have been silently overwritten (§D4's
+    /// toolbar's visibility could have been silently overwritten (the
     /// KMainWindow applyMainWindowSettings trap).
     void applyToolBarPolicies();
 
 public Q_SLOTS:
     /// Public so tests can drive it with a synthetic `EditorContext`
     /// without a live Markoff editor (mirrors the old
-    /// `MainWindow::onEditorContextChanged` contract, Phase C6). Syncs the
+    /// `MainWindow::onEditorContextChanged` contract). Syncs the
     /// heading radio's checked state from `ctx`, then re-runs the
     /// markdown Tier-B refresh (canEdit may have changed alongside the
     /// context).
@@ -182,25 +177,25 @@ public Q_SLOTS:
 
 private:
     void rebindActiveView();
-    /// O3.T3 — the client-swap logic: installs/uninstalls providers'
+    /// The client-swap logic: installs/uninstalls providers'
     /// KXMLGUIClients on the factory as the focused leaf's view type
     /// changes, guarded so an ordinary same-type tab switch costs one
     /// bind()+refresh(), never a client swap.
     void installProviderForCurrentContext();
     void installToolBarContextMenu(KToolBar *toolBar, const QString &viewType);
 
-    // O1.T6's updateMarkdownActionStates() and O1.T7's
-    // updateEditorModeActions() were retired by O3.T6 — the actions they
+    // updateMarkdownActionStates() and
+    // updateEditorModeActions() were retired — the actions they
     // touched (format/heading/insert/table/fold/editor-mode) moved into
     // MarkdownViewActions' own collection; its refresh() is the Tier-B
     // logic's new home.
     void updateVaultActions();
-    void updateSaveAction();             // O1.T4
-    void updateFindActions();            // O1.T5 (insert_template moved to MarkdownViewActions, O3.T6)
-    void updateZoomActions();            // O1.T3 (enablement half — dispatch itself is polymorphic)
+    void updateSaveAction();
+    void updateFindActions();            // insert_template lives in MarkdownViewActions
+    void updateZoomActions();            // enablement half — dispatch itself is polymorphic
     void updateBackForwardActions();
     void updateTabStateActions();
-    void updateUndoRedoActions();        // O1.T8
+    void updateUndoRedoActions();
 
     void setEnabled(const QString &actionId, bool enabled) const;
     void registerHandlers();
@@ -220,7 +215,7 @@ private:
     // unaffected by focused view type). See hasHandlerForCurrentContext().
     QHash<QString, QSet<QString>> m_handlerViewTypes;
 
-    // Cluster O Phase O3 — provider registry + toolbar policy.
+    // Provider registry + toolbar policy.
     KXMLGUIFactory *m_guiFactory = nullptr;
     QHash<QString, QPointer<ViewActions>> m_providers;
     QPointer<ViewActions> m_currentProvider;

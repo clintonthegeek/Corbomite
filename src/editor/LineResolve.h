@@ -9,7 +9,7 @@
 namespace Corbomite::LineResolve {
 
 /// One contract-v2 flat visual line resolved against the document.
-/// The line space is MarkdownView::cursorPosition()'s (normative,
+/// The line space is MarkdownFileView::cursorPosition()'s (normative,
 /// markoff contract-v2 spec §3): each block contributes
 /// 1 + count('\n' in blockText) lines, 1-based.
 struct ResolvedLine {

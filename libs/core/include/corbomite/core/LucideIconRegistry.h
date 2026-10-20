@@ -10,7 +10,7 @@ namespace Corbomite {
 
 /// Singleton registry for icons addressable by `lucide-*`-style names.
 /// Today the registry is **not pre-populated** with the bundled Lucide
-/// SVG set — that's a Cluster B follow-up. Plugins (and the host) can
+/// SVG set — that's a known follow-up. Plugins (and the host) can
 /// `addIcon(name, svg)` ad-hoc to register icons; `get(name)` returns an
 /// empty `QIcon` for unregistered names.
 class LucideIconRegistry

@@ -73,7 +73,7 @@ QString Plugin::configPageTitle(int) const
     return {};
 }
 
-// ---- Cluster B Phase 1 — plugin extension verb facades -----------------
+// ---- plugin extension verb facades -----------------
 
 bool Plugin::registerHoverLinkSource(HoverLinkSource &source)
 {

@@ -36,7 +36,7 @@
 #include "corbomite/core/ViewActions.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "editor/MarkdownView.h"
+#include "editor/MarkdownFileView.h"
 #include "editor/MarkdownViewActions.h"
 #include "editor/NoteEditorWidget.h"
 
@@ -153,8 +153,8 @@ private Q_SLOTS:
         QVERIFY(ws);
         auto *leaf = ws->activeLeaf();
         QVERIFY(leaf);
-        auto *mv = qobject_cast<MarkdownView *>(leaf->view());
-        QVERIFY2(mv, "active leaf must be a MarkdownView after opening Source.md");
+        auto *mv = qobject_cast<MarkdownFileView *>(leaf->view());
+        QVERIFY2(mv, "active leaf must be a MarkdownFileView after opening Source.md");
         auto *editor = mv->editorWidget();
         QVERIFY(editor);
 
@@ -262,7 +262,7 @@ private Q_SLOTS:
 
     // -----------------------------------------------------------------
     // O2.T4 — Reading mode must disable format verbs by routing through
-    // MarkdownView::canEdit() (== activeLeaf()->hasEditing()), not just
+    // MarkdownFileView::canEdit() (== activeLeaf()->hasEditing()), not just
     // stop responding to keystrokes.
     // -----------------------------------------------------------------
     void readingMode_disablesFormatVerbs()
@@ -282,7 +282,7 @@ private Q_SLOTS:
 
         auto *ws = mw.findChild<Workspace *>();
         QVERIFY(ws);
-        auto *mv = qobject_cast<MarkdownView *>(ws->activeLeaf()->view());
+        auto *mv = qobject_cast<MarkdownFileView *>(ws->activeLeaf()->view());
         QVERIFY(mv);
 
         // O3.T6: format_bold/insert_table now live in MarkdownViewActions'

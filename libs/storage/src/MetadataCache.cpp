@@ -2,8 +2,7 @@
 //
 // MetadataCache — Obsidian-compatible two-layer metadata cache.
 //
-// Phase 3 introduced the data structures + synchronous mutation core.
-// Phase 4 (this file) adds:
+// The data structures + synchronous mutation core plus:
 //   - Qt signals with strict Obsidian ordering (cacheChanged ->
 //     linksResolvedFor -> allLinksResolved -> indexFinished; cacheDeleted
 //     is independent of the resolver queue).
@@ -14,7 +13,7 @@
 //     ("changed"/"deleted"/"resolve"/"resolved"/"finished") for plugin-
 //     facing subscribers.
 //
-// No worker thread yet — Phase 5 adds that. MetadataParser::parse still
+// No worker thread yet. MetadataParser::parse still
 // runs synchronously on the calling thread.
 
 #include "corbomite/storage/MetadataCache.h"

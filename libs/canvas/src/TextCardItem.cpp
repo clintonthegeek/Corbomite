@@ -8,7 +8,7 @@
 #include <QTextDocument>
 #include <QRegularExpression>
 
-// Cluster M leftover (canvas dark mode) — the item's scene palette, or the
+// Canvas dark mode — the item's scene palette, or the
 // light default when the item has no scene (unit tests, detached items). The
 // fallback matters: a `paint()` that returned a default-constructed
 // CanvasPalette would silently render light, which is exactly the class of
@@ -61,7 +61,7 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     QPainterPath cardPath;
     cardPath.addRoundedRect(rect, kCornerRadius, kCornerRadius);
 
-    // Cluster M leftover (canvas dark mode).
+    // Canvas dark mode.
     const Canvas::CanvasPalette &pal = canvasPaletteFor(scene());
     painter->fillPath(cardPath, pal.cardBackground);
 
@@ -209,7 +209,7 @@ void TextCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
         painter->restore();
     }
 
-    // Resize-handle drawing moved to CanvasNodeChromeOverlay (M4.4) — one
+    // Resize-handle drawing moved to CanvasNodeChromeOverlay — one
     // shared, zoom-constant overlay retargeted to the active node, instead
     // of this triplicated per-item block. Do not re-add handle painting
     // here; see CanvasNodeChromeOverlay.h.

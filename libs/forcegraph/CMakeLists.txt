@@ -49,7 +49,7 @@ if(DEFINED KDE_INSTALL_LIBDIR)
     )
 endif()
 
-if(CORBOMITE_PORT_BUILD_TESTS)
+if(CORBOMITE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()

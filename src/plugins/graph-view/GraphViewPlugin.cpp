@@ -39,9 +39,9 @@ void GraphViewPlugin::onLoad(PluginContext *ctx)
     auto *commandsProxy = ctx->commands();
     m_commandsProxy = commandsProxy;
 
-    // Cluster O Phase O5.T4 — ship the provider through the SAME proxy that
-    // carried the view type, which is the whole point of the task: a plugin
-    // can now own a ViewActions provider without new plugin-API surface.
+    // Ship the provider through the SAME proxy that carried the view type,
+    // which is the whole point: a plugin can now own a ViewActions provider
+    // without new plugin-API surface.
     // Ordered after registerView() below because a provider is meaningless
     // without its view type, and the registrar tears providers down first
     // precisely so this ordering stays safe.
@@ -75,7 +75,7 @@ void GraphViewPlugin::onLoad(PluginContext *ctx)
     if (m_viewsProxy)
         m_viewsProxy->registerViewActions(QStringLiteral("graph"), m_graphActions);
 
-    // Cluster R Task 3.7 — `copy-screenshot` command. Grabs the last
+    // The `copy-screenshot` command. Grabs the last
     // opened GraphView's widget pixmap (best-effort "active graph" —
     // since QPointer-tracked, destroyed views auto-expire).
     if (auto *commands = ctx->commands()) {
@@ -103,7 +103,7 @@ void GraphViewPlugin::onLoad(PluginContext *ctx)
 
 void GraphViewPlugin::onUnload()
 {
-    // O5.T4 LIFETIME — this is the load-bearing line. The provider's vtable
+    // LIFETIME — this is the load-bearing line. The provider's vtable
     // lives in THIS .so, so it has to be handed back to the registrar while
     // the library is still mapped, or KXMLGUIFactory keeps a client whose
     // code no longer exists. onUnload() is the one hook that provably runs
@@ -129,10 +129,10 @@ void GraphViewPlugin::onUnload()
 
 QObject *GraphViewPlugin::createView(MainWindow *)
 {
-    // O6.T3: retired. This returned a SINGLETON GraphControlsPanel that
+    // Retired. This returned a SINGLETON GraphControlsPanel that
     // MainWindow docked in a right-hand tool view and every GraphViewTab
     // wired with ~13 connect() calls and no disconnect — so with two graph
-    // tabs open, one tab's slider drove both engines (report §4.3). Each tab
+    // tabs open, one tab's slider drove both engines. Each tab
     // now owns its panel (GraphViewTab::controlsPanel), which fixes the bug
     // by construction. The "X-Corbomite-DockArea: right" metadata key is
     // gone too, so MainWindow stops creating the dock for it.

@@ -11,9 +11,9 @@ class WorkspaceWindow;
 
 /// Container for popout windows. Holds the list of `WorkspaceWindow*`
 /// in `floating.children` order, matching the Obsidian
-/// `workspace.floatingSplit` shape. Cluster Y Phase 7.5 ships this as a
-/// thin facade over the existing `Workspace::windows()` list — Phase 5
-/// already owns the popout lifecycle, this object just exposes that
+/// `workspace.floatingSplit` shape. This is a
+/// thin facade over the existing `Workspace::windows()` list — the
+/// popout lifecycle is already owned there, this object just exposes that
 /// list under the Obsidian-shape accessor.
 class WorkspaceFloating : public QObject
 {

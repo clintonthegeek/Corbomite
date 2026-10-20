@@ -27,7 +27,7 @@ public:
     QString getIcon() const override;
     bool canAcceptExtension(const QString &ext) const override;
 
-    /// Cluster M M5.3 — canvas viewport persistence.
+    /// Canvas viewport persistence.
     ///
     /// The viewport rides in the ViewState's `state` payload under
     /// `viewState`, exactly where Obsidian's canvas puts it
@@ -38,8 +38,7 @@ public:
     /// Field names and units are Obsidian's, verbatim: `x`/`y` are the scene
     /// point at the viewport centre, `zoom` is log2 of the scale factor.
     /// Renaming any of them would make a workspace.json written by one app
-    /// unreadable by the other, so this is a shared-schema surface
-    /// (workspace compat doctrine, L0).
+    /// unreadable by the other, so this is a shared-schema surface.
     ///
     /// Source: `docs/obsidian-audit/addenda/2026-10-03-canvas-viewport-ephemeral-state-resolution.md`.
     QJsonObject getState() const override;
@@ -48,24 +47,24 @@ public:
     void setRenderEngine(MarkdownRenderEngine *engine);
     CanvasViewTab *canvasWidget() const;
 
-    /// M6.3 — forward to the canvas tab so a vault create/rename re-resolves
+    /// Forward to the canvas tab so a vault create/rename re-resolves
     /// dangling file cards. Empty path refreshes every card.
     void refreshFileCards(const QString &vaultRelativePath = QString());
 
-    /// Cluster M leftover — canvas dark mode. Follows the host's ThemeService
+    /// Canvas dark mode. Follows the host's ThemeService
     /// so an Obsidian-authored dark vault gets a dark canvas instead of a
     /// white one with white cards on it. Same injection shape as
     /// NoteEditorWidget::setThemeService.
     void setThemeService(Corbomite::Core::ThemeService *service);
 
-    /// Cluster M leftover — the vault's file list for the canvas file picker,
+    /// The vault's file list for the canvas file picker,
     /// as vault-relative paths. Passing the Vault's own list (rather than
     /// letting the picker walk the filesystem) means the picker automatically
     /// honours whatever Vault already excludes, and costs one in-memory list
     /// instead of a recursive directory scan per open.
     void setFileLister(std::function<QStringList()> lister);
 
-    /// Cluster M M5.4 — where the canvas read-only lock is persisted. Points
+    /// Where the canvas read-only lock is persisted. Points
     /// CanvasViewTab at SessionManager's tier 3. Null store means the lock is
     /// in-memory only (which is the correct behaviour for a canvas opened
     /// outside a vault session). MainWindow currently doesn't inject one, so
@@ -75,12 +74,12 @@ public:
     using LocalDataWriter = std::function<void(const QString &key, const QJsonObject &value)>;
     void setLocalDataStore(LocalDataReader reader, LocalDataWriter writer);
 
-    /// M5.4 — true when this canvas is locked. Always false when no file is
+    /// True when this canvas is locked. Always false when no file is
     /// loaded, which is what makes `canvas_lock` checkable rather than
     /// tri-state.
     bool isReadOnly() const;
 
-    // Cluster O Phase O1.T3 — re-light the View::zoom*() polymorphic
+    // Re-light the View::zoom*() polymorphic
     // dispatch onto the real CanvasView viewport transform. Previously
     // MainWindow's zoom actions bypassed the virtuals entirely and only
     // ever reached the markdown leaf; canvas had no zoom action at all.
@@ -88,7 +87,7 @@ public:
     void zoomOut() override;
     void zoomReset() override;
 
-    // Cluster O Phase O2.T1 — Tier-B capability overrides. canZoom() is
+    // Tier-B capability overrides. canZoom() is
     // left at the base default (true).
     bool canEdit() const override;
     bool canSave() const override;
@@ -96,12 +95,12 @@ public:
     bool canUndo() const override;
     bool canRedo() const override;
 
-    /// Cluster R Task 3.6 — command-dispatch hook used by the hamburger
+    /// Command-dispatch hook used by the hamburger
     /// menu's Split/pane/linked-view entries. Injected by MainWindow.
     using CommandDispatch = std::function<void(const QString &commandId)>;
     void setCanvasCommandDispatcher(CommandDispatch dispatcher);
 
-    /// Cluster R Task 3.6 — hamburger menu: Split/Export/Bookmark-stub +
+    /// Hamburger menu: Split/Export/Bookmark-stub +
     /// view.linked submenu. Does NOT chain to EditableFileView (canvas is
     /// not an editable-text file view in the current hierarchy); rename /
     /// move / delete remain a follow-up for when CanvasFileView is
@@ -122,7 +121,7 @@ protected:
     void onUnloadFile(NoteDocument *file) override;
 
 private Q_SLOTS:
-    /// Cluster R Task 3.6 — modal: Area (selected / full canvas), Format
+    /// Modal: Area (selected / full canvas), Format
     /// (PNG / SVG), transparent background, show edges. Writes through
     /// CanvasScene::renderToImage / renderToSvg.
     void showExportAsImageModal();
@@ -130,7 +129,7 @@ private Q_SLOTS:
 private:
     CanvasViewTab *m_canvasWidget = nullptr;
     /// Vault-relative path the live document is registered under in
-    /// Canvas::CanvasDocumentRegistry (M6.2). Empty when not attached.
+    /// Canvas::CanvasDocumentRegistry. Empty when not attached.
     QString m_registeredCanvasPath;
     /// Raw pointer + explicit disconnect, matching
     /// NoteEditorWidget::setThemeService — the ThemeService outlives every

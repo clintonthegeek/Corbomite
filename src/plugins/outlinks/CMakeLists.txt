@@ -11,6 +11,6 @@ corbomite_add_plugin(corbomite-outlinks
         Corbomite::Storage
         Corbomite::Vault)
 
-if(CORBOMITE_PORT_BUILD_TESTS)
+if(CORBOMITE_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

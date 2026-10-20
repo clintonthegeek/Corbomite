@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Covers the remaining FileManager methods (Task 5.5 scope):
+// Covers the remaining FileManager methods:
 //   getAvailablePathForAttachment / generateMarkdownLink / insertIntoFile
 //
 #include <QTest>

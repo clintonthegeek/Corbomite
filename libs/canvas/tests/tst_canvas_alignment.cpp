@@ -42,7 +42,7 @@ private:
 /// since QGuiApplication::keyboardModifiers() reflects genuine OS-level
 /// modifier state that an offscreen unit test cannot fake by driving
 /// events (no precedent for faking it elsewhere in this codebase — the
-/// M2.5 Alt-drag-duplicate code reads modifiers off a real QGraphicsSceneMouseEvent,
+/// Alt-drag-duplicate code reads modifiers off a real QGraphicsSceneMouseEvent,
 /// not the global getter).
 class FakeModifierStrategy : public Canvas::CanvasAlignmentStrategy {
 public:

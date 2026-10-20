@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SourceEditor.h"
 
-// TODO(port-foundation-exploration): qutepart.h was the public header of the
-// retired standalone Qutepart library. Stubbed to QPlainTextEdit pending the
-// source-editor swap port to Markoff::Source::Editor.
+// Port history: qutepart.h was the public header of the retired standalone
+// Qutepart library. Stubbed to QPlainTextEdit pending the source-editor swap
+// to Markoff::Source::Editor.
 
 #include <QPlainTextEdit>
 #include <QScrollBar>
@@ -77,8 +77,8 @@ void SourceEditor::setCursorPosition(CursorPos pos)
 
 float SourceEditor::scrollPosition() const
 {
-    // TODO(port-foundation-exploration): Qutepart::Qutepart had a visual-line
-    // float scroll API; QPlainTextEdit only exposes block-line scroll. Approximate
+    // Port history: Qutepart::Qutepart had a visual-line float scroll API;
+    // QPlainTextEdit only exposes block-line scroll. Approximate
     // by returning the scrollbar value as a float — accurate enough for
     // EphemeralState round-trips during the port, off by visual-soft-wrap
     // adjustments that the real Markoff::Source::Editor will need to handle.
@@ -87,24 +87,24 @@ float SourceEditor::scrollPosition() const
 
 void SourceEditor::setScrollPosition(float visualLine)
 {
-    // TODO(port-foundation-exploration): see scrollPosition() — symmetric stub.
+    // Port history: see scrollPosition() — symmetric stub.
     m_qutepart->verticalScrollBar()->setValue(static_cast<int>(visualLine));
 }
 
 QVector<int> SourceEditor::foldedHeadings() const
 {
-    // TODO(phase-4/phase-7): derive from Qutepart's fold-block state once
-    // the FoldCalculator (Phase 4) + section-fold markdown hierarchy
-    // (Phase 7) land. Phase 2 scaffold: round-trip whatever was set.
+    // Pending: the shim has no fold engine, so the folded-heading state is
+    // only round-tripped. Deriving it from a real fold calculator needs the
+    // source-editor swap; filed in the punch list.
     return m_pendingFoldedHeadings;
 }
 
 void SourceEditor::setFoldedHeadings(const QVector<int> &foldedLines)
 {
-    // TODO(phase-4/phase-7): apply to Qutepart's internal fold engine.
-    // Phase 2: store for round-trip only. This keeps the EphemeralState
-    // persistence plumbing in Cluster E Phase 1 unblocked without binding
-    // the shim to the (about-to-be-replaced) Kate-XML fold engine.
+    // Pending: the shim has no fold engine, so the state is stored for
+    // round-trip only. That keeps the ephemeral-state persistence plumbing
+    // working without binding the shim to the fold engine the
+    // source-editor swap will bring.
     m_pendingFoldedHeadings = foldedLines;
 }
 

@@ -34,7 +34,7 @@
 #include "corbomite/core/View.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "editor/MarkdownView.h"
+#include "editor/MarkdownFileView.h"
 #include "editor/NoteEditorWidget.h"
 
 #include <canvas/CanvasCommands.h>
@@ -97,7 +97,7 @@ private Q_SLOTS:
         QVERIFY(ws);
         View *view = ws->activeLeaf()->view();
         QVERIFY(view);
-        QVERIFY2(qobject_cast<MarkdownView *>(view), "must be a MarkdownView");
+        QVERIFY2(qobject_cast<MarkdownFileView *>(view), "must be a MarkdownFileView");
 
         QVERIFY2(view->canZoom(), "markdown must answer canZoom() true (base default)");
         QVERIFY2(view->canSave(), "markdown must answer canSave() true");
@@ -105,7 +105,7 @@ private Q_SLOTS:
         QVERIFY2(view->canEdit(), "markdown must answer canEdit() true in default (Live) mode");
         // O1.T8's approximation: canUndo/canRedo track canEdit() until
         // Markoff exposes a real undoD2 depth query (see
-        // MarkdownView::canUndo()'s comment).
+        // MarkdownFileView::canUndo()'s comment).
         QCOMPARE(view->canUndo(), view->canEdit());
         QCOMPARE(view->canRedo(), view->canEdit());
         QVERIFY2(!view->hasSelection(), "markdown has no hasSelection() override — base default false");

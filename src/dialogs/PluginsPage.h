@@ -28,7 +28,7 @@ class PluginManager;
 /// the per-permission checkboxes are read-only — there's nothing to
 /// revoke. Untrusted plugins surface the checkboxes as live toggles
 /// (placeholder for the granular grant UI; the permission grant dialog
-/// from Task 4 still drives first-enable prompts).
+/// grant dialog still drives first-enable prompts).
 class PluginsPage : public QWidget
 {
     Q_OBJECT

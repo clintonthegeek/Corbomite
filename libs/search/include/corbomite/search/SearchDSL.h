@@ -67,7 +67,7 @@ CompiledPlan compile(const SearchNodePtr &root);
 // Obsidian's parser quirks.
 ParseResult parse(const QString &query);
 
-// Operators currently recognised (Phase 4a subset). Future operators that need
+// Operators currently recognised. Future operators that need
 // markdown-AST or new schema (line/block/section/task*/property) are accepted
 // by the parser as OpCall nodes; the planner will reject them until support
 // lands. Set is exposed for the SearchPanel "?" helper popover.

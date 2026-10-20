@@ -33,7 +33,7 @@ namespace detail { class Watcher; }
 // happens at Vault's first ctor call via a static-local flag in Vault.cpp.
 }  // namespace Corbomite
 
-// TODO(port-foundation-exploration): Markoff::ParsePool retired with D4
+// Port history: Markoff::ParsePool retired with D4
 // (incremental parser deleted). Forward-decl + m_parsePool member dropped;
 // NoteDocument no longer takes a pool parameter.
 
@@ -55,9 +55,8 @@ namespace Corbomite {
 /// signals on every mutation. See
 /// `docs/superpowers/specs/2026-04-16-vault-architecture-design.md`.
 ///
-/// Task 1.5 ships the skeletal surface only: load/unload + tree queries.
-/// Read/mutate + watcher + config-I/O + event firing arrive in subsequent
-/// tasks.
+/// The surface covers load/unload, tree queries, read/mutate, the watcher,
+/// config-I/O, and event firing.
 class Vault : public QObject
 {
     Q_OBJECT
@@ -133,7 +132,7 @@ public:
     bool copy(TAbstractFile *f, const QString &newPath);
     bool trash(TAbstractFile *f, bool useSystem);
 
-    // ---- NoteDocument lifecycle (Phase 10 — absorbed from VaultModel) ----
+    // ---- NoteDocument lifecycle (absorbed from VaultModel) ----
     /// Returns the cached NoteDocument for `relPath`, creating + hydrating
     /// one from disk on first access. Cache entries live until `unload()`,
     /// the file is externally deleted, or the file is renamed (entry is
@@ -177,15 +176,15 @@ signals:
     /// resolveExternalReload() with the chosen content.
     void externalReloadConflict(Corbomite::NoteDocument *doc, const QString &diskContent);
 
-    /// Cluster B Phase 3 — Obsidian-shape `Vault.raw` event. Fires for
+    /// Obsidian-shape `Vault.raw` event. Fires for
     /// every external mutation detected by the watcher, including
     /// `.obsidian/`-prefixed paths. Plugin-facing.
     void raw(const QString &relPath);
 
-    /// Cluster B Phase 3 — Obsidian-shape `Vault.config-changed` event.
+    /// Obsidian-shape `Vault.config-changed` event.
     /// Fires when an external mutation is detected under
     /// `.obsidian/*.json`. Pairs with `Plugin::onExternalSettingsChange`
-    /// for per-plugin data.json watchers (Phase 3.3).
+    /// for per-plugin data.json watchers.
     void configChanged(const QString &relPath);
 
 public Q_SLOTS:
@@ -249,7 +248,7 @@ private:
     // Filesystem watcher — private detail class; header in src/.
     std::unique_ptr<detail::Watcher> m_watcher;
 
-    // TODO(port-foundation-exploration): m_parsePool retired (D4).
+    // Port history: m_parsePool retired (D4).
 
     // Deferred-deletion queue: entries persist for one event-loop turn after
     // `deletedFile` emission so synchronous subscribers can observe
@@ -264,13 +263,13 @@ private:
     // an unused QByteArray field.
     mutable QHash<QString, QByteArray> m_readCache;
 
-    // NoteDocument cache (Phase 10 — absorbed from VaultModel). Keyed by
+    // NoteDocument cache (absorbed from VaultModel). Keyed by
     // normalized relative path. Entries are owned by Vault and deleted on
     // `unload()`, `onExternalDeleted`, or rebuild. Rename rekeys the entry.
     QHash<QString, NoteDocument *> m_docs;
 
-    // Self-write echo suppression ledger. Outgoing writes (Phase 3
-    // Vault::modify/create/process/...) call stampSelfWrite(rel, mtimeMs)
+    // Self-write echo suppression ledger. Outgoing writes
+    // (Vault::modify/create/process/...) call stampSelfWrite(rel, mtimeMs)
     // before the adapter write; onExternalModified calls consumeSelfWrite
     // on the event's (rel, mtimeMs) and returns without emitting if the
     // ledger holds a match. Entries auto-expire after 1s.

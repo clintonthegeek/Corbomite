@@ -14,7 +14,7 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CORBOMITE_DEV_BUILD": "ON",
-                "CORBOMITE_PORT_BUILD_TESTS": "ON",
+                "CORBOMITE_BUILD_TESTS": "ON",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "CMAKE_C_COMPILER_LAUNCHER": "ccache",
                 "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
@@ -28,7 +28,7 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CORBOMITE_DEV_BUILD": "OFF",
-                "CORBOMITE_PORT_BUILD_TESTS": "OFF",
+                "CORBOMITE_BUILD_TESTS": "OFF",
                 "CMAKE_INSTALL_PREFIX": "/usr/local",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "CMAKE_C_COMPILER_LAUNCHER": "ccache",
@@ -43,7 +43,7 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CORBOMITE_DEV_BUILD": "OFF",
-                "CORBOMITE_PORT_BUILD_TESTS": "OFF",
+                "CORBOMITE_BUILD_TESTS": "OFF",
                 "CMAKE_INSTALL_PREFIX": "/usr",
                 "CMAKE_INSTALL_RPATH": "$ORIGIN/../lib",
                 "CMAKE_INSTALL_RPATH_USE_LINK_PATH": "ON",

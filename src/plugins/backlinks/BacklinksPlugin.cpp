@@ -28,7 +28,7 @@ void BacklinksPlugin::onLoad(PluginContext *ctx)
     // Backlinks dock panel. Registered raw so the canonical id survives;
     // `.obsidian/hotkeys.json` is keyed by it
     // (docs/obsidian-command-ids.md). The Corbomite-native
-    // `corbomite-backlinks:open` that MarkdownView and CanvasFileView
+    // `corbomite-backlinks:open` that MarkdownFileView and CanvasFileView
     // dispatch stays available as an alias.
     if (auto *commands = ctx->commands()) {
         Command open;

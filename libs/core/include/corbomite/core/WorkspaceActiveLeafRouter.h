@@ -23,8 +23,8 @@ class Workspace;
 /// router does not hold its own leaf or layoutReady state; consult
 /// `Workspace::activeLeaf()` and `Workspace::isLayoutReady()` instead.
 ///
-/// Originally lived as an inline lambda in `Workspace::Workspace` (Cluster
-/// G Part 3, 2026-04-18). Promoted to a named class in Cluster Y Phase 6.1
+/// Originally lived as an inline lambda in `Workspace::Workspace`
+/// (2026-04-18). Promoted to a named class
 /// to make the focus-routing concern individually testable and to keep
 /// `Workspace.cpp`'s constructor short.
 class WorkspaceActiveLeafRouter : public QObject

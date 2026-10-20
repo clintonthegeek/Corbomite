@@ -27,7 +27,7 @@
 #include "app/CorbomiteApp.h"
 #include "app/MainWindow.h"
 #include "editor/NoteEditorWidget.h"
-#include "editor/MarkdownView.h"
+#include "editor/MarkdownFileView.h"
 #include "corbomitesettings.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
@@ -47,7 +47,7 @@ static NoteEditorWidget *activeEditor(MainWindow *mw)
 {
     auto *ws = mw->findChild<Workspace *>();
     if (!ws || !ws->activeLeaf()) return nullptr;
-    auto *mv = qobject_cast<MarkdownView *>(ws->activeLeaf()->view());
+    auto *mv = qobject_cast<MarkdownFileView *>(ws->activeLeaf()->view());
     if (!mv) return nullptr;
     return mv->editorWidget();
 }

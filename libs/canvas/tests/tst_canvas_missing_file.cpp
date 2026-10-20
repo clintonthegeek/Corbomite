@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Cluster M M6.3 — the missing-file placeholder. A file card whose target does
+// The missing-file placeholder. A file card whose target does
 // not resolve shows "File not found: <path>" plus Create / Locate… / Remove;
 // it re-renders when the target appears. This covers the logic up to the
-// visual/interaction check, which is a live eyeball (the plan's M6 exit).
+// visual/interaction check, which is a live eyeball.
 #include <QTest>
 #include <QGraphicsSceneMouseEvent>
 #include <QSet>
@@ -141,7 +141,7 @@ void TestCanvasMissingFile::buttonHitTesting()
 void TestCanvasMissingFile::pressOnButtonReachesItThroughAnItemAbove()
 {
     // Live finding 2026-10-18: the buttons painted but could not be pressed.
-    // The press was routed with QGraphicsScene::itemAt(), and the M4.4 chrome
+    // The press was routed with QGraphicsScene::itemAt(), and the chrome
     // overlay sits above every node (z 1000) with a shape covering the whole
     // card — and it is up whenever the pointer is over the card, so the
     // top-most item was never the card. Anything above the card reproduces it

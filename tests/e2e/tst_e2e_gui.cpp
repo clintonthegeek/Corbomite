@@ -29,14 +29,13 @@
 #include "app/MainWindow.h"
 #include "app/CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
-#include "editor/MarkdownView.h"
+#include "editor/MarkdownFileView.h"
 #include "editor/MarkdownViewActions.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/TFile.h"
 #include "corbomite/vault/FileManager.h"
-#include "corbomite/models/TabModel.h"
 #include "corbomite/models/NotesTreeModel.h"
 #include "corbomite/core/NoteDocument.h"
 
@@ -246,7 +245,7 @@ private Q_SLOTS:
         editor = [this]() -> NoteEditorWidget * {
             auto *ws = m_mainWindow->findChild<Workspace *>();
             if (!ws || !ws->activeLeaf()) return nullptr;
-            auto *mv = qobject_cast<MarkdownView *>(ws->activeLeaf()->view());
+            auto *mv = qobject_cast<MarkdownFileView *>(ws->activeLeaf()->view());
             return mv ? mv->editorWidget() : nullptr;
         }();
         QVERIFY(editor);
@@ -439,7 +438,7 @@ private Q_SLOTS:
 
         auto *ws = m_mainWindow->findChild<Workspace *>();
         QVERIFY(ws);
-        auto *mv = ws->activeLeaf() ? qobject_cast<MarkdownView *>(ws->activeLeaf()->view()) : nullptr;
+        auto *mv = ws->activeLeaf() ? qobject_cast<MarkdownFileView *>(ws->activeLeaf()->view()) : nullptr;
         QVERIFY(mv);
         auto *editor = mv->editorWidget();
         QVERIFY(editor);
@@ -482,13 +481,13 @@ private Q_SLOTS:
 
     // ---------------------------------------------------------------
     // Test 10: Sidebar toggle
-    // SKIPPED: CorbomiteMDI::setSidebarsVisible() blocks the QTest
+    // SKIPPED: ToolViewHost::setSidebarsVisible() blocks the QTest
     // event loop during sidebar show/hide animation. Works fine in
     // normal app usage — only fails under QTest automation.
     // ---------------------------------------------------------------
     void testSidebarToggle()
     {
-        QSKIP("Sidebar toggle blocks QTest event loop (CorbomiteMDI animation issue)");
+        QSKIP("Sidebar toggle blocks QTest event loop (ToolViewHost animation issue)");
     }
 
     // ---------------------------------------------------------------
@@ -541,7 +540,7 @@ private Q_SLOTS:
 
         auto *ws = m_mainWindow->findChild<Workspace *>();
         QVERIFY(ws);
-        auto *mv = ws->activeLeaf() ? qobject_cast<MarkdownView *>(ws->activeLeaf()->view()) : nullptr;
+        auto *mv = ws->activeLeaf() ? qobject_cast<MarkdownFileView *>(ws->activeLeaf()->view()) : nullptr;
         QVERIFY(mv);
         auto *editor = mv->editorWidget();
         QVERIFY(editor);
@@ -561,7 +560,7 @@ private Q_SLOTS:
 
             // Should have opened the target note in a tab
             // (It may reuse an existing tab if Start Here is already open)
-            auto *newMv = ws->activeLeaf() ? qobject_cast<MarkdownView *>(ws->activeLeaf()->view()) : nullptr;
+            auto *newMv = ws->activeLeaf() ? qobject_cast<MarkdownFileView *>(ws->activeLeaf()->view()) : nullptr;
             auto *newEditor = newMv ? newMv->editorWidget() : nullptr;
             QVERIFY(newEditor);
             QVERIFY(newEditor->noteDocument());
@@ -678,7 +677,7 @@ private Q_SLOTS:
     void testCleanShutdown()
     {
         // Verify the window can be hidden and destroyed without crashing.
-        // We avoid close() → closeEvent because the CorbomiteMDI base may
+        // We avoid close() → closeEvent because the ToolViewHost base may
         // set WA_DeleteOnClose, and the resulting deletion during event
         // processing races with deleteLater'd Views in the test harness.
         m_mainWindow->hide();

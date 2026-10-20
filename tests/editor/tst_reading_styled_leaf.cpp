@@ -90,7 +90,7 @@ private Q_SLOTS:
     }
 
     // Phase 1 (contract v2): showFindBar in Reading mode must attach the
-    // FindController to the styled leaf via the MarkdownView base virtual.
+    // FindController to the styled leaf via the MarkdownFileView base virtual.
     // Falsifiable: with the old Live/Source qobject_cast switch the styled
     // leaf is never attached, navigation does not scroll, and this fails.
     void findAttachesInReadingMode()

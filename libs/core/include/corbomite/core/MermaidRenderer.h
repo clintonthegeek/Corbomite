@@ -4,7 +4,7 @@
 #ifndef CORBOMITE_CORE_MERMAIDRENDERER_H
 #define CORBOMITE_CORE_MERMAIDRENDERER_H
 
-// TODO(port-foundation-exploration): Markoff::MermaidRenderer abstract was
+// Port history: Markoff::MermaidRenderer abstract was
 // retired with the old leaves. Stubbed to a no-base class so this header
 // compiles; consumers that pass this to a Markoff seam (NoteEditorWidget
 // setMermaidRenderer, MainWindow) will need their own stubs until E5 lands a

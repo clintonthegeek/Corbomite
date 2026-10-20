@@ -3,12 +3,12 @@
 // MetadataParser — single-file AST walk that turns raw markdown bytes into
 // a `Corbomite::CachedMetadata` + SHA-256 hash.
 //
-// Phase 2 ships minimal section extraction — heading + paragraph between
+// Section extraction is minimal — heading + paragraph between
 // headings, with the callout one-line special case. Full 11-type section
-// fidelity is a follow-up; callers that need deep section info must either
-// extend this parser or wait for Phase 2.5.
+// fidelity is a follow-up; callers that need deep section info must
+// extend this parser.
 //
-// Known Phase 2 limitations (TODOs inline below):
+// Known limitations (TODOs inline below):
 //  - footnote def positions via regex scan (Markoff::Document lacks offset)
 //  - blockId position = marker only, not surrounding block span
 //  - listItem block-anchor id = nullopt (tree-sitter exposure needed)
@@ -590,7 +590,7 @@ ParsedNote MetadataParser::parse(const QByteArray &content,
             cache.footnoteRefs = refs;
     }
 
-    // (l) Block anchors: `^blockid` at end-of-line. Phase 2 uses marker span.
+    // (l) Block anchors: `^blockid` at end-of-line. The marker span is used.
     // TODO: expand position to surrounding block via AST when available.
     {
         static const QRegularExpression blockRe(
@@ -617,7 +617,7 @@ ParsedNote MetadataParser::parse(const QByteArray &content,
             cache.blocks = blocks;
     }
 
-    // (m) Sections — minimal Phase 2 extraction: heading + paragraph (or
+    // (m) Sections — minimal extraction: heading + paragraph (or
     // callout) between headings.
     // TODO: full-fidelity section extraction via tree-sitter.
     {
@@ -750,7 +750,7 @@ ParsedNote MetadataParser::parse(const QByteArray &content,
             if (!task.isEmpty())
                 li.task = task;
             // TODO: populate `id` when list-item block-anchor syntax is
-            // exposed by Markoff::Document (Phase 2.5 follow-up).
+            // exposed by Markoff::Document (follow-up).
             items.append(li);
 
             stack.append(qMakePair(indent, items.size() - 1));

@@ -14,7 +14,7 @@ class NoteDocument : public QObject {
     Q_PROPERTY(bool modified READ isModified NOTIFY modificationChanged)
 
 public:
-    // TODO(port-foundation-exploration): pool parameter formerly carried a
+    // Port history: the pool parameter formerly carried a
     // Markoff::ParsePool *; the new MarkoffDocument has no parse pool
     // (incremental parser retired with D4). Parameter dropped from signature.
     explicit NoteDocument(const QString &vaultRoot, const QString &relativePath,

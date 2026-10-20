@@ -97,7 +97,7 @@ Markoff::YamlValue qJsonValueToYaml(const QJsonValue &v)
         const QJsonArray arr = v.toArray();
         for (const auto &item : arr) {
             // Flatten non-string scalars to strings on round-trip.
-            // (Phase 1 limitation for List-type editor.)
+            // (Limitation for the List-type editor.)
             if (item.isString()) {
                 seq.appendString(item.toString());
             } else if (item.isBool()) {

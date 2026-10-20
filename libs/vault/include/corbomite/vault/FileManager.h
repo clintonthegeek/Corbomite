@@ -74,7 +74,7 @@ public:
     TFile   *createNewMarkdownFile(TFolder *parent,
                                    const QString &name,
                                    const QByteArray &content = {});
-    /// Generalized new-file placement for an arbitrary extension (M2.6:
+    /// Generalized new-file placement for an arbitrary extension (e.g.
     /// "Create new canvas"). Same collision-dedup rule as
     /// createNewMarkdownFile (" 1", " 2", ... starting at 1, Obsidian's
     /// numbering); an empty `name` yields "Untitled.<ext>". `parent`
@@ -85,7 +85,7 @@ public:
                                                const QString &hintPath);
     TFolder *createNewFolder(TFolder *parent);
 
-    // ---- Path-based convenience (Phase 10 — absorbed from VaultModel) ----
+    // ---- Path-based convenience (absorbed from VaultModel) ----
     /// Creates `<folder>/<name>.md` (dedup-appending " 1", " 2", ... on
     /// collision), auto-creating intermediate folders. Returns the new
     /// TFile or nullptr. Pass an empty folder to create at the vault
@@ -108,7 +108,7 @@ public:
     enum class InsertMode { Append, Prepend };
     bool insertIntoFile(TFile *f, const QByteArray &content, InsertMode mode);
 
-    /// Note Composer (Cluster F-a P3): move `source`'s whole body into
+    /// Note Composer: move `source`'s whole body into
     /// `target` (append or prepend), stripping the source's frontmatter, then
     /// trash `source`. The target is written first (atomic RMW) and the source
     /// trashed second, so a crash between the two leaves a duplicated body
@@ -125,7 +125,7 @@ public:
     // ---- Trash router ----
     bool trashFile(TAbstractFile *f);
 
-    // ---- Interactive prompts (Cluster R Phase 2) ----
+    // ---- Interactive prompts ----
     /// Opens a modal rename dialog anchored to `parent`. Returns the new
     /// full vault-relative path on success (after `renameFile` committed),
     /// empty QString on cancel or failure.

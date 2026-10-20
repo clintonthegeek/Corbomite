@@ -69,7 +69,7 @@ CanvasAlignmentStrategy::align(Graffodil::IGraphNode *primary, const QPointF &pr
     const Qt::KeyboardModifiers mods = currentModifiers();
 
     // No-snap modifier (Appendix A: Alt). Alt-at-press is already claimed
-    // by M2.5's duplicate-drag route one layer up in CanvasScene's
+    // by the duplicate-drag route one layer up in CanvasScene's
     // CompositeTool routing — by the time align() runs mid-drag, an Alt
     // held here unambiguously means "no-snap for this frame."
     if (mods & Qt::AltModifier)
@@ -189,7 +189,7 @@ CanvasAlignmentStrategy::align(Graffodil::IGraphNode *primary, const QPointF &pr
         }
     }
 
-    // Shift axis-lock (M4.2). Locks to the DOMINANT AXIS OF THE CURRENT
+    // Shift axis-lock. Locks to the DOMINANT AXIS OF THE CURRENT
     // FRAME's delta rather than the whole drag's (see the per-frame vs.
     // drag-start discussion this comment used to carry, now superseded by
     // m_freeDragPos existing for the snap-pinning fix above — reusing that

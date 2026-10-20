@@ -76,8 +76,9 @@ void GraphControlsPanel::setupFiltersSection()
     m_orphansToggle->setChecked(true);
     layout->addWidget(m_orphansToggle);
 
-    // TODO: Tags toggle — show/hide tag nodes (requires tag node support in GraphDataBuilder)
-    // TODO: Attachments toggle — show/hide attachment nodes (requires attachment node support in GraphDataBuilder)
+    // Pending: the Tags and Attachments toggles (show/hide tag and attachment
+    // nodes) need the matching node support in GraphDataBuilder. Both are
+    // filed in the punch list; the parity matrix tracks the gap.
 
     m_filtersSection->setContentWidget(content);
 

@@ -18,10 +18,9 @@ class PluginManager;
 /// `MainWindow`, which constructs them from the `path` argument to
 /// `vaultOpened`.
 ///
-/// During Q.0 Phase 8 this absorbed `VaultService`; Phase 10 retired
-/// `VaultModel` entirely so `CorbomiteApp` no longer owns any vault-
-/// side state beyond the "is a vault currently open" flag. Cluster Q
-/// Phase 2 added `PluginManager` ownership so plugin discovery +
+/// `CorbomiteApp` owns no vault-side state beyond the "is a vault
+/// currently open" flag; the `VaultModel` it used to own was retired
+/// entirely. `PluginManager` ownership lives here so plugin discovery +
 /// enabled-state restore happens once at app construction.
 class CorbomiteApp : public QObject {
     Q_OBJECT

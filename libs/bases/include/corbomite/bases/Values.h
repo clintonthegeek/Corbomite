@@ -343,7 +343,7 @@ public:
     std::shared_ptr<ListValue> getTags() const;
     std::shared_ptr<ObjectValue> getProperties() const;
 
-    // --- predicates for built-in file.* methods (Phase 5) ---
+    // --- predicates for built-in file.* methods ---
     bool hasLink(const ValuePtr &other) const;
     bool inFolder(const QString &folderPath) const;
     bool hasTag(const QStringList &tags) const;

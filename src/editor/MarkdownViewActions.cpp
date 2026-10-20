@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "MarkdownViewActions.h"
 
-#include "MarkdownView.h"
+#include "MarkdownFileView.h"
 #include "NoteEditorWidget.h"
 #include "corbomite/core/View.h"
 #include "dialogs/CalloutPickerDialog.h"
@@ -131,7 +131,7 @@ void MarkdownViewActions::bind(View *view)
     disconnect(m_editorContextConnection);
     disconnect(m_viewModeConnection);
 
-    m_boundView = qobject_cast<MarkdownView *>(view);
+    m_boundView = qobject_cast<MarkdownFileView *>(view);
 
     if (auto *ed = editor()) {
         // Tier C (heading radio) AND Tier B (canEdit() may have changed
@@ -169,7 +169,7 @@ void MarkdownViewActions::refresh()
     auto *ac = actionCollection();
     const bool isMarkdown = m_boundView != nullptr;
     // O2.T4: routed through the Tier-B capability virtual — a bound
-    // MarkdownView always implies an open vault (you cannot have a
+    // The Markdown file view always implies an open vault (you cannot have a
     // markdown leaf otherwise), so "bound" alone used to also need an
     // "open" check upstream in ActionContextController; here it collapses
     // to just canEdit().
@@ -190,7 +190,7 @@ void MarkdownViewActions::refresh()
     if (auto *a = ac->action(QStringLiteral("insert_callout"))) a->setEnabled(canEdit);
     if (auto *a = ac->action(QStringLiteral("insert_template"))) a->setEnabled(isMarkdown);
 
-    // Clipboard (Cluster N). canCopy uses hasCursor() (not a real
+    // Clipboard. canCopy uses hasCursor() (not a real
     // hasSelection() — Markoff::MarkdownView doesn't expose one yet) as a
     // cheap "there is an active leaf with a document" proxy, same as the
     // pre-merge MainWindow implementation this was ported from; copying
@@ -309,7 +309,7 @@ void MarkdownViewActions::syncEditorModeCheckState(int viewMode)
 
 // ---------------------------------------------------------------------
 // setupActions() — moved verbatim out of MainWindow::setupActions()
-// (Cluster V Phase 2+3 / Cluster O O3.T6). Connect bodies are unchanged;
+// Connect bodies are unchanged;
 // they now call this->editor() instead of MainWindow's activeEditor().
 // ---------------------------------------------------------------------
 
@@ -386,7 +386,7 @@ void MarkdownViewActions::setupActions()
         });
         return act;
     };
-    // Cluster O Phase O7.T2 — every stub carries a machine-readable "blocked
+    // Every stub carries a machine-readable "blocked
     // on" reason. The plan's ask was greppability: `grep -rn registerPlanned
     // Action` now lists each unfinished verb WITH its blocker, instead of the
     // reason living in a comment that drifts from the code. The reason is BOTH
@@ -439,7 +439,7 @@ void MarkdownViewActions::setupActions()
                         QKeySequence(Qt::CTRL | Qt::Key_K),
                         &Markoff::MarkdownView::insertLink);
 
-    // Clipboard (Cluster N, ported here post-merge — see class doc
+    // Clipboard (ported here from MainWindow — see class doc
     // comment). Default Cut/Copy/Paste have no KStandardAction shortcuts:
     // the leaf already handles Ctrl+X/C/V in keyPressEvent; registering
     // the standard chords here would double-fire. Copy-as is exclusive
@@ -620,8 +620,8 @@ void MarkdownViewActions::setupActions()
                         i18n("Delete Column"),
                         i18n("markoff:table column ops"));
 
-    // View > Fold All / Unfold All / Toggle Fold — folding is not in
-    // foundation-exploration at all yet; all stubs.
+    // View > Fold All / Unfold All / Toggle Fold — folding is not
+    // implemented yet; all stubs.
     registerPlannedAction(QStringLiteral("fold_all"),
                         QStringLiteral("collapse-all"), i18n("Fold All"),
                         i18n("markoff:fold verb"),

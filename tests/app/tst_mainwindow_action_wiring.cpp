@@ -220,7 +220,7 @@ private slots:
 
     void editorActionsAreDisabledWithoutActiveMarkdownView()
     {
-        // With no vault open, active leaf has no MarkdownView. Editor
+        // With no vault open, active leaf has no MarkdownFileView. Editor
         // actions should all start disabled so the menubar doesn't
         // advertise unreachable commands.
         CorbomiteApp app;

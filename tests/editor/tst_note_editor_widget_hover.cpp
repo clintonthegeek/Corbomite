@@ -12,7 +12,7 @@
 
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/StyledRenderEngine.h"
-#include "corbomite/core/VaultResourceProvider.h"
+#include "corbomite/core/ResourceResolver.h"
 
 #include <QHash>
 #include <QPoint>
@@ -26,7 +26,7 @@ using Corbomite::NoteEditorWidget;
 using Corbomite::StyledRenderEngine;
 
 namespace {
-class InMemoryResources : public Corbomite::Core::VaultResourceProvider
+class InMemoryResources : public Corbomite::Core::ResourceResolver
 {
 public:
     void addNote(const QString &name, const QString &content)

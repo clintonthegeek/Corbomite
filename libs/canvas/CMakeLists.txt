@@ -64,7 +64,7 @@ target_link_libraries(canvas PUBLIC Markoff::Canvas)
 # Install rule — needed now that the app carries a runtime DT_NEEDED on
 # this library instead of embedding it statically. Not part of the
 # CorbomiteTargets export set (no Corbomite:: alias); canvas itself isn't
-# exported either, so Graffodil::Core (SHARED as of Cluster P Phase P6)
+# exported either, so Graffodil::Core (a shared library)
 # doesn't need to join the export set — it installs and carries its own
 # runtime DT_NEEDED independently (libs/graffodil/src/core/CMakeLists.txt).
 if(DEFINED KDE_INSTALL_LIBDIR)
@@ -75,7 +75,7 @@ if(DEFINED KDE_INSTALL_LIBDIR)
     )
 endif()
 
-if(CORBOMITE_PORT_BUILD_TESTS)
+if(CORBOMITE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()

@@ -17,7 +17,7 @@ class AnchorHighlight;
 
 namespace Canvas {
 
-/// M3.4 — drag an existing edge's endpoint onto a different node (or drop it
+/// Drag an existing edge's endpoint onto a different node (or drop it
 /// on empty space to delete the edge). Mirrors Graffodil::CreateEdgeTool's
 /// preview mechanics (dashed line + AnchorHighlight snapping) but the
 /// gesture is initiated externally: CanvasEdgeGestureTool hit-tests for "is

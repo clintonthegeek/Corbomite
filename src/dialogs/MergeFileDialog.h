@@ -13,7 +13,7 @@ class QStackedWidget;
 
 namespace Corbomite {
 
-/// "Merge entire file with…" modal (Cluster F-a P2), Obsidian's Note Composer.
+/// "Merge entire file with…" modal, Obsidian's Note Composer.
 /// Two stages in one dialog: a fuzzy file picker (all `.md` files except the
 /// source) then an append/prepend confirmation carrying the destructive-
 /// consequence and link-rewrite copy. It only *chooses*; the merge itself is

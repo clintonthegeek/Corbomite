@@ -21,6 +21,6 @@ corbomite_add_plugin(note-stats
         Qt6::Widgets
 )
 
-if(CORBOMITE_PORT_BUILD_TESTS)
+if(CORBOMITE_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

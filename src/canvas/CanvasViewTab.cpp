@@ -30,8 +30,8 @@ namespace Corbomite {
 
 namespace {
 
-/// M5.5 — the app's one FileManager, which MainWindow parents to itself and
-/// which MainWindow.cpp is outside this task's scope to inject, so it is
+/// The app's one FileManager, which MainWindow parents to itself and
+/// which MainWindow.cpp does not inject, so it is
 /// resolved through the widget tree the same way CanvasFileView resolves
 /// SessionManager. Null outside a MainWindow (tests, headless), where
 /// "Convert to File…" has nowhere to write.
@@ -41,7 +41,7 @@ FileManager *fileManagerFor(QWidget *widget)
     return window ? window->findChild<FileManager *>() : nullptr;
 }
 
-/// M5.5 — Obsidian's new-file-name modal rejects the same three classes
+/// Obsidian's new-file-name modal rejects the same three classes
 /// (`fR.validate`, `app/own/1312-hR.js:81-82`): characters no filename may
 /// contain (`ND`/`HD`, platform-conditional exactly as upstream's is), a
 /// leading dot, and characters that would break links (`RD`/`zD`). Upstream
@@ -96,7 +96,7 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
         return QString::fromUtf8(file.readAll());
     });
 
-    // M6.3 — distinguish a missing file-card target from an existing empty
+    // Distinguish a missing file-card target from an existing empty
     // file, so the placeholder only appears for a dangling card.
     m_view->canvasScene()->setFileExistsChecker([resolveBase](const QString &path) -> bool {
         if (path.isEmpty())
@@ -112,12 +112,12 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
         }
     });
 
-    // M2.2 — "New file card…" candidate source. No Vault object is
+    // "New file card…" candidate source. No Vault object is
     // reachable at this layer (CanvasViewTab only ever gets a vaultRoot
     // path string), so this scans the vault tree directly for markdown +
     // common attachment files rather than reusing Vault::getFiles(); a
-    // real Vault-backed source is app-side follow-up work (see plan M2.2
-    // note). CanvasFilePickerDialog does the actual fuzzy filter/rank.
+    // real Vault-backed source is app-side follow-up work.
+    // CanvasFilePickerDialog does the actual fuzzy filter/rank.
     QPointer<Canvas::CanvasView> viewPtr(m_view);
     m_view->canvasScene()->setFilePickerRequestor([resolveBase, viewPtr, this]() -> QString {
         static const QStringList kAttachmentExts = {
@@ -128,7 +128,7 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
 
         QStringList candidates;
         if (m_fileLister) {
-            // Cluster M leftover — the VAULT's file list, not a filesystem
+            // The VAULT's file list, not a filesystem
             // walk. The walk below is kept only as a fallback for callers
             // that never called setFileLister().
             candidates = m_fileLister();
@@ -174,9 +174,9 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
         return Canvas::CanvasFilePickerDialog::pickFile(viewPtr, candidates);
     });
 
-    // M2.3 — drag-drop candidate paths arrive as absolute filesystem paths
+    // Drag-drop candidate paths arrive as absolute filesystem paths
     // (text/uri-list); resolve to vault-relative, rejecting anything
-    // outside resolveBase (no copy-into-vault in M1/M2 scope).
+    // outside resolveBase (no copy-into-vault here).
     m_view->canvasScene()->setVaultPathResolver([resolveBase](const QString &absoluteFilePath) -> QString {
         if (resolveBase.isEmpty())
             return {};

@@ -6,7 +6,7 @@
 
 namespace Corbomite {
 
-/// Cluster O Phase O3 (O3.T4, doctrine §D4) — tri-state, user-overridable
+/// Tri-state, user-overridable
 /// visibility policy for one `ViewActions` provider's persistent toolbar.
 /// Persisted per-provider in `corbomite.kcfg`'s `<group name="Toolbars">`
 /// (one named entry per provider view type, e.g. `MarkdownToolBarPolicy`).

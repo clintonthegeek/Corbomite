@@ -38,8 +38,8 @@ QString defaultUserPath()
          + QStringLiteral("/corbomite/plugins");
 }
 
-/// Hard-coded mapping for the 8 in-tree internal plugins shipped at
-/// Cluster Q close. Used as a fallback when the plugin's manifest does
+/// Hard-coded mapping for the 8 in-tree internal plugins. Used as a
+/// fallback when the plugin's manifest does
 /// not declare X-Obsidian-Id. Covers the canonical Corbomite plugin slugs.
 /// See `docs/superpowers/specs/2026-04-26-plugin-enable-state-cross-app-compromise.md`.
 const QHash<QString, QString> &internalAliasDict()
@@ -322,7 +322,7 @@ bool PluginManager::enablePlugin(const QString &id)
     }
     info->enabled = true;
 
-    // Cluster B Phase 3.3 — install the per-plugin data.json watch. The
+    // Install the per-plugin data.json watch. The
     // configurator above handed the context its data dir, so the file is
     // resolved through it rather than by re-deriving the vault layout here.
     installDataWatch(id);
@@ -347,7 +347,7 @@ bool PluginManager::disablePlugin(const QString &id, bool persist)
     info->context = nullptr;
     info->enabled = false;
 
-    // Cluster B Phase 3.3 — drop the watch this plugin owned.
+    // Drop the watch this plugin owned.
     removeDataWatch(id);
 
     if (persist) writeEnabledState(id, false);

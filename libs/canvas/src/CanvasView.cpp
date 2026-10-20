@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <cmath>
 
-// Cluster M leftover (canvas dark mode) — the item's scene palette, or the
+// Canvas dark mode — the item's scene palette, or the
 // light default when the item has no scene (unit tests, detached items). The
 // fallback matters: a `paint()` that returned a default-constructed
 // CanvasPalette would silently render light, which is exactly the class of
@@ -43,13 +43,13 @@ static constexpr double kZoomFactor = 1.15;
 // Minimum on-screen spacing (device pixels) a drawn grid line/dot pitch must
 // clear before we stop thinning it further. CanvasAlignmentStrategy::
 // gridSpacingForScale()'s own 20/40/80/160 ladder already coarsens the pitch
-// down to scale 0.25; below that (M5's zoom clamp -- Appendix A log2 scale
+// down to scale 0.25; below that (the zoom clamp -- Appendix A log2 scale
 // in [-4,1], i.e. scale >= 0.0625 -- hasn't landed yet, so zoomOut() has no
 // floor today) this keeps doubling the pitch until it's visually sane again,
 // rather than the dots merging into noise at extreme zoom-out.
 static constexpr double kMinOnScreenGridSpacing = 8.0;
 
-// M4.2 edge auto-pan (Appendix A: Obsidian target ~60Hz near the viewport
+// Edge auto-pan (Appendix A: Obsidian target ~60Hz near the viewport
 // wrapper's edge). Margin/step aren't in Appendix A's normative table
 // (unspecified by the audit) — picked as plausible, "keep simple" values.
 static constexpr int kAutoPanMargin = 30;     // px from viewport edge that triggers auto-pan
@@ -66,7 +66,7 @@ CanvasView::CanvasView(QWidget *parent)
     setDragMode(QGraphicsView::NoDrag); // Tools handle drag
     setTransformationAnchor(AnchorUnderMouse);
     setViewportUpdateMode(SmartViewportUpdate);
-    // M2.3 — required so QGraphicsView forwards drag/drop events to the
+    // Required so QGraphicsView forwards drag/drop events to the
     // scene's dragEnterEvent/dragMoveEvent/dropEvent.
     setAcceptDrops(true);
 
@@ -267,7 +267,7 @@ void CanvasView::keyPressEvent(QKeyEvent *event)
     const bool shift = event->modifiers() & Qt::ShiftModifier;
 
     if (ctrl && event->key() == Qt::Key_Z && !shift) {
-        // Ctrl+Z: undo. M5.4: gated on the scene's read-only-aware canUndo().
+        // Ctrl+Z: undo. Gated on the scene's read-only-aware canUndo().
         if (m_scene->canUndo())
             m_scene->undoStack()->undo();
         return;
@@ -281,7 +281,7 @@ void CanvasView::keyPressEvent(QKeyEvent *event)
         return;
     }
 
-    // M2.4 clipboard. Note: when the inline-edit QTextEdit proxy has focus,
+    // Clipboard. Note: when the inline-edit QTextEdit proxy has focus,
     // OS-level keyboard focus is on that child widget directly, so these
     // never fire during in-place text editing (same reasoning as the
     // Ctrl+Z/Y handling above).

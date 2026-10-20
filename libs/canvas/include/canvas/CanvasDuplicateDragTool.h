@@ -18,12 +18,12 @@ class CanvasScene;
 
 /// Find the topmost already-selected CanvasNodeItem under scenePos, or
 /// nullptr. Used by the CompositeTool routing predicate for Alt-drag
-/// duplicate (M2.5): the gesture only starts when Alt is held AND the
+/// duplicate: the gesture only starts when Alt is held AND the
 /// press lands on a node that is already part of the current selection —
 /// mirrors CanvasResizeTool's findResizeTarget() precedent.
 CanvasNodeItem *findAltDragDuplicateTarget(Graffodil::GraphScene *scene, const QPointF &scenePos);
 
-/// M2.5 — Alt-drag duplicate. Press-with-Alt on an already-selected node
+/// Alt-drag duplicate. Press-with-Alt on an already-selected node
 /// clones the whole selection (fresh 16-hex ids; edges between two
 /// selected nodes are cloned too, endpoints remapped) and drags the
 /// CLONES instead of the originals, leaving the source nodes untouched.

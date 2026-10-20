@@ -38,7 +38,7 @@ public:
     View *view() const;
     ViewRegistry *registry() const;
 
-    /// The Workspace that owns this leaf. After Phase 4b leaves are
+    /// The Workspace that owns this leaf. Leaves are
     /// QObject-parented directly to the owning Workspace at construction
     /// (the substrate-walk path is gone), so this is just a parent
     /// qobject_cast. Returns nullptr if the leaf is unattached (e.g. test

@@ -6,8 +6,6 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Widgets)
 
 add_library(corbomite-models SHARED
-    src/TabModel.cpp
-    include/corbomite/models/TabModel.h
     src/NotesTreeModel.cpp
     include/corbomite/models/NotesTreeModel.h
     src/SearchResultsModel.cpp

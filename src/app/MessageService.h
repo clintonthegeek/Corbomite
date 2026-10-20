@@ -28,7 +28,7 @@ namespace Corbomite {
 ///     when the window is not active — the case a status-bar line cannot
 ///     cover, because nobody is looking at the status bar then.
 ///
-/// This replaces Cluster H's floating `Notice` toast, which drew itself at the
+/// This replaces the old floating `Notice` toast, which drew itself at the
 /// screen's bottom-right — outside the window it was about, over whatever else
 /// was on the desktop — and kept no history.
 class MessageService : public QObject

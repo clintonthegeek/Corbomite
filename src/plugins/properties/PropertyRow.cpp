@@ -50,7 +50,7 @@ PropertyRow::PropertyRow(const QString &key, PropertyType type,
     h->setSpacing(4);
 
     m_grip = new QToolButton(this);
-    m_grip->setIcon(QIcon::fromTheme(QStringLiteral("application-menu")));  // grip affordance; drag wired in Task 7
+    m_grip->setIcon(QIcon::fromTheme(QStringLiteral("application-menu")));  // grip affordance; drag-to-reorder is not wired up yet
     m_grip->setAutoRaise(true);
     m_grip->setCursor(Qt::SizeAllCursor);
     m_grip->setToolTip(i18n("Drag to reorder"));

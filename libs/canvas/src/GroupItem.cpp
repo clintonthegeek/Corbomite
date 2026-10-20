@@ -9,7 +9,7 @@
 #include <QGraphicsSceneMouseEvent>
 #include <utility>
 
-// Cluster M leftover (canvas dark mode) — see CanvasPalette.h.
+// Canvas dark mode — see CanvasPalette.h.
 static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
 {
     static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
@@ -112,7 +112,7 @@ void GroupItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
         painter->drawText(textRect, Qt::AlignLeft | Qt::AlignTop, m_data.label);
     }
 
-    // Resize-handle drawing moved to CanvasNodeChromeOverlay (M4.4) — one
+    // Resize-handle drawing moved to CanvasNodeChromeOverlay — one
     // shared, zoom-constant overlay retargeted to the active node, instead
     // of this triplicated per-item block. Do not re-add handle painting
     // here; see CanvasNodeChromeOverlay.h.
@@ -132,10 +132,10 @@ QVector<QGraphicsItem *> GroupItem::containedItems() const
             continue; // Skip other groups
         if (!dynamic_cast<QGraphicsObject *>(item))
             continue; // Skip non-objects (edges are QGraphicsPathItem, not QGraphicsObject)
-        // M4.3 / Appendix A: full containment of the candidate's own scene
+        // Appendix A: full containment of the candidate's own scene
         // rect, not just its center point — a node straddling the group's
         // edge is not a member (Obsidian's rule; the old center-test picked
-        // it up, which is exactly the bug M4.3 fixes).
+        // it up, which is exactly the bug this fixes).
         if (myRect.contains(item->sceneBoundingRect())) {
             result.append(item);
         }
@@ -170,7 +170,7 @@ QVariant GroupItem::itemChange(GraphicsItemChange change, const QVariant &value)
         const QPointF delta = newPos - m_lastPos;
         m_lastPos = newPos;
 
-        // M4.3: membership is frozen at drag start (beginDragCapture), not
+        // Membership is frozen at drag start (beginDragCapture), not
         // re-tested here. If no capture is active, this position change came
         // from something other than an in-progress drag of this group (undo/
         // redo replay, a reactive setNodeData from the document, an arrow-key

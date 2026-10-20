@@ -17,13 +17,13 @@ namespace Corbomite {
 /// fields live on this struct, so this header has no dependency on
 /// `NoteEditorWidget.h`.
 ///
-/// scroll is visual-line float; precision ±0.5 for Source mode until Phase 4
-/// (see Cluster E plan — `Qutepart::scrollContentsBy` sub-line precision is
+/// scroll is visual-line float; precision ±0.5 for Source mode
+/// (`Qutepart::scrollContentsBy` sub-line precision is
 /// deferred until the KSyntaxHighlighting / FoldCalculator rework).
 ///
 /// **Unknown-key preservation.** Any keys not covered by the typed accessors
 /// survive a `fromJson → toJson` round-trip via `extraKeys`. This mirrors
-/// the Cluster B `WorkspaceState` idiom: workspace.json tolerates future
+/// the `WorkspaceState` idiom: workspace.json tolerates future
 /// Obsidian versions and plugin data evolving around us.
 struct EphemeralState {
     struct Cursor {
@@ -36,7 +36,7 @@ struct EphemeralState {
         }
     };
 
-    float scroll = 0.0f;             // scroll fraction 0.0–1.0 (MarkdownView::scrollPositionVisualLine, contract v2)
+    float scroll = 0.0f;             // scroll fraction 0.0–1.0 (MarkdownFileView::scrollPositionVisualLine, contract v2)
     Cursor cursor;
     QString modeRaw = QStringLiteral("source"); // {"source","preview"}
     bool sourceFlag = false;         // when modeRaw == "source": false = live-preview, true = source

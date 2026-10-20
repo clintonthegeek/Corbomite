@@ -39,10 +39,10 @@ TagSuggest::onTrigger(int cursorPos, const QString &lineText, NoteDocument *file
 
 EditorSuggestionSet TagSuggest::getSuggestions(const EditorSuggestTriggerInfo &ctx)
 {
-    // Mechanical v2 conversion (Task 6): return the full candidate universe;
+    // Mechanical v2 conversion: return the full candidate universe;
     // the popup's fuzzy proxy filters against set.filter. Tag insertion is
     // just the tag text — the leading '#' is already in place — so display
-    // and insertText coincide. Behavioral richness lands in Task 7.
+    // and insertText coincide. Behavioral richness is not implemented yet.
     EditorSuggestionSet set;
     set.filter = ctx.query;
     if (!m_index) return set;

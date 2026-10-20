@@ -226,7 +226,7 @@ void TstMainWindowObsidianCommands::noBridgeIsMissingFromThisTable()
 
 void TstMainWindowObsidianCommands::splitIdsStillDispatchForViewHeaderMenus()
 {
-    // MarkdownView's view-header hamburger dispatches `split_right`/
+    // MarkdownFileView's view-header hamburger dispatches `split_right`/
     // `split_down` (Bug #1, commit 9fb2fe47). The Obsidian ids are additional
     // names for the same two commands, not replacements, so the Corbomite ids
     // must still resolve.

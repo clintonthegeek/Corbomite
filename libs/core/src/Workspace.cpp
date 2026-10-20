@@ -166,7 +166,7 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     m_kddwMain = new KDDockWidgets::QtWidgets::MainWindow(
         mainName, KDDockWidgets::MainWindowOption_None,
         /*parent=*/nullptr);
-    // The host (e.g. CorbomiteMDI::MainWindow) reparents m_kddwMain into its
+    // The host (e.g. ToolViewHost::HostWindow) reparents m_kddwMain into its
     // own central widget hierarchy, so Qt's parent cleanup may destroy the
     // KDDW MainWindow before Workspace's destructor runs. When that happens
     // every leaf's m_dockWidget becomes dangling — release them before
@@ -181,18 +181,18 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
         }
     });
 
-    // Per-pane focus routing. Promoted from a Cluster G inline lambda to
-    // the named WorkspaceActiveLeafRouter class in Cluster Y Phase 6.1
+    // Per-pane focus routing. Promoted from an inline lambda to
+    // the named WorkspaceActiveLeafRouter class
     // (no behaviour change). The router is parented to `this` so it dies
     // with the workspace.
     new WorkspaceActiveLeafRouter(this);
 
-    // Phase 6.3: re-emit the host MainWindow's QEvent::Resize as
+    // Re-emit the host MainWindow's QEvent::Resize as
     // Workspace::resize() so plugins can hook layout-size changes the
     // same way Obsidian's `Workspace.on("resize")` works.
     m_kddwMain->installEventFilter(this);
 
-    // Cluster L Phase L4 (D1): KDDW has no built-in middle-click-close-tab
+    // KDDW has no built-in middle-click-close-tab
     // flag (checked Config::Flag_* — nothing named Middle/Close for tabs).
     // Tab bars are QTabBar-derived widgets created/destroyed dynamically as
     // groups form and merge, so there's no single stable widget to install
@@ -200,16 +200,16 @@ Workspace::Workspace(QString vaultId, ViewRegistry *registry, QObject *parent)
     // workspace's KDDW main window inside eventFilter().
     qApp->installEventFilter(this);
 
-    // Phase 5: floating-window (popout) container. The Obsidian-shape
+    // Floating-window (popout) container. The Obsidian-shape
     // root/sidedock bookkeeping shells that used to live here were
-    // removed in Cluster L Phase L3 (C1) — dead weight with no real
+    // removed — dead weight with no real
     // callers.
     m_floating = new WorkspaceFloating(this);
 }
 
 bool Workspace::eventFilter(QObject *watched, QEvent *event)
 {
-    // Cluster L Phase L4 (D1): middle-click on a tab closes it, matching
+    // Middle-click on a tab closes it, matching
     // KDE tab-bar convention (Kate, Konsole, Dolphin). Cheap type check
     // first since this runs application-wide.
     if (event && event->type() == QEvent::MouseButtonRelease) {
@@ -238,7 +238,7 @@ bool Workspace::eventFilter(QObject *watched, QEvent *event)
             }
         }
 
-        // Cluster L Phase L4 (D2): mouse buttons 4/5 (back/forward) —
+        // Mouse buttons 4/5 (back/forward) —
         // standard on most mice, KDE-wide convention (Konqueror/Dolphin/
         // Firefox). Applies to the currently active leaf, matching the
         // Ctrl+Alt+Left/Right shortcut and the per-leaf nav buttons.
@@ -258,7 +258,7 @@ bool Workspace::eventFilter(QObject *watched, QEvent *event)
     }
 
     if (watched == m_kddwMain && event && event->type() == QEvent::Resize) {
-        // Cluster L Phase L3, C5: a single window-manager resize (e.g. a
+        // A single window-manager resize (e.g. a
         // live-resize drag) can drive many QEvent::Resize deliveries in
         // one layout pass; mirroring every one of them 1:1 as
         // Workspace::resize() is not what Obsidian's own debounced
@@ -277,8 +277,8 @@ bool Workspace::eventFilter(QObject *watched, QEvent *event)
 
 Workspace::~Workspace()
 {
-    // destroyLeaves unregisters each leaf immediately before deleting it
-    // (Phase L1 / A1-A2), so a KDDW DockWidget destructor signal firing
+    // destroyLeaves unregisters each leaf immediately before deleting it,
+    // so a KDDW DockWidget destructor signal firing
     // re-entrantly (isOpenChanged etc., which used to run lambdas that read
     // freed memory out of a stale m_leaves/m_leavesById) always sees
     // already-consistent Workspace state rather than a snapshot cleared all
@@ -332,7 +332,7 @@ void Workspace::setActiveLeaf(WorkspaceLeaf *leaf)
     // force-set m_activeLeaf directly inside Workspace.
     if (!m_layoutReady)
         return;
-    // O5.T5: remember what was active, so "Link with active pane" has a
+    // Remember what was active, so "Link with active pane" has a
     // defined target instead of picking an arbitrary visible leaf. Set
     // before the reassignment, and cleared if we had no active leaf.
     m_previousActiveLeaf = m_activeLeaf;
@@ -425,7 +425,8 @@ void Workspace::destroyLeaves(QVector<WorkspaceLeaf *> leaves, TeardownMode mode
         if (m_activeLeaf == leaf)
             m_activeLeaf = nullptr;
 
-        // Defense in depth on top of A3 (wireLeafKddwSignals now uses `leaf`
+        // Defense in depth on top of the context-object fix
+        // (wireLeafKddwSignals now uses `leaf`
         // itself as the connect context, so those connections auto-
         // disconnect structurally when the leaf dies). Cut them explicitly
         // here too so this primitive doesn't depend on every future signal
@@ -477,7 +478,7 @@ void Workspace::wireLeafKddwSignals(WorkspaceLeaf *leaf)
     // Programmatic setAsCurrentTab also triggers this, but setActiveLeaf's
     // m_activeLeaf == leaf early-return guards against feedback loops.
     //
-    // A3 fix: `leaf` (not `this`) is the connect context object, so Qt
+    // `leaf` (not `this`) is the connect context object, so Qt
     // auto-disconnects this connection when leaf dies, regardless of what
     // order Workspace's own bookkeeping gets updated in. The
     // m_leavesById.contains() check is kept as belt-and-suspenders for the
@@ -490,7 +491,8 @@ void Workspace::wireLeafKddwSignals(WorkspaceLeaf *leaf)
     });
 
     // Re-emit "user closed this tab" as Workspace::tabCloseRequested(leaf).
-    // Hosts (MainWindow) call closeLeaf in response. See A3 note above.
+    // Hosts (MainWindow) call closeLeaf in response. See the context-object
+    // note above.
     connect(dw, &KDDockWidgets::QtWidgets::DockWidget::isOpenChanged,
             leaf, [this, leaf](bool isOpen) {
         if (!isOpen && m_leavesById.contains(leaf->id()))
@@ -938,7 +940,7 @@ WorkspaceWindow *Workspace::popoutLeaf(WorkspaceLeaf *leaf)
     m_windows.append(win);
     if (m_floating) m_floating->addWindow(win);
 
-    // Phase 6.3: re-emit floating-window topology changes as
+    // Re-emit floating-window topology changes as
     // windowFrameChange so plugins can react. Hook destroy on the
     // FloatingWindow KDDW just spawned, then signal the create.
     // The lambda also reaps the WorkspaceWindow shell — without this,
@@ -1239,7 +1241,7 @@ void Workspace::deserialize(const QJsonObject &json)
 
     // Capture root-level keys this Workspace doesn't itself model, so
     // serialize() can round-trip them unchanged (Obsidian schema-at-rest
-    // fidelity — Cluster L workspace-compat-boundary doctrine). `main`,
+    // fidelity — workspace-compat-boundary doctrine). `main`,
     // `active`, `lastOpenFiles`, and `floating` are Corbomite-modeled and
     // regenerated fresh by serialize(); `_corbomite` is Corbomite's own
     // retired key and is explicitly denylisted here rather than forwarded —

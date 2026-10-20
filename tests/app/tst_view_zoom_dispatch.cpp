@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Cluster O Phase O1.T3 — re-light the View::zoomIn/Out/Reset polymorphic
-// dispatch. Report §4.1: the virtuals existed, MarkdownView's overrides
+// dispatch. Report §4.1: the virtuals existed, MarkdownFileView's overrides
 // were stale empty TODOs, and MainWindow bypassed them entirely — so
 // canvas/graph (both of which have a real zoom) had no zoom action at
 // all. One slot per view type, asserting the virtual is actually reached.
@@ -30,7 +30,7 @@
 #include "corbomite/core/View.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-#include "editor/MarkdownView.h"
+#include "editor/MarkdownFileView.h"
 #include "editor/NoteEditorWidget.h"
 
 #include <canvas/CanvasView.h>
@@ -85,7 +85,7 @@ private Q_SLOTS:
 
         auto *ws = mw.findChild<Workspace *>();
         QVERIFY(ws);
-        auto *mv = qobject_cast<MarkdownView *>(ws->activeLeaf()->view());
+        auto *mv = qobject_cast<MarkdownFileView *>(ws->activeLeaf()->view());
         QVERIFY(mv);
         auto *leaf = mv->editorWidget()->activeLeaf();
         QVERIFY(leaf);

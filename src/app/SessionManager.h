@@ -11,7 +11,7 @@
 namespace Corbomite {
 
 /// Persists Corbomite-native (non-Obsidian-schema) UI/session state for a
-/// vault, per the workspace compat-boundary doctrine
+/// vault, per the workspace compat-boundary spec
 /// (`docs/superpowers/specs/2026-08-17-workspace-compat-boundary.md`).
 ///
 /// Tier-1 (Obsidian-schema `main`/`active`/`left`/`right`/`floating`/
@@ -62,7 +62,7 @@ public:
 
     /// Load tier-2 and tier-3 state if present. Mints a `vaultId` into
     /// tier 2 (persisted immediately) if one wasn't already there — this is
-    /// "first open" of this vault under this doctrine. Returns true if
+    /// "first open" of this vault under this scheme. Returns true if
     /// either tier file was found on disk (false only means "nothing to
     /// restore", not an error — a brand-new vault is expected to miss).
     bool load();

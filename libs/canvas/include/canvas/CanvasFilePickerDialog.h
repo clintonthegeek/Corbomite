@@ -10,14 +10,14 @@ class QListWidget;
 
 namespace Canvas {
 
-/// M2.2 — modal file picker for the canvas "New file card…" context-menu
+/// Modal file picker for the canvas "New file card…" context-menu
 /// action. Takes a flat candidate list (vault-relative markdown +
 /// attachment paths, per the app-side wiring) and fuzzy-filters/-ranks it
 /// live via Corbomite::FuzzyMatcher as the user types — the same matcher
 /// used by CompletionPopup/QuickSwitcher for `[[` wikilink and Ctrl+O
 /// candidates.
 ///
-/// M5.5 reuses it for "Jump to group" over group labels, hence the
+/// Reuses it for "Jump to group" over group labels, hence the
 /// display/payload split: two groups may legitimately carry the same label,
 /// and the caller needs the chosen group's node id, not its text.
 class CanvasFilePickerDialog : public QDialog {

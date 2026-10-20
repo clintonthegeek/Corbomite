@@ -18,7 +18,7 @@ CanvasNodeItem *findResizeTarget(Graffodil::GraphScene *scene,
         return nullptr;
 
     // Topmost selected node whose resize zone contains scenePos. Only
-    // selected items offer resize handles (matches pre-M1 UX: you select,
+    // selected items offer resize handles (matches the earlier UX: you select,
     // then drag a handle — a raw press on an unselected item's edge starts
     // a select/move gesture instead).
     CanvasNodeItem *best = nullptr;
@@ -95,7 +95,7 @@ void CanvasResizeTool::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
         newH += delta.y();
     }
 
-    // M4.2 — Shift aspect-lock. Only meaningful on a CORNER handle (an
+    // Shift aspect-lock. Only meaningful on a CORNER handle (an
     // x-side AND a y-side are both dragging); a single-edge handle
     // (Top/Right/Bottom/Left alone) only changes one dimension, so there's
     // nothing to lock. Pick whichever dimension moved proportionally more

@@ -24,7 +24,7 @@
 //   3. The `css-change` plugin event was dead wiring (its test passed only
 //      because it called Workspace directly, never ThemeService).
 //   4. The `appearance.json` write hook was dead for the same reason.
-//   5. The open "canvas ignores dark mode" punch-list item was NOT actionable,
+//   5. The open "canvas ignores dark mode" issue was NOT actionable,
 //      because its stated remedy is to react to `themeChanged`.
 //
 // SCOPE. This is the roadmap's "minimum viable" revival: populate the theme

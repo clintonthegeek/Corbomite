@@ -8,9 +8,9 @@
 
 class QPlainTextEdit;
 
-// TODO(port-foundation-exploration): Qutepart::Qutepart was a public class in
-// the old Markoff layout. Foundation-exploration retired the standalone qutepart
-// library (markoff-source's QPlainTextEdit-based widget now subsumes that role).
+// Port history: Qutepart::Qutepart was a public class in the old Markoff
+// layout. The standalone qutepart library was retired (markoff-source's
+// QPlainTextEdit-based widget now subsumes that role).
 // This shim is stubbed to a plain QPlainTextEdit; the real port-feature is to
 // replace Corbomite::SourceEditor with Markoff::Source::Editor at the
 // NoteEditorWidget seam. Until then, visual-line scroll is approximated by
@@ -25,10 +25,10 @@ namespace Corbomite {
  * public contract: plain-text content, (line, column) cursor, visual-line
  * float scroll, and a fold-state round-trip stub.
  *
- * Phase 2 (2026-04-15) of the qutepart-corbomite fork plan. Find / replace
- * (Phase 3) and markdown-specific wiki-link awareness (Phase 7) deliberately
- * not implemented yet — this shim carries only the API surface needed by
- * Cluster E Phase 1 (ViewMode encoding + EphemeralState scroll persistence).
+ * Second stage (2026-04-15) of the qutepart-corbomite fork plan. Find / replace
+ * and markdown-specific wiki-link awareness are deliberately not implemented yet
+ * — this shim carries only the API surface needed by the ViewMode encoding
+ * and EphemeralState scroll persistence.
  */
 class SourceEditor : public QWidget {
     Q_OBJECT
@@ -57,9 +57,9 @@ public:
     float scrollPosition() const;
     void setScrollPosition(float visualLine);
 
-    // Fold — Phase 2 scaffold only. Round-trips an empty vector; real fold
-    // serialization lands in Phase 4 (FoldCalculator) / Phase 7
-    // (markdown-heading section fold).
+    // Fold — scaffold only. Round-trips an empty vector; real fold
+    // serialization lands with FoldCalculator and the markdown-heading
+    // section fold.
     QVector<int> foldedHeadings() const;
     void setFoldedHeadings(const QVector<int> &foldedLines);
 
@@ -75,8 +75,8 @@ public:
 
     // Internal-use accessor for tests and future phase-3/phase-7 wiring.
     // NOT part of the app-facing contract.
-    // TODO(port-foundation-exploration): originally returned Qutepart::Qutepart *.
-    // Stubbed to QPlainTextEdit * pending source-editor swap port.
+    // Port history: this originally returned Qutepart::Qutepart *. It is
+    // stubbed to QPlainTextEdit * pending the source-editor swap.
     QPlainTextEdit *qutepart() const { return m_qutepart; }
 
 Q_SIGNALS:
@@ -86,7 +86,7 @@ Q_SIGNALS:
 
 private:
     QPlainTextEdit *m_qutepart = nullptr;  // formerly Qutepart::Qutepart *
-    QVector<int> m_pendingFoldedHeadings; // TODO(phase-4/phase-7): honour
+    QVector<int> m_pendingFoldedHeadings; // Pending: no fold engine in the shim
     QFont m_defaultFont; // Captured at ctor for resetZoom().
 };
 

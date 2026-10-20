@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "PropertiesView.h"
 
-#include "../../sidebar/PropertyEditorWidget.h"
-#include "../../sidebar/PropertyRow.h"
+#include "PropertyEditorWidget.h"
+#include "PropertyRow.h"
 
 #include "corbomite/core/proxies/WorkspaceController.h"
 #include "corbomite/models/PropertyType.h"

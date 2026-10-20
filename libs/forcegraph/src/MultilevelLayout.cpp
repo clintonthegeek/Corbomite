@@ -382,7 +382,7 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
         return nodes;
     }
 
-    // Phase 1: Build coarsening hierarchy
+    // Step 1: Build coarsening hierarchy
     QVector<Level> levels;
     levels.append(buildLevel0(nodes, edges));
 
@@ -402,7 +402,7 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
     qDebug("MultilevelLayout: %d levels, coarsest has %d nodes (from %lld)",
            L + 1, levels[L].nodeCount, static_cast<long long>(nodes.size()));
 
-    // Phase 2: Layout coarsest level
+    // Step 2: Layout coarsest level
     // BFS radial placement for initial positions at coarsest level
     {
         Level &coarsest = levels[L];
@@ -489,7 +489,7 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
         layoutLevel(coarsest, config, config.coarsestIterations);
     }
 
-    // Phase 3: Uncoarsen and refine
+    // Step 3: Uncoarsen and refine
     // Refinement levels use a looser convergence threshold — positions are
     // pre-seeded from coarsening and only need to be "good enough" since the
     // runtime simulation refines further.

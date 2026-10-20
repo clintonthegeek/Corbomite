@@ -13,8 +13,8 @@ namespace Canvas {
 
 class ReconnectEdgeTool;
 
-/// M3.4 dispatcher — routes a single anchor-proximity press to either
-/// edge-CREATE (Graffodil::CreateEdgeTool, unchanged from M3.2/M3.3) or
+/// Dispatcher — routes a single anchor-proximity press to either
+/// edge-CREATE (Graffodil::CreateEdgeTool, unchanged) or
 /// edge-RECONNECT (ReconnectEdgeTool, new) depending on whether the press
 /// landed within 8px of an *existing edge's* terminus point.
 ///
@@ -49,11 +49,11 @@ public:
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
 
-    /// Endpoint hit-test radius (plan M3.4: 8px), independent of
+    /// Endpoint hit-test radius (8px), independent of
     /// CreateEdgeTool's 12px node-anchor hover radius.
     static constexpr qreal kEndpointHitRadius = 8.0;
 
-    /// M5.4 read-only lock. CompositeTool::addAnchorRoute() has no predicate
+    /// Read-only lock. CompositeTool::addAnchorRoute() has no predicate
     /// overload (and no way to un-register a route), so this tool can't have
     /// its route withdrawn on toggle the way CanvasScene's own resize and
     /// Alt-duplicate routes do — it has to decline the events instead.

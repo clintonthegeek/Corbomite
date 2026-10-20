@@ -102,7 +102,7 @@ public:
     /// the host falls back to a generic numbered label.
     virtual QString configPageTitle(int number) const;
 
-    // ---- Cluster B Phase 1 — plugin extension verbs --------------------
+    // ---- plugin extension verbs --------------------
     // Convenience wrappers over the per-registrar proxies on PluginContext.
     // Each verb is gated on the corresponding permission token; calls
     // before load() (or after unload()) silently return false / do nothing.
@@ -156,14 +156,13 @@ public:
     QString addIcon(const QString &localName, const QByteArray &svg);
     void removeIcon(const QString &localName);
 
-    /// `ui.editor` — register a decoration provider (the Cluster B
-    /// shape of `registerEditorExtension`; see Cluster E for the full
-    /// EditorExtension ABI). Returns the namespaced full id on
+    /// `ui.editor` — register a decoration provider (the
+    /// shape of `registerEditorExtension`). Returns the namespaced full id on
     /// success, empty string on failure. Caller retains ownership
     /// of `provider`.
     ///
     /// Note: registry-side dispatch into the editor render path is a
-    /// Cluster B follow-up. Today the registry stores registrations
+    /// follow-up. Today the registry stores registrations
     /// but Markoff does not yet consult them — the verb's API shape
     /// is stable, but rendered decorations will not appear until the
     /// follow-up lands.
@@ -189,7 +188,7 @@ protected:
     virtual void onUnload() {}
 
 public:
-    /// Cluster B Phase 3.3 — fired when the plugin's data.json on disk is
+    /// Fired when the plugin's data.json on disk is
     /// modified outside of `PluginContext::saveData()`. PluginManager
     /// installs a per-plugin QFileSystemWatcher and dispatches here on
     /// every fileChanged event for the plugin's data.json path. Default

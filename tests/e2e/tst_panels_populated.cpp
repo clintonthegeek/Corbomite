@@ -23,7 +23,7 @@
 #include "app/MainWindow.h"
 #include "app/CorbomiteApp.h"
 #include "editor/NoteEditorWidget.h"
-#include "editor/MarkdownView.h"
+#include "editor/MarkdownFileView.h"
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomite/vault/Vault.h"

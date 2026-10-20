@@ -1,7 +1,7 @@
 // libs/canvas/tests/tst_canvas_dark_mode.cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Cluster M leftover — canvas dark mode.
+// Canvas dark mode.
 //
 // Canvas had zero theme awareness: hardcoded Qt::white backgrounds and
 // QColor(255,255,255) card fills. An Obsidian-authored dark vault therefore

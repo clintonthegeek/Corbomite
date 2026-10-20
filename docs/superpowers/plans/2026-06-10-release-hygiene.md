@@ -106,10 +106,12 @@
 ### Task C.5: Delete dead classes — MarkoffRenderEngine, EmbedDepthGuard, TabModel, SourceEditor
 - [ ] `libs/core/src/MarkoffRenderEngine.cpp` ("DEPRECATED stub"), `libs/core/src/EmbedDepthGuard.cpp` (zero refs), `libs/models` `TabModel` (only disabled tests), `src/editor/SourceEditor.{h,cpp}` (Qutepart remnant, compiled but never instantiated — its test goes too, and `SourceEditor::m_qutepart` dies with it). Re-grep each for callers before deleting; remove headers, CMake/test registrations, and `docs/SHARED-SYMBOLS.md` entries.
 - [ ] **DoD:** zero references to the four classes outside archives; build+test green.
+- **2026-10-20 — verified against the tree, and two of the four premises are wrong.** `MarkoffRenderEngine` was already gone ✅. `EmbedDepthGuard` and `TabModel` were deleted 2026-10-20 (with their tests, their CMake entries, and the stale `#include "corbomite/models/TabModel.h"` in `tst_e2e_gui`) ✅. **`SourceEditor` is live** — it is the plain-text source leaf, and the registered `tst_markdownview_find_replace_dispatch` drives it through the editor's Source mode — so the "compiled but never instantiated" premise is obsolete and it stays ✅.
 
 ### Task C.6: CompletionPopup / CompletionDelegate — roadmap-gated, default keep
 - [ ] `src/editor/CompletionPopup.{h,cpp}` + `CompletionDelegate.{h,cpp}` are never instantiated, **but completion revival is on the roadmap**. Default: **keep** until that roadmap item decides delete-vs-revive. Action here is only to add a punch-list entry cross-referencing this plan, so the dangling state is tracked.
 - [ ] **DoD:** punch-list entry exists naming both files and the gating roadmap item.
+- **2026-10-20 — the "never instantiated" premise is wrong: both are live.** The completion revival *reuses* them — `CompletionController` constructs a `CompletionPopup` and connects to it ✅ — so they stay, and the punch list's earlier claim that they were "genuinely dead, not pending a decision" is retracted ✅.
 
 ### Task C.7: `src/dialogs/Notice` — park or wire (roadmap-gated)
 - [ ] `Notice.{h,cpp}` has only a test consumer, but Obsidian parity wants `Notice::post` eventually (Cluster I Phase 6 remnant). **Check Cluster I status first.** Do not delete; either leave with a one-line comment pointing at Cluster I, or wire a single trivial production call if one is already specced.
@@ -122,6 +124,7 @@
 ### Task C.9: MainWindow / MarkdownView micro-corpses
 - [ ] Delete `MainWindow::triggerEditorAction` (`src/app/MainWindow.cpp:499-513`, pure no-op) and its call sites/declaration; delete the dead `expandedFolders` fetch (`:2403-2405`, `Q_UNUSED`). The unconnected hamburger Find/Replace actions (`src/editor/MarkdownView.cpp:298-312`) are **roadmap-gated** (find-UI port): wire if the contract-v2 adoption has landed `showFind`, else remove the menu items.
 - [ ] **DoD:** no no-op paths remain; Find/Replace either functional or absent from the menu; build+test green.
+- **2026-10-20 — done.** `triggerEditorAction` (no callers, not in any `.ui`) and the dead `expandedFolders` fetch were deleted ✅. The Find/Replace items are **not** unconnected: they are wired to `m_findTrigger`/`m_replaceTrigger` ✅ (the find UI landed with the 2026-06-12 find-UI port), so they stay ✅.
 
 ### Task C.10: libs/search include-only stubs → header-only
 - [ ] `libs/search/src/PreparedQuery.cpp` and `FuzzyMatch.cpp` are 2-line include-only stubs. Delete both, remove from CMake, confirm the headers are genuinely header-only.
@@ -135,25 +138,36 @@
 - [ ] `src/mdi/CorbomiteMDI.{h,cpp}` is a KateMDI fork (sidebars/tool-views) — not MDI — and defines a second `MainWindow` class in the same app. Rename class+files+dir to `ToolViewHost` (or `CorbomiteSidebars`; confirm with user), update all includes/CMake. Add a README "Forked code" note: derived from Kate's katemdi (LGPL-2.0 headers, Cullmann/Wenninger copyrights) — keep the original copyright headers intact.
 - [ ] **DoD:** no `MDI`-named class/dir; exactly one class named `MainWindow` in `src/`; provenance in README; build+test green.
 
+- **2026-10-20 — done.** The fork moved to `src/toolviewhost/ToolViewHost.{h,cpp}`, the namespace `CorbomiteMDI` → `ToolViewHost`, and its inner `MainWindow` → `HostWindow`, so `src/` has exactly one class named `MainWindow`. The Kate provenance headers are intact.
+
 ### Task D.2: Rename `Corbomite::MarkdownView` → `MarkdownFileView`
 - [ ] `Corbomite::MarkdownView` (`src/editor/MarkdownView.{h,cpp}`) collides with `Markoff::MarkdownView` in the same TUs. Rename to `MarkdownFileView` (files, class, includes, registrations). **Coordinate first** with the MainWindow-decomposition spec, which also notes this rename — whichever lands first does it.
 - [ ] **DoD:** one `MarkdownView` simple name remains (Markoff's); build+test green.
+
+- **2026-10-20 — done.** The class and its files are now `MarkdownFileView`; the only `MarkdownView` simple name left in the tree is Markoff's.
 
 ### Task D.3: De-collide the two `VaultResourceProvider`s
 - [ ] `Corbomite::VaultResourceProvider` (`src/editor/`, concrete Markoff resource impl) vs `Corbomite::Core::VaultResourceProvider` (`libs/core/`, abstract popover-resource contract). Rename one — suggest the libs/core contract → `ResourceResolver` (or the src/editor impl → `EditorResourceProvider`); pick whichever has fewer call sites.
 - [ ] **DoD:** the two classes have distinct simple names; build+test green.
 
+- **2026-10-20 — done.** The abstract contract (16 call sites) → `Corbomite::Core::ResourceResolver`; the editor's concrete implementation (25 call sites) keeps the name. The third class, `VaultScopedResources`, follows the contract's rename.
+
 ### Task D.4: Normalize canvas/forcegraph targets + vault SHARED
 - [ ] `libs/canvas`/`libs/forcegraph` use bare `canvas`/`forcegraph` targets, `include/canvas/...` prefixes, and `namespace Canvas`/`ForceGraph`, while every other lib is `corbomite-*` / `corbomite/...` / `Corbomite::*`. Normalize both to the house pattern (targets, include dirs, namespaces, all consumers). Separately: `libs/vault/CMakeLists.txt:14` is the only `SHARED` lib — make it `STATIC` unless a load-time reason surfaces; record the answer either way.
 - [ ] **DoD:** all first-party libs follow one convention; vault linkage decision documented; build+test green.
+
+- **2026-10-20 — NOT done, deliberately.** Normalising the `canvas`/`forcegraph` targets, include dirs and namespaces is a repo-wide rename of two libraries and every consumer — cluster-sized, not an easy item. It stays open.
 
 ### Task D.5: Fold orphan single-class dirs
 - [ ] `src/sidebar/` holds only `PropertyEditorWidget` + `PropertyRow`, consumed solely by `src/plugins/properties` via `../../` relative includes — move both into that plugin dir and fix includes. `src/reactors/` holds one class (`AutosaveReactor`) — fold it into `src/app/` (or wherever its only consumer lives).
 - [ ] **DoD:** `src/sidebar/` and `src/reactors/` no longer exist; no `../../` cross-dir includes for these files; build+test green.
 
+- **2026-10-20 — done.** `src/sidebar/` and `src/reactors/` no longer exist: the two property classes moved into the properties plugin (their only consumer) and `AutosaveReactor` into `src/app/`.
+
 ### Task D.6: Comment-jargon sweep + TODO triage
 - [ ] Sweep `src/` (and `libs/` where found) for internal-process jargon: "Cluster B/Q.0 Phase 7/C2 Task 13"-style comments and commit-hash references — rewrite each to state the actual constraint, or delete if it carries none. Prune the archaeology narration in `src/app/MainWindow.h:10-11,57-59,182-205`. Triage all 72 `TODO` markers in `src/`: each becomes a punch-list item, gets fixed inline, or is deleted; none may read `TODO(port-foundation-exploration)` at release.
 - [ ] **DoD:** `grep -rn "Cluster [A-Z]\|Phase [0-9]\|port-foundation-exploration" src/` returns only comments stating real constraints (target: zero); every surviving TODO maps to a punch-list line; build+test green.
+- **2026-10-20 — done.** `grep -rn TODO src/` returns **zero**: every marker was reworded to state the constraint (or the item was deleted), the `port-foundation-exploration` tags are gone, and the survivors are "Pending:" notes that each map to a punch-list line — the editor's right-click menu, the source editor's fold engine, the graph's pending controls, the QOwnNotes theme import and the bookmarks' `openLinkText` switch were filed 2026-10-20. Two markers were *fixed inline* rather than filed: the canvas local-data store is now propagated explicitly from `MainWindow::propagateServicesToView` (the widget-tree walk is now the fallback), and the QOwnNotes import button now says the feature is unavailable *before* asking the user to pick a file. The jargon half is also done: ~670 comment sites across `src/` and `libs/` were rewritten to state the constraint instead of the history, and `grep -rEn "Cluster [A-Z]|Phase [0-9]|Task [0-9]|port-foundation-exploration" src/ libs/` (excluding the markoff-family submodule) now returns nothing. Five user-visible strings carried the vocabulary and were reworded; the repo has no `.ts` catalogs, so no translation was invalidated. Graffodil's own sources were swept too, but its edits sit uncommitted in the submodule — see the punch list.
 
 ---
 
@@ -174,10 +188,12 @@
 ### Task E.4: SecretStorage nested event loops
 - [ ] `libs/core/src/proxies/SecretStorage.cpp` runs triple-nested `QEventLoop::exec()`. Refactor to async (signal/callback) if the proxy contract allows; otherwise add a prominent re-entrancy-hazard comment and a punch-list item for the async rework.
 - [ ] **DoD:** either no nested `exec()`, or the hazard is documented in code + punch list; build+test green.
+- **2026-10-20 — the hazard is documented; the async rework remains.** The three `exec()` calls turned out to be *sequential*, not nested: each is a local loop that blocks the calling thread until the keychain job finishes. The file now opens with a prominent re-entrancy-hazard comment (blocking call, nested event loop, the deadlock a re-entrant caller would hit, and why the synchronous shape is deliberate for now), and the async rework — jobs reporting through a callback instead of a local event loop — is a plugin-API change filed in the punch list.
 
 ### Task E.5: Unify test-gating conventions
 - [ ] Three conventions coexist: `CORBOMITE_PORT_BUILD_TESTS` (top-level, default OFF), `BUILD_TESTING`, and `PROJECT_IS_TOP_LEVEL` checks across `libs/*/CMakeLists.txt` and `src/plugins/*/CMakeLists.txt`. Pick one option name (recommend `CORBOMITE_BUILD_TESTS`, default **ON for the dev preset**, OFF for release), convert all gates, update `CMakePresets.json` + CLAUDE.md build docs.
 - [ ] **DoD:** one gating variable repo-wide; `cmake --preset dev` builds tests without extra flags; build+test green.
+- **2026-10-20 — done.** The gate is one variable, `CORBOMITE_BUILD_TESTS` (the port-era name is gone): the top-level option, all 18 subdirectory gates, `CMakePresets.json`, `CLAUDE.md` and `docs/CONTRIBUTING-OPS.md` were converted. The two `PROJECT_IS_TOP_LEVEL` sites in `libs/models` and `libs/storage` turned out **not** to be test gates — they break the corbomite-core ↔ corbomite-storage link cycle when a library is built standalone — so they stay. The `BUILD_TESTING` convention survives only in ECM's own `KDECMakeSettings.cmake` (the top-level comment already forbids using it) and in the archived 0.1.0 packaging snapshot.
 
 ---
 

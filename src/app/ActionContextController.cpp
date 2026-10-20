@@ -12,7 +12,7 @@
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomitesettings.h"
-#include "editor/MarkdownView.h"
+#include "editor/MarkdownFileView.h"
 #include "editor/NoteEditorWidget.h"
 
 #include <canvas/CanvasScene.h>
@@ -32,7 +32,7 @@ namespace Corbomite {
 
 namespace {
 // View-type string constants — match View::getViewType() across the four
-// concrete view classes (MarkdownView/CanvasFileView/BasesView/GraphView).
+// concrete view classes (MarkdownFileView/CanvasFileView/BasesView/GraphView).
 const QString kMarkdown = QStringLiteral("markdown");
 const QString kCanvas = QStringLiteral("canvas");
 const QString kBases = QStringLiteral("bases");
@@ -62,11 +62,11 @@ void ActionContextController::setApp(CorbomiteApp *app)
 // Active-view accessors
 // ---------------------------------------------------------------------
 
-MarkdownView *ActionContextController::activeMarkdownView() const
+MarkdownFileView *ActionContextController::activeMarkdownView() const
 {
     if (!m_workspace || !m_workspace->activeLeaf())
         return nullptr;
-    return qobject_cast<MarkdownView *>(m_workspace->activeLeaf()->view());
+    return qobject_cast<MarkdownFileView *>(m_workspace->activeLeaf()->view());
 }
 
 Bases::BasesView *ActionContextController::activeBasesView() const
@@ -108,15 +108,14 @@ void ActionContextController::bindActiveLeaf(WorkspaceLeaf *leaf)
     m_activeLeaf = leaf;
 
     if (leaf) {
-        // O1.T2: an in-place view-type swap (WorkspaceLeaf::navigate()
+        // An in-place view-type swap (WorkspaceLeaf::navigate()
         // swapping the leaf's View without the active-leaf pointer
         // itself changing) fires viewChanged but NOT
         // Workspace::activeLeafChanged. Rebinding the active view's
         // signals and re-running a full refresh here — the same pattern
         // already used for back/forward history — is what makes that
         // case pick up fresh action state instead of leaving stale
-        // Format/Heading enablement and a stuck editor-mode radio behind
-        // (report §4.2).
+        // Format/Heading enablement and a stuck editor-mode radio behind.
         m_activeLeafViewChangedConnection =
             connect(leaf, &WorkspaceLeaf::viewChanged, this, [this]() {
                 rebindActiveView();
@@ -137,15 +136,15 @@ void ActionContextController::rebindActiveView()
     disconnect(m_activeViewModeConnection);
     disconnect(m_activeViewContextChangedConnection);
 
-    // O3.T6: the heading-radio / editor-mode-radio sync this controller
+    // The heading-radio / editor-mode-radio sync this controller
     // used to do directly (connecting NoteEditorWidget::editorContextChanged/
     // viewModeChanged) is now MarkdownViewActions::bind()'s job — those
     // actions live in the provider's own collection, not this one.
     // onEditorContextChanged()/syncEditorModeCheckState() stay below as
-    // public slots (Phase C6's documented test seam) but are no longer
+    // public slots (the documented test seam) but are no longer
     // wired to a live signal here.
 
-    // O2.T3 — generic Tier-B refresh trigger: every view type forwards
+    // Generic Tier-B refresh trigger: every view type forwards
     // its own capability-relevant signals onto View::contextChanged()
     // (markdown's editor context/view-mode, canvas's selection/undo,
     // bases's selection/undo; graph never — constant capabilities), so
@@ -158,7 +157,7 @@ void ActionContextController::rebindActiveView()
                     &ActionContextController::refresh);
     }
 
-    // O3.T3 — Tier A: install/uninstall the provider whose type matches
+    // Tier A: install/uninstall the provider whose type matches
     // the (possibly new) active view, guarded internally so an ordinary
     // same-type switch costs one bind()+refresh(), not a client swap.
     installProviderForCurrentContext();
@@ -170,7 +169,7 @@ void ActionContextController::rebindActiveView()
 
 void ActionContextController::refresh()
 {
-    // O3.T6: markdown's Format/Heading/Insert/Table/fold/editor-mode Tier-B
+    // Markdown's Format/Heading/Insert/Table/fold/editor-mode Tier-B
     // logic moved into MarkdownViewActions::refresh() (called from
     // installProviderForCurrentContext()/rebindActiveView(), not here) —
     // those actions no longer live in this controller's actionCollection.
@@ -191,21 +190,21 @@ void ActionContextController::setEnabled(const QString &actionId, bool enabled) 
 }
 
 // ---------------------------------------------------------------------
-// O3.T6: the Tier-B logic that used to live here (O1.T6's merged
+// The Tier-B logic that used to live here (the merged
 // refreshEditorActions()+updateEditorActionStates()) moved into
 // MarkdownViewActions::refresh() — those actions (format/heading/insert/
 // table verbs) live in the provider's own collection now, not this one's.
 // onEditorContextChanged()/syncEditorModeCheckState() remain below as
-// public slots (Phase C6's documented test seam) but are effectively
+// public slots (the documented test seam) but are effectively
 // unused in the live wiring — MarkdownViewActions::bind() owns the real
 // connection to NoteEditorWidget's signals.
 // ---------------------------------------------------------------------
 
 void ActionContextController::onEditorContextChanged(const Markoff::EditorContext &ctx)
 {
-    // O2.T3: Tier-B re-enablement (updateMarkdownActionStates(), which
+    // Tier-B re-enablement (updateMarkdownActionStates(), which
     // reads canEdit()) now happens via the generic View::contextChanged()
-    // -> refresh() path — MarkdownView forwards this same
+    // -> refresh() path — MarkdownFileView forwards this same
     // editorContextChanged signal onto contextChanged(). This slot is
     // left owning only the heading-radio Tier-C check state, which needs
     // the EditorContext payload contextChanged() doesn't carry.
@@ -231,11 +230,11 @@ void ActionContextController::syncEditorModeCheckState(int viewMode)
 }
 
 // ---------------------------------------------------------------------
-// O1.T3 (enablement half) — view_zoom_in/out/reset are only ever a real
+// view_zoom_in/out/reset are only ever a real
 // handler for markdown/canvas/graph (each overrides View::zoomIn/Out/
 // Reset onto a real viewport, per registerHandlers() above); bases/empty
 // fall back to the no-op View base. Previously these three actions had
-// NO enablement gate at all (report §3.4's ☠ class) and stayed
+// NO enablement gate at all and stayed
 // permanently enabled regardless of what was focused.
 // ---------------------------------------------------------------------
 
@@ -250,7 +249,7 @@ void ActionContextController::updateZoomActions()
 
 // ---------------------------------------------------------------------
 // Vault-open gating for workspace/window-level actions with no view-type
-// dependency (D1: vault-open is a Tier-B capability of the window, not a
+// dependency (vault-open is a Tier-B capability of the window, not a
 // fourth tier).
 // ---------------------------------------------------------------------
 
@@ -270,17 +269,17 @@ void ActionContextController::updateVaultActions()
     setEnabled(QStringLiteral("open_daily_note"), open);
     setEnabled(QStringLiteral("split_right"), open);
     setEnabled(QStringLiteral("split_down"), open);
-    // file_save -> updateSaveAction() (O1.T4, type-aware).
+    // file_save -> updateSaveAction() (type-aware).
     // view_editing_mode/reading_mode/source_mode/editor_toggle_mode ->
-    //   updateEditorModeActions() (O1.T7, type-aware).
-    // insert_template -> MarkdownViewActions::refresh() (O3.T6).
+    //   updateEditorModeActions() (type-aware).
+    // insert_template -> MarkdownViewActions::refresh().
 }
 
 // ---------------------------------------------------------------------
-// O1.T4 — file_save. saveCurrentNote() (MainWindow) already handles
+// file_save. saveCurrentNote() (MainWindow) already handles
 // markdown (via activeEditor()) and any other TextFileView subclass
 // (which covers bases for free — BasesView : TextFileView). Canvas is a
-// bare FileView, so Ctrl+S was a real no-op there (report §3.1); the
+// bare FileView, so Ctrl+S was a real no-op there; the
 // canvas save path is now wired in saveCurrentNote() directly. This
 // enablement gate additionally catches graph/empty tabs, which have no
 // save target at all and were previously enabled (and silently did
@@ -297,11 +296,11 @@ void ActionContextController::updateSaveAction()
 }
 
 // ---------------------------------------------------------------------
-// O1.T5 — find/replace honesty. edit_find routes to Bases' own search box
+// Find/replace honesty. edit_find routes to Bases' own search box
 // (BasesView::focusSearch(), wired in MainWindow::onFind()) where a real
 // target exists; replace/find-next/find-prev have no bases-side
 // equivalent and are disabled off-markdown rather than faked.
-// insert_template moved to MarkdownViewActions (O3.T6) — its Tier-B is
+// insert_template moved to MarkdownViewActions — its Tier-B is
 // now that provider's refresh(), not this function.
 // ---------------------------------------------------------------------
 
@@ -345,7 +344,7 @@ void ActionContextController::updateTabStateActions()
         act->setChecked(!groupId.isEmpty() && m_workspace->isTabGroupStacked(groupId));
     }
 
-    // O5.T5 — tab reordering. Both clamp at the ends inside
+    // Tab reordering. Both clamp at the ends inside
     // Workspace::moveLeafWithinGroup (returning false there), so the
     // enablement has to be derived from real positions or the user gets two
     // permanently-live keys that silently do nothing at the extremes.
@@ -362,7 +361,7 @@ void ActionContextController::updateTabStateActions()
                 act->setEnabled(false);
     }
 
-    // O5.T5 — Link with active pane. Needs a leaf plus a *different* leaf to
+    // Link with active pane. Needs a leaf plus a *different* leaf to
     // link to; Obsidian's "active pane" is the previously-focused leaf, which
     // Workspace now tracks. Checked state is read back from the real group,
     // not remembered, so the mark can't drift from reality.
@@ -374,10 +373,10 @@ void ActionContextController::updateTabStateActions()
 }
 
 // ---------------------------------------------------------------------
-// O1.T8 — edit_undo/edit_redo from the active view's real undo-stack
+// edit_undo/edit_redo from the active view's real undo-stack
 // depth instead of always-enabled. Bases and canvas each own a real
 // QUndoStack and answer canUndo()/canRedo() precisely. Markoff's
-// MarkdownView base has no global canUndoD2()/canRedoD2() query yet
+// MarkdownFileView base has no global canUndoD2()/canRedoD2() query yet
 // (only the per-block canUndoForBlock) — approximated with hasEditing()
 // until that lands upstream (punch-listed: exposing a real depth query
 // would tighten this from "editable" to "actually has undo history").
@@ -385,11 +384,11 @@ void ActionContextController::updateTabStateActions()
 
 void ActionContextController::updateUndoRedoActions()
 {
-    // O2.T1: routed through the generic Tier-B virtuals instead of a
+    // Routed through the generic Tier-B virtuals instead of a
     // per-type branch — each View subclass already knows how to answer
     // canUndo()/canRedo() for itself (bases' real QUndoStack, canvas' real
     // QUndoStack, markdown's hasEditing() approximation — see
-    // MarkdownView::canUndo()'s comment for why that one isn't a real
+    // MarkdownFileView::canUndo()'s comment for why that one isn't a real
     // depth query).
     auto *leaf = m_workspace ? m_workspace->activeLeaf() : nullptr;
     auto *view = leaf ? leaf->view() : nullptr;
@@ -410,32 +409,32 @@ void ActionContextController::registerHandlers()
         m_handlerViewTypes[id] = QSet<QString>(types.begin(), types.end());
     };
 
-    // Zoom — polymorphic (O1.T3): markdown/canvas/graph each override
+    // Zoom — polymorphic: markdown/canvas/graph each override
     // View::zoomIn/Out/Reset onto a real viewport; bases/empty do not, so
     // these are disabled there rather than dispatching to the no-op base.
     reg(QStringLiteral("view_zoom_in"), {kMarkdown, kCanvas, kGraph});
     reg(QStringLiteral("view_zoom_out"), {kMarkdown, kCanvas, kGraph});
     reg(QStringLiteral("view_zoom_reset"), {kMarkdown, kCanvas, kGraph});
 
-    // O3.T6: the editor-mode group, live format verbs + headings, the two
+    // The editor-mode group, live format verbs + headings, the two
     // dialog-wrapped placebo actions, every markdown-only stub, and
-    // insert_template all moved into MarkdownViewActions' own collection
+    // insert_template all live in MarkdownViewActions' own collection
     // — they no longer appear in mw->actionCollection()->actions() at
     // all (Tier A: hidden, not just disabled, off-markdown), so this
     // table has nothing left to say about them. hasHandlerForCurrentContext()
     // still defaults untracked ids to "universal," which is vacuously
     // correct once an id simply isn't in the walked collection any more.
 
-    // Find/replace (O1.T5). insert_template moved to MarkdownViewActions.
+    // Find/replace. insert_template moved to MarkdownViewActions.
     reg(QStringLiteral("edit_find"), {kMarkdown, kBases});
     reg(QStringLiteral("edit_replace"), {kMarkdown});
     reg(QStringLiteral("edit_find_next"), {kMarkdown});
     reg(QStringLiteral("edit_find_prev"), {kMarkdown});
 
-    // Save (O1.T4).
+    // Save.
     reg(QStringLiteral("file_save"), {kMarkdown, kCanvas, kBases});
 
-    // Undo/redo (O1.T8).
+    // Undo/redo.
     reg(QStringLiteral("edit_undo"), {kMarkdown, kCanvas, kBases});
     reg(QStringLiteral("edit_redo"), {kMarkdown, kCanvas, kBases});
 
@@ -444,7 +443,7 @@ void ActionContextController::registerHandlers()
     // sidebar toggle, ...) has no view-type dependency at all — leaving
     // them untracked here makes hasHandlerForCurrentContext() default to
     // "universal," which is correct for them and keeps this table scoped
-    // to O1's actual subject matter.
+    // to this controller's actual subject matter.
 }
 
 bool ActionContextController::hasHandlerForCurrentContext(const QString &actionId) const
@@ -459,7 +458,7 @@ bool ActionContextController::hasHandlerForCurrentContext(const QString &actionI
 }
 
 // ---------------------------------------------------------------------
-// Cluster O Phase O3 — the ViewActions provider mechanism.
+// The ViewActions provider mechanism.
 // ---------------------------------------------------------------------
 
 void ActionContextController::setGuiFactory(KXMLGUIFactory *factory)
@@ -541,7 +540,7 @@ void ActionContextController::installProviderForCurrentContext()
                      ? m_workspace->activeLeaf()->view() : nullptr;
 
     if (type == m_currentProviderType) {
-        // O3.T3: same type (or both empty) — no XMLGUI rebuild, just
+        // Same type (or both empty) — no XMLGUI rebuild, just
         // rebind the provider to the (possibly new) View instance and
         // let it re-sync its own Tier B/C. Cheap.
         if (m_currentProvider && view)
@@ -566,7 +565,7 @@ void ActionContextController::installProviderForCurrentContext()
     }
 
     // A provider swap can change which toolbar should be visible under
-    // Auto policy (§D4).
+    // Auto policy.
     applyToolBarPolicies();
 }
 
@@ -574,8 +573,8 @@ void ActionContextController::registerToolBar(const QString &viewType, KToolBar 
 {
     if (!toolBar) return;
     m_toolBars.insert(viewType, toolBar);
-    // Icon-only by default for every provider toolbar (present and future —
-    // O4/O5 land here for free). Unlike mainToolBar's declarative
+    // Icon-only by default for every provider toolbar (present and future).
+    // Unlike mainToolBar's declarative
     // iconText="icononly" (corbomiteui.rc.in), these toolbars are created
     // programmatically with no <ToolBar> XML element for KXMLGUI to read the
     // attribute from, so the style has to be set directly.
@@ -586,8 +585,8 @@ void ActionContextController::registerToolBar(const QString &viewType, KToolBar 
 
 ToolBarPolicy ActionContextController::toolBarPolicyFor(const QString &viewType) const
 {
-    // O3 had exactly one provider (markdown); O4 adds a branch + a new
-    // named kcfg entry per provider it lands, same pattern (kcfg has no
+    // Each provider gets a branch + a new
+    // named kcfg entry, same pattern (kcfg has no
     // dynamic-key entries, so this stays a short explicit dispatch rather
     // than a generic map — matches how other per-feature settings in this
     // codebase are named).

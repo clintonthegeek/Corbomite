@@ -30,7 +30,7 @@ void FileExplorerPlugin::onLoad(PluginContext *ctx)
     // Obsidian id `file-explorer:reveal-active-file` (app/own/2036-I9.js:175)
     // — scrolls + selects the file in the current active leaf inside the
     // navigation dock. Consumed by the EditableFileView view-header menu
-    // (Cluster R Task 2.8).
+    // (the file-explorer's own "Reveal file in navigation" menu item).
     //
     // Command callbacks are zero-arg, so we derive the target path from
     // WorkspaceController::activeFilePath. This matches the common case

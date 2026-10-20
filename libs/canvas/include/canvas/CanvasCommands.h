@@ -23,7 +23,7 @@ public:
     void redo() override;
     void undo() override;
 
-    // M4.2 — coalesce consecutive nudges (or a nudge right after a drag)
+    // Coalesce consecutive nudges (or a nudge right after a drag)
     // of the exact same node set into one undo step, so holding an arrow
     // key doesn't spam the undo stack. id() shares one value across all
     // CmdMoveCards instances (both the drag-end path in
@@ -109,7 +109,7 @@ private:
     CanvasEdge m_savedEdge;
 };
 
-// 7. Reconnect an edge endpoint to a different node/side (M3.4)
+// 7. Reconnect an edge endpoint to a different node/side
 class CmdReconnectEdge : public QUndoCommand {
 public:
     CmdReconnectEdge(CanvasDocument *doc, const CanvasEdge &oldEdge, const CanvasEdge &newEdge,
@@ -123,7 +123,7 @@ private:
     CanvasEdge m_newEdge;
 };
 
-// 7b. Set an edge's fromEnd/toEnd (Direction submenu, M3.5)
+// 7b. Set an edge's fromEnd/toEnd (Direction submenu)
 class CmdSetEdgeEnds : public QUndoCommand {
 public:
     CmdSetEdgeEnds(CanvasDocument *doc, const CanvasEdge &oldEdge, const CanvasEdge &newEdge,
@@ -139,7 +139,7 @@ private:
 
 // 7c. Reverse an edge's direction (swaps fromNode/fromSide/fromEnd with
 // toNode/toSide/toEnd). Self-inverse: redo()/undo() both re-read the edge
-// from the document and swap it again (M3.5).
+// from the document and swap it again.
 class CmdReverseEdge : public QUndoCommand {
 public:
     CmdReverseEdge(CanvasDocument *doc, const QString &edgeId, QUndoCommand *parent = nullptr);

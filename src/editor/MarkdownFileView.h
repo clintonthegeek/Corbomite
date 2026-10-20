@@ -1,4 +1,4 @@
-// src/editor/MarkdownView.h
+// src/editor/MarkdownFileView.h
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
@@ -8,7 +8,7 @@
 
 namespace Corbomite {
 
-/// Cluster-audit P1 — locate the CLOSING frontmatter fence in `body`, or -1.
+/// Locate the CLOSING frontmatter fence in `body`, or -1.
 ///
 /// A closing fence is exactly three dashes on a line of their own. Exposed as
 /// a free function (rather than left inline in
@@ -29,12 +29,12 @@ class HoverPopover;
 class EditorSuggestManager;
 class Vault;
 
-class MarkdownView : public TextFileView
+class MarkdownFileView : public TextFileView
 {
     Q_OBJECT
 
 public:
-    explicit MarkdownView(WorkspaceLeaf *leaf, QWidget *parent = nullptr);
+    explicit MarkdownFileView(WorkspaceLeaf *leaf, QWidget *parent = nullptr);
 
     static View *factory(WorkspaceLeaf *leaf);
 
@@ -50,14 +50,14 @@ public:
 
     bool setCursorLine(int line) override;
 
-    // Cluster V Phase 1 — route app-shell zoom actions to the currently active
+    // Route app-shell zoom actions to the currently active
     // editor sub-widget (LivePreview → Markoff::Editor, Source → SourceEditor,
     // Reading → ReadingView). NoteEditorWidget dispatches by viewMode().
     void zoomIn() override;
     void zoomOut() override;
     void zoomReset() override;
 
-    // Cluster O Phase O2.T4 — Tier-B capability overrides. canZoom() is
+    // Tier-B capability overrides. canZoom() is
     // left at the base default (true — markdown really does zoom).
     bool canEdit() const override;
     bool canSave() const override;
@@ -74,7 +74,7 @@ public:
 
     /// Ensure a YAML frontmatter block exists, then append a blank property
     /// row. If the view is currently in Reading mode, switch to LivePreview
-    /// so the new row is visible. Cluster R Task 3.2 — backs the
+    /// so the new row is visible. Backs the
     /// `markdown:add-metadata-property` command.
     void insertFrontmatterProperty();
 
@@ -82,7 +82,7 @@ public:
     void setHoverPopover(HoverPopover *popover);
     void setEditorSuggestManager(EditorSuggestManager *manager);
 
-    /// Cluster R Task 3.4: the view needs to dispatch commands
+    /// The view needs to dispatch commands
     /// (`split_right`, `markdown:add-metadata-property`, `backlinks:open`,
     /// etc.) back to the host CommandRegistry. Host injects a stateless
     /// dispatcher at setup time.
@@ -99,14 +99,14 @@ public:
     void setFindTrigger(FindTrigger trigger);
     void setReplaceTrigger(FindTrigger trigger);
 
-    /// Cluster F-a P3.3/P3.4 — "Merge entire file with…". The action lives in
+    /// "Merge entire file with…". The action lives in
     /// the markdown hamburger's `action` section and is owned by this view
     /// (the provider mechanism), not a MainWindow leaf-type branch. Nullable;
     /// when unset the item is disabled.
     using MergeTrigger = std::function<void(QWidget *parent)>;
     void setMergeFileTrigger(MergeTrigger trigger);
 
-    /// Cluster R Task 3.4 — hamburger-menu contribution: Split/Reading/Source/
+    /// Hamburger-menu contribution: Split/Reading/Source/
     /// AddProperty/ExportPDF/... plus the view.linked submenu. Chains up to
     /// EditableFileView::onMoreOptionsMenu for universal file-menu items.
     void onMoreOptionsMenu(MenuSectionHelper &helper) override;

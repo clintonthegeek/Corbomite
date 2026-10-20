@@ -2,21 +2,22 @@
 //
 // Phase C7 Task 14 — end-to-end pinning test for the Cluster R hamburger
 // Find/Replace dispatch + MainWindow's edit_find_next / edit_find_previous /
-// edit_replace QAction routing into the active MarkdownView leaf.
+// edit_replace QAction routing into the active MarkdownFileView leaf.
 //
 // What this pins:
-//   - Task 12 (3f332846): Corbomite::MarkdownView's hamburger Find/Replace
-//     items are wired to m_editorWidget->activeLeaf()->showFindBar() /
-//     showReplaceBar(). If the lambda is reverted to the disabled tooltip,
-//     hamburgerFindAction_opensSearchBar fails (the SearchBar stays hidden).
-//   - Task 13 (ac40eb20): MainWindow::triggerEditorAction routes
-//     Markoff::ActionId::FindNext|FindPrevious|Replace through the active
-//     leaf's MarkdownView virtuals, with the SourceEditor branch invoking
-//     SourceEditor::findNextAction()/findPrevAction() so SearchController
-//     advances when a query is set. If that special-case is removed, the
-//     `mainWindowDispatchPath_*` slots fail.
+//   - Corbomite::MarkdownFileView's hamburger Find/Replace items are wired to
+//     m_editorWidget->activeLeaf()->showFindBar() / showReplaceBar(). If the
+//     lambda is reverted to the disabled tooltip, hamburgerFindAction_opensSearchBar
+//     fails (the SearchBar stays hidden).
+//   - The find/replace dispatch routes Markoff::ActionId::FindNext|FindPrevious|Replace
+//     through the active leaf's MarkdownFileView virtuals, with the SourceEditor
+//     branch invoking SourceEditor::findNextAction()/findPrevAction() so
+//     SearchController advances when a query is set. If that special-case is
+//     removed, the `mainWindowDispatchPath_*` slots fail. (The MainWindow
+//     entry point that used to carry this dispatch was deleted 2026-10-20 as
+//     dead code; the dispatch itself is owned by the leaf.)
 //
-// Test shape: synthetic Corbomite::MarkdownView wrapper over a directly
+// Test shape: synthetic Corbomite::MarkdownFileView wrapper over a directly
 // constructed NoteEditorWidget in Source mode. This skips the heavy
 // MainWindow + Workspace + vault-open machinery (no programmatic
 // open-vault-then-open-file API exists today) while still exercising both
@@ -24,7 +25,7 @@
 //
 // Runs under QT_QPA_PLATFORM=offscreen.
 
-#include "MarkdownView.h"
+#include "MarkdownFileView.h"
 #include "NoteEditorWidget.h"
 
 #include "corbomite/core/MenuSectionHelper.h"
@@ -42,7 +43,7 @@
 #include <QMenu>
 #include <QTest>
 
-using Corbomite::MarkdownView;
+using Corbomite::MarkdownFileView;
 using Corbomite::NoteDocument;
 using Corbomite::NoteEditorWidget;
 using Corbomite::ViewRegistry;
@@ -71,13 +72,13 @@ Markoff::SearchBar *findSearchBar(SourceEditor *src)
     return src->findChild<Markoff::SearchBar *>(QString(), Qt::FindDirectChildrenOnly);
 }
 
-/// Build a MarkdownView over a fresh NoteDocument with `body` markdown,
+/// Build a MarkdownFileView over a fresh NoteDocument with `body` markdown,
 /// switch the editor to Source mode so SourceEditor + SearchController exist.
 struct Fixture {
     NoteDocument doc;
     ViewRegistry registry;
     WorkspaceLeaf leaf;
-    MarkdownView view;
+    MarkdownFileView view;
 
     explicit Fixture(const QString &body)
         : doc(QStringLiteral("/tmp/vault"), QStringLiteral("note.md"))
@@ -111,7 +112,7 @@ private slots:
 
     // --- Hamburger menu (Cluster R / Task 12) -----------------------------
 
-    /// MarkdownView's "Find..." hamburger action triggers the active leaf's
+    /// MarkdownFileView's "Find..." hamburger action triggers the active leaf's
     /// showFindBar() — proving the Task 12 lambda swap from the disabled
     /// stub to the live `m_editorWidget->activeLeaf()->showFindBar()` call.
     void hamburgerFindAction_opensSearchBar()
@@ -139,7 +140,7 @@ private slots:
                  "Triggering the hamburger Find action must reveal the SearchBar");
     }
 
-    /// MarkdownView's "Replace..." hamburger action opens the bar in
+    /// MarkdownFileView's "Replace..." hamburger action opens the bar in
     /// replace mode (find row + replace row both visible). Mirrors the
     /// Task 12 wiring for the second action.
     void hamburgerReplaceAction_opensReplaceBar()
@@ -172,13 +173,12 @@ private slots:
         // post-condition under SearchBar::showReplace() is the bar shown.
     }
 
-    // --- MainWindow dispatch path (Task 13) ------------------------------
+    // --- the dispatch path the leaf owns ------------------------------
 
-    /// Mirrors the body of MainWindow::triggerEditorAction(FindNext) when
-    /// the active leaf is a SourceEditor: walk through
-    /// `editorWidget()->activeLeaf()` → qobject_cast<SourceEditor*> →
-    /// findNextAction()->trigger(). Pins the cast + accessor surface that
-    /// Task 13 depends on.
+    /// Mirrors the find-next dispatch when the active leaf is a SourceEditor:
+    /// walk through `editorWidget()->activeLeaf()` → qobject_cast<SourceEditor*> →
+    /// findNextAction()->trigger(). Pins the cast + accessor surface the
+    /// dispatch depends on.
     void mainWindowDispatchPath_findNextWithoutQueryOpensBar()
     {
         Fixture f(QStringLiteral("alpha beta alpha gamma alpha\n"));
@@ -207,7 +207,7 @@ private slots:
     /// With a query that matches multiple times, triggering the
     /// findNextAction() must advance SearchController::currentIndex().
     /// This is the "edit_find_next with active query advances cursor"
-    /// branch of Task 13.
+    /// branch of the dispatch.
     void mainWindowDispatchPath_findNextAdvancesController()
     {
         Fixture f(QStringLiteral("alpha beta alpha gamma alpha\n"));
@@ -242,7 +242,7 @@ private slots:
                 || (ctrl->flags().wrap && ctrl->currentIndex() != afterOnce));
     }
 
-    /// Mirrors MainWindow::triggerEditorAction(FindPrevious) — the
+    /// Mirrors the find-previous dispatch — the
     /// findPrevAction()->trigger() retreats currentIndex (or wraps).
     void mainWindowDispatchPath_findPreviousRetreats()
     {
@@ -268,10 +268,10 @@ private slots:
                                 .arg(beforePrev).arg(ctrl->currentIndex())));
     }
 
-    /// Mirrors MainWindow::triggerEditorAction(Replace) — the leaf's
+    /// Mirrors the replace dispatch — the leaf's
     /// showReplaceBar() must reveal the bar. SourceEditor's
     /// replaceAction() (Ctrl+H shortcut) calls into showReplaceBar()
-    /// itself, so triggering it is equivalent to the MainWindow dispatch
+    /// itself, so triggering it is equivalent to the dispatch
     /// for the Replace ActionId.
     void mainWindowDispatchPath_replaceActionOpensBar()
     {

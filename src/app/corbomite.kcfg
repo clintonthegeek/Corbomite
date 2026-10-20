@@ -75,10 +75,10 @@
     </entry>
   </group>
   <group name="Toolbars">
-    <!-- Cluster O Phase O3 (O3.T4, doctrine §D4) — tri-state visibility
+    <!-- Tri-state visibility
          policy for each ViewActions provider's persistent toolbar: "Auto"
          (visible iff that type's tab is focused), "AlwaysShow", or
-         "AlwaysHide". One named entry per provider; O4/O5 add
+         "AlwaysHide". One named entry per provider; add
          CanvasToolBarPolicy/BasesToolBarPolicy/GraphToolBarPolicy as those
          providers land. -->
     <entry name="MarkdownToolBarPolicy" type="String">
@@ -92,9 +92,9 @@
   </group>
 
   <group name="Canvas">
-    <!-- Cluster O Phase O4 (O4.T2) — app-wide (not per-document) canvas
-         settings, source of truth per doctrine §C3's "app-wide, survives
-         restart" row. Obsidian's defaults are both-ON for snap
+    <!-- App-wide (not per-document) canvas
+         settings: they survive a restart. Obsidian's defaults are both-ON
+         for snap
          (obsidian-audit/domains/canvas.md §9.5); ShowGrid follows the same
          default since the grid is what the snap magnetism visually
          communicates. -->
@@ -113,7 +113,7 @@
   </group>
 
   <group name="FileRecovery">
-    <!-- Cluster F-a P1.1 — File Recovery policy. Mirrors Obsidian's
+    <!-- File Recovery policy. Mirrors Obsidian's
          Settings → File Recovery: interval in minutes (0 = Off, default 60),
          maximum snapshot age in days (default 7), and the per-file snapshot
          count ceiling (default 50). Save-failure backups are never pruned and

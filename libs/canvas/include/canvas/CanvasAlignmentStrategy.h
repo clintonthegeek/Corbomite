@@ -9,11 +9,11 @@ namespace Canvas {
 
 /// Obsidian-parity move-drag alignment: grid snap + object (corner/center)
 /// snap, installed on `Graffodil::SelectMoveTool` via
-/// `setAlignmentStrategy()`. Also carries the Shift axis-lock (M4.2's move
+/// `setAlignmentStrategy()`. Also carries the Shift axis-lock (the move
 /// piece — bundled here since both hook into the same `align()` callback).
 ///
 /// See docs/superpowers/plans/2026-08-19-cluster-m-canvas-authoring-parity.md
-/// Phase M4.1 + Appendix A (grid/object-snap constants) + Appendix B.
+/// Appendix A (grid/object-snap constants) + Appendix B.
 ///
 /// `IAlignmentStrategy` is a plain interface (no QObject base), so this
 /// class multiply-inherits QObject purely so `CanvasScene` can construct it

@@ -14,11 +14,11 @@ struct EditorContext;
 
 namespace Corbomite {
 
-class MarkdownView;
+class MarkdownFileView;
 class NoteEditorWidget;
 class View;
 
-/// Cluster O Phase O3 (O3.T6) — markdown's `ViewActions` provider.
+/// Markdown's `ViewActions` provider.
 ///
 /// Owns everything Appendix A of the plan assigns to "MarkdownViewActions":
 /// the Format / Heading / Insert / Table menus (new top-level menus merged
@@ -27,19 +27,18 @@ class View;
 /// pre-existing, always-present View menu), and `insert_template`. Moved
 /// verbatim out of `MainWindow::setupActions()` / `corbomiteui.rc.in` —
 /// the connect() bodies are unchanged, just re-targeted at the bound
-/// `MarkdownView` instead of `MainWindow`'s `activeEditor()`/
+/// `MarkdownFileView` instead of `MainWindow`'s `activeEditor()`/
 /// `activeMarkdownView()` accessors.
 ///
 /// `edit_find`/`edit_replace`/`edit_find_next`/`edit_find_prev` are NOT
-/// here — O1.T5 already routes those universally and they stay in
-/// `MainWindow`'s collection per the plan's explicit instruction.
+/// here — those are routed universally and stay in `MainWindow`'s collection.
 ///
-/// Also owns Cluster N's clipboard verbs (Cut/Copy/Paste/Copy as
-/// Markdown|Plain|HTML|RTF/Paste as Plain Text), ported here post-merge
-/// from `MainWindow` — Cluster N was built before O3.T6 moved Format/
-/// Heading/etc. out of `MainWindow`'s flat KActionCollection, onto the
-/// exact same "leaf-agnostic MarkdownView virtual, one polymorphic call"
-/// shape this provider already uses. They merge into the pre-existing
+/// Also owns the clipboard verbs (Cut/Copy/Paste/Copy as
+/// Markdown|Plain|HTML|RTF/Paste as Plain Text), ported here from
+/// `MainWindow` — they were built before Format/Heading/etc. moved out of
+/// `MainWindow`'s flat KActionCollection, onto the exact same "leaf-agnostic
+/// MarkdownFileView virtual, one polymorphic call" shape this provider already
+/// uses. They merge into the pre-existing
 /// universal "edit" menu container (same pattern the View menu's Editor
 /// Mode group already uses), not a new top-level menu.
 class MarkdownViewActions : public ViewActions
@@ -74,7 +73,7 @@ private:
     NoteEditorWidget *editor() const;
 
     QWidget *m_dialogParent;
-    MarkdownView *m_boundView = nullptr;
+    MarkdownFileView *m_boundView = nullptr;
 
     QMetaObject::Connection m_editorContextConnection;
 

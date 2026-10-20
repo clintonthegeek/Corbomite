@@ -7,7 +7,7 @@
 
 #include "../PropertiesPlugin.h"
 #include "../PropertiesView.h"
-#include "../../../sidebar/PropertyRow.h"
+#include "../PropertyRow.h"
 
 #include <markoff/parser/Document.h>
 #include <markoff/parser/YamlValue.h>

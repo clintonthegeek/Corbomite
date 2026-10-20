@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Regression coverage for Task 0.4 (P1 data-safety): Vault::modify() must
+// Regression coverage for data safety: Vault::modify() must
 // reconcile an open NoteDocument so a self-write can't leave the live editor
 // buffer stale vs disk.
 //

@@ -13,10 +13,10 @@ namespace Corbomite::Bases {
 class VaultResolver;
 
 /// Runtime context passed to the evaluator. Concrete implementations:
-///   - BasesEntry (Phase 7) — canonical one-row context.
-///   - ShadowingContext (Phase 5) — iteration-bound scope for
+///   - BasesEntry — canonical one-row context.
+///   - ShadowingContext — iteration-bound scope for
 ///     list.map/filter/reduce and object.map/filter bodies.
-///   - SummaryContext (Phase 8) — binds `values` to the per-group list.
+///   - SummaryContext — binds `values` to the per-group list.
 class EvalContext
 {
 public:

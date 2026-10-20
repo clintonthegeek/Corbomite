@@ -7,7 +7,7 @@
 
 namespace Corbomite {
 
-// Popout window stub. Post-Cluster-Y, geometry / show / close / serialize
+// Popout window stub. Geometry / show / close / serialize
 // ride KDDockWidgets::Core::FloatingWindow directly via DockRegistry, so
 // the standalone QWidget facade has been removed. This shell is now just
 // an identity token: it satisfies the `Workspace::popoutLeaf` contract

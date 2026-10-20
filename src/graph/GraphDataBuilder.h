@@ -18,7 +18,7 @@ public:
         QVector<ForceGraph::GraphEdge> edges;
     };
 
-    // Proxy-typed only (Cluster N, Task 2.7). The raw-typed
+    // Proxy-typed only. The raw-typed
     // (SQLiteIndex*, Vault*) overloads were removed once the last
     // production caller — the graph-view and local-graph plugins —
     // migrated onto SearchProxy / VaultProxy. Tests drive the builder

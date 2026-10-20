@@ -9,13 +9,13 @@ namespace Canvas {
 
 class CanvasNodeItem;
 
-/// M4.4 — single shared chrome overlay (8 resize handles + 4 connection
+/// Single shared chrome overlay (8 resize handles + 4 connection
 /// dots) retargeted to whichever node is currently "active" (the sole
 /// selected node, or the sole hovered node when nothing is selected).
 /// Replaces the old per-item paint() blocks that used to draw resize
 /// handles directly in TextCardItem/FileCardItem/GroupItem (not
-/// zoom-constant, triplicated) — see plan Phase M4.4 and Appendix A "Node
-/// chrome" row.
+/// zoom-constant, triplicated) — see the canvas-authoring-parity plan and
+/// its Appendix A "Node chrome" row.
 ///
 /// Zoom-constancy mechanism: this item sets `ItemIgnoresTransformations`,
 /// so its own local coordinate system is NOT scaled by the view's zoom —

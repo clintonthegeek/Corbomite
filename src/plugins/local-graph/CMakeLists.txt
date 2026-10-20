@@ -15,6 +15,6 @@ corbomite_add_plugin(corbomite-local-graph
         Corbomite::Vault
         forcegraph)
 
-if(CORBOMITE_PORT_BUILD_TESTS)
+if(CORBOMITE_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

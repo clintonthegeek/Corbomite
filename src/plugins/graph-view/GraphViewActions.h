@@ -11,12 +11,12 @@ namespace Corbomite {
 class GraphView;
 class View;
 
-/// Cluster O Phase O5.T3/T4 — the graph's `ViewActions` provider.
+/// The graph's `ViewActions` provider.
 ///
 /// Lives INSIDE the plugin, unlike every other provider (markdown, canvas and
 /// bases are all host-side, registered from MainWindow). That is the whole
-/// point of O5.T4: it proves a plugin can ship a ViewActions provider for its
-/// own view type without any new plugin-API surface — the provider travels
+/// point: it proves a plugin can ship a ViewActions provider for its own
+/// view type without any new plugin-API surface — the provider travels
 /// the existing "ui.views" ViewRegistrar that already carried the view type.
 ///
 /// LIFETIME. Everything in this class is compiled into the plugin .so, so the
@@ -31,7 +31,7 @@ public:
     /// `commandDispatch` routes the two verbs that already exist as
     /// CommandRegistry commands (`copy-screenshot`, and the local-graph
     /// command issued by the host) rather than duplicating their bodies —
-    /// doctrine §D3's "delegate, don't reimplement".
+    /// delegate, don't reimplement.
     using CommandDispatch = std::function<void(const QString &commandId)>;
 
     GraphViewActions(CommandDispatch commandDispatch, QObject *parent = nullptr);

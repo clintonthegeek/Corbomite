@@ -164,7 +164,7 @@ public:
                        LeafMode mode,
                        const QJsonObject &opts = {});
 
-    // Popout windows (full implementation in Phase 5)
+    // Popout windows
     WorkspaceWindow *popoutLeaf(WorkspaceLeaf *leaf);
     void reparentToMain(WorkspaceWindow *window);
     QVector<WorkspaceWindow *> windows() const;
@@ -214,7 +214,7 @@ public:
     /// workspace.json leaf order, and the active leaf all agree afterwards.
     bool moveLeafWithinGroup(WorkspaceLeaf *leaf, int delta);
 
-    // ---- Linked-pane groups (Cluster O Phase O5.T5) ----
+    // ---- Linked-pane groups ----
     //
     // Obsidian groups tabs so that navigating one navigates every member
     // (audit: `FEATURE-MATRIX.md` "Linked-pane group"; `workspace.md:123`
@@ -306,14 +306,14 @@ public:
     /// the live tab-group id on the write side.
     QString tabGroupIdOf(WorkspaceLeaf *leaf) const;
 
-    /// Popout-window container (Cluster Y Phase 5); its `windows()`
+    /// Popout-window container; its `windows()`
     /// mirrors `Workspace::windows()`. The Obsidian-shape `rootSplit()` /
-    /// `leftSplit()` / `rightSplit()` bookkeeping shells were removed in
-    /// Cluster L Phase L3 (C1) — they had no real callers and
+    /// `leftSplit()` / `rightSplit()` bookkeeping shells were removed —
+    /// they had no real callers and
     /// `leftSplit()`/`rightSplit()` returned literal `nullptr`, a
     /// crash invitation for any caller that assumed Obsidian-shape
-    /// compatibility. Left/right sidebars still live in `CorbomiteMDI`;
-    /// when Cluster F migrates them into the Workspace tree, add honest
+    /// compatibility. Left/right sidebars still live in `ToolViewHost`;
+    /// when they are migrated into the Workspace tree, add honest
     /// accessors then.
     WorkspaceFloating *floatingSplit() const { return m_floating; }
 
@@ -370,14 +370,14 @@ private:
     /// the call stack when it's invoked.
     enum class TeardownMode { Immediate, Deferred };
 
-    /// The single leaf-destruction primitive (Cluster L Phase L1 / finding
-    /// A1-A2). Unregisters each leaf from `m_leaves`/`m_leavesById`/
+    /// The single leaf-destruction primitive. Unregisters each leaf from
+    /// `m_leaves`/`m_leavesById`/
     /// `m_tabGroupOf` (and clears it as `m_activeLeaf` if applicable)
     /// *before* touching its dock widget, so any KDDW signal that fires
     /// re-entrantly while a sibling leaf in the same batch is being torn
     /// down sees this leaf as already gone rather than mid-flight. Cuts the
     /// dock widget's signal connections as a defense-in-depth measure on
-    /// top of A3's context-object fix, then deletes per `mode`. Does not
+    /// top of the context-object fix, then deletes per `mode`. Does not
     /// touch `m_stackedGroups` (not leaf-keyed) or emit `layoutChanged`/
     /// `leafClosed` — callers own those.
     void destroyLeaves(QVector<WorkspaceLeaf *> leaves, TeardownMode mode);
@@ -410,7 +410,7 @@ private:
     WorkspaceLeaf *m_activeLeaf = nullptr;
     WorkspaceLeaf *m_previousActiveLeaf = nullptr;
     bool m_layoutReady = true;
-    /// C5 resize-event coalescing guard: true while a singleShot(0) flush
+    /// Resize-event coalescing guard: true while a singleShot(0) flush
     /// of `resize()` is already scheduled for the current event-loop turn.
     bool m_resizeCoalesceScheduled = false;
     QVector<WorkspaceWindow *> m_windows;
@@ -423,7 +423,7 @@ private:
     /// itself model (e.g. `left`/`right` sidedock sub-trees, or any future
     /// Obsidian schema key). Round-tripped unchanged by serialize() so a
     /// Corbomite load->save cycle never destroys data Obsidian wrote.
-    /// Cluster L / workspace-compat-boundary doctrine: `_corbomite` and
+    /// Workspace-compat-boundary doctrine: `_corbomite` and
     /// `left-ribbon` are explicitly denylisted here — they were Corbomite's
     /// own retired keys, not Obsidian schema, and must not be swept into
     /// this passthrough (see SessionManager and the compat-boundary spec).

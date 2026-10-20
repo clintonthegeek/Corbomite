@@ -23,7 +23,7 @@ public:
     /// scroll-to-heading from plugins.
     virtual bool setCursorLine(int line);
 
-    // ---- Host-bound file-menu callbacks (Cluster R Phase 2) ----
+    // ---- Host-bound file-menu callbacks ----
     //
     // `libs/core` cannot depend on `libs/vault` (the reverse is already the
     // case), so the universal file-menu items in `onMoreOptionsMenu` talk
@@ -45,12 +45,12 @@ public:
     /// Host-supplied "Bookmark…" entry point. When set, the pane-section
     /// "Bookmark…" action is enabled and invokes this callback with the
     /// current NoteDocument. MainWindow wires it to the bookmarks plugin's
-    /// openBookmarkModalForFile slot (Cluster S task 3.2).
+    /// openBookmarkModalForFile slot.
     void setBookmarkCallback(NoteDocumentCallback cb);
     /// Host-supplied "Version history" entry point. When set, the action
     /// section's "Version history" item is enabled and invokes this callback
     /// with the current NoteDocument; MainWindow wires it to the Version
-    /// History modal (Cluster F-a P1.7). When unset the item stays disabled
+    /// History modal. When unset the item stays disabled
     /// with an explanation tooltip.
     void setVersionHistoryCallback(NoteDocumentCallback cb);
     void setVaultAbsolutePathResolver(std::function<QString(NoteDocument *)> resolver);

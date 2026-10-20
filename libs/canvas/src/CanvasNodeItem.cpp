@@ -138,7 +138,7 @@ void CanvasNodeItem::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
 {
     QGraphicsObject::hoverMoveEvent(event);
 
-    // M4.4 — cursor feedback per resize zone. Resize is only actionable
+    // Cursor feedback per resize zone. Resize is only actionable
     // while selected (matches CanvasResizeTool::findResizeTarget(), which
     // only offers resize handles on selected nodes), so only show the
     // resize cursors then; otherwise fall back to the default arrow/move

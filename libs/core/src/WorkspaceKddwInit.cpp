@@ -18,7 +18,7 @@ void ensureKddwInit()
                  | KDDockWidgets::Config::Flag_AlwaysShowTabs
                  | KDDockWidgets::Config::Flag_AllowReorderTabs
                  | KDDockWidgets::Config::Flag_TabsHaveCloseButton
-                 // Cluster L Phase L4 (D1): with AlwaysShowTabs set, every
+                 // With AlwaysShowTabs set, every
                  // group was rendering both its own title bar *and* the tab
                  // bar underneath it — a redundant chrome row KDE apps
                  // (Kate/Dolphin split views) don't have. HideTitleBarWhenTabsVisible

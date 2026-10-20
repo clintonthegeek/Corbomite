@@ -28,10 +28,10 @@
       <Action name="file_save"/>
       <Separator/>
     </Menu>
-    <!-- Cluster N (ported onto Cluster O post-merge) — Cut/Copy/Paste/Copy
+    <!-- Cut/Copy/Paste/Copy
          as.../Paste as Plain Text used to live here too; they now arrive
-         via MarkdownViewActions' <Menu name="edit"> merge (same mechanism
-         O3.T6 already uses for the View menu's Editor Mode group) and
+         via MarkdownViewActions' <Menu name="edit"> merge (the same mechanism
+         the View menu's Editor Mode group uses) and
          vanish entirely off markdown, matching every other leaf-specific
          verb. This base container only ever holds the universal items. -->
     <Menu name="edit">
@@ -44,7 +44,7 @@
       <Action name="edit_find_previous"/>
       <Action name="edit_replace"/>
     </Menu>
-    <!-- Cluster O Phase O3 (§D5) — where each ViewActions provider's
+    <!-- Where each ViewActions provider's
          context-sensitive top-level menu (Format/Heading/Insert/Table for
          markdown, Graph, Bases, Canvas, ...) goes.
 
@@ -73,7 +73,7 @@
       <Action name="tab_prev"/>
       <Action name="tab_close"/>
     </Menu>
-    <!-- Cluster O Phase O5.T5 (Cluster I Phase 5 tail) — a real Tab menu.
+    <!-- A real Tab menu.
          These were originally appended to the Go menu above, with a comment
          asserting they "belong in the always-present Tab menu" — a menu that
          did not exist. Reported by the user as "I can't find the tab menu".
@@ -89,11 +89,11 @@
       <Separator/>
       <Action name="leaf_link_with_active_pane"/>
     </Menu>
-    <!-- Cluster O Phase O3 (§D5) — split_right/split_down/sidebar/zoom are
+    <!-- split_right/split_down/sidebar/zoom are
          universal (no view-type dependency). editor_toggle_mode, the
          Editor Mode radios, and the fold trio used to live here too; they
          now arrive via MarkdownViewActions' <Menu name="view"> merge
-         (O3.T6) and vanish entirely off markdown — this base container
+         and vanish entirely off markdown — this base container
          only ever holds the universal items. -->
     <Menu name="view">
       <text>&amp;View</text>

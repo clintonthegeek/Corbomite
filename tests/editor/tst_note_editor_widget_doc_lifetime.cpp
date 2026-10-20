@@ -4,7 +4,7 @@
 // must not crash. Originally reproduced the 2026-06-10 first-run SIGSEGV
 // against the QML Live leaf; retargeted to the canvas LivePreview leaf after
 // Cluster K Phase 5 (QML retirement). The contract is leaf-agnostic:
-// MarkdownView must retire its document pointer on destroy so later event
+// MarkdownFileView must retire its document pointer on destroy so later event
 // processing cannot touch freed memory.
 //
 // Runs under QT_QPA_PLATFORM=offscreen.

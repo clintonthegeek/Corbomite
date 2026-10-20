@@ -122,7 +122,7 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     m_resultsBtn->setToolTip(i18n("Export / copy table"));
     m_resultsBtn->setPopupMode(QToolButton::InstantPopup);
     {
-        // Owned here, not rebuilt by BasesViewActions (O5.T1): the in-view
+        // Owned here, not rebuilt by BasesViewActions: the in-view
         // button and the menubar/palette entry must be the SAME menu, or the
         // two surfaces drift and "one definition, four surfaces" is a lie.
         // The provider adopts it via toolbarResultsMenu().
@@ -234,7 +234,7 @@ BasesView::BasesView(WorkspaceLeaf *leaf, QWidget *parent)
     connect(m_viewSelector, &QComboBox::currentTextChanged,
             this, &BasesView::onViewSelectorChanged);
 
-    // O2.T2 — undo-stack depth is a Tier-B capability signal
+    // Undo-stack depth is a Tier-B capability signal
     // (canUndo()/canRedo()); fixes edit_undo/edit_redo not refreshing
     // mid-session between leaf/view-change triggers.
     connect(&m_undoStack, &QUndoStack::canUndoChanged, this, &View::contextChanged);
@@ -437,7 +437,7 @@ void BasesView::onSectionMoved(int, int, int)
 
 void BasesView::onSelectionChanged()
 {
-    // O2.T2: selection is a Tier-B capability signal (hasSelection())
+    // Selection is a Tier-B capability signal (hasSelection())
     // regardless of whether the properties drawer is open below.
     Q_EMIT contextChanged();
 
@@ -635,7 +635,7 @@ void BasesView::setPropertiesPaneVisible(bool visible)
     m_drawer->setVisible(visible);
     if (visible) onSelectionChanged();
     // Single write path, two possible owners of the check state: once
-    // O5.T1 adopts an action onto the button, the QToolButton mirrors the
+    // The provider adopts an action onto the button, the QToolButton mirrors the
     // action and ignores its own setChecked, so writing to the button would
     // be silently dropped. Write to whichever is authoritative, and to both
     // when standalone, so no surface can drift from the widget.

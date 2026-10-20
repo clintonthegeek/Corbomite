@@ -12,7 +12,7 @@
 #include <QTextDocument>
 #include <KLocalizedString>
 
-// Cluster M leftover (canvas dark mode) — the item's scene palette, or the
+// Canvas dark mode — the item's scene palette, or the
 // light default when the item has no scene (unit tests, detached items). The
 // fallback matters: a `paint()` that returned a default-constructed
 // CanvasPalette would silently render light, which is exactly the class of
@@ -146,7 +146,7 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     // 1. Rounded rect with white fill
     QPainterPath cardPath;
     cardPath.addRoundedRect(rect, kCornerRadius, kCornerRadius);
-    // Cluster M leftover (canvas dark mode).
+    // Canvas dark mode.
     const Canvas::CanvasPalette &pal = canvasPaletteFor(scene());
     painter->fillPath(cardPath, pal.cardBackground);
 
@@ -187,7 +187,7 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
         doc->drawContents(painter);
         painter->restore();
     } else {
-        // No content — missing-file placeholder (M6.3): message + buttons.
+        // No content — missing-file placeholder: message + buttons.
         painter->save();
         painter->setPen(pal.missingForeground);
         QFont placeholderFont = painter->font();
@@ -226,7 +226,7 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     painter->setBrush(Qt::NoBrush);
     painter->drawRoundedRect(rect, kCornerRadius, kCornerRadius);
 
-    // Resize-handle drawing moved to CanvasNodeChromeOverlay (M4.4) — one
+    // Resize-handle drawing moved to CanvasNodeChromeOverlay — one
     // shared, zoom-constant overlay retargeted to the active node, instead
     // of this triplicated per-item block. Do not re-add handle painting
     // here; see CanvasNodeChromeOverlay.h.

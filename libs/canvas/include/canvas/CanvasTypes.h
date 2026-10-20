@@ -25,9 +25,9 @@ struct CanvasNode {
 
     // Type-specific
     QString text;              // Text nodes
-    QString file;              // File nodes (Phase 4b)
-    QString subpath;           // File nodes (Phase 4b)
-    QString url;               // Link nodes (Phase 4b)
+    QString file;              // File nodes
+    QString subpath;           // File nodes
+    QString url;               // Link nodes
     QString label;             // Group nodes
     QString background;        // Group nodes
     QString backgroundStyle;   // Group nodes: "cover", "ratio", "repeat"

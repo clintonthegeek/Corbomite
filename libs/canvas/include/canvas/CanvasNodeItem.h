@@ -35,7 +35,7 @@ public:
                        BottomRight, Bottom, BottomLeft, Left };
     ResizeMode resizeModeAtPos(const QPointF &localPos) const;
 
-    /// M4.4 — true while the cursor is hovering this item (tracked via
+    /// True while the cursor is hovering this item (tracked via
     /// hoverEnterEvent/hoverLeaveEvent below). Used by CanvasScene to decide
     /// the chrome-overlay's "active node" when nothing is selected.
     bool isHovered() const { return m_hovered; }
@@ -45,12 +45,12 @@ Q_SIGNALS:
     /// begin group-label edit, ...).
     void editRequested();
 
-    /// M4.4 — hover state changed. CanvasScene connects this at item
+    /// Hover state changed. CanvasScene connects this at item
     /// creation (same pattern as editRequested()) to track which node, if
     /// any, is the hover-chrome target.
     void hoverChanged(bool hovered);
 
-    /// M4.4 — this node's scene geometry changed (move or resize), fired
+    /// This node's scene geometry changed (move or resize), fired
     /// from itemChange(ItemPositionHasChanged) and setGeometry(). Lets
     /// CanvasScene keep the chrome overlay's position in sync with its
     /// retargeted node during drags/resizes without polling.

@@ -10,7 +10,7 @@
     SPDX-License-Identifier: LGPL-2.0-or-later
 */
 
-#include "CorbomiteMDI.h"
+#include "ToolViewHost.h"
 
 #include <KAcceleratorManager>
 #include <KActionCollection>
@@ -41,7 +41,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 
-namespace CorbomiteMDI
+namespace ToolViewHost
 {
 
 static KToggleAction *createToolViewToggleAction(const QString &text, ToolView *tv, QObject *parent)
@@ -74,7 +74,7 @@ QString actionListName()
     return QStringLiteral("corbomite_mdi_view_actions");
 }
 
-GUIClient::GUIClient(MainWindow *mw)
+GUIClient::GUIClient(HostWindow *mw)
     : QObject(mw)
     , KXMLGUIClient(mw)
     , m_mw(mw)
@@ -109,9 +109,9 @@ GUIClient::GUIClient(MainWindow *mw)
     KActionCollection::setDefaultShortcut(m_showSidebarsAction, Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_F);
 
     m_showSidebarsAction->setChecked(m_mw->sidebarsVisible());
-    connect(m_showSidebarsAction, &KToggleAction::toggled, m_mw, &MainWindow::setSidebarsVisible);
+    connect(m_showSidebarsAction, &KToggleAction::toggled, m_mw, &HostWindow::setSidebarsVisible);
 
-    m_hideToolViews = actionCollection()->addAction(QStringLiteral("corbomite_mdi_hide_toolviews"), m_mw, &MainWindow::hideToolViews);
+    m_hideToolViews = actionCollection()->addAction(QStringLiteral("corbomite_mdi_hide_toolviews"), m_mw, &HostWindow::hideToolViews);
     m_hideToolViews->setText(i18n("Hide All Tool Views"));
 
     m_toolMenu->addAction(m_showSidebarsAction);
@@ -252,7 +252,7 @@ void GUIClient::updateActions()
 
 // BEGIN TOOLVIEW
 
-ToolView::ToolView(MainWindow *mainwin, Sidebar *sidebar, QWidget *parent, const QString &identifier)
+ToolView::ToolView(HostWindow *mainwin, Sidebar *sidebar, QWidget *parent, const QString &identifier)
     : QFrame(parent)
     , m_mainWin(mainwin)
     , m_sidebar(sidebar)
@@ -551,7 +551,7 @@ bool MultiTabBar::expandToolView() const
     return true;
 }
 
-Sidebar::Sidebar(KMultiTabBar::KMultiTabBarPosition pos, QSplitter *sp, MainWindow *mainwin, QWidget *parent)
+Sidebar::Sidebar(KMultiTabBar::KMultiTabBarPosition pos, QSplitter *sp, HostWindow *mainwin, QWidget *parent)
     : QSplitter(parent)
     , m_mainWin(mainwin)
     , m_tabBarPosition(pos)
@@ -1278,8 +1278,8 @@ void Sidebar::dragLeaveEvent(QDragLeaveEvent *)
 void Sidebar::setVisible(bool visible)
 {
     // Guard: honour the user's "Show Sidebars" master toggle. Previously
-    // also bailed when `m_toolviews.empty()`, but that broke the Cluster Q
-    // flow where all tool views arrive from plugins AFTER the window has
+    // also bailed when `m_toolviews.empty()`, but that broke the flow where
+    // all tool views arrive from plugins AFTER the window has
     // shown — the initial show(true) was silently dropped and nothing
     // re-triggered when plugins added their tool views. An empty sidebar
     // collapses to a ~25px tab strip; that's fine.
@@ -1346,7 +1346,7 @@ void Sidebar::updateLastSize()
 
 // BEGIN MAIN WINDOW
 
-MainWindow::MainWindow(QWidget *parent)
+HostWindow::HostWindow(QWidget *parent)
     : KXmlGuiWindow(parent, Qt::Window)
     , m_guiClient(new GUIClient(this))
 {
@@ -1415,7 +1415,7 @@ MainWindow::MainWindow(QWidget *parent)
     setToolViewStyle(KMultiTabBar::KDEV3ICON);
 
     for (const auto &sidebar : m_sidebars) {
-        connect(sidebar.get(), &Sidebar::sigShowPluginConfigPage, this, &MainWindow::sigShowPluginConfigPage);
+        connect(sidebar.get(), &Sidebar::sigShowPluginConfigPage, this, &HostWindow::sigShowPluginConfigPage);
 
         // Drag/Drop
         connect(sidebar.get(), &Sidebar::dragStarted, this, [this]() {
@@ -1439,10 +1439,10 @@ MainWindow::MainWindow(QWidget *parent)
     }
 }
 
-MainWindow::~MainWindow()
+HostWindow::~HostWindow()
 {
     // All toolviews and widgets are parented within the splitter hierarchy,
-    // which is parented to this MainWindow. Qt's parent-child ownership
+    // which is parented to this HostWindow. Qt's parent-child ownership
     // handles deletion automatically. Explicit deletion here causes
     // double-free because the widgets are destroyed twice: once explicitly,
     // then again by Qt's child cleanup in ~QObject.
@@ -1452,12 +1452,12 @@ MainWindow::~MainWindow()
     m_toolviews.clear();
 }
 
-QWidget *MainWindow::centralWidget() const
+QWidget *HostWindow::centralWidget() const
 {
     return m_centralWidget;
 }
 
-void MainWindow::insertWidgetBeforeStatusbar(QWidget *widget)
+void HostWindow::insertWidgetBeforeStatusbar(QWidget *widget)
 {
     Q_ASSERT(m_bottomSidebarLayout);
     const auto idxOfStatusbar = m_bottomSidebarLayout->indexOf(m_statusBarStackedWidget);
@@ -1465,7 +1465,7 @@ void MainWindow::insertWidgetBeforeStatusbar(QWidget *widget)
     m_bottomSidebarLayout->insertWidget(idxOfStatusbar, widget);
 }
 
-void MainWindow::setStatusBarVisible(bool visible)
+void HostWindow::setStatusBarVisible(bool visible)
 {
     statusBarStackedWidget()->setVisible(visible);
     const auto idxOfItemAfterBottomSidebar = m_bottomSidebarLayout->indexOf(m_sidebars[KMultiTabBar::Bottom].get()) + 1;
@@ -1477,7 +1477,7 @@ void MainWindow::setStatusBarVisible(bool visible)
     }
 }
 
-ToolView *MainWindow::createToolView(QObject *plugin,
+ToolView *HostWindow::createToolView(QObject *plugin,
                                      const QString &identifier,
                                      KMultiTabBar::KMultiTabBarPosition pos,
                                      const QIcon &icon,
@@ -1490,7 +1490,7 @@ ToolView *MainWindow::createToolView(QObject *plugin,
     // log and the sidebar was stuck empty. Warn loudly so the next time
     // this happens it's findable from the terminal rather than gdb.
     if (toolView(identifier)) {
-        qWarning() << "CorbomiteMDI::createToolView: refusing duplicate identifier"
+        qWarning() << "ToolViewHost::createToolView: refusing duplicate identifier"
                    << identifier << "— caller should release the prior tool view"
                    << "before re-hosting";
         return nullptr;
@@ -1508,7 +1508,7 @@ ToolView *MainWindow::createToolView(QObject *plugin,
     return v;
 }
 
-ToolView *MainWindow::toolView(const QString &identifier) const
+ToolView *HostWindow::toolView(const QString &identifier) const
 {
     for (const auto &[name, toolview] : m_toolviews) {
         if (name == identifier) {
@@ -1518,7 +1518,7 @@ ToolView *MainWindow::toolView(const QString &identifier) const
     return nullptr;
 }
 
-void MainWindow::toolViewDeleted(ToolView *widget)
+void HostWindow::toolViewDeleted(ToolView *widget)
 {
     if (!widget) {
         return;
@@ -1542,7 +1542,7 @@ void MainWindow::toolViewDeleted(ToolView *widget)
     m_toolviews.erase(it);
 }
 
-void MainWindow::setSidebarsVisibleInternal(bool visible, bool hideFullySilent)
+void HostWindow::setSidebarsVisibleInternal(bool visible, bool hideFullySilent)
 {
     bool old_visible = m_sidebarsVisible;
     m_sidebarsVisible = visible;
@@ -1572,7 +1572,7 @@ void MainWindow::setSidebarsVisibleInternal(bool visible, bool hideFullySilent)
     }
 }
 
-ToolView *MainWindow::activeViewToolView(KMultiTabBar::KMultiTabBarPosition pos)
+ToolView *HostWindow::activeViewToolView(KMultiTabBar::KMultiTabBarPosition pos)
 {
     const auto side = static_cast<size_t>(pos);
     if (side >= 4) {
@@ -1581,24 +1581,24 @@ ToolView *MainWindow::activeViewToolView(KMultiTabBar::KMultiTabBarPosition pos)
     return m_sidebars[side]->firstVisibleToolView();
 }
 
-bool MainWindow::sidebarsVisible() const
+bool HostWindow::sidebarsVisible() const
 {
     return m_sidebarsVisible;
 }
 
-void MainWindow::setToolViewStyle(KMultiTabBar::KMultiTabBarStyle style)
+void HostWindow::setToolViewStyle(KMultiTabBar::KMultiTabBarStyle style)
 {
     for (auto &sidebar : m_sidebars) {
         sidebar->setStyle(style);
     }
 }
 
-KMultiTabBar::KMultiTabBarStyle MainWindow::toolViewStyle() const
+KMultiTabBar::KMultiTabBarStyle HostWindow::toolViewStyle() const
 {
     return m_sidebars[KMultiTabBar::Top]->tabStyle();
 }
 
-bool MainWindow::moveToolView(ToolView *widget, KMultiTabBar::KMultiTabBarPosition pos, bool isDND)
+bool HostWindow::moveToolView(ToolView *widget, KMultiTabBar::KMultiTabBarPosition pos, bool isDND)
 {
     if (!widget || widget->mainWindow() != this) {
         return false;
@@ -1619,12 +1619,12 @@ bool MainWindow::moveToolView(ToolView *widget, KMultiTabBar::KMultiTabBarPositi
         m_sidebars[pos]->setMinimumSize({0, 0});
     }
 
-    Q_EMIT toolViewMoved(widget, static_cast<CorbomiteMDI::ToolViewPosition>(pos));
+    Q_EMIT toolViewMoved(widget, static_cast<ToolViewHost::ToolViewPosition>(pos));
 
     return true;
 }
 
-bool MainWindow::showToolView(ToolView *widget)
+bool HostWindow::showToolView(ToolView *widget)
 {
     if (!widget || widget->mainWindow() != this) {
         return false;
@@ -1633,7 +1633,7 @@ bool MainWindow::showToolView(ToolView *widget)
     return widget->sidebar()->showToolView(widget);
 }
 
-bool MainWindow::hideToolView(ToolView *widget)
+bool HostWindow::hideToolView(ToolView *widget)
 {
     if (!widget || widget->mainWindow() != this) {
         return false;
@@ -1644,7 +1644,7 @@ bool MainWindow::hideToolView(ToolView *widget)
     return ret;
 }
 
-void MainWindow::hideToolViews()
+void HostWindow::hideToolViews()
 {
     for (const auto &tv : m_toolviews) {
         tv.toolview->sidebar()->hideToolView(tv.toolview);
@@ -1652,16 +1652,16 @@ void MainWindow::hideToolViews()
     triggerFocusForCentralWidget();
 }
 
-CorbomiteMDI::ToolViewPosition MainWindow::toolViewPosition(QWidget *toolview)
+ToolViewHost::ToolViewPosition HostWindow::toolViewPosition(QWidget *toolview)
 {
     if (auto tv = qobject_cast<ToolView *>(toolview)) {
-        return static_cast<CorbomiteMDI::ToolViewPosition>(tv->sidebar()->position());
+        return static_cast<ToolViewHost::ToolViewPosition>(tv->sidebar()->position());
     }
-    qWarning("CorbomiteMDI: Invalid, not a toolview");
-    return CorbomiteMDI::Bottom;
+    qWarning("ToolViewHost: Invalid, not a toolview");
+    return ToolViewHost::Bottom;
 }
 
-QWidget *MainWindow::createContainer(QWidget *parent, int index, const QDomElement &element, QAction *&containerAction)
+QWidget *HostWindow::createContainer(QWidget *parent, int index, const QDomElement &element, QAction *&containerAction)
 {
     QWidget *createdContainer = KXmlGuiWindow::createContainer(parent, index, element, containerAction);
     if (element.tagName() == QLatin1String("ToolBar")) {
@@ -1672,6 +1672,6 @@ QWidget *MainWindow::createContainer(QWidget *parent, int index, const QDomEleme
 
 // END MAIN WINDOW
 
-} // namespace CorbomiteMDI
+} // namespace ToolViewHost
 
-#include "moc_CorbomiteMDI.cpp"
+#include "moc_ToolViewHost.cpp"

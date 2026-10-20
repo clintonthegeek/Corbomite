@@ -22,13 +22,11 @@ add_library(CorbomiteApp SHARED
     app/RibbonToolBar.cpp
     app/RibbonStateController.cpp
     app/WelcomeScreen.cpp
-    mdi/CorbomiteMDI.cpp
-    sidebar/PropertyEditorWidget.cpp
-    sidebar/PropertyRow.cpp
+    toolviewhost/ToolViewHost.cpp
     editor/LineResolve.cpp
     editor/LineResolve.h
-    editor/MarkdownView.cpp
-    editor/MarkdownView.h
+    editor/MarkdownFileView.cpp
+    editor/MarkdownFileView.h
     editor/MarkdownViewActions.cpp
     editor/MarkdownViewActions.h
     editor/NoteEditorWidget.cpp
@@ -46,7 +44,7 @@ add_library(CorbomiteApp SHARED
     editor/VaultResourceProvider.cpp
     editor/CanvasMermaidAdapter.cpp
     editor/CanvasMermaidAdapter.h
-    reactors/AutosaveReactor.cpp
+    app/AutosaveReactor.cpp
     dialogs/CalloutPickerDialog.cpp
     dialogs/CreateVaultDialog.cpp
     dialogs/InsertTableDialog.cpp
@@ -90,7 +88,7 @@ target_link_libraries(CorbomiteApp
         Corbomite::Models
         Corbomite::Vault
         Corbomite::Bases
-        # Cluster K Phase 5 — LivePreview is Markoff::Canvas only; QML
+        # LivePreview is Markoff::Canvas only; QML
         # markoff_live / markoff_liveplugin retired from Corbomite.
         # Reading is Markoff::Styled (read-only). NOT confused with the
         # `canvas` target below (Corbomite's own libs/canvas .canvas
@@ -118,7 +116,7 @@ target_include_directories(CorbomiteApp PUBLIC
 target_compile_definitions(CorbomiteApp PRIVATE
     CORBOMITE_PLUGIN_DEV_DIR="${CORBOMITE_PLUGIN_DEV_DIR}")
 
-# Built-in plugins (Cluster Q migrations).
+# Built-in plugins.
 add_subdirectory(plugins/backlinks)
 add_subdirectory(plugins/outlinks)
 add_subdirectory(plugins/outline)

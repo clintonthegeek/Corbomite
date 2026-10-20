@@ -6,7 +6,7 @@
 
 #include "corbomite/core/Component.h"
 
-// TODO(port-foundation-exploration): Markoff::MarkdownRenderChild was retired
+// Port history: Markoff::MarkdownRenderChild was retired
 // with the old leaves. Inheritance + override removed; setRenderedText /
 // renderedText (inherited from Markoff base) are stubbed locally so the
 // class compiles standalone.
@@ -31,7 +31,7 @@ public:
     void mountInto(QWidget *host);
     QWidget *hostWidget() const;
 
-    // TODO(port-foundation-exploration): formerly inherited from
+    // Port history: formerly inherited from
     // Markoff::MarkdownRenderChild. Stubbed locally pending the new
     // Markoff::MarkdownRenderChild abstract (E3 work).
     void setRenderedText(const QString &t) { m_renderedText = t; }

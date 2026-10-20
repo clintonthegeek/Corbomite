@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Cluster R Task 3.5 — CanvasScene::renderToImage + renderToSvg sanity checks.
+// CanvasScene::renderToImage + renderToSvg sanity checks.
 // Verifies that the exported images have the expected dimensions and that the
 // SVG output is well-formed XML containing the `<svg>` root.
 

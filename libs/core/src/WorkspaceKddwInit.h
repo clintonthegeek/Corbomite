@@ -10,7 +10,7 @@ namespace Corbomite::detail {
 /// a `Workspace` necessarily exists (e.g. a `WorkspaceLeaf` built in
 /// isolation by a test). Single definition shared by `Workspace.cpp` and
 /// `WorkspaceLeaf.cpp` — previously each TU carried its own copy
-/// (Cluster L Phase L3, C3).
+/// (a single shared definition).
 void ensureKddwInit();
 
 } // namespace Corbomite::detail

@@ -64,7 +64,7 @@ public:
     /// the zoom range and targets spanning the world: 0.5 device pixels.
     void setViewState(const QJsonObject &state);
 
-    /// Cluster O Phase O4 (O4.T3) — fits the view to the current
+    /// Fits the view to the current
     /// selection's bounding rect (Obsidian's "zoom to selection"). No-op
     /// if nothing is selected — CanvasViewActions' Tier B disables the
     /// action itself in that case, but this stays defensive.
@@ -77,7 +77,7 @@ public:
     /// viewport or an empty bbox.
     void zoomToBbox(const QRectF &bbox);
 
-    /// Cluster O Phase O4 (O4.T1/T2) — app-wide "Show grid" toggle,
+    /// App-wide "Show grid" toggle,
     /// backed by corbomite.kcfg's Canvas group. Honoured in
     /// drawBackground(); the background fill itself is unaffected.
     void setGridVisible(bool visible);
@@ -105,12 +105,12 @@ private:
     /// viewport size and scrollbar ranges; converges to within a rounding step.
     void centreScenePoint(double x, double y);
 
-    /// M4.2 — edge auto-pan. Called from mouseMoveEvent() and from the
+    /// Edge auto-pan. Called from mouseMoveEvent() and from the
     /// auto-pan timer tick to decide whether the timer should be
     /// running: only while CanvasScene::isDragActive() AND the last known
     /// viewport-local cursor position is within kAutoPanMargin of an edge.
     void updateAutoPan();
-    /// M4.2 — ~60Hz timer tick: scrolls the view a small step toward
+    /// ~60Hz timer tick: scrolls the view a small step toward
     /// whichever edge(s) the cursor is near, then re-delivers a synthetic
     /// mouse-move at the same viewport-local position through the normal
     /// event path so SelectMoveTool keeps extending the drag (the scroll

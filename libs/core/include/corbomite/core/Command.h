@@ -11,7 +11,7 @@
 
 namespace Corbomite {
 
-/// Opaque editor handle. A later Cluster (G — Views hierarchy) will replace
+/// Opaque editor handle. A later views-hierarchy revision will replace
 /// this with a real type (`MarkdownEditor *` / `TextFileView *` pair).
 /// For now the registry is editor-agnostic so plugin-like callers can
 /// declare editor-aware commands without a hard dependency.

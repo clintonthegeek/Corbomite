@@ -31,7 +31,7 @@ void WorkspaceActiveLeafRouter::onFocusChanged(QWidget * /*previous*/, QWidget *
     // (sidebar toolviews, dialogs, the search bar, ...), not just focus
     // moves inside the workspace. Most calls never touch a leaf at all,
     // so reject anything not under the KDDW main window before paying
-    // for the leaf walk below (Cluster L Phase L3, C4).
+    // for the leaf walk below.
     auto *mainWin = m_workspace->kddwMainWindow();
     if (!mainWin || (current != mainWin && !mainWin->isAncestorOf(current)))
         return;

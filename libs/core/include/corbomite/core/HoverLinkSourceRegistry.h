@@ -16,7 +16,7 @@ namespace Corbomite {
 // with the built-in view types so the editor can fire hover-link previews
 // out of the box.
 //
-// When Cluster N's plugin layer lands, plugin views will call
+// When the plugin layer lands, plugin views will call
 // registerSource() at onload and unregisterSource() at onunload — exactly
 // matching Obsidian's `workspace.registerHoverLinkSource(id, info)` API.
 class HoverLinkSourceRegistry : public QObject {

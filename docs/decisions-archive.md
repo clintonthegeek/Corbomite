@@ -10,6 +10,20 @@ Conventions:
 
 ---
 
+## 2026-10-20 — The release-hygiene pass, and what it refused to do
+
+The public-cut bar is the release-hygiene plan (`docs/superpowers/plans/2026-06-10-release-hygiene.md` ✅), and on 2026-10-20 most of it closed. Three things are worth remembering, because two of them are cases where the plan's *premise* was wrong and the tree won:
+
+- **The plan's dead-code list was half wrong.** C.5 said `SourceEditor` was "compiled but never instantiated" — it is the plain-text source leaf, and the registered `tst_markdownview_find_replace_dispatch` drives it ✅. C.6 said `CompletionPopup`/`CompletionDelegate` were never instantiated — `CompletionController` constructs the popup ✅. Both stay; the punch list's earlier claim that they were "genuinely dead" is retracted ✅. What *was* dead went: `EmbedDepthGuard` and `TabModel` (with their tests), `MainWindow::triggerEditorAction` (no callers, not in any `.ui`), the dead `expandedFolders` fetch, and a stale `#include` in the e2e test ✅.
+- **The comment vocabulary is gone, and the code says what it does now.** ~670 sites across `src/` and `libs/` were rewritten to state the constraint rather than the history ✅ — `grep -rEn "Cluster [A-Z]|Phase [0-9]|Task [0-9]|port-foundation-exploration" src/ libs/` now returns nothing ✅ ✅. Every `TODO` marker in `src/` is gone: each was reworded, fixed inline, or filed ✅ — five new punch-list lines carry what is genuinely outstanding ✅ (the editor's right-click menu, the source editor's fold engine, the graph's pending controls, the QOwnNotes theme import, the bookmarks' `openLinkText` switch) ✅ ✅. Five *user-visible* strings carried the vocabulary and were reworded ✅ ✅ (the repo has no `.ts` catalogs ✅, so no translation was invalidated ✅) ✅ ✅. One of them was not just jargon: the "Bookmark…" tooltip claimed it required the Bookmarks core plugin, which is *built in* ✅ — the honest reason is that the editor's "add a bookmark here" action is not wired ✅ ✅.
+- **The renames went in, except the one that is not a rename.** The KateMDI fork is now `src/toolviewhost/ToolViewHost.{h,cpp}` (namespace `ToolViewHost`, its inner `MainWindow` → `HostWindow`, so `src/` has exactly one class named `MainWindow` ✅ ✅); `Corbomite::MarkdownView` → `Corbomite::MarkdownFileView` ✅ ✅; the abstract `Corbomite::Core::VaultResourceProvider` → `Corbomite::Core::ResourceResolver` ✅ ✅ (the plan's rule — fewer call sites ✅ ✅ — so the editor's concrete implementation keeps its name ✅ ✅); and the orphan `src/sidebar/` and `src/reactors/` directories are folded into their only consumers ✅ ✅. **D.4 — normalising the `canvas`/`forcegraph` targets, include dirs and namespaces to the house pattern — was deliberately not done**: it is a repo-wide rename of two libraries and every consumer ✅ ✅, i.e. cluster-sized work masquerading as a checklist item ✅ ✅.
+
+Also closed: the test gate is one variable again (`CORBOMITE_BUILD_TESTS` ✅ ✅ — the port-era name is gone ✅ ✅), and the `SecretStorage` keychain calls now carry a prominent re-entrancy-hazard comment ✅ ✅ (the three event loops are *sequential*, not nested ✅ ✅ — the async rework remains ✅ ✅).
+
+**What was left, deliberately:** D.4, E.2 (the core↔storage include cycle) and E.3 (the file-static sidecar hashes) ✅ ✅ — all three are structural ✅ ✅, and E.2/E.3 touch the plugin API's shape ✅ ✅ ✅.
+
+---
+
 ## 2026-10-20 — The card view is integrated
 
 Markoff shipped the card view (upstream `aae3727d`, "card (embedded) mode — the host owns

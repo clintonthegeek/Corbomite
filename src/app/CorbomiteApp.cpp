@@ -11,7 +11,7 @@ CorbomiteApp::CorbomiteApp(QObject *parent)
     : QObject(parent)
     , m_pluginManager(new PluginManager(this))
 {
-    // Cluster Q Phase 2 (Task 12): discover plugins at startup. Plugins
+    // Discover plugins at startup. Plugins
     // are vault-scoped — actual enable happens when MainWindow opens a
     // vault and is in a position to wire core services into each
     // PluginContext via PluginManager::setContextConfigurator + then

@@ -121,7 +121,7 @@ void BasesViewActions::refresh()
     auto *ac = actionCollection();
     auto *view = m_boundView;
 
-    // Tier B — the predicates live on BasesView itself (O5.T2), so the
+    // Tier B — the predicates live on BasesView itself, so the
     // enablement rule has exactly one definition rather than a copy here.
     const bool bound = view != nullptr;
     const bool hasView = bound && view->hasActiveView();
@@ -173,7 +173,7 @@ void BasesViewActions::setupActions()
     // The three popup-panel buttons. No shortcuts: Obsidian assigns these
     // to its command palette rather than chords, and inventing chords for
     // them would collide with the universal Ctrl+F that already focuses the
-    // bases search box (O1.T5).
+    // bases search box.
     auto addPanelVerb = [this, ac](const QString &id, const QString &label,
                                    void (Bases::BasesView::*verb)()) -> QAction * {
         auto *act = ac->addAction(id);

@@ -6,11 +6,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-add_executable(tst_tabmodel tst_tabmodel.cpp)
-add_test(NAME tst_tabmodel COMMAND tst_tabmodel)
-target_link_libraries(tst_tabmodel PRIVATE Qt6::Test Corbomite::Models)
-set_tests_properties(tst_tabmodel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-
 add_executable(tst_notestreemodel tst_notestreemodel.cpp)
 add_test(NAME tst_notestreemodel COMMAND tst_notestreemodel)
 target_link_libraries(tst_notestreemodel PRIVATE Qt6::Test Corbomite::Models Corbomite::Core Corbomite::Storage)

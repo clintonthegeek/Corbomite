@@ -138,8 +138,8 @@ void WorkspaceLeaf::setViewState(const QJsonObject &state)
     if (!factory) {
         // Audit: views.md §1.tD / §1.nD — unresolved view type falls back
         // to the "empty" placeholder if the host registered one. This also
-        // covers vaults restored across plugin-set changes (Cluster G
-        // follow-up #2: unknown-viewType fallback).
+        // covers vaults restored across plugin-set changes (unknown-viewType
+        // fallback).
         factory = m_registry->getViewCreatorByType(QStringLiteral("empty"));
         if (!factory) {
             Q_EMIT viewTypeUnresolved(type,

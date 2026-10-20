@@ -24,7 +24,7 @@ public:
     QJsonObject saveSessionState(QObject *view) const override;
     void loadSessionState(QObject *view, const QJsonObject &state) override;
 
-    /// Host entry point for the Cluster R "Bookmark…" hamburger menu slot.
+    /// Host entry point for the "Bookmark…" hamburger menu slot.
     /// Composes a file-type BookmarkItem for `relativePath` and opens the
     /// BookmarkModal parented at `parent`. Silent no-op if the plugin has
     /// no live store (e.g. called before onLoad).

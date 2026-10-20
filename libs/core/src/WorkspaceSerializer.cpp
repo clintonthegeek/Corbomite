@@ -31,8 +31,8 @@ Q_LOGGING_CATEGORY(lcWorkspaceSerializer, "corbomite.workspace.serializer")
 
 namespace {
 
-// Phase 3 workaround: stackedness stored as a sidecar map keyed by
-// first-leaf-id of the tabs group.  Phase 4 replaces this with a
+// Workaround: stackedness stored as a sidecar map keyed by
+// first-leaf-id of the tabs group.  This can be replaced with a
 // WorkspaceLeaf-carried flag once Workspace owns the leaf model.
 QHash<QString, bool> &stackedSidecar()
 {
@@ -123,7 +123,7 @@ struct TabsNode {
     // Obsidian's WorkspaceParent.dimension. Parsed and carried unchanged;
     // not yet wired into actual KDDW relative sizing (round-trip only —
     // see docs/superpowers/plans/2026-08-17-cluster-l-workspace-stabilization.md
-    // Phase L2 step 3's stated fallback).
+    // step 3's stated fallback).
     std::optional<double> dimension;
     QList<LeafNode> children;
 };
@@ -607,7 +607,7 @@ SplitNode walkMultiSplitterLayout(const QJsonObject &msl,
 }
 
 // Walk the KDDW MainWindow tree by parsing LayoutSaver::serializeLayout()
-// JSON output. Replaces the Phase 3 flat walker. Schema reference:
+// JSON output. Replaces the earlier flat walker. Schema reference:
 // docs/superpowers/specs/2026-04-26-kddw-layoutsaver-shape.md.
 SplitNode walkLayoutSaverTree(KDDockWidgets::QtWidgets::MainWindow *main,
                                const QJsonObject &saverRoot,
@@ -847,7 +847,7 @@ void fillSplitChildren(const SplitNode &split,
 // whole containing subtree. Filling a nested child's internals before its
 // outer siblings are placed would carve up the wrong cell — that ordering
 // bug is what scrambled nested Obsidian layouts on load (punch-list
-// [cluster-l] "Obsidian round-trip scrambles nested splits").
+// "Obsidian round-trip scrambles nested splits").
 void fillSplitChildren(const SplitNode &split,
                        KDDockWidgets::QtWidgets::MainWindow *main,
                        KDDockWidgets::QtWidgets::DockWidget *firstRep,

@@ -27,7 +27,8 @@ namespace Corbomite {
 /// All operations short-circuit to failure/empty when the "secrets"
 /// permission is not in the granted set. The permission-gated constructor
 /// form takes the granted set; the legacy single-arg form assumes granted
-/// (kept for tests and internal wiring during Cluster Q migration).
+/// (kept for tests and internal wiring during the permission-model
+/// migration).
 class SecretStorage
 {
 public:

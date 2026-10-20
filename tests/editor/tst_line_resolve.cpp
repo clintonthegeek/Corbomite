@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // LineResolve — contract-v2 flat visual line ⟷ (block, offsets, lineText).
-// Spec §5. The line space matches MarkdownView::cursorPosition(): each
+// Spec §5. The line space matches MarkdownFileView::cursorPosition(): each
 // block contributes 1 + count('\n') lines.
 #include "LineResolve.h"
 #include <markoff/core/MarkoffDocument.h>

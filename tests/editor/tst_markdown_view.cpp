@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Cluster R Task 3.2 — MarkdownView::insertFrontmatterProperty creates or
+// Cluster R Task 3.2 — MarkdownFileView::insertFrontmatterProperty creates or
 // extends the YAML frontmatter block of the active NoteDocument. Flips the
 // view out of Reading mode into LivePreview so the new row is visible.
 
-#include "MarkdownView.h"
+#include "MarkdownFileView.h"
 #include "NoteEditorWidget.h"
 
 #include "corbomite/core/MenuSectionHelper.h"
@@ -18,7 +18,7 @@
 #include <QStringList>
 #include <QTest>
 
-using Corbomite::MarkdownView;
+using Corbomite::MarkdownFileView;
 using Corbomite::findClosingFrontmatterFence;
 using Corbomite::NoteDocument;
 using Corbomite::NoteEditorWidget;
@@ -45,14 +45,14 @@ private slots:
 
 void TestMarkdownView::insertFrontmatterPropertyCreatesBlockIfMissing()
 {
-    // NoteDocument must outlive MarkdownView — NoteEditorWidget holds a raw
+    // NoteDocument must outlive MarkdownFileView — NoteEditorWidget holds a raw
     // pointer to it and touches it during widget destruction.
     NoteDocument doc(QStringLiteral("/tmp/vault"), QStringLiteral("note.md"));
     doc.setMarkdown(QStringLiteral("# Title\n\nBody text.\n"));
 
     ViewRegistry registry;
     WorkspaceLeaf leaf(&registry);
-    MarkdownView view(&leaf);
+    MarkdownFileView view(&leaf);
     view.editorWidget()->setNoteDocument(&doc);
 
     view.insertFrontmatterProperty();
@@ -72,7 +72,7 @@ void TestMarkdownView::insertFrontmatterPropertyAppendsWhenBlockExists()
 
     ViewRegistry registry;
     WorkspaceLeaf leaf(&registry);
-    MarkdownView view(&leaf);
+    MarkdownFileView view(&leaf);
     view.editorWidget()->setNoteDocument(&doc);
 
     const int beforeLines =
@@ -93,7 +93,7 @@ void TestMarkdownView::insertFrontmatterPropertyAppendsWhenBlockExists()
 
 // ---- P1: the closing-fence scan matched non-fences --------------------
 //
-// MarkdownView::insertFrontmatterProperty located the closing fence with
+// MarkdownFileView::insertFrontmatterProperty located the closing fence with
 // body.indexOf("\n---", 3), which also matched a LONGER run of dashes and a
 // line merely PREFIXED with dashes. The failure mode is bad: a bogus ": " row
 // gets spliced into the middle of someone's prose.
@@ -175,7 +175,7 @@ void TestMarkdownView::onMoreOptionsMenuDispatchesAddPropertyCommand()
 
     ViewRegistry registry;
     WorkspaceLeaf leaf(&registry);
-    MarkdownView view(&leaf);
+    MarkdownFileView view(&leaf);
     view.editorWidget()->setNoteDocument(&doc);
 
     QStringList dispatched;
@@ -209,7 +209,7 @@ void TestMarkdownView::onMoreOptionsMenuContributesViewLinkedSubmenu()
 
     ViewRegistry registry;
     WorkspaceLeaf leaf(&registry);
-    MarkdownView view(&leaf);
+    MarkdownFileView view(&leaf);
     view.editorWidget()->setNoteDocument(&doc);
 
     QStringList dispatched;
@@ -260,7 +260,7 @@ void TestMarkdownView::insertFrontmatterPropertyIsUndoable()
 
     ViewRegistry registry;
     WorkspaceLeaf leaf(&registry);
-    MarkdownView view(&leaf);
+    MarkdownFileView view(&leaf);
     view.editorWidget()->setNoteDocument(&doc);
 
     const QString before = doc.markdown();

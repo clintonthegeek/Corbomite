@@ -57,7 +57,7 @@ class NoteDocument;
 // bearing compat invariant — built-ins always shadow plugin overrides of
 // `[[` / `#` because they register first).
 //
-// Inherits Component (Cluster C) so each suggester has the standard
+// Inherits Component so each suggester has the standard
 // load/unload + child-component lifecycle.
 class EditorSuggest : public Component {
 public:

@@ -61,9 +61,10 @@ void BookmarksView::onActivated(const QModelIndex &index)
     if (!index.isValid() || !m_workspace) return;
     const QString path = index.data(BookmarksModel::BookmarksPathRole).toString();
     if (path.isEmpty()) return;
-    // TODO: use WorkspaceController::openLinkText(path, subpath) once it is
-    // added to the WorkspaceController proxy surface (Cluster G follow-up #3).
-    // For MVP, fall back to openFile which handles vault-relative paths.
+    // Pending: WorkspaceController::openLinkText exists now, but it takes an
+    // Obsidian-style linktext plus a source, where a bookmark stores a plain
+    // vault-relative path. Switching is a behaviour change (it would also
+    // resolve subpaths), not a rename — filed in the punch list.
     m_workspace->openFile(path);
 }
 

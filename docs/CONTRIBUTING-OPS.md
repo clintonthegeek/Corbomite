@@ -20,7 +20,7 @@ Run Ritual 1 before touching code.
 2. Write the full closeout as a new dated H2 in [`decisions-archive.md`](decisions-archive.md).
 3. A new fact about Obsidian is an addendum: `docs/obsidian-audit/addenda/YYYY-MM-DD-<topic>.md`, plus a one-line link under `## Addenda` in [`obsidian-audit/00-taxonomy.md`](obsidian-audit/00-taxonomy.md). Never edit a frozen audit doc. If the addendum contradicts a claim, cite both from the cluster plan.
 4. A new single-fix gap goes on the punch list as one line under Backlog, at its severity. Put it in Next only when the user says it outranks the current Next items. A multi-phase gap is a cluster stub plus an INDEX row, and it stays in trajectory step 4 until PROJECT-STATE says otherwise.
-5. If you touched code: `cmake --build --preset dev -j 10`, then `cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 10 -R <pattern>`. Offscreen is required. The exclusion is required. Tests exist only when `CORBOMITE_PORT_BUILD_TESTS=ON` (the `dev` preset sets it).
+5. If you touched code: `cmake --build --preset dev -j 10`, then `cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 10 -R <pattern>`. Offscreen is required. The exclusion is required. Tests exist only when `CORBOMITE_BUILD_TESTS=ON` (the `dev` preset sets it).
 6. Commit the finished change. Subject: `<type>(<area>): <subject>`. Body may name the cluster and phase. The punch-list mark and any PROJECT-STATE or decisions-archive update go in that commit. Do not commit the RE corpus, the dirty `DocumentRenderer` hunk, or the untracked `libs/collabtext` tree.
 7. One sentence: what landed, and what the next trajectory action is. Continue that action.
 

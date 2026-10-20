@@ -366,16 +366,16 @@ private Q_SLOTS:
     }
 
     // -----------------------------------------------------------------
-    // M1.6 — Graffodil rebase regression/behavior tests (spec §5)
+    // Graffodil rebase regression/behavior tests (spec §5)
     // -----------------------------------------------------------------
 
     void testFileCardSelectableAndMovable()
     {
-        // Pre-M1 regression (gap #1, plan "Broken / missing" item 1):
+        // Early regression (gap #1, plan "Broken / missing" item 1):
         // SelectMoveTool::mousePressEvent dynamic_cast'd only TextCardItem/
         // GroupItem, so a press on a FileCardItem fell through to
         // rubber-band selection instead of selecting+moving it. This test
-        // would FAIL against the pre-M1 CanvasTool.cpp SelectMoveTool
+        // would FAIL against the earlier CanvasTool.cpp SelectMoveTool
         // (which never selects m_dragNode for an unrecognized item type,
         // so the card position never changes and no CmdMoveCards is
         // pushed). Graffodil::SelectMoveTool operates over IGraphNode, so
@@ -747,7 +747,7 @@ private Q_SLOTS:
     }
 
     // -----------------------------------------------------------------
-    // Phase M2 — node creation flows
+    // node creation flows
     // -----------------------------------------------------------------
 
     void testDoubleClickEmptyCreatesTextCardInEditMode()
@@ -783,7 +783,7 @@ private Q_SLOTS:
         // Close the in-place editor before the scene tears down (clicking
         // outside the proxy is the normal way this happens in the app;
         // leaving the QGraphicsProxyWidget alive across ~CanvasScene is a
-        // pre-existing teardown hazard unrelated to M2.1, not exercised
+        // pre-existing teardown hazard unrelated to that, not exercised
         // by any other test in this file).
         QGraphicsSceneMouseEvent outsideClick(QEvent::GraphicsSceneMousePress);
         outsideClick.setScenePos(QPointF(-1000, -1000));
@@ -795,8 +795,8 @@ private Q_SLOTS:
 
     void testSceneDestroyedWhileEditingDoesNotCrash()
     {
-        // Regression for a heap-corruption bug surfaced during Cluster M
-        // M1.7 live testing: deleting a CanvasScene while an inline edit
+        // Regression for a heap-corruption bug surfaced during live
+        // testing: deleting a CanvasScene while an inline edit
         // (or group-label edit) is still open used to crash. Root cause:
         // beginInlineEdit()/beginGroupLabelEdit() connect
         // QApplication::focusChanged back to the scene so losing focus
@@ -828,7 +828,7 @@ private Q_SLOTS:
 
     void testContextMenuCreatesFileCard()
     {
-        // M2.2 — the "New file card…" action invokes the injected picker
+        // The "New file card…" action invokes the injected picker
         // requestor rather than driving a real modal.
         Canvas::CanvasDocument doc;
         Canvas::CanvasScene scene;
@@ -1198,7 +1198,7 @@ private Q_SLOTS:
     }
 
     // -----------------------------------------------------------------
-    // M3.2 — hover connection points + edge-create gesture
+    // Hover connection points + edge-create gesture
     // -----------------------------------------------------------------
 
     void testEdgeCreateDragBetweenFileCards()
@@ -1311,7 +1311,7 @@ private Q_SLOTS:
     }
 
     // -----------------------------------------------------------------
-    // M3.3 — drop-on-empty create-and-connect
+    // Drop-on-empty create-and-connect
     // -----------------------------------------------------------------
 
     void testEdgeDropOnEmptyCreatesConnectedCard()
@@ -1320,13 +1320,13 @@ private Q_SLOTS:
         // this codebase has no existing precedent for driving synchronously
         // in an offscreen unit test (grepped tst_canvasscene.cpp and the
         // rest of libs/canvas/tests for QMenu/QTimer::singleShot patterns —
-        // none exist). Per the M3.3 task brief, option (b): the menu-popup
+        // none exist). Option (b): the menu-popup
         // slot (CanvasScene::onEdgeDroppedOnEmpty) is a thin QMenu wrapper
         // around CanvasScene::addCardConnectedTo(), which is public
         // (same rationale as createFileCardViaPicker()) and does all the
         // actual compound-command work. This test drives that helper
-        // directly — the menu-popup wiring itself is left to the Phase M3
-        // live-eyeball gate rather than offscreen coverage (Appendix, exit
+        // directly — the menu-popup wiring itself is left to a
+        // live-eyeball check rather than offscreen coverage (Appendix, exit
         // criteria note; project memory: interactive popups routinely excluded
         // from offscreen suites in this codebase).
         Canvas::CanvasDocument doc;
@@ -1379,7 +1379,7 @@ private Q_SLOTS:
     }
 
     // -----------------------------------------------------------------
-    // M3.4 — endpoint reconnect
+    // Endpoint reconnect
     // -----------------------------------------------------------------
 
     void testReconnectEdgeEndpoint()
@@ -1427,7 +1427,7 @@ private Q_SLOTS:
         QCOMPARE(edgeItemBefore->targetNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card2"))));
 
         // Press within 8px of the edge's target terminus — card2's left
-        // anchor at (400,75), which per M3.1 is exactly where the terminus
+        // anchor at (400,75), which is exactly where the terminus
         // tip is drawn. Drag down to card3's top anchor at (500,300).
         const QPointF pressPos(400, 75);
         const QPointF releasePos(500, 300);
@@ -1460,7 +1460,7 @@ private Q_SLOTS:
 
         // The scene item must now really point at card3 (not just have its
         // anchor-id string updated) — this is the onEdgeChanged node-rebuild
-        // gap the M3.4 brief calls out.
+        // gap the brief calls out.
         auto *edgeItemAfter = scene.edgeItem(QStringLiteral("edge1"));
         QVERIFY(edgeItemAfter != nullptr);
         QCOMPARE(edgeItemAfter->sourceNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card1"))));
@@ -1540,7 +1540,7 @@ private Q_SLOTS:
     }
 
     // -----------------------------------------------------------------
-    // M3.5 — direction menu + undoable reverse
+    // Direction menu + undoable reverse
     // -----------------------------------------------------------------
 
     void testDirectionMenuWritesEndFields()
@@ -1654,7 +1654,7 @@ private Q_SLOTS:
 
         // The scene item must really point at the swapped nodes (node
         // identity changed, so this goes through onEdgeChanged's
-        // remove+recreate branch, same as reconnect in M3.4).
+        // remove+recreate branch, same as reconnect.
         auto *itemAfter = scene.edgeItem(QStringLiteral("edge1"));
         QVERIFY(itemAfter != nullptr);
         QCOMPARE(itemAfter->sourceNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card2"))));
@@ -1702,7 +1702,7 @@ private Q_SLOTS:
         auto afterOne = doc.node(QStringLiteral("n1"));
         QCOMPARE(afterOne.x, 120);
         QCOMPARE(afterOne.y, 100);
-        // Real undo entry (the pre-M4.2 code never pushed anything at all).
+        // Real undo entry (the earlier code never pushed anything at all).
         QVERIFY(scene.undoStack()->count() >= 1);
 
         scene.undoStack()->undo();
@@ -1779,7 +1779,7 @@ private Q_SLOTS:
 
     void testGroupDragMovesFullyContainedOnly()
     {
-        // M4.3: group membership is full-containment (group.sceneRect
+        // Group membership is full-containment (group.sceneRect
         // contains node.sceneRect), captured once at drag start -- not the
         // old live center-test. "b1" is the regression case: its CENTER is
         // inside the group's rect but its full bounding rect straddles the
@@ -1850,7 +1850,7 @@ private Q_SLOTS:
 
     void testGroupDragMembershipFrozenDuringGesture()
     {
-        // M4.3 core guarantee: membership is computed ONCE at drag start,
+        // Core guarantee: membership is computed ONCE at drag start,
         // not re-evaluated as the group sweeps across the canvas. "d2"
         // starts fully outside the group but ends up geometrically
         // contained by the group's final position -- proving this would
@@ -1899,7 +1899,7 @@ private Q_SLOTS:
         // Second move shifts the group a further (50, 0) -- its final rect
         // is (200,0)-(600,300), which now geometrically contains d2's
         // center (500, 80). Under the old live center-test this frame would
-        // have picked d2 up; under M4.3 capture-once semantics it must not.
+        // have picked d2 up; under capture-once semantics it must not.
         QGraphicsSceneMouseEvent move2(QEvent::GraphicsSceneMouseMove);
         move2.setScenePos(QPointF(210, 200));
         move2.setLastScenePos(QPointF(160, 200));
@@ -1959,7 +1959,7 @@ private Q_SLOTS:
 
     void testChromeOverlayRetargetsOnSelection()
     {
-        // M4.4 — the shared chrome overlay must retarget to whichever node
+        // The shared chrome overlay must retarget to whichever node
         // is the sole selection, and hide when nothing (or more than one
         // node) is selected.
         Canvas::CanvasDocument doc;
@@ -2006,7 +2006,7 @@ private Q_SLOTS:
 
     void testChromeOverlayConnectionDotsMatchAnchors()
     {
-        // M4.4 — the connection-dot positions must come from the exact same
+        // The connection-dot positions must come from the exact same
         // anchors() call CreateEdgeTool's hover hit-test uses, so there is
         // no drift between "where a dot is drawn" and "where a hover-near
         // gesture would actually start an edge."

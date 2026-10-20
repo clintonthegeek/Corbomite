@@ -70,7 +70,7 @@ void CanvasViewActions::bind(View *view)
     m_boundView = qobject_cast<CanvasFileView *>(view);
 
     if (m_boundView) {
-        // O2.T3's generic Tier-B refresh trigger: CanvasFileView::onLoadFile
+        // The generic Tier-B refresh trigger: CanvasFileView::onLoadFile
         // already forwards the scene's selectionChanged/undoStack signals
         // onto View::contextChanged() — one connection covers all of them,
         // same mechanism ActionContextController itself uses for its own
@@ -78,7 +78,7 @@ void CanvasViewActions::bind(View *view)
         m_contextConnection =
             connect(m_boundView, &View::contextChanged, this, &CanvasViewActions::refresh);
 
-        // O4.T4 — CanvasAlignmentStrategy hardcodes its own true/true
+        // CanvasAlignmentStrategy hardcodes its own true/true
         // defaults at construction (it has no kcfg dependency of its own),
         // so a freshly-created canvas tab won't reflect a previously
         // persisted (non-default) setting until something re-runs the
@@ -140,17 +140,18 @@ void CanvasViewActions::refresh()
     for (const auto &id : alwaysUsable)
         if (auto *a = ac->action(id)) a->setEnabled(isCanvas);
 
-    // O4.T5 — Tier B: zoom-to-selection needs something selected.
+    // Tier B: zoom-to-selection needs something selected.
     if (auto *a = ac->action(QStringLiteral("canvas_zoom_to_selection")))
         a->setEnabled(isCanvas && m_boundView->hasSelection());
 
-    // M5.4 landed canvas_lock; M5.5 landed the other two.
+    // The read-only lock is always usable; the two commands below are
+    // Tier-B gated.
     if (auto *a = ac->action(QStringLiteral("canvas_lock"))) {
         a->setEnabled(isCanvas);
         a->setChecked(m_boundView && m_boundView->isReadOnly());
     }
 
-    // M5.5 — Tier B, Obsidian's own checkCallback conditions
+    // Tier B, Obsidian's own checkCallback conditions
     // (app/own/2028-n9.js:671/682-692): jump-to-group needs a canvas with at
     // least one group; convert-to-file needs exactly one selected text node.
     if (auto *a = ac->action(QStringLiteral("canvas_jump_to_group")))
@@ -161,7 +162,7 @@ void CanvasViewActions::refresh()
 
     // Tier C — the three toggles are app-wide (kcfg), not per-document, so
     // their checked state reflects the persisted setting regardless of
-    // bind state (doctrine §C3's fan-out table). MainWindow's
+    // bind state. MainWindow's
     // applyCanvasSettings() is the actual settings-application fan-out;
     // this is display-only sync.
     auto *settings = CorbomiteSettings::self();
@@ -199,11 +200,11 @@ void CanvasViewActions::setupActions()
     auto *ac = actionCollection();
 
     // Snap-to-grid / snap-to-objects / show-grid: app-wide toggles backed
-    // by corbomite.kcfg's Canvas group (O4.T2). The trigger handler writes
+    // by corbomite.kcfg's Canvas group. The trigger handler writes
     // through kcfg and saves; MainWindow::applyCanvasSettings(), wired to
     // CorbomiteSettings::configChanged, is what actually fans the new
     // value out to every open CanvasAlignmentStrategy/CanvasView — this
-    // provider only owns the QAction and the persisted value (C3's "one
+    // provider only owns the QAction and the persisted value ("one
     // definition, N surfaces").
     auto addToggle = [this, ac](
         const QString &id, const QString &icon, const QString &label,
@@ -228,7 +229,7 @@ void CanvasViewActions::setupActions()
               QStringLiteral("view-grid"), i18n("Show Grid"),
               &CorbomiteSettings::setShowGrid);
 
-    // Zoom: reuses the O1.T3 View::zoomIn/zoomOut/zoomReset virtuals
+    // Zoom: reuses the View::zoomIn/zoomOut/zoomReset virtuals
     // (already implemented on CanvasFileView) so the Canvas menu/toolbar
     // and the universal View menu's zoom entries stay in lock-step — same
     // dispatch, just a second surface. No default shortcut, mirroring
@@ -272,7 +273,7 @@ void CanvasViewActions::setupActions()
                 view->zoomToSelection();
     });
 
-    // M5.4 — the read-only lock. Checkable rather than a one-shot verb, so
+    // The read-only lock. Checkable rather than a one-shot verb, so
     // the menu entry and a toolbar button are the same widget (Obsidian's
     // quick-settings entry is `setChecked(canvas.readonly)`,
     // app/own/2018-k7.js:1417). The scene emits readOnlyChanged, which
@@ -290,7 +291,7 @@ void CanvasViewActions::setupActions()
         refresh();
     });
 
-    // M5.5 — the two commands O4.T6 registered as disabled placeholders.
+    // The two commands registered as disabled placeholders.
     // Both dispatch straight to CanvasViewTab, which owns the prompt and the
     // FileManager write (libs/canvas may not reach either).
     auto *jump = ac->addAction(QStringLiteral("canvas_jump_to_group"));

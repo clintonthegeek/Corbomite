@@ -18,9 +18,9 @@ class EmbedRegistry;
 }
 
 namespace Markoff::Canvas {
-// Cluster K Phase 5 — sole LivePreview backend (QML Live leaf retired).
+// Sole LivePreview backend (QML Live leaf retired).
 class EditorWidget;
-// P5.4 seam — Markoff::Canvas::MermaidRenderer (pixmap-out), replaces the
+// Mermaid seam — Markoff::Canvas::MermaidRenderer (pixmap-out), replaces the
 // retired old-namespace Markoff::MermaidRenderer stub.
 class MermaidRenderer;
 }
@@ -53,7 +53,7 @@ class NoteEditorWidget : public QWidget {
     Q_OBJECT
 
 public:
-    // Three-mode encoding per Cluster E plan. `LivePreview` is Markoff's
+    // Three-mode encoding. `LivePreview` is Markoff's
     // canvas projection-view leaf; `Source` is the plain-text editor;
     // `Reading` is a read-only `Markoff::Styled::Editor` leaf (QWidget, no
     // QML). On the wire these map through `ViewModeSerializer` to Obsidian's
@@ -72,7 +72,7 @@ public:
     void hideFindBar();
     bool isFindBarVisible() const;
 
-    /// Phase C3 mode transition: (1) snapshot ephemeral state from outgoing
+    /// Mode transition: (1) snapshot ephemeral state from outgoing
     /// leaf, (2) detach outgoing leaf via setDocument(nullptr), (3) swap
     /// QStackedWidget index (lazy-constructing the incoming widget if first
     /// visit), (4) attach incoming leaf via setDocument(markoff()), (5) restore
@@ -81,7 +81,7 @@ public:
     void setViewMode(ViewMode mode);
     ViewMode viewMode() const;
 
-    // Canvas LivePreview leaf — always constructed (Cluster K Phase 5).
+    // Canvas LivePreview leaf — always constructed.
     // Exposed for tests exercising the title band and for host wiring.
     Markoff::Canvas::EditorWidget *canvasEditor() const { return m_canvasEditor; }
     Markoff::Source::Editor *sourceEditor() const;
@@ -98,33 +98,33 @@ public:
     // settings-dialog apply.
     void applyReadableLineWidth(bool readable);
 
-    // Returns the active MarkdownView leaf (any of the three), or nullptr if
-    // none has been constructed yet. Cluster R / C7 consumers (MarkdownView
+    // Returns the active MarkdownFileView leaf (any of the three), or nullptr if
+    // none has been constructed yet. Consumers (MarkdownFileView
     // hamburger menu + MainWindow find-replace dispatch) call this for unified
     // virtual dispatch (showFindBar / showReplaceBar / hideFindBar / etc.).
     Markoff::MarkdownView *activeLeaf() const;
 
     // Optional — when set, hovers over wiki/markdown links schedule a 300ms
-    // preview popover (Cluster H Phase 2). Lifetime owned by the caller.
+    // preview popover. Lifetime owned by the caller.
     void setHoverPopover(HoverPopover *popover);
 
-    // Cluster H Phase 3 — when set, cursor changes are dispatched to the
+    // When set, cursor changes are dispatched to the
     // manager's registered EditorSuggest list (insertion-order first-wins).
     // Lifetime owned by the caller (typically MainWindow).
     void setEditorSuggestManager(EditorSuggestManager *manager);
 
-    // C2 — subscribe to theme changes. When set, this widget applies
+    // Subscribe to theme changes. When set, this widget applies
     // ThemeService::currentTheme() to every constructed leaf and follows
     // future themeChanged emissions. Lifetime owned by the caller.
     void setThemeService(Core::ThemeService *service);
 
-    // C4 Task 14 — inject the host Mermaid renderer into constructed leaves.
+    // Inject the host Mermaid renderer into constructed leaves.
     // Lifetime owned by the caller (typically MainWindow). Passing nullptr
-    // clears the renderer. Forwards to the canvas leaf's P5.4 mermaid seam
+    // clears the renderer. Forwards to the canvas leaf's mermaid seam
     // (Markoff::Canvas::EditorWidget::setMermaidRenderer).
     void setMermaidRenderer(Markoff::Canvas::MermaidRenderer *renderer);
 
-    // P5.4 embed seam — forwards to the canvas leaf's
+    // Embed seam — forwards to the canvas leaf's
     // Markoff::Canvas::EditorWidget::setEmbedRegistry. Lifetime owned by
     // the caller (typically MainWindow). Passing nullptr clears it.
     void setEmbedRegistry(Markoff::EmbedRegistry *registry);
@@ -133,22 +133,22 @@ public:
     int currentColumn() const;
 
     /// Move the cursor to `line` (1-based flat visual line). Dispatches via
-    /// the MarkdownView base; works in all three modes (Reading keeps a
+    /// the MarkdownFileView base; works in all three modes (Reading keeps a
     /// caret while read-only). Returns false only when no leaf exists yet.
     bool goToLine(int line);
 
-    /// Insert `text` at the active leaf's caret as one undo-integrated D2 edit
+    /// Insert `text` at the active leaf's caret as one undo-integrated edit
     /// (propagates to every leaf), instead of appending at end-of-document.
     /// If `caretMarker` is non-empty and present in `text`, it is stripped and
     /// the caret lands at its position; otherwise the caret lands after the
     /// inserted text. Returns false when there is no document. Used by
-    /// template insertion (road-to-dogfood Phase 2).
+    /// template insertion.
     bool insertAtCursor(const QString &text, const QString &caretMarker = {});
 
-    // Cluster E Phase 1/7 — ephemeral-state round-trip. Captures / restores
-    // scroll, cursor, mode, and fold through `Corbomite::EphemeralState`.
-    // Phase 7 wires these through `EditorViewManager::{build,apply}PaneLayout`
-    // so workspace.json round-trips per-leaf eState.
+    // Ephemeral-state round-trip. Captures / restores scroll, cursor, mode,
+    // and fold through `Corbomite::EphemeralState`. Wired through
+    // `EditorViewManager::{build,apply}PaneLayout` so workspace.json
+    // round-trips per-leaf eState.
     EphemeralState saveEphemeralState() const;
     void restoreEphemeralState(const EphemeralState &state);
 
@@ -207,7 +207,7 @@ private:
     // == leafFor(m_viewMode).
     Markoff::MarkdownView *leafFor(ViewMode mode) const;
 
-    // C2 — apply current theme to every constructed leaf.
+    // Apply current theme to every constructed leaf.
     void applyThemeToAllLeaves();
 
     // Captures ephemeral state (scroll/cursor/fold) from the current active
@@ -217,7 +217,7 @@ private:
     // Restores ephemeral state to the target leaf widget.
     void restoreEphemeralStateFor(ViewMode mode, const EphemeralState &s);
 
-    // Phase 1 (contract v2) — one-time wiring applied to each leaf at
+    // One-time wiring (contract v2) applied to each leaf at
     // construction. Takes the base pointer: wiring must stay leaf-agnostic.
     void wireLeaf(Markoff::MarkdownView *leaf);
 
@@ -227,8 +227,8 @@ private:
     // widget; constructed eagerly in NoteEditorWidget().
     Markoff::DefaultLinkService *m_linkService = nullptr;
 
-    // LivePreview — Markoff::Canvas::EditorWidget (Cluster K Phase 5;
-    // QML Markoff::Live leaf retired). Eagerly constructed in the ctor.
+    // LivePreview — Markoff::Canvas::EditorWidget (QML Markoff::Live leaf
+    // retired). Eagerly constructed in the ctor.
     Markoff::Canvas::EditorWidget *m_canvasEditor = nullptr;
     // Source mode widget — lazy. Constructed on first `setViewMode(Source)`
     // and cached in the stack thereafter.
@@ -258,17 +258,17 @@ private:
     // Hover preview (lifetime owned by MainWindow).
     HoverPopover *m_hoverPopover = nullptr;
 
-    // C2 — theme service (lifetime owned by MainWindow).
+    // Theme service (lifetime owned by MainWindow).
     Core::ThemeService *m_themeService = nullptr;
 
-    // C4 Task 14 — mermaid renderer (lifetime owned by MainWindow).
+    // Mermaid renderer (lifetime owned by MainWindow).
     Markoff::Canvas::MermaidRenderer *m_mermaidRenderer = nullptr;
-    // P5.4 embed seam (lifetime owned by MainWindow).
+    // Embed seam (lifetime owned by MainWindow).
     Markoff::EmbedRegistry *m_embedRegistry = nullptr;
 
     FindBar *m_findBar = nullptr;
 
-    // Completion (Phase 2 revival). Leaf-agnostic driver; owns the popup and
+    // Completion — leaf-agnostic driver; owns the popup and
     // trigger session. Re-pointed at the active leaf on every mode switch.
     CompletionController *m_completion = nullptr;
 };

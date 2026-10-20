@@ -33,7 +33,7 @@ inline constexpr auto TabHeader = "tab-header";
 //
 // Today no plugins consume these signals — they go unobserved — but every
 // menu-construction site in Corbomite emits anyway, so the substrate is
-// ready when Cluster N's plugin layer lands.
+// ready when the plugin layer lands.
 class MenuEventEmitter : public QObject {
     Q_OBJECT
 

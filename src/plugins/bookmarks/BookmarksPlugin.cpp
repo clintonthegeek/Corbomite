@@ -226,7 +226,7 @@ void BookmarksPlugin::registerCommands(Corbomite::PluginContext *ctx)
     // Register each with a checkCallback returning false so the palette greys
     // them out and hotkey dispatch is a no-op, while keeping the
     // Obsidian-compatible ids reserved for hotkeys.json round-trip.
-    // Tracked as a Cluster S follow-up in backlog.md.
+    // Tracked as a follow-up in backlog.md.
     //
     // These are Obsidian's ids, not the ones previously registered here:
     // 1.13.7 has no `bookmarks:bookmark-current-heading`, `-current-block` or

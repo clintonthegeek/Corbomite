@@ -67,12 +67,11 @@ public:
                                              bool hasUnsavedEdits,
                                              const QByteArray &lastSeenDisk);
 
-    /// Cluster R Task 3.6 — access to the underlying CanvasScene so
-    /// CanvasFileView can drive its render-to-image / render-to-svg
-    /// export pipeline.
+    /// Access to the underlying CanvasScene so CanvasFileView can drive its
+    /// render-to-image / render-to-svg export pipeline.
     Canvas::CanvasScene *canvasScene() const;
 
-    /// Cluster M leftover — supply the vault's file list to the file picker.
+    /// Supply the vault's file list to the file picker.
     ///
     /// A seam (`std::function`) rather than a `Vault*` on purpose: libs/canvas
     /// must not depend on libs/vault, and this mirrors the existing
@@ -83,15 +82,14 @@ public:
 
     std::function<QStringList()> m_fileLister;
 
-    /// Cluster O Phase O1.T3 — access to the underlying CanvasView so
-    /// CanvasFileView can dispatch the polymorphic View::zoomIn/Out/Reset
-    /// virtuals onto the real viewport transform. (O4.T1 will want this
-    /// same accessor for the canvas toolbar; landing it here is the
-    /// minimal plumbing O1.T3 needs, not scope creep into O4.)
+    /// Access to the underlying CanvasView so CanvasFileView can dispatch
+    /// the polymorphic View::zoomIn/Out/Reset virtuals onto the real
+    /// viewport transform. (The canvas toolbar wants
+    /// this same accessor, so it lives here.)
     Canvas::CanvasView *canvasView() const;
 
-    /// Cluster M M5.4 — machine-local per-file store seam for the read-only
-    /// lock. Same shape and same rationale as setFileLister() above: the
+    /// Machine-local per-file store seam for the read-only lock.
+    /// Same shape and same rationale as setFileLister() above: the
     /// backing store is app state (SessionManager's tier 3) that libs/canvas
     /// and this widget must not own.
     ///
@@ -120,12 +118,12 @@ public:
     /// copy on disk. Never null once the tab is constructed.
     Canvas::CanvasDocument *canvasDocument() const;
 
-    /// M6.3 — re-render file cards whose target appeared (vault create) or
+    /// Re-render file cards whose target appeared (vault create) or
     /// changed, so a dangling card resolves without reopening the canvas.
     /// Empty `vaultRelativePath` refreshes every file card.
     void refreshFileCards(const QString &vaultRelativePath = QString());
 
-    /// Cluster M M5.5 — the two commands, called by CanvasViewActions'
+    /// The two commands, called by CanvasViewActions'
     /// KAction layer. Both are no-ops without a canvas loaded.
     ///
     /// jumpToGroup() is Obsidian's `canvas:jump-to-group`
@@ -139,7 +137,7 @@ public:
     /// hand the write to the scene (which owns the node swap).
     void convertTextCardToFile(const QString &nodeId);
 
-    /// M5.5 — override the name prompt and the markdown writer the scene uses
+    /// Override the name prompt and the markdown writer the scene uses
     /// for convertTextCardToFile(). Both default to the real modal prompt and
     /// a FileManager write resolved through the window; tests supply their own
     /// so neither a nested event loop nor a MainWindow is required.
@@ -151,7 +149,7 @@ Q_SIGNALS:
     void modificationChanged(bool modified);
 
 private:
-    /// M5.5 — wire the scene's "Convert to File…" name prompt and markdown
+    /// Wire the scene's "Convert to File…" name prompt and markdown
     /// writer to the real modal and to FileManager.
     void installConvertToFileSeams();
 

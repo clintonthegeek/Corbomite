@@ -21,7 +21,7 @@ class SettingsDialog : public KPageDialog {
     Q_OBJECT
 
 public:
-    /// Cluster O Phase O3 (O3.T2) — the Hotkeys page must show every
+    /// The Hotkeys page must show every
     /// `ViewActions` provider's shortcuts, not just the universal
     /// collection, even when no tab of that type is currently open
     /// (providers are eagerly constructed but only dynamically

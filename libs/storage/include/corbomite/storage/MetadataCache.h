@@ -31,7 +31,7 @@ struct FileCacheEntry {
 /// Two-layer path-keyed / hash-keyed metadata cache with stat short-circuit and
 /// content-hash dedup.
 ///
-/// Phase 4 wraps the Phase-3 synchronous core in a QObject that emits five
+/// The QObject wrapper emits five
 /// Qt signals in strict Obsidian-compatible order:
 ///
 ///   1. `cacheChanged(path, contents, cache)` — synchronous from inside
@@ -63,8 +63,8 @@ struct FileCacheEntry {
 /// audit §4 "no content change, no event".
 ///
 /// Thread-safety: not safe for concurrent mutation. All mutation methods
-/// must be called from a single thread (Phase 5 introduces a worker that
-/// posts results back via queued connections).
+/// must be called from a single thread (a worker would post results back
+/// via queued connections).
 class MetadataCache : public QObject {
     Q_OBJECT
 
@@ -233,7 +233,7 @@ private:
     /// count drops to 0. No-op if hash is empty or not found.
     void releaseHashRef(const QString &hash);
 
-    /// Phase 4 helper: emit `cacheChanged`, trigger Obsidian `"changed"` event,
+    /// Helper: emit `cacheChanged`, trigger Obsidian `"changed"` event,
     /// enqueue `path` on the link-resolver queue, bump `m_pendingWork`,
     /// and post a per-tick drain continuation (only if no outstanding drain is
     /// already posted, i.e. queue size is 1 post-enqueue). Also stops the

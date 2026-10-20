@@ -38,15 +38,12 @@ namespace Corbomite {
 
 namespace {
 
-/// M5.4 — the read-only lock's tier-3 home is SessionManager (the app's only
-/// machine-local store, per the L0 workspace-compat doctrine), and
-/// MainWindow owns the one live instance. MainWindow.cpp is outside this
-/// task's scope, so resolve it through the widget tree rather than leave the
-/// lock unpersisted; returns null outside a MainWindow (tests, headless),
-/// where an in-memory-only lock is correct anyway. TODO(integrator): once
-/// MainWindow can be edited, drop this and call
-/// CanvasFileView::setLocalDataStore() from propagateServicesToView() next to
-/// the existing setFileLister() call.
+/// The read-only lock's tier-3 home is SessionManager (the app's only
+/// machine-local store), and
+/// MainWindow owns the one live instance. MainWindow propagates the store
+/// explicitly (propagateServicesToView); this walk is the fallback for the
+/// cases where it has not been propagated yet (tests, headless), where an
+/// in-memory-only lock is correct anyway. Returns null outside a MainWindow.
 SessionManager *tier3StoreFor(QWidget *leaf)
 {
     auto *window = leaf ? leaf->window() : nullptr;
@@ -67,7 +64,7 @@ View *CanvasFileView::factory(WorkspaceLeaf *leaf)
 
 CanvasFileView::~CanvasFileView()
 {
-    // O2.T2 teardown trap: the scene (and its QUndoStack) are QObject
+    // Teardown trap: the scene (and its QUndoStack) are QObject
     // children reachable through the QWidget tree, so they're destroyed
     // inside QWidget::~QWidget()'s child teardown — which runs AFTER
     // View::~View() has already completed. QUndoStack::~QUndoStack()
@@ -265,7 +262,7 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
         if (m_renderEngine)
             m_canvasWidget->setRenderEngine(m_renderEngine);
 
-        // M5.4 — read-only lock persistence. Done after addWidget() because
+        // Read-only lock persistence. Done after addWidget() because
         // tier3StoreFor() resolves through window(), which only has a chain
         // to this tab once it is in the layout.
         if (m_localDataReader || m_localDataWriter) {
@@ -278,11 +275,11 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
                 });
         }
 
-        // Cluster O Phase O2.T2 — forward the scene's own selection/undo
+        // Forward the scene's own selection/undo
         // signals onto the generic View::contextChanged() so
         // ActionContextController's refresh() picks up mid-session
         // selection changes and undo-stack pushes, not just leaf/view
-        // switches (O1.T8's edit_undo/edit_redo enablement previously
+        // switches (the edit_undo/edit_redo enablement previously
         // only recomputed on those coarser triggers).
         if (auto *scene = m_canvasWidget->canvasScene()) {
             connect(scene, &QGraphicsScene::selectionChanged,
@@ -296,7 +293,7 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
         }
     }
 
-    // M6.2 — publish the live document so a vault rename mutates it instead
+    // Publish the live document so a vault rename mutates it instead
     // of writing a second copy to disk (single writer). Keyed on the
     // vault-relative canvas path, the same key FileManager uses.
     if (m_canvasWidget && file) {
@@ -447,13 +444,13 @@ void CanvasFileView::onMoreOptionsMenu(MenuSectionHelper &helper)
             [dispatch] { dispatch(QStringLiteral("split_down")); });
     helper.addToSection(splitD, QStringLiteral("pane"));
 
-    // ---- action: Bookmark (placeholder — Cluster S) ----
+    // ---- action: Bookmark (placeholder) ----
     auto *bookmarkAct = new QAction(
         QIcon::fromTheme(QStringLiteral("bookmark-new")),
         i18n("Bookmark..."), this);
     bookmarkAct->setEnabled(false);
     bookmarkAct->setToolTip(
-        i18n("Requires Bookmarks core plugin (Cluster S)"));
+        i18n("Adding a bookmark is not available yet"));
     helper.addToSection(bookmarkAct, QStringLiteral("action"));
 
     // ---- action: Export as image ----

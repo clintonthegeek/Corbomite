@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Tests for Corbomite::Core::VaultResourceProvider — promoted from
+// Tests for Corbomite::Core::ResourceResolver — promoted from
 // libs/readingview/ in Cluster J Phase 1 Task 1.1.
 //
 // Contract mirrors the previous ReadingView-local interface exactly
@@ -9,9 +9,9 @@
 
 #include <QTest>
 
-#include "corbomite/core/VaultResourceProvider.h"
+#include "corbomite/core/ResourceResolver.h"
 
-class StubResourceProvider : public Corbomite::Core::VaultResourceProvider
+class StubResourceProvider : public Corbomite::Core::ResourceResolver
 {
 public:
     QUrl resolveImage(const QString &name) const override
@@ -39,7 +39,7 @@ public:
     }
 };
 
-class TstVaultResourceProvider : public QObject
+class TstResourceResolver : public QObject
 {
     Q_OBJECT
 
@@ -62,11 +62,11 @@ private Q_SLOTS:
     void testPolymorphism()
     {
         StubResourceProvider p;
-        Corbomite::Core::VaultResourceProvider *ptr = &p;
+        Corbomite::Core::ResourceResolver *ptr = &p;
         QCOMPARE(ptr->resolveImage(QStringLiteral("x")),
                  QUrl(QStringLiteral("file:///vault/x")));
     }
 };
 
-QTEST_APPLESS_MAIN(TstVaultResourceProvider)
-#include "tst_vaultresourceprovider.moc"
+QTEST_APPLESS_MAIN(TstResourceResolver)
+#include "tst_resource_resolver.moc"

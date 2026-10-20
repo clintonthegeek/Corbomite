@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-#include "mdi/CorbomiteMDI.h"
+#include "toolviewhost/ToolViewHost.h"
 #include <QHash>
 #include <QLabel>
 #include <QCloseEvent>
 #include <QStackedWidget>
 
-// TODO(port): old Markoff::Editor retired
-// include <markoff/Editor.h>
 #include <markoff/core/ActionId.h>
 #include <markoff/core/EditorContext.h>
 
@@ -28,7 +26,7 @@ class CodeBlockProcessorRegistry;
 
 namespace Corbomite::Core {
 class MermaidRenderer;
-class VaultResourceProvider;
+class ResourceResolver;
 class ThemeService;
 class PostProcessorRegistry;
 }
@@ -54,14 +52,13 @@ class Workspace;
 class WorkspaceLeaf;
 class NoteEditorWidget;
 class CanvasMermaidAdapter;
-class MarkdownView;
+class MarkdownFileView;
 class RecoveryService;
 namespace Bases { class BasesView; }
 class CanvasFileView;
 class AutosaveReactor;
-// FileWatchReactor forward decl removed — moved into Corbomite::detail::Watcher
-// inside libs/vault/ during Q.0 Phase 2 Task 2.2. Re-exposed via Vault's
-// public signal API in Q.0 Phase 7.
+// File watching lives in Corbomite::detail::Watcher inside libs/vault/;
+// the host sees it only through Vault's public signal API.
 class SessionManager;
 class StyledRenderEngine;
 class SQLiteIndex;
@@ -88,7 +85,7 @@ class MarkdownViewActions;
 class BasesViewActions;
 class CanvasViewActions;
 
-class MainWindow : public CorbomiteMDI::MainWindow {
+class MainWindow : public ToolViewHost::HostWindow {
     Q_OBJECT
 
 public:
@@ -105,20 +102,20 @@ public:
     HotkeyDispatcher *hotkeyDispatcher() const { return m_hotkeyDispatcher; }
     /// Exposed for integration tests that verify LinkResolver freshness.
     LinkResolver *linkResolver() const { return m_linkResolver; }
-    /// Cluster O Phase O1.T1 — exposed for tests exercising action-state
-    /// refresh directly (tst_action_context, tst_action_context_no_silent_noop).
+    /// Exposed for tests exercising action-state refresh directly
+    /// (tst_action_context, tst_action_context_no_silent_noop).
     ActionContextController *actionContext() const { return m_actionContext; }
-    /// Cluster O Phase O3 — exposed for tests exercising the ViewActions
-    /// provider directly, including before any tab of its type is open
-    /// (eager construction, O3.T2 — tst_view_actions_provider).
+    /// Exposed for tests exercising the ViewActions provider directly,
+    /// including before any tab of its type is open
+    /// (eager construction — tst_view_actions_provider).
     MarkdownViewActions *markdownViewActions() const { return m_markdownViewActions; }
-    /// Cluster O Phase O4 — same rationale as markdownViewActions() above.
+    /// Same rationale as markdownViewActions() above.
     CanvasViewActions *canvasViewActions() const { return m_canvasViewActions; }
     BasesViewActions *basesViewActions() const { return m_basesViewActions; }
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
-    // Phase C6 — public so e2e/action-wiring tests can invoke with a
+    // Public so e2e/action-wiring tests can invoke with a
     // synthetic EditorContext without needing a live Markoff::Editor.
     void onEditorContextChanged(const Markoff::EditorContext &ctx);
     void onAboutToShowContextMenu(QMenu *menu,
@@ -136,7 +133,7 @@ private Q_SLOTS:
     void onZoomReset();
     void onAboutApp();
     // cycleEditorMode/onInsertCallout/onInsertTable/onSetHeading moved into
-    // MarkdownViewActions (Cluster O Phase O3.T6).
+    // MarkdownViewActions.
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -159,18 +156,16 @@ private:
     /// applyReadableLineWidth. MainWindow stays leaf-type-agnostic; the
     /// Markoff::Canvas type only appears inside NoteEditorWidget.cpp.
     void applyReadableLineWidth();
-    /// Cluster O Phase O4 (O4.T4) — fans the Canvas kcfg group's three
-    /// snap/grid toggles out to EVERY open canvas leaf's
-    /// CanvasAlignmentStrategy/CanvasView, not just the focused one (same
-    /// shape as applyReadableLineWidth() above).
+    /// Fans the Canvas kcfg group's three snap/grid toggles out to EVERY
+    /// open canvas leaf's CanvasAlignmentStrategy/CanvasView, not just the
+    /// focused one (same shape as applyReadableLineWidth() above).
     void applyCanvasSettings();
     void applyRecoverySettings();
     void setupSidebars();
     void setupStatusBar();
     void setupEditor();
     void setupRibbonToolBar();
-    /// Cluster O Phase O3 (§D5) — keep Settings/Help at the tail of the
-    /// menubar.
+    /// Keep Settings/Help at the tail of the menubar.
     ///
     /// A ViewActions provider's top-level menu (Format/Heading/Insert/Table,
     /// Graph, Bases, Canvas) is a *new* container for a child KXMLGUIClient,
@@ -213,16 +208,13 @@ private:
     void onCursorInfoChanged(int line, int column, int wordCount);
     void updateWindowTitle(NoteEditorWidget *editor = nullptr);
     void openFileInWorkspace(const QString &relativePath);
-    MarkdownView *activeMarkdownView() const;
+    MarkdownFileView *activeMarkdownView() const;
     Corbomite::Bases::BasesView *activeBasesView() const;
     CanvasFileView *activeCanvasView() const;
     NoteEditorWidget *activeEditor() const;
 
     void connectEditorContextMenu(NoteEditorWidget *editor);
 
-    /// Forward `id` to the active `MarkdownView`'s Markoff editor. No-op
-    /// when the active view is not a MarkdownView.
-    void triggerEditorAction(Markoff::ActionId id);
     bool confirmCloseUnsaved();
     void saveSessionState();
 
@@ -264,16 +256,16 @@ private:
     void rewirePluginCoreServices();
 
     CorbomiteApp *m_app;
-    // Cluster O Phase O1.T1 — owns Tier B/C action-state refresh (formerly
-    // five scattered MainWindow methods). actionCollection() ownership
+    // Owns Tier B/C action-state refresh (formerly five scattered
+    // MainWindow methods). actionCollection() ownership
     // stays here (KXmlGuiWindow requirement); the controller is handed the
     // pointer and rebinds itself to the active leaf on every
     // activeLeafChanged (see the Workspace::activeLeafChanged connection
     // in setupEditor()).
     ActionContextController *m_actionContext = nullptr;
-    // Q.0 P6 — canonical Vault aggregate created alongside the legacy
-    // VaultModel during the consumer-migration wave. Both coexist until
-    // Phase 10 deletes VaultModel. Owned by `this` (QObject parent).
+    // Canonical Vault aggregate created alongside the legacy VaultModel
+    // during the consumer-migration wave; both coexist until VaultModel is
+    // removed. Owned by `this` (QObject parent).
     std::unique_ptr<FileSystemAdapter> m_fsAdapter;
     Vault *m_vaultObj = nullptr;
     // Vault-scoped VaultConfig — bound to PluginManager for the lifetime
@@ -283,7 +275,7 @@ private:
     std::unique_ptr<VaultConfig> m_pluginVaultConfig;
     FileManager *m_fileManager = nullptr;
     Workspace *m_workspace = nullptr;
-    // D2 back/forward + D3 tab commands: the QActions themselves stay here
+    // The back/forward + tab command QActions themselves stay here
     // (created/connected in setupActions()); their enabled/checked state is
     // now refreshed by ActionContextController on every activeLeafChanged
     // (formerly updateBackForwardActions()/updateTabStateActions()).
@@ -300,9 +292,8 @@ private:
     QLabel *m_wordCountLabel = nullptr;
     QLabel *m_cursorPosLabel = nullptr;
     AutosaveReactor *m_autosave = nullptr;
-    // m_fileWatch removed — FileWatchReactor moved to libs/vault as private
-    // Corbomite::detail::Watcher. Re-wired to Vault's public signal API in
-    // Q.0 Phase 7.
+    // m_fileWatch removed — file watching lives in libs/vault as private
+    // Corbomite::detail::Watcher, re-wired to Vault's public signal API.
     SessionManager *m_sessionManager = nullptr;
     SQLiteIndex *m_searchIndex = nullptr;
     MetadataCache *m_metadataCache = nullptr;
@@ -323,12 +314,12 @@ private:
     HoverLinkSourceRegistry *m_hoverSources = nullptr;
     HoverPopover *m_hoverPopover = nullptr;
     Corbomite::Core::ThemeService *m_themeService = nullptr;
-    // Cluster J Phase 6 — EmbedRegistry + EmbedRenderer feed HoverPopover
+    // EmbedRegistry + EmbedRenderer feed HoverPopover
     // (and any future preview surfaces). Built once at MainWindow construction;
     // the per-vault resource adapter is rebuilt on each `onVaultOpened` and
     // released on `onVaultClosed`.
-    // C4 Task 13: m_embedRegistry is now the canonical Markoff::EmbedRegistry
-    // (concrete, no adapter needed). EmbedRegistryAdapter removed; callers use
+    // m_embedRegistry is the canonical Markoff::EmbedRegistry
+    // (concrete, no adapter needed); callers use
     // m_embedRegistry directly as Markoff::EmbedRegistry.
     std::unique_ptr<Markoff::EmbedRegistry> m_embedRegistry;
     // 2026-10-01: the MarkoffAdapters::* members that used to sit here are
@@ -339,20 +330,19 @@ private:
     // Markoff::Reading was retired with the QML leaf and there is no
     // EmbedRenderer type to hold. unique_ptr needs sizeof, so a member for
     // an absent type cannot simply be uncommented. Re-add when a live
-    // substitute for embed rendering actually lands (see the punch list's
-    // "registerEmbed API is a no-op" item).
-    std::unique_ptr<Corbomite::Core::VaultResourceProvider> m_popoverResources;
+    // substitute for embed rendering actually lands.
+    std::unique_ptr<Corbomite::Core::ResourceResolver> m_popoverResources;
     std::unique_ptr<Corbomite::Core::MermaidRenderer> m_mermaidRenderer;
-    // P5.4 canvas mermaid seam — adapts m_mermaidRenderer's SVG-bytes-out
+    // Canvas mermaid seam — adapts m_mermaidRenderer's SVG-bytes-out
     // API to Markoff::Canvas::MermaidRenderer's pixmap-out contract. Built
     // once alongside m_mermaidRenderer; outlives every NoteEditorWidget.
     std::unique_ptr<Corbomite::CanvasMermaidAdapter> m_canvasMermaidAdapter;
     // Headless styled renderer handed to every CanvasFileView for card content.
     std::unique_ptr<Corbomite::StyledRenderEngine> m_cardRenderEngine;
-    // M6.2 — canvas link rewriter registered with FileManager so a vault
+    // Canvas link rewriter registered with FileManager so a vault
     // rename updates `.canvas` structural references (linkUpdaters seam).
     std::unique_ptr<Canvas::CanvasLinkRewriter> m_canvasLinkRewriter;
-    // Cluster F-a P0 — host-level periodic File Recovery snapshot service,
+    // Host-level periodic File Recovery snapshot service,
     // created on vault open and stopped/reset on close.
     std::unique_ptr<Corbomite::RecoveryService> m_recovery;
     EditorSuggestManager *m_suggestManager = nullptr;
@@ -361,8 +351,8 @@ private:
     RibbonToolBar *m_ribbonToolBar = nullptr;
     RibbonStateController *m_ribbonState = nullptr;
 
-    // Cluster O Phase O3 — markdown's ViewActions provider (Tier A) + its
-    // persistent toolbar (§D4). Both eagerly constructed at startup;
+    // Markdown's ViewActions provider (Tier A) + its
+    // persistent toolbar. Both eagerly constructed at startup;
     // ActionContextController drives dynamic client install/toolbar
     // visibility (see setGuiFactory()/registerProvider()/registerToolBar()).
     MarkdownViewActions *m_markdownViewActions = nullptr;
@@ -372,24 +362,24 @@ private:
     QAction *m_actionLinkWithActivePane = nullptr;
     KToolBar *m_canvasToolBar = nullptr;
 
-    // Cluster B Phase 1 — host-wide plugin extension registries.
+    // Host-wide plugin extension registries.
     // PostProcessor and CodeBlockProcessor are functional registries that
     // plugins can register against; ReadingView dispatch wiring is a
-    // post-Cluster-B follow-up (registrations are stored but not yet
+    // follow-up (registrations are stored but not yet
     // consumed during render).
     std::unique_ptr<Corbomite::Core::PostProcessorRegistry> m_pluginPostProcessors;
     std::unique_ptr<Markoff::CodeBlockProcessorRegistry> m_pluginCodeBlocks;
 
-    // Cluster B Phase 2 — host-wide status-bar registry.
+    // Host-wide status-bar registry.
     Corbomite::StatusBarRegistry *m_statusBarRegistry = nullptr;
     /// The app's user-message channel (status bar + alert entry + desktop
     /// notification). Owned here; every view reaches it through
     /// `MessageService::forContext()`.
     MessageService *m_messages = nullptr;
 
-    // Cluster Q (Tasks 13-20) — tool views hosting plugin createView()
+    // Tool views hosting plugin createView()
     // output. Keyed by plugin id; the value is the QWidget the
-    // CorbomiteMDI tool view holds. Used by releasePluginView to find
+    // ToolViewHost tool view holds. Used by releasePluginView to find
     // and tear down the tool view when the plugin unloads.
     QHash<QString, QWidget *> m_hostedPluginViews;
 };

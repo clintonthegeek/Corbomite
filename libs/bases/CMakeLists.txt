@@ -133,6 +133,6 @@ if(DEFINED KDE_INSTALL_INCLUDEDIR)
             DESTINATION ${KDE_INSTALL_INCLUDEDIR}/corbomite)
 endif()
 
-if(CORBOMITE_PORT_BUILD_TESTS)
+if(CORBOMITE_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

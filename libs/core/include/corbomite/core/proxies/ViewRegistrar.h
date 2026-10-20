@@ -33,7 +33,7 @@ public:
     void registerExtensions(const QStringList &extensions, const QString &type);
     void unregisterView(const QString &type);
 
-    /// Cluster O Phase O5.T4 — let a plugin ship a `ViewActions` provider for
+    /// Let a plugin ship a `ViewActions` provider for
     /// its own view type, with no new plugin-API surface. Deliberately on the
     /// SAME proxy as `registerView()` (both gated by "ui.views"): a view type
     /// and its actions are one registration concern, and splitting them would
@@ -55,7 +55,7 @@ public:
 
 private:
     // QPointer so destructor can safely skip cleanup when the host
-    // ViewRegistry has already been destroyed (e.g. under the Cluster Q
+    // ViewRegistry has already been destroyed (e.g. under the
     // recreated-MainWindow teardown path in tst_e2e_gui testCleanShutdown).
     QPointer<ViewRegistry> m_registry;
     QStringList m_registeredTypes;

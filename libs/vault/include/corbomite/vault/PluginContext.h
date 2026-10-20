@@ -93,7 +93,7 @@ public:
                          MenuEventEmitter *menus,
                          QNetworkAccessManager *network);
 
-    /// Install the Cluster B host-side extension registries. Optional —
+    /// Install the host-side extension registries. Optional —
     /// any null pointer makes the corresponding accessor return nullptr.
     void setExtensionRegistries(HoverLinkSourceRegistry *hoverLinkSources,
                                   EditorSuggestManager *editorSuggests,

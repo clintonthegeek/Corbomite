@@ -29,7 +29,7 @@
 
 #include <markoff/source/Editor.h>
 #include <markoff/styled/Editor.h>
-// Cluster K Phase 5: LivePreview is Markoff::Canvas::EditorWidget only.
+// LivePreview is Markoff::Canvas::EditorWidget only.
 // The QML Markoff::Live leaf (and its Qt Quick / markoff_live link) is
 // retired from Corbomite.
 
@@ -104,7 +104,7 @@ NoteEditorWidget::NoteEditorWidget(QWidget *parent)
     connect(m_findBar, &FindBar::replaceAllRequested,
             this, &NoteEditorWidget::onReplaceAllRequested);
 
-    // Cluster K Phase 5 — LivePreview is always the canvas leaf.
+    // LivePreview is always the canvas leaf.
     m_canvasEditor = new Markoff::Canvas::EditorWidget(this);
     m_livePreviewIndex = m_stack->addWidget(m_canvasEditor);
     // Same "reference, not owner" link-service wiring as Reading's
@@ -457,7 +457,7 @@ int NoteEditorWidget::currentColumn() const
     return leaf ? leaf->cursorPosition().column : 0;
 }
 
-// Cluster E Phase 1 — ephemeral state round-trip. Now called from
+// Ephemeral state round-trip. Now called from
 // EditorViewManager's buildPaneLayout / applyPaneLayout so each per-leaf
 // eState round-trips to workspace.json.
 EphemeralState NoteEditorWidget::saveEphemeralState() const
@@ -622,7 +622,7 @@ void NoteEditorWidget::showFindBar()
     if (!m_doc) return;
     auto *fc = m_doc->findController();
     m_findBar->setController(fc);
-    // Polymorphic attach on the MarkdownView base (contract v2) — works for
+    // Polymorphic attach on the MarkdownFileView base (contract v2) — works for
     // all three leaves; Reading (styled) gains find with this call. Must be
     // called after setDocument (brief §2 find-attach behavioral note).
     if (auto *leaf = activeLeaf())

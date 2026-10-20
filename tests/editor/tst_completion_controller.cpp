@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// CompletionController — spec §6. Headless: a FakeLeaf MarkdownView
+// CompletionController — spec §6. Headless: a FakeLeaf MarkdownFileView
 // supplies caretRect/cursorPosition; a real NoteDocument supplies the
 // text + edit path; a stub '@' suggester isolates controller logic.
 #include "CompletionController.h"

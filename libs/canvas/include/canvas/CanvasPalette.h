@@ -6,7 +6,7 @@
 
 namespace Canvas {
 
-/// Cluster M leftover (canvas dark mode) — the theme-derived colours every
+/// Canvas dark mode — the theme-derived colours every
 /// canvas paint() reads.
 ///
 /// Canvas had **zero** theme awareness: ~15 hardcoded literals across

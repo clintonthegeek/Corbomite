@@ -20,8 +20,7 @@ namespace detail {
 /// the class out of the public API surface (header is in `src/`, not
 /// `include/`).
 ///
-/// Task 2.2 ships only the skeleton + signal declarations (stub behaviour).
-/// Task 2.4 fills in the full directory-traversal + diff-emission logic.
+/// Full directory-traversal + diff-emission logic.
 class Watcher : public QObject
 {
     Q_OBJECT
@@ -38,7 +37,7 @@ signals:
     void deleted(const QString &relPath);
     void renamed(const QString &oldRelPath, const QString &newRelPath);
 
-    /// Cluster B Phase 3 — fired on every detected mutation regardless
+    /// Fired on every detected mutation regardless
     /// of path (vault content or `.obsidian/` plugin config). Vault
     /// converts this into the public `Vault::raw` signal; for
     /// `.obsidian/*.json` paths Vault additionally emits `configChanged`.

@@ -13,7 +13,7 @@ namespace Corbomite::Bases {
 class Expr;
 using ExprPtr = std::unique_ptr<Expr>;
 
-/// Abstract AST node. Evaluator (Phase 4) visits via virtual dispatch
+/// Abstract AST node. The evaluator visits via virtual dispatch
 /// through `Evaluator::eval(const Expr &, const EvalContext &)`.
 class Expr
 {

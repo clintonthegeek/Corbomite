@@ -41,13 +41,13 @@ private slots:
     void zoomDispatchesToViewportTransform();
     void capabilities();
 
-    // ---- Cluster O Phase O5.T4 — the provider registration path --------
+    // ---- the provider registration path -------------------------------
     void registersViewActionsProviderOnLoad();
     void providerRegistrationFollowsUiViewsPermission();
     void unloadUnregistersProviderBeforeLibraryTeardown();
     void providerEnablesOnlyWithABuiltGraph();
 
-    // ---- Cluster O Phase O6.T3 — per-instance controls panel ------------
+    // ---- per-instance controls panel ----------------------------------
     void twoTabsGetIndependentControlsPanels();
     void movingOneTabsSliderLeavesTheOtherTabAlone();
     void eachTabsPanelDrivesOnlyItsOwnEngine();
@@ -90,8 +90,8 @@ void TestGraphViewPlugin::registersGraphViewTypeOnLoad()
 }
 
 // RETIRED, deliberately deleted rather than inverted: this used to assert
-// that createView() returned a shared singleton GraphControlsPanel. O6.T3
-// removes that singleton precisely because it was shared, so the assertion
+// that createView() returned a shared singleton GraphControlsPanel. The
+// singleton was removed precisely because it was shared, so the assertion
 // is gone with the behaviour. Its replacement is
 // pluginNoLongerHostsASingletonControlsPanel, which asserts the NEW contract
 // (createView returns nullptr) instead of merely asserting the old one is
@@ -126,9 +126,9 @@ void TestGraphViewPlugin::registersCopyScreenshotCommandWhenUiCommandsGranted()
         QStringLiteral("corbomite-graph-view:copy-screenshot")) != nullptr);
 }
 
-// Cluster O Phase O1.T3 — View::zoomIn/Out/Reset must reach the real
+// View::zoomIn/Out/Reset must reach the real
 // ForceGraphView viewport transform (previously the base View no-ops were
-// never overridden, so graph had no zoom action at all — report §4.1).
+// never overridden, so graph had no zoom action at all).
 void TestGraphViewPlugin::zoomDispatchesToViewportTransform()
 {
     // GraphView::onOpen() only constructs its GraphViewTab once both a
@@ -171,7 +171,7 @@ void TestGraphViewPlugin::zoomDispatchesToViewportTransform()
     QCOMPARE(gv->transform(), identity);
 }
 
-// Cluster O Phase O2.T1 — Tier-B capability surface. GraphView adds no
+// Tier-B capability surface. GraphView adds no
 // overrides beyond the zoom virtuals above: canZoom() stays the base
 // default (true, matches the real zoom), everything else is a correct
 // "no" for graph today.
@@ -208,7 +208,7 @@ void TestGraphViewPlugin::registersViewActionsProviderOnLoad()
                          &registry, nullptr, nullptr);
     plugin.load(&ctx);
 
-    // O5.T4's actual claim: a plugin ships a ViewActions provider for its own
+    // The actual claim: a plugin ships a ViewActions provider for its own
     // view type, through the existing "ui.views" proxy, with no new
     // plugin-API surface.
     auto *provider = registry.viewActionsForType(QStringLiteral("graph"));
@@ -233,10 +233,10 @@ void TestGraphViewPlugin::providerRegistrationFollowsUiViewsPermission()
              "provider registered without the ui.views permission");
 }
 
-// THE load-bearing test for O5.T4. A provider's vtable lives in the plugin
-// .so, so it must be handed back while the library is still mapped —
-// otherwise KXMLGUIFactory keeps a client whose code is gone. onUnload() is
-// the hook that provably runs first.
+// THE load-bearing test for the plugin-provided ViewActions. A provider's
+// vtable lives in the plugin .so, so it must be handed back while the
+// library is still mapped — otherwise KXMLGUIFactory keeps a client whose
+// code is gone. onUnload() is the hook that provably runs first.
 void TestGraphViewPlugin::unloadUnregistersProviderBeforeLibraryTeardown()
 {
     ViewRegistry registry;
@@ -295,10 +295,10 @@ void TestGraphViewPlugin::providerEnablesOnlyWithABuiltGraph()
              ac->action(QStringLiteral("graph_zoom_to_fit")));
 }
 
-// THE O6.T3 regression test. Report §4.3: one singleton GraphControlsPanel
-// was wired by every tab with ~13 connect() calls and no disconnect, so with
-// two graph tabs open a slider in one drove both engines. Every assertion
-// here fails against the pre-O6.T3 singleton.
+// THE regression test for per-instance controls panels. One singleton
+// GraphControlsPanel was wired by every tab with ~13 connect() calls and no
+// disconnect, so with two graph tabs open a slider in one drove both engines.
+// Every assertion here fails against the old shared singleton.
 void TestGraphViewPlugin::twoTabsGetIndependentControlsPanels()
 {
     GraphViewTab tabA(nullptr, nullptr);

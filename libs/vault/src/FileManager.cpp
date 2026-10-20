@@ -171,7 +171,7 @@ QString basenameOf(const QString &p)
 //
 // URL-percent-decoding is intentionally NOT performed: a markdown URL like
 // `[F](My%20File.md)` will fall through. Tracked as a follow-up; same
-// pattern as Phase 5's deferred work in the original FileManager comments.
+// pattern as the deferred work noted in the original FileManager comments.
 QString translateTarget(const QString &userTarget,
                         const QString &oldPath, const QString &newPath)
 {
@@ -871,7 +871,7 @@ QString FileManager::getAvailablePathForAttachment(const QString &linktext,
                                                    const QString &sourcePathHint) const
 {
     if (!m_vault) return {};
-    // Phase 5 slice: attachments go in the same folder as the source file
+    // Attachments go in the same folder as the source file
     // (Obsidian's default attachmentFolderPath = "." behaviour). Full config
     // honouring (attachmentFolderPath with "./sub" or absolute paths) is a
     // follow-up — see spec §11.
@@ -892,7 +892,7 @@ bool FileManager::insertIntoFile(TFile *f, const QByteArray &content, InsertMode
 {
     if (!f || !m_vault) return false;
     return m_vault->process(f, [&](const QByteArray &cur) -> QByteArray {
-        // Frontmatter-aware merge is scope-deferred (spec §11); Phase 5
+        // Frontmatter-aware merge is scope-deferred (spec §11); this
         // ships plain append/prepend.
         return mode == InsertMode::Append ? (cur + content) : (content + cur);
     });

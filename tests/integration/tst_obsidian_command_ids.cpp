@@ -17,7 +17,7 @@
 //   1. the Obsidian id is registered as a real command, not an alias — a vault
 //      override has to reach something;
 //   2. the Corbomite-native id that used to be the only name still dispatches,
-//      because MarkdownView, CanvasFileView and GraphViewActions dispatch it;
+//      because MarkdownFileView, CanvasFileView and GraphViewActions dispatch it;
 //   3. only one of the two is palette-visible.
 //
 // Finally the whole registry is diffed against

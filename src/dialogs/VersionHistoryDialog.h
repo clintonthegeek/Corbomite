@@ -14,7 +14,7 @@ namespace Corbomite {
 
 class VersionHistoryService;
 
-/// Version History modal (Cluster F-a P1.5): a per-file snapshot list on the
+/// Version History modal: a per-file snapshot list on the
 /// left (newest first, save-failure entries marked) with a read-only preview
 /// and a "Restore this version" button. The dialog is UI-only; restore
 /// semantics (including the pre-restore safety copy) live in

@@ -2,7 +2,7 @@
 //
 // `eState.scroll` is not ours to write in our own shape.
 //
-// The bug: contract-v2 made `MarkdownView::scrollPositionVisualLine()` return a
+// The bug: contract-v2 made `MarkdownFileView::scrollPositionVisualLine()` return a
 // 0.0-1.0 viewport FRACTION, and `EphemeralState::toJson()` wrote that fraction
 // straight into Obsidian's `eState.scroll`. But Obsidian's field is a LINE
 // NUMBER (`docs/obsidian-audit/domains/views.md:159` — "scroll?: number; //

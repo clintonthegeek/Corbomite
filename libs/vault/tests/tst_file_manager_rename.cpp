@@ -333,7 +333,7 @@ void TestFileManagerRename::emitsProgressInAscendingSourceOrder()
     }
 }
 
-// M6.2 seam: a source whose extension has a registered LinkRewriter is
+// Seam: a source whose extension has a registered LinkRewriter is
 // handed to that rewriter instead of the Markdown byte-splice, and the
 // bytes it returns are written through the vault. The canvas rewriter
 // itself is tested in libs/canvas.

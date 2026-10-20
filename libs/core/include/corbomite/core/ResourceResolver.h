@@ -17,10 +17,10 @@ namespace Corbomite::Core {
 /// names into resources. Inherits `Markoff::Vault::ResourceProvider`
 /// (restored 2026-05-20 driven by port pull; class moved from
 /// `Markoff::ResourceProvider` to `Markoff::Vault::ResourceProvider`).
-class VaultResourceProvider : public Markoff::Vault::ResourceProvider
+class ResourceResolver : public Markoff::Vault::ResourceProvider
 {
 public:
-    ~VaultResourceProvider() override = default;
+    ~ResourceResolver() override = default;
 
     QUrl resolveImage(const QString &name) const override = 0;
     QByteArray loadImageBytes(const QString &name) const override = 0;

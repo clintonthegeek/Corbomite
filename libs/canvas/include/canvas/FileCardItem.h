@@ -22,7 +22,7 @@ public:
     /// QTextDocument has been set on this card.
     bool hasRenderedDocument() const;
 
-    // ---- M6.3 missing-file placeholder ----
+    // ---- missing-file placeholder ----
     //
     // A file card whose `file` does not resolve shows a "File not found:
     // <path>" message plus Create / Locate… / Remove buttons instead of a

@@ -18,7 +18,7 @@ namespace {
 constexpr QChar kSentinelStart{QChar(0x01)};
 constexpr QChar kSentinelEnd{QChar(0x02)};
 
-/// EN-only ordinal suffix table for Phase 1. Other locales fall back to a
+/// EN-only ordinal suffix table. Other locales fall back to a
 /// bare number (matches Obsidian's observed inconsistency for non-EN `Do`).
 QString ordinalSuffix(int day, const QLocale &locale)
 {

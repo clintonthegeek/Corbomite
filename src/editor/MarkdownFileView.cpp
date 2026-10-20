@@ -1,6 +1,6 @@
-// src/editor/MarkdownView.cpp
+// src/editor/MarkdownFileView.cpp
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "MarkdownView.h"
+#include "MarkdownFileView.h"
 #include "NoteEditorWidget.h"
 #include <markoff/core/MarkdownView.h>
 #include <markoff/source/Editor.h>
@@ -8,8 +8,8 @@
 #include "corbomite/core/MenuSectionHelper.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/WorkspaceLeaf.h"
-// TODO(port): Reading::ReadingView retired
-// TODO(port): old Markoff::Editor retired
+// Port history: Reading::ReadingView retired
+// Port history: old Markoff::Editor retired
 // include <markoff/Editor.h>
 
 #include <KLocalizedString>
@@ -22,7 +22,7 @@
 
 namespace Corbomite {
 
-MarkdownView::MarkdownView(WorkspaceLeaf *leaf, QWidget *parent)
+MarkdownFileView::MarkdownFileView(WorkspaceLeaf *leaf, QWidget *parent)
     : TextFileView(leaf, parent)
     , m_editorWidget(new NoteEditorWidget(contentWidget()))
 {
@@ -30,7 +30,7 @@ MarkdownView::MarkdownView(WorkspaceLeaf *leaf, QWidget *parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_editorWidget);
 
-    // Cluster O Phase O2.T2 — forward the editor's own context signals
+    // Forward the editor's own context signals
     // onto the generic View::contextChanged() so ActionContextController
     // can listen the same way it listens to every other view type,
     // instead of special-casing markdown's NoteEditorWidget signals.
@@ -40,36 +40,36 @@ MarkdownView::MarkdownView(WorkspaceLeaf *leaf, QWidget *parent)
             this, &View::contextChanged);
 }
 
-View *MarkdownView::factory(WorkspaceLeaf *leaf)
+View *MarkdownFileView::factory(WorkspaceLeaf *leaf)
 {
-    return new MarkdownView(leaf);
+    return new MarkdownFileView(leaf);
 }
 
-QString MarkdownView::getViewType() const
+QString MarkdownFileView::getViewType() const
 {
     return QStringLiteral("markdown");
 }
 
-QString MarkdownView::getDisplayText() const
+QString MarkdownFileView::getDisplayText() const
 {
     if (m_file)
         return m_file->name();
     return QStringLiteral("Markdown");
 }
 
-QString MarkdownView::getIcon() const
+QString MarkdownFileView::getIcon() const
 {
     return QStringLiteral("text-markdown");
 }
 
-QString MarkdownView::getViewData() const
+QString MarkdownFileView::getViewData() const
 {
     if (!m_editorWidget || !m_editorWidget->noteDocument())
         return {};
     return m_editorWidget->noteDocument()->markdown();
 }
 
-void MarkdownView::setViewData(const QString &data, bool clear)
+void MarkdownFileView::setViewData(const QString &data, bool clear)
 {
     if (!m_editorWidget || !m_editorWidget->noteDocument())
         return;
@@ -77,25 +77,25 @@ void MarkdownView::setViewData(const QString &data, bool clear)
     Q_UNUSED(clear)
 }
 
-void MarkdownView::clear()
+void MarkdownFileView::clear()
 {
     if (m_editorWidget && m_editorWidget->noteDocument())
         m_editorWidget->noteDocument()->setMarkdown(QString());
 }
 
-bool MarkdownView::canAcceptExtension(const QString &ext) const
+bool MarkdownFileView::canAcceptExtension(const QString &ext) const
 {
     return ext.compare(QStringLiteral("md"), Qt::CaseInsensitive) == 0;
 }
 
-bool MarkdownView::setCursorLine(int line)
+bool MarkdownFileView::setCursorLine(int line)
 {
     if (!m_editorWidget) return false;
     return m_editorWidget->goToLine(line);
 }
 
 namespace {
-// Cluster O Phase O1.T3 — moved out of MainWindow.cpp's onZoomIn/Out/Reset,
+// Zoom step lives here rather than in MainWindow.cpp's onZoomIn/Out/Reset,
 // which used to bypass the View::zoomIn/Out/Reset virtuals entirely and
 // apply this directly to activeEditor()->activeLeaf(). Matches the live
 // leaf's own kFontScaleStep so menu zoom and the editor's Ctrl+=/Ctrl+-
@@ -103,34 +103,34 @@ namespace {
 constexpr qreal kZoomStep = 1.10;
 }
 
-void MarkdownView::zoomIn()
+void MarkdownFileView::zoomIn()
 {
     if (auto *leaf = m_editorWidget->activeLeaf())
         leaf->setFontScale(leaf->fontScale() * kZoomStep);   // base clamps to [0.25, 4.0]
 }
 
-void MarkdownView::zoomOut()
+void MarkdownFileView::zoomOut()
 {
     if (auto *leaf = m_editorWidget->activeLeaf())
         leaf->setFontScale(leaf->fontScale() / kZoomStep);
 }
 
-void MarkdownView::zoomReset()
+void MarkdownFileView::zoomReset()
 {
     if (auto *leaf = m_editorWidget->activeLeaf())
         leaf->setFontScale(1.0);
 }
 
-bool MarkdownView::canEdit() const
+bool MarkdownFileView::canEdit() const
 {
     auto *leaf = m_editorWidget->activeLeaf();
     return leaf && leaf->hasEditing();
 }
 
-bool MarkdownView::canSave() const { return true; }
-bool MarkdownView::canFind() const { return true; }
+bool MarkdownFileView::canSave() const { return true; }
+bool MarkdownFileView::canFind() const { return true; }
 
-bool MarkdownView::canUndo() const
+bool MarkdownFileView::canUndo() const
 {
     // Markoff::MarkdownView's contract exposes undo()/redo() actions but
     // no undo-stack-depth query — hasEditing() (editable at all) is the
@@ -138,9 +138,9 @@ bool MarkdownView::canUndo() const
     // approximation O1.T8 shipped, now routed through the virtual.
     return canEdit();
 }
-bool MarkdownView::canRedo() const { return canEdit(); }
+bool MarkdownFileView::canRedo() const { return canEdit(); }
 
-QJsonObject MarkdownView::getState() const
+QJsonObject MarkdownFileView::getState() const
 {
     QJsonObject state = FileView::getState();
     auto mode = m_editorWidget->viewMode();
@@ -153,7 +153,7 @@ QJsonObject MarkdownView::getState() const
     return state;
 }
 
-void MarkdownView::setState(const QJsonObject &state)
+void MarkdownFileView::setState(const QJsonObject &state)
 {
     FileView::setState(state);
     QString mode = state[QStringLiteral("mode")].toString();
@@ -166,18 +166,18 @@ void MarkdownView::setState(const QJsonObject &state)
     }
 }
 
-QJsonObject MarkdownView::getEphemeralState() const
+QJsonObject MarkdownFileView::getEphemeralState() const
 {
-    // Delegate to EphemeralState serialization established in Cluster E
+    // Delegate to the EphemeralState serialization
     return {};
 }
 
-void MarkdownView::setEphemeralState(const QJsonObject &state)
+void MarkdownFileView::setEphemeralState(const QJsonObject &state)
 {
     Q_UNUSED(state)
 }
 
-NoteEditorWidget *MarkdownView::editorWidget() const { return m_editorWidget; }
+NoteEditorWidget *MarkdownFileView::editorWidget() const { return m_editorWidget; }
 
 int findClosingFrontmatterFence(const QString &body)
 {
@@ -197,7 +197,7 @@ int findClosingFrontmatterFence(const QString &body)
     return -1;
 }
 
-void MarkdownView::insertFrontmatterProperty()
+void MarkdownFileView::insertFrontmatterProperty()
 {
     if (!m_editorWidget) return;
 
@@ -240,32 +240,32 @@ void MarkdownView::insertFrontmatterProperty()
     doc->setMarkdown(out);
 }
 
-void MarkdownView::setMarkdownCommandDispatcher(CommandDispatch dispatcher)
+void MarkdownFileView::setMarkdownCommandDispatcher(CommandDispatch dispatcher)
 {
     m_markdownCommandDispatcher = std::move(dispatcher);
 }
 
-void MarkdownView::setPdfExportTrigger(PdfExportTrigger trigger)
+void MarkdownFileView::setPdfExportTrigger(PdfExportTrigger trigger)
 {
     m_pdfExportTrigger = std::move(trigger);
 }
 
-void MarkdownView::setFindTrigger(FindTrigger trigger)
+void MarkdownFileView::setFindTrigger(FindTrigger trigger)
 {
     m_findTrigger = std::move(trigger);
 }
 
-void MarkdownView::setReplaceTrigger(FindTrigger trigger)
+void MarkdownFileView::setReplaceTrigger(FindTrigger trigger)
 {
     m_replaceTrigger = std::move(trigger);
 }
 
-void MarkdownView::setMergeFileTrigger(MergeTrigger trigger)
+void MarkdownFileView::setMergeFileTrigger(MergeTrigger trigger)
 {
     m_mergeFileTrigger = std::move(trigger);
 }
 
-void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
+void MarkdownFileView::onMoreOptionsMenu(MenuSectionHelper &helper)
 {
     // ---- pane: Split right / Split down ----
     auto dispatch = [this](const QString &cmd) {
@@ -286,7 +286,7 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
             [dispatch] { dispatch(QStringLiteral("split_down")); });
     helper.addToSection(splitD, QStringLiteral("pane"));
 
-    // ---- view: Backlinks-in-document toggle (Phase 4 wires the renderer) ----
+    // ---- view: Backlinks-in-document toggle ----
     auto *backlinksInDoc = new QAction(i18n("Backlinks in document"), this);
     backlinksInDoc->setCheckable(true);
     if (m_leaf) {
@@ -302,8 +302,10 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
         st[QStringLiteral("backlinksInDocument")] = on;
         vs[QStringLiteral("state")] = st;
         m_leaf->setViewState(vs);
-        // TODO Phase 4: BacklinksPostProcessor reads this flag and appends a
-        // backlinks section to the ReadingView render tree.
+        // The flag is kept in the view state, but nothing reads it: the
+        // backlinks section used to be appended by BacklinksPostProcessor,
+        // which went with the retired ReadingView. The reading leaf is the
+        // styled leaf now, and it does not read this key.
     });
     helper.addToSection(backlinksInDoc, QStringLiteral("view"));
 
@@ -338,13 +340,14 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
     });
     helper.addToSection(sourceAct, QStringLiteral("view"));
 
-    // ---- action: Bookmark (placeholder — Cluster S) ----
+    // ---- action: Bookmark (placeholder — the bookmarks panel exists, but the
+    // editor's "add a bookmark here" action is not wired to it yet) ----
     auto *bookmarkAct = new QAction(
         QIcon::fromTheme(QStringLiteral("bookmark-new")),
         i18n("Bookmark..."), this);
     bookmarkAct->setEnabled(false);
     bookmarkAct->setToolTip(
-        i18n("Requires Bookmarks core plugin (Cluster S)"));
+        i18n("Adding a bookmark is not available yet"));
     helper.addToSection(bookmarkAct, QStringLiteral("action"));
 
     // ---- action: Add file property ----
@@ -422,7 +425,7 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
         linkedSub->addToSection(act, QStringLiteral("action"));
     }
 
-    // ---- action: Merge entire file with… (Cluster F-a P3.3) ----
+    // ---- action: Merge entire file with… ----
     auto *mergeAct = new QAction(
         QIcon::fromTheme(QStringLiteral("document-merge")),
         i18n("Merge entire file with…"), this);
@@ -436,40 +439,40 @@ void MarkdownView::onMoreOptionsMenu(MenuSectionHelper &helper)
     helper.addToSection(mergeAct, QStringLiteral("action"));
 
     // ---- Chain to EditableFileView for universal file-menu items ----
-    // Until Phase 2 Task 2.8 lands, this resolves to View::onMoreOptionsMenu
-    // (empty body). Once 2.8 ships, EditableFileView adds rename/move/delete
+    // The chain currently resolves to View::onMoreOptionsMenu (empty body);
+    // EditableFileView adds rename/move/delete
     // + copy-path submenu + open-in-default-app + reveal-in-navigation +
-    // danger-zone Delete. MarkdownView's items appear BEFORE EditableFileView's
+    // danger-zone Delete. MarkdownFileView's items appear BEFORE EditableFileView's
     // within each canonical section.
     EditableFileView::onMoreOptionsMenu(helper);
 }
 
-void MarkdownView::setVault(Vault *vault)
+void MarkdownFileView::setVault(Vault *vault)
 {
     m_editorWidget->setVault(vault);
 }
 
-void MarkdownView::setHoverPopover(HoverPopover *popover)
+void MarkdownFileView::setHoverPopover(HoverPopover *popover)
 {
     m_editorWidget->setHoverPopover(popover);
 }
 
-void MarkdownView::setEditorSuggestManager(EditorSuggestManager *manager)
+void MarkdownFileView::setEditorSuggestManager(EditorSuggestManager *manager)
 {
     m_editorWidget->setEditorSuggestManager(manager);
 }
 
-void MarkdownView::onOpen()
+void MarkdownFileView::onOpen()
 {
     TextFileView::onOpen();
 }
 
-void MarkdownView::onClose()
+void MarkdownFileView::onClose()
 {
     TextFileView::onClose();
 }
 
-void MarkdownView::onLoadFile(NoteDocument *file)
+void MarkdownFileView::onLoadFile(NoteDocument *file)
 {
     m_editorWidget->setNoteDocument(file);
     TextFileView::onLoadFile(file);

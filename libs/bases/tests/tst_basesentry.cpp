@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // BasesEntry + BasesQueryResult tests — exercised with null Vault/Cache
-// for unit scope. Full end-to-end fixtures live in Phase 9 integration
+// for unit scope. Full end-to-end fixtures live in the integration
 // tests.
 #include <QTest>
 

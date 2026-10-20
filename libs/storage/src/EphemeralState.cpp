@@ -10,13 +10,13 @@ namespace {
 
 // Known top-level keys in the eState object. Anything not in this set is
 // copied into `extraKeys` verbatim so round-tripping preserves future
-// Obsidian fields / plugin data (Cluster B WorkspaceState idiom).
+// Obsidian fields / plugin data (WorkspaceState idiom).
 // Corbomite's own scroll key. Obsidian's
 // `eState.scroll` is a LINE NUMBER (obsidian-audit/domains/views.md:159), but
-// Corbomite's contract-v2 `MarkdownView::scrollPositionVisualLine()` returns a
+// Corbomite's contract-v2 `MarkdownFileView::scrollPositionVisualLine()` returns a
 // 0.0-1.0 viewport FRACTION. Writing the fraction under Obsidian's key made a
 // shared vault's scroll position unreadable to Obsidian (it would restore to
-// line 0), and made ours unreadable to Obsidian's writer. Per the Cluster L
+// line 0), and made ours unreadable to Obsidian's writer. Per the
 // compat doctrine — schema-at-rest fidelity to Obsidian is the only contract,
 // in-memory shape is free to be idiomatic — we keep our fraction under a
 // private key and leave Obsidian's `scroll` alone. The conversion that would

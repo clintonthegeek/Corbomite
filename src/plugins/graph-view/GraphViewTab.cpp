@@ -38,7 +38,7 @@ GraphViewTab::GraphViewTab(SearchProxy *search, VaultProxy *vault, QWidget *pare
     m_graphView = new ForceGraph::ForceGraphView(this);
     m_graphView->setEngine(m_engine);
 
-    // O6.T3: horizontal, so the per-tab controls panel can sit beside the
+    // Horizontal, so the per-tab controls panel can sit beside the
     // viewport inside this pane instead of in a MainWindow dock.
     auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -81,7 +81,7 @@ void GraphViewTab::buildGraph()
     auto data = GraphDataBuilder::buildGlobalGraph(
         m_search, m_vault, GraphDataBuilder::ignoreFilterFor(m_vault));
 
-    // Cap at 10K — beyond that, GPU acceleration (P8) is needed
+    // Cap at 10K — beyond that, GPU acceleration is needed
     static constexpr int MAX_GRAPH_NODES = 10000;
     if (data.nodes.size() > MAX_GRAPH_NODES) {
         qWarning() << "Graph too large:" << data.nodes.size() << "nodes. Capping at" << MAX_GRAPH_NODES;
@@ -136,7 +136,7 @@ GraphControlsPanel *GraphViewTab::controlsPanel()
 
 void GraphViewTab::syncPanelFromEngine()
 {
-    // O6.T3 — a fresh panel defaults to its own initial slider values, which
+    // A fresh panel defaults to its own initial slider values, which
     // are not necessarily the engine's current state. On the first tab both
     // start identically, but once the panel is created lazily (after, say, a
     // settings change) the panel would silently disagree with the engine.
@@ -157,7 +157,7 @@ void GraphViewTab::setMetadataCache(MetadataCacheReader *cache)
     if (m_cache) {
         // Full rebuild when initial indexing completes or any single note
         // changes. The global graph is cheap enough to recompute on each
-        // mutation — Phase 8 can add incremental updates later if needed.
+        // mutation — incremental updates can be added later if needed.
         connect(m_cache, &MetadataCacheReader::indexFinished,
                 this, [this]() { buildGraph(); });
         connect(m_cache, &MetadataCacheReader::cacheChanged,
@@ -344,13 +344,13 @@ void GraphViewTab::showNodeContextMenu(const QString &nodeId, const QPoint &glob
         Q_EMIT openNoteInNewTabRequested(relativePath);
     });
 
-    // TODO: Open in new window (requires multi-window support)
+    // Pending: "Open in new window" needs multi-window support.
 
     menu.addSeparator();
 
-    // TODO: Move file to... (requires file move dialog)
-    // TODO: Bookmark... (requires bookmark system)
-    // TODO: Merge entire file with... (requires merge UI)
+    // Pending: "Move file to…", "Bookmark…" and "Merge entire file with…"
+    // need the file-move dialog, the bookmark system and the merge UI
+    // respectively. All are filed in the punch list.
 
     // Copy path submenu
     auto *copyMenu = menu.addMenu(QIcon::fromTheme(QStringLiteral("edit-copy")),
@@ -362,7 +362,7 @@ void GraphViewTab::showNodeContextMenu(const QString &nodeId, const QPoint &glob
         QGuiApplication::clipboard()->setText(absolutePath);
     });
 
-    // TODO: Open linked view (requires local graph as tab)
+    // Pending: "Open linked view" needs the local graph to be openable as a tab.
 
     menu.addSeparator();
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Cluster M Phase M5.5 — "Canvas: Convert text card to file".
+// "Canvas: Convert text card to file".
 //
 // The contract under test is Obsidian's, not ours. From the restored 1.13.7
 // corpus:
@@ -99,7 +99,7 @@ private Q_SLOTS:
         KLocalizedString::setApplicationDomain("corbomite");
     }
 
-    // The named M5.5 test: the node is re-typed, not wrapped, and it keeps
+    // The named test: the node is re-typed, not wrapped, and it keeps
     // its geometry exactly.
     void testConvertToFileSwapsNodePreservingGeometry()
     {

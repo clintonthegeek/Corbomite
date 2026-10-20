@@ -14,22 +14,21 @@ namespace Corbomite {
 
 class View;
 
-/// Cluster O Phase O3 (O3.T1) — the Tier-A "presence" mechanism (doctrine
-/// §D1 in docs/superpowers/plans/2026-08-20-cluster-o-context-sensitive-ui.md).
+/// The Tier-A "presence" mechanism.
 ///
 /// One `ViewActions` subclass per view type ("markdown", "canvas", "bases",
 /// "graph", ...) owns exactly that type's menu(s), its own
 /// `KActionCollection` (inherited from `KXMLGUIClient` — a second/child
 /// XMLGUI client merging into the shell's menubar, precedented by
-/// `CorbomiteMDI::GUIClient`, `src/mdi/CorbomiteMDI.cpp`), and the QActions
-/// that populate its persistent toolbar (§D3/§D4).
+/// `ToolViewHost::GUIClient`, `src/mdi/ToolViewHost.cpp`), and the QActions
+/// that populate its persistent toolbar.
 ///
 /// Providers are constructed EAGERLY at `MainWindow` startup and registered
-/// with `ActionContextController` by view type (O3.T2 — forced by the
+/// with `ActionContextController` by view type (forced by the
 /// Hotkeys page, which needs every type's shortcuts visible even with no
 /// matching tab open). Only *installation* — `guiFactory()->addClient()` /
-/// `removeClient()` — is dynamic, driven by the focused leaf's view type
-/// (O3.T3). A provider is therefore constructed with a DEFAULT (parent-less)
+/// `removeClient()` — is dynamic, driven by the focused leaf's view type.
+/// A provider is therefore constructed with a DEFAULT (parent-less)
 /// `KXMLGUIClient()` base so it is never auto-merged as a permanent child
 /// client; `ActionContextController` is the only code that calls
 /// `addClient()`/`removeClient()` on it.
@@ -49,7 +48,7 @@ public:
     /// type — `view->getViewType() == viewType()` always holds when this is
     /// called — and sync check-state (radios, checkable toggles, ...) from
     /// it. Called both when this provider's client is freshly installed AND
-    /// on an ordinary same-type tab switch (O3.T3: a same-type switch costs
+    /// on an ordinary same-type tab switch (a same-type switch costs
     /// one `bind()` + `refresh()`, never an XMLGUI client swap).
     virtual void bind(View *view) = 0;
 
@@ -67,7 +66,7 @@ public:
     /// never touch the `KXMLGUIFactory`/rebuild any container.
     virtual void refresh() = 0;
 
-    /// The actions shown on this provider's persistent toolbar (§D4), in
+    /// The actions shown on this provider's persistent toolbar, in
     /// display order. May be called before the first `bind()` (right after
     /// the toolbar itself is constructed, post-`setupGUI()`); the returned
     /// `QAction`s live in this provider's own `actionCollection()` for the

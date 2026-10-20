@@ -113,7 +113,7 @@ CanvasScene::CanvasScene(QObject *parent)
     // lose to its plain-left-button select route. Building our own
     // CompositeTool from parts lets the resize predicate go first.
     m_selectTool = new Graffodil::SelectMoveTool(this);
-    // M4.1 — grid + object snap (both default ON) plus M4.2's Shift
+    // Grid + object snap (both default ON) plus the Shift
     // axis-lock, both hooked into the one align() callback SelectMoveTool
     // consults per mouseMove during a drag.
     m_alignmentStrategy = new CanvasAlignmentStrategy(this);
@@ -123,23 +123,23 @@ CanvasScene::CanvasScene(QObject *parent)
     m_duplicateDragTool = new CanvasDuplicateDragTool(this);
     m_createEdgeTool = new Graffodil::CreateEdgeTool(this);
     // Obsidian-strict: releasing without a drag cancels edge creation
-    // rather than falling into click-click mode (plan M3.2).
+    // rather than falling into click-click mode.
     m_createEdgeTool->setDragOnly(true);
-    // M3.4: 12.0 is CreateEdgeTool's own default anchor-hover radius, but
+    // 12.0 is CreateEdgeTool's own default anchor-hover radius, but
     // set it explicitly now that it's routed via m_edgeGestureTool instead
     // of being addAnchorRoute()'s direct target — that call used to
     // auto-sync this via its `qobject_cast<CreateEdgeTool*>` special case,
     // which no longer fires once the wrapper is what's registered.
     m_createEdgeTool->setAnchorHoverRadius(12.0);
     m_reconnectTool = new ReconnectEdgeTool(this);
-    // M3.4 dispatcher: decides per-press between reconnecting an existing
+    // Dispatcher: decides per-press between reconnecting an existing
     // edge's endpoint and creating a new edge — see CanvasEdgeGestureTool's
     // header comment for why this can't be expressed as two ordinary
     // CompositeTool routes.
     m_edgeGestureTool = new CanvasEdgeGestureTool(m_createEdgeTool, m_reconnectTool, this);
     m_compositeTool = new Graffodil::CompositeTool(this);
 
-    // M3.2/M3.4 — route left-button presses within the anchor hover radius
+    // Route left-button presses within the anchor hover radius
     // to the edge-gesture dispatcher (create vs. reconnect). addAnchorRoute()
     // always prepends, so this wins over every route added below regardless
     // of call order — but it's placed first anyway for readability. This IS
@@ -154,7 +154,7 @@ CanvasScene::CanvasScene(QObject *parent)
     m_compositeTool->addAnchorRoute(m_edgeGestureTool, 12.0);
 
     // Same bindings as Graffodil::DefaultGraphTool, with the resize route
-    // prepended ahead of select/move. M5.4: the read-only lock drops both
+    // prepended ahead of select/move. The read-only lock drops both
     // mutation-gesture routes so a press at a handle or on an anchor falls
     // through to the select route (Obsidian gates the same two gestures
     // separately from selection: `onResizeDblclick`/`onResizePointerdown` at
@@ -165,7 +165,7 @@ CanvasScene::CanvasScene(QObject *parent)
             && ev->button() == Qt::LeftButton
             && findResizeTarget(this, ev->scenePos()) != nullptr;
     });
-    // M2.5 — Alt-drag duplicate: also tried ahead of select/move. Alt isn't
+    // Alt-drag duplicate: also tried ahead of select/move. Alt isn't
     // matched by any of the plain/Shift/Ctrl/Meta select routes below, so
     // ordering isn't strictly load-bearing here, but this mirrors the
     // resize route's placement per the plan's "tried before the normal
@@ -203,7 +203,7 @@ CanvasScene::CanvasScene(QObject *parent)
 
     setActiveTool(m_compositeTool);
 
-    // M1.5 undo wiring: tool intent signals -> Cmd* on the undo stack.
+    // Undo wiring: tool intent signals -> Cmd* on the undo stack.
     // Tools never touch CanvasDocument directly (plan Appendix B rule 1).
     connect(m_selectTool, &Graffodil::SelectMoveTool::dragBegan,
             this, &CanvasScene::onDragBegan);
@@ -211,7 +211,7 @@ CanvasScene::CanvasScene(QObject *parent)
             this, &CanvasScene::onDragEnded);
     connect(m_selectTool, &Graffodil::SelectMoveTool::deleteRequested,
             this, &CanvasScene::onDeleteRequested);
-    // M3.5 — R-key reverse, wired through the same CmdReverseEdge logic as
+    // R-key reverse, wired through the same CmdReverseEdge logic as
     // the "Reverse Direction" context-menu action (spec §3.6).
     connect(m_selectTool, &Graffodil::SelectMoveTool::reverseRequested,
             this, &CanvasScene::onReverseRequested);
@@ -219,16 +219,16 @@ CanvasScene::CanvasScene(QObject *parent)
             this, &CanvasScene::onResizeCommitted);
     connect(m_createEdgeTool, &Graffodil::CreateEdgeTool::edgeRequested,
             this, &CanvasScene::onEdgeRequested);
-    // M3.3 — drop-on-empty create-and-connect menu.
+    // Drop-on-empty create-and-connect menu.
     connect(m_createEdgeTool, &Graffodil::CreateEdgeTool::edgeDroppedOnEmpty,
             this, &CanvasScene::onEdgeDroppedOnEmpty);
-    // M3.4 — endpoint reconnect.
+    // Endpoint reconnect.
     connect(m_reconnectTool, &ReconnectEdgeTool::reconnectRequested,
             this, &CanvasScene::onReconnectRequested);
     connect(m_reconnectTool, &ReconnectEdgeTool::reconnectDroppedOnEmpty,
             this, &CanvasScene::onReconnectDroppedOnEmpty);
 
-    // M4.4 — shared resize/connection-point chrome overlay. Not a graph
+    // Shared resize/connection-point chrome overlay. Not a graph
     // node/edge (doesn't go through addNode()/addEdge()), just a plain
     // scene item added directly, matching "one overlay retargeted to the
     // active node" from the plan rather than per-node children.
@@ -239,7 +239,7 @@ CanvasScene::CanvasScene(QObject *parent)
 
 CanvasScene::~CanvasScene()
 {
-    // M4.4 — disconnect the chrome-overlay's selectionChanged wiring before
+    // Disconnect the chrome-overlay's selectionChanged wiring before
     // any teardown starts. QGraphicsScene's base destructor (which runs
     // AFTER this body returns) deletes any items still in the scene, and
     // deleting a selected item emits selectionChanged() synchronously; by
@@ -297,7 +297,7 @@ void CanvasScene::applyDarkTheme(bool dark)
 }
 
 // ---------------------------------------------------------------------------
-// M5.4 — read-only lock
+// Read-only lock
 // ---------------------------------------------------------------------------
 
 void CanvasScene::setReadOnly(bool readOnly)
@@ -426,7 +426,7 @@ void CanvasScene::clearAllItems()
     finishFileCardEdit();
     finishGroupLabelEdit();
 
-    // M4.4 — every node about to be deleted below; drop any dangling
+    // Every node about to be deleted below; drop any dangling
     // references the chrome overlay / hover tracking would otherwise hold.
     m_hoveredNode = nullptr;
     if (m_chromeOverlay)
@@ -441,7 +441,7 @@ void CanvasScene::clearAllItems()
 
 void CanvasScene::wireNodeChromeSignals(CanvasNodeItem *item)
 {
-    // M4.4 — hover tracking feeds the chrome overlay's "active node when
+    // Hover tracking feeds the chrome overlay's "active node when
     // nothing is selected" fallback; geometryChanged keeps the overlay's
     // position glued to its retargeted node during drags/resizes.
     connect(item, &CanvasNodeItem::hoverChanged, this, [this, item](bool hovered) {
@@ -467,7 +467,7 @@ void CanvasScene::updateActiveChromeTarget()
     // always, plus the 4 connection dots only if that same node also
     // happens to be hovered right now (Obsidian-style: connection dots are
     // a hover affordance, not a permanent selected-card decoration — see
-    // CanvasNodeChromeOverlay.h and the M4.4 task brief).
+    // CanvasNodeChromeOverlay.h and the task brief).
     const auto selected = selectedItems();
     if (selected.size() == 1) {
         if (auto *node = dynamic_cast<CanvasNodeItem *>(selected.first())) {
@@ -816,7 +816,7 @@ void CanvasScene::setVaultPathResolver(VaultPathResolver resolver)
 }
 
 // ---------------------------------------------------------------------------
-// M2.3 — drag-drop node creation
+// Drag-drop node creation
 // ---------------------------------------------------------------------------
 
 void CanvasScene::dragEnterEvent(QGraphicsSceneDragDropEvent *event)
@@ -847,7 +847,7 @@ void CanvasScene::dragMoveEvent(QGraphicsSceneDragDropEvent *event)
 
 void CanvasScene::dropEvent(QGraphicsSceneDragDropEvent *event)
 {
-    // M5.4 diverges from Obsidian here on purpose: its dragManager.handleDrop
+    // Diverges from Obsidian here on purpose: its dragManager.handleDrop
     // callback (app/own/2018-k7.js:265-341) has no readonly check, so
     // dropping a file onto a read-only canvas still creates cards. A drop is a
     // mutation, so it is gated.
@@ -862,7 +862,7 @@ void CanvasScene::dropEvent(QGraphicsSceneDragDropEvent *event)
 
     if (mime->hasUrls()) {
         // text/uri-list: one file-card node per dropped file, vault-relative.
-        // Paths outside the vault are rejected (M1/M2 scope: no
+        // Paths outside the vault are rejected (this scope has no
         // copy-into-vault — punch-list candidate if users hit this).
         QStringList vaultRelPaths;
         for (const QUrl &url : mime->urls()) {
@@ -921,7 +921,7 @@ void CanvasScene::dropEvent(QGraphicsSceneDragDropEvent *event)
 
     if (mime->hasText() && !mime->text().isEmpty()) {
         // text/plain -> new text card, centered on the drop point (same
-        // convention as M2.1's double-click creation).
+        // convention as the double-click creation).
         static constexpr int kTextWidth = 250;
         static constexpr int kTextHeight = 60;
 
@@ -984,7 +984,7 @@ void CanvasScene::renderFileCard(FileCardItem *item)
     if (!item)
         return;
 
-    // M6.3 — a card whose target does not resolve shows the placeholder and
+    // A card whose target does not resolve shows the placeholder and
     // never renders body content. Missing requires an explicit exists
     // checker (see fileCardResolves).
     const bool missing = !fileCardResolves(item->nodeData().file);
@@ -1075,7 +1075,7 @@ void CanvasScene::onNodeAdded(const QString &id)
 
 void CanvasScene::onNodeRemoved(const QString &id)
 {
-    // M4.4 — drop any dangling reference to the about-to-be-deleted item
+    // Drop any dangling reference to the about-to-be-deleted item
     // BEFORE the delete below (both the hover pointer and the chrome
     // overlay's target are raw CanvasNodeItem* with no lifetime tracking
     // of their own).
@@ -1144,7 +1144,7 @@ void CanvasScene::onEdgeChanged(const QString &id)
 
     const CanvasEdge oldData = item->edgeData();
     if (oldData.fromNode != newData.fromNode || oldData.toNode != newData.toNode) {
-        // M3.4: Graffodil::GraphEdgeItem's source/target nodes are fixed at
+        // Graffodil::GraphEdgeItem's source/target nodes are fixed at
         // construction (m_source/m_target are private, no setter) — a
         // CmdReconnectEdge that retargets an end to a different node can't
         // be applied by EdgeItem::setEdgeData()'s in-place mutation (it only
@@ -1160,14 +1160,14 @@ void CanvasScene::onEdgeChanged(const QString &id)
     }
 
     // Fast path: color/label/end changes on the same two nodes (existing
-    // "Edit Label" menu action, M3.5 direction submenu via CmdSetEdgeEnds)
+    // "Edit Label" menu action, direction submenu via CmdSetEdgeEnds)
     // stay in-place. "Reverse Direction"/R-key (CmdReverseEdge) swap
     // fromNode/toNode, so those hit the remove+recreate branch above.
     item->setEdgeData(newData);
 }
 
 // ---------------------------------------------------------------------------
-// M1.5 undo wiring — Graffodil tool intent signals -> Cmd* (Appendix B rule 1:
+// Undo wiring — Graffodil tool intent signals -> Cmd* (Appendix B rule 1:
 // tools never touch CanvasDocument directly)
 // ---------------------------------------------------------------------------
 
@@ -1188,7 +1188,7 @@ void CanvasScene::onDragBegan(const QList<Graffodil::IGraphNode *> &nodes)
     for (auto *node : nodes)
         m_dragSnapshot.insert(node->nodeId(), node->graphicsItem()->pos());
 
-    // M4.3: any group in the drag set freezes its full-containment members
+    // Any group in the drag set freezes its full-containment members
     // for the whole gesture (Appendix A "Group membership"). Those members
     // move reactively through GroupItem::itemChange, not through
     // SelectMoveTool's own per-node loop (its m_draggedNodes is private —
@@ -1358,7 +1358,7 @@ void CanvasScene::addCardConnectedTo(CanvasNode node, Graffodil::IGraphNode *sou
     if (!m_document || m_readOnly || !source)
         return;
 
-    // toSide = side facing the source (Appendix A/Phase M3.3): pick the new
+    // toSide = side facing the source (Appendix A): pick the new
     // node's own face using the direction vector FROM the new node's center
     // TOWARD the source's center — mirrors CanvasDocument.cpp's symmetric
     // self-heal call for unresolved-side edges on load.
@@ -1746,9 +1746,9 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
         finishFileCardEdit();
     }
 
-    // M6.3 — route the missing-file placeholder buttons before the tools see
+    // Route the missing-file placeholder buttons before the tools see
     // the press. Walking the item stack, not just the topmost item, is load
-    // bearing: the M4.4 chrome overlay sits above every node (z 1000) and its
+    // bearing: the chrome overlay sits above every node (z 1000) and its
     // shape covers the whole card, so itemAt() returns the overlay rather than
     // the card — and because the overlay is up whenever the pointer is over
     // the card, a topmost-only check left these buttons painting but
@@ -1808,20 +1808,20 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
         return;
     }
 
-    // Ctrl+A (select all) is a pre-M1 canvas feature (plan "Working today"
+    // Ctrl+A (select all) is an early canvas feature (plan "Working today"
     // list) that Graffodil::SelectMoveTool does not implement (it only owns
     // Delete/Backspace/R). Guarded on !focusItem() so it never steals keys
     // from an in-place label/text editor (group-label, edge-label proxies).
     //
-    // Arrow-key nudge was ALSO a pre-M1 stopgap here (flat 1px/10px,
+    // Arrow-key nudge was ALSO an early stopgap here (flat 1px/10px,
     // moveBy() directly on each selected item — no undo push at all) —
-    // M4.2 redesigns it: step = the current CanvasAlignmentStrategy
+    // The nudge now uses the current CanvasAlignmentStrategy
     // grid-spacing rung for the view's zoom (20/40/80/160, Appendix A),
     // x5 with Shift, and the move is now pushed through CmdMoveCards
     // (same undo path as a mouse drag, via onDragEnded's before/after
     // position-hash shape) so nudging is finally undoable.
-    // M5.4: arrow-key nudge is a move, so it is gated; Ctrl+A (select) is
-    // not. Obsidian has no arrow nudge at all — this is Corbomite's M4.2
+    // Arrow-key nudge is a move, so it is gated; Ctrl+A (select) is
+    // not. Obsidian has no arrow nudge at all — Corbomite's
     // addition, gated here against its own spec rather than Obsidian's.
     if (!focusItem()) {
         if ((event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_A) {
@@ -1880,7 +1880,7 @@ void CanvasScene::keyPressEvent(QKeyEvent *event)
 }
 
 // ---------------------------------------------------------------------------
-// M2.1 — double-click empty canvas -> new text card, born in edit mode
+// Double-click empty canvas -> new text card, born in edit mode
 // ---------------------------------------------------------------------------
 
 void CanvasScene::mouseDoubleClickEventBackground(const QPointF &scenePos)
@@ -1912,7 +1912,7 @@ void CanvasScene::mouseDoubleClickEventBackground(const QPointF &scenePos)
 }
 
 // ---------------------------------------------------------------------------
-// M2.4 — clipboard
+// Clipboard
 // ---------------------------------------------------------------------------
 
 QString CanvasScene::serializeSelectionAsCanvasJson() const
@@ -1999,7 +1999,7 @@ void CanvasScene::pasteCanvasJsonOrText(const QString &clipboardText, const QPoi
     }
 
     // Plain text -> new text card, centered on pasteCenterScenePos (same
-    // convention as M2.1/M2.3 gesture-driven text-card creation).
+    // convention as the gesture-driven text-card creation).
     static constexpr int kTextWidth = 250;
     static constexpr int kTextHeight = 60;
 
@@ -2104,7 +2104,7 @@ void CanvasScene::populateContextMenu(QMenu *menu, const QPointF &scenePos)
         hitItem = hitItem->parentItem();
     }
 
-    // M5.4: while locked every mutating entry is omitted rather than
+    // While locked every mutating entry is omitted rather than
     // disabled, so the menu isn't a wall of grey. Mirrors Obsidian's
     // per-item `this.readonly || n.addItem(...)` guards — the selection menu
     // (app/own/2018-k7.js:1519/1527/1537), the edge menu
@@ -2118,7 +2118,7 @@ void CanvasScene::populateContextMenu(QMenu *menu, const QPointF &scenePos)
                 beginInlineEdit(cardItem);
             });
 
-            // M5.5 — upstream's text-card menu carries this entry right
+            // Upstream's text-card menu carries this entry right
             // after Edit, behind the same `canvas.readonly` guard
             // (`app/own/2022-W7.js:381-388`).
             if (m_fileNameRequestor && m_markdownFileCreator) {
@@ -2223,7 +2223,7 @@ void CanvasScene::populateContextMenu(QMenu *menu, const QPointF &scenePos)
                 reverseEdge(edgItem->edgeId());
             });
 
-            // M3.5 — Direction submenu: Nondirectional / Unidirectional /
+            // Direction submenu: Nondirectional / Unidirectional /
             // Bidirectional, mapped to (fromEnd, toEnd) per Appendix A.
             auto *dirMenu = menu->addMenu(i18n("Direction"));
             const QString edgeId = edgItem->edgeId();
@@ -2274,7 +2274,7 @@ void CanvasScene::populateContextMenu(QMenu *menu, const QPointF &scenePos)
     }
 }
 
-// --- Cluster R Task 3.5 — image / SVG export --------------------------------
+// --- image / SVG export --------------------------------
 
 QImage CanvasScene::renderToImage(const QRectF &bounds, bool transparentBg,
                                     bool showEdges, qreal scale)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Phase 1 (contract v2) — NoteEditorWidget ephemeral state round-trips
-// through the MarkdownView base: cursor as 1-based flat-visual-line
+// through the MarkdownFileView base: cursor as 1-based flat-visual-line
 // CursorPos, scroll as 0.0–1.0 fraction. Replaces the pre-port tests that
 // drove the retired leaf-specific scrollPosition/cursorLine APIs.
 // Runs under QT_QPA_PLATFORM=offscreen.

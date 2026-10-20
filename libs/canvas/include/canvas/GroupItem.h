@@ -23,7 +23,7 @@ public:
     /// parent; recomputed on demand.
     QVector<QGraphicsItem *> containedItems() const;
 
-    /// M4.3 — freeze group membership for one drag gesture. Computes
+    /// Freeze group membership for one drag gesture. Computes
     /// containedItems() once and caches it; while a capture is active,
     /// itemChange() moves exactly that cached set instead of re-testing
     /// membership every frame (replaces the old always-live center-test

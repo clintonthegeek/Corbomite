@@ -121,7 +121,7 @@ QString RelativeDateValue::toString() const
     return fmt(abs / (86400 * 365), "year");
 }
 
-// --- list date aggregates (Phase 1 Task 1.4 stubbed these; now real) ---
+// --- list date aggregates ---
 
 ValuePtr ListValue::earliest() const
 {

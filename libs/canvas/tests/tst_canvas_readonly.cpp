@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Cluster M Phase M5.4 — the canvas read-only lock. Obsidian's side of the
+// The canvas read-only lock. Obsidian's side of the
 // contract, re-verified against RE/obsidian/1.13.7:
 //   * flag       app/own/2018-k7.js:81 (`this.readonly = !1`), toggled by
 //                Canvas.setReadonly at :1395-1403
@@ -266,7 +266,7 @@ private Q_SLOTS:
         pressKey(&scene, Qt::Key_Delete);
         QCOMPARE(doc.nodes().size(), nodesBefore);
 
-        // 9. arrow-key nudge (Corbomite's own M4.2 move)
+        // 9. arrow-key nudge (Corbomite's own move)
         pressKey(&scene, Qt::Key_Right);
         QCOMPARE(doc.node(QStringLiteral("t1")).x, 0);
 
@@ -370,7 +370,7 @@ private Q_SLOTS:
 
         scene.setReadOnly(true);
 
-        // The M3.5 Direction submenu / R-key reverse path.
+        // The Direction submenu / R-key reverse path.
         scene.reverseEdge(QStringLiteral("e1"));
         QCOMPARE(doc.edge(QStringLiteral("e1")).fromNode, QStringLiteral("a"));
         QCOMPARE(doc.edge(QStringLiteral("e1")).toNode, QStringLiteral("b"));

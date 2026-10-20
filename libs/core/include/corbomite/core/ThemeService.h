@@ -33,7 +33,7 @@ public:
 
     /// Whether the active theme is a DARK one.
     ///
-    /// Added for Cluster M's canvas dark mode: canvas needs a single boolean
+    /// Added for the canvas dark mode: canvas needs a single boolean
     /// to pick a palette, and deriving "dark" from the theme's colours
     /// independently in every consumer is how two views end up disagreeing
     /// about whether the app is dark. `themeFromPalette()` already uses this

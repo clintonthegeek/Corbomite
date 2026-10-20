@@ -58,8 +58,8 @@ void DailyNoteService::initFromVaultConfig(Corbomite::VaultConfig &config)
         setTemplateName(obj.value(QStringLiteral("template")).toString());
     }
     // The `autorun` key is documented but not consumed here; MainWindow
-    // can read it separately if boot-time auto-open is wanted. Phase 4.1
-    // follow-up: write-back on settings change.
+    // can read it separately if boot-time auto-open is wanted.
+    // Follow-up: write-back on settings change.
 }
 
 QString DailyNoteService::todayNotePath() const

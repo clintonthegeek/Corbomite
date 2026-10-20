@@ -102,7 +102,7 @@ void EditableFileView::onMoreOptionsMenu(MenuSectionHelper &helper)
         i18n("Open in new window"), this);
     openInNewWindow->setEnabled(false);
     openInNewWindow->setToolTip(
-        i18n("Requires WorkspaceWindow popout (Cluster G follow-up #6)"));
+        i18n("Requires WorkspaceWindow popout"));
     helper.addToSection(openInNewWindow, QStringLiteral("pane"));
 
     auto *bookmarkAct = new QAction(
@@ -115,7 +115,7 @@ void EditableFileView::onMoreOptionsMenu(MenuSectionHelper &helper)
     } else {
         bookmarkAct->setEnabled(false);
         bookmarkAct->setToolTip(
-            i18n("Enable the Bookmarks plugin to save bookmarks (Cluster S)"));
+            i18n("Enable the Bookmarks plugin to save bookmarks"));
     }
     helper.addToSection(bookmarkAct, QStringLiteral("pane"));
 

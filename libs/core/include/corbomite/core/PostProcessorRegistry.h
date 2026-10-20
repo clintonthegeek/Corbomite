@@ -12,13 +12,13 @@
 
 namespace Corbomite::Core {
 
-class VaultResourceProvider;
+class ResourceResolver;
 
 /// Context passed to every post-processor invocation.
 struct PostProcessorContext
 {
     QString sourcePath;
-    VaultResourceProvider *resources = nullptr; ///< not owned
+    ResourceResolver *resources = nullptr; ///< not owned
     int depth = 0;
 };
 

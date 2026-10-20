@@ -13,7 +13,7 @@ class TFile;
 namespace Corbomite::ExportToPdf {
 
 /// Show a Save-As dialog and export the note to PDF. Returns true on
-/// success. Cluster R Task 3.3 — backs the MarkdownView "Export to PDF..."
+/// success. Backs the MarkdownFileView "Export to PDF..."
 /// menu action.
 bool exportFile(Corbomite::TFile *file, Corbomite::Vault *vault,
                 QWidget *parent);

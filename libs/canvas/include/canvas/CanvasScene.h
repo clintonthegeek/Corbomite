@@ -66,7 +66,7 @@ public:
     void setDocument(CanvasDocument *doc);
     CanvasDocument *document() const;
 
-    // ---- Cluster M leftover: canvas dark mode ----
+    // ---- canvas dark mode ----
     //
     // One palette for the whole scene, so a paint() can never mix a
     // half-updated set of colours during a theme change. setCanvasPalette
@@ -82,7 +82,7 @@ public:
     /// free of any ThemeService/KColorScheme dependency.
     void applyDarkTheme(bool dark);
 
-    /// M5.4 — build the canvas context menu for `scenePos` into `menu`
+    /// Build the canvas context menu for `scenePos` into `menu`
     /// without showing it. Split out of contextMenuEvent() so the
     /// read-only lock's menu filtering is reachable from a test without
     /// driving QMenu::exec()'s nested event loop — the same rationale as
@@ -111,16 +111,16 @@ public:
     using FileResolver = std::function<QString(const QString &filePath)>;
     void setFileResolver(FileResolver resolver);
 
-    // M6.3 — distinguishes "file missing" from "file exists but is empty" for
+    // Distinguishes "file missing" from "file exists but is empty" for
     // the file-card placeholder. When unset, an empty resolver result is
-    // treated as missing (the pre-M6.3 behaviour).
+    // treated as missing (the earlier behaviour).
     using FileExists = std::function<bool(const QString &filePath)>;
     void setFileExistsChecker(FileExists checker);
 
     /// Unlike the resolver, this reports whether a file node's target exists.
     bool fileCardResolves(const QString &filePath) const;
 
-    // M6.3 — the three missing-file placeholder button actions. Public and
+    // The three missing-file placeholder button actions. Public and
     // separately callable (same rationale as createFileCardViaPicker()) so
     // tests can exercise them without synthesising mouse events. Each returns
     // true when it acted.
@@ -128,7 +128,7 @@ public:
     bool locateMissingFileCard(const QString &nodeId);
     bool removeMissingFileCard(const QString &nodeId);
 
-    /// M6.3 auto-resolve: re-render every file card whose `file` equals
+    /// Auto-resolve: re-render every file card whose `file` equals
     /// `filePath` (vault create/rename), or every file card when `filePath`
     /// is empty.
     void refreshFileCards(const QString &filePath = QString());
@@ -137,7 +137,7 @@ public:
     using FileSaver = std::function<void(const QString &filePath, const QString &content)>;
     void setFileSaver(FileSaver saver);
 
-    // M2.2 — file-card creation via a modal picker. The real app wires this
+    // File-card creation via a modal picker. The real app wires this
     // to open a CanvasFilePickerDialog (vault fuzzy file-suggest); returns
     // the chosen path (vault-relative) or an empty string if cancelled.
     // Kept as an injectable callback so tests can supply a fixed result
@@ -145,7 +145,7 @@ public:
     using FilePickerRequestor = std::function<QString()>;
     void setFilePickerRequestor(FilePickerRequestor requestor);
 
-    /// M5.4 read-only lock. Mirrors Obsidian's `Canvas.readonly`
+    /// Read-only lock. Mirrors Obsidian's `Canvas.readonly`
     /// (`app/own/2018-k7.js:81`, toggled by `Canvas.setReadonly` at `:1395`):
     /// per-canvas-file, machine-local, and gating everything except
     /// pan/zoom/select. The flag lives here rather than in CanvasDocument
@@ -174,7 +174,7 @@ public:
     /// default) at scenePos, storing the path vault-relative.
     void createFileCardViaPicker(const QPointF &scenePos);
 
-    /// M3.3 testable core of the drop-on-empty create-and-connect menu:
+    /// Testable core of the drop-on-empty create-and-connect menu:
     /// pushes one compound undo command (CmdAddCard + CmdAddEdge, parented
     /// under a single QUndoCommand) that adds `node` and connects it to
     /// `source` from `sourceAnchorId`. `node`'s id/type/geometry must
@@ -186,14 +186,14 @@ public:
     void addCardConnectedTo(CanvasNode node, Graffodil::IGraphNode *source,
                              const QString &sourceAnchorId);
 
-    /// M3.5 testable core of the Direction submenu: pushes a CmdSetEdgeEnds
+    /// Testable core of the Direction submenu: pushes a CmdSetEdgeEnds
     /// that sets `edgeId`'s fromEnd/toEnd to the given pair. Public and
     /// separately callable — same rationale as addCardConnectedTo() above —
     /// so tests can exercise it without driving QMenu::exec()'s nested event
     /// loop. No-op if the edge doesn't exist.
     void setEdgeEnds(const QString &edgeId, EndType fromEnd, EndType toEnd);
 
-    /// M3.5 shared "build a reverse command for one edge id" logic, used by
+    /// Shared "build a reverse command for one edge id" logic, used by
     /// both the context-menu "Reverse Direction" action and the R-key
     /// onReverseRequested() handler (and directly by tests, same rationale
     /// as setEdgeEnds()/addCardConnectedTo() above). If `parent` is
@@ -201,15 +201,15 @@ public:
     /// rather than pushed on the undo stack directly.
     void reverseEdge(const QString &edgeId, QUndoCommand *parent = nullptr);
 
-    // M2.3 — resolves an absolute filesystem path (from a text/uri-list
+    // Resolves an absolute filesystem path (from a text/uri-list
     // drag-drop) to a vault-relative path, or returns an empty string if
-    // the path is outside the vault (rejected: M1/M2 scope has no
+    // the path is outside the vault (rejected: this scope has no
     // copy-into-vault). If unset, absolute paths are stored as-is
     // (test / no-vault convenience) — the real app always sets one.
     using VaultPathResolver = std::function<QString(const QString &absoluteFilePath)>;
     void setVaultPathResolver(VaultPathResolver resolver);
 
-    // --- M5.5 "Convert to File…" (Obsidian TextCardItem.convertToFile) ---
+    // --- "Convert to File…" (Obsidian TextCardItem.convertToFile) ---
     //
     // The operation spans a modal prompt and a libs/vault FileManager write,
     // neither of which libs/canvas may own, so both are seams — same shape
@@ -250,7 +250,7 @@ public:
     /// array rather than the live scene.
     QVector<GroupJumpTarget> groupJumpTargets() const;
 
-    // M2.4 — clipboard. serializeSelectionAsCanvasJson()/pasteCanvasJsonOrText()
+    // Clipboard. serializeSelectionAsCanvasJson()/pasteCanvasJsonOrText()
     // are pure logic (no QClipboard access) so tests can round-trip them
     // directly; copySelectionToClipboard()/cutSelectionToClipboard() are the
     // real-app convenience wrappers that touch QGuiApplication::clipboard().
@@ -290,14 +290,14 @@ public:
     // Undo
     QUndoStack *undoStack();
 
-    /// M4.2 — true while a plain select/move node drag (Graffodil
+    /// True while a plain select/move node drag (Graffodil
     /// SelectMoveTool's dragBegan..dragEnded window) is in progress. Used
     /// by CanvasView to decide whether to run edge auto-pan. Scoped to
     /// node moves only for a first pass (not resize drags) — see
     /// CanvasView.cpp's auto-pan comment for why.
     bool isDragActive() const { return m_dragActive; }
 
-    /// Cluster R Task 3.5 — render the scene's `bounds` region to an image.
+    /// Render the scene's `bounds` region to an image.
     /// `scale` multiplies the output pixel dimensions (2.0 yields a HiDPI
     /// raster). `transparentBg` swaps the scene's background brush for
     /// transparent. `showEdges` hides `EdgeItem`s during render (useful for
@@ -307,7 +307,7 @@ public:
                           bool showEdges = true,
                           qreal scale = 2.0);
 
-    /// Cluster R Task 3.5 — render the scene's `bounds` region to SVG via
+    /// Render the scene's `bounds` region to SVG via
     /// `out` (caller owns the device). Same `transparentBg` + `showEdges`
     /// semantics as `renderToImage`.
     void renderToSvg(const QRectF &bounds,
@@ -315,18 +315,18 @@ public:
                       bool transparentBg = false,
                       bool showEdges = true);
 
-    /// M4.4 — testing/introspection accessor for the shared resize/
+    /// Testing/introspection accessor for the shared resize/
     /// connection-point chrome overlay (single overlay retargeted to the
     /// active selected/hovered node — see CanvasNodeChromeOverlay).
     CanvasNodeChromeOverlay *chromeOverlay() const { return m_chromeOverlay; }
 
-    /// Cluster O Phase O4 (O4.T1) — exposes the snap-to-grid/snap-to-object
+    /// Exposes the snap-to-grid/snap-to-object
     /// toggles for CanvasViewActions. Was private with no accessor.
     CanvasAlignmentStrategy *alignmentStrategy() const { return m_alignmentStrategy; }
 
 Q_SIGNALS:
     void cardDoubleClicked(const QString &nodeId);
-    /// M5.4 — CanvasViewTab listens to persist the flag to tier 3.
+    /// CanvasViewTab listens to persist the flag to tier 3.
     void readOnlyChanged(bool readOnly);
 
 protected:
@@ -336,12 +336,12 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
     void contextMenuEvent(QGraphicsSceneContextMenuEvent *event) override;
 
-    /// M2.1 — double-click on empty canvas creates a new text card
+    /// Double-click on empty canvas creates a new text card
     /// (250x60, centered on the click point), selects it, and immediately
     /// begins inline-edit (card is "born" in edit mode).
     void mouseDoubleClickEventBackground(const QPointF &scenePos) override;
 
-    // M2.3 — drag-drop node creation. setAcceptDrops(true) is required on
+    // Drag-drop node creation. setAcceptDrops(true) is required on
     // the owning CanvasView; QGraphicsView forwards translated drag/drop
     // events to these QGraphicsScene virtuals automatically.
     void dragEnterEvent(QGraphicsSceneDragDropEvent *event) override;
@@ -360,30 +360,30 @@ private Q_SLOTS:
     void finishInlineEdit();
     void finishGroupLabelEdit();
 
-    // --- M1.5 undo wiring (Graffodil tool intent signals -> Cmd*) ---
+    // --- undo wiring (Graffodil tool intent signals -> Cmd*) ---
     void onDragBegan(const QList<Graffodil::IGraphNode *> &nodes);
     void onDragEnded(const QList<Graffodil::IGraphNode *> &nodes);
     void onDeleteRequested(const QList<Graffodil::IGraphNode *> &nodes,
                             const QList<Graffodil::IGraphEdge *> &edges);
     void onResizeCommitted(const QString &nodeId, const QRect &oldRect, const QRect &newRect);
 
-    // --- M3.2 edge creation gesture (Graffodil::CreateEdgeTool -> CmdAddEdge) ---
+    // --- edge creation gesture (Graffodil::CreateEdgeTool -> CmdAddEdge) ---
     void onEdgeRequested(Graffodil::IGraphNode *source, const QString &sourceAnchorId,
                           Graffodil::IGraphNode *target, const QString &targetAnchorId);
 
-    // --- M3.3 drop-on-empty -> create-and-connect menu ---
+    // --- drop-on-empty -> create-and-connect menu ---
     void onEdgeDroppedOnEmpty(Graffodil::IGraphNode *source, const QString &sourceAnchorId,
                                const QPointF &scenePos);
 
-    // --- M3.4 endpoint reconnect (ReconnectEdgeTool -> CmdReconnectEdge / CmdRemoveEdge) ---
+    // --- endpoint reconnect (ReconnectEdgeTool -> CmdReconnectEdge / CmdRemoveEdge) ---
     void onReconnectRequested(const QString &edgeId, Graffodil::ArrowEnd end,
                                Graffodil::IGraphNode *newNode, const QString &newAnchorId);
     void onReconnectDroppedOnEmpty(const QString &edgeId);
 
-    // --- M3.5 direction menu / R-key reverse ---
+    // --- direction menu / R-key reverse ---
     void onReverseRequested(const QList<Graffodil::IGraphEdge *> &edges);
 
-    // --- M4.4 chrome overlay retargeting ---
+    // --- chrome overlay retargeting ---
     /// Connected to QGraphicsScene::selectionChanged() (a real built-in Qt
     /// signal, no new plumbing needed) and to each node's hoverChanged().
     void updateActiveChromeTarget();
@@ -394,14 +394,14 @@ private:
     void renderFileCard(FileCardItem *item);
     void reRenderAllCards();
     void addColorSubmenu(QMenu *parentMenu, const QString &nodeId, const QString &currentColor);
-    /// M5.4 — re-apply m_dragSnapshot's positions, called from mouseMoveEvent
+    /// Re-apply m_dragSnapshot's positions, called from mouseMoveEvent
     /// after SelectMoveTool has moved the drag set. SelectMoveTool fuses
     /// selection and move into one gesture and its drag state is private (and
     /// it lives in the graffodil submodule), so this is the only way to keep
     /// "selection still works, movement does not" without forking it: the
     /// items follow the cursor and are snapped straight back each event.
     void restoreDragSnapshot();
-    /// M4.4 — wires the hover/geometry signals shared by every
+    /// Wires the hover/geometry signals shared by every
     /// CanvasNodeItem subclass; called once from each add*Item() factory
     /// (mirrors the per-subclass editRequested() connect() calls already
     /// there).
@@ -423,14 +423,14 @@ private:
     CanvasEdgeGestureTool *m_edgeGestureTool = nullptr;
     CanvasAlignmentStrategy *m_alignmentStrategy = nullptr;
     CanvasNodeChromeOverlay *m_chromeOverlay = nullptr;
-    /// M4.4 — the sole hovered node, or nullptr. Tracked via each node's
+    /// The sole hovered node, or nullptr. Tracked via each node's
     /// hoverChanged() signal; feeds updateActiveChromeTarget()'s
     /// selection-empty fallback.
     CanvasNodeItem *m_hoveredNode = nullptr;
 
     QUndoStack *m_undoStack = nullptr;
 
-    /// Cluster M leftover — canvas dark mode. Held by value so items read a
+    /// Canvas dark mode. Held by value so items read a
     /// stable snapshot; never null, never half-updated.
     CanvasPalette m_palette;
     Corbomite::MarkdownRenderEngine *m_renderEngine = nullptr;
@@ -464,14 +464,14 @@ private:
 
     // Move-drag undo snapshot (dragBegan -> dragEnded)
     QHash<QString, QPointF> m_dragSnapshot;
-    // M4.2 — mirrors whether we're between onDragBegan/onDragEnded, for
+    // Mirrors whether we're between onDragBegan/onDragEnded, for
     // CanvasView's edge auto-pan.
     bool m_dragActive = false;
-    // M4.3 — groups whose drag-capture was started this gesture (so
+    // Groups whose drag-capture was started this gesture (so
     // onDragEnded can symmetrically end capture on exactly the ones begun).
     QVector<GroupItem *> m_capturedGroups;
 
-    // --- M5.4 read-only lock ---
+    // --- read-only lock ---
     bool m_readOnly = false;
     /// True between onDragBegan and onDragEnded while m_dragSnapshot should
     /// be re-applied after every move event. Only ever set while m_readOnly.

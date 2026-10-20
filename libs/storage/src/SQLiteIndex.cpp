@@ -655,14 +655,14 @@ QStringList SQLiteIndex::notesWithTag(const QString &tag) const
 
 // --- Link repair ---
 
-// TODO(Cluster I follow-up): this method directly UPDATEs the links table
-// AND rewrites the source notes on disk. Since Cluster I Phase 8, all
-// writes to SQLiteIndex's tables go through MetadataCache::cacheChanged
+// TODO(follow-up): this method directly UPDATEs the links table
+// AND rewrites the source notes on disk. All writes to SQLiteIndex's tables
+// now go through MetadataCache::cacheChanged
 // (SQLiteIndex derives from the cache). The direct UPDATE path here is a
-// vestige from pre-Cluster-I. The disk-rewrite (update-wikilinks-in-source)
+// vestige. The disk-rewrite (update-wikilinks-in-source)
 // is still valid; the UPDATE should be removed and the cache-driven
 // re-parse on the source notes' mtime change should repopulate links
-// automatically. See docs/cluster-retros/cluster-i.md "Deferred follow-ups".
+// automatically.
 int SQLiteIndex::repairLinks(const QString &oldTargetPath, const QString &newTargetPath,
                               const QString &vaultRoot)
 {
@@ -721,8 +721,8 @@ int SQLiteIndex::repairLinks(const QString &oldTargetPath, const QString &newTar
             ++modifiedCount;
             // Note: the re-index of the source note now happens via
             // MetadataCache when the file-watcher picks up the write.
-            // Phase 7 keeps this synchronous update of the `links` table
-            // below as a best-effort until Phase 8 restructures the flow.
+            // The synchronous update of the `links` table below is kept
+            // as a best-effort until the flow is fully cache-driven.
         }
     }
 

@@ -65,10 +65,10 @@ public:
 
     /// Request the host reveal the dock panel for plugin `slug`. The host
     /// resolves `slug` → tool view id `<slug>_panel` and raises it. Used
-    /// by the `<plugin>:open` commands from Cluster R Task 3.1.
+    /// by the `<plugin>:open` commands.
     void revealDockView(const QString &slug);
 
-    // --- Cluster Y Phase 7.4 — Obsidian-shape additions ---
+    // --- Obsidian-shape additions ---
 
     /// Stable leaf ids for every leaf currently hosting a view of
     /// `viewType`. Includes deferred leaves whose cached state carries

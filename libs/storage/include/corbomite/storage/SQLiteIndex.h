@@ -21,8 +21,8 @@ struct SearchMatch {
     QString snippet;
     double score = 0.0;
     // Highlight spans over `snippet`, expressed as merge-sorted, non-overlapping
-    // [start, end) UTF-16 code-unit ranges. Empty in Phase 1 — populated in Phase 2
-    // when FuzzyMatcher takes over ranking.
+    // [start, end) UTF-16 code-unit ranges. Empty until FuzzyMatcher
+    // takes over ranking.
     QVector<QPair<int, int>> matches;
 };
 
@@ -36,7 +36,7 @@ struct LinkInfo {
 
 /// SQLite-backed FTS5 + links + tags index.
 ///
-/// Cluster I phase 7+8: this class no longer parses markdown. Instead it
+/// This class no longer parses markdown. Instead it
 /// subscribes to `MetadataCache::cacheChanged` / `cacheDeleted` and
 /// derives its FTS / links / tags rows from the already-parsed
 /// `CachedMetadata`. Wire it up with:
@@ -49,7 +49,7 @@ struct LinkInfo {
 /// trigger a rebuild call `MetadataCache::rebuildVault(...)`, not any method
 /// on this class. The former write API (`rebuildIndex`, `rebuildIndexAsync`,
 /// `indexNote`, `removeNote`, `isRebuilding`) and the legacy `indexReady`
-/// signal were removed in Phase 8.
+/// signal have been removed.
 class SQLiteIndex : public QObject {
     Q_OBJECT
 

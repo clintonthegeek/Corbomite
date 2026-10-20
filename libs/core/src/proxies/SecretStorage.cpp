@@ -1,4 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+//
+// RE-ENTRANCY HAZARD: every keyring operation here waits on a local
+// `QEventLoop::exec()` (three call sites: setSecret, getSecret,
+// deleteSecret). The loop is local to the call — it is not nested inside
+// another one — but it *blocks the calling thread* until the keychain job
+// finishes, and it spins a nested event loop while it waits. A plugin that
+// calls this from a slot that the keychain's own completion could re-enter
+// would deadlock; so would a caller that holds a lock this path needs.
+//
+// The synchronous shape is deliberate for now (the plugin API is
+// synchronous), and the fallback to the in-process QHash keeps the call
+// working when the keyring is unavailable. The async rework — jobs that
+// report through a callback instead of a local event loop — is filed in the
+// punch list.
 #include "corbomite/core/proxies/SecretStorage.h"
 
 #ifdef CORBOMITE_HAVE_KEYRING

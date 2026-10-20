@@ -37,7 +37,7 @@ public:
     void registerViewWithExtensions(const QStringList &exts, const QString &type,
                                     ViewFactory factory);
 
-    // ---- Cluster O Phase O5.T4 — ViewActions providers ----------------
+    // ---- ViewActions providers ---------------------------------------
     //
     // Graph's view type is plugin-registered, so its provider has to travel
     // the same path as the view itself; this is what lets a plugin ship a

@@ -6,7 +6,7 @@
 
 namespace Corbomite::Bases {
 
-class FunctionRegistry;  // Phase 5 — forward-decl only.
+class FunctionRegistry;  // forward-decl only.
 
 /// Walks an AST against a context + (optional) function registry and
 /// produces a ValuePtr. Runtime type errors are converted to

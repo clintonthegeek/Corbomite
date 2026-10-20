@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Phase 1 (contract v2) — NoteEditorWidget signal-driven mode-transition
-// glue, rewritten against the MarkdownView base contract. Covers:
+// glue, rewritten against the MarkdownFileView base contract. Covers:
 //   - cursor movement on the active leaf surfacing as cursorInfoChanged,
 //   - canonical bytes preserved byte-exact across detach/attach swaps,
 //   - leaves reflecting canonical content on attach,

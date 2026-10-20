@@ -11,7 +11,7 @@ class QTextBrowser;
 namespace Corbomite {
 
 class MarkdownRenderEngine;
-namespace Core { class VaultResourceProvider; }
+namespace Core { class ResourceResolver; }
 
 // Floating preview that pops up after a 300ms hover over a wiki/markdown
 // link. Per docs/obsidian-audit/domains/ui-bundle.md §7 — the delay constant
@@ -24,7 +24,7 @@ namespace Core { class VaultResourceProvider; }
 //
 // Content is rendered headlessly: a non-owning `MarkdownRenderEngine`
 // (the app's StyledRenderEngine) turns the target note's markdown — resolved
-// via a `Core::VaultResourceProvider` — into a styled QTextDocument shown in
+// via a `Core::ResourceResolver` — into a styled QTextDocument shown in
 // an embedded read-only `QTextBrowser` (hover-preview re-light, 2026-06-11).
 // Subpath (#heading/#^block) slicing is deferred; the whole note is shown.
 //
@@ -55,7 +55,7 @@ public:
     // Per-vault resource provider (non-owning) used to resolve a hover
     // target (note name) to its markdown bytes via resolveEmbed(). Pass
     // nullptr on vault close.
-    void setResources(Core::VaultResourceProvider *resources);
+    void setResources(Core::ResourceResolver *resources);
 
     // Schedule a popover for `target`. Cancels any pending show; if the
     // hover is still active 300ms later, the popover appears at `anchor`
@@ -100,7 +100,7 @@ private:
 
     QTextBrowser *m_display = nullptr;
     MarkdownRenderEngine *m_renderEngine = nullptr;
-    Core::VaultResourceProvider *m_resources = nullptr;
+    Core::ResourceResolver *m_resources = nullptr;
     QTimer m_delayTimer;
     QTimer m_graceTimer;
     QString m_pendingTarget;

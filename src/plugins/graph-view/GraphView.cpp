@@ -113,13 +113,13 @@ void GraphView::onMoreOptionsMenu(MenuSectionHelper &helper)
     });
     helper.addToSection(screenshotAct, QStringLiteral("action"));
 
-    // ---- action: Bookmark (placeholder — Cluster S) ----
+    // ---- action: Bookmark (placeholder) ----
     auto *bookmarkAct = new QAction(
         QIcon::fromTheme(QStringLiteral("bookmark-new")),
         i18n("Bookmark..."), this);
     bookmarkAct->setEnabled(false);
     bookmarkAct->setToolTip(
-        i18n("Requires Bookmarks core plugin (Cluster S)"));
+        i18n("Adding a bookmark is not available yet"));
     helper.addToSection(bookmarkAct, QStringLiteral("action"));
 
     // GraphView is an ItemView, not an EditableFileView — no chain-up.

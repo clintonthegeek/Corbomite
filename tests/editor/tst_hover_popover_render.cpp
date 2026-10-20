@@ -12,7 +12,7 @@
 #include <optional>
 
 #include "corbomite/core/StyledRenderEngine.h"
-#include "corbomite/core/VaultResourceProvider.h"
+#include "corbomite/core/ResourceResolver.h"
 #include "editor/HoverPopover.h"
 
 using namespace Corbomite;
@@ -22,7 +22,7 @@ namespace {
 // resolveEmbed() here matches the bare key verbatim — it intentionally omits
 // the ".md" normalization production applies. Tests therefore add notes under
 // the exact key they hover; don't copy this into a real provider.
-class InMemoryResources : public Corbomite::Core::VaultResourceProvider
+class InMemoryResources : public Corbomite::Core::ResourceResolver
 {
 public:
     void addNote(const QString &name, const QString &content)

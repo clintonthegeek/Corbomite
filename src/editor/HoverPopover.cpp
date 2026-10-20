@@ -3,7 +3,7 @@
 
 #include "corbomite/core/MarkdownRenderEngine.h"
 #include "corbomite/core/RenderedDocument.h"
-#include "corbomite/core/VaultResourceProvider.h"
+#include "corbomite/core/ResourceResolver.h"
 
 #include <QTextBrowser>
 #include <QTextDocument>
@@ -110,7 +110,7 @@ void HoverPopover::setRenderEngine(MarkdownRenderEngine *engine)
     m_renderEngine = engine;
 }
 
-void HoverPopover::setResources(Core::VaultResourceProvider *resources)
+void HoverPopover::setResources(Core::ResourceResolver *resources)
 {
     m_resources = resources;
 }

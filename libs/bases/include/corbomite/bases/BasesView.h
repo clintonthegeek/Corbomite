@@ -91,18 +91,18 @@ public:
     /// Drive the per-view undo stack (host wires these to Edit ▸ Undo/Redo).
     void undo();
     void redo();
-    /// Cluster O Phase O1.T8 — real undo-stack-depth query so the host's
+    /// Real undo-stack-depth query so the host's
     /// edit_undo/edit_redo KActions can be enabled/disabled honestly
-    /// instead of always-enabled. O2.T1: now overrides View's virtual.
+    /// instead of always-enabled. Overrides View's virtual.
     bool canUndo() const override { return m_undoStack.canUndo(); }
     bool canRedo() const override { return m_undoStack.canRedo(); }
 
-    /// Cluster O Phase O1.T5 — route the universal edit_find action here:
+    /// Route the universal edit_find action here:
     /// Bases already owns a search box in its toolbar, so Ctrl+F on a
     /// bases tab should focus it rather than silently do nothing.
     void focusSearch();
 
-    // Cluster O Phase O2.T1 — remaining Tier-B capability overrides.
+    // Remaining Tier-B capability overrides.
     bool canEdit() const override { return true; }
     bool canSave() const override { return true; }
     bool canFind() const override { return true; }
@@ -117,7 +117,7 @@ public:
     /// Public for testability (the dialog path calls this on accept).
     void applyFilterSpecs(const FilterSpec &globalSpec, const FilterSpec &perViewSpec);
 
-    // ---- Cluster O Phase O5.T1/T2 — the KAction-facing toolbar surface ----
+    // ---- the KAction-facing toolbar surface ----
     //
     // The in-view toolbar's seven QToolButtons used to carry their whole
     // behaviour in `clicked` lambdas inside the ctor, which meant the
@@ -140,7 +140,7 @@ public:
     bool propertiesPaneVisible() const;
     void setPropertiesPaneVisible(bool visible);
 
-    // Tier-B predicates (O5.T2). These are the enablement rules the
+    // Tier-B predicates. These are the enablement rules the
     // provider mirrors; keeping them here means one definition of "can
     // this control do anything" rather than a second copy in the provider.
     /// A `.base` file has been parsed. False while the tab is empty/erroring.
@@ -163,7 +163,7 @@ public:
 
     /// The seven in-view toolbar controls, as a name the host can bind a
     /// QAction to. `BasesViewActions` (which lives in the `src/` binary,
-    /// deliberately not in this library) drives O5.T1's "one definition,
+    /// deliberately not in this library) drives the "one definition,
     /// four surfaces" by adopting its actions onto the buttons it already
     /// owns, rather than this library taking a dependency on the provider.
     enum class ToolbarSlot {
@@ -208,7 +208,7 @@ public Q_SLOTS:
     void pushFrontMatterEdit(Corbomite::TFile *file, const QString &key,
                              const QVariant &value);
 
-    /// Cluster O Phase O5.T1 — the four plain-button toolbar verbs, moved up
+    /// The four plain-button toolbar verbs, moved up
     /// from private so `BasesViewActions` can drive them. Visibility change
     /// only; the bodies and every existing connection are untouched.
     void onCopyTable();
@@ -221,7 +221,7 @@ protected:
 
     /// Load the `.base` body from the NoteDocument and parse it. TextFileView's
     /// adapter-based loader is inert (no DataAdapter is ever injected), so —
-    /// like MarkdownView — we take content straight from the document.
+    /// like MarkdownFileView — we take content straight from the document.
     void onLoadFile(Corbomite::NoteDocument *file) override;
 
 private Q_SLOTS:
@@ -252,7 +252,7 @@ private:
     /// True when a popup panel was dismissed within the last 150 ms, i.e.
     /// this click is the tail of an outside-click dismissal of the very same
     /// panel and must be swallowed. Was inlined in three lambdas; hoisted so
-    /// the KAction trigger path debounces identically (O5.T1) — the panels
+    /// the KAction trigger path debounces identically — the panels
     /// are anchored on the in-view buttons, which survive the switch to
     /// `setDefaultAction()`, so behaviour is unchanged whichever surface
     /// fired the action.
@@ -291,7 +291,7 @@ private:
     QToolButton *m_drawerBtn = nullptr;
     QToolButton *m_resultsBtn = nullptr;
 
-    /// Actions adopted by BasesViewActions (O5.T1), keyed by ToolbarSlot.
+    /// Actions adopted by BasesViewActions, keyed by ToolbarSlot.
     /// QPointer so an action destroyed on provider teardown (unbind before
     /// MainWindow's children are destroyed) drops out instead of dangling.
     QHash<int, QPointer<QAction>> m_toolbarActions;

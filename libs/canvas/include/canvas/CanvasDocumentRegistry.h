@@ -11,7 +11,7 @@ class CanvasDocument;
 /// Tracks the live `CanvasDocument` for each open canvas, keyed by the
 /// vault-relative canvas path (the same key `FileManager` uses). The rename
 /// rewriter consults it so it mutates the open instance instead of writing a
-/// second copy to disk — the single-writer rule the Cluster M M6.2 plan
+/// second copy to disk — the single-writer rule the rename-rewriter
 /// requires.
 ///
 /// Main-thread only. Attach/detach happen when a canvas view is created and
