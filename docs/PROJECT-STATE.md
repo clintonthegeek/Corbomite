@@ -23,4 +23,4 @@ Markdown files stay the on-disk contract. Standing constraints are the guardrail
 
 ## Session start
 
-Read [`../AGENTS.md`](../AGENTS.md), then this file, then punch-list §Next. Commit a finished change once its tests are green, and update the punch list and this file in that commit. Do not commit the RE corpus.
+Read [`../AGENTS.md`](../AGENTS.md), then this file, then punch-list §Now (the live work; §Next is closed as of 2026-10-17). Commit a finished change once its tests are green, and update the punch list and this file in that commit. Do not commit the RE corpus.
