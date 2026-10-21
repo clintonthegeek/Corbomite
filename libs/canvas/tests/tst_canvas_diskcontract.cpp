@@ -12,8 +12,8 @@
 #include <QJsonObject>
 #include <QTemporaryDir>
 #include <QTest>
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasJsonPrinter.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasJsonPrinter.h"
 #include "canvas_diskcontract_data.h"
 
 class TestCanvasDiskContract : public QObject {
@@ -35,7 +35,7 @@ private Q_SLOTS:
 
     void emptyCanvasMatchesObsidianBytes()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QCOMPARE(doc.serializeObsidianStyle(),
                  QByteArray("{\n\t\"nodes\":[],\n\t\"edges\":[]\n}"));
         // $d is Zd(...).join("\n") — no trailing newline.
@@ -44,7 +44,7 @@ private Q_SLOTS:
 
     void fullyModelledCanvasMatchesObsidianBytes()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromFile(writeFixture(canvasModelledFixture(), "modelled.canvas")));
         QCOMPARE(doc.serializeObsidianStyle(), canvasModelledGoldenBytes());
         QCOMPARE(doc.serializeObsidianStyle().endsWith('\n'), false);
@@ -56,7 +56,7 @@ private Q_SLOTS:
         // before toNode, not the toNode-then-fromSide order this used to
         // write. Asserted on the bytes, because a QJsonObject cannot show key
         // order at all: Qt sorts it.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [
                 {"id":"a","type":"text","x":0,"y":0,"width":10,"height":10,"text":""},
@@ -74,7 +74,7 @@ private Q_SLOTS:
         // Upstream's omit-lists move these keys into unknownData rather than
         // deleting them, so a file that already states a default keeps stating
         // it (addendum F5).
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [
                 {"id":"g","type":"group","x":0,"y":0,"width":10,"height":10,
@@ -107,7 +107,7 @@ private Q_SLOTS:
 
     void orphanBackgroundStyleSurvivesWithoutBackground()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [{"id":"g","type":"group","x":0,"y":0,"width":10,"height":10,
                        "backgroundStyle":"repeat"}],
@@ -121,7 +121,7 @@ private Q_SLOTS:
     {
         // getData() assigns text / file / url unconditionally, so an empty card,
         // an unresolved file node and a bare link node each keep their key.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [
                 {"id":"t","type":"text","x":0,"y":0,"width":10,"height":10,"text":""},
@@ -143,7 +143,7 @@ private Q_SLOTS:
         // String.isString(n) && setText(n) (app/own/2022-W7.js:372) — a
         // non-string text is ignored and the unconditional re-assignment then
         // writes "" over it.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(
             R"({"nodes":[{"id":"t","type":"text","x":0,"y":0,"width":10,"height":10,"text":42}],
                 "edges":[]})").object()));
@@ -157,12 +157,12 @@ private Q_SLOTS:
     void unknownNodeTypeSurvivesFileRoundTrip()
     {
         const QString path = writeFixture(canvasP0Fixture(), "p0.canvas");
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromFile(path));
 
         QCOMPARE(doc.nodes().size(), 3);
         const auto tbl = doc.node(QStringLiteral("tbl"));
-        QCOMPARE(tbl.type, Canvas::NodeType::Unknown);
+        QCOMPARE(tbl.type, Corbomite::Canvas::NodeType::Unknown);
         QCOMPARE(tbl.rawType, QStringLiteral("table"));
         QCOMPARE(tbl.rawData[QStringLiteral("type")].toString(), QStringLiteral("table"));
         QCOMPARE(tbl.rawData[QStringLiteral("rows")].toInt(), 3);
@@ -178,7 +178,7 @@ private Q_SLOTS:
 
     void unknownNodeTypeIsNotRewrittenAsATextCard()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromFile(writeFixture(canvasP0Fixture(), "coerce.canvas")));
         const auto bytes = doc.serializeObsidianStyle();
         QVERIFY2(bytes.contains("\"type\":\"table\""),
@@ -188,7 +188,7 @@ private Q_SLOTS:
 
     void edgeTouchingUnknownNodeIsKeptAndStaysResolvable()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromFile(writeFixture(canvasP0Fixture(), "edge.canvas")));
         const auto kept = doc.edge(QStringLiteral("e-kept"));
         QCOMPARE(kept.fromNode, QStringLiteral("tbl"));
@@ -202,7 +202,7 @@ private Q_SLOTS:
     {
         // Upstream imports an edge only when both endpoints resolve
         // (app/own/2018-k7.js:442) and then drops it from getData.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromFile(writeFixture(canvasP0Fixture(), "dangle.canvas")));
         const auto dangle = doc.edge(QStringLiteral("e-dangle"));
         QVERIFY(dangle.unresolved);
@@ -215,7 +215,7 @@ private Q_SLOTS:
     {
         // Healing needs both endpoints' geometry. Guessing a side for a wire we
         // cannot draw would bake a value into a payload we promised to keep.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [{"id":"a","type":"text","x":0,"y":0,"width":10,"height":10,"text":""}],
             "edges": [{"id":"e","fromNode":"a","toNode":"ghost"}]
@@ -226,16 +226,16 @@ private Q_SLOTS:
 
     void unresolvedEdgeBecomesModelledWhenItsEndpointArrives()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [{"id":"a","type":"text","x":0,"y":0,"width":10,"height":10,"text":""}],
             "edges": [{"id":"e","fromNode":"a","toNode":"ghost","label":"w"}]
         })").object()));
         QVERIFY(doc.edge(QStringLiteral("e")).unresolved);
 
-        Canvas::CanvasNode ghost;
+        Corbomite::Canvas::CanvasNode ghost;
         ghost.id = QStringLiteral("ghost");
-        ghost.type = Canvas::NodeType::Text;
+        ghost.type = Corbomite::Canvas::NodeType::Text;
         ghost.x = 300; ghost.y = 0; ghost.width = 10; ghost.height = 10;
         ghost.text = QStringLiteral("here");
         doc.addNode(ghost);
@@ -243,19 +243,19 @@ private Q_SLOTS:
         const auto edge = doc.edge(QStringLiteral("e"));
         QVERIFY(!edge.unresolved);
         QCOMPARE(edge.label, QStringLiteral("w"));
-        QCOMPARE(edge.fromSide, Canvas::Side::Right);
-        QCOMPARE(edge.toSide, Canvas::Side::Left);
+        QCOMPARE(edge.fromSide, Corbomite::Canvas::Side::Right);
+        QCOMPARE(edge.toSide, Corbomite::Canvas::Side::Left);
     }
 
     void saveLoadSaveIsByteStable()
     {
         const QString path = writeFixture(canvasP0Fixture(), "stable.canvas");
-        Canvas::CanvasDocument first;
+        Corbomite::Canvas::CanvasDocument first;
         QVERIFY(first.loadFromFile(path));
         const QString out1 = path + QStringLiteral(".1");
         QVERIFY(first.saveToFile(out1));
 
-        Canvas::CanvasDocument second;
+        Corbomite::Canvas::CanvasDocument second;
         QVERIFY(second.loadFromFile(out1));
         const QString out2 = path + QStringLiteral(".2");
         QVERIFY(second.saveToFile(out2));
@@ -274,7 +274,7 @@ private Q_SLOTS:
         // (app/own/2018-k7.js:362,367-370), and zIndex is reconstructed as a
         // running maximum over file order (:429) — so array position is paint
         // order. Ids chosen so an id-sort or a QHash walk would reorder them.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [
                 {"id":"z-bottom","type":"text","x":0,"y":0,"width":10,"height":10,"text":""},
@@ -314,7 +314,7 @@ private Q_SLOTS:
     {
         // A freshly created node takes the next zIndex counter value, so it
         // appends last in the array — the front of the paint order.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [
                 {"id":"a","type":"text","x":0,"y":0,"width":10,"height":10,"text":""},
@@ -323,9 +323,9 @@ private Q_SLOTS:
             "edges": []
         })").object()));
 
-        Canvas::CanvasNode added;
+        Corbomite::Canvas::CanvasNode added;
         added.id = QStringLiteral("c");
-        added.type = Canvas::NodeType::Text;
+        added.type = Corbomite::Canvas::NodeType::Text;
         added.text = QStringLiteral("new");
         doc.addNode(added);
 
@@ -348,7 +348,7 @@ private Q_SLOTS:
         // isNaN(n) || ... (app/own/2020-O7.js:194) leaves the previous value
         // alone, and the constructor default is x=0 y=0 width=100 height=100
         // (:165) — not the 250x60 new-card size.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [
                 {"id":"a","type":"text","text":"x"},
@@ -370,7 +370,7 @@ private Q_SLOTS:
 
     void coercedGeometryFollowsMathRound()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [{"id":"a","type":"text","x":"12.6","y":null,"width":"","height":-0.5}],
             "edges": []
@@ -384,7 +384,7 @@ private Q_SLOTS:
 
     void negativeHalvesRoundTowardPositiveInfinity()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [{"id":"a","type":"text","x":-1.5,"y":-2.5,"width":-0.5,"height":-0.6}],
             "edges": []
@@ -398,25 +398,25 @@ private Q_SLOTS:
 
     void colorTripletIsNormalisedWithoutClamping()
     {
-        QCOMPARE(Canvas::normalizeCanvasColor(QStringLiteral("255,0,0")), QStringLiteral("#ff0000"));
-        QCOMPARE(Canvas::normalizeCanvasColor(QStringLiteral(" 12 , 34 , 56 ")),
+        QCOMPARE(Corbomite::Canvas::normalizeCanvasColor(QStringLiteral("255,0,0")), QStringLiteral("#ff0000"));
+        QCOMPARE(Corbomite::Canvas::normalizeCanvasColor(QStringLiteral(" 12 , 34 , 56 ")),
                  QStringLiteral("#0c2238"));
         // zb() is a bare toString(16), so an out-of-range component produces a
         // longer hex string rather than being clamped.
-        QCOMPARE(Canvas::normalizeCanvasColor(QStringLiteral("300,0,0")),
+        QCOMPARE(Corbomite::Canvas::normalizeCanvasColor(QStringLiteral("300,0,0")),
                  QStringLiteral("#12c0000"));
-        QCOMPARE(Canvas::normalizeCanvasColor(QStringLiteral("1,2,3")), QStringLiteral("#010203"));
+        QCOMPARE(Corbomite::Canvas::normalizeCanvasColor(QStringLiteral("1,2,3")), QStringLiteral("#010203"));
         // Presets, hex and non-triplets pass straight through.
-        QCOMPARE(Canvas::normalizeCanvasColor(QStringLiteral("4")), QStringLiteral("4"));
-        QCOMPARE(Canvas::normalizeCanvasColor(QStringLiteral("#AbCdEf")), QStringLiteral("#AbCdEf"));
-        QCOMPARE(Canvas::normalizeCanvasColor(QStringLiteral("")), QString());
-        QCOMPARE(Canvas::normalizeCanvasColor(QStringLiteral("1.5,0,0")), QStringLiteral("1.5,0,0"));
-        QCOMPARE(Canvas::normalizeCanvasColor(QStringLiteral("1,2,3,4")), QStringLiteral("1,2,3,4"));
+        QCOMPARE(Corbomite::Canvas::normalizeCanvasColor(QStringLiteral("4")), QStringLiteral("4"));
+        QCOMPARE(Corbomite::Canvas::normalizeCanvasColor(QStringLiteral("#AbCdEf")), QStringLiteral("#AbCdEf"));
+        QCOMPARE(Corbomite::Canvas::normalizeCanvasColor(QStringLiteral("")), QString());
+        QCOMPARE(Corbomite::Canvas::normalizeCanvasColor(QStringLiteral("1.5,0,0")), QStringLiteral("1.5,0,0"));
+        QCOMPARE(Corbomite::Canvas::normalizeCanvasColor(QStringLiteral("1,2,3,4")), QStringLiteral("1,2,3,4"));
     }
 
     void colourIsNormalisedOnReadAndRewritten()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(QJsonDocument::fromJson(R"({
             "nodes": [{"id":"a","type":"text","x":0,"y":0,"width":10,"height":10,"text":"",
                        "color":"255,0,0"}],
@@ -441,34 +441,34 @@ private Q_SLOTS:
         // Direct exercise of OrderedJson::print(): an all-primitive container
         // collapses to one line, a null counts as non-primitive (typeof null ===
         // "object", app/own/0562-Qd.js:2) so it forces the container open.
-        Canvas::OrderedJson obj = Canvas::OrderedJson::object();
+        Corbomite::Canvas::OrderedJson obj = Corbomite::Canvas::OrderedJson::object();
         obj.set(QStringLiteral("a"), 1);
         obj.set(QStringLiteral("b"), QStringLiteral("two"));
 
-        Canvas::OrderedJson nested = Canvas::OrderedJson::object();
+        Corbomite::Canvas::OrderedJson nested = Corbomite::Canvas::OrderedJson::object();
         nested.set(QStringLiteral("k"), true);
         obj.setObject(QStringLiteral("c"), nested);
 
         QCOMPARE(obj.print(), QByteArray("{\n\t\"a\":1,\n\t\"b\":\"two\",\n\t\"c\":{\"k\":true}\n}"));
 
-        Canvas::OrderedJson empty = Canvas::OrderedJson::object();
+        Corbomite::Canvas::OrderedJson empty = Corbomite::Canvas::OrderedJson::object();
         empty.set(QStringLiteral("n"), QJsonValue(QJsonValue::Null));
         QCOMPARE(empty.print(), QByteArray("{\n\t\"n\":null\n}"));
     }
 
     void printerKeepsAnAllPrimitiveArrayOnOneLine()
     {
-        Canvas::OrderedJson arr = Canvas::OrderedJson::array();
+        Corbomite::Canvas::OrderedJson arr = Corbomite::Canvas::OrderedJson::array();
         arr.append(1);
         arr.append(2);
-        Canvas::OrderedJson root = Canvas::OrderedJson::object();
+        Corbomite::Canvas::OrderedJson root = Corbomite::Canvas::OrderedJson::object();
         root.setObject(QStringLiteral("xs"), arr);
         QCOMPARE(root.print(), QByteArray("{\n\t\"xs\":[1,2]\n}"));
     }
 
     void toJsonAndSerializeAgreeOnContent()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromFile(writeFixture(canvasP0Fixture(), "agree.canvas")));
         const QJsonObject json = doc.toJson();
         QCOMPARE(json[QStringLiteral("nodes")].toArray().size(), 3);

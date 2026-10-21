@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "forcegraph/ForceGraphNode.h"
+#include "corbomite/forcegraph/ForceGraphNode.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <cmath>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 
 // Text grows at 3/4 the rate of graph zoom — parallax depth effect
 static constexpr double TextZoomExponent = 0.75;
@@ -181,4 +181,4 @@ void ForceGraphNode::paint(QPainter *painter, const QStyleOptionGraphicsItem *, 
     painter->drawText(textRect, Qt::AlignHCenter | Qt::TextWordWrap, m_data.label);
 }
 
-} // namespace ForceGraph
+} // namespace Corbomite::ForceGraph

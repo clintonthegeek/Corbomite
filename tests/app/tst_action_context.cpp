@@ -42,9 +42,9 @@
 
 #include <KActionCollection>
 
-#include <canvas/CanvasCommands.h>
-#include <canvas/CanvasDocument.h>
-#include <canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasCommands.h>
+#include <corbomite/canvas/CanvasDocument.h>
+#include <corbomite/canvas/CanvasScene.h>
 
 using namespace Corbomite;
 
@@ -241,7 +241,7 @@ private Q_SLOTS:
         QVERIFY(doc);
         QHash<QString, QPointF> oldPos{{QStringLiteral("n1"), QPointF(0, 0)}};
         QHash<QString, QPointF> newPos{{QStringLiteral("n1"), QPointF(500, 500)}};
-        scene->undoStack()->push(new Canvas::CmdMoveCards(doc, oldPos, newPos));
+        scene->undoStack()->push(new Corbomite::Canvas::CmdMoveCards(doc, oldPos, newPos));
         QVERIFY2(tab->isModified(), "moving a node must mark the canvas modified");
 
         saveAction->trigger();

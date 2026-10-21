@@ -8,11 +8,11 @@
 #include "SessionManager.h"
 #include "app/MessageService.h"
 
-#include <canvas/CanvasDocument.h>
-#include <canvas/CanvasDocumentRegistry.h>
-#include <canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasDocument.h>
+#include <corbomite/canvas/CanvasDocumentRegistry.h>
+#include <corbomite/canvas/CanvasScene.h>
 #include <corbomite/core/ThemeService.h>
-#include <canvas/CanvasView.h>
+#include <corbomite/canvas/CanvasView.h>
 
 #include <KLocalizedString>
 
@@ -78,7 +78,7 @@ CanvasFileView::~CanvasFileView()
     // before any base-class destructor has run and while `this` is still
     // fully valid, severs the connection early enough to avoid it.
     if (m_canvasWidget && !m_registeredCanvasPath.isEmpty()) {
-        Canvas::CanvasDocumentRegistry::instance().detach(
+        Corbomite::Canvas::CanvasDocumentRegistry::instance().detach(
             m_registeredCanvasPath, m_canvasWidget->canvasDocument());
         m_registeredCanvasPath.clear();
     }
@@ -298,7 +298,7 @@ void CanvasFileView::onLoadFile(NoteDocument *file)
     // vault-relative canvas path, the same key FileManager uses.
     if (m_canvasWidget && file) {
         m_registeredCanvasPath = m_canvasWidget->canvasRelativePath();
-        Canvas::CanvasDocumentRegistry::instance().attach(
+        Corbomite::Canvas::CanvasDocumentRegistry::instance().attach(
             m_registeredCanvasPath, m_canvasWidget->canvasDocument());
     }
 }
@@ -329,7 +329,7 @@ void CanvasFileView::onUnloadFile(NoteDocument *file)
     if (m_canvasWidget && m_canvasWidget->isModified())
         m_canvasWidget->save();
     if (m_canvasWidget && !m_registeredCanvasPath.isEmpty()) {
-        Canvas::CanvasDocumentRegistry::instance().detach(
+        Corbomite::Canvas::CanvasDocumentRegistry::instance().detach(
             m_registeredCanvasPath, m_canvasWidget->canvasDocument());
         m_registeredCanvasPath.clear();
     }

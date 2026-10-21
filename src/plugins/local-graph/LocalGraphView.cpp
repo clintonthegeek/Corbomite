@@ -8,8 +8,8 @@
 #include "corbomite/storage/proxies/SearchProxy.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
 
-#include <forcegraph/ForceGraphView.h>
-#include <forcegraph/ForceLayoutEngine.h>
+#include <corbomite/forcegraph/ForceGraphView.h>
+#include <corbomite/forcegraph/ForceLayoutEngine.h>
 
 #include <QVBoxLayout>
 
@@ -26,15 +26,15 @@ LocalGraphView::LocalGraphView(SearchProxy *search,
     , m_metadata(metadata)
     , m_workspace(workspace)
 {
-    m_engine = new ForceGraph::ForceLayoutEngine(this);
-    m_graphView = new ForceGraph::ForceGraphView(this);
+    m_engine = new Corbomite::ForceGraph::ForceLayoutEngine(this);
+    m_graphView = new Corbomite::ForceGraph::ForceGraphView(this);
     m_graphView->setEngine(m_engine);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_graphView);
 
-    connect(m_graphView, &ForceGraph::ForceGraphView::nodeClicked, this,
+    connect(m_graphView, &Corbomite::ForceGraph::ForceGraphView::nodeClicked, this,
             [this](const QString &id) {
                 if (m_workspace) m_workspace->openFile(id);
             });
@@ -74,7 +74,7 @@ void LocalGraphView::refresh()
     if (!data.nodes.isEmpty()) {
         m_engine->start();
         m_graphView->setHighlightedNode(m_currentPath);
-        connect(m_engine, &ForceGraph::ForceLayoutEngine::simulationStable,
+        connect(m_engine, &Corbomite::ForceGraph::ForceLayoutEngine::simulationStable,
                 this, [this]() { m_graphView->zoomToFit(); }, Qt::SingleShotConnection);
     }
 }

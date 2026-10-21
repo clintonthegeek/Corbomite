@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasDocument.h"
 #include <QFile>
 #include <QJsonArray>
 #include <QRegularExpression>
@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 namespace {
 
@@ -589,4 +589,4 @@ QString CanvasDocument::generateId()
     return QUuid::createUuid().toString(QUuid::Id128).left(16);
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

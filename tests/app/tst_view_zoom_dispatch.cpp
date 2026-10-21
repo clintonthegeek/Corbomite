@@ -33,7 +33,7 @@
 #include "editor/MarkdownFileView.h"
 #include "editor/NoteEditorWidget.h"
 
-#include <canvas/CanvasView.h>
+#include <corbomite/canvas/CanvasView.h>
 #include <markoff/core/MarkdownView.h>
 
 using namespace Corbomite;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "forcegraph/ForceLayoutEngine.h"
-#include "forcegraph/QuadTree.h"
+#include "corbomite/forcegraph/ForceLayoutEngine.h"
+#include "corbomite/forcegraph/QuadTree.h"
 
 #include <QQueue>
 #include <QRandomGenerator>
@@ -8,7 +8,7 @@
 #include <QTimer>
 #include <cmath>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 
 static constexpr double EPSILON = 0.001;
 static constexpr int BARNES_HUT_THRESHOLD = 100;
@@ -627,4 +627,4 @@ QVector<GraphNode> ForceLayoutEngine::nodes() const { return m_nodes; }
 int ForceLayoutEngine::nodeCount() const { return m_nodes.size(); }
 int ForceLayoutEngine::edgeCount() const { return m_edges.size(); }
 
-} // namespace ForceGraph
+} // namespace Corbomite::ForceGraph

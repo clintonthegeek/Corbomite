@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasAlignmentStrategy.h"
+#include "corbomite/canvas/CanvasAlignmentStrategy.h"
 
 #include <graffodil/IGraphNode.h>
 
@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 CanvasAlignmentStrategy::CanvasAlignmentStrategy(QObject *parent)
     : QObject(parent)
@@ -220,4 +220,4 @@ CanvasAlignmentStrategy::align(Graffodil::IGraphNode *primary, const QPointF &pr
     return result;
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

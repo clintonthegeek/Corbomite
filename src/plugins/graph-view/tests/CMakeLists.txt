@@ -25,7 +25,7 @@ add_test(NAME tst_graphview_plugin COMMAND tst_graphview_plugin)
 target_link_libraries(tst_graphview_plugin PRIVATE
     Qt6::Test Qt6::Widgets
     Corbomite::Core Corbomite::Storage Corbomite::Vault
-    forcegraph
+    Corbomite::ForceGraph
     KF6::I18n KF6::CoreAddons KF6::WidgetsAddons)
 set_tests_properties(tst_graphview_plugin PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

@@ -12,10 +12,10 @@
 #include <markoff/canvas/EditorWidget.h>
 #include <markoff/core/MarkoffDocument.h>
 
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasScene.h"
-#include "canvas/FileCardItem.h"
-#include "canvas/TextCardItem.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/FileCardItem.h"
+#include "corbomite/canvas/TextCardItem.h"
 #include "corbomite/core/EditingSession.h"
 
 class TestCanvasCardEditor : public QObject
@@ -44,7 +44,7 @@ public:
 };
 
 /// The card editor the scene put in its proxy, if any.
-Markoff::Canvas::EditorWidget *cardEditor(Canvas::CanvasScene &scene)
+Markoff::Canvas::EditorWidget *cardEditor(Corbomite::Canvas::CanvasScene &scene)
 {
     const QList<QGraphicsItem *> items = scene.items();
     for (QGraphicsItem *item : items) {
@@ -58,11 +58,11 @@ Markoff::Canvas::EditorWidget *cardEditor(Canvas::CanvasScene &scene)
     return nullptr;
 }
 
-Canvas::CanvasNode makeTextNode(const QString &id, const QString &text)
+Corbomite::Canvas::CanvasNode makeTextNode(const QString &id, const QString &text)
 {
-    Canvas::CanvasNode node;
+    Corbomite::Canvas::CanvasNode node;
     node.id = id;
-    node.type = Canvas::NodeType::Text;
+    node.type = Corbomite::Canvas::NodeType::Text;
     node.text = text;
     node.x = 100;
     node.y = 100;
@@ -75,12 +75,12 @@ Canvas::CanvasNode makeTextNode(const QString &id, const QString &text)
 
 void TestCanvasCardEditor::cardEditorIsTheMarkoffCardView()
 {
-    Canvas::CanvasDocument doc;
-    const Canvas::CanvasNode node =
+    Corbomite::Canvas::CanvasDocument doc;
+    const Corbomite::Canvas::CanvasNode node =
         makeTextNode(QStringLiteral("card"), QStringLiteral("Hello card"));
     doc.addNode(node);
 
-    Canvas::CanvasScene scene;
+    Corbomite::Canvas::CanvasScene scene;
     scene.setDocument(&doc);
     scene.setSessionContext(QStringLiteral("/vault"),
                             QStringLiteral("board.canvas"));
@@ -104,12 +104,12 @@ void TestCanvasCardEditor::cardEditorIsTheMarkoffCardView()
 
 void TestCanvasCardEditor::cardEditStoresTheProjection()
 {
-    Canvas::CanvasDocument doc;
-    const Canvas::CanvasNode node =
+    Corbomite::Canvas::CanvasDocument doc;
+    const Corbomite::Canvas::CanvasNode node =
         makeTextNode(QStringLiteral("card"), QStringLiteral("Hello card"));
     doc.addNode(node);
 
-    Canvas::CanvasScene scene;
+    Corbomite::Canvas::CanvasScene scene;
     scene.setDocument(&doc);
     scene.setSessionContext(QStringLiteral("/vault"),
                             QStringLiteral("board.canvas"));
@@ -140,12 +140,12 @@ void TestCanvasCardEditor::cardEditStoresTheProjection()
 
 void TestCanvasCardEditor::focusInsideTheEditorKeepsTheEditAlive()
 {
-    Canvas::CanvasDocument doc;
-    const Canvas::CanvasNode node =
+    Corbomite::Canvas::CanvasDocument doc;
+    const Corbomite::Canvas::CanvasNode node =
         makeTextNode(QStringLiteral("card"), QStringLiteral("Hello card"));
     doc.addNode(node);
 
-    Canvas::CanvasScene scene;
+    Corbomite::Canvas::CanvasScene scene;
     scene.setDocument(&doc);
     scene.setSessionContext(QStringLiteral("/vault"),
                             QStringLiteral("board.canvas"));
@@ -169,10 +169,10 @@ void TestCanvasCardEditor::focusInsideTheEditorKeepsTheEditAlive()
 
 void TestCanvasCardEditor::fileCardWritesTheProjection()
 {
-    Canvas::CanvasDocument doc;
-    Canvas::CanvasNode node;
+    Corbomite::Canvas::CanvasDocument doc;
+    Corbomite::Canvas::CanvasNode node;
     node.id = QStringLiteral("filecard");
-    node.type = Canvas::NodeType::File;
+    node.type = Corbomite::Canvas::NodeType::File;
     node.file = QStringLiteral("note.md");
     node.x = 100;
     node.y = 100;
@@ -180,7 +180,7 @@ void TestCanvasCardEditor::fileCardWritesTheProjection()
     node.height = 80;
     doc.addNode(node);
 
-    Canvas::CanvasScene scene;
+    Corbomite::Canvas::CanvasScene scene;
     scene.setDocument(&doc);
     scene.setSessionContext(QStringLiteral("/vault"),
                             QStringLiteral("board.canvas"));
@@ -215,12 +215,12 @@ void TestCanvasCardEditor::fileCardWritesTheProjection()
 
 void TestCanvasCardEditor::aCardWhoseDocumentCannotOpenIsNotEdited()
 {
-    Canvas::CanvasDocument doc;
-    const Canvas::CanvasNode node =
+    Corbomite::Canvas::CanvasDocument doc;
+    const Corbomite::Canvas::CanvasNode node =
         makeTextNode(QStringLiteral("card"), QStringLiteral("Hello card"));
     doc.addNode(node);
 
-    Canvas::CanvasScene scene;
+    Corbomite::Canvas::CanvasScene scene;
     scene.setDocument(&doc);
     scene.setSessionContext(QStringLiteral("/vault"),
                             QStringLiteral("board.canvas"));

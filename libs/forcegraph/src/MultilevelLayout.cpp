@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "forcegraph/MultilevelLayout.h"
-#include "forcegraph/QuadTree.h"
+#include "corbomite/forcegraph/MultilevelLayout.h"
+#include "corbomite/forcegraph/QuadTree.h"
 
 #include <QHash>
 #include <QPair>
@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 
 static constexpr double EPSILON = 0.001;
 
@@ -511,4 +511,4 @@ QVector<GraphNode> MultilevelLayout::computeLayout(
     return result;
 }
 
-} // namespace ForceGraph
+} // namespace Corbomite::ForceGraph

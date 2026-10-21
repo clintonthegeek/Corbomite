@@ -9,16 +9,16 @@
 #include <QSet>
 #include <QPointF>
 
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasScene.h"
-#include "canvas/FileCardItem.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/FileCardItem.h"
 #include "corbomite/core/StyledRenderEngine.h"
 
-using Canvas::CanvasDocument;
-using Canvas::CanvasNode;
-using Canvas::CanvasScene;
-using Canvas::FileCardItem;
-using Canvas::NodeType;
+using Corbomite::Canvas::CanvasDocument;
+using Corbomite::Canvas::CanvasNode;
+using Corbomite::Canvas::CanvasScene;
+using Corbomite::Canvas::FileCardItem;
+using Corbomite::Canvas::NodeType;
 
 namespace {
 CanvasNode fileNode(const QString &id, const QString &file)

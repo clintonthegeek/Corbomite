@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "forcegraph/BatchEdgeItem.h"
+#include "corbomite/forcegraph/BatchEdgeItem.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QtMath>
 #include <algorithm>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 
 // Conservative test: is any part of the line possibly inside the rect?
 static bool edgeIntersectsRect(const QLineF &line, const QRectF &rect)
@@ -170,4 +170,4 @@ void BatchEdgeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opt
     }
 }
 
-} // namespace ForceGraph
+} // namespace Corbomite::ForceGraph

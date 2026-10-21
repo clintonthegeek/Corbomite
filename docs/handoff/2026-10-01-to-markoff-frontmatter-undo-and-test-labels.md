@@ -130,7 +130,7 @@ with no label:
 - `tst_canvas_perf_500` (:72-75)
 - `tst_canvas_perf_formatted` (:77-80)
 
-`libs/forcegraph`'s `tst_benchmark_layout` does the right thing
+`libs/forcegraph`'s `tst_forcegraph_benchmark` does the right thing
 (`set_tests_properties(... LABELS "benchmark")`), so the difference looks like an
 oversight rather than a policy. Under `ctest -j10` these two flake red from
 machine load alone while passing standalone every time, which makes "the suite is

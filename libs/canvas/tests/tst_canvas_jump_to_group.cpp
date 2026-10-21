@@ -18,13 +18,13 @@
 #include <KLocalizedString>
 #include <QTransform>
 
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasScene.h"
-#include "canvas/CanvasView.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/CanvasView.h"
 
 #include <cmath>
 
-using namespace Canvas;
+using namespace Corbomite::Canvas;
 
 namespace {
 

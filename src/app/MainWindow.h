@@ -35,7 +35,7 @@ namespace Markoff::Reading {
 class EmbedRenderer;
 }
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 class CanvasLinkRewriter;
 }
 
@@ -341,7 +341,7 @@ private:
     std::unique_ptr<Corbomite::StyledRenderEngine> m_cardRenderEngine;
     // Canvas link rewriter registered with FileManager so a vault
     // rename updates `.canvas` structural references (linkUpdaters seam).
-    std::unique_ptr<Canvas::CanvasLinkRewriter> m_canvasLinkRewriter;
+    std::unique_ptr<Corbomite::Canvas::CanvasLinkRewriter> m_canvasLinkRewriter;
     // Host-level periodic File Recovery snapshot service,
     // created on vault open and stopped/reset on close.
     std::unique_ptr<Corbomite::RecoveryService> m_recovery;

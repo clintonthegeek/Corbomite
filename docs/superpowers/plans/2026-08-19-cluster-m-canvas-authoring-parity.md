@@ -83,7 +83,7 @@ Broken / missing (the authoring cliff):
 
 | Area | Classes |
 |---|---|
-| Rebase (M1) | `Canvas::CanvasScene` → subclass `Graffodil::GraphScene`; `TextCardItem`/`FileCardItem`/`GroupItem` implement `Graffodil::IGraphNode` (+`IRenderableCache`); `EdgeItem` → `Graffodil::GraphEdgeItem` + a `CanvasBezierStrategy : EdgePathStrategy`; tools → `Graffodil::{SelectMoveTool, CreateEdgeTool, PanZoomTool, DefaultGraphTool}`; `CanvasView` slims to a shell |
+| Rebase (M1) | `Corbomite::Canvas::CanvasScene` → subclass `Graffodil::GraphScene`; `TextCardItem`/`FileCardItem`/`GroupItem` implement `Graffodil::IGraphNode` (+`IRenderableCache`); `EdgeItem` → `Graffodil::GraphEdgeItem` + a `CanvasBezierStrategy : EdgePathStrategy`; tools → `Graffodil::{SelectMoveTool, CreateEdgeTool, PanZoomTool, DefaultGraphTool}`; `CanvasView` slims to a shell |
 | Kept as-is | `CanvasDocument`/`CanvasTypes` (all of §3 disk contract), `CanvasCommands` (`QUndoStack` — now driven by Graffodil tool intent-signals), export paths, `CanvasViewTab`/`CanvasFileView` |
 | App side (M5/M6) | `WorkspaceSerializer` (leaf `state.viewState` viewport, **not** eState — see M5.3), `SessionManager` tier-3 (read-only flag), `MetadataCache`/`SQLiteIndex`/`LinkResolver` + `FileManager` rename rewriting (M6), `MainWindow` commands |
 
@@ -233,7 +233,7 @@ intent, only the assembly mechanics):**
    `CanvasEdgeItem` via a `using CanvasEdgeItem = EdgeItem;` alias — the spec
    text alternates between calling it `EdgeItem` (§3.2 heading says "rename
    of `EdgeItem`") and `CanvasEdgeItem` elsewhere; resolved in favor of
-   keeping the existing `Canvas::EdgeItem` symbol (zero call-site churn) with
+   keeping the existing `Corbomite::Canvas::EdgeItem` symbol (zero call-site churn) with
    the alias available for spec-literal references.
 
 **M1.0–M1.6 commit note:** landed as two commits rather than one-per-task —
@@ -271,7 +271,7 @@ after creation. Defaults (Appendix A): **text 250×60, file 400×400**.
       follow-up `476bede4`. Menu entries renamed to i18n'd "New text card" /
       "New file card…" / "New group" (also fixed text-card default height
       100→60 to match Appendix A, a latent bug). New
-      `Canvas::CanvasFilePickerDialog` (libs/canvas) fuzzy-filters/-ranks a
+      `Corbomite::Canvas::CanvasFilePickerDialog` (libs/canvas) fuzzy-filters/-ranks a
       flat candidate `QStringList` live via `Corbomite::FuzzyMatcher` (same
       matcher `CompletionPopup`/`QuickSwitcher` use). `CanvasScene` gains
       `FilePickerRequestor` (injectable callback) +
@@ -614,13 +614,13 @@ not safe for JSON and remains M6.2's dedicated `CanvasDocument` mutation.
 - [x] **M6.2 Rename rewrite** — landed 2026-10-17. `FileManager` gained a
       per-extension `LinkRewriter` registry (the vault half of Obsidian's
       `linkUpdaters[ext]`; interface in `corbomite/core/LinkRewriter.h`).
-      `Canvas::CanvasLinkRewriter` (`libs/canvas`) rewrites, through
+      `Corbomite::Canvas::CanvasLinkRewriter` (`libs/canvas`) rewrites, through
       `CanvasDocument` load→mutate→serialize so unknown fields and key order
       survive: file-node `file`, group `background`, and wikilink/markdown
       links in text-node `text`. `subpath` is left untouched, mirroring the
       note path (which does not rename heading/block subpaths either).
       `CanvasFileView` registers its live document in
-      `Canvas::CanvasDocumentRegistry` keyed on the vault-relative path, so an
+      `Corbomite::Canvas::CanvasDocumentRegistry` keyed on the vault-relative path, so an
       open canvas is mutated in place rather than clobbered (single writer;
       the open view persists it on save); closed canvases are written
       immediately. `MainWindow` registers the rewriter on open.

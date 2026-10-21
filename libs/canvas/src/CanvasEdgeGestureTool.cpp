@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasEdgeGestureTool.h"
-#include "canvas/EdgeItem.h"
-#include "canvas/ReconnectEdgeTool.h"
+#include "corbomite/canvas/CanvasEdgeGestureTool.h"
+#include "corbomite/canvas/EdgeItem.h"
+#include "corbomite/canvas/ReconnectEdgeTool.h"
 
 #include <graffodil/CreateEdgeTool.h>
 #include <graffodil/GraphScene.h>
@@ -10,7 +10,7 @@
 #include <QKeyEvent>
 #include <QLineF>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 CanvasEdgeGestureTool::CanvasEdgeGestureTool(Graffodil::CreateEdgeTool *createEdgeTool,
                                               ReconnectEdgeTool *reconnectTool,
@@ -127,4 +127,4 @@ void CanvasEdgeGestureTool::keyPressEvent(QKeyEvent *event)
         m_createEdgeTool->keyPressEvent(event);
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

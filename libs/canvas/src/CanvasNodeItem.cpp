@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasNodeItem.h"
+#include "corbomite/canvas/CanvasNodeItem.h"
 
 #include <graffodil/Anchors.h>
 #include <graffodil/GraphScene.h>
@@ -7,7 +7,7 @@
 #include <QGraphicsSceneHoverEvent>
 #include <QGraphicsSceneMouseEvent>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 static constexpr qreal kResizeZone = 8.0;
 
@@ -172,4 +172,4 @@ void CanvasNodeItem::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
     }
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasBezierStrategy.h"
+#include "corbomite/canvas/CanvasBezierStrategy.h"
 
 #include <QPolygonF>
 #include <algorithm>
 #include <cmath>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 // --- CanvasBezierStrategy ---
 //
@@ -92,4 +92,4 @@ qreal CanvasArrowTerminus::size() const
     return std::sqrt(kHalfWidth * kHalfWidth + kHeight * kHeight);
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

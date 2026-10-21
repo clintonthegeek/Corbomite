@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "CanvasViewTab.h"
 
-#include <canvas/CanvasDocument.h>
-#include <canvas/CanvasFilePickerDialog.h>
-#include <canvas/CanvasScene.h>
-#include <canvas/CanvasView.h>
+#include <corbomite/canvas/CanvasDocument.h>
+#include <corbomite/canvas/CanvasFilePickerDialog.h>
+#include <corbomite/canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasView.h>
 #include <corbomite/core/MarkdownRenderEngine.h>
 #include <corbomite/vault/FileManager.h>
 #include <corbomite/vault/TFolder.h>
@@ -77,8 +77,8 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
     , m_filePath(filePath)
     , m_vaultRoot(vaultRoot)
 {
-    m_document = new Canvas::CanvasDocument(this);
-    m_view = new Canvas::CanvasView(this);
+    m_document = new Corbomite::Canvas::CanvasDocument(this);
+    m_view = new Corbomite::Canvas::CanvasView(this);
 
     m_document->loadFromFile(filePath);
     m_view->setDocument(m_document);
@@ -118,7 +118,7 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
     // common attachment files rather than reusing Vault::getFiles(); a
     // real Vault-backed source is app-side follow-up work.
     // CanvasFilePickerDialog does the actual fuzzy filter/rank.
-    QPointer<Canvas::CanvasView> viewPtr(m_view);
+    QPointer<Corbomite::Canvas::CanvasView> viewPtr(m_view);
     m_view->canvasScene()->setFilePickerRequestor([resolveBase, viewPtr, this]() -> QString {
         static const QStringList kAttachmentExts = {
             QStringLiteral("md"), QStringLiteral("png"), QStringLiteral("jpg"),
@@ -171,7 +171,7 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
 
         if (!viewPtr)
             return {};
-        return Canvas::CanvasFilePickerDialog::pickFile(viewPtr, candidates);
+        return Corbomite::Canvas::CanvasFilePickerDialog::pickFile(viewPtr, candidates);
     });
 
     // Drag-drop candidate paths arrive as absolute filesystem paths
@@ -206,14 +206,14 @@ CanvasViewTab::CanvasViewTab(const QString &filePath, const QString &vaultRoot, 
             save();
     });
 
-    connect(m_document, &Canvas::CanvasDocument::modificationChanged,
+    connect(m_document, &Corbomite::Canvas::CanvasDocument::modificationChanged,
             this, [this](bool modified) {
                 if (modified)
                     m_autosaveTimer->start(CorbomiteSettings::self()->autoSaveDelayMs());
             });
-    connect(m_document, &Canvas::CanvasDocument::modificationChanged,
+    connect(m_document, &Corbomite::Canvas::CanvasDocument::modificationChanged,
             this, &CanvasViewTab::modificationChanged);
-    connect(m_view->canvasScene(), &Canvas::CanvasScene::readOnlyChanged,
+    connect(m_view->canvasScene(), &Corbomite::Canvas::CanvasScene::readOnlyChanged,
             this, [this](bool readOnly) {
                 if (!m_localDataWriter)
                     return;
@@ -251,7 +251,7 @@ QString CanvasViewTab::localDataKey() const
     return QStringLiteral("canvas-") + canvasRelativePath();
 }
 
-Canvas::CanvasDocument *CanvasViewTab::canvasDocument() const
+Corbomite::Canvas::CanvasDocument *CanvasViewTab::canvasDocument() const
 {
     return m_document;
 }
@@ -359,7 +359,7 @@ bool CanvasViewTab::isModified() const
 
 void CanvasViewTab::installConvertToFileSeams()
 {
-    QPointer<Canvas::CanvasView> viewPtr(m_view);
+    QPointer<Corbomite::Canvas::CanvasView> viewPtr(m_view);
 
     m_view->canvasScene()->setFileNameRequestor([viewPtr]() -> QString {
         if (!viewPtr)
@@ -420,12 +420,12 @@ void CanvasViewTab::jumpToGroup()
     if (targets.isEmpty())
         return;
 
-    QVector<Canvas::CanvasFilePickerDialog::Entry> entries;
+    QVector<Corbomite::Canvas::CanvasFilePickerDialog::Entry> entries;
     entries.reserve(targets.size());
     for (const auto &target : targets)
         entries.append({target.label, target.nodeId});
 
-    const QString chosen = Canvas::CanvasFilePickerDialog::pickPayload(
+    const QString chosen = Corbomite::Canvas::CanvasFilePickerDialog::pickPayload(
         m_view, entries, i18n("Jump to group"), i18n("Type to search groups…"));
     if (chosen.isEmpty())
         return;
@@ -443,12 +443,12 @@ void CanvasViewTab::convertTextCardToFile(const QString &nodeId)
         m_view->canvasScene()->convertTextCardToFile(nodeId);
 }
 
-Canvas::CanvasScene *CanvasViewTab::canvasScene() const
+Corbomite::Canvas::CanvasScene *CanvasViewTab::canvasScene() const
 {
     return m_view ? m_view->canvasScene() : nullptr;
 }
 
-Canvas::CanvasView *CanvasViewTab::canvasView() const
+Corbomite::Canvas::CanvasView *CanvasViewTab::canvasView() const
 {
     return m_view;
 }

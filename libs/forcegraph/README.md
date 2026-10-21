@@ -1,6 +1,9 @@
-# libforcegraph
+# corbomite-forcegraph
 
 A standalone Qt6/C++ force-directed graph visualization library.
+
+CMake target `corbomite-forcegraph`, alias `Corbomite::ForceGraph`, public
+headers under `corbomite/forcegraph/`, C++ namespace `Corbomite::ForceGraph`.
 
 ## Features
 

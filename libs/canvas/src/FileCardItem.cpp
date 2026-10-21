@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/FileCardItem.h"
-#include "canvas/CanvasScene.h"
-#include <canvas/CanvasPalette.h>
+#include "corbomite/canvas/FileCardItem.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include <corbomite/canvas/CanvasPalette.h>
 
 #include <QFileInfo>
 #include <QFont>
@@ -20,14 +20,14 @@
 // `static` (internal linkage) rather than a namespace-scope non-static
 // function: this helper is replicated in three translation units, so a plain
 // definition would be a duplicate symbol at link time.
-static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
+static const Corbomite::Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
 {
-    static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
-    const auto *cs = qobject_cast<const Canvas::CanvasScene *>(scene);
+    static const Corbomite::Canvas::CanvasPalette kLight = Corbomite::Canvas::CanvasPalette::light();
+    const auto *cs = qobject_cast<const Corbomite::Canvas::CanvasScene *>(scene);
     return cs ? cs->canvasPalette() : kLight;
 }
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 
 
@@ -147,7 +147,7 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     QPainterPath cardPath;
     cardPath.addRoundedRect(rect, kCornerRadius, kCornerRadius);
     // Canvas dark mode.
-    const Canvas::CanvasPalette &pal = canvasPaletteFor(scene());
+    const Corbomite::Canvas::CanvasPalette &pal = canvasPaletteFor(scene());
     painter->fillPath(cardPath, pal.cardBackground);
 
     // 2. Title bar
@@ -232,4 +232,4 @@ void FileCardItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     // here; see CanvasNodeChromeOverlay.h.
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

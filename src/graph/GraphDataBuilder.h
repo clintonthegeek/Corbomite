@@ -2,7 +2,7 @@
 #pragma once
 
 #include <QVector>
-#include <forcegraph/GraphTypes.h>
+#include <corbomite/forcegraph/GraphTypes.h>
 
 #include "corbomite/storage/IgnoreFilter.h"
 
@@ -14,8 +14,8 @@ class VaultProxy;
 class GraphDataBuilder {
 public:
     struct Result {
-        QVector<ForceGraph::GraphNode> nodes;
-        QVector<ForceGraph::GraphEdge> edges;
+        QVector<Corbomite::ForceGraph::GraphNode> nodes;
+        QVector<Corbomite::ForceGraph::GraphEdge> edges;
     };
 
     // Proxy-typed only. The raw-typed

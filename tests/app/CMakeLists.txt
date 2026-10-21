@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-# Punch-list P2 (audit-2026-06-10) — canvas file-card paths must resolve
+# Punch-list P2 (audit-2026-06-10) — Corbomite::Canvas file-card paths must resolve
 # against the vault root, not the .canvas file's own directory.
 add_executable(tst_canvasviewtab_vaultroot_paths tst_canvasviewtab_vaultroot_paths.cpp)
 add_test(NAME tst_canvasviewtab_vaultroot_paths COMMAND tst_canvasviewtab_vaultroot_paths)
@@ -130,11 +130,11 @@ set_tests_properties(tst_mainwindow_link_navigation PROPERTIES
 # Cluster O Phase O1 — ActionContextController: the phase's acceptance
 # gate (tst_action_context_no_silent_noop, run inside noSilentNoop()),
 # plus the two named tests for O1.T2 (in-place view-type swap) and O1.T4
-# (Ctrl+S must actually save a canvas tab).
+# (Ctrl+S must actually save a Corbomite::Canvas tab).
 add_executable(tst_action_context tst_action_context.cpp)
 add_test(NAME tst_action_context COMMAND tst_action_context)
 target_link_libraries(tst_action_context PRIVATE
-    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Bases canvas)
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Bases Corbomite::Canvas)
 set_tests_properties(tst_action_context PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -144,18 +144,18 @@ set_tests_properties(tst_action_context PROPERTIES
 add_executable(tst_view_zoom_dispatch tst_view_zoom_dispatch.cpp)
 add_test(NAME tst_view_zoom_dispatch COMMAND tst_view_zoom_dispatch)
 target_link_libraries(tst_view_zoom_dispatch PRIVATE
-    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Canvas)
 set_tests_properties(tst_view_zoom_dispatch PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-# Cluster M M5.3 — canvas viewport persistence. Asserts Obsidian's own
+# Cluster M M5.3 — Corbomite::Canvas viewport persistence. Asserts Obsidian's own
 # contract: the viewport is ViewState.state.viewState (NOT eState), zoom is
 # log2 of scale, and x/y are the scene point at the viewport centre. Fixture
-# is a real Obsidian-written canvas leaf.
+# is a real Obsidian-written Corbomite::Canvas leaf.
 add_executable(tst_canvas_view_state tst_canvas_view_state.cpp)
 add_test(NAME tst_canvas_view_state COMMAND tst_canvas_view_state)
 target_link_libraries(tst_canvas_view_state PRIVATE
-    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Canvas)
 set_tests_properties(tst_canvas_view_state PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -165,7 +165,7 @@ set_tests_properties(tst_canvas_view_state PROPERTIES
 add_executable(tst_view_actions_provider tst_view_actions_provider.cpp)
 add_test(NAME tst_view_actions_provider COMMAND tst_view_actions_provider)
 target_link_libraries(tst_view_actions_provider PRIVATE
-    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Canvas)
 set_tests_properties(tst_view_actions_provider PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -175,27 +175,27 @@ set_tests_properties(tst_view_actions_provider PROPERTIES
 add_executable(tst_toolbar_policy tst_toolbar_policy.cpp)
 add_test(NAME tst_toolbar_policy COMMAND tst_toolbar_policy)
 target_link_libraries(tst_toolbar_policy PRIVATE
-    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Canvas)
 set_tests_properties(tst_toolbar_policy PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # Cluster O Phase O4 — CanvasViewActions: eager construction, provider
-# install/uninstall on markdown<->canvas focus swap, each toggle reaching
+# install/uninstall on markdown<->Corbomite::Canvas focus swap, each toggle reaching
 # the real CanvasAlignmentStrategy/CanvasView, and the zoom-to-selection
 # Tier-B gate.
 add_executable(tst_canvas_view_actions tst_canvas_view_actions.cpp)
 add_test(NAME tst_canvas_view_actions COMMAND tst_canvas_view_actions)
 target_link_libraries(tst_canvas_view_actions PRIVATE
-    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Canvas)
 set_tests_properties(tst_canvas_view_actions PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 # Cluster O Phase O4 (O4.T4) — a kcfg settings change must fan out to
-# EVERY open canvas leaf, not just the focused one.
+# EVERY open Corbomite::Canvas leaf, not just the focused one.
 add_executable(tst_canvas_settings_fanout tst_canvas_settings_fanout.cpp)
 add_test(NAME tst_canvas_settings_fanout COMMAND tst_canvas_settings_fanout)
 target_link_libraries(tst_canvas_settings_fanout PRIVATE
-    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Canvas)
 set_tests_properties(tst_canvas_settings_fanout PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -206,11 +206,11 @@ set_tests_properties(tst_canvas_settings_fanout PROPERTIES
 add_executable(tst_view_capabilities tst_view_capabilities.cpp)
 add_test(NAME tst_view_capabilities COMMAND tst_view_capabilities)
 target_link_libraries(tst_view_capabilities PRIVATE
-    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Bases canvas)
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Bases Corbomite::Canvas)
 set_tests_properties(tst_view_capabilities PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-# Cluster K — canvas leaf's inline title band (rename-via-header
+# Cluster K — Corbomite::Canvas leaf's inline title band (rename-via-header
 # affordance) surfaced in Corbomite: seeded from filename on attach,
 # debounced edit commits a real FileManager rename, '/' in the typed text
 # is rejected rather than silently becoming a folder move.
@@ -279,14 +279,14 @@ set_tests_properties(tst_markdownview_find_replace_dispatch PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
-# Cluster M Phase M5.4 — the canvas read-only lock's tier-3 home and the tier
+# Cluster M Phase M5.4 — the Corbomite::Canvas read-only lock's tier-3 home and the tier
 # split it must respect: SessionManager's machine-local session.json, keyed
 # exactly as Obsidian keys localStorage ("canvas-<vault-relative-path>"), and
 # never in the .canvas file or workspace.json.
 add_executable(tst_canvas_readonly_store tst_canvas_readonly_store.cpp)
 add_test(NAME tst_canvas_readonly_store COMMAND tst_canvas_readonly_store)
 target_link_libraries(tst_canvas_readonly_store PRIVATE
-    Qt6::Test CorbomiteApp Corbomite::Core canvas)
+    Qt6::Test CorbomiteApp Corbomite::Core Corbomite::Canvas)
 set_tests_properties(tst_canvas_readonly_store PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -297,6 +297,6 @@ add_executable(tst_canvas_convert_to_file_vault tst_canvas_convert_to_file_vault
 add_test(NAME tst_canvas_convert_to_file_vault COMMAND tst_canvas_convert_to_file_vault)
 target_link_libraries(tst_canvas_convert_to_file_vault PRIVATE
     Qt6::Test Qt6::Widgets CorbomiteApp Corbomite::Core Corbomite::Vault
-    Corbomite::Storage canvas)
+    Corbomite::Storage Corbomite::Canvas)
 set_tests_properties(tst_canvas_convert_to_file_vault PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

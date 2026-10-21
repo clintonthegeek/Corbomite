@@ -96,17 +96,14 @@ target_link_libraries(CorbomiteApp
         Markoff::Source
         markoff_styled
         Markoff::Canvas
-        forcegraph
-        canvas
+        Corbomite::ForceGraph
+        Corbomite::Canvas
 )
 
 target_include_directories(CorbomiteApp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/app
-    ${CMAKE_CURRENT_SOURCE_DIR}/mdi
     ${CMAKE_CURRENT_SOURCE_DIR}/editor
-    ${CMAKE_CURRENT_SOURCE_DIR}/sidebar
-    ${CMAKE_CURRENT_SOURCE_DIR}/reactors
     ${CMAKE_CURRENT_SOURCE_DIR}/dialogs
     ${CMAKE_CURRENT_SOURCE_DIR}/graph
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas

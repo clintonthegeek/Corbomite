@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "forcegraph/ForceGraphEdge.h"
-#include "forcegraph/ForceGraphNode.h"
+#include "corbomite/forcegraph/ForceGraphEdge.h"
+#include "corbomite/forcegraph/ForceGraphNode.h"
 #include <QPen>
 #include <QPainter>
 #include <QtMath>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 
 ForceGraphEdge::ForceGraphEdge(ForceGraphNode *source, ForceGraphNode *target, QGraphicsItem *parent)
     : QGraphicsLineItem(parent)
@@ -93,4 +93,4 @@ void ForceGraphEdge::paint(QPainter *painter, const QStyleOptionGraphicsItem *op
     painter->drawPolygon(arrowHead);
 }
 
-} // namespace ForceGraph
+} // namespace Corbomite::ForceGraph

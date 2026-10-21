@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/EdgeItem.h"
-#include "canvas/CanvasScene.h"
-#include <canvas/CanvasPalette.h>
-#include "canvas/CanvasNodeItem.h"
-#include "canvas/CanvasBezierStrategy.h"
+#include "corbomite/canvas/EdgeItem.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include <corbomite/canvas/CanvasPalette.h>
+#include "corbomite/canvas/CanvasNodeItem.h"
+#include "corbomite/canvas/CanvasBezierStrategy.h"
 
 #include <graffodil/EdgePathStrategy.h>
 #include <graffodil/TerminusStyle.h>
 
 // Canvas dark mode — see CanvasPalette.h.
-static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
+static const Corbomite::Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
 {
-    static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
-    const auto *cs = qobject_cast<const Canvas::CanvasScene *>(scene);
+    static const Corbomite::Canvas::CanvasPalette kLight = Corbomite::Canvas::CanvasPalette::light();
+    const auto *cs = qobject_cast<const Corbomite::Canvas::CanvasScene *>(scene);
     return cs ? cs->canvasPalette() : kLight;
 }
 
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 static constexpr qreal kDefaultPenWidth = 2.0;
 static constexpr qreal kHitWidth = 24.0;
@@ -37,7 +37,7 @@ EdgeItem::EdgeItem(CanvasNodeItem *from, CanvasNodeItem *to, const CanvasEdge &d
     // ctor may run before the item has a scene, so fall back to light here and
     // let applyEndsAndPen()'s sibling re-apply once it is in the scene.
     {
-        const Canvas::CanvasPalette &pal = canvasPaletteFor(nullptr);
+        const Corbomite::Canvas::CanvasPalette &pal = canvasPaletteFor(nullptr);
         style.color = pal.edge;
         style.background = pal.edgeLabelBackground;
     }
@@ -93,4 +93,4 @@ CanvasEdge EdgeItem::edgeData() const
     return m_data;
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

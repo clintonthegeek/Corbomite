@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/GroupItem.h"
-#include "canvas/CanvasScene.h"
-#include <canvas/CanvasPalette.h>
+#include "corbomite/canvas/GroupItem.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include <corbomite/canvas/CanvasPalette.h>
 
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
@@ -10,15 +10,15 @@
 #include <utility>
 
 // Canvas dark mode — see CanvasPalette.h.
-static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
+static const Corbomite::Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
 {
-    static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
-    const auto *cs = qobject_cast<const Canvas::CanvasScene *>(scene);
+    static const Corbomite::Canvas::CanvasPalette kLight = Corbomite::Canvas::CanvasPalette::light();
+    const auto *cs = qobject_cast<const Corbomite::Canvas::CanvasScene *>(scene);
     return cs ? cs->canvasPalette() : kLight;
 }
 
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 static constexpr qreal kLabelPadding = 8.0;
 
@@ -192,4 +192,4 @@ void GroupItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
     Q_EMIT labelEditRequested();
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

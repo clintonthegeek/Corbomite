@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "forcegraph/BatchNodeItem.h"
+#include "corbomite/forcegraph/BatchNodeItem.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QHash>
 #include <cmath>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 
 // Must match ForceGraphNode constants
 static constexpr double TextZoomExponent = 0.75;
@@ -201,4 +201,4 @@ void BatchNodeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opt
     }
 }
 
-} // namespace ForceGraph
+} // namespace Corbomite::ForceGraph

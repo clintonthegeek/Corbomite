@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasJsonPrinter.h"
+#include "corbomite/canvas/CanvasJsonPrinter.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 namespace {
 
@@ -228,4 +228,4 @@ QByteArray OrderedJson::print() const
     return out.join(QLatin1Char('\n')).toUtf8();
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

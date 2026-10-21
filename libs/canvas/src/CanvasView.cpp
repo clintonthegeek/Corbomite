@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasView.h"
-#include "canvas/CanvasAlignmentStrategy.h"
-#include "canvas/CanvasScene.h"
-#include "canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasView.h"
+#include "corbomite/canvas/CanvasAlignmentStrategy.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/CanvasDocument.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -27,14 +27,14 @@
 // `static` (internal linkage) rather than a namespace-scope non-static
 // function: this helper is replicated in three translation units, so a plain
 // definition would be a duplicate symbol at link time.
-static const Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
+static const Corbomite::Canvas::CanvasPalette &canvasPaletteFor(const QGraphicsScene *scene)
 {
-    static const Canvas::CanvasPalette kLight = Canvas::CanvasPalette::light();
-    const auto *cs = qobject_cast<const Canvas::CanvasScene *>(scene);
+    static const Corbomite::Canvas::CanvasPalette kLight = Corbomite::Canvas::CanvasPalette::light();
+    const auto *cs = qobject_cast<const Corbomite::Canvas::CanvasScene *>(scene);
     return cs ? cs->canvasPalette() : kLight;
 }
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 
 
@@ -448,4 +448,4 @@ void CanvasView::drawBackground(QPainter *painter, const QRectF &rect)
     }
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

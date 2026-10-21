@@ -19,7 +19,7 @@ corbomite_add_plugin(corbomite-graph-view
         Corbomite::Core
         Corbomite::Storage
         Corbomite::Vault
-        forcegraph)
+        Corbomite::ForceGraph)
 
 if(CORBOMITE_BUILD_TESTS)
     add_subdirectory(tests)

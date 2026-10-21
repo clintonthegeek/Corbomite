@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "forcegraph/ForceGraphView.h"
-#include "forcegraph/ForceGraphScene.h"
-#include "forcegraph/ForceGraphNode.h"
-#include "forcegraph/ForceGraphEdge.h"
-#include "forcegraph/ForceLayoutEngine.h"
+#include "corbomite/forcegraph/ForceGraphView.h"
+#include "corbomite/forcegraph/ForceGraphScene.h"
+#include "corbomite/forcegraph/ForceGraphNode.h"
+#include "corbomite/forcegraph/ForceGraphEdge.h"
+#include "corbomite/forcegraph/ForceLayoutEngine.h"
 #include <QEasingCurve>
 #include <QTimeLine>
 #include <QTimer>
@@ -13,7 +13,7 @@
 #include <QKeyEvent>
 #include <QScrollBar>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 
 static constexpr double ZoomFactor = 1.15;
 static constexpr int EdgeHideThreshold = 2000; // hide edges during interaction above this node count
@@ -358,4 +358,4 @@ void ForceGraphView::keyPressEvent(QKeyEvent *event)
     event->accept();
 }
 
-} // namespace ForceGraph
+} // namespace Corbomite::ForceGraph

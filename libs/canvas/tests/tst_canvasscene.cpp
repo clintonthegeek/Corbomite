@@ -8,14 +8,14 @@
 #include <QMimeData>
 #include <QUrl>
 #include <graffodil/IGraphNode.h>
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasScene.h"
-#include "canvas/CanvasCommands.h"
-#include "canvas/CanvasNodeChromeOverlay.h"
-#include "canvas/TextCardItem.h"
-#include "canvas/FileCardItem.h"
-#include "canvas/GroupItem.h"
-#include "canvas/EdgeItem.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/CanvasCommands.h"
+#include "corbomite/canvas/CanvasNodeChromeOverlay.h"
+#include "corbomite/canvas/TextCardItem.h"
+#include "corbomite/canvas/FileCardItem.h"
+#include "corbomite/canvas/GroupItem.h"
+#include "corbomite/canvas/EdgeItem.h"
 #include "corbomite/core/StyledRenderEngine.h"
 
 class TestCanvasScene : public QObject {
@@ -33,13 +33,13 @@ private Q_SLOTS:
     void testAddTextCard()
     {
         // Create document, add text node -> scene should create TextCardItem
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
-        Canvas::CanvasNode node;
-        node.id = Canvas::CanvasDocument::generateId();
-        node.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode node;
+        node.id = Corbomite::Canvas::CanvasDocument::generateId();
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.text = QStringLiteral("Test card");
         node.x = 100; node.y = 100;
         node.width = 200; node.height = 80;
@@ -54,14 +54,14 @@ private Q_SLOTS:
     void testMoveCardUpdatesDocument()
     {
         // Create scene with a card, move the item, verify document sync behavior
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("movable");
-        node.type = Canvas::NodeType::Text;
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 0; node.y = 0; node.width = 200; node.height = 80;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.textCardItem(QStringLiteral("movable"));
@@ -82,7 +82,7 @@ private Q_SLOTS:
         QHash<QString, QPointF> oldPos, newPos;
         oldPos[QStringLiteral("movable")] = QPointF(0, 0);
         newPos[QStringLiteral("movable")] = QPointF(150, 200);
-        scene.undoStack()->push(new Canvas::CmdMoveCards(&doc, oldPos, newPos));
+        scene.undoStack()->push(new Corbomite::Canvas::CmdMoveCards(&doc, oldPos, newPos));
 
         // Now the document should be updated
         auto updated = doc.node(QStringLiteral("movable"));
@@ -93,23 +93,23 @@ private Q_SLOTS:
     void testDeleteCardRemovesEdges()
     {
         // Create 2 cards + 1 edge, remove one card -> edge should also be removed
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("a"); n1.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("a"); n1.type = Corbomite::Canvas::NodeType::Text;
         n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 80;
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("b"); n2.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("b"); n2.type = Corbomite::Canvas::NodeType::Text;
         n2.x = 300; n2.y = 0; n2.width = 200; n2.height = 80;
         doc.addNode(n1);
         doc.addNode(n2);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("e1");
         edge.fromNode = QStringLiteral("a");
         edge.toNode = QStringLiteral("b");
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         QVERIFY(scene.edgeItem(QStringLiteral("e1")) != nullptr);
@@ -126,20 +126,20 @@ private Q_SLOTS:
     void testGroupContainment()
     {
         // Create a group and a card inside it
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode group;
-        group.id = QStringLiteral("g1"); group.type = Canvas::NodeType::Group;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode group;
+        group.id = QStringLiteral("g1"); group.type = Corbomite::Canvas::NodeType::Group;
         group.x = 0; group.y = 0; group.width = 400; group.height = 300;
         group.label = QStringLiteral("My Group");
         doc.addNode(group);
 
-        Canvas::CanvasNode card;
-        card.id = QStringLiteral("c1"); card.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode card;
+        card.id = QStringLiteral("c1"); card.type = Corbomite::Canvas::NodeType::Text;
         card.x = 50; card.y = 50; card.width = 200; card.height = 80;
         card.text = QStringLiteral("Inside group");
         doc.addNode(card);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *groupItem = scene.groupItem(QStringLiteral("g1"));
@@ -152,14 +152,14 @@ private Q_SLOTS:
     void testUndoMoveCard()
     {
         // Move a card, undo, verify position restored
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("undotest");
-        node.type = Canvas::NodeType::Text;
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 100; node.y = 100; node.width = 200; node.height = 80;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         // Push a move command
@@ -167,7 +167,7 @@ private Q_SLOTS:
         oldPos[QStringLiteral("undotest")] = QPointF(100, 100);
         newPos[QStringLiteral("undotest")] = QPointF(300, 200);
 
-        scene.undoStack()->push(new Canvas::CmdMoveCards(&doc, oldPos, newPos));
+        scene.undoStack()->push(new Corbomite::Canvas::CmdMoveCards(&doc, oldPos, newPos));
 
         // Verify moved
         auto updated = doc.node(QStringLiteral("undotest"));
@@ -185,25 +185,25 @@ private Q_SLOTS:
     void testEdgeAdjustsOnCardMove()
     {
         // Create 2 cards + edge, verify edge path is non-empty
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("src"); n1.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("src"); n1.type = Corbomite::Canvas::NodeType::Text;
         n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 80;
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("tgt"); n2.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("tgt"); n2.type = Corbomite::Canvas::NodeType::Text;
         n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 80;
         doc.addNode(n1);
         doc.addNode(n2);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("e1");
         edge.fromNode = QStringLiteral("src");
         edge.toNode = QStringLiteral("tgt");
-        edge.fromSide = Canvas::Side::Right;
-        edge.toSide = Canvas::Side::Left;
+        edge.fromSide = Corbomite::Canvas::Side::Right;
+        edge.toSide = Corbomite::Canvas::Side::Left;
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *edgeItem = scene.edgeItem(QStringLiteral("e1"));
@@ -214,8 +214,8 @@ private Q_SLOTS:
 
     void testAddFileCard()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.setFileResolver([](const QString &path) -> QString {
@@ -228,9 +228,9 @@ private Q_SLOTS:
         engine.setProfile(Corbomite::RenderProfile::canvasCard());
         scene.setRenderEngine(&engine);
 
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("file1");
-        node.type = Canvas::NodeType::File;
+        node.type = Corbomite::Canvas::NodeType::File;
         node.file = QStringLiteral("note.md");
         node.x = 100; node.y = 100;
         node.width = 250; node.height = 200;
@@ -243,8 +243,8 @@ private Q_SLOTS:
 
     void testFileCardWithSubpath()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.setFileResolver([](const QString &) -> QString {
@@ -255,9 +255,9 @@ private Q_SLOTS:
         engine.setProfile(Corbomite::RenderProfile::canvasCard());
         scene.setRenderEngine(&engine);
 
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("sub1");
-        node.type = Canvas::NodeType::File;
+        node.type = Corbomite::Canvas::NodeType::File;
         node.file = QStringLiteral("note.md");
         node.subpath = QStringLiteral("#Section");
         node.x = 0; node.y = 0;
@@ -273,8 +273,8 @@ private Q_SLOTS:
         // Regression: if cards are built BEFORE the engine is set (e.g. the
         // engine is wired by MainWindow after the document loads), the existing
         // cards must be (re-)rendered when setRenderEngine is finally called.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.setFileResolver([](const QString &) -> QString {
@@ -282,9 +282,9 @@ private Q_SLOTS:
         });
 
         // Add the file card FIRST, with no engine set yet.
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("late1");
-        node.type = Canvas::NodeType::File;
+        node.type = Corbomite::Canvas::NodeType::File;
         node.file = QStringLiteral("note.md");
         node.x = 0; node.y = 0;
         node.width = 250; node.height = 200;
@@ -306,8 +306,8 @@ private Q_SLOTS:
 
     void testFileResolverReturnsEmpty()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.setFileResolver([](const QString &) -> QString { return {}; });
@@ -316,9 +316,9 @@ private Q_SLOTS:
         engine.setProfile(Corbomite::RenderProfile::canvasCard());
         scene.setRenderEngine(&engine);
 
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("missing");
-        node.type = Canvas::NodeType::File;
+        node.type = Corbomite::Canvas::NodeType::File;
         node.file = QStringLiteral("nonexistent.md");
         node.x = 0; node.y = 0;
         node.width = 250; node.height = 200;
@@ -330,8 +330,8 @@ private Q_SLOTS:
 
     void testEdgeBetweenTextAndFileCard()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.setFileResolver([](const QString &) -> QString {
@@ -341,20 +341,20 @@ private Q_SLOTS:
         engine.setProfile(Corbomite::RenderProfile::canvasCard());
         scene.setRenderEngine(&engine);
 
-        Canvas::CanvasNode textNode;
+        Corbomite::Canvas::CanvasNode textNode;
         textNode.id = QStringLiteral("t1");
-        textNode.type = Canvas::NodeType::Text;
+        textNode.type = Corbomite::Canvas::NodeType::Text;
         textNode.x = 0; textNode.y = 0; textNode.width = 200; textNode.height = 80;
         doc.addNode(textNode);
 
-        Canvas::CanvasNode fileNode;
+        Corbomite::Canvas::CanvasNode fileNode;
         fileNode.id = QStringLiteral("f1");
-        fileNode.type = Canvas::NodeType::File;
+        fileNode.type = Corbomite::Canvas::NodeType::File;
         fileNode.file = QStringLiteral("note.md");
         fileNode.x = 400; fileNode.y = 0; fileNode.width = 250; fileNode.height = 200;
         doc.addNode(fileNode);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("e1");
         edge.fromNode = QStringLiteral("t1");
         edge.toNode = QStringLiteral("f1");
@@ -380,15 +380,15 @@ private Q_SLOTS:
         // so the card position never changes and no CmdMoveCards is
         // pushed). Graffodil::SelectMoveTool operates over IGraphNode, so
         // it is type-blind by construction and this now passes.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("file1");
-        node.type = Canvas::NodeType::File;
+        node.type = Corbomite::Canvas::NodeType::File;
         node.file = QStringLiteral("note.md");
         node.x = 0; node.y = 0; node.width = 200; node.height = 150;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.fileCardItem(QStringLiteral("file1"));
@@ -428,25 +428,25 @@ private Q_SLOTS:
 
     void testRubberBandSelectsAllNodeKinds()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode textNode;
-        textNode.id = QStringLiteral("t1"); textNode.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode textNode;
+        textNode.id = QStringLiteral("t1"); textNode.type = Corbomite::Canvas::NodeType::Text;
         textNode.x = 0; textNode.y = 0; textNode.width = 100; textNode.height = 60;
         doc.addNode(textNode);
 
-        Canvas::CanvasNode fileNode;
-        fileNode.id = QStringLiteral("f1"); fileNode.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasNode fileNode;
+        fileNode.id = QStringLiteral("f1"); fileNode.type = Corbomite::Canvas::NodeType::File;
         fileNode.file = QStringLiteral("note.md");
         fileNode.x = 200; fileNode.y = 0; fileNode.width = 100; fileNode.height = 60;
         doc.addNode(fileNode);
 
-        Canvas::CanvasNode groupNode;
-        groupNode.id = QStringLiteral("g1"); groupNode.type = Canvas::NodeType::Group;
+        Corbomite::Canvas::CanvasNode groupNode;
+        groupNode.id = QStringLiteral("g1"); groupNode.type = Corbomite::Canvas::NodeType::Group;
         groupNode.x = 400; groupNode.y = 0; groupNode.width = 100; groupNode.height = 60;
         groupNode.label = QStringLiteral("G");
         doc.addNode(groupNode);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *textItem = scene.textCardItem(QStringLiteral("t1"));
@@ -480,30 +480,30 @@ private Q_SLOTS:
 
     void testDeleteSelectionSingleUndoStep()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode textNode;
-        textNode.id = QStringLiteral("t1"); textNode.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode textNode;
+        textNode.id = QStringLiteral("t1"); textNode.type = Corbomite::Canvas::NodeType::Text;
         textNode.x = 0; textNode.y = 0; textNode.width = 100; textNode.height = 60;
         doc.addNode(textNode);
 
-        Canvas::CanvasNode fileNode;
-        fileNode.id = QStringLiteral("f1"); fileNode.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasNode fileNode;
+        fileNode.id = QStringLiteral("f1"); fileNode.type = Corbomite::Canvas::NodeType::File;
         fileNode.file = QStringLiteral("note.md");
         fileNode.x = 200; fileNode.y = 0; fileNode.width = 100; fileNode.height = 60;
         doc.addNode(fileNode);
 
-        Canvas::CanvasNode groupNode;
-        groupNode.id = QStringLiteral("g1"); groupNode.type = Canvas::NodeType::Group;
+        Corbomite::Canvas::CanvasNode groupNode;
+        groupNode.id = QStringLiteral("g1"); groupNode.type = Corbomite::Canvas::NodeType::Group;
         groupNode.x = 400; groupNode.y = 0; groupNode.width = 100; groupNode.height = 60;
         doc.addNode(groupNode);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("e1");
         edge.fromNode = QStringLiteral("t1");
         edge.toNode = QStringLiteral("f1");
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *textItem = scene.textCardItem(QStringLiteral("t1"));
@@ -539,14 +539,14 @@ private Q_SLOTS:
 
     void testResizeToolCommitsUndo()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("r1");
-        node.type = Canvas::NodeType::Text;
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 0; node.y = 0; node.width = 200; node.height = 100;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.textCardItem(QStringLiteral("r1"));
@@ -596,14 +596,14 @@ private Q_SLOTS:
         // ~3.18); aspect-lock should recompute one dimension so the
         // result stays at 2:1 (within a small epsilon, per the plan's
         // "plausible, visually-correct" bar).
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("ar1");
-        node.type = Canvas::NodeType::Text;
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 0; node.y = 0; node.width = 200; node.height = 100;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.textCardItem(QStringLiteral("ar1"));
@@ -638,14 +638,14 @@ private Q_SLOTS:
     {
         // A single-edge handle (Right) only ever changes one dimension —
         // Shift must not do anything special there.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("ar2");
-        node.type = Canvas::NodeType::Text;
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 0; node.y = 0; node.width = 200; node.height = 100;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.textCardItem(QStringLiteral("ar2"));
@@ -684,23 +684,23 @@ private Q_SLOTS:
         // the edge attached, even though no interactive drag ever ran
         // through SelectMoveTool. Covers the CanvasNodeItem::itemChange ->
         // GraphScene::adjustEdgesForNode() hook (spec §6a V2).
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("src"); n1.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("src"); n1.type = Corbomite::Canvas::NodeType::Text;
         n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 80;
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("tgt"); n2.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("tgt"); n2.type = Corbomite::Canvas::NodeType::Text;
         n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 80;
         doc.addNode(n1);
         doc.addNode(n2);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("e1");
         edge.fromNode = QStringLiteral("src");
         edge.toNode = QStringLiteral("tgt");
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *edgeItem = scene.edgeItem(QStringLiteral("e1"));
@@ -710,7 +710,7 @@ private Q_SLOTS:
         QHash<QString, QPointF> oldPos, newPos;
         oldPos[QStringLiteral("src")] = QPointF(0, 0);
         newPos[QStringLiteral("src")] = QPointF(300, 300);
-        scene.undoStack()->push(new Canvas::CmdMoveCards(&doc, oldPos, newPos));
+        scene.undoStack()->push(new Corbomite::Canvas::CmdMoveCards(&doc, oldPos, newPos));
 
         const QPointF pathAfter = edgeItem->path().pointAtPercent(0.0);
         QVERIFY(pathBefore != pathAfter);
@@ -721,23 +721,23 @@ private Q_SLOTS:
         // Guards the §3.2 override: GraphEdgeItem generates its own
         // uuid-shaped id by default; CanvasEdgeItem::edgeId() must return
         // the .canvas document id instead.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("a"); n1.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("a"); n1.type = Corbomite::Canvas::NodeType::Text;
         n1.x = 0; n1.y = 0; n1.width = 100; n1.height = 60;
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("b"); n2.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("b"); n2.type = Corbomite::Canvas::NodeType::Text;
         n2.x = 200; n2.y = 0; n2.width = 100; n2.height = 60;
         doc.addNode(n1);
         doc.addNode(n2);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("custom-edge-id-1234");
         edge.fromNode = QStringLiteral("a");
         edge.toNode = QStringLiteral("b");
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.edgeItem(QStringLiteral("custom-edge-id-1234"));
@@ -752,8 +752,8 @@ private Q_SLOTS:
 
     void testDoubleClickEmptyCreatesTextCardInEditMode()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         QCOMPARE(doc.nodes().size(), 0);
@@ -766,7 +766,7 @@ private Q_SLOTS:
 
         QCOMPARE(doc.nodes().size(), 1);
         const auto node = doc.nodes().first();
-        QCOMPARE(node.type, Canvas::NodeType::Text);
+        QCOMPARE(node.type, Corbomite::Canvas::NodeType::Text);
         QCOMPARE(node.width, 250);
         QCOMPARE(node.height, 60);
         // Click point is the card's center, not its top-left corner.
@@ -809,9 +809,9 @@ private Q_SLOTS:
         // explicit destructor that finishes any open edit BEFORE the base
         // class starts deleting items. This test must not crash/ASAN-abort;
         // a document commit is a bonus sanity check, not the main point.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         {
-            Canvas::CanvasScene scene;
+            Corbomite::Canvas::CanvasScene scene;
             scene.setDocument(&doc);
 
             QGraphicsSceneMouseEvent dblClick(QEvent::GraphicsSceneMouseDoubleClick);
@@ -830,8 +830,8 @@ private Q_SLOTS:
     {
         // The "New file card…" action invokes the injected picker
         // requestor rather than driving a real modal.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.setFilePickerRequestor([]() -> QString {
@@ -843,7 +843,7 @@ private Q_SLOTS:
 
         QCOMPARE(doc.nodes().size(), 1);
         const auto node = doc.nodes().first();
-        QCOMPARE(node.type, Canvas::NodeType::File);
+        QCOMPARE(node.type, Corbomite::Canvas::NodeType::File);
         QCOMPARE(node.file, QStringLiteral("attachments/diagram.pdf"));
         QCOMPARE(node.width, 400);
         QCOMPARE(node.height, 400);
@@ -858,8 +858,8 @@ private Q_SLOTS:
 
     void testContextMenuFileCardCancelledPickerCreatesNothing()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.setFilePickerRequestor([]() -> QString { return QString(); });
@@ -871,8 +871,8 @@ private Q_SLOTS:
 
     void testDropSingleFileCreatesFileCard()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.setVaultPathResolver([](const QString &absPath) -> QString {
@@ -891,7 +891,7 @@ private Q_SLOTS:
 
         QCOMPARE(doc.nodes().size(), 1);
         const auto node = doc.nodes().first();
-        QCOMPARE(node.type, Canvas::NodeType::File);
+        QCOMPARE(node.type, Corbomite::Canvas::NodeType::File);
         QCOMPARE(node.file, QStringLiteral("notes/dropped.md"));
         QCOMPARE(node.width, 400);
         QCOMPARE(node.height, 400);
@@ -906,8 +906,8 @@ private Q_SLOTS:
 
     void testDropTextCreatesTextCard()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         QMimeData mime;
@@ -920,7 +920,7 @@ private Q_SLOTS:
 
         QCOMPARE(doc.nodes().size(), 1);
         const auto node = doc.nodes().first();
-        QCOMPARE(node.type, Canvas::NodeType::Text);
+        QCOMPARE(node.type, Corbomite::Canvas::NodeType::Text);
         QCOMPARE(node.text, QStringLiteral("Dropped plain text"));
         QCOMPARE(node.width, 250);
         QCOMPARE(node.height, 60);
@@ -931,8 +931,8 @@ private Q_SLOTS:
 
     void testDropMultipleFilesLaysOutInGrid()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.setVaultPathResolver([](const QString &absPath) -> QString {
@@ -968,24 +968,24 @@ private Q_SLOTS:
 
     void testCopyPasteRoundTripReIds()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("a"); n1.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("a"); n1.type = Corbomite::Canvas::NodeType::Text;
         n1.x = 0; n1.y = 0; n1.width = 100; n1.height = 60;
         n1.text = QStringLiteral("Hello");
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("b"); n2.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("b"); n2.type = Corbomite::Canvas::NodeType::Text;
         n2.x = 200; n2.y = 0; n2.width = 100; n2.height = 60;
         doc.addNode(n1);
         doc.addNode(n2);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("e1");
         edge.fromNode = QStringLiteral("a");
         edge.toNode = QStringLiteral("b");
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *itemA = scene.textCardItem(QStringLiteral("a"));
@@ -1041,15 +1041,15 @@ private Q_SLOTS:
 
     void testPastePlainTextCreatesCard()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         scene.pasteCanvasJsonOrText(QStringLiteral("Just some plain text"), QPointF(500, 500));
 
         QCOMPARE(doc.nodes().size(), 1);
         const auto node = doc.nodes().first();
-        QCOMPARE(node.type, Canvas::NodeType::Text);
+        QCOMPARE(node.type, Corbomite::Canvas::NodeType::Text);
         QCOMPARE(node.text, QStringLiteral("Just some plain text"));
         QCOMPARE(node.x, 500 - 125);
         QCOMPARE(node.y, 500 - 30);
@@ -1058,25 +1058,25 @@ private Q_SLOTS:
 
     void testAltDragDuplicates()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("a"); n1.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("a"); n1.type = Corbomite::Canvas::NodeType::Text;
         n1.x = 0; n1.y = 0; n1.width = 100; n1.height = 60;
         n1.text = QStringLiteral("Alpha");
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("b"); n2.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("b"); n2.type = Corbomite::Canvas::NodeType::Text;
         n2.x = 200; n2.y = 0; n2.width = 100; n2.height = 60;
         n2.text = QStringLiteral("Beta");
         doc.addNode(n1);
         doc.addNode(n2);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("e1");
         edge.fromNode = QStringLiteral("a");
         edge.toNode = QStringLiteral("b");
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *itemA = scene.textCardItem(QStringLiteral("a"));
@@ -1162,13 +1162,13 @@ private Q_SLOTS:
         // real movement used to still commit a duplicate on release. Below
         // QApplication::startDragDistance(), the clones must be discarded
         // and the original selection restored instead.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("a"); n1.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("a"); n1.type = Corbomite::Canvas::NodeType::Text;
         n1.x = 0; n1.y = 0; n1.width = 100; n1.height = 60;
         doc.addNode(n1);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *itemA = scene.textCardItem(QStringLiteral("a"));
@@ -1209,20 +1209,20 @@ private Q_SLOTS:
         // (400,75)), release. This should route through CompositeTool's
         // anchor route into CreateEdgeTool and emit edgeRequested, which
         // CanvasScene::onEdgeRequested turns into a CmdAddEdge.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Corbomite::Canvas::NodeType::File;
         n1.file = QStringLiteral("one.md");
         n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
         doc.addNode(n1);
 
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Corbomite::Canvas::NodeType::File;
         n2.file = QStringLiteral("two.md");
         n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
         doc.addNode(n2);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         QVERIFY(scene.fileCardItem(QStringLiteral("card1")));
@@ -1253,11 +1253,11 @@ private Q_SLOTS:
         QCoreApplication::sendEvent(&scene, &release);
 
         QCOMPARE(doc.edges().size(), 1);
-        const Canvas::CanvasEdge edge = doc.edges().first();
+        const Corbomite::Canvas::CanvasEdge edge = doc.edges().first();
         QCOMPARE(edge.fromNode, QStringLiteral("card1"));
         QCOMPARE(edge.toNode, QStringLiteral("card2"));
-        QCOMPARE(edge.fromSide, Canvas::Side::Right);
-        QCOMPARE(edge.toSide, Canvas::Side::Left);
+        QCOMPARE(edge.fromSide, Corbomite::Canvas::Side::Right);
+        QCOMPARE(edge.toSide, Corbomite::Canvas::Side::Left);
         QCOMPARE(scene.undoStack()->count(), 1);
 
         // Undo removes the edge.
@@ -1269,18 +1269,18 @@ private Q_SLOTS:
     {
         // Appendix A: fromEnd defaults to "none" (nondirectional origin),
         // toEnd defaults to "arrow" (Obsidian's directed-edge default).
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Corbomite::Canvas::NodeType::Text;
         n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
         doc.addNode(n1);
 
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Corbomite::Canvas::NodeType::Text;
         n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
         doc.addNode(n2);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         const QPointF pressPos(198, 75);
@@ -1305,9 +1305,9 @@ private Q_SLOTS:
         QCoreApplication::sendEvent(&scene, &release);
 
         QCOMPARE(doc.edges().size(), 1);
-        const Canvas::CanvasEdge edge = doc.edges().first();
-        QCOMPARE(edge.fromEnd, Canvas::EndType::None);
-        QCOMPARE(edge.toEnd, Canvas::EndType::Arrow);
+        const Corbomite::Canvas::CanvasEdge edge = doc.edges().first();
+        QCOMPARE(edge.fromEnd, Corbomite::Canvas::EndType::None);
+        QCOMPARE(edge.toEnd, Corbomite::Canvas::EndType::Arrow);
     }
 
     // -----------------------------------------------------------------
@@ -1329,15 +1329,15 @@ private Q_SLOTS:
         // live-eyeball check rather than offscreen coverage (Appendix, exit
         // criteria note; project memory: interactive popups routinely excluded
         // from offscreen suites in this codebase).
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode source;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode source;
         source.id = QStringLiteral("card1");
-        source.type = Canvas::NodeType::File;
+        source.type = Corbomite::Canvas::NodeType::File;
         source.file = QStringLiteral("one.md");
         source.x = 0; source.y = 0; source.width = 200; source.height = 150;
         doc.addNode(source);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *sourceItem = scene.connectableItem(QStringLiteral("card1"));
@@ -1345,9 +1345,9 @@ private Q_SLOTS:
 
         // New text card dropped well to the right of the source node, so
         // toSide should resolve to Left (facing back toward the source).
-        Canvas::CanvasNode node;
-        node.id = Canvas::CanvasDocument::generateId();
-        node.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode node;
+        node.id = Corbomite::Canvas::CanvasDocument::generateId();
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 600; node.y = 20;
         node.width = 250; node.height = 60;
 
@@ -1360,13 +1360,13 @@ private Q_SLOTS:
         QCOMPARE(doc.edges().size(), 1);
         QCOMPARE(scene.undoStack()->count(), 1);
 
-        const Canvas::CanvasEdge edge = doc.edges().first();
+        const Corbomite::Canvas::CanvasEdge edge = doc.edges().first();
         QCOMPARE(edge.fromNode, QStringLiteral("card1"));
         QCOMPARE(edge.toNode, node.id);
-        QCOMPARE(edge.fromSide, Canvas::Side::Right);
-        QCOMPARE(edge.toSide, Canvas::Side::Left);
-        QCOMPARE(edge.fromEnd, Canvas::EndType::None);
-        QCOMPARE(edge.toEnd, Canvas::EndType::Arrow);
+        QCOMPARE(edge.fromSide, Corbomite::Canvas::Side::Right);
+        QCOMPARE(edge.toSide, Corbomite::Canvas::Side::Left);
+        QCOMPARE(edge.fromEnd, Corbomite::Canvas::EndType::None);
+        QCOMPARE(edge.toEnd, Corbomite::Canvas::EndType::Arrow);
 
         auto *newItem = scene.connectableItem(node.id);
         QVERIFY(newItem != nullptr);
@@ -1386,34 +1386,34 @@ private Q_SLOTS:
     {
         // card1 (0,0,200,150) --edge--> card2 (400,0,200,150), plus a third
         // node card3 (400,300,200,150) to drag the target endpoint onto.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Corbomite::Canvas::NodeType::File;
         n1.file = QStringLiteral("one.md");
         n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
         doc.addNode(n1);
 
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Corbomite::Canvas::NodeType::File;
         n2.file = QStringLiteral("two.md");
         n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
         doc.addNode(n2);
 
-        Canvas::CanvasNode n3;
-        n3.id = QStringLiteral("card3"); n3.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasNode n3;
+        n3.id = QStringLiteral("card3"); n3.type = Corbomite::Canvas::NodeType::File;
         n3.file = QStringLiteral("three.md");
         n3.x = 400; n3.y = 300; n3.width = 200; n3.height = 150;
         doc.addNode(n3);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("edge1");
         edge.fromNode = QStringLiteral("card1");
         edge.toNode = QStringLiteral("card2");
-        edge.fromSide = Canvas::Side::Right;
-        edge.toSide = Canvas::Side::Left;
+        edge.fromSide = Corbomite::Canvas::Side::Right;
+        edge.toSide = Corbomite::Canvas::Side::Left;
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *card3Item = scene.connectableItem(QStringLiteral("card3"));
@@ -1451,11 +1451,11 @@ private Q_SLOTS:
         QCoreApplication::sendEvent(&scene, &release);
 
         QCOMPARE(doc.edges().size(), 1);
-        const Canvas::CanvasEdge updated = doc.edge(QStringLiteral("edge1"));
+        const Corbomite::Canvas::CanvasEdge updated = doc.edge(QStringLiteral("edge1"));
         QCOMPARE(updated.fromNode, QStringLiteral("card1"));
         QCOMPARE(updated.toNode, QStringLiteral("card3"));
-        QCOMPARE(updated.fromSide, Canvas::Side::Right);
-        QCOMPARE(updated.toSide, Canvas::Side::Top);
+        QCOMPARE(updated.fromSide, Corbomite::Canvas::Side::Right);
+        QCOMPARE(updated.toSide, Corbomite::Canvas::Side::Top);
         QCOMPARE(scene.undoStack()->count(), 1);
 
         // The scene item must now really point at card3 (not just have its
@@ -1468,9 +1468,9 @@ private Q_SLOTS:
 
         // Undo restores the original connection.
         scene.undoStack()->undo();
-        const Canvas::CanvasEdge restored = doc.edge(QStringLiteral("edge1"));
+        const Corbomite::Canvas::CanvasEdge restored = doc.edge(QStringLiteral("edge1"));
         QCOMPARE(restored.toNode, QStringLiteral("card2"));
-        QCOMPARE(restored.toSide, Canvas::Side::Left);
+        QCOMPARE(restored.toSide, Corbomite::Canvas::Side::Left);
 
         auto *edgeItemUndone = scene.edgeItem(QStringLiteral("edge1"));
         QVERIFY(edgeItemUndone != nullptr);
@@ -1482,28 +1482,28 @@ private Q_SLOTS:
         // Same two-card setup as testEdgeCreateDragBetweenFileCards, but
         // starting from an existing edge and dragging its target endpoint
         // out to empty canvas — Obsidian semantics: deletes the edge.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Corbomite::Canvas::NodeType::File;
         n1.file = QStringLiteral("one.md");
         n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
         doc.addNode(n1);
 
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Corbomite::Canvas::NodeType::File;
         n2.file = QStringLiteral("two.md");
         n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
         doc.addNode(n2);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("edge1");
         edge.fromNode = QStringLiteral("card1");
         edge.toNode = QStringLiteral("card2");
-        edge.fromSide = Canvas::Side::Right;
-        edge.toSide = Canvas::Side::Left;
+        edge.fromSide = Corbomite::Canvas::Side::Right;
+        edge.toSide = Corbomite::Canvas::Side::Left;
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         QCOMPARE(doc.edges().size(), 1);
@@ -1545,47 +1545,47 @@ private Q_SLOTS:
 
     void testDirectionMenuWritesEndFields()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Corbomite::Canvas::NodeType::File;
         n1.file = QStringLiteral("one.md");
         n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
         doc.addNode(n1);
 
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Corbomite::Canvas::NodeType::File;
         n2.file = QStringLiteral("two.md");
         n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
         doc.addNode(n2);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("edge1");
         edge.fromNode = QStringLiteral("card1");
         edge.toNode = QStringLiteral("card2");
-        edge.fromSide = Canvas::Side::Right;
-        edge.toSide = Canvas::Side::Left;
+        edge.fromSide = Corbomite::Canvas::Side::Right;
+        edge.toSide = Corbomite::Canvas::Side::Left;
         // Starting state is the Obsidian/CanvasEdge default: unidirectional.
-        edge.fromEnd = Canvas::EndType::None;
-        edge.toEnd = Canvas::EndType::Arrow;
+        edge.fromEnd = Corbomite::Canvas::EndType::None;
+        edge.toEnd = Corbomite::Canvas::EndType::Arrow;
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
-        struct Choice { Canvas::EndType from; Canvas::EndType to; };
+        struct Choice { Corbomite::Canvas::EndType from; Corbomite::Canvas::EndType to; };
         const Choice choices[] = {
-            { Canvas::EndType::None, Canvas::EndType::None },   // Nondirectional
-            { Canvas::EndType::None, Canvas::EndType::Arrow },  // Unidirectional
-            { Canvas::EndType::Arrow, Canvas::EndType::Arrow }, // Bidirectional
+            { Corbomite::Canvas::EndType::None, Corbomite::Canvas::EndType::None },   // Nondirectional
+            { Corbomite::Canvas::EndType::None, Corbomite::Canvas::EndType::Arrow },  // Unidirectional
+            { Corbomite::Canvas::EndType::Arrow, Corbomite::Canvas::EndType::Arrow }, // Bidirectional
         };
 
         for (const auto &choice : choices) {
-            const Canvas::CanvasEdge before = doc.edge(QStringLiteral("edge1"));
+            const Corbomite::Canvas::CanvasEdge before = doc.edge(QStringLiteral("edge1"));
             const int stackCountBefore = scene.undoStack()->count();
 
             scene.setEdgeEnds(QStringLiteral("edge1"), choice.from, choice.to);
 
-            const Canvas::CanvasEdge after = doc.edge(QStringLiteral("edge1"));
+            const Corbomite::Canvas::CanvasEdge after = doc.edge(QStringLiteral("edge1"));
             QCOMPARE(after.fromEnd, choice.from);
             QCOMPARE(after.toEnd, choice.to);
             QCOMPARE(scene.undoStack()->count(), stackCountBefore + 1);
@@ -1596,7 +1596,7 @@ private Q_SLOTS:
             QVERIFY(item != nullptr);
 
             scene.undoStack()->undo();
-            const Canvas::CanvasEdge restored = doc.edge(QStringLiteral("edge1"));
+            const Corbomite::Canvas::CanvasEdge restored = doc.edge(QStringLiteral("edge1"));
             QCOMPARE(restored.fromEnd, before.fromEnd);
             QCOMPARE(restored.toEnd, before.toEnd);
 
@@ -1608,30 +1608,30 @@ private Q_SLOTS:
 
     void testReverseDirectionIsUndoable()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode n1;
-        n1.id = QStringLiteral("card1"); n1.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode n1;
+        n1.id = QStringLiteral("card1"); n1.type = Corbomite::Canvas::NodeType::File;
         n1.file = QStringLiteral("one.md");
         n1.x = 0; n1.y = 0; n1.width = 200; n1.height = 150;
         doc.addNode(n1);
 
-        Canvas::CanvasNode n2;
-        n2.id = QStringLiteral("card2"); n2.type = Canvas::NodeType::File;
+        Corbomite::Canvas::CanvasNode n2;
+        n2.id = QStringLiteral("card2"); n2.type = Corbomite::Canvas::NodeType::File;
         n2.file = QStringLiteral("two.md");
         n2.x = 400; n2.y = 0; n2.width = 200; n2.height = 150;
         doc.addNode(n2);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("edge1");
         edge.fromNode = QStringLiteral("card1");
         edge.toNode = QStringLiteral("card2");
-        edge.fromSide = Canvas::Side::Right;
-        edge.toSide = Canvas::Side::Left;
-        edge.fromEnd = Canvas::EndType::None;
-        edge.toEnd = Canvas::EndType::Arrow;
+        edge.fromSide = Corbomite::Canvas::Side::Right;
+        edge.toSide = Corbomite::Canvas::Side::Left;
+        edge.fromEnd = Corbomite::Canvas::EndType::None;
+        edge.toEnd = Corbomite::Canvas::EndType::Arrow;
         doc.addEdge(edge);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         QCOMPARE(scene.undoStack()->count(), 0);
@@ -1644,13 +1644,13 @@ private Q_SLOTS:
         // task fixes) — it must now be a real, undoable step.
         QCOMPARE(scene.undoStack()->count(), 1);
 
-        const Canvas::CanvasEdge reversed = doc.edge(QStringLiteral("edge1"));
+        const Corbomite::Canvas::CanvasEdge reversed = doc.edge(QStringLiteral("edge1"));
         QCOMPARE(reversed.fromNode, QStringLiteral("card2"));
         QCOMPARE(reversed.toNode, QStringLiteral("card1"));
-        QCOMPARE(reversed.fromSide, Canvas::Side::Left);
-        QCOMPARE(reversed.toSide, Canvas::Side::Right);
-        QCOMPARE(reversed.fromEnd, Canvas::EndType::Arrow);
-        QCOMPARE(reversed.toEnd, Canvas::EndType::None);
+        QCOMPARE(reversed.fromSide, Corbomite::Canvas::Side::Left);
+        QCOMPARE(reversed.toSide, Corbomite::Canvas::Side::Right);
+        QCOMPARE(reversed.fromEnd, Corbomite::Canvas::EndType::Arrow);
+        QCOMPARE(reversed.toEnd, Corbomite::Canvas::EndType::None);
 
         // The scene item must really point at the swapped nodes (node
         // identity changed, so this goes through onEdgeChanged's
@@ -1661,13 +1661,13 @@ private Q_SLOTS:
         QCOMPARE(itemAfter->targetNode(), static_cast<Graffodil::IGraphNode *>(scene.connectableItem(QStringLiteral("card1"))));
 
         scene.undoStack()->undo();
-        const Canvas::CanvasEdge restored = doc.edge(QStringLiteral("edge1"));
+        const Corbomite::Canvas::CanvasEdge restored = doc.edge(QStringLiteral("edge1"));
         QCOMPARE(restored.fromNode, QStringLiteral("card1"));
         QCOMPARE(restored.toNode, QStringLiteral("card2"));
-        QCOMPARE(restored.fromSide, Canvas::Side::Right);
-        QCOMPARE(restored.toSide, Canvas::Side::Left);
-        QCOMPARE(restored.fromEnd, Canvas::EndType::None);
-        QCOMPARE(restored.toEnd, Canvas::EndType::Arrow);
+        QCOMPARE(restored.fromSide, Corbomite::Canvas::Side::Right);
+        QCOMPARE(restored.toSide, Corbomite::Canvas::Side::Left);
+        QCOMPARE(restored.fromEnd, Corbomite::Canvas::EndType::None);
+        QCOMPARE(restored.toEnd, Corbomite::Canvas::EndType::Arrow);
 
         auto *itemUndone = scene.edgeItem(QStringLiteral("edge1"));
         QVERIFY(itemUndone != nullptr);
@@ -1679,14 +1679,14 @@ private Q_SLOTS:
     {
         // No QGraphicsView attached -> keyPressEvent's scale fallback (1.0)
         // applies, so gridSpacingForScale(1.0) == 20 (Appendix A ladder).
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("n1");
-        node.type = Canvas::NodeType::Text;
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 100; node.y = 100; node.width = 100; node.height = 60;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.textCardItem(QStringLiteral("n1"));
@@ -1714,14 +1714,14 @@ private Q_SLOTS:
 
     void testArrowNudgeShiftMultipliesByFive()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("n2");
-        node.type = Canvas::NodeType::Text;
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 0; node.y = 0; node.width = 100; node.height = 60;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.textCardItem(QStringLiteral("n2"));
@@ -1739,14 +1739,14 @@ private Q_SLOTS:
 
     void testIsDragActiveDuringNodeMoveDrag()
     {
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("d1");
-        node.type = Canvas::NodeType::Text;
+        node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 0; node.y = 0; node.width = 100; node.height = 60;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.textCardItem(QStringLiteral("d1"));
@@ -1785,25 +1785,25 @@ private Q_SLOTS:
         // inside the group's rect but its full bounding rect straddles the
         // group's right edge, so it must never be dragged along even though
         // the old center-test code would have moved it.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode group;
-        group.id = QStringLiteral("g1"); group.type = Canvas::NodeType::Group;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode group;
+        group.id = QStringLiteral("g1"); group.type = Corbomite::Canvas::NodeType::Group;
         group.x = 0; group.y = 0; group.width = 400; group.height = 300;
         doc.addNode(group);
 
-        Canvas::CanvasNode fullyInside;
-        fullyInside.id = QStringLiteral("a1"); fullyInside.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode fullyInside;
+        fullyInside.id = QStringLiteral("a1"); fullyInside.type = Corbomite::Canvas::NodeType::Text;
         fullyInside.x = 50; fullyInside.y = 50; fullyInside.width = 100; fullyInside.height = 60;
         doc.addNode(fullyInside);
 
-        Canvas::CanvasNode straddling;
-        straddling.id = QStringLiteral("b1"); straddling.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode straddling;
+        straddling.id = QStringLiteral("b1"); straddling.type = Corbomite::Canvas::NodeType::Text;
         // Center (370, 80) is inside the group's (0,0)-(400,300) rect, but
         // the right edge (420) pokes out past the group's right edge (400).
         straddling.x = 320; straddling.y = 50; straddling.width = 100; straddling.height = 60;
         doc.addNode(straddling);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *groupItem = scene.groupItem(QStringLiteral("g1"));
@@ -1856,24 +1856,24 @@ private Q_SLOTS:
         // contained by the group's final position -- proving this would
         // matter if membership were live-recomputed -- yet it must not move
         // because it wasn't part of the capture taken at drag start.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode group;
-        group.id = QStringLiteral("g2"); group.type = Canvas::NodeType::Group;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode group;
+        group.id = QStringLiteral("g2"); group.type = Corbomite::Canvas::NodeType::Group;
         group.x = 0; group.y = 0; group.width = 400; group.height = 300;
         doc.addNode(group);
 
-        Canvas::CanvasNode inside;
-        inside.id = QStringLiteral("a2"); inside.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode inside;
+        inside.id = QStringLiteral("a2"); inside.type = Corbomite::Canvas::NodeType::Text;
         inside.x = 50; inside.y = 50; inside.width = 100; inside.height = 60;
         doc.addNode(inside);
 
-        Canvas::CanvasNode outside;
-        outside.id = QStringLiteral("d2"); outside.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode outside;
+        outside.id = QStringLiteral("d2"); outside.type = Corbomite::Canvas::NodeType::Text;
         // Fully outside the group's starting rect (0,0)-(400,300).
         outside.x = 450; outside.y = 50; outside.width = 100; outside.height = 60;
         doc.addNode(outside);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *groupItem = scene.groupItem(QStringLiteral("g2"));
@@ -1925,18 +1925,18 @@ private Q_SLOTS:
     {
         // Appendix A "Group z-order": zValue = -width*height, so the bigger
         // group renders further back (more negative zValue).
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode bigGroup;
-        bigGroup.id = QStringLiteral("big"); bigGroup.type = Canvas::NodeType::Group;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode bigGroup;
+        bigGroup.id = QStringLiteral("big"); bigGroup.type = Corbomite::Canvas::NodeType::Group;
         bigGroup.x = 0; bigGroup.y = 0; bigGroup.width = 400; bigGroup.height = 300;
         doc.addNode(bigGroup);
 
-        Canvas::CanvasNode smallGroup;
-        smallGroup.id = QStringLiteral("small"); smallGroup.type = Canvas::NodeType::Group;
+        Corbomite::Canvas::CanvasNode smallGroup;
+        smallGroup.id = QStringLiteral("small"); smallGroup.type = Corbomite::Canvas::NodeType::Group;
         smallGroup.x = 1000; smallGroup.y = 1000; smallGroup.width = 200; smallGroup.height = 150;
         doc.addNode(smallGroup);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *bigItem = scene.groupItem(QStringLiteral("big"));
@@ -1949,7 +1949,7 @@ private Q_SLOTS:
 
         // Resize the small group past the big one -- its z-value must update
         // and flip the ordering.
-        Canvas::CanvasNode resized = doc.node(QStringLiteral("small"));
+        Corbomite::Canvas::CanvasNode resized = doc.node(QStringLiteral("small"));
         resized.width = 500; resized.height = 400;
         doc.updateNode(resized);
 
@@ -1962,18 +1962,18 @@ private Q_SLOTS:
         // The shared chrome overlay must retarget to whichever node
         // is the sole selection, and hide when nothing (or more than one
         // node) is selected.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode a;
-        a.id = QStringLiteral("a"); a.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode a;
+        a.id = QStringLiteral("a"); a.type = Corbomite::Canvas::NodeType::Text;
         a.x = 0; a.y = 0; a.width = 200; a.height = 80;
         doc.addNode(a);
 
-        Canvas::CanvasNode b;
-        b.id = QStringLiteral("b"); b.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasNode b;
+        b.id = QStringLiteral("b"); b.type = Corbomite::Canvas::NodeType::Text;
         b.x = 500; b.y = 300; b.width = 250; b.height = 60;
         doc.addNode(b);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *itemA = scene.textCardItem(QStringLiteral("a"));
@@ -1985,13 +1985,13 @@ private Q_SLOTS:
         QVERIFY(overlay->target() == nullptr); // nothing selected initially
 
         itemA->setSelected(true);
-        QCOMPARE(overlay->target(), static_cast<Canvas::CanvasNodeItem *>(itemA));
+        QCOMPARE(overlay->target(), static_cast<Corbomite::Canvas::CanvasNodeItem *>(itemA));
         QVERIFY(overlay->handlesVisible());
         QCOMPARE(overlay->pos(), itemA->sceneBoundingRect().topLeft());
 
         itemA->setSelected(false);
         itemB->setSelected(true);
-        QCOMPARE(overlay->target(), static_cast<Canvas::CanvasNodeItem *>(itemB));
+        QCOMPARE(overlay->target(), static_cast<Corbomite::Canvas::CanvasNodeItem *>(itemB));
         QCOMPARE(overlay->pos(), itemB->sceneBoundingRect().topLeft());
 
         // Multi-select -- chrome doesn't support a multi-selection target,
@@ -2010,13 +2010,13 @@ private Q_SLOTS:
         // anchors() call CreateEdgeTool's hover hit-test uses, so there is
         // no drift between "where a dot is drawn" and "where a hover-near
         // gesture would actually start an edge."
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode node;
-        node.id = QStringLiteral("n1"); node.type = Canvas::NodeType::Text;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode node;
+        node.id = QStringLiteral("n1"); node.type = Corbomite::Canvas::NodeType::Text;
         node.x = 40; node.y = 60; node.width = 300; node.height = 120;
         doc.addNode(node);
 
-        Canvas::CanvasScene scene;
+        Corbomite::Canvas::CanvasScene scene;
         scene.setDocument(&doc);
 
         auto *item = scene.textCardItem(QStringLiteral("n1"));
@@ -2026,7 +2026,7 @@ private Q_SLOTS:
         QVERIFY(overlay);
 
         item->setSelected(true);
-        QCOMPARE(overlay->target(), static_cast<Canvas::CanvasNodeItem *>(item));
+        QCOMPARE(overlay->target(), static_cast<Corbomite::Canvas::CanvasNodeItem *>(item));
 
         const auto expectedAnchors = item->anchors();
         const auto dotPositions = overlay->connectionDotScenePositions();

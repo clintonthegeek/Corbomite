@@ -25,7 +25,7 @@
 #include "corbomite/vault/Vault.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
 
-#include <forcegraph/ForceGraphView.h>
+#include <corbomite/forcegraph/ForceGraphView.h>
 
 #include <QTransform>
 

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasResizeTool.h"
+#include "corbomite/canvas/CanvasResizeTool.h"
 
 #include <graffodil/GraphScene.h>
 #include <QGraphicsSceneMouseEvent>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 static constexpr qreal kMinSize = 40.0;
 
@@ -163,4 +163,4 @@ void CanvasResizeTool::deactivate()
     GraphTool::deactivate();
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

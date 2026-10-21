@@ -7,9 +7,9 @@
 #include "corbomite/core/View.h"
 #include "corbomitesettings.h"
 
-#include <canvas/CanvasAlignmentStrategy.h>
-#include <canvas/CanvasScene.h>
-#include <canvas/CanvasView.h>
+#include <corbomite/canvas/CanvasAlignmentStrategy.h>
+#include <corbomite/canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasView.h>
 
 #include <KActionCollection>
 #include <KLocalizedString>
@@ -108,7 +108,7 @@ void CanvasViewActions::unbind()
     refresh();
 }
 
-Canvas::CanvasScene *CanvasViewActions::canvasScene() const
+Corbomite::Canvas::CanvasScene *CanvasViewActions::canvasScene() const
 {
     auto *tab = canvas() ? canvas()->canvasWidget() : nullptr;
     return tab ? tab->canvasScene() : nullptr;

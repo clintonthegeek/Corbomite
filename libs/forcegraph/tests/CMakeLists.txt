@@ -1,25 +1,25 @@
 cmake_minimum_required(VERSION 3.19)
-project(forcegraph_tests LANGUAGES CXX)
+project(Corbomite_ForceGraphTests LANGUAGES CXX)
 enable_testing()
 find_package(Qt6 REQUIRED COMPONENTS Test Widgets)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-add_executable(tst_quadtree tst_quadtree.cpp)
-add_test(NAME tst_quadtree COMMAND tst_quadtree)
-target_link_libraries(tst_quadtree PRIVATE Qt6::Test forcegraph)
-set_tests_properties(tst_quadtree PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_executable(tst_forcegraph_quadtree tst_forcegraph_quadtree.cpp)
+add_test(NAME tst_forcegraph_quadtree COMMAND tst_forcegraph_quadtree)
+target_link_libraries(tst_forcegraph_quadtree PRIVATE Qt6::Test Corbomite::ForceGraph)
+set_tests_properties(tst_forcegraph_quadtree PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-add_executable(tst_forcelayout tst_forcelayout.cpp)
-add_test(NAME tst_forcelayout COMMAND tst_forcelayout)
-target_link_libraries(tst_forcelayout PRIVATE Qt6::Test forcegraph)
-set_tests_properties(tst_forcelayout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_executable(tst_forcegraph_layout tst_forcegraph_layout.cpp)
+add_test(NAME tst_forcegraph_layout COMMAND tst_forcegraph_layout)
+target_link_libraries(tst_forcegraph_layout PRIVATE Qt6::Test Corbomite::ForceGraph)
+set_tests_properties(tst_forcegraph_layout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-add_executable(tst_benchmark_layout tst_benchmark_layout.cpp)
-add_test(NAME tst_benchmark_layout COMMAND tst_benchmark_layout)
-target_link_libraries(tst_benchmark_layout PRIVATE Qt6::Core forcegraph)
-set_tests_properties(tst_benchmark_layout PROPERTIES
+add_executable(tst_forcegraph_benchmark tst_forcegraph_benchmark.cpp)
+add_test(NAME tst_forcegraph_benchmark COMMAND tst_forcegraph_benchmark)
+target_link_libraries(tst_forcegraph_benchmark PRIVATE Qt6::Core Corbomite::ForceGraph)
+set_tests_properties(tst_forcegraph_benchmark PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 120
     LABELS "benchmark")

@@ -3,7 +3,7 @@
 
 #include <QWidget>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 class ForceGraphView;
 class ForceLayoutEngine;
 }
@@ -36,8 +36,8 @@ private:
     MetadataCacheReader *m_metadata = nullptr;
     WorkspaceController *m_workspace = nullptr;
 
-    ForceGraph::ForceGraphView *m_graphView;
-    ForceGraph::ForceLayoutEngine *m_engine;
+    Corbomite::ForceGraph::ForceGraphView *m_graphView;
+    Corbomite::ForceGraph::ForceLayoutEngine *m_engine;
     QString m_currentPath;
 };
 

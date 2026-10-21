@@ -1,6 +1,9 @@
-# libcanvas
+# corbomite-canvas
 
 A standalone Qt6/C++ canvas editing library compatible with JSON Canvas 1.0 (jsoncanvas.org).
+
+CMake target `corbomite-canvas`, alias `Corbomite::Canvas`, public headers
+under `corbomite/canvas/`, C++ namespace `Corbomite::Canvas`.
 
 ## Features
 

@@ -41,7 +41,7 @@
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 
-#include <canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasScene.h>
 
 using namespace Corbomite;
 

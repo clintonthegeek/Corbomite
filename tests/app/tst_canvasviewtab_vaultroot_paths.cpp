@@ -12,8 +12,8 @@
 #include <QFile>
 
 #include "canvas/CanvasViewTab.h"
-#include <canvas/CanvasScene.h>
-#include <canvas/FileCardItem.h>
+#include <corbomite/canvas/CanvasScene.h>
+#include <corbomite/canvas/FileCardItem.h>
 #include <corbomite/core/StyledRenderEngine.h>
 
 using Corbomite::CanvasViewTab;

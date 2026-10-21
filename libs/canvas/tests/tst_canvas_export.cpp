@@ -4,14 +4,14 @@
 // Verifies that the exported images have the expected dimensions and that the
 // SVG output is well-formed XML containing the `<svg>` root.
 
-#include <canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasScene.h>
 
 #include <QBuffer>
 #include <QGraphicsRectItem>
 #include <QImage>
 #include <QTest>
 
-using Canvas::CanvasScene;
+using Corbomite::Canvas::CanvasScene;
 
 class TestCanvasExport : public QObject
 {

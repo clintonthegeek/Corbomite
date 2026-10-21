@@ -15,11 +15,11 @@
 #include <QTest>
 #include <QGraphicsScene>
 
-#include "canvas/CanvasPalette.h"
-#include "canvas/CanvasScene.h"
-#include "canvas/CanvasView.h"
+#include "corbomite/canvas/CanvasPalette.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/CanvasView.h"
 
-using namespace Canvas;
+using namespace Corbomite::Canvas;
 
 class TestCanvasDarkMode : public QObject
 {

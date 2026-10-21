@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "forcegraph/ForceGraphScene.h"
-#include "forcegraph/ForceGraphNode.h"
-#include "forcegraph/ForceGraphEdge.h"
-#include "forcegraph/BatchNodeItem.h"
-#include "forcegraph/BatchEdgeItem.h"
+#include "corbomite/forcegraph/ForceGraphScene.h"
+#include "corbomite/forcegraph/ForceGraphNode.h"
+#include "corbomite/forcegraph/ForceGraphEdge.h"
+#include "corbomite/forcegraph/BatchNodeItem.h"
+#include "corbomite/forcegraph/BatchEdgeItem.h"
 #include <algorithm>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 
 ForceGraphScene::ForceGraphScene(QObject *parent)
     : QGraphicsScene(parent)
@@ -357,4 +357,4 @@ void ForceGraphScene::syncBatchData()
     m_batchEdges->setEdges(edgeData);
 }
 
-} // namespace ForceGraph
+} // namespace Corbomite::ForceGraph

@@ -6,9 +6,9 @@
 #include <corbomite/storage/proxies/MetadataCacheReader.h>
 #include <corbomite/storage/proxies/SearchProxy.h>
 #include <corbomite/vault/proxies/VaultProxy.h>
-#include <forcegraph/ForceLayoutEngine.h>
-#include <forcegraph/ForceGraphView.h>
-#include <forcegraph/MultilevelLayout.h>
+#include <corbomite/forcegraph/ForceLayoutEngine.h>
+#include <corbomite/forcegraph/ForceGraphView.h>
+#include <corbomite/forcegraph/MultilevelLayout.h>
 
 #include <QClipboard>
 #include <QDesktopServices>
@@ -34,8 +34,8 @@ GraphViewTab::GraphViewTab(SearchProxy *search, VaultProxy *vault, QWidget *pare
     , m_search(search)
     , m_vault(vault)
 {
-    m_engine = new ForceGraph::ForceLayoutEngine(this);
-    m_graphView = new ForceGraph::ForceGraphView(this);
+    m_engine = new Corbomite::ForceGraph::ForceLayoutEngine(this);
+    m_graphView = new Corbomite::ForceGraph::ForceGraphView(this);
     m_graphView->setEngine(m_engine);
 
     // Horizontal, so the per-tab controls panel can sit beside the
@@ -56,16 +56,16 @@ GraphViewTab::GraphViewTab(SearchProxy *search, VaultProxy *vault, QWidget *pare
     wireControlsPanel();
     syncPanelFromEngine();
 
-    connect(m_graphView, &ForceGraph::ForceGraphView::nodeClicked,
+    connect(m_graphView, &Corbomite::ForceGraph::ForceGraphView::nodeClicked,
             this, [this](const QString &id) {
         Q_EMIT noteActivated(id);
     });
-    connect(m_graphView, &ForceGraph::ForceGraphView::nodeDoubleClicked,
+    connect(m_graphView, &Corbomite::ForceGraph::ForceGraphView::nodeDoubleClicked,
             this, [this](const QString &id) {
         Q_EMIT noteActivated(id);
     });
 
-    connect(m_graphView, &ForceGraph::ForceGraphView::nodeContextMenuRequested,
+    connect(m_graphView, &Corbomite::ForceGraph::ForceGraphView::nodeContextMenuRequested,
             this, &GraphViewTab::showNodeContextMenu);
 
     buildGraph();
@@ -86,7 +86,7 @@ void GraphViewTab::buildGraph()
     if (data.nodes.size() > MAX_GRAPH_NODES) {
         qWarning() << "Graph too large:" << data.nodes.size() << "nodes. Capping at" << MAX_GRAPH_NODES;
         std::sort(data.nodes.begin(), data.nodes.end(),
-                  [](const ForceGraph::GraphNode &a, const ForceGraph::GraphNode &b) {
+                  [](const Corbomite::ForceGraph::GraphNode &a, const Corbomite::ForceGraph::GraphNode &b) {
                       return a.radius > b.radius;
                   });
         QSet<QString> kept;
@@ -95,7 +95,7 @@ void GraphViewTab::buildGraph()
         }
         data.nodes.resize(MAX_GRAPH_NODES);
 
-        QVector<ForceGraph::GraphEdge> filteredEdges;
+        QVector<Corbomite::ForceGraph::GraphEdge> filteredEdges;
         for (const auto &edge : data.edges) {
             if (kept.contains(edge.sourceId) && kept.contains(edge.targetId)) {
                 filteredEdges.append(edge);
@@ -108,7 +108,7 @@ void GraphViewTab::buildGraph()
     // converges in seconds by computing good initial positions
     static constexpr int MULTILEVEL_THRESHOLD = 200;
     if (data.nodes.size() > MULTILEVEL_THRESHOLD) {
-        data.nodes = ForceGraph::MultilevelLayout::computeLayout(data.nodes, data.edges);
+        data.nodes = Corbomite::ForceGraph::MultilevelLayout::computeLayout(data.nodes, data.edges);
     }
 
     // Cache full graph data before filtering
@@ -123,7 +123,7 @@ void GraphViewTab::buildGraph()
     m_engine->start();
 
     // Also zoom to fit after layout stabilizes for final framing
-    connect(m_engine, &ForceGraph::ForceLayoutEngine::simulationStable,
+    connect(m_engine, &Corbomite::ForceGraph::ForceLayoutEngine::simulationStable,
             this, [this]() {
         m_graphView->zoomToFit();
     }, Qt::SingleShotConnection);
@@ -191,13 +191,13 @@ void GraphViewTab::wireControlsPanel()
 
     // --- Display signals → view ---
     connect(m_controlsPanel, &GraphControlsPanel::nodeSizeScaleChanged,
-            m_graphView, &ForceGraph::ForceGraphView::setNodeSizeScale);
+            m_graphView, &Corbomite::ForceGraph::ForceGraphView::setNodeSizeScale);
     connect(m_controlsPanel, &GraphControlsPanel::textFadeThresholdChanged,
-            m_graphView, &ForceGraph::ForceGraphView::setTextFadeThreshold);
+            m_graphView, &Corbomite::ForceGraph::ForceGraphView::setTextFadeThreshold);
     connect(m_controlsPanel, &GraphControlsPanel::linkThicknessScaleChanged,
-            m_graphView, &ForceGraph::ForceGraphView::setEdgeWidthScale);
+            m_graphView, &Corbomite::ForceGraph::ForceGraphView::setEdgeWidthScale);
     connect(m_controlsPanel, &GraphControlsPanel::arrowsToggled,
-            m_graphView, &ForceGraph::ForceGraphView::setShowArrows);
+            m_graphView, &Corbomite::ForceGraph::ForceGraphView::setShowArrows);
 
     // --- Filter signals → applyFilters ---
     connect(m_controlsPanel, &GraphControlsPanel::searchTextChanged,
@@ -267,12 +267,12 @@ void GraphViewTab::applyFilters()
     }
 
     // Filter nodes
-    QVector<ForceGraph::GraphNode> filteredNodes;
+    QVector<Corbomite::ForceGraph::GraphNode> filteredNodes;
     QSet<QString> keptIds;
 
     for (const auto &node : m_allNodes) {
         // Existing files only: skip unresolved link targets
-        if (existingOnly && node.type == ForceGraph::NodeType::Unresolved) {
+        if (existingOnly && node.type == Corbomite::ForceGraph::NodeType::Unresolved) {
             continue;
         }
 
@@ -286,7 +286,7 @@ void GraphViewTab::applyFilters()
     }
 
     // Filter edges to only include kept nodes
-    QVector<ForceGraph::GraphEdge> filteredEdges;
+    QVector<Corbomite::ForceGraph::GraphEdge> filteredEdges;
     for (const auto &edge : m_allEdges) {
         if (keptIds.contains(edge.sourceId) && keptIds.contains(edge.targetId)) {
             filteredEdges.append(edge);

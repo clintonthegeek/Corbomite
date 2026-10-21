@@ -56,7 +56,7 @@ what `Graffodil::compassAnchors(rect)` emits. Therefore:
 ### 3.1 `CanvasNodeItem` (NEW) — common node base
 
 ```cpp
-// libs/canvas/include/canvas/CanvasNodeItem.h
+// libs/canvas/include/corbomite/canvas/CanvasNodeItem.h
 class CanvasNodeItem : public QGraphicsObject, public Graffodil::IGraphNode {
     Q_OBJECT
 public:

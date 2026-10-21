@@ -21,7 +21,7 @@ add_test(NAME tst_localgraph_plugin COMMAND tst_localgraph_plugin)
 target_link_libraries(tst_localgraph_plugin PRIVATE
     Qt6::Test Qt6::Widgets
     Corbomite::Core Corbomite::Storage Corbomite::Vault
-    forcegraph
+    Corbomite::ForceGraph
     KF6::I18n KF6::CoreAddons)
 set_tests_properties(tst_localgraph_plugin PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

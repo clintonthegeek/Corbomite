@@ -12,13 +12,13 @@
 
 #include <optional>
 
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasDocumentRegistry.h"
-#include "canvas/CanvasLinkRewriter.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasDocumentRegistry.h"
+#include "corbomite/canvas/CanvasLinkRewriter.h"
 
-using Canvas::CanvasDocument;
-using Canvas::CanvasDocumentRegistry;
-using Canvas::CanvasLinkRewriter;
+using Corbomite::Canvas::CanvasDocument;
+using Corbomite::Canvas::CanvasDocumentRegistry;
+using Corbomite::Canvas::CanvasLinkRewriter;
 using Corbomite::LinkRewriter;
 
 namespace {

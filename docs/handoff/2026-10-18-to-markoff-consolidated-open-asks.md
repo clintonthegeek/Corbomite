@@ -394,7 +394,7 @@ bool MarkdownView::canUndo() const {
 | **`BatchRenderer.cpp:112`** | `nd.color = QColor(100, 150, 200)` — assigned **unconditionally** |
 
 **Direct evidence this bit us:** our `CanvasPalette.h:12` says canvas had *"zero theme awareness: ~15 hardcoded literals"* — and our `ReconnectEdgeTool.cpp:78` **re-hardcodes the identical `QColor(0,120,215)`** because Graffodil's own connect-preview line is not themeable.
-**Cost to Corbomite:** Corbomite's canvas dark-mode work (shipped 2026-10-02) had to build a 14-role `CanvasPalette` (`libs/canvas/include/canvas/CanvasPalette.h`); we are reimplementing your colour in our tool because we have no seam.
+**Cost to Corbomite:** Corbomite's canvas dark-mode work (shipped 2026-10-02) had to build a 14-role `CanvasPalette` (`libs/canvas/include/corbomite/canvas/CanvasPalette.h`); we are reimplementing your colour in our tool because we have no seam.
 **Ask:** add a `Graffodil::Palette` struct plus `GraphScene::setPalette()` and `GraphEdgeItem::setSelectionColor()`, threaded to every site above; for `BatchRenderer`, an optional `std::function<QColor(const IGraphNode*)>` colour provider so batch mode can honour per-node theming. **We can ship our `CanvasPalette` as the worked example.**
 **Verified:** against the pinned source (index preamble: every finding was verified against the pinned source and is stated with `file:line` and quoted code rather than paraphrase); our own `CanvasPalette` shipped 2026-10-02 and `ReconnectEdgeTool.cpp:78` re-hardcodes the identical literal.
 

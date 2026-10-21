@@ -4,7 +4,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QTemporaryDir>
-#include "canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasDocument.h"
 
 class TestCanvasDocument : public QObject {
     Q_OBJECT
@@ -26,7 +26,7 @@ class TestCanvasDocument : public QObject {
 private Q_SLOTS:
     void testLoadJson()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(sampleJson()));
         QCOMPARE(doc.nodes().size(), 3);
         QCOMPARE(doc.edges().size(), 1);
@@ -34,10 +34,10 @@ private Q_SLOTS:
 
     void testTextNodeFields()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(sampleJson());
         auto node = doc.node(QStringLiteral("n1"));
-        QCOMPARE(node.type, Canvas::NodeType::Text);
+        QCOMPARE(node.type, Corbomite::Canvas::NodeType::Text);
         QCOMPARE(node.x, 0);
         QCOMPARE(node.y, 0);
         QCOMPARE(node.width, 250);
@@ -47,33 +47,33 @@ private Q_SLOTS:
 
     void testGroupNodeFields()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(sampleJson());
         auto node = doc.node(QStringLiteral("g1"));
-        QCOMPARE(node.type, Canvas::NodeType::Group);
+        QCOMPARE(node.type, Corbomite::Canvas::NodeType::Group);
         QCOMPARE(node.label, QStringLiteral("My Group"));
     }
 
     void testEdgeFields()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(sampleJson());
         auto edge = doc.edge(QStringLiteral("e1"));
         QCOMPARE(edge.fromNode, QStringLiteral("n1"));
         QCOMPARE(edge.toNode, QStringLiteral("n2"));
-        QCOMPARE(edge.fromSide, Canvas::Side::Right);
-        QCOMPARE(edge.toSide, Canvas::Side::Left);
-        QCOMPARE(edge.toEnd, Canvas::EndType::Arrow);
+        QCOMPARE(edge.fromSide, Corbomite::Canvas::Side::Right);
+        QCOMPARE(edge.toSide, Corbomite::Canvas::Side::Left);
+        QCOMPARE(edge.toEnd, Corbomite::Canvas::EndType::Arrow);
         QCOMPARE(edge.label, QStringLiteral("relates to"));
     }
 
     void testRoundTrip()
     {
-        Canvas::CanvasDocument doc1;
+        Corbomite::Canvas::CanvasDocument doc1;
         doc1.loadFromJson(sampleJson());
         QJsonObject json = doc1.toJson();
 
-        Canvas::CanvasDocument doc2;
+        Corbomite::Canvas::CanvasDocument doc2;
         doc2.loadFromJson(json);
         QCOMPARE(doc2.nodes().size(), doc1.nodes().size());
         QCOMPARE(doc2.edges().size(), doc1.edges().size());
@@ -84,7 +84,7 @@ private Q_SLOTS:
 
     void testEmptyDocument()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         auto json = doc.toJson();
         QVERIFY(json.contains(QStringLiteral("nodes")));
         QVERIFY(json.contains(QStringLiteral("edges")));
@@ -94,12 +94,12 @@ private Q_SLOTS:
 
     void testAddNodeSignal()
     {
-        Canvas::CanvasDocument doc;
-        QSignalSpy spy(&doc, &Canvas::CanvasDocument::nodeAdded);
+        Corbomite::Canvas::CanvasDocument doc;
+        QSignalSpy spy(&doc, &Corbomite::Canvas::CanvasDocument::nodeAdded);
 
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("test");
-        node.type = Canvas::NodeType::Text;
+        node.type = Corbomite::Canvas::NodeType::Text;
         doc.addNode(node);
 
         QCOMPARE(spy.count(), 1);
@@ -109,7 +109,7 @@ private Q_SLOTS:
 
     void testRemoveNodeRemovesEdges()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(sampleJson());
         QCOMPARE(doc.edges().size(), 1);
 
@@ -120,26 +120,26 @@ private Q_SLOTS:
 
     void testColorEncoding()
     {
-        QCOMPARE(Canvas::colorFromCanvasColor(QStringLiteral("1")), QColor(233, 49, 71));
-        QCOMPARE(Canvas::colorFromCanvasColor(QStringLiteral("6")), QColor(120, 82, 238));
-        QCOMPARE(Canvas::colorFromCanvasColor(QStringLiteral("#FF0000")), QColor(255, 0, 0));
-        QVERIFY(!Canvas::colorFromCanvasColor(QString()).isValid());
+        QCOMPARE(Corbomite::Canvas::colorFromCanvasColor(QStringLiteral("1")), QColor(233, 49, 71));
+        QCOMPARE(Corbomite::Canvas::colorFromCanvasColor(QStringLiteral("6")), QColor(120, 82, 238));
+        QCOMPARE(Corbomite::Canvas::colorFromCanvasColor(QStringLiteral("#FF0000")), QColor(255, 0, 0));
+        QVERIFY(!Corbomite::Canvas::colorFromCanvasColor(QString()).isValid());
     }
 
     void testGenerateId()
     {
-        QString id1 = Canvas::CanvasDocument::generateId();
-        QString id2 = Canvas::CanvasDocument::generateId();
+        QString id1 = Corbomite::Canvas::CanvasDocument::generateId();
+        QString id2 = Corbomite::Canvas::CanvasDocument::generateId();
         QCOMPARE(id1.length(), 16);
         QVERIFY(id1 != id2);
     }
 
     void testModifiedState()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(!doc.isModified());
 
-        Canvas::CanvasNode node;
+        Corbomite::Canvas::CanvasNode node;
         node.id = QStringLiteral("test");
         doc.addNode(node);
         QVERIFY(doc.isModified());
@@ -153,11 +153,11 @@ private Q_SLOTS:
         QTemporaryDir tmp;
         QString path = tmp.path() + "/test.canvas";
 
-        Canvas::CanvasDocument doc1;
+        Corbomite::Canvas::CanvasDocument doc1;
         doc1.loadFromJson(sampleJson());
         QVERIFY(doc1.saveToFile(path));
 
-        Canvas::CanvasDocument doc2;
+        Corbomite::Canvas::CanvasDocument doc2;
         QVERIFY(doc2.loadFromFile(path));
         QCOMPARE(doc2.nodes().size(), 3);
         QCOMPARE(doc2.edges().size(), 1);
@@ -165,7 +165,7 @@ private Q_SLOTS:
 
     void testEdgesForNode()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(sampleJson());
 
         auto edges = doc.edgesForNode(QStringLiteral("n1"));
@@ -178,7 +178,7 @@ private Q_SLOTS:
 
     void testUpdateEdge()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(sampleJson());
 
         auto edge = doc.edge(QStringLiteral("e1"));
@@ -193,10 +193,10 @@ private Q_SLOTS:
 
     void testUpdateEdgeEmitsSignal()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(sampleJson());
 
-        QSignalSpy spy(&doc, &Canvas::CanvasDocument::edgeChanged);
+        QSignalSpy spy(&doc, &Corbomite::Canvas::CanvasDocument::edgeChanged);
         auto edge = doc.edge(QStringLiteral("e1"));
         edge.label = QStringLiteral("test");
         doc.updateEdge(edge);
@@ -220,7 +220,7 @@ private Q_SLOTS:
             "edges": []
         })").object();
 
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(json));
         auto out = doc.toJson();
         auto outNode = out[QStringLiteral("nodes")].toArray().at(0).toObject();
@@ -245,7 +245,7 @@ private Q_SLOTS:
             ]
         })").object();
 
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(json));
         auto out = doc.toJson();
         auto outEdge = out[QStringLiteral("edges")].toArray().at(0).toObject();
@@ -262,7 +262,7 @@ private Q_SLOTS:
             "customExt": [1,2,3]
         })").object();
 
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(json));
         auto out = doc.toJson();
         QCOMPARE(out[QStringLiteral("metadata")].toObject()[QStringLiteral("version")].toString(),
@@ -278,29 +278,29 @@ private Q_SLOTS:
         //   toEnd   == "arrow"       → omitted
         //   backgroundStyle == "cover" → omitted
         // See docs/obsidian-audit/domains/canvas.md §3 invariant 2.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
 
-        Canvas::CanvasNode group;
+        Corbomite::Canvas::CanvasNode group;
         group.id = QStringLiteral("g");
-        group.type = Canvas::NodeType::Group;
+        group.type = Corbomite::Canvas::NodeType::Group;
         group.backgroundStyle = QStringLiteral("cover"); // Obsidian default
         doc.addNode(group);
 
-        Canvas::CanvasNode file;
+        Corbomite::Canvas::CanvasNode file;
         file.id = QStringLiteral("f");
-        file.type = Canvas::NodeType::File;
+        file.type = Corbomite::Canvas::NodeType::File;
         file.file = QStringLiteral("notes/x.md");
         // subpath, color empty
         doc.addNode(file);
 
-        Canvas::CanvasNode text;
+        Corbomite::Canvas::CanvasNode text;
         text.id = QStringLiteral("t");
-        text.type = Canvas::NodeType::Text;
+        text.type = Corbomite::Canvas::NodeType::Text;
         text.text = QStringLiteral("hi");
         // color empty
         doc.addNode(text);
 
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("e");
         edge.fromNode = QStringLiteral("t");
         edge.toNode = QStringLiteral("f");
@@ -337,10 +337,10 @@ private Q_SLOTS:
         // in that case only via unknownData, which is what
         // testOrphanBackgroundStyleSurvivesWithoutBackground in
         // tst_canvas_diskcontract covers.
-        Canvas::CanvasDocument doc;
-        Canvas::CanvasNode g;
+        Corbomite::Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasNode g;
         g.id = QStringLiteral("g");
-        g.type = Canvas::NodeType::Group;
+        g.type = Corbomite::Canvas::NodeType::Group;
         g.background = QStringLiteral("img/a.png");
         g.backgroundStyle = QStringLiteral("ratio");
         doc.addNode(g);
@@ -362,9 +362,9 @@ private Q_SLOTS:
                 {"id":"e","fromNode":"a","toNode":"b","toSide":"left"}
             ]
         })").object();
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(json));
-        QCOMPARE(doc.edge(QStringLiteral("e")).fromSide, Canvas::Side::Right);
+        QCOMPARE(doc.edge(QStringLiteral("e")).fromSide, Corbomite::Canvas::Side::Right);
     }
 
     void testMissingToSideSelfHealsHorizontal()
@@ -380,9 +380,9 @@ private Q_SLOTS:
                 {"id":"e","fromNode":"a","toNode":"b","fromSide":"right"}
             ]
         })").object();
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(json));
-        QCOMPARE(doc.edge(QStringLiteral("e")).toSide, Canvas::Side::Left);
+        QCOMPARE(doc.edge(QStringLiteral("e")).toSide, Corbomite::Canvas::Side::Left);
     }
 
     void testMissingSidesSelfHealVertical()
@@ -396,10 +396,10 @@ private Q_SLOTS:
                 {"id":"e","fromNode":"a","toNode":"b"}
             ]
         })").object();
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(json);
-        QCOMPARE(doc.edge(QStringLiteral("e")).fromSide, Canvas::Side::Bottom);
-        QCOMPARE(doc.edge(QStringLiteral("e")).toSide,   Canvas::Side::Top);
+        QCOMPARE(doc.edge(QStringLiteral("e")).fromSide, Corbomite::Canvas::Side::Bottom);
+        QCOMPARE(doc.edge(QStringLiteral("e")).toSide,   Corbomite::Canvas::Side::Top);
     }
 
     void testHealedSidesPersistOnRoundTrip()
@@ -415,7 +415,7 @@ private Q_SLOTS:
                 {"id":"e","fromNode":"a","toNode":"b"}
             ]
         })").object();
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(json);
         auto out = doc.toJson()[QStringLiteral("edges")].toArray().at(0).toObject();
         QCOMPARE(out[QStringLiteral("fromSide")].toString(), QStringLiteral("right"));
@@ -436,10 +436,10 @@ private Q_SLOTS:
                 {"id":"e","fromNode":"a","toNode":"b"}
             ]
         })").object();
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(json);
-        QCOMPARE(doc.edge(QStringLiteral("e")).fromSide, Canvas::Side::Bottom);
-        QCOMPARE(doc.edge(QStringLiteral("e")).toSide,   Canvas::Side::Top);
+        QCOMPARE(doc.edge(QStringLiteral("e")).fromSide, Corbomite::Canvas::Side::Bottom);
+        QCOMPARE(doc.edge(QStringLiteral("e")).toSide,   Corbomite::Canvas::Side::Top);
     }
 
     void testFractionalGeometryRoundsNotTruncates()
@@ -454,7 +454,7 @@ private Q_SLOTS:
             ],
             "edges": []
         })").object();
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(json));
         auto n = doc.node(QStringLiteral("n"));
         QCOMPARE(n.x, 1);        // qRound(0.7)
@@ -476,11 +476,11 @@ private Q_SLOTS:
             ]
         })").object();
 
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.loadFromJson(json);
         auto edge = doc.edge(QStringLiteral("e"));
-        QCOMPARE(edge.toEnd, Canvas::EndType::Arrow);
-        QCOMPARE(edge.fromEnd, Canvas::EndType::None);
+        QCOMPARE(edge.toEnd, Corbomite::Canvas::EndType::Arrow);
+        QCOMPARE(edge.fromEnd, Corbomite::Canvas::EndType::None);
     }
 
     void testLoadSavePreservesNodeAndEdgeOrder()
@@ -505,7 +505,7 @@ private Q_SLOTS:
             ]
         })").object();
 
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         QVERIFY(doc.loadFromJson(json));
 
         const auto nodes = doc.nodes();
@@ -535,9 +535,9 @@ private Q_SLOTS:
 
         // A newly added node/edge appends at the end of the order, and
         // removal drops it from the order without disturbing the rest.
-        Canvas::CanvasNode extra;
+        Corbomite::Canvas::CanvasNode extra;
         extra.id = QStringLiteral("n-new");
-        extra.type = Canvas::NodeType::Text;
+        extra.type = Corbomite::Canvas::NodeType::Text;
         extra.x = 300; extra.y = 0; extra.width = 100; extra.height = 50;
         doc.addNode(extra);
         auto nodesAfterAdd = doc.nodes();

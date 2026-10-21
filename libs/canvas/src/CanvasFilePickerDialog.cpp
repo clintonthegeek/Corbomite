@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasFilePickerDialog.h"
+#include "corbomite/canvas/CanvasFilePickerDialog.h"
 
 #include <corbomite/search/FuzzyMatch.h>
 #include <corbomite/search/FuzzyMatcher.h>
@@ -13,7 +13,7 @@
 #include <QVBoxLayout>
 #include <algorithm>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 CanvasFilePickerDialog::CanvasFilePickerDialog(const QVector<Entry> &entries, QWidget *parent,
                                                const QString &title, const QString &placeholder)
@@ -120,4 +120,4 @@ QString CanvasFilePickerDialog::pickPayload(QWidget *parent, const QVector<Entry
     return QString();
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

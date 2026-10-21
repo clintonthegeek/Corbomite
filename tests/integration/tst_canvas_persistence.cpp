@@ -25,14 +25,14 @@
 #include <QJsonObject>
 #include <QTemporaryDir>
 
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasScene.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasScene.h"
 #include "canvas/CanvasViewTab.h"
 #include "corbomitesettings.h"
 
-using Canvas::CanvasDocument;
-using Canvas::CanvasNode;
-using Canvas::NodeType;
+using Corbomite::Canvas::CanvasDocument;
+using Corbomite::Canvas::CanvasNode;
+using Corbomite::Canvas::NodeType;
 using Corbomite::CanvasViewTab;
 
 namespace {

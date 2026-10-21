@@ -155,7 +155,7 @@ private Q_SLOTS:
         // the raw linktext without a ".md" suffix.
         bool foundUnresolved = false;
         for (const auto &node : result.nodes) {
-            if (node.type == ForceGraph::NodeType::Unresolved) {
+            if (node.type == Corbomite::ForceGraph::NodeType::Unresolved) {
                 foundUnresolved = true;
                 QVERIFY(node.id.contains(QStringLiteral("NonExistent")));
             }
@@ -191,7 +191,7 @@ private Q_SLOTS:
         bool foundOrphan = false;
         for (const auto &node : result.nodes) {
             if (node.id == QStringLiteral("orphan.md")) {
-                QCOMPARE(node.type, ForceGraph::NodeType::Orphan);
+                QCOMPARE(node.type, Corbomite::ForceGraph::NodeType::Orphan);
                 foundOrphan = true;
             }
         }

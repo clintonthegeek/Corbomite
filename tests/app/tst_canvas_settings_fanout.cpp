@@ -23,9 +23,9 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomitesettings.h"
 
-#include <canvas/CanvasAlignmentStrategy.h>
-#include <canvas/CanvasScene.h>
-#include <canvas/CanvasView.h>
+#include <corbomite/canvas/CanvasAlignmentStrategy.h>
+#include <corbomite/canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasView.h>
 
 using namespace Corbomite;
 

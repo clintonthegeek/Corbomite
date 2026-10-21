@@ -32,14 +32,14 @@
 
 #include <QMenu>
 
-#include "canvas/CanvasCommands.h"
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasScene.h"
-#include "canvas/FileCardItem.h"
-#include "canvas/GroupItem.h"
-#include "canvas/TextCardItem.h"
+#include "corbomite/canvas/CanvasCommands.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/FileCardItem.h"
+#include "corbomite/canvas/GroupItem.h"
+#include "corbomite/canvas/TextCardItem.h"
 
-using namespace Canvas;
+using namespace Corbomite::Canvas;
 
 namespace {
 

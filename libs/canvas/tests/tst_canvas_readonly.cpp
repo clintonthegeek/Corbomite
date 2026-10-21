@@ -45,25 +45,25 @@
 #include <graffodil/IGraphEdge.h>
 #include <graffodil/IGraphNode.h>
 
-#include "canvas/CanvasCommands.h"
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasNodeChromeOverlay.h"
-#include "canvas/CanvasScene.h"
-#include "canvas/CanvasView.h"
-#include "canvas/EdgeItem.h"
-#include "canvas/FileCardItem.h"
-#include "canvas/GroupItem.h"
-#include "canvas/TextCardItem.h"
+#include "corbomite/canvas/CanvasCommands.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasNodeChromeOverlay.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/CanvasView.h"
+#include "corbomite/canvas/EdgeItem.h"
+#include "corbomite/canvas/FileCardItem.h"
+#include "corbomite/canvas/GroupItem.h"
+#include "corbomite/canvas/TextCardItem.h"
 
 namespace {
 
 /// CanvasScene narrows QGraphicsScene::keyPressEvent to protected; this is
 /// the narrowest way to drive the scene's own key routing.
-class SceneHarness : public Canvas::CanvasScene
+class SceneHarness : public Corbomite::Canvas::CanvasScene
 {
 public:
-    using Canvas::CanvasScene::CanvasScene;
-    using Canvas::CanvasScene::keyPressEvent;
+    using Corbomite::Canvas::CanvasScene::CanvasScene;
+    using Corbomite::Canvas::CanvasScene::keyPressEvent;
 };
 
 void doubleClick(QGraphicsScene *scene, const QPointF &pos)
@@ -75,11 +75,11 @@ void doubleClick(QGraphicsScene *scene, const QPointF &pos)
     QCoreApplication::sendEvent(scene, &ev);
 }
 
-Canvas::CanvasNode textNode(const QString &id, int x, int y, const QString &text = {})
+Corbomite::Canvas::CanvasNode textNode(const QString &id, int x, int y, const QString &text = {})
 {
-    Canvas::CanvasNode n;
+    Corbomite::Canvas::CanvasNode n;
     n.id = id;
-    n.type = Canvas::NodeType::Text;
+    n.type = Corbomite::Canvas::NodeType::Text;
     n.x = x;
     n.y = y;
     n.width = 200;
@@ -88,11 +88,11 @@ Canvas::CanvasNode textNode(const QString &id, int x, int y, const QString &text
     return n;
 }
 
-Canvas::CanvasNode groupNode(const QString &id, int x, int y)
+Corbomite::Canvas::CanvasNode groupNode(const QString &id, int x, int y)
 {
-    Canvas::CanvasNode n;
+    Corbomite::Canvas::CanvasNode n;
     n.id = id;
-    n.type = Canvas::NodeType::Group;
+    n.type = Corbomite::Canvas::NodeType::Group;
     n.x = x;
     n.y = y;
     n.width = 400;
@@ -187,7 +187,7 @@ private Q_SLOTS:
     // ------------------------------------------------------------------
     void testReadOnlyBlocksMutations()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("t1"), 0, 0, QStringLiteral("hello")));
         doc.addNode(groupNode(QStringLiteral("g1"), 400, 0));
         doc.setModified(false);
@@ -272,8 +272,8 @@ private Q_SLOTS:
 
         // 10. programmatic command entry points
         scene.createFileCardViaPicker(QPointF(0, 0));
-        scene.setEdgeEnds(QStringLiteral("no-such-edge"), Canvas::EndType::Arrow,
-                          Canvas::EndType::Arrow);
+        scene.setEdgeEnds(QStringLiteral("no-such-edge"), Corbomite::Canvas::EndType::Arrow,
+                          Corbomite::Canvas::EndType::Arrow);
         scene.addCardConnectedTo(textNode(QStringLiteral("n"), 0, 0), nullptr,
                                  QStringLiteral("right"));
         QCOMPARE(doc.nodes().size(), nodesBefore);
@@ -293,14 +293,14 @@ private Q_SLOTS:
     // ------------------------------------------------------------------
     void testReadOnlyAllowsPanZoomAndSelect()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("t1"), 0, 0));
         doc.addNode(textNode(QStringLiteral("t2"), 400, 0));
         doc.addNode(groupNode(QStringLiteral("g1"), 800, 0));
         doc.setModified(false);
 
         SceneHarness scene;
-        Canvas::CanvasView view;
+        Corbomite::Canvas::CanvasView view;
         view.resize(600, 400);
         view.setScene(&scene);
         scene.setDocument(&doc);
@@ -352,21 +352,21 @@ private Q_SLOTS:
 
     void testReadOnlyBlocksEdgeCommands()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("a"), 0, 0));
         doc.addNode(textNode(QStringLiteral("b"), 400, 0));
-        Canvas::CanvasEdge edge;
+        Corbomite::Canvas::CanvasEdge edge;
         edge.id = QStringLiteral("e1");
         edge.fromNode = QStringLiteral("a");
         edge.toNode = QStringLiteral("b");
-        edge.fromEnd = Canvas::EndType::None;
-        edge.toEnd = Canvas::EndType::None;
+        edge.fromEnd = Corbomite::Canvas::EndType::None;
+        edge.toEnd = Corbomite::Canvas::EndType::None;
         doc.addEdge(edge);
         doc.setModified(false);
 
         SceneHarness scene;
         scene.setDocument(&doc);
-        QCOMPARE(doc.edge(QStringLiteral("e1")).fromEnd, Canvas::EndType::None);
+        QCOMPARE(doc.edge(QStringLiteral("e1")).fromEnd, Corbomite::Canvas::EndType::None);
 
         scene.setReadOnly(true);
 
@@ -374,10 +374,10 @@ private Q_SLOTS:
         scene.reverseEdge(QStringLiteral("e1"));
         QCOMPARE(doc.edge(QStringLiteral("e1")).fromNode, QStringLiteral("a"));
         QCOMPARE(doc.edge(QStringLiteral("e1")).toNode, QStringLiteral("b"));
-        scene.setEdgeEnds(QStringLiteral("e1"), Canvas::EndType::Arrow,
-                          Canvas::EndType::Arrow);
-        QCOMPARE(doc.edge(QStringLiteral("e1")).fromEnd, Canvas::EndType::None);
-        QCOMPARE(doc.edge(QStringLiteral("e1")).toEnd, Canvas::EndType::None);
+        scene.setEdgeEnds(QStringLiteral("e1"), Corbomite::Canvas::EndType::Arrow,
+                          Corbomite::Canvas::EndType::Arrow);
+        QCOMPARE(doc.edge(QStringLiteral("e1")).fromEnd, Corbomite::Canvas::EndType::None);
+        QCOMPARE(doc.edge(QStringLiteral("e1")).toEnd, Corbomite::Canvas::EndType::None);
 
         QCOMPARE(scene.undoStack()->count(), 0);
         QVERIFY(!doc.isModified());
@@ -386,18 +386,18 @@ private Q_SLOTS:
         scene.setReadOnly(false);
         scene.reverseEdge(QStringLiteral("e1"));
         QCOMPARE(doc.edge(QStringLiteral("e1")).fromNode, QStringLiteral("b"));
-        scene.setEdgeEnds(QStringLiteral("e1"), Canvas::EndType::Arrow,
-                          Canvas::EndType::Arrow);
-        QCOMPARE(doc.edge(QStringLiteral("e1")).fromEnd, Canvas::EndType::Arrow);
+        scene.setEdgeEnds(QStringLiteral("e1"), Corbomite::Canvas::EndType::Arrow,
+                          Corbomite::Canvas::EndType::Arrow);
+        QCOMPARE(doc.edge(QStringLiteral("e1")).fromEnd, Corbomite::Canvas::EndType::Arrow);
     }
 
     void testReadOnlyKeepsSelectionButBlocksMove()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("t1"), 100, 100));
 
         SceneHarness scene;
-        Canvas::CanvasView view;
+        Corbomite::Canvas::CanvasView view;
         view.resize(600, 400);
         view.setScene(&scene);
         scene.setDocument(&doc);
@@ -433,7 +433,7 @@ private Q_SLOTS:
     {
         // Locking mid-gesture must abandon the in-flight SelectMoveTool drag
         // rather than let it finish and push CmdMoveCards.
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("t1"), 100, 100));
         doc.setModified(false);
 
@@ -483,10 +483,10 @@ private Q_SLOTS:
         // Control leg: both gestures must work while unlocked, or the
         // assertions below would pass on a scene where they never worked.
         {
-            Canvas::CanvasDocument unlockedDoc;
+            Corbomite::Canvas::CanvasDocument unlockedDoc;
             unlockedDoc.addNode(textNode(QStringLiteral("t1"), 0, 0));
             SceneHarness unlockedScene;
-            Canvas::CanvasView unlockedView;
+            Corbomite::Canvas::CanvasView unlockedView;
             unlockedView.resize(800, 600);
             unlockedView.setScene(&unlockedScene);
             unlockedScene.setDocument(&unlockedDoc);
@@ -501,12 +501,12 @@ private Q_SLOTS:
             QCOMPARE(unlockedDoc.nodes().size(), 2);
         }
 
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("t1"), 0, 0));
         doc.setModified(false);
 
         SceneHarness scene;
-        Canvas::CanvasView view;
+        Corbomite::Canvas::CanvasView view;
         view.resize(800, 600);
         view.setScene(&scene);
         scene.setDocument(&doc);
@@ -551,13 +551,13 @@ private Q_SLOTS:
 
     void testReadOnlyBlocksEdgeCreation()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("a"), 0, 0));
         doc.addNode(textNode(QStringLiteral("b"), 600, 0));
         doc.setModified(false);
 
         SceneHarness scene;
-        Canvas::CanvasView view;
+        Corbomite::Canvas::CanvasView view;
         view.resize(1000, 600);
         view.setScene(&scene);
         scene.setDocument(&doc);
@@ -590,7 +590,7 @@ private Q_SLOTS:
         // its editor while unlocked, so the locked-leg assertions below are
         // about the lock and not about a dead trigger.
         {
-            Canvas::CanvasDocument controlDoc;
+            Corbomite::Canvas::CanvasDocument controlDoc;
             controlDoc.addNode(textNode(QStringLiteral("t"), 0, 0, QStringLiteral("b")));
             SceneHarness control;
             control.setDocument(&controlDoc);
@@ -598,7 +598,7 @@ private Q_SLOTS:
             QVERIFY(control.isEditing());
         }
         {
-            Canvas::CanvasDocument controlDoc;
+            Corbomite::Canvas::CanvasDocument controlDoc;
             controlDoc.addNode(groupNode(QStringLiteral("g"), 0, 0));
             SceneHarness control;
             control.setDocument(&controlDoc);
@@ -612,12 +612,12 @@ private Q_SLOTS:
             QVERIFY(!hasLabelEditor(control));
         }
 
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("t1"), 0, 0, QStringLiteral("body")));
         doc.addNode(groupNode(QStringLiteral("g1"), 400, 0));
-        Canvas::CanvasNode file;
+        Corbomite::Canvas::CanvasNode file;
         file.id = QStringLiteral("f1");
-        file.type = Canvas::NodeType::File;
+        file.type = Corbomite::Canvas::NodeType::File;
         file.file = QStringLiteral("note.md");
         file.x = 900;
         file.y = 0;
@@ -651,7 +651,7 @@ private Q_SLOTS:
 
     void testLockingMidInlineEditClosesTheEditor()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("t1"), 0, 0, QStringLiteral("body")));
 
         SceneHarness scene;
@@ -669,12 +669,12 @@ private Q_SLOTS:
 
     void testReadOnlyBlocksContextMenuMutations()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("t1"), 0, 0));
         doc.addNode(groupNode(QStringLiteral("g1"), 400, 0));
 
         SceneHarness scene;
-        Canvas::CanvasView view;
+        Corbomite::Canvas::CanvasView view;
         view.resize(1000, 600);
         view.setScene(&scene);
         scene.setDocument(&doc);
@@ -714,16 +714,16 @@ private Q_SLOTS:
 
     void testReadOnlyBlocksUndoRedo()
     {
-        Canvas::CanvasDocument doc;
+        Corbomite::Canvas::CanvasDocument doc;
         doc.addNode(textNode(QStringLiteral("t1"), 0, 0));
 
         SceneHarness scene;
-        Canvas::CanvasView view;
+        Corbomite::Canvas::CanvasView view;
         view.resize(600, 400);
         view.setScene(&scene);
         scene.setDocument(&doc);
 
-        scene.undoStack()->push(new Canvas::CmdMoveCards(
+        scene.undoStack()->push(new Corbomite::Canvas::CmdMoveCards(
             &doc, QHash<QString, QPointF>{{QStringLiteral("t1"), QPointF(0, 0)}},
             QHash<QString, QPointF>{{QStringLiteral("t1"), QPointF(500, 500)}}));
         QCOMPARE(doc.node(QStringLiteral("t1")).x, 500);
@@ -748,7 +748,7 @@ private Q_SLOTS:
     void testReadOnlyToggleEmitsOnceAndOnlyOnChange()
     {
         SceneHarness scene;
-        QSignalSpy spy(&scene, &Canvas::CanvasScene::readOnlyChanged);
+        QSignalSpy spy(&scene, &Corbomite::Canvas::CanvasScene::readOnlyChanged);
 
         scene.setReadOnly(true);
         QCOMPARE(spy.count(), 1);

@@ -83,7 +83,7 @@ tree — it silently doubles any naive `rg`) excluded.
 | `SourceEditor` (+`CursorPos`) | `src/editor/SourceEditor.{h,cpp}` | **0** | 0 |
 | `PluginInstance` | `libs/core/include/corbomite/core/PluginInstance.h:28` | **0** | 0 |
 | `MarkoffRenderEngine` | `libs/core/include/corbomite/core/MarkoffRenderEngine.h:9` | **0** | 0 |
-| `SpatialGrid` | `libs/forcegraph/include/forcegraph/SpatialGrid.h` | **0** | 0 |
+| `SpatialGrid` | `libs/forcegraph/include/corbomite/forcegraph/SpatialGrid.h` | **0** | 0 |
 | `SearchDSL::ParseResult` | `libs/search/include/corbomite/search/SearchDSL.h:9` | **0** | 0 |
 | Kate session subtree | `src/mdi/CorbomiteMDI.cpp:1351-1458,1800-1885` | **0** | 0 |
 
@@ -224,7 +224,7 @@ following the citation lands in unrelated code. Header still says "Last refreshe
 `apiLevel: 1` ABI doc (`docs/plugin-development/API-STABILITY.md:120-140`),
 sidebar amnesia (Cluster L4 shipped it — the item now *contradicts* the banner
 above it in the same file), workspace.json ids/dimension (Cluster L2 overtook it),
-`tst_benchmark_layout` (has both `TIMEOUT 120` and `LABELS "benchmark"`).
+`tst_forcegraph_benchmark` (has both `TIMEOUT 120` and `LABELS "benchmark"`).
 
 **Bucket ②** — the first block a new session reads — has 6 of 13 pointers already
 closed and does not say so.

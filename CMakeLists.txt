@@ -137,10 +137,12 @@ add_subdirectory(libs/markoff-family)
 #
 # NOTE: Graffodil ships 16 ctest cases and we run ZERO of them, because
 # GRAFFODIL_BUILD_TESTS defaults to ${PROJECT_IS_TOP_LEVEL} (FALSE as a
-# subdirectory). Fixing this is BLOCKED: Graffodil's tests/CMakeLists.txt uses
-# hardcoded target names, and tst_forcelayout + tst_quadtree collide with
-# Corbomite's own libs/forcegraph tests, so flipping the gate fails to
-# configure. See the punch list item for the two-line fix.
+# subdirectory). The duplicate-target-name blocker is GONE as of 2026-10-20:
+# Graffodil's hardcoded tst_forcelayout / tst_quadtree no longer collide with
+# ours, because our forcegraph tests were renamed to the house
+# tst_forcegraph_* pattern. What remains is Graffodil-side: its tests set no
+# ENVIRONMENT property, so they abort on a headless box, and the fix needs a
+# commit on Graffodil's main. See the punch-list item.
 add_subdirectory(libs/graffodil)
 
 add_subdirectory(libs/core)

@@ -6,7 +6,7 @@
 
 #include <graffodil/IGraphNode.h>
 #include <graffodil/Anchors.h>
-#include "canvas/CanvasAlignmentStrategy.h"
+#include "corbomite/canvas/CanvasAlignmentStrategy.h"
 
 namespace {
 
@@ -44,7 +44,7 @@ private:
 /// events (no precedent for faking it elsewhere in this codebase — the
 /// Alt-drag-duplicate code reads modifiers off a real QGraphicsSceneMouseEvent,
 /// not the global getter).
-class FakeModifierStrategy : public Canvas::CanvasAlignmentStrategy {
+class FakeModifierStrategy : public Corbomite::Canvas::CanvasAlignmentStrategy {
 public:
     void setFakeModifiers(Qt::KeyboardModifiers mods) { m_fake = mods; }
 
@@ -64,13 +64,13 @@ private Q_SLOTS:
     // Appendix A ladder: 20 at scale>=1, 40 at >=0.5, 80 at >=0.25, else 160.
     void testGridSnapPitchByZoom()
     {
-        QCOMPARE(Canvas::CanvasAlignmentStrategy::gridSpacingForScale(1.5), 20.0);
-        QCOMPARE(Canvas::CanvasAlignmentStrategy::gridSpacingForScale(1.0), 20.0);
-        QCOMPARE(Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.7), 40.0);
-        QCOMPARE(Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.5), 40.0);
-        QCOMPARE(Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.3), 80.0);
-        QCOMPARE(Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.25), 80.0);
-        QCOMPARE(Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.1), 160.0);
+        QCOMPARE(Corbomite::Canvas::CanvasAlignmentStrategy::gridSpacingForScale(1.5), 20.0);
+        QCOMPARE(Corbomite::Canvas::CanvasAlignmentStrategy::gridSpacingForScale(1.0), 20.0);
+        QCOMPARE(Corbomite::Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.7), 40.0);
+        QCOMPARE(Corbomite::Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.5), 40.0);
+        QCOMPARE(Corbomite::Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.3), 80.0);
+        QCOMPARE(Corbomite::Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.25), 80.0);
+        QCOMPARE(Corbomite::Canvas::CanvasAlignmentStrategy::gridSpacingForScale(0.1), 160.0);
     }
 
     void testObjectSnapCornerAndCenter()
@@ -83,7 +83,7 @@ private Q_SLOTS:
         scene.addItem(&primary);
         scene.addItem(&other);
 
-        Canvas::CanvasAlignmentStrategy strategy;
+        Corbomite::Canvas::CanvasAlignmentStrategy strategy;
 
         // Drag primary so its right edge (proposed right = proposed.x()+100)
         // lands 5 units off other's left edge (300) -> within 15/scale=15
@@ -106,7 +106,7 @@ private Q_SLOTS:
         scene.addItem(&primary);
         scene.addItem(&other);
 
-        Canvas::CanvasAlignmentStrategy strategy;
+        Corbomite::Canvas::CanvasAlignmentStrategy strategy;
         // Isolate object-snap tolerance behavior from grid snap (which
         // could coincidentally land on the same coordinate).
         strategy.setSnapToGridEnabled(false);
@@ -171,7 +171,7 @@ private Q_SLOTS:
         scene.addItem(&primary);
         scene.addItem(&other);
 
-        Canvas::CanvasAlignmentStrategy strategy;
+        Corbomite::Canvas::CanvasAlignmentStrategy strategy;
         strategy.endDrag(); // fresh-drag state, mirroring CanvasScene::onDragBegan
 
         // Frame 1: land exactly on the snap candidate (right edge -> 200).

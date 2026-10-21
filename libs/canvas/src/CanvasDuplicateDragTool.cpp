@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasDuplicateDragTool.h"
-#include "canvas/CanvasCommands.h"
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasScene.h"
-#include "canvas/FileCardItem.h"
-#include "canvas/GroupItem.h"
-#include "canvas/TextCardItem.h"
+#include "corbomite/canvas/CanvasDuplicateDragTool.h"
+#include "corbomite/canvas/CanvasCommands.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/FileCardItem.h"
+#include "corbomite/canvas/GroupItem.h"
+#include "corbomite/canvas/TextCardItem.h"
 
 #include <graffodil/GraphScene.h>
 #include <graffodil/IGraphNode.h>
@@ -17,7 +17,7 @@
 #include <QUndoCommand>
 #include <QUndoStack>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 CanvasNodeItem *findAltDragDuplicateTarget(Graffodil::GraphScene *scene, const QPointF &scenePos)
 {
@@ -216,4 +216,4 @@ void CanvasDuplicateDragTool::deactivate()
     GraphTool::deactivate();
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

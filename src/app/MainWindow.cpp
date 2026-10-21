@@ -20,8 +20,8 @@
 #include "corbomite/core/RecoveryService.h"
 #include <markoff/core/FindController.h>
 #include "canvas/CanvasViewTab.h"
-#include <canvas/CanvasDocument.h>
-#include <canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasDocument.h>
+#include <corbomite/canvas/CanvasScene.h>
 #include "corbomite/bases/BasesView.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/vault/TAbstractFile.h"
@@ -60,13 +60,13 @@
 #include "editor/MarkdownFileView.h"
 #include "editor/MarkdownViewActions.h"
 #include "canvas/CanvasFileView.h"
-#include "canvas/CanvasLinkRewriter.h"
+#include "corbomite/canvas/CanvasLinkRewriter.h"
 #include "bases/BasesViewActions.h"
 #include "canvas/CanvasViewActions.h"
 #include "canvas/CanvasViewTab.h"
-#include <canvas/CanvasAlignmentStrategy.h>
-#include <canvas/CanvasScene.h>
-#include <canvas/CanvasView.h>
+#include <corbomite/canvas/CanvasAlignmentStrategy.h>
+#include <corbomite/canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasView.h>
 #include "corbomite/core/HoverLinkSourceRegistry.h"
 #include "corbomite/core/PathUtils.h"
 #include "corbomite/core/StatusBarRegistry.h"
@@ -2278,7 +2278,7 @@ void MainWindow::createNewCanvas(const QString &folder)
             parent = created;
     }
 
-    Canvas::CanvasDocument emptyDoc;
+    Corbomite::Canvas::CanvasDocument emptyDoc;
     const QByteArray content = emptyDoc.serializeObsidianStyle();
 
     auto *tf = m_fileManager->createNewFile(parent, QString(), QStringLiteral("canvas"), content);
@@ -2494,7 +2494,7 @@ void MainWindow::createFromQuickSwitcher(const QString &typedName)
         }
 
         const QByteArray seed = (ext == QLatin1String("canvas"))
-            ? Canvas::CanvasDocument().serializeObsidianStyle()
+            ? Corbomite::Canvas::CanvasDocument().serializeObsidianStyle()
             : QByteArray();
         if (auto *tf = m_fileManager->createNewFile(parent, stem, ext, seed))
             openFileInWorkspace(tf->path);
@@ -2654,7 +2654,7 @@ void MainWindow::onVaultOpened(const QString &path)
     // (Obsidian's `linkUpdaters["canvas"]`). The rewriter outlives the
     // FileManager for the vault session; CanvasFileView registers open
     // documents so renames mutate the live instance.
-    m_canvasLinkRewriter = std::make_unique<Canvas::CanvasLinkRewriter>();
+    m_canvasLinkRewriter = std::make_unique<Corbomite::Canvas::CanvasLinkRewriter>();
     m_fileManager->registerLinkRewriter(m_canvasLinkRewriter.get());
 
     // Periodic File Recovery snapshots. One host-level timer;

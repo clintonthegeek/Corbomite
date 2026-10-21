@@ -15,7 +15,7 @@
 #include "editor/MarkdownFileView.h"
 #include "editor/NoteEditorWidget.h"
 
-#include <canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasScene.h>
 #include <markoff/core/MarkdownView.h>
 
 #include <KActionCollection>

@@ -159,7 +159,7 @@ mode gets uniform blue in batch mode, with **no API to prevent it**.
 
 **Direct evidence this bit us.** Corbomite's canvas dark-mode work (shipped
 2026-10-02) had to build a 14-role `CanvasPalette`
-(`libs/canvas/include/canvas/CanvasPalette.h`), whose header says:
+(`libs/canvas/include/corbomite/canvas/CanvasPalette.h`), whose header says:
 
 > *Canvas had **zero** theme awareness: ~15 hardcoded literals.*
 

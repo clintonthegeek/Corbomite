@@ -30,11 +30,11 @@
 #include "corbomite/core/WorkspaceLeaf.h"
 #include "corbomitesettings.h"
 
-#include <canvas/CanvasAlignmentStrategy.h>
-#include <canvas/CanvasDocument.h>
-#include <canvas/CanvasScene.h>
-#include <canvas/CanvasView.h>
-#include <canvas/TextCardItem.h>
+#include <corbomite/canvas/CanvasAlignmentStrategy.h>
+#include <corbomite/canvas/CanvasDocument.h>
+#include <corbomite/canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasView.h>
+#include <corbomite/canvas/TextCardItem.h>
 
 using namespace Corbomite;
 

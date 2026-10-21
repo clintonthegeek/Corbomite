@@ -111,14 +111,17 @@ alongside it and shared where useful:
   Corbomite does not expose multi-user editing. A later plugin can supply
   the session. The vault on disk stays markdown files.
 - **[Graffodil](https://github.com/clintonthegeek/Graffodil)** is a
-  standalone force-directed graph visualization project. Corbomite's graph
-  view (`libs/forcegraph`) shares lineage and layout-algorithm heritage with
-  Graffodil (Barnes-Hut approximation, multilevel layout) but is vendored
-  in-tree as its own independent library with zero Corbomite-specific
-  dependencies, rather than a live submodule — the two are related by
-  shared origin, not a build-time link. Corbomite-specific features will
-  likely soon be ported to Graffodil, which would then become a linked
-  dependency.
+  standalone force-directed graph visualization project, vendored here as a
+  git submodule. Corbomite's graph view (`libs/forcegraph`) shares lineage
+  and layout-algorithm heritage with it (Barnes-Hut approximation,
+  multilevel layout) but is a separate in-tree library, related by shared
+  origin rather than a build-time link. The two halves differ in
+  responsibility: the layout algorithms in `libs/forcegraph` track
+  Graffodil's, while the view/scene/item layer (hover highlight,
+  click/drag-to-pin, LOD label fading, batched rendering) is
+  Corbomite-specific and lives only here. `libs/forcegraph` is therefore
+  kept as an independent library rather than folded into Graffodil; see
+  `docs/decisions-archive.md` for the D.4 decision.
 
 ---
 

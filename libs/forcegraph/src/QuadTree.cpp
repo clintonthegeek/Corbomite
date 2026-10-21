@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "forcegraph/QuadTree.h"
+#include "corbomite/forcegraph/QuadTree.h"
 #include <cmath>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 
 void QuadTree::clear()
 {
@@ -218,4 +218,4 @@ QPointF QuadTree::computeRepulsion(const QPointF &pos, double repelForce,
     return totalForce;
 }
 
-} // namespace ForceGraph
+} // namespace Corbomite::ForceGraph

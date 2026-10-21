@@ -5,7 +5,7 @@
 
 #include "corbomite/core/MenuSectionHelper.h"
 
-#include <forcegraph/ForceGraphView.h>
+#include <corbomite/forcegraph/ForceGraphView.h>
 
 #include <KLocalizedString>
 

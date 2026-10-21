@@ -28,43 +28,43 @@ static bool isDailyNote(const QString &label)
 // Derive graph colors from the current palette for theme awareness.
 // These are intentionally muted/distinct from the accent color to avoid
 // clashing with selection highlights.
-static QColor colorForType(ForceGraph::NodeType type)
+static QColor colorForType(Corbomite::ForceGraph::NodeType type)
 {
     const QPalette &pal = QApplication::palette();
     bool dark = pal.color(QPalette::Window).lightness() < 128;
 
     switch (type) {
-    case ForceGraph::NodeType::Hub:
+    case Corbomite::ForceGraph::NodeType::Hub:
         // Brighter purple for hubs — stands out from regular
         return dark ? QColor(155, 140, 233) : QColor(100, 80, 200);
-    case ForceGraph::NodeType::Regular:
+    case Corbomite::ForceGraph::NodeType::Regular:
         return dark ? QColor(123, 108, 217) : QColor(110, 90, 190);
-    case ForceGraph::NodeType::Orphan:
+    case Corbomite::ForceGraph::NodeType::Orphan:
         return dark ? QColor(140, 140, 140) : QColor(170, 170, 170);
-    case ForceGraph::NodeType::Unresolved:
+    case Corbomite::ForceGraph::NodeType::Unresolved:
         return dark ? QColor(100, 100, 100) : QColor(160, 160, 160);
-    case ForceGraph::NodeType::DailyNote:
+    case Corbomite::ForceGraph::NodeType::DailyNote:
         return dark ? QColor(86, 182, 194) : QColor(50, 150, 165);
     }
     return pal.color(QPalette::Text);
 }
 
-static void classifyNode(ForceGraph::GraphNode &node, int deg, bool exists)
+static void classifyNode(Corbomite::ForceGraph::GraphNode &node, int deg, bool exists)
 {
     node.degree = deg;
     node.radius = 4.0 + std::log(1.0 + deg) * 3.0;
 
     if (!exists) {
-        node.type = ForceGraph::NodeType::Unresolved;
+        node.type = Corbomite::ForceGraph::NodeType::Unresolved;
         node.radius = 3.0;
     } else if (deg == 0) {
-        node.type = ForceGraph::NodeType::Orphan;
+        node.type = Corbomite::ForceGraph::NodeType::Orphan;
     } else if (isDailyNote(node.label)) {
-        node.type = ForceGraph::NodeType::DailyNote;
+        node.type = Corbomite::ForceGraph::NodeType::DailyNote;
     } else if (deg >= HUB_DEGREE_THRESHOLD) {
-        node.type = ForceGraph::NodeType::Hub;
+        node.type = Corbomite::ForceGraph::NodeType::Hub;
     } else {
-        node.type = ForceGraph::NodeType::Regular;
+        node.type = Corbomite::ForceGraph::NodeType::Regular;
     }
 
     node.color = colorForType(node.type);
@@ -121,7 +121,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
     // Build nodes
     for (TFile *f : allFiles) {
         if (ignore.matches(f->path)) continue;
-        ForceGraph::GraphNode node;
+        Corbomite::ForceGraph::GraphNode node;
         node.id = f->path;
         node.label = f->basename;
         classifyNode(node, degree.value(f->path, 0), true);
@@ -144,7 +144,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
     // Add unresolved nodes
     for (const auto &path : unresolvedPaths) {
         if (ignore.matches(path)) continue;
-        ForceGraph::GraphNode node;
+        Corbomite::ForceGraph::GraphNode node;
         node.id = path;
         QString name = path;
         name = name.mid(name.lastIndexOf(QLatin1Char('/')) + 1);
@@ -161,7 +161,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
         if (link.linkType == QStringLiteral("embed")) continue;
         if (ignore.matches(link.sourcePath) || ignore.matches(link.targetPath)) continue;
 
-        ForceGraph::GraphEdge edge;
+        Corbomite::ForceGraph::GraphEdge edge;
         edge.sourceId = link.sourcePath;
         edge.targetId = link.targetPath;
         result.edges.append(edge);
@@ -233,7 +233,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SearchProxy *search, 
     for (const auto &link : allLinks) {
         if (link.linkType == QStringLiteral("embed")) continue;
         if (collected.contains(link.sourcePath) && collected.contains(link.targetPath)) {
-            ForceGraph::GraphEdge edge;
+            Corbomite::ForceGraph::GraphEdge edge;
             edge.sourceId = link.sourcePath;
             edge.targetId = link.targetPath;
             result.edges.append(edge);
@@ -245,7 +245,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SearchProxy *search, 
 
     // Create nodes
     for (const auto &path : collected) {
-        ForceGraph::GraphNode node;
+        Corbomite::ForceGraph::GraphNode node;
         node.id = path;
 
         QString name = path;
@@ -258,7 +258,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SearchProxy *search, 
 
         // Center note gets special treatment: teal + larger
         if (path == centerNotePath) {
-            node.color = colorForType(ForceGraph::NodeType::DailyNote);
+            node.color = colorForType(Corbomite::ForceGraph::NodeType::DailyNote);
             node.radius += 3.0;
         }
 

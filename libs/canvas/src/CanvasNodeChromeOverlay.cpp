@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasNodeChromeOverlay.h"
-#include "canvas/CanvasNodeItem.h"
+#include "corbomite/canvas/CanvasNodeChromeOverlay.h"
+#include "corbomite/canvas/CanvasNodeItem.h"
 
 #include <graffodil/Types.h>
 
@@ -9,7 +9,7 @@
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 static constexpr qreal kHandleSize = 6.0;
 static constexpr qreal kDotRadius = 4.0;
@@ -134,4 +134,4 @@ void CanvasNodeChromeOverlay::paint(QPainter *painter, const QStyleOptionGraphic
     }
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

@@ -129,7 +129,7 @@ private Q_SLOTS:
 private:
     CanvasViewTab *m_canvasWidget = nullptr;
     /// Vault-relative path the live document is registered under in
-    /// Canvas::CanvasDocumentRegistry. Empty when not attached.
+    /// Corbomite::Canvas::CanvasDocumentRegistry. Empty when not attached.
     QString m_registeredCanvasPath;
     /// Raw pointer + explicit disconnect, matching
     /// NoteEditorWidget::setThemeService — the ThemeService outlives every

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QTest>
-#include "canvas/CanvasBezierStrategy.h"
+#include "corbomite/canvas/CanvasBezierStrategy.h"
 
 class TestCanvasBezierStrategy : public QObject {
     Q_OBJECT
@@ -22,7 +22,7 @@ private Q_SLOTS:
         target.outwardDirection = QPointF(-1, 0);
 
         // dist = 200 -> clamp(100, 70, 150) = 100 (within range, unclamped).
-        Canvas::CanvasBezierStrategy strategy;
+        Corbomite::Canvas::CanvasBezierStrategy strategy;
         const QPainterPath path = strategy.computePath(source, target);
 
         // moveTo(source), lineTo(sourceInset), cubicTo(ctrl1, ctrl2, targetInset),
@@ -69,7 +69,7 @@ private Q_SLOTS:
         tooClose.scenePos = QPointF(40, 0); // dist=40 -> dist/2=20 -> clamp to 70
         tooClose.outwardDirection = QPointF(-1, 0);
 
-        Canvas::CanvasBezierStrategy strategy;
+        Corbomite::Canvas::CanvasBezierStrategy strategy;
         const QPainterPath closePath = strategy.computePath(source, tooClose);
         const auto ctrl1 = closePath.elementAt(2);
         QVERIFY(qFuzzyCompare(ctrl1.x, 70.0)); // 0 + 1*70

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasLinkRewriter.h"
+#include "corbomite/canvas/CanvasLinkRewriter.h"
 
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasDocumentRegistry.h"
-#include "canvas/CanvasTypes.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasDocumentRegistry.h"
+#include "corbomite/canvas/CanvasTypes.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 namespace {
 
@@ -141,4 +141,4 @@ std::optional<QByteArray> CanvasLinkRewriter::rewrite(
     return doc.serializeObsidianStyle();
 }
 
-}  // namespace Canvas
+} // namespace Corbomite::Canvas

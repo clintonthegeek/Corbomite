@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasScene.h"
-#include "canvas/CanvasCommands.h"
-#include "canvas/CanvasDocument.h"
-#include "canvas/CanvasAlignmentStrategy.h"
-#include "canvas/CanvasNodeChromeOverlay.h"
-#include "canvas/CanvasDuplicateDragTool.h"
-#include "canvas/CanvasEdgeGestureTool.h"
-#include "canvas/CanvasNodeItem.h"
-#include "canvas/CanvasResizeTool.h"
-#include "canvas/ReconnectEdgeTool.h"
-#include "canvas/TextCardItem.h"
-#include "canvas/FileCardItem.h"
-#include "canvas/GroupItem.h"
-#include "canvas/EdgeItem.h"
+#include "corbomite/canvas/CanvasScene.h"
+#include "corbomite/canvas/CanvasCommands.h"
+#include "corbomite/canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasAlignmentStrategy.h"
+#include "corbomite/canvas/CanvasNodeChromeOverlay.h"
+#include "corbomite/canvas/CanvasDuplicateDragTool.h"
+#include "corbomite/canvas/CanvasEdgeGestureTool.h"
+#include "corbomite/canvas/CanvasNodeItem.h"
+#include "corbomite/canvas/CanvasResizeTool.h"
+#include "corbomite/canvas/ReconnectEdgeTool.h"
+#include "corbomite/canvas/TextCardItem.h"
+#include "corbomite/canvas/FileCardItem.h"
+#include "corbomite/canvas/GroupItem.h"
+#include "corbomite/canvas/EdgeItem.h"
 #include "corbomite/core/EditingSession.h"
 #include "corbomite/core/MarkdownRenderEngine.h"
 #include "corbomite/core/RenderOptions.h"
@@ -93,7 +93,7 @@ bool focusInsideEditor(const QWidget *editor, const QWidget *focus)
 
 } // namespace
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 CanvasScene::CanvasScene(QObject *parent)
     : Graffodil::GraphScene(parent)
@@ -2342,4 +2342,4 @@ void CanvasScene::renderToSvg(const QRectF &bounds, QIODevice *out,
     for (auto *item : hidden) item->setVisible(true);
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

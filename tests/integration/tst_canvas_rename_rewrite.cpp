@@ -12,7 +12,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
-#include "canvas/CanvasLinkRewriter.h"
+#include "corbomite/canvas/CanvasLinkRewriter.h"
 #include "corbomite/storage/FileSystemAdapter.h"
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataCache.h"
@@ -69,7 +69,7 @@ void TestCanvasRenameRewrite::renameUpdatesCanvasReferences()
     QTRY_VERIFY_WITH_TIMEOUT(indexSpy.count() >= 1, 10000);
 
     Corbomite::FileManager fm(&vault, &cache);
-    Canvas::CanvasLinkRewriter rewriter;
+    Corbomite::Canvas::CanvasLinkRewriter rewriter;
     fm.registerLinkRewriter(&rewriter);
 
     auto *foo = vault.getFileByPath(QStringLiteral("Foo.md"));

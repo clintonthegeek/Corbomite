@@ -6,7 +6,7 @@
 
 #include <QMetaObject>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 class CanvasScene;
 }
 
@@ -41,7 +41,7 @@ private:
     CanvasFileView *canvas() const { return m_boundView; }
 
     /// The bound canvas's scene, or null.
-    Canvas::CanvasScene *canvasScene() const;
+    Corbomite::Canvas::CanvasScene *canvasScene() const;
 
     /// Obsidian's `canvas:jump-to-group` needs at least one group to
     /// list (`app/own/2028-n9.js:673`), and `canvas:convert-to-file` needs

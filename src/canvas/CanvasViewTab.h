@@ -6,7 +6,7 @@
 
 #include <functional>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 class CanvasDocument;
 class CanvasScene;
 class CanvasView;
@@ -69,7 +69,7 @@ public:
 
     /// Access to the underlying CanvasScene so CanvasFileView can drive its
     /// render-to-image / render-to-svg export pipeline.
-    Canvas::CanvasScene *canvasScene() const;
+    Corbomite::Canvas::CanvasScene *canvasScene() const;
 
     /// Supply the vault's file list to the file picker.
     ///
@@ -86,7 +86,7 @@ public:
     /// the polymorphic View::zoomIn/Out/Reset virtuals onto the real
     /// viewport transform. (The canvas toolbar wants
     /// this same accessor, so it lives here.)
-    Canvas::CanvasView *canvasView() const;
+    Corbomite::Canvas::CanvasView *canvasView() const;
 
     /// Machine-local per-file store seam for the read-only lock.
     /// Same shape and same rationale as setFileLister() above: the
@@ -113,10 +113,10 @@ public:
     QString canvasRelativePath() const;
 
     /// The document this tab owns. The host registers it with
-    /// `Canvas::CanvasDocumentRegistry` (keyed on `canvasRelativePath()`) so
+    /// `Corbomite::Canvas::CanvasDocumentRegistry` (keyed on `canvasRelativePath()`) so
     /// the rename rewriter mutates the open instance instead of a second
     /// copy on disk. Never null once the tab is constructed.
-    Canvas::CanvasDocument *canvasDocument() const;
+    Corbomite::Canvas::CanvasDocument *canvasDocument() const;
 
     /// Re-render file cards whose target appeared (vault create) or
     /// changed, so a dangling card resolves without reopening the canvas.
@@ -155,8 +155,8 @@ private:
 
     void applyLocalData(const QJsonObject &data);
 
-    Canvas::CanvasDocument *m_document;
-    Canvas::CanvasView *m_view;
+    Corbomite::Canvas::CanvasDocument *m_document;
+    Corbomite::Canvas::CanvasView *m_view;
     QString m_filePath;
     QString m_vaultRoot;
 

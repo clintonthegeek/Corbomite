@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/ReconnectEdgeTool.h"
+#include "corbomite/canvas/ReconnectEdgeTool.h"
 
 #include <graffodil/AnchorHighlight.h>
 #include <graffodil/GraphScene.h>
@@ -11,7 +11,7 @@
 #include <QKeyEvent>
 #include <QLineF>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 ReconnectEdgeTool::ReconnectEdgeTool(QObject *parent)
     : Graffodil::GraphTool(parent)
@@ -165,4 +165,4 @@ void ReconnectEdgeTool::cancel()
         m_highlight->hideAnchors();
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

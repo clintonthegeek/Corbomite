@@ -37,9 +37,9 @@
 #include "editor/MarkdownFileView.h"
 #include "editor/NoteEditorWidget.h"
 
-#include <canvas/CanvasCommands.h>
-#include <canvas/CanvasDocument.h>
-#include <canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasCommands.h>
+#include <corbomite/canvas/CanvasDocument.h>
+#include <corbomite/canvas/CanvasScene.h>
 
 using namespace Corbomite;
 
@@ -156,7 +156,7 @@ private Q_SLOTS:
         QHash<QString, QPointF> oldPos{{QStringLiteral("n1"), QPointF(0, 0)}};
         QHash<QString, QPointF> newPos{{QStringLiteral("n1"), QPointF(500, 500)}};
         contextSpy.clear();
-        scene->undoStack()->push(new Canvas::CmdMoveCards(doc, oldPos, newPos));
+        scene->undoStack()->push(new Corbomite::Canvas::CmdMoveCards(doc, oldPos, newPos));
         QVERIFY2(!contextSpy.isEmpty(), "pushing an undoable command must emit contextChanged()");
         QVERIFY2(view->canUndo(), "canUndo() must reflect the real undo stack");
         QVERIFY2(!view->canRedo(), "nothing to redo yet");

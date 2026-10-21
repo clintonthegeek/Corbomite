@@ -35,7 +35,7 @@ wall-clock timing tests must be excluded (see below):
 cd build-dev && QT_QPA_PLATFORM=offscreen ctest -E "benchmark|perf" --output-on-failure -j 3
 ```
 
-**Why `-E "benchmark|perf"` and not just `-E benchmark`** (2026-10-01): the wall-clock tests flake red under parallel load alone, and pass standalone. `tst_benchmark_layout` (libs/forcegraph) carries a native `LABELS "benchmark"`, but `tst_canvas_perf_500` and `tst_canvas_perf_formatted` come from the markoff-family submodule with **no label at all**, so `-E benchmark` does not reach them. A parent-directory
+**Why `-E "benchmark|perf"` and not just `-E benchmark`** (2026-10-01): the wall-clock tests flake red under parallel load alone, and pass standalone. `tst_forcegraph_benchmark` (libs/forcegraph) carries a native `LABELS "benchmark"`, but `tst_canvas_perf_500` and `tst_canvas_perf_formatted` come from the markoff-family submodule with **no label at all**, so `-E benchmark` does not reach them. A parent-directory
 `set_tests_properties` cannot fix this either — CTest test properties are
 directory-scoped — and patching the submodule would be lost on the next
 re-pin. The real fix is a `LABELS "benchmark"` in markoff-canvas; until then
@@ -48,7 +48,7 @@ Baseline (2026-10-20): **263/263 pass** with the exclusion above, on the local M
 **Three** tests fail intermittently under load while passing standalone. None is
 caused by the code they cover; all are timing- or count-sensitive:
 
-- `tst_forcelayout` (`libs/forcegraph`) — pure timing.
+- `tst_forcegraph_layout` (`libs/forcegraph`) — pure timing.
 - `tst_cachedmetadatastore::testRoundTripMultipleFiles` — asserts a watcher signal
   **count** (2 vs 1); races with the coalescing drain timer.
 - `tst_hover_popover_pinning` — timing-sensitive.
@@ -116,8 +116,8 @@ Cluster O Phase O3, 2026-08-20 — see `decisions-archive.md`).
 | `libs/models` | `Corbomite::Models` | NotesTreeModel, SearchResultsModel, DailyNoteService, TemplateService, property types |
 | `libs/search` | `Corbomite::Search` | SearchDSL parser, FuzzyMatcher (Obsidian-parity scoring) |
 | `libs/bases` | `Corbomite::Bases` | `.base` files: YAML schema, formula lexer/parser/evaluator, table view + toolbar panels (largest lib) |
-| `libs/canvas` | `canvas` | `.canvas` files: JSON round-trip, scene/items/tools, undo commands |
-| `libs/forcegraph` | `forcegraph` | Force-directed graph layout (Barnes-Hut, multilevel); zero Corbomite deps |
+| `libs/canvas` | `Corbomite::Canvas` | `.canvas` files: JSON round-trip, scene/items/tools, undo commands |
+| `libs/forcegraph` | `Corbomite::ForceGraph` | Force-directed graph layout (Barnes-Hut, multilevel); zero Corbomite deps |
 | `libs/markoff-family` | (submodule) | Markoff editor family: markoff-core, markoff-source, markoff-styled, markoff-parser (tree-sitter), rapidyaml. CollabText is the installed package, not the untracked `libs/markoff-family/libs/collabtext/` tree. Do not `add_subdirectory` that tree. `MARKOFF_BUILD_LIVE` stays OFF. |
 | `libs/mmdr` | `mmdr` (IMPORTED) | Pre-built Rust Mermaid renderer (`libmermaid_rs_renderer.a` + C FFI header) |
 | `libs/jkqtmathtext` | `jkqtmathtext` | Vendored LaTeX math rendering (LGPL) |

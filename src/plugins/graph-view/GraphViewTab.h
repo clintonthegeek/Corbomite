@@ -3,9 +3,9 @@
 
 #include <QPointer>
 #include <QWidget>
-#include <forcegraph/GraphTypes.h>
+#include <corbomite/forcegraph/GraphTypes.h>
 
-namespace ForceGraph {
+namespace Corbomite::ForceGraph {
 class ForceLayoutEngine;
 class ForceGraphView;
 }
@@ -42,7 +42,7 @@ public:
 
     /// Access to the underlying ForceGraphView so GraphView can dispatch
     /// View::zoomIn/Out/Reset onto the real viewport transform.
-    ForceGraph::ForceGraphView *graphView() const { return m_graphView; }
+    Corbomite::ForceGraph::ForceGraphView *graphView() const { return m_graphView; }
 
     // ---- the graph verbs, hoisted out of the
     // controls panel's clicked lambdas so GraphViewActions can drive them.
@@ -73,8 +73,8 @@ private:
     void applyFilters();
     void showNodeContextMenu(const QString &nodeId, const QPoint &globalPos);
 
-    ForceGraph::ForceGraphView *m_graphView;
-    ForceGraph::ForceLayoutEngine *m_engine;
+    Corbomite::ForceGraph::ForceGraphView *m_graphView;
+    Corbomite::ForceGraph::ForceLayoutEngine *m_engine;
     SearchProxy *m_search;
     VaultProxy *m_vault;
 
@@ -85,8 +85,8 @@ private:
     QPointer<MetadataCacheReader> m_cache;
 
     // Cached full graph data (before filtering)
-    QVector<ForceGraph::GraphNode> m_allNodes;
-    QVector<ForceGraph::GraphEdge> m_allEdges;
+    QVector<Corbomite::ForceGraph::GraphNode> m_allNodes;
+    QVector<Corbomite::ForceGraph::GraphEdge> m_allEdges;
 };
 
 } // namespace Corbomite

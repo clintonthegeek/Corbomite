@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasCommands.h"
-#include "canvas/CanvasDocument.h"
+#include "corbomite/canvas/CanvasCommands.h"
+#include "corbomite/canvas/CanvasDocument.h"
 
 #include <utility>
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 // ---------------------------------------------------------------------------
 // CmdMoveCards
@@ -331,4 +331,4 @@ void CmdChangeColor::undo()
     m_doc->updateNode(node);
 }
 
-} // namespace Canvas
+} // namespace Corbomite::Canvas

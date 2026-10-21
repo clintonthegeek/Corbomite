@@ -49,7 +49,7 @@
 #include "corbomite/core/Workspace.h"
 #include "corbomite/core/WorkspaceLeaf.h"
 
-#include <canvas/CanvasView.h>
+#include <corbomite/canvas/CanvasView.h>
 
 #include <cmath>
 
@@ -122,7 +122,7 @@ private Q_SLOTS:
     // localises to CanvasView rather than the leaf/serializer path.
     void canvasViewViewStateRoundTripsObsidianUnitsAndAnchor()
     {
-        Canvas::CanvasView view;
+        Corbomite::Canvas::CanvasView view;
         view.resize(800, 600);
 
         const double logZoom = -1.0;               // scale 0.5
@@ -174,7 +174,7 @@ private Q_SLOTS:
     // (app/own/2018-k7.js:821 vs :966).
     void outOfRangeZoomIsClampedNotRejected()
     {
-        Canvas::CanvasView view;
+        Corbomite::Canvas::CanvasView view;
         view.resize(400, 400);
 
         view.setViewState(QJsonObject{
@@ -197,7 +197,7 @@ private Q_SLOTS:
     // viewport completely untouched rather than nudging one axis.
     void partialOrNonNumericViewStateIsIgnoredWholesale()
     {
-        Canvas::CanvasView view;
+        Corbomite::Canvas::CanvasView view;
         view.resize(400, 400);
         view.setViewState(QJsonObject{
             {QStringLiteral("x"), 12.0},

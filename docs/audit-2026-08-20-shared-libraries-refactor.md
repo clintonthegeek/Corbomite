@@ -12,7 +12,7 @@ specifically because plugins `.so`-loaded at runtime got their own private
 copy of vault's RTTI/`QMetaObject`s when it was static, silently breaking
 `qobject_cast<Plugin *>` across the host/plugin boundary. **Every other
 internal library — `corbomite-core`, `corbomite-storage`, `corbomite-models`,
-`corbomite-bases`, `canvas`, `corbomite-search`, `forcegraph`, and every
+`corbomite-bases`, `corbomite-canvas`, `corbomite-search`, `corbomite-forcegraph`, and every
 markoff-family/graffodil library — has the identical latent bug today,
 just not yet triggered**, because current in-tree plugins happen to route
 their host interaction through the one library that's already fixed
@@ -67,7 +67,7 @@ Largest static archives (`build-dev/lib/*.a`):
 | `markoff_core` | 35 MB | `libs/markoff-family/libs/markoff-core/CMakeLists.txt:14` |
 | `collabtext` | 33 MB | `libs/markoff-family/libs/collabtext/libs/collabtext/CMakeLists.txt:25` |
 | `corbomite-storage` | 21 MB | `libs/storage/CMakeLists.txt:8` |
-| `canvas` | 20 MB | `libs/canvas/CMakeLists.txt:10` |
+| `corbomite-canvas` | 20 MB | `libs/canvas/CMakeLists.txt:10` |
 | `markoff_canvas` | 19 MB | `libs/markoff-family/libs/markoff-canvas/CMakeLists.txt:22` |
 | `graffodil-core` | 15 MB | `libs/graffodil/src/core/CMakeLists.txt:2` |
 
@@ -172,7 +172,7 @@ Confirmed independently by reading the current code:
 
 | Repo | Libraries confirmed `STATIC` |
 |---|---|
-| Corbomite (this repo) | `corbomite-core`, `corbomite-storage`, `corbomite-models`, `corbomite-bases`, `canvas`, `corbomite-search`, `forcegraph`, `CorbomiteApp`, `jkqtmathtext` (vendored) |
+| Corbomite (this repo) | `corbomite-core`, `corbomite-storage`, `corbomite-models`, `corbomite-bases`, `corbomite-canvas`, `corbomite-search`, `corbomite-forcegraph`, `CorbomiteApp`, `jkqtmathtext` (vendored) |
 | `libs/markoff-family` (submodule) | `markoff_core`, `markoff_canvas`, `markoff_source`, `markoff_styled`, `markoff-parser`, `ts-markdown-parser`, `collabtext` |
 | `libs/graffodil` (submodule) | `graffodil-core`, `graffodil-batch`, `graffodil-circular`, `graffodil-force`, `graffodil-spatial`, `graffodil-sugiyama` |
 | `libs/mmdr` | Special case: `add_library(mmdr STATIC IMPORTED GLOBAL)` — a **prebuilt Rust staticlib** (`libmermaid_rs_renderer.a`, built via Cargo, not CMake). Converting this to shared means changing the Rust crate's `crate-type` to `cdylib` and rebuilding it — a different toolchain, out of scope for a pure-CMake pass, and small (not among the large contributors above). |
@@ -291,7 +291,7 @@ reasoning; only the summary is repeated here.
    as libcore for everything its link graph happens to pull in. This does
    not generalise to libraries outside that graph (see next point).
 2. **The divergence is not latent everywhere — it is already live** for
-   `Corbomite::Models`/`Search`/`Bases`/`canvas`/`forcegraph`. Verified: the
+   `Corbomite::Models`/`Search`/`Bases`/`corbomite-canvas`/`corbomite-forcegraph`. Verified: the
    executable and `corbomite-file-explorer.so`/`corbomite-search.so` hold
    two different `staticMetaObject` definitions for `Corbomite::
    NotesTreeModel` and `Corbomite::SearchResultsModel` today, not a latent

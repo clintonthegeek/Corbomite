@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "canvas/CanvasDocumentRegistry.h"
+#include "corbomite/canvas/CanvasDocumentRegistry.h"
 
-namespace Canvas {
+namespace Corbomite::Canvas {
 
 CanvasDocumentRegistry &CanvasDocumentRegistry::instance()
 {
@@ -27,4 +27,4 @@ CanvasDocument *CanvasDocumentRegistry::documentFor(const QString &path) const
     return m_docs.value(path, nullptr);
 }
 
-}  // namespace Canvas
+} // namespace Corbomite::Canvas

@@ -51,12 +51,12 @@ set_tests_properties(tst_plugin_type_identity PROPERTIES
 add_dependencies(tst_plugin_type_identity corbomite-file-explorer)
 
 # Cluster M M6.2 — vault rename through FileManager with the real
-# CanvasLinkRewriter (vault seam + canvas rewriter composed).
+# CanvasLinkRewriter (vault seam + Corbomite::Canvas rewriter composed).
 add_executable(tst_canvas_rename_rewrite tst_canvas_rename_rewrite.cpp)
 add_test(NAME tst_canvas_rename_rewrite COMMAND tst_canvas_rename_rewrite)
 target_link_libraries(tst_canvas_rename_rewrite PRIVATE
     Qt6::Test Qt6::Widgets
-    Corbomite::Storage Corbomite::Core Corbomite::Vault canvas)
+    Corbomite::Storage Corbomite::Core Corbomite::Vault Corbomite::Canvas)
 set_tests_properties(tst_canvas_rename_rewrite PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -70,7 +70,7 @@ target_include_directories(tst_canvas_persistence PRIVATE
 )
 target_link_libraries(tst_canvas_persistence PRIVATE
     Qt6::Test Qt6::Widgets
-    CorbomiteApp canvas
+    CorbomiteApp Corbomite::Canvas
 )
 set_tests_properties(tst_canvas_persistence PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

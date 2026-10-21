@@ -36,8 +36,8 @@
 
 #include "canvas/CanvasViewTab.h"
 
-#include <canvas/CanvasDocument.h>
-#include <canvas/CanvasScene.h>
+#include <corbomite/canvas/CanvasDocument.h>
+#include <corbomite/canvas/CanvasScene.h>
 #include <corbomite/storage/FileSystemAdapter.h>
 #include <corbomite/vault/FileManager.h>
 #include <corbomite/vault/TFile.h>
@@ -145,8 +145,8 @@ private Q_SLOTS:
         QVERIFY2(!bytes.startsWith("---"), "no frontmatter block is prepended");
 
         // ...and the canvas node points at that note.
-        const Canvas::CanvasNode node = scene->document()->node(newId);
-        QCOMPARE(node.type, Canvas::NodeType::File);
+        const Corbomite::Canvas::CanvasNode node = scene->document()->node(newId);
+        QCOMPARE(node.type, Corbomite::Canvas::NodeType::File);
         QCOMPARE(node.file, QStringLiteral("Converted.md"));
     }
 
@@ -164,8 +164,8 @@ private Q_SLOTS:
         scene->undoStack()->undo();
 
         QVERIFY(!scene->document()->hasNode(newId));
-        const Canvas::CanvasNode back = scene->document()->node(QStringLiteral("t1"));
-        QCOMPARE(back.type, Canvas::NodeType::Text);
+        const Corbomite::Canvas::CanvasNode back = scene->document()->node(QStringLiteral("t1"));
+        QCOMPARE(back.type, Corbomite::Canvas::NodeType::Text);
         QCOMPARE(back.text, kCardBody);
         QCOMPARE(back.x, 10);
         QCOMPARE(back.y, 20);
