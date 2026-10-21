@@ -529,16 +529,41 @@ void TestForceLayout::testCoarseningQuality()
     QVERIFY2(elapsed < 5000,
              qPrintable(QStringLiteral("Took %1 ms — coarsening likely poor").arg(elapsed)));
 
-    // Layout quality: node 0 should be closer to node 1 (connected) than node 999
+    // Layout quality: node 0 should be closer to node 1 (its one neighbour)
+    // than to the rest of the graph.
     auto dist = [](const Corbomite::ForceGraph::GraphNode &a, const Corbomite::ForceGraph::GraphNode &b) {
         double dx = a.position.x() - b.position.x();
         double dy = a.position.y() - b.position.y();
         return std::sqrt(dx * dx + dy * dy);
     };
-    double d01 = dist(result[0], result[1]);
-    double d0999 = dist(result[0], result[999]);
-    QVERIFY2(d01 < d0999,
-             qPrintable(QStringLiteral("d(0,1)=%1 should be < d(0,999)=%2").arg(d01).arg(d0999)));
+    //
+    // The mean over the other nodes, not one arbitrary one. Two reasons:
+    //
+    //  - The layout carries a deliberate random jitter: MultilevelLayout
+    //    ::interpolate offsets every fine node by up to +/-2.5 scene units
+    //    when it projects the coarse level back, and it draws from the
+    //    unseeded QRandomGenerator::global(). So *every* run lays the graph
+    //    out differently.
+    //  - Comparing against one specific unconnected node (it was node 999)
+    //    makes the outcome a lottery. The observed failing case had
+    //    d(0,1)=182.4 against d(0,999)=169.1 — 8% apart, which the jitter
+    //    alone can flip. This test went red about 1 run in 8 under load,
+    //    and was long filed as an unexplained load-sensitive flake.
+    //
+    // Averaging over the other 998 nodes keeps the property the case is
+    // really about — a good coarsening pulls connected nodes together — and
+    // makes it independent of any one pair. It is also a stronger claim
+    // than the single-pair version it replaces.
+    const double d01 = dist(result[0], result[1]);
+    double sumOther = 0.0;
+    for (int i = 2; i < result.size(); ++i)
+        sumOther += dist(result[0], result[i]);
+    const double meanOther = sumOther / double(result.size() - 2);
+    qDebug("testCoarseningQuality: d(0,1)=%.1f, mean d(0,other)=%.1f",
+           d01, meanOther);
+    QVERIFY2(d01 < meanOther,
+             qPrintable(QStringLiteral("d(0,1)=%1 should be < mean d(0,other)=%2")
+                            .arg(d01).arg(meanOther)));
 }
 
 QTEST_MAIN(TestForceLayout)

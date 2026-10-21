@@ -41,19 +41,30 @@ directory-scoped — and patching the submodule would be lost on the next
 re-pin. The real fix is a `LABELS "benchmark"` in markoff-canvas; until then
 keep the regex. Without it, "the suite is green" is not a reliable signal.
 
-Baseline (2026-10-21): **264/264 pass** with the exclusion above, on the local Markoff pin `2c58088a` (the `v0.7.1` release tag; was `1c9b9415`, the tag's pre-push commit). Markoff's own tests are excluded because `MARKOFF_BUILD_TESTS` and `MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS` are forced OFF. The 2026-10-17 count of 267 (and the 274 recorded in `docs/PROJECT-STATE.md`) belong to the previous pin: two test files were retired with their features since (`tst_vaultscanner`, `tst_notice`), the card editor added one, the release-hygiene pass deleted two more with the dead classes they tested (`tst_embeddepthguard`, `tst_tabmodel`), and the v0.7.1 re-pin added one (`tst_canvas_table_brush`). The 2026-10-04 count of 354 belongs to an earlier pin still.
+Baseline (2026-10-21): **280/280 pass** with the exclusion above, on the local Markoff pin `2c58088a` (the `v0.7.1` release tag; was `1c9b9415`, the tag's pre-push commit). Markoff's own tests are excluded because `MARKOFF_BUILD_TESTS` and `MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS` are forced OFF. The 2026-10-17 count of 267 (and the 274 recorded in `docs/PROJECT-STATE.md`) belong to the previous pin: two test files were retired with their features since (`tst_vaultscanner`, `tst_notice`), the card editor added one, the release-hygiene pass deleted two more with the dead classes they tested (`tst_embeddepthguard`, `tst_tabmodel`), the v0.7.1 re-pin added one (`tst_canvas_table_brush`), and enabling Graffodil's own suite added **16** more (it had never run here before). The 2026-10-04 count of 354 belongs to an earlier pin still.
 
-**The `-E "benchmark|perf"` regex, re-checked 2026-10-21.** The *reason* it is not just `-E benchmark` has changed: `tst_canvas_perf_500` and `tst_canvas_perf_formatted` came from the markoff-family submodule with no label at all, and they were the reason the wider regex was needed. They are no longer built — Markoff's test suites are off, and those two binaries were stale artifacts of the retired pinned-engine build model (dated 2026-10-01, and they would not even load, since they linked the `libcollabtext.so` that model produced). `ctest -N` now sees 265 tests, of which exactly one matches `perf|benchmark`: `tst_forcegraph_benchmark`, which carries a native `LABELS "benchmark"`. **Keep the wider regex anyway** — it costs nothing and still catches an unlabelled perf test if one reappears — but the stated justification should no longer name those two binaries.
+**The `-E "benchmark|perf"` regex, re-checked 2026-10-21.** The *reason* it is not just `-E benchmark` has changed: `tst_canvas_perf_500` and `tst_canvas_perf_formatted` came from the markoff-family submodule with no label at all, and they were the reason the wider regex was needed. They are no longer built — Markoff's test suites are off, and those two binaries were stale artifacts of the retired pinned-engine build model (dated 2026-10-01, and they would not even load, since they linked the `libcollabtext.so` that model produced). `ctest -N` now sees 281 tests, of which exactly one matches `perf|benchmark`: `tst_forcegraph_benchmark`, which carries a native `LABELS "benchmark"`. **Keep the wider regex anyway** — it costs nothing and still catches an unlabelled perf test if one reappears — but the stated justification should no longer name those two binaries.
 
 ### Load-sensitive flakes — "the suite is green" is not yet a reliable signal
 
-**Three** tests fail intermittently under load while passing standalone. None is
-caused by the code they cover; all are timing- or count-sensitive:
+**Two** tests fail intermittently under load while passing standalone. Neither is
+caused by the code they cover; both are timing- or count-sensitive:
 
-- `tst_forcegraph_layout` (`libs/forcegraph`) — pure timing.
 - `tst_cachedmetadatastore::testRoundTripMultipleFiles` — asserts a watcher signal
   **count** (2 vs 1); races with the coalescing drain timer.
 - `tst_hover_popover_pinning` — timing-sensitive.
+
+`tst_forcegraph_layout` was on this list as "pure timing" **and that was wrong** —
+root-caused 2026-10-21. Its `testCoarseningQuality` case asserted that a connected
+pair lands closer than *one* arbitrary unconnected node, while
+`MultilevelLayout::interpolate` jitters every fine node by up to ±2.5 units from the
+unseeded `QRandomGenerator::global()` — so each run lays the graph out differently
+and the single-pair comparison is a lottery (the observed failing case was 182.4
+against 169.1, 8% apart). It now compares against the **mean** distance to the
+other 998 nodes, which is the property the case is really about and is 2–9× clear of
+the bound. The file's own timing budgets were never the problem: 197 ms against a
+3000 ms budget and 441 ms against 5000 ms. If this test goes red again, look for a
+*new* cause rather than the old one.
 
 `tst_metadatacache_worker_integration` is **not** on this list. Its 2026-10-17 diagnosis is on the punch list: `indexFinished` was arming while worker parses were still outstanding. A fast pass is not what closed it.
 
