@@ -15,6 +15,7 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CORBOMITE_DEV_BUILD": "ON",
                 "CORBOMITE_BUILD_TESTS": "ON",
+                "GRAFFODIL_BUILD_TESTS": "ON",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "CMAKE_C_COMPILER_LAUNCHER": "ccache",
                 "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
