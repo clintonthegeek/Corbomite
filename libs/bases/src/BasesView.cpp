@@ -476,7 +476,16 @@ QStringList BasesView::summaryNamesForPicker() const
     QStringList names{
         QStringLiteral("average"), QStringLiteral("sum"), QStringLiteral("min"),
         QStringLiteral("max"), QStringLiteral("median"), QStringLiteral("stddev"),
-        QStringLiteral("unique"), QStringLiteral("count") };
+        QStringLiteral("unique"), QStringLiteral("count"),
+        // The rest of Obsidian's built-in summary defaults
+        // (addendum 2026-10-03). Obsidian offers these per column class —
+        // Range for number and date columns, Earliest/Latest for date
+        // columns, Checked/Unchecked for boolean columns, Empty/Filled for
+        // every class. We offer the union in one flat list, which is what
+        // this picker has always been.
+        QStringLiteral("range"), QStringLiteral("earliest"), QStringLiteral("latest"),
+        QStringLiteral("checked"), QStringLiteral("unchecked"),
+        QStringLiteral("empty"), QStringLiteral("filled") };
     if (m_query)
         for (const auto &n : m_query->summaryFormulaOrder)
             if (!names.contains(n)) names << n;

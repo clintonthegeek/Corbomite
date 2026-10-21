@@ -184,6 +184,22 @@ ValuePtr BasesQueryResult::summaryValue(int groupIndex,
     if (key == QLatin1String("stddev"))  return list->stddev();
     if (key == QLatin1String("unique"))  return std::make_shared<NumberValue>(list->unique()->length());
     if (key == QLatin1String("count"))   return std::make_shared<NumberValue>(list->length());
+
+    // The rest of Obsidian's built-in summary defaults, per column class
+    // (addendum 2026-10-03, "the available defaults depend on the column's
+    // inferred class"): DateValue offers Earliest/Latest/Range/Empty/Filled,
+    // BooleanValue offers Checked/Unchecked/Empty/Filled, and every class
+    // offers Empty/Filled/Unique. The aggregates themselves live on
+    // ListValue, next to sum/min/max, and carry the Obsidian formula they
+    // stand for in their comments.
+    if (key == QLatin1String("earliest"))  return list->earliest();
+    if (key == QLatin1String("latest"))    return list->latest();
+    if (key == QLatin1String("range"))     return list->range();
+    if (key == QLatin1String("checked"))   return list->checked();
+    if (key == QLatin1String("unchecked")) return list->unchecked();
+    if (key == QLatin1String("empty"))     return list->empty();
+    if (key == QLatin1String("filled"))    return list->filled();
+
     return NullValue::instance();
 }
 

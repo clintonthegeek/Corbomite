@@ -251,6 +251,65 @@ private Q_SLOTS:
         QCOMPARE(empty.median()->type(), QStringLiteral("Null"));
         QCOMPARE(empty.stddev()->type(), QStringLiteral("Null"));
     }
+
+    // --- Obsidian's per-column-class summary defaults ---
+    // (addendum 2026-10-03, "the available defaults depend on the column's
+    // inferred class").
+
+    void testListRangeOverNumbers()
+    {
+        // Obsidian: `values.max() - values.min()`.
+        auto l = list({N(2), N(9), N(5)});
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->range())->data(), 7.0);
+    }
+
+    void testListRangeOverDates()
+    {
+        // Obsidian: `(values.latest() - values.earliest())` — a Duration.
+        const QDateTime d1 = QDateTime::fromString(QStringLiteral("2024-01-01"), Qt::ISODate);
+        const QDateTime d2 = QDateTime::fromString(QStringLiteral("2024-01-08"), Qt::ISODate);
+        auto l = list({std::make_shared<DateValue>(d2, false),
+                       std::make_shared<DateValue>(d1, false)});
+        auto dur = std::dynamic_pointer_cast<DurationValue>(l->range());
+        QVERIFY(dur);
+        QCOMPARE(dur->totalMilliseconds(),
+                 qint64(7) * 24 * 60 * 60 * 1000);
+    }
+
+    void testListRangeEmptyIsNull()
+    {
+        QCOMPARE(ListValue().range()->type(), QStringLiteral("Null"));
+    }
+
+    void testListCheckedAndUnchecked()
+    {
+        // Obsidian: `values.filter(value == true).length` and
+        // `values.filter(value == false).length`. A null value is neither.
+        auto l = list({std::make_shared<BooleanValue>(true),
+                       std::make_shared<BooleanValue>(false),
+                       std::make_shared<BooleanValue>(true),
+                       NullValue::instance()});
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->checked())->data(), 2.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->unchecked())->data(), 1.0);
+    }
+
+    void testListEmptyAndFilled()
+    {
+        // Obsidian: `values.filter(value.isType("null")).length` and
+        // `values.filter(!value.isType("null")).length`. Only the Null type
+        // counts as empty — a false boolean is *not* empty.
+        auto l = list({N(1), NullValue::instance(), S("x"),
+                       std::make_shared<BooleanValue>(false)});
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->empty())->data(), 1.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(l->filled())->data(), 3.0);
+    }
+
+    void testListEmptyAndFilledOfEmptyList()
+    {
+        ListValue empty;
+        QCOMPARE(std::static_pointer_cast<NumberValue>(empty.empty())->data(), 0.0);
+        QCOMPARE(std::static_pointer_cast<NumberValue>(empty.filled())->data(), 0.0);
+    }
 };
 
 QTEST_APPLESS_MAIN(TestListValue)

@@ -5,6 +5,8 @@
 // tests.
 #include <QTest>
 
+#include <optional>
+
 #include "corbomite/bases/BasesEntry.h"
 #include "corbomite/bases/BasesQuery.h"
 #include "corbomite/bases/BasesQueryResult.h"
@@ -100,6 +102,48 @@ private Q_SLOTS:
                                      PropertyId{PropertyKind::Note, QStringLiteral("x")},
                                      QStringLiteral("count"));
         QCOMPARE(std::static_pointer_cast<NumberValue>(v)->data(), 4.0);
+    }
+
+    void testSummaryValueBuiltInNamesResolve()
+    {
+        // Every built-in summary name must resolve to a value rather than
+        // Null. The entries carry no Vault, so every property reads as
+        // Null: Empty counts them all, Filled none, and the rest fall
+        // back to Null because there is nothing to aggregate. The point
+        // here is the *wiring* — a name that reached no branch would also
+        // be Null, so the count names are the ones that discriminate.
+        BasesQuery q;
+        BasesViewConfig cfg;
+        QVector<std::shared_ptr<BasesEntry>> entries;
+        for (int i = 0; i < 3; ++i)
+            entries.push_back(std::make_shared<BasesEntry>(nullptr, nullptr, nullptr, nullptr, q));
+        BasesQueryResult result(cfg, entries);
+        const PropertyId prop{PropertyKind::Note, QStringLiteral("x")};
+
+        // A helper that reports cleanly rather than dereferencing a null
+        // cast: a name that reached no branch answers Null, and the test
+        // should say so rather than crash.
+        const auto number = [&result, &prop](const char *name) -> std::optional<double> {
+            auto v = result.summaryValue(0, prop, QString::fromLatin1(name));
+            auto n = std::dynamic_pointer_cast<NumberValue>(v);
+            if (!n) return std::nullopt;
+            return n->data();
+        };
+
+        QCOMPARE(number("empty").value_or(-1.0), 3.0);
+        QCOMPARE(number("filled").value_or(-1.0), 0.0);
+        QCOMPARE(number("checked").value_or(-1.0), 0.0);
+        QCOMPARE(number("unchecked").value_or(-1.0), 0.0);
+
+        // The date aggregates have nothing to work with here, but they
+        // must still answer as a value rather than a crash.
+        QVERIFY(result.summaryValue(0, prop, QStringLiteral("earliest")));
+        QVERIFY(result.summaryValue(0, prop, QStringLiteral("latest")));
+        QVERIFY(result.summaryValue(0, prop, QStringLiteral("range")));
+
+        // An unknown name is still Null.
+        QCOMPARE(result.summaryValue(0, prop, QStringLiteral("nonesuch"))->type(),
+                 QStringLiteral("Null"));
     }
 };
 

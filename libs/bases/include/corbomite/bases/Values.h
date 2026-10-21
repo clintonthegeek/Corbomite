@@ -141,6 +141,17 @@ public:
     ValuePtr earliest() const;
     ValuePtr latest() const;
 
+    // --- Obsidian's per-column-class summary defaults ---
+    // (addendum 2026-10-03, "the available defaults depend on the column's
+    // inferred class"). These are C++-side aggregates only: they are
+    // deliberately NOT registered as formula methods, so the formula
+    // surface stays Obsidian's.
+    ValuePtr range() const;      ///< max - min (numbers), latest - earliest (dates)
+    ValuePtr checked() const;    ///< how many values are `true`
+    ValuePtr unchecked() const;  ///< how many values are `false`
+    ValuePtr empty() const;      ///< how many values are null
+    ValuePtr filled() const;     ///< how many values are not null
+
 private:
     QVector<ValuePtr> m_data;
 };

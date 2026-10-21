@@ -253,4 +253,87 @@ ValuePtr ListValue::stddev() const
 // earliest/latest implementations live in DateValue.cpp (they depend on
 // the full DateValue class definition for dynamic_cast).
 
-}  // namespace Corbomite::Bases
+namespace {
+
+/// What `value == true` evaluates to. `Value::staticLooseEquals` is exactly
+/// what the `==` operator resolves to (`Evaluator::applyEq` calls it), so a
+/// native count and Obsidian's equivalent formula
+/// (`values.filter(value == true).length`) cannot drift apart.
+bool equalsBoolean(const ValuePtr &v, bool b)
+{
+    const BooleanValue probe(b);
+    return Value::staticLooseEquals(v.get(), &probe);
+}
+
+/// How many entries are null. Obsidian's `value.isType("null")`.
+int countNull(const QVector<ValuePtr> &xs)
+{
+    int n = 0;
+    for (const auto &v : xs)
+        if (!v || dynamic_cast<NullValue *>(v.get())) ++n;
+    return n;
+}
+
+} // namespace
+
+ValuePtr ListValue::range() const
+{
+    // Obsidian offers Range as a default for a NumberValue column
+    // (`values.max() - values.min()`) and for a DateValue column
+    // (`(values.latest() - values.earliest())`), and it sniffs a column's
+    // class from its first non-Null entry (addendum 2026-10-03). Same rule
+    // here, so one `Range` serves both column classes.
+    const Value *sample = nullptr;
+    for (const auto &v : m_data) {
+        if (!v || dynamic_cast<NullValue *>(v.get())) continue;
+        sample = v.get();
+        break;
+    }
+    if (!sample) return NullValue::instance();
+
+    if (dynamic_cast<const DateValue *>(sample)) {
+        const auto latestV = latest();
+        const auto earliestV = earliest();
+        const auto *ld = dynamic_cast<const DateValue *>(latestV.get());
+        const auto *ed = dynamic_cast<const DateValue *>(earliestV.get());
+        if (!ld || !ed) return NullValue::instance();
+        return DurationValue::fromMilliseconds(
+            ld->dateTime().toMSecsSinceEpoch() - ed->dateTime().toMSecsSinceEpoch());
+    }
+
+    const auto maxV = max();
+    const auto minV = min();
+    const auto *m = dynamic_cast<const NumberValue *>(maxV.get());
+    const auto *n = dynamic_cast<const NumberValue *>(minV.get());
+    if (!m || !n) return NullValue::instance();
+    return std::make_shared<NumberValue>(m->data() - n->data());
+}
+
+ValuePtr ListValue::checked() const
+{
+    int n = 0;
+    for (const auto &v : m_data)
+        if (equalsBoolean(v, true)) ++n;
+    return std::make_shared<NumberValue>(n);
+}
+
+ValuePtr ListValue::unchecked() const
+{
+    int n = 0;
+    for (const auto &v : m_data)
+        if (equalsBoolean(v, false)) ++n;
+    return std::make_shared<NumberValue>(n);
+}
+
+ValuePtr ListValue::empty() const
+{
+    return std::make_shared<NumberValue>(countNull(m_data));
+}
+
+ValuePtr ListValue::filled() const
+{
+    return std::make_shared<NumberValue>(
+        static_cast<double>(m_data.size()) - countNull(m_data));
+}
+
+} // namespace Corbomite::Bases
