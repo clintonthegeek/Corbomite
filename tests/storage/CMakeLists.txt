@@ -10,6 +10,11 @@ add_executable(tst_filesystemadapter tst_filesystemadapter.cpp)
 add_test(NAME tst_filesystemadapter COMMAND tst_filesystemadapter)
 target_link_libraries(tst_filesystemadapter PRIVATE Qt6::Test Corbomite::Storage)
 
+# The one UTF-8 BOM rule, shared by the read path and the index path.
+add_executable(tst_textbytes tst_textbytes.cpp)
+add_test(NAME tst_textbytes COMMAND tst_textbytes)
+target_link_libraries(tst_textbytes PRIVATE Qt6::Test Corbomite::Storage)
+
 
 add_executable(tst_sqliteindex tst_sqliteindex.cpp)
 add_test(NAME tst_sqliteindex COMMAND tst_sqliteindex)

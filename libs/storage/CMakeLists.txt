@@ -22,6 +22,8 @@ add_library(corbomite-storage SHARED
     include/corbomite/storage/CaseSensitivityProbe.h
     src/IgnoreFilter.cpp
     include/corbomite/storage/IgnoreFilter.h
+    src/TextBytes.cpp
+    include/corbomite/storage/TextBytes.h
     src/CachedMetadata.cpp
     include/corbomite/storage/CachedMetadata.h
     src/MetadataParser.cpp

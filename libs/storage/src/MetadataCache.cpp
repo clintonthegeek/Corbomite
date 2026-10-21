@@ -22,6 +22,7 @@
 #include "corbomite/storage/LinkResolver.h"
 #include "corbomite/storage/MetadataParser.h"
 #include "corbomite/storage/MetadataWorker.h"
+#include "corbomite/storage/TextBytes.h"
 
 #include <QCryptographicHash>
 #include <QtCore/QDir>
@@ -134,16 +135,9 @@ void MetadataCache::onFileChanged(const QString &path,
 // what Vault::read would produce for the same file. Without this, a BOM'd
 // file hashes with the three BOM bytes included, diverging from the hash
 // seen by the single-file read path and causing spurious re-parses.
-static auto stripUtf8BomMC = [](QByteArray bytes) -> QByteArray {
-    if (bytes.size() >= 3
-        && static_cast<unsigned char>(bytes[0]) == 0xEF
-        && static_cast<unsigned char>(bytes[1]) == 0xBB
-        && static_cast<unsigned char>(bytes[2]) == 0xBF) {
-        bytes.remove(0, 3);
-    }
-    return bytes;
-};
-
+//
+// The rule itself lives in Corbomite::stripUtf8Bom — one copy, because the
+// read path and the index path must not be able to drift apart.
 void MetadataCache::rebuildVault(const QString &vaultRoot,
                                  const QStringList &relativeNotePaths)
 {
@@ -160,7 +154,7 @@ void MetadataCache::rebuildVault(const QString &vaultRoot,
         if (!f.open(QIODevice::ReadOnly)) {
             continue;
         }
-        const QByteArray bytes = stripUtf8BomMC(f.readAll());
+        const QByteArray bytes = stripUtf8Bom(f.readAll());
         const qint64 mtimeMs = info.lastModified().toMSecsSinceEpoch();
         onFileChanged(rel, bytes, mtimeMs);
     }

@@ -10,6 +10,7 @@
 #include "corbomite/vault/TFolder.h"
 #include "corbomite/core/DataAdapter.h"
 #include "corbomite/storage/CaseSensitivityProbe.h"
+#include "corbomite/storage/TextBytes.h"
 #include "corbomite/storage/VaultConfig.h"
 
 #include <QDateTime>
@@ -181,24 +182,16 @@ bool Vault::isEmpty() const { return m_fileMap.size() <= 1; }
 
 namespace {
 // Obsidian spec §3: Vault.read strips a leading UTF-8 BOM (U+FEFF, EF BB BF)
-// before returning. readBinary preserves the bytes verbatim.
-inline QByteArray stripUtf8Bom(QByteArray bytes)
-{
-    if (bytes.size() >= 3
-        && static_cast<unsigned char>(bytes[0]) == 0xEF
-        && static_cast<unsigned char>(bytes[1]) == 0xBB
-        && static_cast<unsigned char>(bytes[2]) == 0xBF) {
-        bytes.remove(0, 3);
-    }
-    return bytes;
-}
+// before returning. readBinary preserves the bytes verbatim. The rule lives
+// in one place — Corbomite::stripUtf8Bom — because the index has to apply
+// it too, and two copies of it is how they drift apart.
 } // namespace
 
 QByteArray Vault::read(TFile *f) const
 {
     if (!f || !m_adapter) return {};
     auto body = m_adapter->readBinary(m_basePath + QLatin1Char('/') + f->path);
-    return body.has_value() ? stripUtf8Bom(*body) : QByteArray{};
+    return body.has_value() ? Corbomite::stripUtf8Bom(*body) : QByteArray{};
 }
 
 QByteArray Vault::readBinary(TFile *f) const
