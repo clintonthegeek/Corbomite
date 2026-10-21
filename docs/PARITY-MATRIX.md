@@ -17,9 +17,12 @@
 
 **Statuses:** ✅ DONE · 🟡 PARTIAL · ⭕ STUB (code exists, non-functional) · ❌ MISSING · ⚠ DIVERGENT (works differently; note if deliberate)
 
-**Submodule pin note (updated 2026-10-20):** the markoff-family pin is now
-`1c9b9415` (Markoff release `v0.7.1`; was `e0b96bf8`, and `5d8850369` before
-that). The 2026-06-10 note below is retained only as history — **all
+**Submodule pin note (updated 2026-10-21):** the markoff-family pin is now
+`2c58088a` (the `v0.7.1` release tag; was `1c9b9415`, the tag's pre-push
+commit, and `e0b96bf8` before that). The collabtext engine it pins is
+`16cc48f` (`collabtext-perf-checkpoint-2026-10-21`), installed as a Release
+build into `Markoff/build-collabtext-alpha5/install` — the prefix this build
+resolves. The 2026-06-10 note below is retained only as history — **all
 "post-pin" rows it referenced have long since arrived**, so no row in this file
 should carry a *post-pin* marker any more:
 

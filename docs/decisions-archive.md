@@ -10,6 +10,36 @@ Conventions:
 
 ---
 
+## 2026-10-21 — The v0.7.1 release tag, and the engine behind it
+
+Markoff pushed the `v0.7.1` release tag (annotated, object `cfdd4178`, target `2c58088a`). We had already re-pinned to `1c9b9415` — the release commit — on 2026-10-20, when the tag object did not yet exist; the tag landed on top of it, two commits later, and **the tag's target is the right pin**: `2c58088a` is the commit that moves Markoff's collabtext engine pin to the published perf checkpoint. The offscreen suite is **264/264** on the new pin.
+
+**The engine moved with the release, and we moved with it.** Markoff's `v0.7.1` pins the collabtext engine at `collabtext-perf-checkpoint-2026-10-21` (`16cc48f`) — the tag we had read earlier and judged "a checkpoint, not a re-pin point". That judgement was right about the tag's *status* and wrong about its *effect*: the release adopted it, recorded its acceptance run (Debug 100/100, Release 100/100, ASan+UBSan 100/100, relocated installed-package consumer tests green, engine's own Debug suite 104/104), and shipped it. Markoff's release notes claim 3.8–6.3× faster typing, because "the per-action publication cost that dominated Markoff's typing path is gone".
+
+**We rebuilt and reinstalled that engine**, because our build links it: `libcollabtext_core.a` from the prefix `Markoff/build-collabtext-alpha5/install`, statically linked into every Markoff leaf we ship. Two things came out of that.
+
+*The API is identical, independently confirmed.* The release notes say the installed public API is unchanged and that "only the manifest's Branch/Status lines differ". We checked that against the installed trees rather than taking it on trust: **every** installed header under `include/collabtext/` is byte-identical between the old alpha.5 package and the new one, with `ALPHA_CAPABILITIES.md` the single exception. The manifest keeps `Version: 17` and `Package: 0.2.0-alpha.5`; only `Branch:` and `Status:` changed, to `master (integration tag collabtext-integration-2026-10-19)` and "the reliability engine line is merged into `master` and published". `PACKAGE_VERSION` is `0.2.0` in both. So the package version did not move, and neither did any type we compile against.
+
+*The old prefix was built without optimisation.* Its cache had `CMAKE_BUILD_TYPE` empty, so the installed archive was compiled `-std=gnu++20 -fPIC` — no `-O` at all — and was 21.8 MB. The documented recipe in collabtext's `docs/USING_VNEXT.md` specifies `-DCMAKE_BUILD_TYPE=Release`, which we used: the new archive is 5.2 MB. So our measured win is the checkpoint's algorithmic work *and* the compiler flags we should have had all along; upstream's 3.8–6.3× was measured against their own build, not against our unoptimised one.
+
+**Measured on our own surface, old engine → new engine** (throwaway harness over the vNext document, the path our live preview and card editor both use):
+
+| | old (alpha.5, unoptimised) | new (checkpoint, Release) | |
+|---|---|---|---|
+| import a 400-block document | 1544 ms | **451–484 ms** | 3.2× |
+| 200 published block edits | 77 878 ms (389 ms/edit) | **30 018 ms (150 ms/edit)** | 2.6× |
+| 50 edit + re-read cycles | 38 707 ms | **13 921 ms** | 2.8× |
+
+**Two release-note warnings that do not reach us, checked rather than assumed.** The embed contract moves 2 → 3 (`CodeBlockProcessor::name()`), which is breaking for *out-of-tree embed backends*: we have none — no Corbomite plugin implements a `CodeBlockProcessor`, and the registry we hold is Markoff's own. And the content version now advances on attribute writes, kind writes and remote actions, so a cache keyed on it must rebuild when they do: we key no cache on the content version. Both were checked against the tree, not inferred from the notes.
+
+**The vendored jkqtmathtext was already fixed.** The release notes mention a heap-use-after-free at process exit, fixed by hiding jkqtmathtext's globals per consumer. We vendor our own copy of jkqtmathtext, and Markoff's leaf links *ours* (our `add_subdirectory` comes first, so Markoff's `if(NOT TARGET jkqtmathtext)` skips its copy). Our `jkqtmathtext.cpp` is **byte-identical** to Markoff's fixed version — same md5 — so the fix is already in our binary. Only `CMakeLists.txt` and `README.md` differ, which is our deliberate adaptation.
+
+**The dead nested collabtext build is gone.** `libs/markoff-family/libs/collabtext` is a nested, untracked tree that Markoff stopped adding to its build when it moved to the installed-package model — its `if(TARGET collabtext)` guard is a `FATAL_ERROR` now. What remained in our build directory was 147 MB of object files and a 21 MB `libcollabtext.so`, **all dated 2026-10-01**: leftovers from the retired pinned-engine model, compiled by a configuration we no longer use and linked by nothing. The four stale perf binaries from that era (`tst_benchmark`, `tst_benchmark_layout`, `tst_canvas_perf_500`, `tst_canvas_perf_formatted`) went with them; they would not even load, since they linked the `libcollabtext.so` that model produced. `ctest -N` now sees 265 tests, of which exactly one matches `perf|benchmark`. CLAUDE.md's stated reason for the wider `-E "benchmark|perf"` regex named two of those binaries and has been corrected.
+
+**The `DocumentRenderer` history-pending hunk is still needed, and still holds.** The punch list's standing rule is to re-apply it on every re-pin, and it survived the move to `2c58088a` intact: upstream's `DocumentRenderer.cpp` is unchanged since `e0b96bf8`, so the move carried the local modification rather than conflicting with it. Its precondition also still holds — upstream's renderer still accepts only `committed` (so the hunk is still needed), and the byte path (`importInitialMarkdown` → `applyMarkdownSource`) still returns `committedHistoryPending` for a successful-but-pending publication. The submodule's working tree carries the hunk and is still not committed; the parent only moves the gitlink.
+
+---
+
 ## 2026-10-20 — The re-pin to Markoff release v0.7.1, and what it changed for us
 
 Markoff tagged its first *release* of the v0.7.x series, `v0.7.1`, on 2026-10-20, and we re-pinned from `e0b96bf8` to the release commit `1c9b9415` (the tag object was not yet pushed; the release commit on `origin/master` is the same tree, and the tag is a re-pin point by the release's own words). The offscreen suite is **264/264** on the new pin, and the install is clean.
