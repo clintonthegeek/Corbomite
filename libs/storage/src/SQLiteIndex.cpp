@@ -371,6 +371,114 @@ StrippedSnippet stripBoldMarkup(const QString &raw)
     return out;
 }
 
+// --- match sites ---
+//
+// FTS5's snippet() gives one window per *row*, and a row is a note, so a
+// note with several matches comes back as a single snippet. Obsidian shows
+// one snippet per match site. highlight() is the counterpart that marks
+// every match in the whole column, so the sites come from there and the
+// window around each one is built here.
+//
+// The window is a fixed number of words either side of the match, elided
+// with "..." where it is cut — the same shape FTS5's own snippet() produces
+// for a 32-token window.
+
+/// Words of context either side of a match site.
+constexpr int kSnippetContextWords = 16;
+
+/// Walk left from `pos` over up to `maxWords` whitespace-separated words.
+/// Returns the offset the window should start at.
+int windowStart(const QString &text, int pos, int maxWords)
+{
+    int i = pos;
+    int words = 0;
+    while (i > 0 && words < maxWords) {
+        while (i > 0 && text.at(i - 1).isSpace()) --i;
+        if (i == 0) break;
+        while (i > 0 && !text.at(i - 1).isSpace()) --i;
+        ++words;
+    }
+    return i;
+}
+
+/// Walk right from `pos` over up to `maxWords` whitespace-separated words.
+/// Returns the offset the window should end at.
+int windowEnd(const QString &text, int pos, int maxWords)
+{
+    const int n = text.size();
+    int i = pos;
+    int words = 0;
+    while (i < n && words < maxWords) {
+        while (i < n && text.at(i).isSpace()) ++i;
+        if (i >= n) break;
+        while (i < n && !text.at(i).isSpace()) ++i;
+        ++words;
+    }
+    return i;
+}
+
+/// The snippet for one match site: the text around [start, end) and the
+/// site's range within that text. Returns false if the site is out of range.
+bool snippetAround(const QString &content, int start, int end,
+                   QString *outText, QPair<int, int> *outRange)
+{
+    if (start < 0 || end > content.size() || start >= end) return false;
+
+    const int from = windowStart(content, start, kSnippetContextWords);
+    const int to = windowEnd(content, end, kSnippetContextWords);
+
+    const bool elideLeft = from > 0;
+    const bool elideRight = to < content.size();
+    static const QString ellipsis = QStringLiteral("...");
+
+    QString text;
+    if (elideLeft) text += ellipsis;
+    text += content.mid(from, to - from);
+    if (elideRight) text += ellipsis;
+
+    const int shift = (elideLeft ? ellipsis.size() : 0) - from;
+    *outText = text;
+    *outRange = {start + shift, end + shift};
+    return true;
+}
+
+/// Append one SearchMatch per match site in `whole` — the way Obsidian
+/// shows a note's matches — falling back to the FTS5 snippet when the note
+/// has no site in its content (the match was in the title or the path, or
+/// there was no FTS5 MATCH at all).
+void appendMatchesPerSite(QVector<SearchMatch> *results,
+                          const QString &path,
+                          double rank,
+                          const StrippedSnippet &whole,
+                          const StrippedSnippet &fallback)
+{
+    if (whole.matches.isEmpty()) {
+        SearchMatch match;
+        match.notePath = path;
+        match.snippet = fallback.text;
+        match.matches = fallback.matches;
+        match.score = rank;
+        results->append(match);
+        return;
+    }
+
+    for (const auto &site : whole.matches) {
+        SearchMatch match;
+        match.notePath = path;
+        match.score = rank;
+        QString text;
+        QPair<int, int> range;
+        if (snippetAround(whole.text, site.first, site.second, &text, &range)) {
+            match.snippet = text;
+            match.matches = {range};
+        } else {
+            match.snippet = fallback.text;
+            match.matches = fallback.matches;
+        }
+        results->append(match);
+    }
+}
+
 } // namespace
 
 QVector<SearchMatch> SQLiteIndex::search(const QString &query, int maxResults) const
@@ -379,8 +487,11 @@ QVector<SearchMatch> SQLiteIndex::search(const QString &query, int maxResults) c
     if (query.trimmed().isEmpty() || !m_isOpen) return results;
 
     QSqlQuery q(QSqlDatabase::database(m_connectionName));
+    // The highlight() column carries every match site in the note;
+    // searchCompiled explains why it is here.
     q.prepare(QStringLiteral(
-        "SELECT path, snippet(notes_fts, 2, '<b>', '</b>', '...', 32), rank "
+        "SELECT path, snippet(notes_fts, 2, '<b>', '</b>', '...', 32), rank, "
+        "highlight(notes_fts, 2, '<b>', '</b>') "
         "FROM notes_fts WHERE notes_fts MATCH ? "
         "ORDER BY rank LIMIT ?"));
     q.addBindValue(query);
@@ -389,13 +500,11 @@ QVector<SearchMatch> SQLiteIndex::search(const QString &query, int maxResults) c
     if (!q.exec()) return results;
 
     while (q.next()) {
-        SearchMatch match;
-        match.notePath = q.value(0).toString();
-        const auto snippet = stripBoldMarkup(q.value(1).toString());
-        match.snippet = snippet.text;
-        match.matches = snippet.matches;
-        match.score = q.value(2).toDouble();
-        results.append(match);
+        const QString path = q.value(0).toString();
+        const double rank = q.value(2).toDouble();
+        const auto whole = stripBoldMarkup(q.value(3).toString());
+        const auto fallback = stripBoldMarkup(q.value(1).toString());
+        appendMatchesPerSite(&results, path, rank, whole, fallback);
     }
 
     return results;
@@ -457,20 +566,29 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
     QString sql;
     QVariantList binds;
 
-    // When we post-filter we need the raw content column too. Pull an extra
-    // column only in that path so the fast path's projection stays unchanged.
-    const QString projection = postFilter
-        ? QStringLiteral("path, snippet(notes_fts, 2, '<b>', '</b>', '...', 32), rank, content")
-        : QStringLiteral("path, snippet(notes_fts, 2, '<b>', '</b>', '...', 32), rank");
+    // The projection depends on whether there is an FTS5 MATCH at all.
+    //
+    //  - With one, highlight() marks *every* match in the content column,
+    //    which is where the match sites come from: FTS5's snippet() gives
+    //    one window per row and a row is a note, so a note with several
+    //    matches would otherwise come back as a single snippet. Obsidian
+    //    shows one snippet per match site.
+    //  - Without one (a tag-only or regex-only query) there are no match
+    //    sites, and the post-filter still needs the raw content.
+    //
+    // In the MATCH case the content is the highlight output with the
+    // markers stripped, so no second copy of it is selected.
+    const bool fts = !fts5Query.isEmpty();
+    const QString projection = fts
+        ? QStringLiteral("path, snippet(notes_fts, 2, '<b>', '</b>', '...', 32), rank, "
+                         "highlight(notes_fts, 2, '<b>', '</b>')")
+        : QStringLiteral("path, '' AS snippet, 0 AS rank, content");
 
     if (!fts5Query.isEmpty()) {
         sql = QStringLiteral("SELECT %1 FROM notes_fts WHERE notes_fts MATCH ?").arg(projection);
         binds.append(fts5Query);
     } else {
-        sql = QStringLiteral("SELECT %1 FROM notes_fts WHERE 1=1").arg(
-            postFilter
-                ? QStringLiteral("path, '' AS snippet, 0 AS rank, content")
-                : QStringLiteral("path, '' AS snippet, 0 AS rank"));
+        sql = QStringLiteral("SELECT %1 FROM notes_fts WHERE 1=1").arg(projection);
     }
 
     for (const QString &tag : requiredTags) {
@@ -503,9 +621,21 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
     for (const QVariant &v : binds) q.addBindValue(v);
     if (!q.exec()) return results;
 
+    // `maxResults` bounds the *notes*, as it always has: the SQL LIMIT does
+    // that, and this counter applies it to the rows that survive the
+    // post-filter. A note now contributes one result per match site, so the
+    // result vector is longer than the note count — that is the point.
+    int filesKept = 0;
+
     while (q.next()) {
+        const QString path = q.value(0).toString();
+        const double rank = q.value(2).toDouble();
+        // The whole note with every match site marked, or (without an FTS5
+        // MATCH) the raw content.
+        const auto whole = stripBoldMarkup(q.value(3).toString());
+
         if (postFilter) {
-            const QString content = q.value(3).toString();
+            const QString &content = whole.text;
             bool keep = true;
             for (const QRegularExpression &re : regexes) {
                 if (!re.match(content).hasMatch()) { keep = false; break; }
@@ -520,14 +650,15 @@ QVector<SearchMatch> SQLiteIndex::searchCompiled(const QString &fts5Query,
             if (!keep) continue;
         }
 
-        SearchMatch match;
-        match.notePath = q.value(0).toString();
-        const auto snippet = stripBoldMarkup(q.value(1).toString());
-        match.snippet = snippet.text;
-        match.matches = snippet.matches;
-        match.score = q.value(2).toDouble();
-        results.append(match);
-        if (results.size() >= maxResults) break;
+        ++filesKept;
+
+        // The FTS5 snippet, used as-is when there is nothing better: no
+        // match site in the content (the match was in the title or the
+        // path), or no FTS5 MATCH at all.
+        const auto fallback = stripBoldMarkup(q.value(1).toString());
+        appendMatchesPerSite(&results, path, rank, whole, fallback);
+
+        if (filesKept >= maxResults) break;
     }
     return results;
 }

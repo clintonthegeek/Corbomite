@@ -983,6 +983,71 @@ private Q_SLOTS:
         QVERIFY(!m.snippet.contains(QStringLiteral("<b>")));
         QVERIFY(!m.snippet.contains(QStringLiteral("</b>")));
     }
+
+    void testSearchReturnsOneSnippetPerMatchSite()
+    {
+        // Obsidian shows one snippet per match site; FTS5's snippet() gives
+        // one window per note, so a note with three matches used to come
+        // back as a single result.
+        QTemporaryDir tmp;
+        const QString vault = tmp.path() + "/vault";
+        QDir().mkpath(vault);
+
+        SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.setVaultRoot(vault);
+
+        LinkResolver resolver;
+        MetadataCache cache(resolver);
+        index.setMetadataCache(&cache);
+        QSignalSpy finished(&cache, &MetadataCache::indexFinished);
+
+        auto f = writeNote(vault, "note.md",
+                           "alpha one\n\nbeta two\n\ngamma three\n");
+        seed(cache, resolver, "note.md", f.bytes, f.mtimeMs, &finished);
+
+        auto results = index.search(QStringLiteral("alpha OR beta OR gamma"));
+        QCOMPARE(results.size(), 3);
+        for (const auto &m : results) {
+            QCOMPARE(m.notePath, QStringLiteral("note.md"));
+            // Each snippet highlights exactly its own site.
+            QCOMPARE(m.matches.size(), 1);
+            const auto r = m.matches.first();
+            QVERIFY(r.first >= 0 && r.second <= m.snippet.size());
+            QVERIFY(r.first < r.second);
+            QVERIFY(!m.snippet.contains(QStringLiteral("<b>")));
+            QVERIFY(!m.snippet.contains(QStringLiteral("</b>")));
+        }
+        // The three snippets highlight three different words.
+        QVERIFY(results.at(0).snippet.contains(QStringLiteral("alpha")));
+        QVERIFY(results.at(1).snippet.contains(QStringLiteral("beta")));
+        QVERIFY(results.at(2).snippet.contains(QStringLiteral("gamma")));
+    }
+
+    void testSearchSingleMatchStillReturnsOneResult()
+    {
+        // The multi-site path must not change the single-match case.
+        QTemporaryDir tmp;
+        const QString vault = tmp.path() + "/vault";
+        QDir().mkpath(vault);
+
+        SQLiteIndex index;
+        index.open(tmp.path() + "/test.sqlite");
+        index.setVaultRoot(vault);
+
+        LinkResolver resolver;
+        MetadataCache cache(resolver);
+        index.setMetadataCache(&cache);
+        QSignalSpy finished(&cache, &MetadataCache::indexFinished);
+
+        auto f = writeNote(vault, "note.md", "only one hit here\n");
+        seed(cache, resolver, "note.md", f.bytes, f.mtimeMs, &finished);
+
+        auto results = index.search(QStringLiteral("hit"));
+        QCOMPARE(results.size(), 1);
+        QCOMPARE(results.at(0).matches.size(), 1);
+        QVERIFY(results.at(0).snippet.contains(QStringLiteral("hit")));
+    }
 };
 
 QTEST_MAIN(TestSQLiteIndex)

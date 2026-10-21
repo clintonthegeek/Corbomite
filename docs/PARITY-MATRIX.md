@@ -135,7 +135,7 @@ established or *by clusters that didn't touch it*.
 |---|---|---|
 | Search DSL parse (path/file/content/tag, phrases, regex, OR, -, parens, case) | ✅ | `SearchDSL.cpp`; quirk-faithful |
 | DSL backend honor | 🟡 | FTS5 + post-filters; `line:/block:/section:/task*:` parsed but unsupported; bareword is exact-token not substring (⚠) |
-| Search results UI | 🟡 | **one snippet per file** (`SQLiteIndex.cpp:461`); no history/sort/copy/context toggle |
+| Search results UI | 🟡 | **one snippet per match site since 2026-10-21** — FTS5's `snippet()` gives one window per *note*, so a note with three matches used to come back as one result; the sites now come from `highlight()`, which marks every match in the column, and each site gets its own snippet (`SQLiteIndex.cpp`). The panel side already supported it: `SearchResultsModel` groups by path with a `QVector<SearchMatch>` per group, so the status line now reads "3 matches in 1 file" instead of always "1 matches in 1 file". **Still open:** no history/sort/copy/context toggle. |
 | Embedded `query` blocks | ❌ | absent |
 | Quick-switcher fuzzy scoring parity | ✅ | penalty rule matched 2026-10-03; `tst_fuzzy_penalty_rule` pins 8 exact score pairs ([addendum](obsidian-audit/addenda/2026-10-03-search-dsl-grammar-and-quick-switcher-scoring.md)) |
 | Global graph (layout, sliders, orphans, hover, ctx menu) | ✅ | `libs/forcegraph` + `GraphViewTab.cpp`; solid |
