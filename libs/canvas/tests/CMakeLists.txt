@@ -21,6 +21,17 @@ add_test(NAME tst_canvasdocument COMMAND tst_canvasdocument)
 target_link_libraries(tst_canvasdocument PRIVATE Qt6::Test Corbomite::Canvas)
 set_tests_properties(tst_canvasdocument PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# The canvas leaf's painter-state leak, seen from the host: a table after a
+# heading must not be filled with the heading's chevron brush (Markoff
+# v0.7.1's `f68a37c5`). Upstream's own test is in a leaf this build does not
+# compile, so the host pins the behaviour.
+add_executable(tst_canvas_table_brush tst_canvas_table_brush.cpp)
+add_test(NAME tst_canvas_table_brush COMMAND tst_canvas_table_brush)
+target_link_libraries(tst_canvas_table_brush PRIVATE
+    Qt6::Test Qt6::Widgets Corbomite::Canvas Corbomite::Core)
+set_tests_properties(tst_canvas_table_brush PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Missing-file placeholder (logic up to the live check).
 add_executable(tst_canvas_missing_file tst_canvas_missing_file.cpp)
 add_test(NAME tst_canvas_missing_file COMMAND tst_canvas_missing_file)

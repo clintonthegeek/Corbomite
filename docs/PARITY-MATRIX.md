@@ -17,8 +17,9 @@
 
 **Statuses:** ✅ DONE · 🟡 PARTIAL · ⭕ STUB (code exists, non-functional) · ❌ MISSING · ⚠ DIVERGENT (works differently; note if deliberate)
 
-**Submodule pin note (updated 2026-10-01):** the markoff-family pin is now
-`5d8850369`. The 2026-06-10 note below is retained only as history — **all
+**Submodule pin note (updated 2026-10-20):** the markoff-family pin is now
+`1c9b9415` (Markoff release `v0.7.1`; was `e0b96bf8`, and `5d8850369` before
+that). The 2026-06-10 note below is retained only as history — **all
 "post-pin" rows it referenced have long since arrived**, so no row in this file
 should carry a *post-pin* marker any more:
 
@@ -145,7 +146,7 @@ established or *by clusters that didn't touch it*.
 | Canvas: file-card path resolution | ✅ | **Fixed 2026-08-19 (`95779618`)** — added `NoteDocument::vaultRoot()`, threaded through `CanvasFileView::onLoadFile` into `CanvasViewTab`, so cards resolve against vault root (falling back to the canvas file's own dir). Test `tst_canvasviewtab_vaultroot_paths`. *(Row corrected 2026-10-01.)* |
 | Canvas: edge color, z-order, zoom-to-selection | ✅ | **All shipped.** edge color: `libs/canvas/src/EdgeItem.cpp:47` (`colorFromCanvasColor`); z-order by `-width*height` (`GroupItem.cpp:30`, M4.3); zoom-to-selection: `CanvasView.cpp:88` + wired KAction `canvas_zoom_to_selection` (`CanvasViewActions.cpp:241`, Cluster O O4 — user live-eyeballed). *(Row split 2026-10-01.)* |
 | Canvas: image/link nodes, canvas read-only toggle | 🟡 | **Read-only toggle shipped 2026-10-04 (M5.4)** — per-file, machine-local tier-3 store, mirroring Obsidian's `localStorage["canvas-"+path]`; gates resize, Alt-drag, context-menu mutations, inline edits, nudge, cut, undo/redo. Pan/zoom/select still work. **Obsidian gates *less* than we first believed** (not drop, not resize, not undo) — we match it rather than exceed it. Image/link nodes still absent: `CanvasScene.cpp` `case NodeType::Link: break;`. *(Row split 2026-10-01; read-only half closed 2026-10-04.)* |
-| Canvas card fidelity | 🟡 | StyledRenderEngine: 6 block kinds; no tables/images/math |
+| Canvas card fidelity | 🟡 | StyledRenderEngine: 6 block kinds; no tables/images/math. **Re-verified 2026-10-20 on the v0.7.1 pin `1c9b9415`:** the canvas leaf's display-math carve-out does not change what we render — our import path already classifies a `$$`-leading block as `BlockKind::Math` (`KindInference::inferBlockKind`), so the carve-out's `Paragraph` case is unreachable for us. The leaf's brush-leak fix (`f68a37c5`) *does* reach the note editor's live preview, which hosts the leaf's `EditorWidget` in non-embedded mode; pinned by `tst_canvas_table_brush`. |
 | Canvas: convert text card to file | ✅ | **Shipped 2026-10-04 (M5.5)** — compound `QUndoCommand` (add file card + reconnect each edge + remove text card), so one Ctrl+Z undoes the whole conversion. Card text becomes the file body verbatim (no embed/frontmatter); pos+size preserved. Undo deliberately does not delete the created note (matches Obsidian). `tst_canvas_convert_to_file*` (17 cases) |
 | Canvas: jump to group | ✅ | **Shipped 2026-10-04 (M5.5)** — fuzzy group-label list → `zoomToBbox` porting Obsidian's formula incl. the 1.1 margin and log2 [-4,1] clamp. Instant, not eased: M5.1's animation system has not landed and was not invented. `tst_canvas_jump_to_group` (8) |
 | Canvas viewport persistence | ✅ | **Shipped 2026-10-04 (M5.3)** — `{x,y,zoom}` in `ViewState.state.viewState`, **not** `eState` (Obsidian's canvas `getEphemeralState()` returns `{}` and eState is never serialised). zoom = log2 of scale clamped [-4,1]; x/y = scene point at viewport centre. Restores to 0.5 device px on x/y because QGraphicsView pans by integer scrollbar value |

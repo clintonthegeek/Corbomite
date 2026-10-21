@@ -6,7 +6,7 @@ Read this file before editing. It is PROJECT-STATE trajectory step 1. The punch-
 
 ## Already done — do not redo
 
-Markoff submodule `libs/markoff-family` is detached at **`e0b96bf8`** (was `dca64686`; the 2026-10-20 re-pin took upstream's card mode `aae3727d` and its strict frontmatter fence `5c0e5c6a`). CollabText is the installed package `0.2.0-alpha.5` (`e8a8e7d1`), found via `COLLABTEXT_ROOT` or the sibling prefix `../Markoff/build-collabtext-alpha5/install`. Root `CMakeLists.txt` forces `MARKOFF_BUILD_LIVE=OFF` and `MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS=OFF` before `add_subdirectory(libs/markoff-family)`.
+Markoff submodule `libs/markoff-family` is detached at **`1c9b9415`** (Markoff release `v0.7.1`; was `e0b96bf8`, and before that `dca64686` — the 2026-10-20 re-pins took upstream's card mode `aae3727d`, its strict frontmatter fence `5c0e5c6a`, and the v0.7.1 release's canvas rendering fixes). CollabText is the installed package `0.2.0-alpha.5` (`e8a8e7d1`), found via `COLLABTEXT_ROOT` or the sibling prefix `../Markoff/build-collabtext-alpha5/install`. Root `CMakeLists.txt` forces `MARKOFF_BUILD_LIVE=OFF` and `MARKOFF_BUILD_COLLABTEXT_VNEXT_TESTS=OFF` before `add_subdirectory(libs/markoff-family)`.
 
 `EditingSessionSource` is the plugin seam (`libs/core/include/corbomite/core/EditingSession.h`). The default source mints one ephemeral provider per `bindingFor` call. `setEditingSessionSource(nullptr)` restores it. The pointer is not owned.
 
@@ -66,7 +66,7 @@ Pinned by `tst_canvas_card_editor` (7 cases) and verified live under Xvfb. The r
 
 `libs/markoff-family/libs/markoff-styled/src/DocumentRenderer.cpp`, byte `renderInto`: after `importInitialMarkdown`, return without painting only when the state is neither `committed` nor `committedHistoryPending`. The current comment in that function is the reason. Host paint no longer uses this overload (`StyledRenderEngine` uses the pointer overload). Hover and any future byte-path caller still need it. If a re-pin drops the hunk, put it back. Do not send it upstream by editing `/home/clinton/dev/Markoff` unless the user asks.
 
-**Checked on the 2026-10-20 re-pin to `e0b96bf8`: the hunk is still there** (the byte path accepts `committedHistoryPending` as well as `committed`). The submodule's working tree carries it; the submodule is not committed.
+**Checked on the 2026-10-20 re-pin to `e0b96bf8`, and again on the v0.7.1 re-pin to `1c9b9415`: the hunk is still there** (the byte path accepts `committedHistoryPending` as well as `committed`). On the v0.7.1 pin it survived the checkout intact — upstream's `DocumentRenderer.cpp` is unchanged since `e0b96bf8`, so the move carried the local modification rather than conflicting — upstream's renderer still accepts only `committed`, and `importInitialMarkdown` still returns `committedHistoryPending` for a successful-but-pending publication, which is the §2 condition the hunk depends on. The submodule's working tree carries it; the submodule is not committed.
 
 ### 3. Comments that still name removed APIs
 
