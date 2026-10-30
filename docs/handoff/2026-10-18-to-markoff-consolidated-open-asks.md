@@ -40,7 +40,7 @@ durable provider may already keep many scopes open at once
 closure is stated with its evidence inside the ask it belongs to, so a reply can
 dispute it cheaply.
 
-**2026-10-31 — two more asks filed as handoffs-turned-proper entries:** **ASK-M40** (the `editor:table-*` / `set-heading-*` command family is gated on the table model; either ship the model or bless an `applyBlockEdit` slice shape) and **ASK-M41** (a Source-leaf insertion verb on the `MarkoffDocument` contract, matching Canvas::View's `insertText`; the shipped answer without it is greying editorial verbs in Source mode, recorded on both sides). Both ask for either an implementation or a definitive contract statement — silence defaults to the behaving-gate, labelled honestly.
+**2026-10-31 — three more asks filed as handoffs-turned-proper entries:** **ASK-M40** (the `editor:table-*` / `set-heading-*` command family is gated on the table model; either ship the model or bless an `applyBlockEdit` slice shape) and **ASK-M41** (a Source-leaf insertion verb on the `MarkoffDocument` contract, matching Canvas::View's `insertText`; the shipped answer without it is greying editorial verbs in Source mode, recorded on both sides). Both ask for either an implementation or a definitive contract statement — silence defaults to the behaving-gate, labelled honestly. **ASK-M42** (the fold-verb family + the never-filled `foldedHeadings` half of the ephemeral contract) filed the same way.
 
 **How to read it.** Severity first, then the library. Each entry states what
 happens, the evidence with `file:line` and quoted code, what it costs Corbomite
@@ -63,7 +63,7 @@ At a glance:
 |---|---|---|
 | P0 | 7 | collabtext ×2, markoff-parser ×2, Graffodil ×2, markoff-core ×1 |
 | P1 | 19 | Markoff (cross-cutting / core / live / canvas) ×12, Graffodil ×3, markoff-parser ×3, markoff-styled ×1 |
-| P2 | 14 | Markoff ×9, markoff-core ×2, markoff-parser ×1, build friction ×1, test infrastructure ×1 |
+| P2 | 15 | Markoff ×10, markoff-core ×2, markoff-parser ×1, build friction ×1, test infrastructure ×1 |
 | P3 | 1 | markoff-parser ×1 |
 | — | 21 rows | a table of smaller items, listed for completeness at the end |
 
@@ -789,6 +789,19 @@ if(MARKOFF_CANVAS_BUILD_TESTS)
 **Ask:** add `virtual void insertText(const QString &text)` to the base `Markoff::MarkdownView` contract, with the same semantics as markoff-canvas's `View::insertText` and a default no-op, so the editor leaf overrides the surface-appropriate implementation and the host can dispatch to the ACTIVE editing leaf by name. If the answer is "the Source leaf remains a shim deliberately, with no insertion surface", say that instead — we keep the mode-wide Tier-B gate as the shipped answer either way, since it is already live and its gating is documented and pinned in the punch list; an insertText would reopen the verb for Source-mode users as an upstream-only change.
 
 **Verified:** `markoff-source/include/markoff/source/Editor.h` and `markoff-canvas/include/markoff/canvas/View.h` read at the pin; the base `Markoff::MarkdownView` contract carries `insertLink()` (no-op base) but no insertion verb; our wikilink gate is ours and is documented in the punch list entry it comes from.
+
+### ASK-M42 · Markoff: the **fold surface** — fold verbs and `foldedHeadings` state on the Source leaf (and the fold-state map on the base contract)
+**Severity:** P2 — three permanently-greyed verbs on our side, plus an ephemeral-state field every host persists but no consumer fills.
+
+**What we ship today.** Corbomite's action collection registers `fold_all` / `unfold_all` / `toggle_fold` with `blockedOn` blockers that say "markoff:fold verb" (Tier B keeps them greyed; pinned when the o7 tests landed). The three verbs are upstream-ideology matches for `editor:fold-*` ids whose implementations we cannot reach: they belong inside `MarkoffDocument`'s projection. Separately, Corbomite's ephemeral state carries `foldedHeadings` (`EphemeralState`; workspace-ephemeral `folds` exists as an always-empty schema placeholder by design until P5.6). All of this is per-leaf state with no upstream owner.
+
+**Evidence.** `src/editor/MarkdownViewActions.cpp` around the three verb registrations, with the blockers verbatim; the verb key chords (`Ctrl+Shift+Minus`, `Ctrl+Period`) wired but non-live.
+
+**Why it matters to Corbomite.** Without an upstream fold surface we cannot wire Obsidian's three fold commands at all (the ~92 concern is table ids; folding is a separate group that is equally upstream). Our *own* ephemeral schema already carries a field whose value nobody produces. Since our host treats the canvas editing leaf (LivePreview) as the real editor, folding will need a surface-level verb on the base contract *as well* (one match for `MarkdownView::foldAll/unfoldAll/toggleFold` shape).
+
+**Ask:** (a) fold verbs on the base `MarkdownView` contract (`foldAll`, `unfoldAll`, `toggleFold` at the caret — the Obsidian shape), with a place for a leaf-specific engine override. (b) the **fold state** cross-leaf contract: on the base contract, a `foldedHeadings`-style *read* accessor with source-line indices, so a persisting agent can save/reload a section fold state from the CurrentNote without knowing which editor leaf produced it. If the answer is "fold state stays leaf-internal until the fold engine works end to end", say so and we will drop the `EphemeralState.foldedHeadings` field (with its serialization notice) rather than carry a dead payload.
+
+**Verified:** Corbomite blockers and EphemeralState field read at the 2026-10-30 tree; the three verbs' `markoff:`-prefix blockers and the schema placeholder comment (`"folds", always empty until P5.6`) are quoted verbatim from the tree.
 
 ---
 ## Smaller items, listed for completeness
