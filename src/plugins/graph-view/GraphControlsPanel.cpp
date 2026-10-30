@@ -350,6 +350,53 @@ void GraphControlsPanel::setForceValues(double center, double repel,
     m_linkDistanceSlider->blockSignals(false);
 }
 
+void GraphControlsPanel::setFiltersState(const QString &searchText,
+                                          bool existingFilesOnly,
+                                          bool showOrphans)
+{
+    if (!m_searchField || !m_existingFilesOnly || !m_orphansToggle) {
+        return;
+    }
+    m_searchField->blockSignals(true);
+    m_existingFilesOnly->blockSignals(true);
+    m_orphansToggle->blockSignals(true);
+
+    m_searchField->setText(searchText);
+    m_existingFilesOnly->setChecked(existingFilesOnly);
+    m_orphansToggle->setChecked(showOrphans);
+
+    m_searchField->blockSignals(false);
+    m_existingFilesOnly->blockSignals(false);
+    m_orphansToggle->blockSignals(false);
+}
+
+void GraphControlsPanel::setDisplayState(bool showArrows, double textFade,
+                                          double nodeSize,
+                                          double linkThickness)
+{
+    if (!m_arrowsToggle || !m_textFadeSlider || !m_nodeSizeSlider
+        || !m_linkThicknessSlider) {
+        return;   // panel built without the display section
+    }
+    m_arrowsToggle->blockSignals(true);
+    m_textFadeSlider->blockSignals(true);
+    m_nodeSizeSlider->blockSignals(true);
+    m_linkThicknessSlider->blockSignals(true);
+
+    m_arrowsToggle->setChecked(showArrows);
+    m_textFadeSlider->setValue(qRound(textFade * 10.0));   // 0–3.0 → 0–30
+    m_nodeSizeSlider->setValue(qRound(nodeSize * 10.0));    // 0.5–3.0 → 5–30
+    m_linkThicknessSlider->setValue(qRound(linkThickness * 10.0));
+    m_textFadeValue->setText(QString::number(textFade, 'f', 1));
+    m_nodeSizeValue->setText(QString::number(nodeSize, 'f', 1));
+    m_linkThicknessValue->setText(QString::number(linkThickness, 'f', 1));
+
+    m_arrowsToggle->blockSignals(false);
+    m_textFadeSlider->blockSignals(false);
+    m_nodeSizeSlider->blockSignals(false);
+    m_linkThicknessSlider->blockSignals(false);
+}
+
 void GraphControlsPanel::resetToDefaults()
 {
     // Block signals during reset to avoid intermediate rebuilds

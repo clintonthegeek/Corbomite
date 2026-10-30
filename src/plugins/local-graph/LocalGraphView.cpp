@@ -8,6 +8,8 @@
 #include "corbomite/storage/proxies/SearchProxy.h"
 #include "corbomite/vault/proxies/VaultProxy.h"
 
+#include <QJsonValue>
+
 #include <corbomite/forcegraph/ForceGraphView.h>
 #include <corbomite/forcegraph/ForceLayoutEngine.h>
 
@@ -66,8 +68,22 @@ void LocalGraphView::refresh()
         m_engine->clear();
         return;
     }
+    // Depth persists in `.obsidian/graph.json` (`localGraphDepth`: a
+    // Corbomite-owned key — Obsidian's local-graph depth state never
+    // settled there, so an unknown key parked in their file follows the
+    // universal preserve rule). Depth 2 matches the previously hardcoded
+    // behaviour and Obsidian's default.
+    int depth = 2;
+    if (m_vault) {
+        const QJsonValue persisted =
+            m_vault->readConfigJson(QStringLiteral("graph"))
+                .toObject().value(QStringLiteral("localGraphDepth"));
+        if (persisted.isDouble()) {
+            depth = qBound(1, persisted.toInt(), 5);
+        }
+    }
     auto data = GraphDataBuilder::buildLocalGraph(
-        m_search, m_vault, m_currentPath, 2,
+        m_search, m_vault, m_currentPath, depth,
         GraphDataBuilder::ignoreFilterFor(m_vault));
     m_graphView->setNodes(data.nodes);
     m_graphView->setEdges(data.edges);

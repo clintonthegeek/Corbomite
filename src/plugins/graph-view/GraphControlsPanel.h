@@ -48,6 +48,17 @@ public:
     /// push values back and restart layout.
     void setForceValues(double center, double repel, double link, double distance);
 
+    /// Seed the filter controls from a persisted state, with signals
+    /// blocked (see setForceValues for the same reason). The tab pushes the
+    /// values into the graph itself (applyFilters) after seeding.
+    void setFiltersState(const QString &searchText, bool existingFilesOnly,
+                         bool showOrphans);
+
+    /// Same shape for the display controls. The tab pushes to the view
+    /// itself. Blocked signals.
+    void setDisplayState(bool showArrows, double textFade, double nodeSize,
+                         double linkThickness);
+
 Q_SIGNALS:
     // Filters
     void searchTextChanged(const QString &text);

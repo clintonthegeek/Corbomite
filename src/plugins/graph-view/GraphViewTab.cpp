@@ -27,6 +27,11 @@
 #include <KMessageBox>
 #include <KStandardGuiItem>
 
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QTimer>
+
 namespace Corbomite {
 
 GraphViewTab::GraphViewTab(SearchProxy *search, VaultProxy *vault, QWidget *parent)
@@ -78,6 +83,8 @@ GraphViewTab::~GraphViewTab()
 
 void GraphViewTab::buildGraph()
 {
+    applyPersistedSettings();
+
     auto data = GraphDataBuilder::buildGlobalGraph(
         m_search, m_vault, GraphDataBuilder::ignoreFilterFor(m_vault));
 
@@ -171,6 +178,35 @@ void GraphViewTab::wireControlsPanel()
 {
     if (!m_controlsPanel) return;
 
+    // --- Persist every panel change (debounced) ---
+    connect(m_controlsPanel, &GraphControlsPanel::centerForceChanged,
+            this, [this](double) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::repelForceChanged,
+            this, [this](double) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::linkForceChanged,
+            this, [this](double) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::linkDistanceChanged,
+            this, [this](double) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::nodeSizeScaleChanged,
+            this, [this](double) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::textFadeThresholdChanged,
+            this, [this](double) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::linkThicknessScaleChanged,
+            this, [this](double) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::arrowsToggled,
+            this, [this](bool) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::searchTextChanged,
+            this, [this](const QString &) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::existingFilesOnlyChanged,
+            this, [this](bool) { schedulePersist(); });
+    connect(m_controlsPanel, &GraphControlsPanel::orphansToggled,
+            this, [this](bool) { schedulePersist(); });
+
+    m_persistDebounce.setSingleShot(true);
+    m_persistDebounce.setInterval(600);
+    connect(&m_persistDebounce, &QTimer::timeout,
+            this, &GraphViewTab::writeGraphSettingsNow);
+
     // --- Force signals → engine ---
     connect(m_controlsPanel, &GraphControlsPanel::centerForceChanged, this, [this](double v) {
         m_engine->setCenterForce(v);
@@ -226,8 +262,143 @@ void GraphViewTab::animate()
 
 void GraphViewTab::resetForces()
 {
-    if (m_controlsPanel) m_controlsPanel->resetToDefaults();
+    if (m_controlsPanel) {
+        m_controlsPanel->resetToDefaults();
+        schedulePersist();
+    }
 }
+
+void GraphViewTab::applyPersistedSettings()
+{
+    if (m_vault) {
+        const QJsonObject persisted =
+            m_vault->readConfigJson(QStringLiteral("graph")).toObject();
+        if (!persisted.isEmpty()) {
+            // Our ranges vs Obsidian's: the file's centre strength is 0–1,
+            // our slider 0–0.05 (×20); the file's repel strength is 0–100,
+            // our slider 0–5000 (÷50); the file's link strength is 0–1,
+            // our slider 0–0.2 (÷5). Values outside our slider ranges are
+            // clamped by QSlider::setValue, which is the correct behaviour
+            // for a file another tool authored.
+            if (persisted.contains(QStringLiteral("centerStrength")))
+                m_engine->setCenterForce(
+                    persisted.value(QStringLiteral("centerStrength")).toDouble() / 20.0);
+            if (persisted.contains(QStringLiteral("repelStrength")))
+                m_engine->setRepelForce(
+                    persisted.value(QStringLiteral("repelStrength")).toDouble() * 50.0);
+            if (persisted.contains(QStringLiteral("linkStrength")))
+                m_engine->setLinkForce(
+                    persisted.value(QStringLiteral("linkStrength")).toDouble() / 5.0);
+            if (persisted.contains(QStringLiteral("linkDistance")))
+                m_engine->setLinkDistance(persisted.value(QStringLiteral("linkDistance")).toDouble());
+
+            // Display scales map 1:1 (both sides 0–3 for text fade, ~1.0
+            // for the size scalars — these are literal multipliers).
+            auto *view = m_graphView;
+            if (persisted.contains(QStringLiteral("nodeSizeMultiplier")))
+                view->setNodeSizeScale(persisted.value(
+                    QStringLiteral("nodeSizeMultiplier")).toDouble());
+            if (persisted.contains(QStringLiteral("textFadeMultiplier")))
+                view->setTextFadeThreshold(persisted.value(
+                    QStringLiteral("textFadeMultiplier")).toDouble());
+            if (persisted.contains(QStringLiteral("lineSizeMultiplier")))
+                view->setEdgeWidthScale(persisted.value(
+                    QStringLiteral("lineSizeMultiplier")).toDouble());
+            if (persisted.contains(QStringLiteral("showArrow")))
+                view->setShowArrows(persisted.value(
+                    QStringLiteral("showArrow")).toBool());
+        }
+
+        // Filters: the checkbox semantics line up exactly (existing-files-
+        // only = hide unresolved note nodes), and Obsidian's keys collapse
+        // when absent (`existingFilesOnly` etc. are OUR names — the whole
+        // point is the file's `hideUnresolved`/`showOrphans`).
+        const bool existingOnly =
+            persisted.value(QStringLiteral("hideUnresolved")).toBool(false);
+        const bool showOrphans =
+            persisted.contains(QStringLiteral("showOrphans"))
+                ? persisted.value(QStringLiteral("showOrphans")).toBool()
+                : true;   // Obsidian's default (showOrphans: true)
+        m_controlsPanel->setFiltersState(
+            persisted.value(QStringLiteral("search")).toString(),
+            existingOnly, showOrphans);
+
+        // Display section needs the SEED to match what was applied above.
+        const bool showArrows =
+            persisted.contains(QStringLiteral("showArrow"))
+                ? persisted.value(QStringLiteral("showArrow")).toBool()
+                : false;
+        const double textFade = persisted.contains(
+            QStringLiteral("textFadeMultiplier"))
+            ? persisted.value(QStringLiteral("textFadeMultiplier")).toDouble()
+            : 1.0;
+        const double nodeSize = persisted.contains(
+            QStringLiteral("nodeSizeMultiplier"))
+            ? persisted.value(QStringLiteral("nodeSizeMultiplier")).toDouble()
+            : 1.0;
+        const double lineSize = persisted.contains(
+            QStringLiteral("lineSizeMultiplier"))
+            ? persisted.value(QStringLiteral("lineSizeMultiplier")).toDouble()
+            : 1.0;
+        m_controlsPanel->setDisplayState(showArrows, textFade, nodeSize,
+                                          lineSize);
+    }
+    const double center = m_engine->centerForce();
+    const double repel = m_engine->repelForce();
+    const double link = m_engine->linkForce();
+    const double distance = m_engine->linkDistance();
+    m_controlsPanel->setForceValues(center, repel, link, distance);
+    m_engine->start();
+
+    applyFilters();
+}
+
+void GraphViewTab::schedulePersist()
+{
+    m_persistDebounce.start();
+}
+
+void GraphViewTab::writeGraphSettingsNow()
+{
+    if (!m_vault || !m_controlsPanel) return;
+
+    // Read → merge over → write. Ownership: our four key groups are
+    // Filters/Display/Forces; `colorGroups`, `collapse-*` and any key we
+    // do not write stay untouched (the vault-format universal rule: merging
+    // only the keys we own preserves unknown keys verbatim).
+    QJsonObject merged;
+    if (m_vault) {
+        merged = m_vault->readConfigJson(QStringLiteral("graph")).toObject();
+    }
+    merged.insert(QStringLiteral("search"), m_controlsPanel->searchText());
+    merged.insert(QStringLiteral("hideUnresolved"),
+                  m_controlsPanel->existingFilesOnly());
+    merged.insert(QStringLiteral("showOrphans"),
+                  m_controlsPanel->showOrphans());
+    merged.insert(QStringLiteral("showArrow"), m_controlsPanel->showArrows());
+    merged.insert(QStringLiteral("textFadeMultiplier"),
+                  m_controlsPanel->textFadeThreshold());
+    merged.insert(QStringLiteral("nodeSizeMultiplier"),
+                  m_controlsPanel->nodeSizeScale());
+    merged.insert(QStringLiteral("lineSizeMultiplier"),
+                  m_controlsPanel->linkThicknessScale());
+    // Our forces are in OUR slider ranges; the file's are Obsidian's, so
+    // the direction of the correction is inverted from applyPersisted().
+    merged.insert(QStringLiteral("centerStrength"),
+                  m_controlsPanel->centerForce() * 20.0);
+    merged.insert(QStringLiteral("repelStrength"),
+                  m_controlsPanel->repelForce() / 50.0);
+    merged.insert(QStringLiteral("linkStrength"),
+                  m_controlsPanel->linkForce() * 5.0);
+    merged.insert(QStringLiteral("linkDistance"),
+                  m_controlsPanel->linkDistance());
+    // The scaling factor for observed round-trips; carried in the file so a
+    // future reader of THIS file knows what state built the current view.
+    merged.insert(QStringLiteral("scale"), 1);
+
+    m_vault->writeConfigJson(QStringLiteral("graph"), merged);
+}
+
 
 void GraphViewTab::zoomToFitGraph()
 {

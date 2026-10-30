@@ -29,3 +29,23 @@ target_link_libraries(tst_graphview_plugin PRIVATE
     KF6::I18n KF6::CoreAddons KF6::WidgetsAddons)
 set_tests_properties(tst_graphview_plugin PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Graph settings persistence: reading .obsidian/graph.json applies to the
+# panel, and a save merges over the file preserving Obsidian's unknown keys.
+add_executable(tst_graph_settings tst_graph_settings.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../GraphViewTab.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../GraphView.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../GraphControlsPanel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../CollapsibleSection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../graph/GraphDataBuilder.cpp)
+target_include_directories(tst_graph_settings PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../graph)
+add_test(NAME tst_graph_settings COMMAND tst_graph_settings)
+target_link_libraries(tst_graph_settings PRIVATE
+    Qt6::Test Qt6::Widgets
+    Corbomite::Core Corbomite::Storage Corbomite::Vault
+    Corbomite::ForceGraph
+    KF6::I18n KF6::CoreAddons)
+set_tests_properties(tst_graph_settings PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

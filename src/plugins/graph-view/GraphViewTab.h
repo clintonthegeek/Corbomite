@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QPointer>
+#include <QTimer>
 #include <QWidget>
 #include <corbomite/forcegraph/GraphTypes.h>
 
@@ -54,6 +55,18 @@ public:
     void zoomToFitGraph();   ///< fit the whole graph in the viewport
     bool isGraphBuilt() const;
 
+    // ---- graph.json persistence (public: the plugin test drives these ---
+
+    /// Read the graph-view state from `.obsidian/graph.json` (written by
+    /// Obsidian's own Graph plugin and by this tab) and apply it to the
+    /// panel + engine + view. Runs inside buildGraph.
+    void applyPersistedSettings();
+    /// Write the panel's current state to `.obsidian/graph.json`, merged
+    /// over the file's existing content, so the unknown keys Obsidian wrote
+    /// stay verbatim (the vault-format universal rule). Called from the
+    /// debounced timer; the test drives it directly.
+    void writeGraphSettingsNow();
+
     /// Test seam — the tab's own engine's forces. Exposed because the
     /// per-instance fix is only verifiable if each tab's engine state can be
     /// read independently, and the panel only exposes its own copy.
@@ -70,6 +83,10 @@ private:
     void wireControlsPanel();
     /// Seed a freshly-created panel from the engine's current forces.
     void syncPanelFromEngine();
+
+    /// Persist the current panel state to `.obsidian/graph.json`, debounced.
+    void schedulePersist();
+
     void applyFilters();
     void showNodeContextMenu(const QString &nodeId, const QPoint &globalPos);
 
@@ -77,6 +94,7 @@ private:
     Corbomite::ForceGraph::ForceLayoutEngine *m_engine;
     SearchProxy *m_search;
     VaultProxy *m_vault;
+    QTimer m_persistDebounce;
 
     QPointer<GraphControlsPanel> m_controlsPanel;
     /// Wrapper widget so the panel can be inserted into the pane's layout
