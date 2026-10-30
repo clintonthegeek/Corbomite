@@ -40,6 +40,8 @@ durable provider may already keep many scopes open at once
 closure is stated with its evidence inside the ask it belongs to, so a reply can
 dispute it cheaply.
 
+**2026-10-31 — two more asks filed as handoffs-turned-proper entries:** **ASK-M40** (the `editor:table-*` / `set-heading-*` command family is gated on the table model; either ship the model or bless an `applyBlockEdit` slice shape) and **ASK-M41** (a Source-leaf insertion verb on the `MarkoffDocument` contract, matching Canvas::View's `insertText`; the shipped answer without it is greying editorial verbs in Source mode, recorded on both sides). Both ask for either an implementation or a definitive contract statement — silence defaults to the behaving-gate, labelled honestly.
+
 **How to read it.** Severity first, then the library. Each entry states what
 happens, the evidence with `file:line` and quoted code, what it costs Corbomite
 specifically, the ask, and how the finding was verified. Every finding was
@@ -61,7 +63,7 @@ At a glance:
 |---|---|---|
 | P0 | 7 | collabtext ×2, markoff-parser ×2, Graffodil ×2, markoff-core ×1 |
 | P1 | 19 | Markoff (cross-cutting / core / live / canvas) ×12, Graffodil ×3, markoff-parser ×3, markoff-styled ×1 |
-| P2 | 12 | Markoff ×7, markoff-core ×2, markoff-parser ×1, build friction ×1, test infrastructure ×1 |
+| P2 | 14 | Markoff ×9, markoff-core ×2, markoff-parser ×1, build friction ×1, test infrastructure ×1 |
 | P3 | 1 | markoff-parser ×1 |
 | — | 21 rows | a table of smaller items, listed for completeness at the end |
 
@@ -761,6 +763,32 @@ if(MARKOFF_CANVAS_BUILD_TESTS)
 **Ask:** wrap `add_subdirectory(tests)` in `MARKOFF_PARSER_BUILD_TESTS`, defaulting OFF — or, better and as Corbomite's own TODO already asks, make `MARKOFF_BUILD_TESTS` the single canonical gate that propagates to every leaf. Also default `MARKOFF_CANVAS_BUILD_TESTS` to OFF when undefined rather than ON, so a host that says `-DMARKOFF_BUILD_TESTS=OFF` gets no leaf tests without having to enumerate them.
 
 **Verified:** `ctest -N` counts before and after Corbomite added the missing `MARKOFF_CANVAS_BUILD_TESTS` line to its FORCE-OFF block — release configure 17 → 15, dev configure 280 → 278, with the two canvas targets gone from both. The 13 parser entries were unchanged by that edit, which is what isolates them to this leaf.
+
+### ASK-M40 · Markoff: the `editor:table-*` command family waits on the **table model**, and Corbomite needs the API answer on record
+**Severity:** P2 — blocks the host from giving ~92 upstream `editor:table-*` / `editor:set-heading-*` command ids an implementation.
+
+**What happens.** `docs/obsidian-command-ids.md` is now generated and carries the full id list; the remaining ~110 ids are mechanical to wire host-side and need no upstream work. But ~92 of the remaining ids are blocked on a **table model upstream**, not on Corbomite: `editor:table-insert-row` / `-col`, `editor:table-delete-row` / `-col`, and the siblings, each needing a real structural verb against a typed row/column model rather than block-kind surgery.
+
+**Evidence.** `src/editor/MarkdownViewActions.cpp` — the six `table_row_above` / `table_row_below` / `table_col_left` / `table_col_right` / `table_delete_row` / `table_delete_col` actions carry `blockedOn` blockers (Tier B keeps them greyed; `tests/app/tst_view_actions_provider.cpp` pins the greying), with the blocker stated verbatim: "markoff:table row ops" / "col ops" ("Needs a real block-kind change (code fence)" is the sibling table-insert shape and is correct for an *insert* verb; the *mutation* verbs need the model).
+
+**Why it matters to Corbomite.** Our command-id parity stops here regardless of how hard we wire the hosts, because the internals are in `MarkoffDocument`: the row/col model, its cross-cell references, and the structural edit verbs around them belong to the document. If the answer is "no table model is coming, and structural edits through `applyBlockEdit` with a row/col slice is the shape we bless", then say so and we wire the six hosts to `applyBlockEdit`; but silently building a "table" from paragraph-kind surgery is exactly what the block-kind invariant rules prevent host-side, and Obsidian's own behaviour diverges from a plain-paragraph mean in ways that matter on these six verbs alone.
+
+**Ask:** either (a) the row/column model on `MarkoffDocument` plus ordered structural verbs (insert/delete row/col relative to the caret), or (b) a definitive statement that `applyBlockEdit`-shaped block surgery is the blessed path, with the row/col slice shape for tables recorded in the contract. Either answer makes ~92 upstream command ids implementable for us; the `editor:set-heading-*` relatives follow the same shape and travel in the same ask.
+
+**Verified:** the blockers read at the pin `dca64686`; `docs/obsidian-command-ids.md` generated and current; the Tier-B greying is Corbomite-side (so the implementation surface is upstream, not the wiring).
+
+### ASK-M41 · Markoff: a Source-leaf **insertion verb** (same shape as the canvas leaf's `insertText`) — the contract gap that forces the host to grey editorial verbs in Source mode
+**Severity:** P2 — a whole editing surface (Source mode) cannot host insertion verbs, and the host shipped the gate rather than a fallback.
+
+**What happens.** `Markoff::Canvas::View` — the *canvas* editing surface — has `insertText` (normalizes line endings, routes line breaks through `tryStructuralKey`, no-ops while read-only, collapses selection first). `Source::Editor` declares only `insertLink()`. Nothing on the base `MarkdownView` contract inserts text polymorphically, so a host holding `MarkdownView *` cannot insert into a Source leaf without reaching behind the contract.
+
+**Evidence.** `markoff-source/include/markoff/source/Editor.h` declares exactly one insertion verb: `Q_INVOKABLE void insertLink() override;`. `markoff-canvas/include/markoff/canvas/View.h` declares `insertText(const QString &)` with the documented shared-body contract (P7.2). The in-between shape exists nowhere.
+
+**Why it matters to Corbomite.** With no insertion verb on the active leaf we had to grey `insert_wiki_link` in Source mode (a Tier-B gate on `ViewMode::LivePreview`) rather than insert into a note the user is not looking at; the alternative — a mode-aware seam reaching around the contract — is what this ask exists to prevent. The Source *and* the canvas editing leaves are the same `NoteEditorWidget` pages in our host, so Obsidian's processor parity should hold across both, and one contract-level verb is all that is missing.
+
+**Ask:** add `virtual void insertText(const QString &text)` to the base `Markoff::MarkdownView` contract, with the same semantics as markoff-canvas's `View::insertText` and a default no-op, so the editor leaf overrides the surface-appropriate implementation and the host can dispatch to the ACTIVE editing leaf by name. If the answer is "the Source leaf remains a shim deliberately, with no insertion surface", say that instead — we keep the mode-wide Tier-B gate as the shipped answer either way, since it is already live and its gating is documented and pinned in the punch list; an insertText would reopen the verb for Source-mode users as an upstream-only change.
+
+**Verified:** `markoff-source/include/markoff/source/Editor.h` and `markoff-canvas/include/markoff/canvas/View.h` read at the pin; the base `Markoff::MarkdownView` contract carries `insertLink()` (no-op base) but no insertion verb; our wikilink gate is ours and is documented in the punch list entry it comes from.
 
 ---
 ## Smaller items, listed for completeness
