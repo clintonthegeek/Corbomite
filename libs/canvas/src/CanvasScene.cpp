@@ -21,6 +21,8 @@
 #include <graffodil/SelectMoveTool.h>
 #include <graffodil/PanZoomTool.h>
 #include <graffodil/CreateEdgeTool.h>
+#include <graffodil/GraphScene.h>
+#include <graffodil/Palette.h>
 #include <graffodil/IGraphNode.h>
 #include <graffodil/IGraphEdge.h>
 
@@ -278,13 +280,32 @@ void CanvasScene::setCanvasPalette(const CanvasPalette &palette)
     if (m_palette.background == palette.background
         && m_palette.cardBackground == palette.cardBackground
         && m_palette.gridDot == palette.gridDot
-        && m_palette.border == palette.border) {
+        && m_palette.border == palette.border
+        && m_palette.borderSelected == palette.borderSelected
+        && m_palette.handleFill == palette.handleFill) {
         return;   // nothing that affects rendering changed
     }
     m_palette = palette;
     // Export paths read this brush directly, so it is part of the theme,
     // not a separate setting.
     setBackgroundBrush(palette.background);
+    // Graffodil paints its own chrome (selection, tools, minimap). Feed it
+    // the roles we actually have and leave its defaults for the rest — the
+    // mapping is not 1:1 and inventing CanvasPalette roles to fill Graffodil
+    // slots would be a second authority, not a theming surface. The accent
+    // (borderSelected) is what Graffodil's interaction highlights borrowed
+    // from the incumbent hardcode (0,120,215), which Graffodil now paints
+    // through the palette itself.
+    Graffodil::Palette graffodil;
+    graffodil.edgeSelection = palette.borderSelected;
+    graffodil.anchorDot = palette.borderSelected;
+    graffodil.anchorDotFill = palette.background;
+    graffodil.connectPreview = palette.borderSelected;
+    graffodil.rubberBand = palette.borderSelected;
+    graffodil.rubberBandFill = QColor(palette.borderSelected.red(),
+                                      palette.borderSelected.green(),
+                                      palette.borderSelected.blue(), 30);
+    Graffodil::GraphScene::setPalette(graffodil);
     // Repaint every item: each reads m_palette at paint time, so they all
     // need re-running. update() on the scene covers them without having to
     // walk the item set.

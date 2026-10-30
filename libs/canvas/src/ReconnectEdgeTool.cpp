@@ -74,8 +74,9 @@ void ReconnectEdgeTool::beginReconnect(Graffodil::IGraphEdge *edge, Graffodil::A
     m_fixedScenePos = fixedEndScenePos;
     m_otherNode = (movingEnd == Graffodil::ArrowEnd::Target) ? edge->sourceNode() : edge->targetNode();
 
-    m_previewLine = m_scene->addLine(QLineF(m_fixedScenePos, m_fixedScenePos),
-                                      QPen(QColor(0, 120, 215), 1.5, Qt::DashLine));
+    m_previewLine = m_scene->addLine(
+        QLineF(m_fixedScenePos, m_fixedScenePos),
+        QPen(m_scene->palette().connectPreview, 1.5, Qt::DashLine));
     m_previewLine->setZValue(1000);
 }
 
