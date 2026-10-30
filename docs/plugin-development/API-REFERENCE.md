@@ -587,6 +587,8 @@ Configure-file-substituted from `metadata.json.in` so the
 |---|---|---|
 | `X-Corbomite-Trusted` | bool | `true` suppresses the first-enable permission dialog. Injected by `corbomite_add_plugin(... TRUSTED)` into in-tree plugins only. `PluginManager` demotes any User-origin plugin's trusted claim to `false`. |
 | `X-Corbomite-Permissions` | array of string | Declared capability tokens. Absent = empty = no proxies. See the permission table above. |
-| `X-Corbomite-DockArea` | string | `"left"` or `"right"`. If set, `MainWindow` mounts the `QObject` returned by `createView()` into that sidebar tool view. Omit for plugins that do not add a sidebar view. |
+| `X-Corbomite-DockArea` | string | `"left"` or `"right"`. If set, `MainWindow` mounts the `QObject` returned by `createView()` into that sidebar tool view. Defaults to `"right"` when absent. Omit for plugins that do not add a sidebar view. |
+| `X-Corbomite-DockTitle` | string | The sidebar tool view's visible label. Defaults to the manifest's `KPlugin` `Name`. Consumed at the tool-view mount (see API-STABILITY's key list). |
+| `X-Corbomite-DockIcon` | string | The sidebar tool view's icon name, resolved through `QIcon::fromTheme` (freedesktop theme names, e.g. `"edit-find"`). Defaults to the manifest's `KPlugin` `Icon`, falling back to `preferences-plugin` when that is empty too. |
 | `X-Corbomite-MinVersion` | string | Minimum Corbomite version (semver). `PluginManager` refuses to enable plugins whose minimum exceeds `QCoreApplication::applicationVersion()`, surfacing "Requires Corbomite >= X" in `PluginsPage`. |
 | `X-Corbomite-ApiLevel` | integer | ABI-break marker. Defaults to `1` when absent. Host accepts plugins declaring a level `<= CORBOMITE_PLUGIN_API_LEVEL`. Plugins declaring a higher level refuse to load with "Requires plugin API level >= N" in `PluginsPage`. |

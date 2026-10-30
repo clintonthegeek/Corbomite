@@ -66,9 +66,10 @@ The following surfaces are shape-stable from Cluster N close:
   `metadataCache`, `search`, `workspace`, `commands`, `views`,
   `menus`, `network`, `secrets`, `process`, `config`, `loadData`,
   `saveData`, `metaData`, `grantedPermissions`, `hasPermission`).
-- The `metadata.json` schema: `KPlugin` keys plus the five
+- The `metadata.json` schema: `KPlugin` keys plus the seven
   `X-Corbomite-*` keys (`Trusted`, `Permissions`, `DockArea`,
-  `MinVersion`, `ApiLevel`).
+  `DockTitle`, `DockIcon`, `MinVersion`, `ApiLevel` — the two dock
+  chrome keys are consumed at `MainWindow.cpp`'s tool-view mount).
 
 ---
 
