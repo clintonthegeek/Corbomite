@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/core/LinkUtils.h"
 
+#include <markoff/parser/ParserSession.h>
+
 #include <QRegularExpression>
 
 namespace Corbomite {
@@ -238,6 +240,24 @@ SubpathResolution resolveSubpath(const QString &source, const QString &subpath)
 
     // Heading: the only kind that needs the AST for `headings()`.
     const auto doc = Markoff::Document::fromMarkdown(source);
+    if (!doc) return {};
+    return resolveSubpath(*doc, source, subpath);
+}
+
+SubpathResolution resolveSubpath(const QString &source, const QString &subpath,
+                                 Markoff::ParserSession &session)
+{
+    // Same contract as the one-shot overload, with the parse routed through
+    // `session` (4e470f0c): an unchanged body re-parses by reusing the tree,
+    // and a same-text re-parse (the dominant hover-preview shape -- the same
+    // note's heading hovered repeatedly, or a note re-rendered per repaint)
+    // skips both the parse and the CST walk.
+    bool needsAst = false;
+    if (auto r = resolveSubpathNoAst(source, subpath, &needsAst); !needsAst)
+        return r;
+    if (!needsAst) return {};
+
+    std::unique_ptr<Markoff::Document> doc = session.parse(source);
     if (!doc) return {};
     return resolveSubpath(*doc, source, subpath);
 }

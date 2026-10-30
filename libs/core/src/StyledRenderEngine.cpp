@@ -7,13 +7,17 @@
 #include "corbomite/core/RenderOptions.h"
 #include "corbomite/core/SubpathExtract.h"
 
+#include <markoff/parser/ParserSession.h>
 #include <markoff/core/MarkoffDocument.h>
 
 #include <QTextDocument>
 
 namespace Corbomite {
 
-StyledRenderEngine::StyledRenderEngine() = default;
+StyledRenderEngine::StyledRenderEngine()
+    : m_subpathSession(std::make_unique<Markoff::ParserSession>()) {}
+
+StyledRenderEngine::~StyledRenderEngine() = default;
 
 void StyledRenderEngine::setTheme(const Markoff::Theme *theme)
 {
@@ -32,7 +36,8 @@ std::unique_ptr<RenderedDocument> StyledRenderEngine::render(
     QString md = markdown;
     if (!options.subpath.isEmpty()) {
         const Corbomite::SubpathResolution r =
-            Corbomite::resolveSubpath(markdown, options.subpath);
+            Corbomite::resolveSubpath(markdown, options.subpath,
+                                      *m_subpathSession);
         if (r.startOffset >= 0) {
             md = (r.endOffset >= 0 && r.endOffset > r.startOffset)
                 ? markdown.mid(r.startOffset, r.endOffset - r.startOffset)

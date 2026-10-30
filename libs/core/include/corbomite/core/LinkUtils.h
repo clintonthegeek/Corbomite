@@ -7,6 +7,8 @@
 
 #include <markoff/parser/Document.h>
 
+namespace Markoff { class ParserSession; }
+
 namespace Corbomite {
 
 /// Result of resolving a wikilink subpath (`#heading`, `#^block`, `#[^footnote]`)
@@ -77,6 +79,15 @@ SubpathResolution resolveSubpath(const Markoff::Document &doc,
 /// gap: it parses only when the subpath is actually a heading, and otherwise
 /// (footnote / block-id / empty / malformed) returns without parsing at all.
 SubpathResolution resolveSubpath(const QString &source, const QString &subpath);
+
+/// Third overload: identical contract to the one-shot above, with the parse
+/// routed through the caller's `ParserSession` (Markoff `4e470f0c`). Use it
+/// when the same note's body may be resolved repeatedly — render engines and
+/// hover-popover consumers — so an unchanged body reuses the previous tree
+/// and a same-text re-parse skips both the parse and the CST walk. The
+/// session is caller-owned state: one per engine/consumer, not per call.
+SubpathResolution resolveSubpath(const QString &source, const QString &subpath,
+                                 Markoff::ParserSession &session);
 
 } // namespace Corbomite
 
