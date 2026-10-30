@@ -9,6 +9,8 @@
 #include "dialogs/InsertTableDialog.h"
 
 #include <markoff/core/EditorContext.h>
+#include <markoff/canvas/EditorWidget.h>
+#include <markoff/canvas/View.h>
 #include <markoff/core/MarkdownView.h>
 
 #include <KActionCollection>
@@ -236,7 +238,8 @@ void MarkdownViewActions::refresh()
     // handlers' own clamps: an action is never ENABLED in a state where
     // triggering it would do nothing, so the menu never offers a dead key.
     if (auto *a = ac->action(QStringLiteral("insert_wiki_link")))
-        a->setEnabled(canEdit && m_hasCursorContext);
+        a->setEnabled(canEdit && m_hasCursorContext
+                      && editor()->viewMode() == NoteEditorWidget::ViewMode::LivePreview);
     if (auto *a = ac->action(QStringLiteral("heading_increase")))
         a->setEnabled(canEdit && m_hasCursorContext && m_cursorHeadingLevel < 6);
     if (auto *a = ac->action(QStringLiteral("heading_decrease")))
@@ -479,9 +482,19 @@ void MarkdownViewActions::setupActions()
                         &Markoff::MarkdownView::pasteAsPlain);
     // ---- O7.T1 — insert_wiki_link is now a real verb ----
     //
-    // Markoff::MarkdownView declares insertLink(), so this was never blocked on
-    // Markoff at all; it was simply not wired. Tier B in refresh() gates it on
-    // a cursor.
+    // 2026-10-31 corrected to produce an actual wikilink skeleton: it used
+    // to call leaf->insertLink(), which inserts a *markdown* link (the same
+    // verb Ctrl+K performs) — the box reported the caret landing inside a
+    // markdown link instead of `[[]]`. Markoff::Canvas::View exposes the
+    // insertion surface, and its `[[`-trigger contract is designed for this
+    // shape (WikiLinkSuggest consumes an already-present closing `]]` at
+    // WikiLinkSuggest::onTrigger, so the caret inside the pair opens the
+    // note-completion popup the way Obsidian's verb does).
+    //
+    // Only the canvas (live-preview) leaf inserts. The Source leaf has no
+    // insertion surface on the contract at all, and Reading is read-only;
+    // inserting into the canvas leaf while either of those is focused would
+    // be inserting into a note the user is not looking at.
     {
         auto *linkAct = ac->addAction(QStringLiteral("insert_wiki_link"));
         linkAct->setText(i18n("Insert Wiki Link"));
@@ -489,9 +502,18 @@ void MarkdownViewActions::setupActions()
         KActionCollection::setDefaultShortcut(
             linkAct, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
         connect(linkAct, &QAction::triggered, this, [this]() {
-            if (auto *ed = editor())
-                if (auto *leaf = ed->activeLeaf())
-                    leaf->insertLink();
+            auto *ed = editor();
+            if (!ed || ed->viewMode() != NoteEditorWidget::ViewMode::LivePreview)
+                return;
+            auto *canvas = ed->canvasEditor();
+            if (!canvas || !canvas->view()) return;
+            // Read the caret BEFORE the insert: insertText bumps the caret
+            // past the inserted text, so placing the caret back two columns
+            // lands inside `[[ ]]`.
+            const Markoff::CursorPos before = canvas->cursorPosition();
+            canvas->view()->insertText(QStringLiteral("[[]]"));
+            canvas->setCursorPosition(
+                {before.line, before.column + 2});
         });
     }
     registerPlannedAction(QStringLiteral("insert_image"),

@@ -89,6 +89,13 @@ and behave **exactly** as they did before.
 - [ ] 🤖 The three exist and carry no blocker property
 - [ ] 👤 **Insert Wiki Link** (Ctrl+Shift+K) actually inserts. It was never
       blocked on Markoff — the verb existed and was simply never wired
+      *(fixed 2026-10-31 — inserts `[[]]` with the caret inside the pair,
+      and greys in Source/Reading modes; `tst_wiki_link_verb` covers the
+      offscreen bytes and gating. Live half: the note-completion popup that
+      opens with the insertion — the trigger logic is verified by source
+      (`WikiLinkSuggest::onTrigger` consumes the pre-inserted `]]`), but the
+      visible popup itself was not-onscreen in the offscreen pass and needs
+      one eyeball)*
 - [ ] 👤 Cursor in an H2 → Increase ×3 → H5; Decrease back down
 - [ ] 👤 In a plain paragraph **Decrease is greyed** (level 0 cannot go to −1)
 - [ ] 👤 In an H6 **Increase is greyed**
