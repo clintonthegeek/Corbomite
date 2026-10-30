@@ -35,6 +35,20 @@ what is actually open:
 | 2026-10-17 | [`handoff/2026-10-17-to-markoff-canvas-cards-and-session.md`](handoff/2026-10-17-to-markoff-canvas-cards-and-session.md) | M37, M38, M39 (numbered 2026-10-18); three of its five questions are closed by source evidence, recorded inside the asks |
 | 2026-10-01 / 2026-06-10 | the frontmatter handoffs | M33, M34, M35 (swept in 2026-10-18) |
 
+**2026-10-30 — directed letters, one per consumer project**, each kept in the
+*target* repo's `docs/handoff/` rather than here, and each reflecting the
+state after Markoff's `2026-10-19` reply (most of the 2026-10-18 index was
+closed, fixed, or re-triaged against the A13 rewrite):
+
+| Sent to | Document | What it asks |
+|---|---|---|
+| Markoff | `Markoff/docs/handoff/2026-10-30-from-corbomite-residual-asks.md` | schedule M7 (theme in Styled, the largest visible gap) and M31 (incremental reparse); a date or sentence on M26/M27-item-4 packaging; pin planning for the next tag; the `RYML ... FORCE` cache-var override; the accepted M39 narrow case |
+| Graffodil | `Graffodil/docs/handoff/2026-10-30-from-corbomite-theming-and-interaction.md` | M14 theming surface (our `CanvasPalette` offered as the worked example), M15 sub-linear interaction, the M19 parallel-edge waypoint residual, and the 11 remaining smaller rows with a suggested order |
+| collabtext | `collabtext/docs/handoff/2026-10-30-from-corbomite-consumer-state-and-asks.md` | a release-build (`NDEBUG`) CI leg for the typed-refusal invariants; bless the default consumer tag line; bump the alpha label on rebuild-required changes; advance notice before physical collection returns; the `IdList::set_entries` full-rebuild row (fix or a pointer) |
+
+M1, M29 and the collabtext build rows are **closed at our pin** (`16cc48f`) and
+no longer appear in any letter except as verified-thanks.
+
 **New in the consolidated document** (not previously in this index — three
 recovered from the handoffs above, one filed this week):
 
