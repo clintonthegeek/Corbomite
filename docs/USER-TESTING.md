@@ -163,7 +163,9 @@ input, and do nothing.
 > on screen); Shift+1 fitted it, nodes and edges all visible. The in-pane panel
 > offers Reset / Filters / Display / Forces. Side finding in the same shot: the
 > status bar still showed the previous text view's `Words: 342 Ln 1, Col 1` —
-> filed in the punch list.
+> filed in the punch list. **Fixed 2026-10-31** (labels clear on a non-text
+> leaf, and a returning note re-seeds them); `tst_status_bar_counts` covers the
+> offscreen path.
 
 - [ ] 👤 Open a graph tab → **Graph** menu with 5 verbs appears *(verified 2026-10-18)*
 - [ ] 👤 Switch to markdown → it **disappears entirely** (not greyed) *(verified 2026-10-18)*

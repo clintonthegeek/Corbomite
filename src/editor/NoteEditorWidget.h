@@ -177,6 +177,14 @@ private:
     void onReplaceRequested();
     void onReplaceAllRequested();
 
+    // Re-seed the status bar's word/line readouts when this widget is shown
+    // again (a leaf switch away and back leaves the attached document
+    // unchanged, so refreshWordCount's setNoteDocument-time emission never
+    // re-fires and the host would show this note's previous numbers frozen
+    // at zero). showEvent fires once per stack-page activation, which is
+    // exactly the "this view is the focused one" moment.
+    void showEvent(QShowEvent *event) override;
+
     // Seeds/hides the canvas leaf's inline title band from the current
     // document's filename. Called after every doc attach/detach
     // (setNoteDocument, setViewMode) and on NoteDocument::pathChanged.

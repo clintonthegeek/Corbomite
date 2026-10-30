@@ -2068,6 +2068,16 @@ void MainWindow::setupEditor()
             propagateServicesToView(leaf->view());
         updateWindowTitle(activeEditor());
 
+        // The word/line readouts belong to a text view; a graph/canvas/bases
+        // leaf shows its own information (or nothing), never the previous
+        // note's frozen numbers (observed live 2026-10-18: a graph tab read
+        // a markdown note's counts). The text view re-seeds the labels on
+        // focus, so clearing here is the one reset point.
+        if (!leaf || !qobject_cast<TextFileView *>(leaf->view())) {
+            m_wordCountLabel->setText(i18n("Words: 0"));
+            m_cursorPosLabel->setText(i18n("Ln 1, Col 1"));
+        }
+
         // All action-state rebinding (back/
         // forward history, pin/stacked check-state, format/heading
         // enable-state, editor-mode radio sync) is now one call: the

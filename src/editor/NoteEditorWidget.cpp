@@ -11,6 +11,8 @@
 #include "corbomite/core/EditorSuggestManager.h"
 #include "corbomite/core/NoteDocument.h"
 #include "corbomite/core/ThemeService.h"
+
+#include <QShowEvent>
 #include "corbomite/vault/Vault.h"
 #include "corbomite/storage/EphemeralState.h"
 #include "corbomitesettings.h"
@@ -477,6 +479,12 @@ void NoteEditorWidget::restoreEphemeralState(const EphemeralState &state)
     }
     ensureWidgetConstructed(mode);
     restoreEphemeralStateFor(mode, state);
+}
+
+void NoteEditorWidget::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    refreshWordCount();
 }
 
 void NoteEditorWidget::onCursorPositionChanged(int line, int column)

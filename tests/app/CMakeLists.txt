@@ -16,6 +16,16 @@ target_link_libraries(tst_canvasviewtab_vaultroot_paths PRIVATE
 set_tests_properties(tst_canvasviewtab_vaultroot_paths PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# 2026-10-31 — the status bar's word/line readouts reset when the focused
+# leaf is not a text view (a canvas or graph leaf shows nothing rather than
+# the previous note's frozen counts), and a returning note re-seeds them.
+add_executable(tst_status_bar_counts tst_status_bar_counts.cpp)
+add_test(NAME tst_status_bar_counts COMMAND tst_status_bar_counts)
+target_link_libraries(tst_status_bar_counts PRIVATE
+    Qt6::Test Qt6::Widgets CorbomiteApp Corbomite::Core)
+set_tests_properties(tst_status_bar_counts PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_recent_vaults tst_recent_vaults.cpp)
 add_test(NAME tst_recent_vaults COMMAND tst_recent_vaults)
 target_link_libraries(tst_recent_vaults PRIVATE Qt6::Test CorbomiteApp)
