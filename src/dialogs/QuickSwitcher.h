@@ -6,11 +6,12 @@
 #include <QTreeView>
 #include "QuickSwitcherModel.h"
 
-class QSortFilterProxyModel;
+#include <QSortFilterProxyModel>
 
 namespace Corbomite {
 
 class QuickSwitcherDelegate;
+class MetadataCacheReader;
 class Vault;
 
 class QuickSwitcher : public QFrame {
@@ -18,7 +19,23 @@ class QuickSwitcher : public QFrame {
 
 public:
     explicit QuickSwitcher(Vault *vault, const QStringList &recentPaths,
+                           MetadataCacheReader *metadata = nullptr,
                            QWidget *parent = nullptr);
+
+    // ---- test seams (the proxy is private; these drive the real path) --
+    /// Set the filter exactly as a keystroke would (updateFilter path).
+    void setFilterTextForTest(const QString &text) { updateFilter(text); }
+    /// The matched rows' vault-relative paths in shell order (post
+    /// filter+sort), i.e. what the user sees.
+    QStringList visiblePathsForTest() const
+    {
+        QStringList out;
+        for (int i = 0; i < m_proxyModel->rowCount(); ++i) {
+            out << m_proxyModel->index(i, 0)
+                       .data(QuickSwitcherModel::NotePathRole).toString();
+        }
+        return out;
+    }
 
 Q_SIGNALS:
     void noteSelected(const QString &relativePath);

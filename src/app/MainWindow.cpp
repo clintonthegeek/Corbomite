@@ -36,6 +36,7 @@
 #include "corbomite/storage/MetadataCache.h"
 #include "corbomite/storage/SQLiteIndex.h"
 #include "corbomite/storage/VaultConfig.h"
+#include "corbomite/storage/proxies/MetadataCacheReader.h"
 #include "corbomite/core/NoteDocument.h"
 #include "AutosaveReactor.h"
 #include "SessionManager.h"
@@ -2417,13 +2418,22 @@ void MainWindow::showCommandPalette()
 void MainWindow::showQuickSwitcher()
 {
     if (!m_app->isOpen()) return;
+    (void)showQuickSwitcherForTest();
+}
+
+QuickSwitcher *MainWindow::showQuickSwitcherForTest()
+{
+    if (!m_app->isOpen()) return nullptr;
 
     QStringList recent;
     if (m_workspace) {
         recent = m_workspace->lastOpenFiles();
     }
 
-    auto *switcher = new QuickSwitcher(m_vaultObj, recent, this);
+    auto *reader = m_metadataCache
+                       ? new MetadataCacheReader(m_metadataCache, this)
+                       : nullptr;
+    auto *switcher = new QuickSwitcher(m_vaultObj, recent, reader, this);
 
     QPoint topCenter = mapToGlobal(QPoint(width() / 2 - 300, 80));
     switcher->move(topCenter);
@@ -2434,6 +2444,7 @@ void MainWindow::showQuickSwitcher()
             this, &MainWindow::createFromQuickSwitcher);
 
     switcher->show();
+    return switcher;
 }
 
 void MainWindow::createFromQuickSwitcher(const QString &typedName)

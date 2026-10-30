@@ -44,8 +44,21 @@ protected:
         Q_UNUSED(sourceParent)
         if (m_prepared.isEmpty()) return true;
         auto idx = sourceModel()->index(sourceRow, 0);
+        // matchTargets mirrors Obsidian's quick-switcher: filename, full
+        // path, and frontmatter aliases are all match candidates; the
+        // highest score wins (fuzzySearch over the name first because the
+        // matched-text offsets feed the delegate's highlight).
         const QString name = idx.data(QuickSwitcherModel::NoteNameRole).toString();
-        return FuzzyMatcher::fuzzySearch(m_prepared, name).has_value();
+        if (FuzzyMatcher::fuzzySearch(m_prepared, name).has_value()) return true;
+        const QString path = idx.data(QuickSwitcherModel::NotePathRole).toString();
+        if (FuzzyMatcher::fuzzySearch(m_prepared, path).has_value()) return true;
+        const QStringList aliases =
+            idx.data(QuickSwitcherModel::AliasRole).toStringList();
+        for (const QString &alias : aliases) {
+            if (FuzzyMatcher::fuzzySearch(m_prepared, alias).has_value())
+                return true;
+        }
+        return false;
     }
 
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override
@@ -59,10 +72,14 @@ protected:
                        .compare(right.data(QuickSwitcherModel::NoteNameRole).toString(),
                                 Qt::CaseInsensitive) < 0;
         }
-        const QString leftName = left.data(QuickSwitcherModel::NoteNameRole).toString();
-        const QString rightName = right.data(QuickSwitcherModel::NoteNameRole).toString();
-        const double leftScore = FuzzyMatcher::fuzzySearch(m_prepared, leftName).value_or(FuzzyMatch{}).score;
-        const double rightScore = FuzzyMatcher::fuzzySearch(m_prepared, rightName).value_or(FuzzyMatch{}).score;
+        const double leftScore =
+            FuzzyMatcher::fuzzySearch(m_prepared,
+                left.data(QuickSwitcherModel::NoteNameRole).toString())
+                .value_or(FuzzyMatch{}).score;
+        const double rightScore =
+            FuzzyMatcher::fuzzySearch(m_prepared,
+                right.data(QuickSwitcherModel::NoteNameRole).toString())
+                .value_or(FuzzyMatch{}).score;
         return leftScore > rightScore;
     }
 
@@ -72,7 +89,7 @@ private:
 };
 
 QuickSwitcher::QuickSwitcher(Vault *vault, const QStringList &recentPaths,
-                               QWidget *parent)
+                               MetadataCacheReader *metadata, QWidget *parent)
     : QFrame(parent, Qt::Popup | Qt::FramelessWindowHint)
 {
     setAttribute(Qt::WA_DeleteOnClose);
@@ -112,7 +129,9 @@ QuickSwitcher::QuickSwitcher(Vault *vault, const QStringList &recentPaths,
 
     // Source model — build lightweight NoteMeta entries from Vault::getMarkdownFiles.
     // QuickSwitcherModel consumes only relativePath + nameFromPath(), both of
-    // which derive from the path alone.
+    // which derive from the path alone. Aliases, when the caller hands the
+    // metadata cache in (the MainWindow side has it without a permission
+    // ceremony), ride along per path via readAliases().
     QVector<NoteMeta> notes;
     if (vault) {
         const auto files = vault->getMarkdownFiles();
@@ -124,6 +143,7 @@ QuickSwitcher::QuickSwitcher(Vault *vault, const QStringList &recentPaths,
     m_sourceModel = new QuickSwitcherModel(this);
     m_sourceModel->setNotes(notes);
     m_sourceModel->setRecentPaths(recentPaths);
+    m_sourceModel->setMetadata(metadata);
 
     // Proxy model with fuzzy filtering
     m_proxyModel = new FuzzyFilterProxyModel(this);

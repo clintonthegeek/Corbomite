@@ -85,6 +85,8 @@ class MarkdownViewActions;
 class BasesViewActions;
 class CanvasViewActions;
 
+class QuickSwitcher;
+
 class MainWindow : public ToolViewHost::HostWindow {
     Q_OBJECT
 
@@ -112,6 +114,10 @@ public:
     /// Same rationale as markdownViewActions() above.
     CanvasViewActions *canvasViewActions() const { return m_canvasViewActions; }
     BasesViewActions *basesViewActions() const { return m_basesViewActions; }
+
+    /// The REAL show path of showQuickSwitcher (same calls), returning the
+    /// widget so tests assert on what users actually type into.
+    QuickSwitcher *showQuickSwitcherForTest();
 
 public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
@@ -180,7 +186,7 @@ private:
     /// pair stays together and rightmost).
     void moveStandardMenusLast();
 
-    // Action handlers
+    // Action handlers.
     void openVaultDialog();
     void closeVault();
     void createNewNote();

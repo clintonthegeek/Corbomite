@@ -40,3 +40,13 @@ add_executable(tst_settingsdialog tst_settingsdialog.cpp)
 add_test(NAME tst_settingsdialog COMMAND tst_settingsdialog)
 target_link_libraries(tst_settingsdialog PRIVATE Qt6::Test CorbomiteApp KF6::ConfigCore)
 set_tests_properties(tst_settingsdialog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# 2026-10-31 — quick switcher path/alias matching: the switcher surfaces a
+# path-only hit and a frontmatter-alias hit, with a null-cache fallback
+# preserved as the pre-change behaviour.
+add_executable(tst_quickswitcher_paths tst_quickswitcher_paths.cpp)
+add_test(NAME tst_quickswitcher_paths COMMAND tst_quickswitcher_paths)
+target_link_libraries(tst_quickswitcher_paths PRIVATE
+    Qt6::Test Qt6::Widgets CorbomiteApp)
+set_tests_properties(tst_quickswitcher_paths PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

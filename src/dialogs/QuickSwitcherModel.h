@@ -2,11 +2,17 @@
 #pragma once
 
 #include <QAbstractListModel>
-#include <QVector>
+#include <QHash>
+#include <QPointer>
 #include <QSet>
+#include <QStringList>
+#include <QVector>
+
 #include "corbomite/core/NoteMeta.h"
 
 namespace Corbomite {
+
+class MetadataCacheReader;
 
 class QuickSwitcherModel : public QAbstractListModel {
     Q_OBJECT
@@ -16,7 +22,8 @@ public:
         NotePathRole = Qt::UserRole + 1,
         NoteNameRole,
         FolderPathRole,
-        IsRecentRole
+        IsRecentRole,
+        AliasRole
     };
 
     explicit QuickSwitcherModel(QObject *parent = nullptr);
@@ -27,7 +34,10 @@ public:
     void setNotes(const QVector<NoteMeta> &notes);
     void setRecentPaths(const QStringList &recentPaths);
 
-    // Future: add setAliases() for frontmatter alias matching
+    /// The metadata reader the frontend lives with; aliases come from
+    /// that cache's frontmatter lazily (AliasRole) and are cached per path
+    /// the first time a row is matched. A null reader means no aliases.
+    void setMetadata(Corbomite::MetadataCacheReader *cache);
 
 private:
     struct Entry {
@@ -39,6 +49,10 @@ private:
 
     QVector<Entry> m_entries;
     QSet<QString> m_recentSet;
+    QPointer<Corbomite::MetadataCacheReader> m_metadata;
+    /// Alias memo: path -> frontmatter aliases (read lazily via
+    /// MetadataCacheReader::frontmatterFor when the cache is present).
+    mutable QHash<QString, QStringList> m_aliasCache;
 };
 
 } // namespace Corbomite
