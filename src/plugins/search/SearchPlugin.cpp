@@ -27,7 +27,7 @@ QObject *SearchPlugin::createView(MainWindow *mainWindow)
         qWarning() << "SearchPlugin: metadata.read missing; view skipped";
         return nullptr;
     }
-    return new SearchView(search, metadata, ctx->workspace(),
+    return new SearchView(search, metadata, ctx->workspace(), ctx->vault(),
                             reinterpret_cast<QWidget *>(mainWindow));
 }
 

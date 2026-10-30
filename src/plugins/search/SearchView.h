@@ -13,9 +13,12 @@
 
 namespace Corbomite {
 
+class IgnoreFilter;
 class MetadataCacheReader;
 class SearchProxy;
 class SearchResultsModel;
+struct SearchMatch;
+class VaultProxy;
 class WorkspaceController;
 
 class SearchView : public QWidget
@@ -25,6 +28,7 @@ public:
     SearchView(SearchProxy *search,
                MetadataCacheReader *metadata,
                WorkspaceController *workspace,
+               VaultProxy *vault,
                QWidget *parent = nullptr);
 
     void focusSearchInput();
@@ -46,11 +50,22 @@ public:
                                                 bool regex,
                                                 QString *error = nullptr);
 
+    /// Drop every match whose file path the filter ignores. Pure/static so
+    /// it is directly unit-testable — same pattern as `planForQuery`.
+    /// `userIgnoreFilters` is a search-results gate (`app/own/1951-e3.js:77`),
+    /// not an index gate: ignored files stay parsed, linked and renameable.
+    static QVector<SearchMatch> dropIgnoredPaths(
+        const QVector<SearchMatch> &results, const IgnoreFilter &ignore);
+
 private:
     void onSearchTextChanged(const QString &text);
     void executeSearch();
     void onResultClicked(const QModelIndex &index);
     void showOperatorHelp();
+
+    /// Rebuild the ignore filter from `.obsidian/app.json`. Cheap; called
+    /// per search so a config edit takes effect on the next query.
+    IgnoreFilter ignoreFilter() const;
 
     QLineEdit *m_searchInput;
     QToolButton *m_caseButton;
@@ -63,6 +78,7 @@ private:
     SearchProxy *m_search = nullptr;
     MetadataCacheReader *m_metadata = nullptr;
     WorkspaceController *m_workspace = nullptr;
+    VaultProxy *m_vault = nullptr;
     SearchResultsModel *m_resultsModel;
 };
 

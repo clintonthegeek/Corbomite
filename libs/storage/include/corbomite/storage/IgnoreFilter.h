@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <QJsonArray>
 #include <QRegularExpression>
 #include <QString>
 #include <QStringList>
@@ -41,6 +42,14 @@ public:
 
     /// Construct from a list of user-supplied `userIgnoreFilters` entries.
     static IgnoreFilter fromPatterns(const QStringList &patterns);
+
+    /// Construct from the parsed `.obsidian/app.json` object (the QJsonValue
+    /// `Vault::readConfigJson("app")` returns). Reads `userIgnoreFilters` —
+    /// a JSON array of strings, anything else an empty filter — and hands
+    /// the entries to `fromPatterns`. The one parsing seam both gated
+    /// consumers use (search results, graph nodes) so a grammar change
+    /// cannot fork between them.
+    static IgnoreFilter fromAppJson(const QJsonValue &appJson);
 
     /// True if this filter should exclude `vaultRelativePath` (the full
     /// vault-relative path, which is what Obsidian matches against).

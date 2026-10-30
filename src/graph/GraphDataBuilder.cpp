@@ -173,16 +173,7 @@ GraphDataBuilder::Result GraphDataBuilder::buildGlobalGraph(SearchProxy *search,
 IgnoreFilter GraphDataBuilder::ignoreFilterFor(VaultProxy *vault)
 {
     if (!vault) return {};
-    const QJsonValue app = vault->readConfigJson(QStringLiteral("app"));
-    if (!app.isObject()) return {};
-    const QJsonArray arr =
-        app.toObject().value(QStringLiteral("userIgnoreFilters")).toArray();
-    QStringList patterns;
-    patterns.reserve(arr.size());
-    for (const QJsonValue &v : arr) {
-        if (v.isString()) patterns.append(v.toString());
-    }
-    return IgnoreFilter::fromPatterns(patterns);
+    return IgnoreFilter::fromAppJson(vault->readConfigJson(QStringLiteral("app")));
 }
 
 GraphDataBuilder::Result GraphDataBuilder::buildLocalGraph(SearchProxy *search, VaultProxy *vault,

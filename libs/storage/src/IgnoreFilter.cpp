@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "corbomite/storage/IgnoreFilter.h"
 
+#include <QJsonArray>
+#include <QJsonObject>
+
 namespace Corbomite {
 
 IgnoreFilter IgnoreFilter::fromPatterns(const QStringList &patterns)
@@ -30,6 +33,19 @@ IgnoreFilter IgnoreFilter::fromPatterns(const QStringList &patterns)
         out.m_patterns.append(std::move(re));
     }
     return out;
+}
+
+IgnoreFilter IgnoreFilter::fromAppJson(const QJsonValue &appJson)
+{
+    if (!appJson.isObject()) return {};
+    const QJsonArray arr = appJson.toObject()
+        .value(QStringLiteral("userIgnoreFilters")).toArray();
+    QStringList patterns;
+    patterns.reserve(arr.size());
+    for (const QJsonValue &v : arr) {
+        if (v.isString()) patterns.append(v.toString());
+    }
+    return fromPatterns(patterns);
 }
 
 bool IgnoreFilter::matches(const QString &vaultRelativePath) const

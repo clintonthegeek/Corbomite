@@ -34,6 +34,12 @@ add_executable(tst_vaultconfig tst_vaultconfig.cpp)
 add_test(NAME tst_vaultconfig COMMAND tst_vaultconfig)
 target_link_libraries(tst_vaultconfig PRIVATE Qt6::Test Corbomite::Storage)
 
+# The userIgnoreFilters grammar, on the shared parser both gated consumers
+# use (search results and graph nodes).
+add_executable(tst_ignore_filter tst_ignore_filter.cpp)
+add_test(NAME tst_ignore_filter COMMAND tst_ignore_filter)
+target_link_libraries(tst_ignore_filter PRIVATE Qt6::Test Corbomite::Storage)
+
 # saveConfig() writes app.json and appearance.json as two separate renames, and
 # the legacy core-plugins migration deletes its own input file. Both sequences
 # must leave no partial state behind when a write fails.

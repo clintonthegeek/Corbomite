@@ -5,8 +5,10 @@
 #include "corbomite/core/proxies/WorkspaceController.h"
 #include "corbomite/models/SearchResultsModel.h"
 #include "corbomite/search/SearchDSL.h"
+#include "corbomite/storage/IgnoreFilter.h"
 #include "corbomite/storage/proxies/MetadataCacheReader.h"
 #include "corbomite/storage/proxies/SearchProxy.h"
+#include "corbomite/vault/proxies/VaultProxy.h"
 
 #include <KLocalizedString>
 #include <QHBoxLayout>
@@ -76,6 +78,7 @@ SearchDSL::CompiledPlan SearchView::planForQuery(const QString &query,
 SearchView::SearchView(SearchProxy *search,
                         MetadataCacheReader *metadata,
                         WorkspaceController *workspace,
+                        VaultProxy *vault,
                         QWidget *parent)
     : QWidget(parent)
     , m_searchInput(new QLineEdit(this))
@@ -87,6 +90,7 @@ SearchView::SearchView(SearchProxy *search,
     , m_search(search)
     , m_metadata(metadata)
     , m_workspace(workspace)
+    , m_vault(vault)
     , m_resultsModel(new SearchResultsModel(this))
 {
     auto *layout = new QVBoxLayout(this);
@@ -159,6 +163,32 @@ void SearchView::focusSearchInput()
     m_searchInput->selectAll();
 }
 
+IgnoreFilter SearchView::ignoreFilter() const
+{
+    // A null vault proxy (no vault permission granted) means no filtering:
+    // the view is a search consumer, and the entries live in .obsidian/app.json
+    // ("app"), which only vault.read can reach.
+    if (!m_vault) return {};
+    return IgnoreFilter::fromAppJson(
+        m_vault->readConfigJson(QStringLiteral("app")));
+}
+
+// userIgnoreFilters is a search-results gate (Obsidian
+// app/own/1951-e3.js:77) — the same gate class the graph nodes get, not an
+// index or tree gate, so filtering here leaves ignored files indexed and
+// linkable, which is the documented behaviour.
+QVector<SearchMatch> SearchView::dropIgnoredPaths(const QVector<SearchMatch> &results,
+                                                   const IgnoreFilter &ignore)
+{
+    if (ignore.patternCount() == 0) return results;
+    QVector<SearchMatch> out;
+    out.reserve(results.size());
+    for (const SearchMatch &m : results) {
+        if (!ignore.matches(m.notePath)) out.append(m);
+    }
+    return out;
+}
+
 void SearchView::setQuery(const QString &query)
 {
     // setText drives textChanged -> onSearchTextChanged -> debounced executeSearch.
@@ -196,17 +226,20 @@ void SearchView::executeSearch()
     const bool postFilter = !plan.regexPatterns.isEmpty()
                          || !plan.caseSensitiveTerms.isEmpty();
     const bool hasExclude = !plan.excludedFts5Query.isEmpty();
+    // Built per execution so a just-changed userIgnoreFilters takes effect on
+    // the next query without a config-change signal wired into this view.
+    const IgnoreFilter ignore = ignoreFilter();
     if (plan.fts5Query.isEmpty() && plan.requiredTags.isEmpty()
         && plan.excludedTags.isEmpty() && !postFilter && !hasExclude) {
-        results = m_search->search(query);
+        results = dropIgnoredPaths(m_search->search(query), ignore);
     } else if (hasExclude || postFilter) {
-        results = m_search->searchCompiled(plan.fts5Query, plan.excludedFts5Query,
+        results = dropIgnoredPaths(m_search->searchCompiled(plan.fts5Query, plan.excludedFts5Query,
                                            plan.requiredTags, plan.excludedTags,
                                            plan.regexPatterns,
-                                           plan.caseSensitiveTerms);
+                                           plan.caseSensitiveTerms), ignore);
     } else {
-        results = m_search->searchCompiled(plan.fts5Query, plan.requiredTags,
-                                           plan.excludedTags);
+        results = dropIgnoredPaths(m_search->searchCompiled(plan.fts5Query, plan.requiredTags,
+                                           plan.excludedTags), ignore);
     }
     if (!plan.unsupported.isEmpty()) {
         unsupportedNote = i18n(" (unsupported: %1)", plan.unsupported.join(QStringLiteral(", ")));
