@@ -318,6 +318,7 @@ add_subdirectory(tests/editor)
 add_subdirectory(tests/e2e)
 add_subdirectory(tests/graph)
 add_subdirectory(tests/sidebar)
+
 endif()
 # libs/forcegraph and libs/canvas gate their own tests/ subdirectories on
 # CORBOMITE_BUILD_TESTS inside their CMakeLists.txt.
