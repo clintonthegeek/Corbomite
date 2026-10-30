@@ -707,25 +707,6 @@ void MainWindow::onEditorContextChanged(const Markoff::EditorContext &ctx)
     if (m_actionContext) m_actionContext->onEditorContextChanged(ctx);
 }
 
-void MainWindow::connectEditorContextMenu(NoteEditorWidget *editor)
-{
-    if (!editor) return;
-    // Pending: the editor's right-click menu is not wired. The
-    // aboutToShowContextMenu signal lived on the old Markoff::Editor; the
-    // live leaf carries a LiveContextMenu handler, and bridging the two is
-    // still pending.
-    (void)editor;
-}
-
-void MainWindow::onAboutToShowContextMenu(QMenu *menu,
-                                          const Markoff::EditorContext &ctx,
-                                          const QPoint & /*globalPos*/)
-{
-    // Paired with connectEditorContextMenu — see the note there.
-    (void)menu;
-    (void)ctx;
-}
-
 MarkdownFileView *MainWindow::activeMarkdownView() const
 {
     if (!m_workspace || !m_workspace->activeLeaf())
@@ -2110,10 +2091,6 @@ void MainWindow::setupEditor()
         // editor context, and the Table actions stay disabled until the
         // table model lands upstream.
         if (editor) {
-            // Context-menu contribution: the format/heading/context wiring
-            // lives on ActionContextController (see bindActiveLeaf() above);
-            // the editor's own right-click menu is not wired yet.
-            connectEditorContextMenu(editor);
             // C2 — wire ThemeService so this editor follows theme changes.
             if (m_themeService)
                 editor->setThemeService(m_themeService);

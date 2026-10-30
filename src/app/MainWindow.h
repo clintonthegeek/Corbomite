@@ -117,10 +117,9 @@ public Q_SLOTS:
     void onNoteActivated(const QString &relativePath);
     // Public so e2e/action-wiring tests can invoke with a
     // synthetic EditorContext without needing a live Markoff::Editor.
+    // (onAboutToShowContextMenu was deleted with the retired live leaf: the
+    // canvas leaf builds its own context menu in View::contextMenuEvent.)
     void onEditorContextChanged(const Markoff::EditorContext &ctx);
-    void onAboutToShowContextMenu(QMenu *menu,
-                                  const Markoff::EditorContext &ctx,
-                                  const QPoint &globalPos);
 
 private Q_SLOTS:
     void onFind();
@@ -212,8 +211,6 @@ private:
     Corbomite::Bases::BasesView *activeBasesView() const;
     CanvasFileView *activeCanvasView() const;
     NoteEditorWidget *activeEditor() const;
-
-    void connectEditorContextMenu(NoteEditorWidget *editor);
 
     bool confirmCloseUnsaved();
     void saveSessionState();
