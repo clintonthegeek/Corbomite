@@ -6,6 +6,7 @@
 
 #include <QByteArray>
 #include <QString>
+#include <optional>
 
 #include <memory>
 
@@ -22,8 +23,13 @@ namespace Corbomite {
 /// `canvas:<vault-relative .canvas path>#<node id>` so a later
 /// collaboration plugin can recognise the card without Corbomite having
 /// stored an identity for it. An empty hint means "fresh ephemeral key".
+///
+/// `sessionMode` is the caller's request; the empty `std::optional` means
+/// "decide from the default source (which consults the Editor config)".
+/// A collaboration plugin overrides it per document.
 struct EditingRequest {
     QString keyHint;
+    std::optional<Markoff::VNext::SessionMode> sessionMode;
 };
 
 /// Caller-owned provider plus the scope Markoff should open. The provider
@@ -35,6 +41,13 @@ struct EditingBinding {
     std::shared_ptr<Markoff::VNext::DocumentStorageProvider> provider;
     Markoff::VNext::DocumentStorageScope scope;
     Markoff::VNext::StorageMode mode = Markoff::VNext::StorageMode::ephemeral;
+    /// `local` = single-writer session: publication self-validation is
+    /// skipped (per-keystroke cost drops) and remote actions are refused.
+    /// Durability, undo, identity and crash recovery are unchanged.
+    /// `collaborative` is the Markoff default, kept here as the safe
+    /// default so a constructed-but-unset binding matches upstream.
+    Markoff::VNext::SessionMode sessionMode =
+        Markoff::VNext::SessionMode::collaborative;
 };
 
 class EditingSessionSource {

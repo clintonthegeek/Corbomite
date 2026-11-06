@@ -101,6 +101,21 @@ void SettingsDialog::setupEditorPage()
     autoSave->setObjectName(QStringLiteral("autoSaveDelay"));
     layout->addRow(i18n("Autosave delay:"), autoSave);
 
+    // Markoff document session mode. `local` (default) = single-writer:
+    // the engine skips its per-keystroke publication self-validation and
+    // remote offers are refused — exactly right until a collaboration
+    // plugin exists. Applying it retargets newly opened documents only;
+    // already-open notes keep the mode they opened with.
+    auto *sessionMode = new QComboBox;
+    sessionMode->addItem(i18n("Local (single-writer, fast typing)"),
+                         int(CorbomiteSettings::EnumSessionMode::local));
+    sessionMode->addItem(i18n("Collaborative (full validation)"),
+                         int(CorbomiteSettings::EnumSessionMode::collaborative));
+    sessionMode->setCurrentIndex(
+        sessionMode->findData(settings->sessionMode()));
+    sessionMode->setObjectName(QStringLiteral("sessionMode"));
+    layout->addRow(i18n("Document session mode:"), sessionMode);
+
     auto item = addPage(page, i18n("Editor"));
     item->setIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
 }
@@ -338,6 +353,8 @@ void SettingsDialog::applySettings()
         settings->setReadableLineWidth(w->isChecked());
     if (auto *w = findChild<QSpinBox *>(QStringLiteral("autoSaveDelay")))
         settings->setAutoSaveDelayMs(w->value());
+    if (auto *w = findChild<QComboBox *>(QStringLiteral("sessionMode")))
+        settings->setSessionMode(w->currentData().toInt());
     if (auto *w = findChild<QComboBox *>(QStringLiteral("trashOption")))
         settings->setTrashOption(w->currentData().toString());
     if (auto *w = findChild<QCheckBox *>(QStringLiteral("promptDelete")))

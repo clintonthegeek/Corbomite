@@ -3,9 +3,12 @@
 
 #include <markoff/core/MarkoffDocument.h>
 
+#include <KConfigGroup>
+#include <KSharedConfig>
 #include <QUuid>
 
 #include <QDebug>
+#include <optional>
 
 namespace Corbomite {
 namespace {
@@ -18,6 +21,24 @@ void warnImportFailed(const Markoff::VNext::ActionPublicationResult &published)
     } else {
         qWarning("initial Markdown import failed");
     }
+}
+
+/// Editor→SessionMode from `corbomite.kcfg` (group `Editor`, key
+/// `SessionMode`: `local`|`collaborative`, default `local`). Read through
+/// KSharedConfig directly — the same layering `FileManager` uses — because
+/// `CorbomiteSettings` compiles into `CorbomiteApp`, which sits above
+/// `corbomite-core` in the build graph. KConfig persists an enum entry as
+/// its choice *name*, so read it as a string and map by name, not index:
+/// `Markoff::VNext::SessionMode` member order is `{collaborative, local}`
+/// — the opposite of the kcfg choices.
+Markoff::VNext::SessionMode configuredSessionMode()
+{
+    KConfigGroup editor(KSharedConfig::openConfig(), QStringLiteral("Editor"));
+    const QString value = editor.readEntry(
+        QStringLiteral("SessionMode"), QStringLiteral("local"));
+    return value == QLatin1String("collaborative")
+        ? Markoff::VNext::SessionMode::collaborative
+        : Markoff::VNext::SessionMode::local;
 }
 
 class DefaultEditingSessionSource final : public EditingSessionSource {
@@ -38,6 +59,11 @@ public:
         binding.scope.documentKey = request.keyHint.isEmpty()
             ? QUuid::createUuid().toString(QUuid::WithoutBraces)
             : request.keyHint;
+        // A caller-requested mode wins; otherwise Editor/SessionMode
+        // decides (default `local`). A future collaboration plugin
+        // overrides per document the same way.
+        binding.sessionMode = request.sessionMode.value_or(
+            configuredSessionMode());
         return binding;
     }
 };
@@ -65,7 +91,8 @@ std::unique_ptr<Markoff::MarkoffDocument> openMarkoffDocument(
     if (!binding.provider)
         return nullptr;
     auto opened = Markoff::MarkoffDocument::open(
-        *binding.provider, binding.scope, binding.mode);
+        *binding.provider, binding.scope, binding.mode,
+        /*registry=*/nullptr, binding.sessionMode);
     if (!opened.ok()) {
         qWarning("MarkoffDocument::open failed: %s",
                  std::string(opened.error().message()).c_str());

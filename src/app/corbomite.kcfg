@@ -26,6 +26,19 @@
       <label>Wrap long lines</label>
       <default>true</default>
     </entry>
+    <entry name="SessionMode" type="Enum">
+      <choices>
+        <choice name="local"/>
+        <choice name="collaborative"/>
+      </choices>
+      <label>Markoff document session mode. "local" declares every note and
+      canvas card a single-writer session: the engine skips its per-keystroke
+      publication self-validation (measurably faster typing with no behavior
+      change for a single user) and refuses remote actions. "collaborative"
+      keeps full validation on; required once a collaboration plugin exists.
+      The safe setting is "local" until such a plugin lands.</label>
+      <default>local</default>
+    </entry>
     <entry name="ReadableLineWidth" type="Bool">
       <label>Constrain the editor to a centered, fixed-width readable column instead of using the full window width (Obsidian's --file-line-width).</label>
       <default>true</default>
